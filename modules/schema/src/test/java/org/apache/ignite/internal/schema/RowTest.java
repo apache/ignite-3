@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,32 +17,26 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.UUID;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.Random;
 import java.util.function.Function;
@@ -51,6 +45,9 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Constants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -83,6 +80,7 @@ public class RowTest {
     @Test
     public void nullableFixSizedColumns() {
         Column[] keyCols = new Column[]{
+                new Column("keyBooleanCol", BOOLEAN, false),
                 new Column("keyByteCol", INT8, false),
                 new Column("keyShortCol", INT16, false),
                 new Column("keyIntCol", INT32, false),
@@ -91,14 +89,15 @@ public class RowTest {
                 new Column("keyDoubleCol", DOUBLE, false),
                 new Column("keyUuidCol", UUID, false),
                 new Column("keyDateCol", DATE, false),
-                new Column("keyTimeCol", time(), false),
-                new Column("keyDateTimeCol", datetime(), false),
-                new Column("keyTimeStampCol", timestamp(), false),
+                new Column("keyTimeCol", time(0), false),
+                new Column("keyDateTimeCol", datetime(6), false),
+                new Column("keyTimeStampCol", timestamp(6), false),
                 new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), false),
                 new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), false)
         };
 
         Column[] valCols = new Column[]{
+                new Column("valBooleanCol", BOOLEAN, false),
                 new Column("valByteCol", INT8, false),
                 new Column("valShortCol", INT16, false),
                 new Column("valIntCol", INT32, false),
@@ -107,9 +106,9 @@ public class RowTest {
                 new Column("valDoubleCol", DOUBLE, false),
                 new Column("valUuidCol", UUID, false),
                 new Column("valDateCol", DATE, false),
-                new Column("valTimeCol", time(), false),
-                new Column("valDateTimeCol", datetime(), false),
-                new Column("valTimeStampCol", timestamp(), false),
+                new Column("valTimeCol", time(0), false),
+                new Column("valDateTimeCol", datetime(6), false),
+                new Column("valTimeStampCol", timestamp(6), false),
                 new Column("valBitmask1Col", NativeTypes.bitmaskOf(4), false),
                 new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), false)
         };
@@ -123,6 +122,7 @@ public class RowTest {
     @Test
     public void fixSizedColumns() {
         Column[] keyCols = new Column[]{
+                new Column("keyBooleanCol", BOOLEAN, false),
                 new Column("keyByteCol", INT8, false),
                 new Column("keyShortCol", INT16, false),
                 new Column("keyIntCol", INT32, false),
@@ -131,14 +131,15 @@ public class RowTest {
                 new Column("keyDoubleCol", DOUBLE, false),
                 new Column("keyUuidCol", UUID, false),
                 new Column("keyDateCol", DATE, false),
-                new Column("keyTimeCol", time(), false),
-                new Column("keyDateTimeCol", datetime(), false),
-                new Column("keyTimeStampCol", timestamp(), false),
+                new Column("keyTimeCol", time(0), false),
+                new Column("keyDateTimeCol", datetime(6), false),
+                new Column("keyTimeStampCol", timestamp(6), false),
                 new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), false),
                 new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), false),
         };
 
         Column[] valCols = new Column[]{
+                new Column("valBooleanCol", BOOLEAN, true),
                 new Column("valByteCol", INT8, true),
                 new Column("valShortCol", INT16, true),
                 new Column("valIntCol", INT32, true),
@@ -147,9 +148,9 @@ public class RowTest {
                 new Column("valDoubleCol", DOUBLE, true),
                 new Column("valUuidCol", UUID, true),
                 new Column("valDateCol", DATE, true),
-                new Column("valTimeCol", time(), true),
-                new Column("valDateTimeCol", datetime(), true),
-                new Column("valTimeStampCol", timestamp(), true),
+                new Column("valTimeCol", time(0), true),
+                new Column("valDateTimeCol", datetime(6), true),
+                new Column("valTimeStampCol", timestamp(6), true),
                 new Column("valBitmask1Col", NativeTypes.bitmaskOf(4), true),
                 new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), true),
         };
@@ -167,7 +168,7 @@ public class RowTest {
                 new Column("keyShortCol", INT16, false),
                 new Column("keyIntCol", INT32, false),
                 new Column("keyLongCol", INT64, false),
-                new Column("keyDateTimeCol", datetime(), false),
+                new Column("keyDateTimeCol", datetime(6), false),
                 new Column("keyBytesCol", BYTES, false),
                 new Column("keyStringCol", STRING, false),
                 new Column("keyNumberCol", NativeTypes.numberOf(9), false),
@@ -179,7 +180,7 @@ public class RowTest {
                 new Column("valShortCol", INT16, true),
                 new Column("valIntCol", INT32, true),
                 new Column("valLongCol", INT64, true),
-                new Column("valDateTimeCol", datetime(), true),
+                new Column("valDateTimeCol", datetime(6), true),
                 new Column("valBytesCol", BYTES, true),
                 new Column("valStringCol", STRING, true),
                 new Column("valNumberCol", NativeTypes.numberOf(9), true),
@@ -270,7 +271,7 @@ public class RowTest {
         };
 
         Column[] valCols = new Column[]{
-                new Column("keyInt8Col", INT8, true),
+                new Column("valInt8Col", INT8, true),
                 new Column("valBytesCol", BYTES, true),
                 new Column("valStringCol", STRING, true),
         };
@@ -408,15 +409,15 @@ public class RowTest {
 
     private static Stream<Arguments> provideStrOrderingAndNulls() {
         return Stream.of(
-                Arguments.of(true, true, true), //111
-                Arguments.of(true, true, false), //110
-                Arguments.of(true, false, true), //101
-                Arguments.of(true, false, false), //100
+                Arguments.of(true, true, true), // 111
+                Arguments.of(true, true, false), // 110
+                Arguments.of(true, false, true), // 101
+                Arguments.of(true, false, false), // 100
 
-                Arguments.of(false, true, true), //011
-                Arguments.of(false, true, false), //010
-                Arguments.of(false, false, true), //001
-                Arguments.of(false, false, false) //000
+                Arguments.of(false, true, true), // 011
+                Arguments.of(false, true, false), // 010
+                Arguments.of(false, false, true), // 001
+                Arguments.of(false, false, false) // 000
         );
     }
 
@@ -512,7 +513,7 @@ public class RowTest {
      */
     private Object[] generateRowValuesWithEmptyVals(
             SchemaDescriptor schema, Function<NativeType, Object> rnd, boolean emptyKey, boolean emptyVal) {
-        assert schema.keyColumns().columns().length == 1;
+        assert schema.keyColumns().size() == 1;
 
         Object[] res = new Object[schema.length()];
 
@@ -576,144 +577,16 @@ public class RowTest {
      * @param schema Row schema.
      * @param vals   Row values.
      */
-    private void checkValues(SchemaDescriptor schema, Object... vals) {
-        assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.length);
+    private static void checkValues(SchemaDescriptor schema, Object... vals) {
+        assertEquals(schema.keyColumns().size() + schema.valueColumns().size(), vals.length);
 
-        int nonNullVarLenKeyCols = 0;
-        int nonNullVarLenValCols = 0;
-        int nonNullVarLenKeySize = 0;
-        int nonNullVarLenValSize = 0;
+        RowAssembler asm = new RowAssembler(schema, -1);
 
-        for (int i = 0; i < vals.length; i++) {
-            NativeTypeSpec type = schema.column(i).type().spec();
-
-            if (vals[i] != null && !type.fixedLength()) {
-                if (type == NativeTypeSpec.BYTES) {
-                    byte[] val = (byte[]) vals[i];
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += val.length;
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += val.length;
-                    }
-                } else if (type == NativeTypeSpec.STRING) {
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.utf8EncodedLength((CharSequence) vals[i]);
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.utf8EncodedLength((CharSequence) vals[i]);
-                    }
-                } else if (type == NativeTypeSpec.NUMBER) {
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.sizeInBytes((BigInteger) vals[i]);
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.sizeInBytes((BigInteger) vals[i]);
-                    }
-                } else if (type == NativeTypeSpec.DECIMAL) {
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.sizeInBytes((BigDecimal) vals[i]);
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.sizeInBytes((BigDecimal) vals[i]);
-                    }
-                } else {
-                    throw new IllegalStateException("Unsupported variable-length type: " + type);
-                }
-            }
+        for (Object val : vals) {
+            asm.appendValue(val);
         }
 
-        RowAssembler asm = new RowAssembler(
-                schema,
-                nonNullVarLenKeySize,
-                nonNullVarLenKeyCols,
-                nonNullVarLenValSize,
-                nonNullVarLenValCols);
-
-        for (int i = 0; i < vals.length; i++) {
-            if (vals[i] == null) {
-                asm.appendNull();
-            } else {
-                NativeType type = schema.column(i).type();
-
-                switch (type.spec()) {
-                    case INT8:
-                        asm.appendByte((Byte) vals[i]);
-                        break;
-
-                    case INT16:
-                        asm.appendShort((Short) vals[i]);
-                        break;
-
-                    case INT32:
-                        asm.appendInt((Integer) vals[i]);
-                        break;
-
-                    case INT64:
-                        asm.appendLong((Long) vals[i]);
-                        break;
-
-                    case FLOAT:
-                        asm.appendFloat((Float) vals[i]);
-                        break;
-
-                    case DOUBLE:
-                        asm.appendDouble((Double) vals[i]);
-                        break;
-
-                    case UUID:
-                        asm.appendUuid((java.util.UUID) vals[i]);
-                        break;
-
-                    case STRING:
-                        asm.appendString((String) vals[i]);
-                        break;
-
-                    case NUMBER:
-                        asm.appendNumber((BigInteger) vals[i]);
-                        break;
-
-                    case DECIMAL:
-                        asm.appendDecimal((BigDecimal) vals[i]);
-                        break;
-
-                    case BYTES:
-                        asm.appendBytes((byte[]) vals[i]);
-                        break;
-
-                    case BITMASK:
-                        asm.appendBitmask((BitSet) vals[i]);
-                        break;
-
-                    case DATE:
-                        asm.appendDate((LocalDate) vals[i]);
-                        break;
-
-                    case TIME:
-                        asm.appendTime((LocalTime) vals[i]);
-                        break;
-
-                    case DATETIME:
-                        asm.appendDateTime((LocalDateTime) vals[i]);
-                        break;
-
-                    case TIMESTAMP:
-                        asm.appendTimestamp((Instant) vals[i]);
-                        break;
-
-                    default:
-                        throw new IllegalStateException("Unsupported test type: " + type);
-                }
-            }
-        }
-
-        byte[] data = asm.toBytes();
-
-        Row row = new Row(schema, new ByteBufferRow(data));
+        Row row = Row.wrapBinaryRow(schema, asm.build());
 
         for (int i = 0; i < vals.length; i++) {
             Column col = schema.column(i);
@@ -721,10 +594,9 @@ public class RowTest {
             NativeTypeSpec type = col.type().spec();
 
             if (type == NativeTypeSpec.BYTES) {
-                assertArrayEquals((byte[]) vals[i], (byte[]) NativeTypeSpec.BYTES.objectValue(row, i),
-                        "Failed for column: " + col);
+                assertArrayEquals((byte[]) vals[i], row.bytesValue(i), "Failed for column: " + col);
             } else {
-                assertEquals(vals[i], type.objectValue(row, i), "Failed for column: " + col);
+                assertEquals(vals[i], row.value(i), "Failed for column: " + col);
             }
         }
     }

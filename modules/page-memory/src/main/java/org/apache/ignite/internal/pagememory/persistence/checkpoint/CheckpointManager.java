@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,17 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
@@ -28,6 +35,8 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
@@ -35,9 +44,7 @@ import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -83,6 +90,7 @@ public class CheckpointManager {
      * @param checkpointConfig Checkpoint configuration.
      * @param workerListener Listener for life-cycle checkpoint worker events.
      * @param longJvmPauseDetector Long JVM pause detector.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param filePageStoreManager File page store manager.
      * @param partitionMetaManager Partition meta information manager.
      * @param dataRegions Data regions.
@@ -94,11 +102,13 @@ public class CheckpointManager {
             String igniteInstanceName,
             @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
+            FailureProcessor failureProcessor,
             PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             PageIoRegistry ioRegistry,
+            LogSyncer logSyncer,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -122,7 +132,6 @@ public class CheckpointManager {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                Loggers.forClass(CheckpointPagesWriterFactory.class),
                 (pageMemory, fullPageId, pageBuf) -> writePageToDeltaFilePageStore(pageMemory, fullPageId, pageBuf, true),
                 ioRegistry,
                 partitionMetaManager,
@@ -135,27 +144,29 @@ public class CheckpointManager {
                 workerListener,
                 checkpointConfig.compactionThreads(),
                 filePageStoreManager,
-                pageSize
+                pageSize,
+                failureProcessor
         );
 
         checkpointer = new Checkpointer(
-                Loggers.forClass(Checkpoint.class),
                 igniteInstanceName,
                 workerListener,
                 longJvmPauseDetector,
+                failureProcessor,
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
                 filePageStoreManager,
                 compactor,
-                checkpointConfig
+                checkpointConfig,
+                logSyncer
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
-                Loggers.forClass(CheckpointTimeoutLock.class),
                 checkpointReadWriteLock,
                 checkpointConfigView.readLockTimeout(),
-                () -> safeToUpdateAllPageMemories(dataRegions),
-                checkpointer
+                () -> checkpointUrgency(dataRegions),
+                checkpointer,
+                failureProcessor
         );
     }
 
@@ -176,7 +187,7 @@ public class CheckpointManager {
      * Stops a checkpoint manger.
      */
     public void stop() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 checkpointTimeoutLock::stop,
                 checkpointer::stop,
                 checkpointWorkflow::stop,
@@ -239,19 +250,35 @@ public class CheckpointManager {
     }
 
     /**
-     * Returns {@link true} if it is safe for all {@link DataRegion data regions} to update their {@link PageMemory}.
+     * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
+     */
+    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
+        checkpointer.markPartitionAsDirty(dataRegion, groupId, partitionId);
+    }
+
+    /**
+     * Returns checkpoint urgency status. {@link CheckpointUrgency#NOT_REQUIRED} if it is safe for all {@link DataRegion data regions} to
+     * update their {@link PageMemory}.
      *
      * @param dataRegions Data regions.
-     * @see PersistentPageMemory#safeToUpdate()
+     * @see PersistentPageMemory#checkpointUrgency()
+     * @see CheckpointUrgency
      */
-    static boolean safeToUpdateAllPageMemories(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
+    static CheckpointUrgency checkpointUrgency(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
+        CheckpointUrgency urgency = NOT_REQUIRED;
         for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
-            if (!dataRegion.pageMemory().safeToUpdate()) {
-                return false;
+            CheckpointUrgency regionCheckpointUrgency = dataRegion.pageMemory().checkpointUrgency();
+
+            if (regionCheckpointUrgency.compareTo(urgency) > 0) {
+                urgency = regionCheckpointUrgency;
+            }
+
+            if (urgency == MUST_TRIGGER) {
+                return MUST_TRIGGER;
             }
         }
 
-        return true;
+        return urgency;
     }
 
     /**
@@ -271,7 +298,12 @@ public class CheckpointManager {
             ByteBuffer pageBuf,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
-        FilePageStore filePageStore = filePageStoreManager.getStore(pageId.groupId(), pageId.partitionId());
+        FilePageStore filePageStore = filePageStoreManager.getStore(new GroupPartitionId(pageId.groupId(), pageId.partitionId()));
+
+        // If the partition is deleted (or will be soon), then such writes to the disk should be skipped.
+        if (filePageStore == null || filePageStore.isMarkedToDestroy()) {
+            return;
+        }
 
         CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
 
@@ -296,22 +328,37 @@ public class CheckpointManager {
      * @param partitionDirtyPages Dirty pages of the partition.
      */
     static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
-        // +1 since the first page (pageIdx == 0) will always be PartitionMetaIo.
-        int[] pageIndexes = new int[partitionDirtyPages.size() + 1];
+        // If there is no partition meta page among the dirty pages, then we add an additional page to the result.
+        int offset = partitionDirtyPages.get(0).pageIdx() == 0 ? 0 : 1;
+
+        int[] pageIndexes = new int[partitionDirtyPages.size() + offset];
 
         for (int i = 0; i < partitionDirtyPages.size(); i++) {
-            pageIndexes[i + 1] = partitionDirtyPages.get(i).pageIdx();
+            pageIndexes[i + offset] = partitionDirtyPages.get(i).pageIdx();
         }
 
         return pageIndexes;
     }
 
     /**
-     * Adds the number of delta files to compact.
-     *
-     * @param count Number of delta files.
+     * Triggers compacting for new delta files.
      */
-    public void addDeltaFileCountForCompaction(int count) {
-        compactor.addDeltaFiles(count);
+    public void triggerCompaction() {
+        compactor.triggerCompaction();
+    }
+
+    /**
+     * Callback on destruction of the partition of the corresponding group.
+     *
+     * <p>Prepares the checkpointer and compactor for partition destruction.
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @return Future that will complete when the callback completes.
+     */
+    public CompletableFuture<Void> onPartitionDestruction(GroupPartitionId groupPartitionId) {
+        return CompletableFuture.allOf(
+                checkpointer.prepareToDestroyPartition(groupPartitionId),
+                compactor.prepareToDestroyPartition(groupPartitionId)
+        );
     }
 }

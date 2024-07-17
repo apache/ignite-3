@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,22 +27,25 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /**
  * TreeIndexSpoolExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
+public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest<Object[]> {
     @Test
     public void testIndexSpool() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
@@ -100,11 +103,11 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
 
             log.info("Check: size=" + size);
 
-            ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, new TestTable(size, rowType) {
+            ScanNode<Object[]> scan = new ScanNode<>(ctx, new TestTable(size, rowType) {
                 boolean first = true;
 
                 @Override
-                public @NotNull Iterator<Object[]> iterator() {
+                public Iterator<Object[]> iterator() {
                     assertTrue(first, "Rewind right");
 
                     first = false;
@@ -122,32 +125,21 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
                     RelCollations.of(ImmutableIntList.of(0)),
                     (o1, o2) -> o1[0] != null ? ((Comparable) o1[0]).compareTo(o2[0]) : 0,
                     testFilter,
-                    () -> lower,
-                    () -> upper
+                    new SingleRangeIterable<>(lower, upper, true, true)
             );
 
             spool.register(singletonList(scan));
 
-            RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+            RootRewindable<Object[]> root = new RootRewindable<>(ctx);
             root.register(spool);
 
             for (TestParams param : testParams) {
-                log.info("Check: param=" + param);
-
                 // Set up bounds
                 testFilter.delegate = param.pred;
                 System.arraycopy(param.lower, 0, lower, 0, lower.length);
                 System.arraycopy(param.upper, 0, upper, 0, upper.length);
 
-                int cnt = 0;
-
-                while (root.hasNext()) {
-                    root.next();
-
-                    cnt++;
-                }
-
-                assertEquals(param.expectedResultSize, cnt, "Invalid result size");
+                assertEquals(param.expectedResultSize, root.rowsCount(), "Invalid result size");
 
                 root.rewind();
             }
@@ -162,11 +154,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
         /** {@inheritDoc} */
         @Override
         public boolean test(Object[] objects) {
-            if (delegate == null) {
-                return true;
-            } else {
-                return delegate.test(objects);
-            }
+            return delegate == null || delegate.test(objects);
         }
     }
 
@@ -185,5 +173,10 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
             this.upper = upper;
             this.expectedResultSize = expectedResultSize;
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

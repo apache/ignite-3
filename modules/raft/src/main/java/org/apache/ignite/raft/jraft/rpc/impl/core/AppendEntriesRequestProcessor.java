@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -69,7 +69,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
 
             PeerPair pair = pairOf(peerId, serverId);
 
-            final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pair, nodeManager);
+            final PeerRequestContext ctx = getOrCreatePeerRequestContext(groupId, pair, node);
 
             return ctx.executor;
         }
@@ -322,41 +322,19 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         }
     }
 
-    PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair,
-        NodeManager nodeManager) {
-        ConcurrentMap<PeerPair, PeerRequestContext> groupContexts = this.peerRequestContexts.get(groupId);
-        if (groupContexts == null) {
-            groupContexts = new ConcurrentHashMap<>();
-            final ConcurrentMap<PeerPair, PeerRequestContext> existsCtxs = this.peerRequestContexts.putIfAbsent(
-                groupId, groupContexts);
-            if (existsCtxs != null) {
-                groupContexts = existsCtxs;
-            }
+    PeerRequestContext getOrCreatePeerRequestContext(final String groupId, final PeerPair pair, Node node) {
+            ConcurrentMap<PeerPair, PeerRequestContext> groupContexts =
+                this.peerRequestContexts.computeIfAbsent(groupId, s -> new ConcurrentHashMap<>());
+
+            return groupContexts.computeIfAbsent(pair, peerPair -> {
+                PeerRequestContext ctx =
+                    new PeerRequestContext(groupId, pair, node.getRaftOptions().getMaxReplicatorInflightMsgs());
+
+                ctx.executor = node.getOptions().getStripedExecutor().next();
+
+                return ctx;
+            });
         }
-
-        PeerRequestContext peerCtx = groupContexts.get(pair);
-        if (peerCtx == null) {
-            synchronized (Utils.withLockObject(groupContexts)) {
-                peerCtx = groupContexts.get(pair);
-                // double check in lock
-                if (peerCtx == null) {
-                    // only one thread to process append entries for every jraft node
-                    final PeerId peer = new PeerId();
-                    final boolean parsed = peer.parse(pair.local);
-                    assert (parsed);
-                    final Node node = nodeManager.get(groupId, peer);
-                    assert (node != null);
-                    peerCtx = new PeerRequestContext(groupId, pair, node.getRaftOptions().getMaxReplicatorInflightMsgs());
-
-                    peerCtx.executor = node.getOptions().getStripedExecutor().next();
-
-                    groupContexts.put(pair, peerCtx);
-                }
-            }
-        }
-
-        return peerCtx;
-    }
 
     void removePeerRequestContext(final String groupId, final PeerPair pair) {
         final ConcurrentMap<PeerPair, PeerRequestContext> groupContexts = this.peerRequestContexts.get(groupId);
@@ -393,9 +371,9 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         return request.groupId();
     }
 
-    private int getAndIncrementSequence(final String groupId, final PeerPair pair, NodeManager nodeManager) {
+    private int getAndIncrementSequence(final String groupId, final PeerPair pair, Node node) {
         // TODO asch can use getPeerContext because it must already present (created before) ??? IGNITE-14832
-        return getOrCreatePeerRequestContext(groupId, pair, nodeManager).getAndIncrementSequence();
+        return getOrCreatePeerRequestContext(groupId, pair, node).getAndIncrementSequence();
     }
 
     private boolean isHeartbeatRequest(final AppendEntriesRequest request) {
@@ -418,7 +396,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
             int reqSequence = -1;
 
             if (!isHeartbeat) {
-                reqSequence = getAndIncrementSequence(groupId, pair, done.getRpcCtx().getNodeManager());
+                reqSequence = getAndIncrementSequence(groupId, pair, node);
             }
 
             final Message response = service.handleAppendEntriesRequest(request, new SequenceRpcRequestClosure(done,

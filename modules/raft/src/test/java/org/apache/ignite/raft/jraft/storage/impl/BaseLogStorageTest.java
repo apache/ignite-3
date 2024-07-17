@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,12 @@
  * limitations under the License.
  */
 package org.apache.ignite.raft.jraft.storage.impl;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,12 +41,6 @@ import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class BaseLogStorageTest extends BaseStorageTest {
     protected LogStorage logStorage;
@@ -68,7 +68,7 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
     }
 
     @AfterEach
-    public void teardown() throws Exception {
+    public void teardown() {
         this.logStorage.shutdown();
     }
 
@@ -90,15 +90,15 @@ public abstract class BaseLogStorageTest extends BaseStorageTest {
         assertEquals(entry1, this.logStorage.getEntry(100));
         assertEquals(1, this.logStorage.getTerm(100));
 
-        final LogEntry entry2 = TestUtils.mockEntry(200, 2);
+        final LogEntry entry2 = TestUtils.mockEntry(101, 2);
         assertTrue(this.logStorage.appendEntry(entry2));
 
         assertEquals(100, this.logStorage.getFirstLogIndex());
-        assertEquals(200, this.logStorage.getLastLogIndex());
+        assertEquals(101, this.logStorage.getLastLogIndex());
         assertEquals(entry1, this.logStorage.getEntry(100));
-        assertEquals(entry2, this.logStorage.getEntry(200));
+        assertEquals(entry2, this.logStorage.getEntry(101));
         assertEquals(1, this.logStorage.getTerm(100));
-        assertEquals(2, this.logStorage.getTerm(200));
+        assertEquals(2, this.logStorage.getTerm(101));
     }
 
     @Test

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -62,5 +62,17 @@ public class TransformingIterator<TinT, ToutT> implements Iterator<ToutT>, AutoC
         if (delegate instanceof AutoCloseable) {
             ((AutoCloseable) delegate).close();
         }
+    }
+
+    /**
+     * Creates an iterable that produces an iterator, that applies the given function to each element,
+     * returned by the input iterable.
+     *
+     * @param input The input iterable.
+     * @param function  The function.
+     * @return The iterable.
+     */
+    public static <TinT, ToutT> Iterable<ToutT> newIterable(Iterable<TinT> input, Function<TinT, ToutT> function) {
+        return () -> new TransformingIterator<>(input.iterator(), function);
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 
 /**
  * Test class for {@link HeapLockManager}.
@@ -25,6 +26,11 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 public class HeapLockManagerTest extends AbstractLockManagerTest {
     @Override
     protected LockManager newInstance() {
-        return new HeapLockManager();
+        return new HeapLockManager(new WaitDieDeadlockPreventionPolicy());
+    }
+
+    @Override
+    protected LockKey lockKey() {
+        return new LockKey(0, "test");
     }
 }

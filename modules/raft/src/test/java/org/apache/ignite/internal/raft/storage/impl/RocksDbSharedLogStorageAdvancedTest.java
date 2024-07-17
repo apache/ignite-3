@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -41,7 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for implementation specifics of the shared storage.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class RocksDbSharedLogStorageAdvancedTest {
+public class RocksDbSharedLogStorageAdvancedTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path path;
 
@@ -56,8 +60,7 @@ public class RocksDbSharedLogStorageAdvancedTest {
     @BeforeEach
     public void setUp() {
         logStorageProvider = new DefaultLogStorageFactory(this.path);
-
-        logStorageProvider.start();
+        assertThat(logStorageProvider.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         this.confManager = new ConfigurationManager();
         this.logEntryCodecFactory = LogEntryV1CodecFactory.getInstance();
@@ -65,8 +68,8 @@ public class RocksDbSharedLogStorageAdvancedTest {
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
-        logStorageProvider.close();
+    public void tearDown() {
+        assertThat(logStorageProvider.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

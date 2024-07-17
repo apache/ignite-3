@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,13 +34,11 @@ public abstract class BplusLeafIo<L> extends BplusIo<L> {
         super(type, ver, true, true, itemSize);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int getMaxCount(long pageAddr, int pageSize) {
         return (pageSize - ITEMS_OFF) / getItemSize();
     }
 
-    /** {@inheritDoc} */
     @Override
     public final void copyItems(
             long srcPageAddr,
@@ -51,12 +49,12 @@ public abstract class BplusLeafIo<L> extends BplusIo<L> {
             boolean cpLeft
     ) {
         assert srcIdx != dstIdx || srcPageAddr != dstPageAddr;
+
         assertPageType(dstPageAddr);
 
-        copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt * getItemSize());
+        copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt * (long) getItemSize());
     }
 
-    /** {@inheritDoc} */
     @Override
     public final int offset(int idx) {
         assert idx >= 0 : idx;

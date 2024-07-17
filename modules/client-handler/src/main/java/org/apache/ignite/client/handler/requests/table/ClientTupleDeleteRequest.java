@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 
 /**
  * Client tuple delete request.
@@ -46,10 +46,14 @@ public class ClientTupleDeleteRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTable(in, tables);
-        var tx = readTx(in, resources);
-        var tuple = readTuple(in, table, true);
-
-        return table.recordView().deleteAsync(tx, tuple).thenAccept(out::packBoolean);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, out, resources);
+            return readTuple(in, table, true).thenCompose(tuple -> {
+                return table.recordView().deleteAsync(tx, tuple).thenAccept(res -> {
+                    out.packInt(table.schemaView().lastKnownSchemaVersion());
+                    out.packBoolean(res);
+                });
+            });
+        });
     }
 }

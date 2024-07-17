@@ -19,36 +19,45 @@ namespace Apache.Ignite.Benchmarks.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
     using BenchmarkDotNet.Jobs;
+    using Ignite.Sql;
     using Ignite.Table;
     using Tests;
 
     /// <summary>
     /// Measures SQL result set enumeration with two pages of data (two network requests per enumeration).
     /// <para />
-    /// Results on Intel Core i7-9700K, GC = Concurrent Server, Ubuntu 20.04:
-    /// |          Method |       Runtime |     Mean |   Error |   StdDev | Ratio |  Gen 0 |  Gen 1 | Allocated |
-    /// |---------------- |-------------- |---------:|--------:|---------:|------:|-------:|-------:|----------:|
-    /// |     ToListAsync |      .NET 6.0 | 218.4 us | 2.14 us |  2.01 us |  0.59 | 8.3008 | 1.7090 |    391 KB |
-    /// | AsyncEnumerable |      .NET 6.0 | 325.8 us | 6.14 us |  6.03 us |  0.88 | 8.7891 | 0.4883 |    392 KB |
-    /// |     ToListAsync | .NET Core 3.1 | 368.6 us | 7.14 us |  7.01 us |  1.00 | 7.3242 | 1.4648 |    383 KB |
-    /// | AsyncEnumerable | .NET Core 3.1 | 497.9 us | 9.59 us | 12.12 us |  1.35 | 7.8125 | 2.9297 |    384 KB |.
+    /// Results on i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
+    /// |                         Method |     Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
+    /// |------------------------------- |---------:|--------:|--------:|------:|--------:|-------:|----------:|
+    /// |                    ToListAsync | 229.0 us | 3.69 us | 3.45 us |  1.00 |    0.00 | 1.4648 |    392 KB |
+    /// |                AsyncEnumerable | 263.2 us | 5.05 us | 4.72 us |  1.15 |    0.02 | 1.4648 |    393 KB |
+    /// |                LinqToListAsync | 180.1 us | 3.18 us | 2.65 us |  0.79 |    0.02 | 0.2441 |     80 KB |
+    /// | LinqSelectOneColumnToListAsync | 156.0 us | 3.06 us | 4.48 us |  0.68 |    0.02 | 0.2441 |     57 KB |
+    /// |                   DbDataReader | 189.3 us | 1.61 us | 1.51 us |  0.83 |    0.01 |      - |     51 KB |
+    /// |       ObjectMappingToListAsync | 165.8 us | 3.28 us | 3.07 us |  0.74 |    0.02 | 0.2441 |     76 KB |
+    /// |    PrimitiveMappingToListAsync | 121.2 us | 2.41 us | 4.10 us |  0.54 |    0.02 |      - |     48 KB |.
     /// </summary>
     [MemoryDiagnoser]
-    [SimpleJob(RuntimeMoniker.NetCoreApp31, baseline: true)]
-    /* [SimpleJob(RuntimeMoniker.Net60)] */
+    [SimpleJob(RuntimeMoniker.Net60)]
     public class ResultSetBenchmarks
     {
         private FakeServer? _server;
         private IIgniteClient? _client;
+        private IRecordView<Rec>? _recordView;
 
         [GlobalSetup]
         public async Task GlobalSetup()
         {
             _server = new FakeServer(disableOpsTracking: true);
             _client = await _server.ConnectClientAsync();
+
+            var table = await _client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+            _recordView = table!.GetRecordView<Rec>();
         }
 
         [GlobalCleanup]
@@ -86,5 +95,74 @@ namespace Apache.Ignite.Benchmarks.Sql
                 throw new Exception("Wrong count");
             }
         }
+
+        [Benchmark]
+        public async Task LinqToListAsync()
+        {
+            await using var resultSet = await _recordView!.AsQueryable().ToResultSetAsync();
+
+            var rows = await resultSet.ToListAsync();
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        [Benchmark]
+        public async Task LinqSelectOneColumnToListAsync()
+        {
+            await using var resultSet = await _recordView!.AsQueryable().Select(x => x.Id).ToResultSetAsync();
+
+            var rows = await resultSet.ToListAsync();
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        [Benchmark]
+        public async Task DbDataReader()
+        {
+            await using var reader = await _client!.Sql.ExecuteReaderAsync(null, "select 1");
+            var rows = new List<int>(1100);
+
+            while (await reader.ReadAsync(CancellationToken.None))
+            {
+                rows.Add(reader.GetInt32(0));
+            }
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        [Benchmark]
+        public async Task ObjectMappingToListAsync()
+        {
+            await using var resultSet = await _client!.Sql.ExecuteAsync<Rec>(null, "select 1");
+            var rows = await resultSet.ToListAsync();
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        [Benchmark]
+        public async Task PrimitiveMappingToListAsync()
+        {
+            await using var resultSet = await _client!.Sql.ExecuteAsync<int>(null, "select 1");
+            var rows = await resultSet.ToListAsync();
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        private record Rec(int Id);
     }
 }

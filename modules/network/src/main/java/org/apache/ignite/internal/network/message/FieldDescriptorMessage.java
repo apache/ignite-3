@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.network.message;
 
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 
 /** Message for the {@link FieldDescriptor}. */
 @Transferable(NetworkMessageTypes.FIELD_DESCRIPTOR_MESSAGE)
 public interface FieldDescriptorMessage extends NetworkMessage {
     int UNSHARED_MASK = 1;
     int IS_PRIMITIVE = 1 << 1;
-    int IS_RUNTIME_TYPE_KNOWN_UPFRONT = 1 << 2;
+    int IS_SERIALIZATION_TYPE_KNOWN_UPFRONT = 1 << 2;
 
     /**
      * Name of the field.

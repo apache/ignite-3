@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,89 +17,62 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.mockito.Mockito.mock;
 
-import java.nio.file.Path;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfigurationSchema;
-import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    @InjectConfiguration
     private VolatilePageMemoryStorageEngineConfiguration engineConfig;
 
-    @InjectConfiguration(
-            name = "table",
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    VolatilePageMemoryDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            }
-    )
-    private TableConfiguration tableCfg;
+    @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
+    private StorageConfiguration storageConfiguration;
 
     private VolatilePageMemoryStorageEngine engine;
 
     private VolatilePageMemoryTableStorage table;
 
-    @WorkDirectory
-    private Path workDir;
-
     @BeforeEach
-    void setUp() throws Exception {
-        engine = new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
+    void setUp() {
+        var ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration, ioRegistry);
 
         engine.start();
 
-        tableCfg
-                .change(c -> c.changeDataStorage(dsc -> dsc.convert(VolatilePageMemoryDataStorageChange.class)))
-                .get(1, TimeUnit.SECONDS);
-
-        assertEquals(
-                VolatilePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
-                ((VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
+        table = engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
-        table = engine.createMvTable(tableCfg);
-        table.start();
-
-        storage = table.createMvPartitionStorage(PARTITION_ID);
+        initialize(table);
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                storage,
-                table == null ? null : table::stop,
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+
+        IgniteUtils.closeAllManually(
+                table,
                 engine == null ? null : engine::stop
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     int pageSize() {
         return engineConfig.pageSize().value();

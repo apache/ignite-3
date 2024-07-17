@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,25 +19,18 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Supplier;
-import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationMappingException;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteMdFragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
-import org.apache.ignite.internal.sql.engine.metadata.NodeMappingException;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,31 +45,31 @@ public class Fragment {
     @IgniteToStringExclude
     private final String rootSer;
 
-    private final FragmentMapping mapping;
-
     private final List<IgniteReceiver> remotes;
+    private final Long2ObjectMap<IgniteTable> tables;
+    private final List<IgniteSystemView> systemViews;
+
+    private final boolean correlated;
 
     /**
      * Constructor.
      *
-     * @param id      Fragment id.
-     * @param root    Root node of the fragment.
+     * @param id An identifier of this fragment.
+     * @param correlated Whether some correlated variables should be set prior to fragment execution.
+     * @param root Root node of the fragment.
      * @param remotes Remote sources of the fragment.
+     * @param tables A list of tables containing by this fragment.
+     * @param systemViews A list of system views containing by this fragment.
      */
-    public Fragment(long id, IgniteRel root, List<IgniteReceiver> remotes) {
-        this(id, root, remotes, null, null);
-    }
-
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    Fragment(long id, IgniteRel root, List<IgniteReceiver> remotes, @Nullable String rootSer, @Nullable FragmentMapping mapping) {
+    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes,
+            Long2ObjectMap<IgniteTable> tables, List<IgniteSystemView> systemViews) {
         this.id = id;
         this.root = root;
         this.remotes = List.copyOf(remotes);
-        this.rootSer = rootSer != null ? rootSer : toJson(root);
-        this.mapping = mapping;
+        this.tables = new Long2ObjectArrayMap<>(tables);
+        this.systemViews = List.copyOf(systemViews);
+        this.rootSer = toJson(root);
+        this.correlated = correlated;
     }
 
     /**
@@ -102,32 +95,14 @@ public class Fragment {
         return rootSer;
     }
 
-    public FragmentMapping mapping() {
-        return mapping;
-    }
-
-    private FragmentMapping mapping(MappingQueryContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
-        try {
-            FragmentMapping mapping = IgniteMdFragmentMapping.fragmentMappingForMetadataQuery(root, mq, ctx);
-
-            if (rootFragment()) {
-                mapping = FragmentMapping.create(ctx.localNodeId()).colocate(mapping);
-            }
-
-            if (single() && mapping.nodeIds().size() > 1) {
-                // this is possible when the fragment contains scan of a replicated cache, which brings
-                // several nodes (actually all containing nodes) to the colocation group, but this fragment
-                // supposed to be executed on a single node, so let's choose one wisely
-                mapping = FragmentMapping.create(mapping.nodeIds()
-                        .get(ThreadLocalRandom.current().nextInt(mapping.nodeIds().size()))).colocate(mapping);
-            }
-
-            return mapping.finalize(nodesSource);
-        } catch (NodeMappingException e) {
-            throw new FragmentMappingException("Failed to calculate physical distribution", this, e.node(), e);
-        } catch (ColocationMappingException e) {
-            throw new FragmentMappingException("Failed to calculate physical distribution", this, root, e);
-        }
+    /**
+     * Returns {@code true} if this fragment expecting some correlated variables being set from
+     * outside (e.g. parent fragment).
+     *
+     * @return {@code true} if correlated variables should be set prior to start the execution of this fragment.
+     */
+    public boolean correlated() {
+        return correlated;
     }
 
     /**
@@ -137,36 +112,30 @@ public class Fragment {
         return remotes;
     }
 
+    public Long2ObjectMap<IgniteTable> tables() {
+        return tables;
+    }
+
+    public List<IgniteSystemView> systemViews() {
+        return systemViews;
+    }
+
     public boolean rootFragment() {
         return !(root instanceof IgniteSender);
     }
 
-    public Fragment attach(RelOptCluster cluster) {
-        return root.getCluster() == cluster ? this : new Cloner(cluster).go(this);
-    }
-
-    /**
-     * Maps the fragment to its data location.
-     *
-     * @param ctx Planner context.
-     * @param mq  Metadata query.
-     */
-    Fragment map(MappingService mappingSrvc, MappingQueryContext ctx, RelMetadataQuery mq) throws FragmentMappingException {
-        if (mapping != null) {
-            return this;
+    /** Returns id of target fragment for non-root fragments, return {@code null} otherwise. */
+    public @Nullable Long targetFragmentId() {
+        if (root instanceof IgniteSender) {
+            return ((IgniteSender) root).targetFragmentId();
         }
 
-        return new Fragment(id, root, remotes, rootSer, mapping(ctx, mq, nodesSource(mappingSrvc, ctx)));
+        return null;
     }
 
-    @NotNull
-    private Supplier<List<String>> nodesSource(MappingService mappingSrvc, MappingQueryContext ctx) {
-        return () -> mappingSrvc.executionNodes(single(), null);
-    }
-
-    private boolean single() {
-        return root instanceof IgniteSender
-                && ((IgniteSender) root).sourceDistribution().satisfies(IgniteDistributions.single());
+    public boolean single() {
+        return rootFragment() || (root instanceof IgniteSender
+                && ((IgniteSender) root).sourceDistribution().satisfies(IgniteDistributions.single()));
     }
 
     /** {@inheritDoc} */

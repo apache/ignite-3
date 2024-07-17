@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information.
  */
-public class PartitionMeta {
+public abstract class PartitionMeta {
     private static final VarHandle PAGE_COUNT;
 
     private static final VarHandle META_SNAPSHOT;
@@ -45,120 +45,31 @@ public class PartitionMeta {
         }
     }
 
-    private volatile long lastAppliedIndex;
-
-    private volatile long versionChainTreeRootPageId;
-
-    private volatile long rowVersionFreeListRootPageId;
+    private volatile PartitionMetaSnapshot metaSnapshot;
 
     private volatile int pageCount;
 
-    private volatile PartitionMetaSnapshot metaSnapshot;
-
     /**
-     * Default constructor.
-     */
-    public PartitionMeta() {
-        metaSnapshot = new PartitionMetaSnapshot(null, this);
-    }
-
-    /**
-     * Constructor.
+     * Protected Constructor. {@link #initSnapshot(UUID)} should be called right after the instance is created.
      *
-     * @param checkpointId Checkpoint ID.
-     * @param lastAppliedIndex Last applied index value.
-     * @param versionChainTreeRootPageId Version chain tree root page ID.
-     * @param rowVersionFreeListRootPageId Row version free list root page ID.
-     * @param pageCount Count of pages in the partition.
+     * @param pageCount Page count.
      */
-    public PartitionMeta(
-            @Nullable UUID checkpointId,
-            long lastAppliedIndex,
-            long versionChainTreeRootPageId,
-            long rowVersionFreeListRootPageId,
-            int pageCount
-    ) {
-        this.lastAppliedIndex = lastAppliedIndex;
-        this.versionChainTreeRootPageId = versionChainTreeRootPageId;
-        this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
+    protected PartitionMeta(int pageCount) {
         this.pageCount = pageCount;
-
-        metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
     }
 
     /**
-     * Constructor.
+     * Initializes the snapshot of the partition meta. Should be called right after the instance is created.
      *
      * @param checkpointId Checkpoint ID.
-     * @param metaIo Partition meta IO.
-     * @param pageAddr Address of the page with the partition meta.
      */
-    PartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
-        this(
-                checkpointId,
-                metaIo.getLastAppliedIndex(pageAddr),
-                metaIo.getVersionChainTreeRootPageId(pageAddr),
-                metaIo.getRowVersionFreeListRootPageId(pageAddr),
-                metaIo.getPageCount(pageAddr)
-        );
+    protected final void initSnapshot(@Nullable UUID checkpointId) {
+        assert metaSnapshot == null : "Snapshot is already initialized";
+
+        metaSnapshot = buildSnapshot(checkpointId);
     }
 
-    /**
-     * Returns a last applied index value.
-     */
-    public long lastAppliedIndex() {
-        return lastAppliedIndex;
-    }
-
-    /**
-     * Sets a last applied index value.
-     *
-     * @param checkpointId Checkpoint ID.
-     * @param lastAppliedIndex Last applied index value.
-     */
-    public void lastAppliedIndex(@Nullable UUID checkpointId, long lastAppliedIndex) {
-        updateSnapshot(checkpointId);
-
-        this.lastAppliedIndex = lastAppliedIndex;
-    }
-
-    /**
-     * Returns version chain tree root page ID.
-     */
-    public long versionChainTreeRootPageId() {
-        return versionChainTreeRootPageId;
-    }
-
-    /**
-     * Sets version chain root page ID.
-     *
-     * @param checkpointId Checkpoint ID.
-     * @param versionChainTreeRootPageId Version chain root page ID.
-     */
-    public void versionChainTreeRootPageId(@Nullable UUID checkpointId, long versionChainTreeRootPageId) {
-        updateSnapshot(checkpointId);
-
-        this.versionChainTreeRootPageId = versionChainTreeRootPageId;
-    }
-
-    /**
-     * Returns row version free list root page ID.
-     */
-    public long rowVersionFreeListRootPageId() {
-        return rowVersionFreeListRootPageId;
-    }
-
-    /**
-     * Sets row version free list root page ID.
-     *
-     * @param checkpointId Checkpoint ID.
-     * @param rowVersionFreeListRootPageId Row version free list root page ID.
-     */
-    public void rowVersionFreeListRootPageId(@Nullable UUID checkpointId, long rowVersionFreeListRootPageId) {
-        updateSnapshot(checkpointId);
-
-        this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
-    }
+    protected abstract PartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId);
 
     /**
      * Returns count of pages in the partition.
@@ -193,15 +104,14 @@ public class PartitionMeta {
      *
      * @param checkpointId Checkpoint ID.
      */
-    private void updateSnapshot(@Nullable UUID checkpointId) {
+    protected final void updateSnapshot(@Nullable UUID checkpointId) {
         PartitionMetaSnapshot current = metaSnapshot;
 
-        if (current.checkpointId != checkpointId) {
-            META_SNAPSHOT.compareAndSet(this, current, new PartitionMetaSnapshot(checkpointId, this));
+        if (current.checkpointId() != checkpointId) {
+            META_SNAPSHOT.compareAndSet(this, current, buildSnapshot(checkpointId));
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(PartitionMeta.class, this);
@@ -210,77 +120,22 @@ public class PartitionMeta {
     /**
      * An immutable snapshot of the partition's meta information.
      */
-    public static class PartitionMetaSnapshot {
-        private final @Nullable UUID checkpointId;
-
-        private final long lastAppliedIndex;
-
-        private final long versionChainTreeRootPageId;
-
-        private final long rowVersionFreeListRootPageId;
-
-        private final int pageCount;
-
-        /**
-         * Private constructor.
-         *
-         * @param checkpointId Checkpoint ID.
-         * @param partitionMeta Partition meta.
-         */
-        private PartitionMetaSnapshot(@Nullable UUID checkpointId, PartitionMeta partitionMeta) {
-            this.checkpointId = checkpointId;
-            this.lastAppliedIndex = partitionMeta.lastAppliedIndex;
-            this.versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
-            this.rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
-            this.pageCount = partitionMeta.pageCount;
-        }
-
-        /**
-         * Returns a last applied index value.
-         */
-        public long lastAppliedIndex() {
-            return lastAppliedIndex;
-        }
-
-        /**
-         * Returns version chain tree root page ID.
-         */
-        public long versionChainTreeRootPageId() {
-            return versionChainTreeRootPageId;
-        }
-
-        /**
-         * Returns row version free list root page ID.
-         */
-        public long rowVersionFreeListRootPageId() {
-            return rowVersionFreeListRootPageId;
-        }
-
-        /**
-         * Returns count of pages in the partition.
-         */
-        public int pageCount() {
-            return pageCount;
-        }
-
+    public interface PartitionMetaSnapshot {
         /**
          * Writes the contents of the snapshot to a page of type {@link PartitionMetaIo}.
          *
          * @param metaIo Partition meta IO.
          * @param pageAddr Address of the page with the partition meta.
          */
-        void writeTo(PartitionMetaIo metaIo, long pageAddr) {
-            metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
-            metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
-            metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
-            metaIo.setPageCount(pageAddr, pageCount);
-        }
+        void writeTo(PartitionMetaIo metaIo, long pageAddr);
 
-        /** {@inheritDoc} */
-        @Override
-        public String toString() {
-            return S.toString(PartitionMetaSnapshot.class, this);
-        }
+        /**
+         * Returns the checkpoint ID.
+         *
+         * @return Checkpoint ID.
+         */
+        @Nullable
+        UUID checkpointId();
     }
 
     /**

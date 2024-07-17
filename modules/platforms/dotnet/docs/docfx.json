@@ -1,0 +1,68 @@
+{
+    "metadata": [
+        {
+            "src": [
+                {
+                    "files": [
+                        "Apache.Ignite/Apache.Ignite.csproj"
+                    ],
+                    "src": "../"
+                }
+            ],
+            "dest": "api",
+            "includePrivateMembers": false,
+            "disableGitFeatures": false,
+            "disableDefaultFilter": false,
+            "noRestore": false,
+            "namespaceLayout": "flattened",
+            "memberLayout": "samePage",
+            "allowCompilationErrors": false
+        }
+    ],
+    "build": {
+        "content": [
+            {
+                "files": [
+                    "api/**.yml",
+                    "api/index.md"
+                ]
+            },
+            {
+                "files": [
+                    "articles/**.md",
+                    "articles/**/toc.yml",
+                    "toc.yml",
+                    "*.md"
+                ]
+            }
+        ],
+        "resource": [
+            {
+                "files": [
+                    "images/**"
+                ]
+            }
+        ],
+        "dest": "_site",
+        "globalMetadataFiles": [],
+        "fileMetadataFiles": [],
+        "template": [
+            "default",
+            "modern"
+        ],
+        "postProcessors": [],
+        "keepFileLink": false,
+        "disableGitFeatures": false,
+        "globalMetadata": {
+            "_appTitle": "Apache Ignite.NET API Documentation",
+            "_appFooter": "Copyright 2023 The Apache Software Foundation",
+            "_gitContribute": {
+                "repo": "https://github.com/apache/ignite-3",
+                "branch": "main"
+            },
+            "_appLogoPath": "images/logo.svg",
+            "_appFaviconPath": "images/favicon.ico",
+            "_enableSearch": true
+        }
+    }
+}

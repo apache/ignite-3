@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,9 +18,9 @@ package org.apache.ignite.raft.jraft.option;
 
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /**
  * Snapshot executor options.
@@ -33,7 +33,7 @@ public class SnapshotExecutorOptions {
     private NodeImpl node;
     private LogManager logManager;
     private long initTerm;
-    private Endpoint addr;
+    private PeerId peerId;
     private boolean filterBeforeCopyRemote;
     private SnapshotThrottle snapshotThrottle;
 
@@ -85,12 +85,12 @@ public class SnapshotExecutorOptions {
         this.initTerm = initTerm;
     }
 
-    public Endpoint getAddr() {
-        return this.addr;
+    public PeerId getPeerId() {
+        return this.peerId;
     }
 
-    public void setAddr(Endpoint addr) {
-        this.addr = addr;
+    public void setPeerId(PeerId peerId) {
+        this.peerId = peerId;
     }
 
     public boolean isFilterBeforeCopyRemote() {

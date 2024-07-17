@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,11 +21,11 @@ import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
-import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
-import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.util.StringUtils.hexInt;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.toHexString;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -38,10 +38,10 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.FastCrc;
 import org.apache.ignite.internal.pagememory.persistence.IgniteInternalDataIntegrityViolationException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,7 +54,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     /** Skip CRC calculation flag. */
-    // TODO: IGNITE-17011 Move to config
+    // TODO: IGNITE-16350 Move to config
     private final boolean skipCrc = getBoolean("IGNITE_PDS_SKIP_CRC");
 
     private volatile Path filePath;
@@ -201,9 +201,10 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                     readWriteLock.readLock().unlock();
                 }
             } catch (IOException e) {
-                if (e instanceof ClosedChannelException) {
+                IOException cause = e;
+                if (cause instanceof ClosedChannelException) {
                     try {
-                        if (e instanceof ClosedByInterruptException) {
+                        if (cause instanceof ClosedByInterruptException) {
                             interrupted = true;
 
                             Thread.interrupted();
@@ -217,15 +218,15 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
                         continue;
                     } catch (IOException e0) {
-                        e0.addSuppressed(e);
+                        e0.addSuppressed(cause);
 
-                        e = e0;
+                        cause = e0;
                     }
                 }
 
                 throw new IgniteInternalCheckedException(
                         "Failed to write page [filePath=" + filePath + ", pageId=" + pageId + "]",
-                        e
+                        cause
                 );
             }
         }
@@ -276,7 +277,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      *
      * @throws IgniteInternalCheckedException If initialization failed (IO error occurred).
      */
-    public void ensure() throws IgniteInternalCheckedException {
+    void ensure() throws IgniteInternalCheckedException {
         if (!initialized) {
             readWriteLock.writeLock().lock();
 
@@ -579,11 +580,11 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @throws IOException If failed.
      */
     public void renameFilePath(Path newFilePath) throws IOException {
-        initialized = false;
-
         readWriteLock.writeLock().lock();
 
         try {
+            initialized = false;
+
             Path filePath = this.filePath;
 
             if (!filePath.equals(newFilePath)) {
@@ -599,9 +600,9 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
                 this.filePath = newFilePath;
 
-                if (fileIo != null) {
-                    reinit(fileIo);
-                }
+                reinit(fileIo);
+
+                initialized = true;
             }
         } finally {
             readWriteLock.writeLock().unlock();

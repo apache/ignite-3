@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,8 +18,8 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -54,19 +54,23 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<BatchedResult<T>> requestNextAsync(int rows) {
+    public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         long fetched0 = fetched.addAndGet(rows);
+
+        assert cur != null : "non initialized cursor";
+
         return cur.requestNextAsync(rows).thenApply(batch -> {
             if (maxRows == 0 || fetched0 < maxRows) {
                 return batch;
             }
 
-            if (fetched0 - rows < maxRows) {
-                return new BatchedResult<>(batch.items()
-                        .subList(0, (int) (maxRows - fetched0 + rows)), false);
-            }
+            int remainCnt = (int) (maxRows - fetched0 + rows);
 
-            return new BatchedResult<>(List.of(), false);
+            List<T> remainItems = remainCnt < batch.items().size()
+                    ? batch.items().subList(0, remainCnt)
+                    : batch.items();
+
+            return new BatchedResult<>(remainItems, false);
         });
     }
 
@@ -74,6 +78,18 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override 
     public CompletableFuture<Void> closeAsync() {
         return cur.closeAsync();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> onClose() {
+        return cur.onClose();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> onFirstPageReady() {
+        return cur.onFirstPageReady();
     }
 
     /** {@inheritDoc} */
@@ -86,5 +102,21 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override
     public ResultSetMetadata metadata() {
         return cur.metadata();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasNextResult() {
+        return cur.hasNextResult();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
+        if (!hasNextResult()) {
+            throw new NoSuchElementException("Query has no more results");
+        }
+
+        return cur.nextResult();
     }
 }

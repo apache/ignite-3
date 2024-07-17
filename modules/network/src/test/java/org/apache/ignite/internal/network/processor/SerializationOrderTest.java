@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,18 +24,21 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.apache.ignite.network.TestMessagesFactory;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageSerializer;
-import org.apache.ignite.network.serialization.MessageWriter;
+import org.apache.ignite.internal.network.messages.SerializationOrderMessage;
+import org.apache.ignite.internal.network.messages.SerializationOrderMessageSerializationFactory;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
 /**
  * Test class for checking that writing and reading fields in the generated (de-)serializers is ordered alphanumerically.
  */
-public class SerializationOrderTest {
+public class SerializationOrderTest extends BaseIgniteAbstractTest {
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
     private final SerializationOrderMessageSerializationFactory serializationFactory =

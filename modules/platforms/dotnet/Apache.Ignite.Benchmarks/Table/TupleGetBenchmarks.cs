@@ -23,11 +23,12 @@ namespace Apache.Ignite.Benchmarks.Table
     using Tests;
 
     /// <summary>
-    /// Results on Intel Core i7-7700HQ, .NET SDK 5.0.400, Ubuntu 20.04:
+    /// Results on i9-12900H, .NET SDK 6.0.419, Ubuntu 22.04:
     /// | Method |     Mean |   Error |  StdDev |
     /// |------- |---------:|--------:|--------:|
-    /// |    Get | 202.0 us | 3.71 us | 7.82 us |.
+    /// |    Get | 113.8 us | 1.74 us | 1.45 us |.
     /// </summary>
+    [SimpleJob]
     public class TupleGetBenchmarks
     {
         private JavaServer? _javaServer;
@@ -40,11 +41,11 @@ namespace Apache.Ignite.Benchmarks.Table
         {
             _javaServer = await JavaServer.StartAsync();
             _client = await IgniteClient.StartAsync(new IgniteClientConfiguration("127.0.0.1:" + _javaServer.Port));
-            _table = (await _client.Tables.GetTableAsync("PUB.tbl1"))!.RecordBinaryView;
+            _table = (await _client.Tables.GetTableAsync("TBL1"))!.RecordBinaryView;
 
             var tuple = new IgniteTuple
             {
-                ["key"] = 1,
+                ["key"] = 1L,
                 ["val"] = "foo"
             };
 
@@ -52,7 +53,7 @@ namespace Apache.Ignite.Benchmarks.Table
 
             _keyTuple = new IgniteTuple
             {
-                ["key"] = 1
+                ["key"] = 1L
             };
         }
 

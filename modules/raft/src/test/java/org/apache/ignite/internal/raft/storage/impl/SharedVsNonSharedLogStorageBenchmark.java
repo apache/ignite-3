@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,6 +32,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -77,7 +80,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
                         System.err.println("Fatal error: write failures, expect " + batchSize + ", but was " + ret);
                         System.exit(1);
                     }
-                    entries.clear(); //reuse it
+                    entries.clear(); // Reuse it.
                 }
             });
         }).collect(toList());
@@ -188,8 +191,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
         System.out.println("Test log storage path: " + testPath);
 
         LogStorageFactory provider = new DefaultLogStorageFactory(benchmarkPath);
-
-        provider.start();
+        assertThat(provider.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         List<LogStorage> sharedStorages = grps.stream()
                 .map(grp -> {
@@ -207,7 +209,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
         new SharedVsNonSharedLogStorageBenchmark(sharedStorages, logSize, totalLogs, batchSize).doTest();
 
         sharedStorages.forEach(Lifecycle::shutdown);
-        provider.close();
+        assertThat(provider.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         deleteDirectory(benchmarkPath.toFile());
     }

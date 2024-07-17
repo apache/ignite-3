@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.serialization;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.network.serialization.Classes.hasWriteReplace;
 
 import java.io.Externalizable;
 import java.io.ObjectInputStream;
@@ -243,10 +244,6 @@ public class ClassDescriptorFactory {
         return getReadResolve(clazz) != null;
     }
 
-    private boolean hasWriteReplace(Class<? extends Serializable> clazz) {
-        return getWriteReplace(clazz) != null;
-    }
-
     private boolean hasReadObject(Class<? extends Serializable> clazz) {
         return getReadObject(clazz) != null;
     }
@@ -354,22 +351,6 @@ public class ClassDescriptorFactory {
                 })
                 .map(field -> FieldDescriptor.local(field, registry.getId(field.getType())))
                 .collect(toList());
-    }
-
-    /**
-     * Gets a method with the signature
-     * {@code ANY-ACCESS-MODIFIER Object writeReplace() throws ObjectStreamException}.
-     *
-     * @param clazz Class.
-     * @return Method.
-     */
-    @Nullable
-    private static Method getWriteReplace(Class<? extends Serializable> clazz) {
-        try {
-            return clazz.getDeclaredMethod("writeReplace");
-        } catch (NoSuchMethodException e) {
-            return null;
-        }
     }
 
     /**

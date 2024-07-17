@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -92,11 +92,11 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
     public static final RelMetadataProvider SOURCE =
             ReflectiveRelMetadataProvider.reflectiveSource(new IgniteMdCollation(), BuiltInMetadata.Collation.Handler.class);
 
-    //~ Constructors -----------------------------------------------------------
+    //--- Constructors -----------------------------------------------------------
     private IgniteMdCollation() {
     }
 
-    //~ Methods ----------------------------------------------------------------
+    //--- Methods ----------------------------------------------------------------
 
     /** {@inheritDoc} */
     @Override
@@ -256,7 +256,8 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
      * Helper method to determine a {@link org.apache.calcite.rel.core.TableScan}'s collation.
      */
     public static List<RelCollation> table(RelOptTable table) {
-        return table.getCollationList();
+        List<RelCollation> collationList = table.getCollationList();
+        return collationList != null ? collationList : ImmutableList.of();
     }
 
     /**

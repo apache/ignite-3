@@ -1,0 +1,98 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Installing Using Docker
+
+== Prerequisites
+
+Ignite was tested on:
+
+include::includes/prereqs.adoc[]
+
+== Building Docker Image
+
+Ignite 3 is not currently available on DockerHub. To use a Docker image, you need to build it locally:
+
+- Check out the Ignite 3 link:https://github.com/apache/ignite-3[repository].
+- Run the Gradle command to build a Docker image:
+----
+./gradlew docker
+----
+
+The build will result in a docker image you can use locally.
+
+== Running In-Memory Cluster
+
+Run Ignite in a docker container using the `docker run` command.
+
+[source,shell]
+----
+# Run the latest version
+sudo docker run -it --rm -p 10300:10300 apacheignite/ignite3
+----
+
+This command will launch a single Ignite node.
+
+To run multiple nodes, instead use a docker-compose file with cluster config file:
+
+[source,json]
+----
+{
+  network: {
+    port: 3344,
+    nodeFinder: {
+      netClusterNodes: [
+        "node1:3344",
+        "node2:3344",
+        "node3:3344"
+      ]
+    }
+  }
+}
+----
+
+----
+version: "3.9"
+
+name: ignite3
+
+x-ignite-def:
+  &ignite-def
+  image: apacheignite/ignite3:${IGNITE3_VERSION:-latest}
+  volumes:
+    - ./cluster.conf:/opt/ignite/etc/ignite-config.conf
+
+services:
+  node1:
+    << : *ignite-def
+    command: --node-name node1
+    ports:
+      - 10300:10300
+      - 3344:3344
+  node2:
+    << : *ignite-def
+    command: --node-name node2
+    ports:
+      - 10301:10300
+      - 3345:3344
+  node3:
+    << : *ignite-def
+    command: --node-name node3
+    ports:
+      - 10302:10300
+      - 3346:3344
+----
+
+
+

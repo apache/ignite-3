@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,10 +20,10 @@ package org.apache.ignite.internal.table;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -32,40 +32,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
- *
- * <p>TODO: IGNITE-14487 Add bulk operations tests.
- * TODO: IGNITE-14487 Add async operations tests.
  */
-public class KeyValueViewOperationsSimpleSchemaTest {
+public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTestBase {
     /**
      * Creates table view.
      *
@@ -209,7 +192,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertEquals(33L, tbl.getNullable(null, 1L).get()); // Previous operation applied.
 
         // Check null value
-        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, 1L, null));
+        assertNotNull(tbl.getAndPut(null, 1L, null));
     }
 
     @Test
@@ -446,7 +429,8 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         assertEquals(33L, tbl.get(null, 1L));
 
         // Check null value.
-        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, 1L, null));
+        assertEquals(33, tbl.getAndReplace(null, 1L, null));
+        assertNull(tbl.getNullable(null, 1L).get());
     }
 
     @Test
@@ -486,6 +470,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         Long key = 42L;
 
         List<NativeType> allTypes = List.of(
+                NativeTypes.BOOLEAN,
                 NativeTypes.INT8,
                 NativeTypes.INT16,
                 NativeTypes.INT32,
@@ -497,11 +482,12 @@ public class KeyValueViewOperationsSimpleSchemaTest {
                 NativeTypes.numberOf(20),
                 NativeTypes.decimalOf(25, 5),
                 NativeTypes.bitmaskOf(22),
-                NativeTypes.time(),
-                NativeTypes.datetime(),
-                NativeTypes.timestamp(),
+                NativeTypes.time(0),
+                NativeTypes.datetime(6),
+                NativeTypes.timestamp(6),
                 NativeTypes.BYTES,
-                NativeTypes.STRING);
+                NativeTypes.STRING
+        );
 
         // Validate all types are tested.
         assertEquals(Set.of(NativeTypeSpec.values()),
@@ -512,8 +498,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
             assertFalse(type.mismatch(NativeTypes.fromObject(val)));
 
-            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(NativeTypes.fromObject(val),
-                    (Class<Object>) val.getClass(), true);
+            KeyValueView<Long, Object> kvView = kvViewForValueType(type, (Class<Object>) val.getClass(), true);
 
             kvView.put(null, key, val);
 
@@ -665,10 +650,10 @@ public class KeyValueViewOperationsSimpleSchemaTest {
     @SuppressWarnings("ConstantConditions")
     @Test
     public void nonNullableValueColumn() {
-        KeyValueViewImpl<Long, Long> tbl = kvViewForValueType(NativeTypes.INT64, Long.class, false);
+        KeyValueView<Long, Long> tbl = kvViewForValueType(NativeTypes.INT64, Long.class, false);
 
-        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, 1L, null));
-        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, 1L, null));
+        assertThrows(MarshallerException.class, () -> tbl.getAndPut(null, 1L, null));
+        assertThrows(MarshallerException.class, () -> tbl.getAndReplace(null, 1L, null));
         assertThrows(MarshallerException.class, () -> tbl.getNullableAndReplace(null, 1L, null));
         assertThrows(MarshallerException.class, () -> tbl.getNullableAndPut(null, 1L, null));
 
@@ -689,49 +674,18 @@ public class KeyValueViewOperationsSimpleSchemaTest {
      * @param valueClass Value class.
      * @param nullable Nullability flag for the value type.
      */
-    private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass, boolean nullable) {
+    private <T> KeyValueView<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass, boolean nullable) {
         Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
         Mapper<T> valMapper = Mapper.of(valueClass, "val");
 
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{new Column("VAL", type, nullable)}
         );
 
-        TableImpl table = createTable(schema);
+        TableViewInternal table = createTable(schema);
 
-        return new KeyValueViewImpl<>(
-                table.internalTable(),
-                new DummySchemaManagerImpl(schema),
-                keyMapper,
-                valMapper
-        );
-    }
-
-    @NotNull
-    private TableImpl createTable(SchemaDescriptor schema) {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address())
-                .thenReturn(DummyInternalTableImpl.ADDR);
-
-        LockManager lockManager = new HeapLockManager();
-
-        TxManager txManager = new TxManagerImpl(clusterService, lockManager);
-
-        AtomicLong raftIndex = new AtomicLong();
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager),
-                txManager,
-                raftIndex
-        );
-
-        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
-
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
-        return new TableImpl(table, new DummySchemaManagerImpl(schema));
+        return table.keyValueView(keyMapper, valMapper);
     }
 }

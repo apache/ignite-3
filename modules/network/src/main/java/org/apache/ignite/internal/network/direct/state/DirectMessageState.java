@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.direct.state;
 
 import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.function.Supplier;
 
 /**
@@ -66,11 +67,7 @@ public class DirectMessageState<T extends DirectMessageStateItem> {
         pos++;
 
         if (pos == stack.length) {
-            T[] stack0 = stack;
-
-            stack = (T[]) Array.newInstance(stack.getClass().getComponentType(), stack.length << 1);
-
-            System.arraycopy(stack0, 0, stack, 0, stack0.length);
+            stack = Arrays.copyOf(stack, stack.length << 1);
         }
 
         if (stack[pos] == null) {

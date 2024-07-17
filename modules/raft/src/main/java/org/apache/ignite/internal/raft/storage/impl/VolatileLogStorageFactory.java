@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,26 +17,44 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
-import org.apache.ignite.configuration.schemas.table.LogStorageBudgetView;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
+import org.apache.ignite.raft.jraft.storage.impl.OnHeapLogs;
+import org.apache.ignite.raft.jraft.storage.impl.RocksDbSpillout;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileLogStorage;
+import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.RocksDB;
 
 /**
  * Log storage factory based on {@link VolatileLogStorage}.
  */
 public class VolatileLogStorageFactory implements LogStorageFactory {
     private final LogStorageBudgetView logStorageBudgetConfig;
+
+    /** Shared db instance. */
+    private final RocksDB db;
+
+    /** Shared data column family handle. */
+    private final ColumnFamilyHandle columnFamily;
+
+    /** Executor for spill-out RocksDB tasks. */
+    private final Executor executor;
 
     private final Map<String, LogStorageBudgetFactory> budgetFactories;
 
@@ -45,8 +63,16 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
      *
      * @param logStorageBudgetConfig Budget config.
      */
-    public VolatileLogStorageFactory(LogStorageBudgetView logStorageBudgetConfig) {
+    public VolatileLogStorageFactory(
+            LogStorageBudgetView logStorageBudgetConfig,
+            RocksDB db,
+            ColumnFamilyHandle columnFamily,
+            Executor executor
+    ) {
         this.logStorageBudgetConfig = logStorageBudgetConfig;
+        this.db = db;
+        this.columnFamily = columnFamily;
+        this.executor = executor;
 
         Map<String, LogStorageBudgetFactory> factories = new HashMap<>();
 
@@ -75,15 +101,21 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
     @Override
-    public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
-        return new VolatileLogStorage(createLogStorageBudget());
+    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
+        RocksDbSpillout spiltOnDisk = new RocksDbSpillout(db, columnFamily, groupId, executor);
+        return new VolatileLogStorage(createLogStorageBudget(), new OnHeapLogs(), spiltOnDisk);
     }
 
     private LogStorageBudget createLogStorageBudget() {
@@ -101,8 +133,8 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         return factory.create(logStorageBudgetConfig);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void sync() {
+        // No-op.
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.tree;
 
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
@@ -31,11 +32,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
@@ -44,9 +48,8 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,8 +69,8 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
 
     private static final int GROUP_ID = 100500;
 
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = { VolatilePageMemoryProfileConfigurationSchema.class }, value = "mock.engine = aimem")
+    private StorageProfileConfiguration dataRegionCfg;
 
     @Nullable
     protected PageMemory pageMem;
@@ -87,21 +90,25 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     }
 
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c -> c.changeInitSize(1024 * MiB).changeMaxSize(1024 * MiB)).get(1, TimeUnit.SECONDS);
+        dataRegionCfg
+                .change(c -> ((VolatilePageMemoryProfileChange) c)
+                        .changeInitSize(1024 * MiB)
+                        .changeMaxSize(1024 * MiB))
+                .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new VolatilePageMemory(
-                dataRegionCfg,
+                (VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
                 ioRegistry,
                 512
         );
     }
 
     private FullPageId allocateMetaPage() throws IgniteInternalCheckedException {
-        return new FullPageId(pageMem.allocatePage(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+        return new FullPageId(pageMem.allocatePageNoReuse(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
     }
 
     /**

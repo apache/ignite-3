@@ -15,12 +15,37 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
+namespace Apache.Ignite.Internal.Table;
+
+using Ignite.Sql;
+
+/// <summary>
+/// Schema column.
+/// </summary>
+internal record Column(
+    string Name,
+    ColumnType Type,
+    bool IsNullable,
+    int KeyIndex,
+    int ColocationIndex,
+    int SchemaIndex,
+    int Scale,
+    int Precision)
 {
-    using Proto;
+    /// <summary>
+    /// Gets a value indicating whether this column is a part of the key.
+    /// </summary>
+    public bool IsKey => KeyIndex >= 0;
 
     /// <summary>
-    /// Schema column.
+    /// Gets a value indicating whether this column is a part of the colocation key.
     /// </summary>
-    internal record Column(string Name, ClientDataType Type, bool Nullable, bool IsKey, int SchemaIndex);
+    public bool IsColocation => ColocationIndex >= 0;
+
+    /// <summary>
+    /// Gets the column index within a binary tuple.
+    /// </summary>
+    /// <param name="keyOnly">Whether a key-only binary tuple is used.</param>
+    /// <returns>Index within a binary tuple.</returns>
+    public int GetBinaryTupleIndex(bool keyOnly) => keyOnly ? KeyIndex : SchemaIndex;
 }

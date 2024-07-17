@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,25 +19,29 @@ package org.apache.ignite.internal.configuration.tree;
 
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.direct.DirectPropertiesTest;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,13 +58,13 @@ public class InternalIdTest {
     }
 
     /** Internal extension for the parent configuration. */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class InternalIdInternalConfigurationSchema extends InternalIdParentConfigurationSchema {
         @InternalId
         public UUID id;
     }
 
-    /** Schema for the polumorphic configuration. */
+    /** Schema for the polymorphic configuration. */
     @PolymorphicConfig
     public static class InternalIdPolymorphicConfigurationSchema {
         @PolymorphicId
@@ -70,29 +74,38 @@ public class InternalIdTest {
         public UUID id;
     }
 
-    /** Single polymorhic extension. */
+    /** Single polymorphic extension. */
     @PolymorphicConfigInstance("foo")
     public static class InternalIdFooConfigurationSchema extends InternalIdPolymorphicConfigurationSchema {
     }
 
-    private final ConfigurationRegistry registry = new ConfigurationRegistry(
-            List.of(InternalIdParentConfiguration.KEY),
-            Map.of(),
-            new TestConfigurationStorage(LOCAL),
-            List.of(InternalIdInternalConfigurationSchema.class),
-            List.of(InternalIdFooConfigurationSchema.class)
-    );
+    private ConfigurationRegistry registry;
+
+    private ConfigurationTreeGenerator generator;
 
     @BeforeEach
     void setUp() {
-        registry.start();
+        generator = new ConfigurationTreeGenerator(
+                List.of(InternalIdParentConfiguration.KEY),
+                List.of(InternalIdInternalConfigurationSchema.class),
+                List.of(InternalIdFooConfigurationSchema.class)
+        );
 
-        registry.initializeDefaults();
+        registry = new ConfigurationRegistry(
+                List.of(InternalIdParentConfiguration.KEY),
+                new TestConfigurationStorage(LOCAL),
+                generator,
+                new TestConfigurationValidator()
+        );
+
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        registry.stop();
+    void tearDown() {
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        generator.close();
     }
 
     /**
@@ -104,8 +117,10 @@ public class InternalIdTest {
 
         UUID internalId = UUID.randomUUID();
 
+        assertThat(cfg.change(change -> ((InnerNode) change).internalId(internalId)), willCompleteSuccessfully());
+
         // Put it there manually, this simplifies the test.
-        ((InnerNode) cfg.value()).internalId(internalId);
+        IgniteTestUtils.setFieldValue(cfg.value(), InnerNode.class, "internalId", internalId);
 
         // Getting it from the explicit configuration cast should work.
         assertThat(((InternalIdInternalConfiguration) cfg).id().value(), is(equalTo(internalId)));
@@ -115,7 +130,7 @@ public class InternalIdTest {
     }
 
     /**
-     * Tests that internal id, decared in polymorphic configuration, works properly.
+     * Tests that internal id, declared in polymorphic configuration, works properly.
      */
     @Test
     public void testPolymorphicExtension() throws Exception {

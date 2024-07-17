@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,16 @@
 
 package org.apache.ignite.internal.pagememory;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.itemId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.toDetailString;
+
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class responsible for allocating/freeing page IDs.
@@ -40,13 +49,91 @@ public interface PageIdAllocator {
     int MAX_PARTITION_ID = 65500;
 
     /**
-     * Allocates a page from the space for the given partition ID and the given flags.
+     * Allocates a page from the space for the given partition ID and the given flags. Does not reuse pages.
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
      * @return Allocated page ID.
      */
-    long allocatePage(int groupId, int partitionId, byte flags) throws IgniteInternalCheckedException;
+    long allocatePageNoReuse(int groupId, int partitionId, byte flags) throws IgniteInternalCheckedException;
+
+    /**
+     * Allocates a page from the space for the given partition ID and the given flags. If reuse list is provided, tries to reuse page.
+     *
+     * @param reuseList Reuse list to reuse pages from.
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     * @return Allocated page ID.
+     */
+    default long allocatePage(@Nullable ReuseList reuseList, int groupId, int partitionId, byte flags)
+            throws IgniteInternalCheckedException {
+        return allocatePage(reuseList, null, true, groupId, partitionId, flags);
+    }
+
+    /**
+     * Allocates a page from the space for the given partition ID and the given flags.
+     *
+     * @param reuseList Reuse list to reuse pages from.
+     * @param bag Reuse Bag.
+     * @param useRecycled Use recycled page.
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     * @return Allocated page ID.
+     */
+    default long allocatePage(
+            @Nullable ReuseList reuseList,
+            @Nullable ReuseBag bag,
+            boolean useRecycled,
+            int groupId,
+            int partitionId,
+            byte flags
+    ) throws IgniteInternalCheckedException {
+        long pageId = 0;
+
+        if (useRecycled && reuseList != null) {
+            pageId = bag != null ? bag.pollFreePage() : 0;
+
+            if (pageId == 0) {
+                pageId = reuseList.takeRecycledPage();
+            }
+
+            // Recycled. "pollFreePage" result should be reinitialized to move rotatedId to itemId.
+            if (pageId != 0) {
+                // Replace the partition ID, because the reused page might have come from a different data structure if the reuse
+                // list is shared between them.
+                pageId = replacePartitionId(pageId, partitionId);
+
+                pageId = reuseList.initRecycledPage(pageId, flags, null);
+            }
+        }
+
+        if (pageId == 0) {
+            pageId = allocatePageNoReuse(groupId, partitionId, flags);
+        }
+
+        assert pageId != 0;
+
+        assert partitionId(pageId) >= 0 && partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
+
+        assert flag(pageId) != FLAG_DATA || itemId(pageId) == 0 : toDetailString(pageId);
+
+        return pageId;
+    }
+
+    /**
+     * Replaces the "partition ID" part of the given page ID with given partition ID.
+     *
+     * @param pageId Original page ID.
+     * @param partId Partition id to replace with.
+     * @return Page ID with replaced partition ID.
+     */
+    private static long replacePartitionId(long pageId, int partId) {
+        long partitionIdZeroMask = ~(PageIdUtils.PART_ID_MASK << PageIdUtils.PAGE_IDX_SIZE);
+
+        long partitionIdMask = ((long) partId) << PageIdUtils.PAGE_IDX_SIZE;
+
+        return pageId & partitionIdZeroMask | partitionIdMask;
+    }
 
     /**
      * Frees the given page.

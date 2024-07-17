@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,10 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -33,11 +37,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.AbstractClusterIntegrationTest;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.Test;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -50,11 +58,12 @@ import org.rocksdb.Slice;
  * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile
  * storages for storing RAFT meta and RAFT log, while they are persistent for persistent storages.
  */
-class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
+@WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
+class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -68,7 +77,11 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE aimem");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " WITH STORAGE_PROFILES = '" + DEFAULT_AIMEM_PROFILE_NAME + "'");
+
+        executeSql("CREATE TABLE " + TABLE_NAME
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH STORAGE_PROFILE='"
+                + DEFAULT_AIMEM_PROFILE_NAME + "', PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
     }
 
     /**
@@ -78,7 +91,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
      * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
      */
     private List<Path> partitionRaftMetaPaths(IgniteImpl ignite) {
-        try (Stream<Path> paths = Files.list(WORK_DIR.resolve(ignite.name()))) {
+        try (Stream<Path> paths = Files.list(workDir.resolve(ignite.name()))) {
             return paths
                     .filter(path -> isPartitionDir(path, ignite))
                     .map(path -> path.resolve("meta"))
@@ -96,9 +109,9 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
         return testTableId(ignite) + "_part_";
     }
 
-    private UUID testTableId(IgniteImpl ignite) {
-        TableManager tables = (TableManager) ignite.tables();
-        return tables.tableImpl("PUBLIC." + TABLE_NAME).tableId();
+    private int testTableId(IgniteImpl ignite) {
+        TableManager tables = unwrapTableManager(ignite.tables());
+        return tables.tableView(TABLE_NAME).tableId();
     }
 
     @Test
@@ -109,9 +122,9 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
         String nodeName = ignite.name();
         String tablePartitionPrefix = testTablePartitionPrefix(ignite);
 
-        node(0).close();
+        stopNode(0);
 
-        Path logRocksDbDir = WORK_DIR.resolve(nodeName).resolve("log");
+        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -152,7 +165,13 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     }
 
     private void createPersistentTable() {
-        executeSql("CREATE TABLE " + TABLE_NAME + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ENGINE rocksdb");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME
+                + " WITH STORAGE_PROFILES = '" + DEFAULT_ROCKSDB_PROFILE_NAME + "'");
+
+        executeSql("CREATE TABLE " + TABLE_NAME
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) "
+                + "WITH STORAGE_PROFILE='" + DEFAULT_ROCKSDB_PROFILE_NAME + "',"
+                + "PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
     }
 
     @Test
@@ -163,9 +182,9 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
         String nodeName = ignite.name();
         String tablePartitionPrefix = testTablePartitionPrefix(ignite);
 
-        node(0).close();
+        stopNode(0);
 
-        Path logRocksDbDir = WORK_DIR.resolve(nodeName).resolve("log");
+        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -205,5 +224,34 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
         List<List<Object>> tuples = executeSql("SELECT k, v FROM " + TABLE_NAME);
 
         assertThat(tuples, equalTo(List.of(List.of(1, 101))));
+    }
+
+    @Test
+    void logSpillsOutToDisk() {
+        createTableWithMaxOneInMemoryEntryAllowed("PERSON");
+
+        executeSql("INSERT INTO PERSON(ID, NAME) VALUES (1, 'JOHN')");
+        executeSql("INSERT INTO PERSON(ID, NAME) VALUES (2, 'JANE')");
+    }
+
+    @SuppressWarnings("resource")
+    private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
+        CompletableFuture<Void> configUpdateFuture = node(0).nodeConfiguration().getConfiguration(RaftConfiguration.KEY).change(cfg -> {
+            cfg.changeVolatileRaft(change -> {
+                change.changeLogStorage(budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1));
+            });
+        });
+        assertThat(configUpdateFuture, willCompleteSuccessfully());
+
+        cluster.doInSession(0, session -> {
+            session.execute(
+                    null,
+                    "create zone zone1 with partitions=1, replicas=1, "
+                            + "storage_profiles = '" + DEFAULT_AIMEM_PROFILE_NAME + "'"
+            );
+            session.execute(null, "create table " + tableName
+                    + " (id int primary key, name varchar) with storage_profile='"
+                    + DEFAULT_AIMEM_PROFILE_NAME + "', primary_zone='ZONE1'");
+        });
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,9 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.apache.ignite.Ignite;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +57,7 @@ public class ConfigurationTest extends AbstractClientTest {
 
         assertThat(
                 ex.getMessage(),
-                containsString("Failed to parse Ignite server address (port range contains invalid port 70000): 127.0.0.1:70000"));
+                containsString("Failed to parse Ignite server address (invalid port 70000): 127.0.0.1:70000"));
     }
 
     @Test
@@ -146,7 +148,7 @@ public class ConfigurationTest extends AbstractClientTest {
                 .addresses("127.0.0.1:" + serverPort)
                 .asyncContinuationExecutor(Runnable::run);
 
-        try (Ignite ignite = builder.build()) {
+        try (IgniteClient ignite = builder.build()) {
             String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
 
             // Current thread is used when future completes quickly.
@@ -156,19 +158,28 @@ public class ConfigurationTest extends AbstractClientTest {
 
     @Test
     public void testCustomAsyncContinuationExecutor() throws Exception {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Function<Integer, Integer> responseDelay = x -> 50;
 
-        IgniteClient.Builder builder = IgniteClient.builder()
-                .addresses("127.0.0.1:" + serverPort)
-                .asyncContinuationExecutor(executor);
+        try (var testServer = new TestServer(0, server, x -> false, responseDelay, "n2", clusterId, null, null)) {
+            ExecutorService executor = Executors.newSingleThreadExecutor();
 
-        try (IgniteClient ignite = builder.build()) {
-            String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+            var builderThreadName = new AtomicReference<String>();
 
-            assertEquals(executor, ignite.configuration().asyncContinuationExecutor());
-            assertThat(threadName, startsWith("pool-"));
+            CompletableFuture<IgniteClient> builder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + testServer.port())
+                    .asyncContinuationExecutor(executor)
+                    .buildAsync()
+                    .whenComplete((res, err) -> builderThreadName.set(Thread.currentThread().getName()));
+
+            try (IgniteClient ignite = builder.join()) {
+                String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
+
+                assertEquals(executor, ignite.configuration().asyncContinuationExecutor());
+                assertThat(threadName, startsWith("pool-"));
+                assertThat(builderThreadName.get(), startsWith("pool-"));
+            }
+
+            executor.shutdown();
         }
-
-        executor.shutdown();
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,6 +16,8 @@
  */
 
 package org.apache.ignite.internal.sql.engine.trait;
+
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
 import org.apache.calcite.plan.RelTraitDef;
@@ -63,66 +65,62 @@ public class IgniteDistributions {
     }
 
     /**
-     * Affinity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
      *
-     * @param key       Affinity key.
-     * @param cacheName Affinity cache name.
-     * @param identity  Affinity identity key.
+     * @param key     Affinity key ordinal.
+     * @param tableId Table ID.
+     * @param zoneId  Distribution zone ID.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(int key, String cacheName, Object identity) {
-        // TODO: fix cacheId
-        return affinity(key, 0, identity);
+    public static IgniteDistribution affinity(int key, int tableId, Object zoneId) {
+        return hash(ImmutableIntList.of(key), DistributionFunction.affinity(tableId, zoneId));
     }
 
     /**
-     * Affinity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
      *
-     * @param key      Affinity key.
-     * @param cacheId  Affinity cache ID.
-     * @param identity Affinity identity key.
+     * @param keys Affinity keys ordinals. Should not be null or empty.
+     * @param tableId Table ID.
+     * @param zoneId  Distribution zone ID.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(int key, int cacheId, Object identity) {
-        return hash(ImmutableIntList.of(key), DistributionFunction.affinity(cacheId, identity));
+    public static IgniteDistribution affinity(List<Integer> keys, int tableId, Object zoneId) {
+        return hash(keys, DistributionFunction.affinity(tableId, zoneId));
     }
 
     /**
-     * Affinity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates a hash distribution that calculates destinations based on a composite hash of key field values of the row.
      *
-     * @param keys     Affinity keys.
-     * @param cacheId  Affinity cache ID.
-     * @param identity Affinity identity key.
-     * @return Affinity distribution.
-     */
-    public static IgniteDistribution affinity(ImmutableIntList keys, int cacheId, Object identity) {
-        return hash(keys, DistributionFunction.affinity(cacheId, identity));
-    }
-
-    /**
-     * Hash.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param keys Distribution keys.
+     * @param keys Distribution keys ordinals. Should not be null or empty.
      * @return Hash distribution.
      */
     public static IgniteDistribution hash(List<Integer> keys) {
-        return canonize(new DistributionTrait(ImmutableIntList.copyOf(keys), DistributionFunction.hash()));
+        return hash(keys, DistributionFunction.hash());
     }
 
     /**
-     * Hash.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates a hash distribution that calculates destinations based on a composite hash of key field values of the row.
      *
-     * @param keys     Distribution keys.
+     * @param keys Distribution keys ordinals. Should not be null or empty.
      * @param function Specific hash function.
      * @return Hash distribution.
      */
-    public static IgniteDistribution hash(ImmutableIntList keys, DistributionFunction function) {
-        return canonize(new DistributionTrait(keys, function));
+    public static IgniteDistribution hash(List<Integer> keys, DistributionFunction function) {
+        assert !nullOrEmpty(keys) : "Hash-based distribution must have at least one key";
+
+        return canonize(new DistributionTrait(ImmutableIntList.copyOf(keys), function));
+    }
+
+    /**
+     * Creates an identity distribution that calculates destinations based on a raw value of the row field.
+     *
+     * @param key Distribution key ordinal.
+     * @return Identity distribution.
+     */
+    public static IgniteDistribution identity(int key) {
+        return canonize(new DistributionTrait(List.of(key), DistributionFunction.identity()));
     }
 
     /**

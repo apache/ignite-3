@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.marshaller.asm;
 
+import static org.apache.ignite.internal.marshaller.ValidationUtils.validateColumnType;
+
 import com.facebook.presto.bytecode.Access;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
@@ -25,22 +27,20 @@ import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
+import org.apache.ignite.internal.marshaller.BinaryMode;
+import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.table.mapper.PojoMapper;
 
 /**
  * Generates marshaller methods code.
@@ -50,31 +50,57 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     private final Class<?> targetClass;
 
     /** Mapped columns. */
-    private final Columns columns;
+    private final MarshallerColumn[] columns;
 
     /** Object field access expression generators. */
     private final ColumnAccessCodeGenerator[] columnAccessors;
 
     ObjectMarshallerCodeGenerator(
-            Columns columns,
-            Class<?> targetClass,
+            MarshallerColumn[] marshallerColumns,
+            PojoMapper<?> mapper,
             int firstColIdx
     ) {
-        this.columns = columns;
-        this.targetClass = targetClass;
-        columnAccessors = new ColumnAccessCodeGenerator[columns.length()];
+        this.columns = marshallerColumns;
+        this.targetClass = mapper.targetType();
+        columnAccessors = new ColumnAccessCodeGenerator[columns.length];
 
-        Map<String, Field> flds = Arrays.stream(targetClass.getDeclaredFields())
-                .collect(Collectors.toMap(f -> f.getName().toUpperCase(), Function.identity()));
+        Map<String, Field> flds = new HashMap<>();
+        for (String fldName : mapper.fields()) {
+            try {
+                Field field = mapper.targetType().getDeclaredField(fldName);
+                flds.put(fldName.toUpperCase(), field);
+            } catch (NoSuchFieldException e) {
+                throw new IllegalArgumentException(
+                        "Field " + fldName + " is returned from mapper of type " + mapper.getClass().getName()
+                                + ", but is not present in target class " + mapper.targetType().getName(), e);
+            }
+        }
 
-        for (int i = 0; i < columns.length(); i++) {
-            final Field field = flds.get(columns.column(i).name());
-
-            if (field == null) {
-                throw new IgniteInternalException("Field not found for column [col=" + columns.column(i) + ']');
+        if (flds.size() > columns.length) {
+            for (MarshallerColumn col : columns) {
+                flds.remove(col.name());
             }
 
-            columnAccessors[i] = ColumnAccessCodeGenerator.createAccessor(MarshallerUtil.mode(field.getType()), field.getName(),
+            var fldNames = flds.values().stream().map(Field::getName).sorted().collect(Collectors.toList());
+
+            throw new IllegalArgumentException(
+                    "Fields " + fldNames + " of type " + targetClass.getName() + " are not mapped to columns");
+        }
+
+        for (int i = 0; i < columns.length; i++) {
+            MarshallerColumn column = columns[i];
+
+            Field field = flds.get(column.name());
+
+            if (field == null) {
+                throw new IllegalArgumentException("No field found for column " + column.name());
+            }
+
+            validateColumnType(column, field.getType());
+
+            columnAccessors[i] = ColumnAccessCodeGenerator.createAccessor(
+                    BinaryMode.forClass(field.getType()),
+                    field.getName(),
                     i + firstColIdx);
         }
     }
@@ -85,9 +111,10 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
             int i) {
         final ColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
 
+        // We need to skip casting to the mapped type in order to check for null even for primitive types
         return BytecodeExpressions.getStatic(marshallerClass, "FIELD_HANDLER_" + columnAccessor.columnIdx(),
-                ParameterizedType.type(VarHandle.class))
-                       .invoke("get", columnAccessor.mappedType(), obj);
+                        ParameterizedType.type(VarHandle.class))
+                .invoke("get", Object.class, obj);
     }
 
     /** {@inheritDoc} */
@@ -95,7 +122,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
     public BytecodeBlock marshallObject(ParameterizedType marshallerClass, Variable asm, Variable obj) {
         final BytecodeBlock block = new BytecodeBlock();
 
-        for (int i = 0; i < columns.length(); i++) {
+        for (int i = 0; i < columns.length; i++) {
             final ColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
 
             final BytecodeExpression fld = BytecodeExpressions.getStatic(
@@ -105,21 +132,11 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                     )
                     .invoke("get", columnAccessor.mappedType(), obj);
 
-            final BytecodeExpression marshallNonNulExpr = asm.invoke(
+            block.append(asm.invoke(
                     columnAccessor.writeMethodName(),
                     RowAssembler.class,
-                    Collections.singletonList(columnAccessor.writeArgType()),
-                    fld.cast(columnAccessor.writeArgType()));
-
-            if (columns.column(i).nullable()) {
-                block.append(new BytecodeBlock().append(
-                        new IfStatement().condition(BytecodeExpressions.isNull(fld))
-                                .ifTrue(asm.invoke("appendNull", RowAssembler.class))
-                                .ifFalse(marshallNonNulExpr))
-                );
-            } else {
-                block.append(marshallNonNulExpr);
-            }
+                    Collections.singletonList(columnAccessor.mappedType()),
+                    fld.cast(columnAccessor.mappedType())));
         }
 
         return block;
@@ -132,7 +149,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
         block.append(objVar.set(objFactory.invoke("create", Object.class)));
 
-        for (int i = 0; i < columns.length(); i++) {
+        for (int i = 0; i < columns.length; i++) {
             final ColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
 
             final BytecodeExpression val = row.invoke(
@@ -142,8 +159,8 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
             );
 
             block.append(BytecodeExpressions.getStatic(marshallerClass, "FIELD_HANDLER_" + columnAccessor.columnIdx(),
-                    ParameterizedType.type(VarHandle.class))
-                                 .invoke("set", void.class, objVar, val)
+                            ParameterizedType.type(VarHandle.class))
+                    .invoke("set", void.class, objVar, val)
             );
         }
 
@@ -152,13 +169,13 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
     /** {@inheritDoc} */
     @Override
-    public void initStaticHandlers(ClassDefinition classDef, FieldDefinition targetClassField) {
+    public void initStaticHandlers(ClassDefinition classDef) {
         final MethodDefinition init = classDef.getClassInitializer();
         final Variable lookup = init.getScope().createTempVariable(MethodHandles.Lookup.class);
+        Variable targetClassVar = init.getScope().createTempVariable(Class.class);
 
         final BytecodeBlock body = init.getBody().append(
-                BytecodeExpressions.setStatic(
-                        targetClassField,
+                targetClassVar.set(
                         BytecodeExpressions.invokeStatic(Class.class, "forName", Class.class,
                                 BytecodeExpressions.constantString(targetClass.getName()))
                 ));
@@ -169,7 +186,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                                 MethodHandles.class,
                                 "privateLookupIn",
                                 MethodHandles.Lookup.class,
-                                BytecodeExpressions.getStatic(targetClassField),
+                                targetClassVar,
                                 BytecodeExpressions.invokeStatic(MethodHandles.class, "lookup", MethodHandles.Lookup.class))
                 ));
 
@@ -181,7 +198,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                     BytecodeExpressions.setStatic(fld, lookup.invoke(
                             "findVarHandle",
                             VarHandle.class,
-                            BytecodeExpressions.getStatic(targetClassField),
+                            targetClassVar,
                             BytecodeExpressions.constantString(columnAccessors[i].fieldName()),
                             BytecodeExpressions.constantClass(columnAccessors[i].mappedType())
                     ))

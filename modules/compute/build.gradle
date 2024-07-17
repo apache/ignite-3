@@ -1,0 +1,64 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: 'jobs.gradle'
+
+dependencies {
+    implementation project(':ignite-api')
+    implementation project(':ignite-network')
+    implementation project(':ignite-table')
+    implementation project(':ignite-configuration-api')
+    implementation project(':ignite-core')
+    implementation project(':ignite-code-deployment')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-placement-driver-api')
+    implementation libs.jetbrains.annotations
+    implementation libs.fastutil.core
+    implementation libs.auto.service.annotations
+
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor libs.auto.service
+
+    testImplementation project(':ignite-core')
+    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation libs.hamcrest.core
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
+    testImplementation libs.awaitility
+
+    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-code-deployment')
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+}
+
+description = 'ignite-compute'

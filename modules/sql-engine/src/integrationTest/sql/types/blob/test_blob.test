@@ -1,0 +1,127 @@
+# name: test/sql/types/blob/test_blob.test
+# description: BLOB tests
+# feature: T021(BINARY and VARBINARY data types)
+# group: [blob]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE blobs (b varbinary);
+
+# Insert valid hex strings
+statement ok
+INSERT INTO blobs VALUES(x'aaffaa'), (x'AAFFAAAAFFAA'), (x'AAFFAAAAFFAAAAFFAA')
+
+query T rowsort
+SELECT * FROM blobs
+----
+aaffaa
+aaffaaaaffaa
+aaffaaaaffaaaaffaa
+
+# Insert valid hex strings, lower case
+statement ok
+DELETE FROM blobs
+
+statement ok
+INSERT INTO blobs VALUES(x'aaffaa'), (x'aaffaaaaffaa'), (x'aaffaaaaffaaaaffaa')
+
+query T rowsort
+SELECT * FROM blobs
+----
+aaffaa
+aaffaaaaffaa
+aaffaaaaffaaaaffaa
+
+# Insert valid hex strings with number and letters
+statement ok
+DELETE FROM blobs
+
+statement ok
+INSERT INTO blobs VALUES(x'aa1199'), (x'aa1199aa1199'), (x'aa1199aa1199aa1199')
+
+query T rowsort
+SELECT * FROM blobs
+----
+aa1199
+aa1199aa1199
+aa1199aa1199aa1199
+
+# Insert invalid hex strings (invalid hex chars: G, H, I)
+statement error
+INSERT INTO blobs VALUES(x'GAFFAA')
+
+# Insert invalid hex strings (odd # of chars)
+statement error
+INSERT INTO blobs VALUES(x'A')
+
+statement error
+INSERT INTO blobs VALUES(x'AAA')
+
+statement ok
+DELETE FROM blobs
+
+# Implicit cast
+statement error
+INSERT INTO blobs VALUES('blablabla')
+
+# BINARY null and empty values
+statement error
+query T
+SELECT ''::VARBINARY
+
+query T
+SELECT NULL::VARBINARY
+----
+NULL
+
+statement error: Length for column 'C1' of type 'BYTE_ARRAY' must be at least 1
+CREATE TABLE t_invalid_length(c1 BINARY(0));
+
+statement error: Length for column 'C1' of type 'BYTE_ARRAY' must be at least 1
+CREATE TABLE t_invalid_length(c1 VARBINARY(0));
+
+statement error: Length for type BINARY must be at least 1
+SELECT CAST(x'0101' AS BINARY(0))
+
+statement error: Length for type VARBINARY must be at least 1
+SELECT CAST(x'0101' AS VARBINARY(0))
+
+statement ok
+CREATE TABLE all_blobs (c1 binary, c2 binary(10), c3 varbinary, c4 varbinary(10), c5 binary varying, c6 binary varying(10));
+
+statement ok
+INSERT INTO all_blobs VALUES (x'cc', x'ccaaffee', x'ccaaffee', x'ccaaffee', x'ccaaffee', x'ccaaffee');
+
+query TTTTTT
+SELECT * FROM all_blobs;
+----
+cc	ccaaffee	ccaaffee	ccaaffee	ccaaffee	ccaaffee
+
+statement ok
+DELETE FROM all_blobs
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22316
+# check standard section: <binary value expression> ::= <binary concatenation> | <binary factor>
+query T
+SELECT x'12' || '10';
+----
+42
+
+query T
+select X'' || X'12'
+----
+12
+
+query T
+select X'11' || X'22';
+----
+1122
+
+query T
+select CAST(x'Aa' AS BINARY VARYING(1000));
+----
+aa
+

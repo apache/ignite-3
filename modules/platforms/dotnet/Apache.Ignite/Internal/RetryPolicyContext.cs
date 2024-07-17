@@ -15,44 +15,19 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal
-{
-    using System;
+namespace Apache.Ignite.Internal;
 
-    /// <summary>
-    /// Retry policy context.
-    /// </summary>
-    internal class RetryPolicyContext : IRetryPolicyContext
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="RetryPolicyContext"/> class.
-        /// </summary>
-        /// <param name="configuration">Configuration.</param>
-        /// <param name="operation">Operation.</param>
-        /// <param name="iteration">Iteration.</param>
-        /// <param name="exception">Exception.</param>
-        public RetryPolicyContext(
-            IgniteClientConfiguration configuration,
-            ClientOperationType operation,
-            int iteration,
-            Exception exception)
-        {
-            Configuration = configuration;
-            Operation = operation;
-            Iteration = iteration;
-            Exception = exception;
-        }
+using System;
 
-        /// <inheritdoc/>
-        public IgniteClientConfiguration Configuration { get; }
-
-        /// <inheritdoc/>
-        public ClientOperationType Operation { get; }
-
-        /// <inheritdoc/>
-        public int Iteration { get; }
-
-        /// <inheritdoc/>
-        public Exception Exception { get; }
-    }
-}
+/// <summary>
+/// Retry policy context.
+/// </summary>
+/// <param name="Configuration">Client configuration.</param>
+/// <param name="Operation">Operation.</param>
+/// <param name="Iteration">Current iteration.</param>
+/// <param name="Exception">Exception that caused current retry iteration.</param>
+internal sealed record RetryPolicyContext(
+    IgniteClientConfiguration Configuration,
+    ClientOperationType Operation,
+    int Iteration,
+    Exception Exception) : IRetryPolicyContext;

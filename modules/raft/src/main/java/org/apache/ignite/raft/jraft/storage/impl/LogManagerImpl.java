@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,12 +36,14 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
-import org.apache.ignite.raft.jraft.disruptor.GroupAware;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
+import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.LogEntryCorruptedException;
@@ -64,12 +66,10 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * LogManager implementation.
  */
 public class LogManagerImpl implements LogManager {
-    private static final int APPEND_LOG_RETRY_TIMES = 50;
-
     private static final IgniteLogger LOG = Loggers.forClass(LogManagerImpl.class);
 
-    /** Raft group id. */
-    String groupId;
+    /** Raft node id. */
+    private NodeId nodeId;
 
     private LogStorage logStorage;
     private ConfigurationManager configManager;
@@ -78,7 +78,7 @@ public class LogManagerImpl implements LogManager {
     private final Lock writeLock = this.lock.writeLock();
     private final Lock readLock = this.lock.readLock();
     private volatile boolean stopped;
-    private volatile boolean hasError;
+    protected volatile boolean hasError;
     private long nextWaitId;
     private LogId diskId = new LogId(0, 0); // Last log entry written to disk.
     private LogId appliedId = new LogId(0, 0);
@@ -104,20 +104,14 @@ public class LogManagerImpl implements LogManager {
         LAST_LOG_ID // get last log id
     }
 
-    public static class StableClosureEvent implements GroupAware {
-        /** Raft group id. */
-        String groupId;
-
+    public static class StableClosureEvent extends NodeIdAware {
         StableClosure done;
         EventType type;
 
-        /** {@inheritDoc} */
-        @Override public String groupId() {
-            return groupId;
-        }
+        @Override
+        public void reset() {
+            super.reset();
 
-        void reset() {
-            this.groupId = null;
             this.done = null;
             this.type = null;
         }
@@ -175,7 +169,7 @@ public class LogManagerImpl implements LogManager {
             this.logStorage = opts.getLogStorage();
             this.configManager = opts.getConfigurationManager();
             this.nodeOptions = opts.getNode().getOptions();
-            this.groupId = opts.getGroupId();
+            this.nodeId = opts.getNode().getNodeId();
 
             LogStorageOptions lsOpts = new LogStorageOptions();
             lsOpts.setConfigurationManager(this.configManager);
@@ -191,7 +185,7 @@ public class LogManagerImpl implements LogManager {
             this.fsmCaller = opts.getFsmCaller();
             this.disruptor = opts.getLogManagerDisruptor();
 
-            this.diskQueue = disruptor.subscribe(groupId, new StableClosureEventHandler(),
+            this.diskQueue = disruptor.subscribe(this.nodeId, new StableClosureEventHandler(),
                 (event, ex) -> reportError(-1, "LogManager handle event error"));
 
             if (this.nodeMetrics.getMetricRegistry() != null) {
@@ -205,6 +199,14 @@ public class LogManagerImpl implements LogManager {
         return true;
     }
 
+    @Override
+    public boolean hasAvailableCapacityToAppendEntries(final int requiredCapacity) {
+        if (this.stopped) {
+            return false;
+        }
+        return this.diskQueue.hasAvailableCapacity(requiredCapacity);
+    }
+
     private void stopDiskThread() {
         if (this.diskQueue == null)
             return; // Was not started.
@@ -212,7 +214,8 @@ public class LogManagerImpl implements LogManager {
         this.shutDownLatch = new CountDownLatch(1);
         Utils.runInThread(nodeOptions.getCommonExecutor(), () -> this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
-            event.groupId = groupId;
+
+            event.nodeId = this.nodeId;
             event.type = EventType.SHUTDOWN;
         }));
     }
@@ -223,7 +226,7 @@ public class LogManagerImpl implements LogManager {
             return;
         }
         this.shutDownLatch.await();
-        this.disruptor.unsubscribe(groupId);
+        this.disruptor.unsubscribe(this.nodeId);
     }
 
     @Override
@@ -283,6 +286,8 @@ public class LogManagerImpl implements LogManager {
 
     @Override
     public void appendEntries(final List<LogEntry> entries, final StableClosure done) {
+        assert(done != null);
+
         Requires.requireNonNull(done, "done");
         if (this.hasError) {
             entries.clear();
@@ -292,7 +297,7 @@ public class LogManagerImpl implements LogManager {
         boolean doUnlock = true;
         this.writeLock.lock();
         try {
-            if (!entries.isEmpty() && !checkAndResolveConflict(entries, done)) {
+            if (!entries.isEmpty() && !checkAndResolveConflict(entries, done, this.writeLock)) {
                 // If checkAndResolveConflict returns false, the done will be called in it.
                 entries.clear();
                 return;
@@ -319,30 +324,19 @@ public class LogManagerImpl implements LogManager {
             }
             done.setEntries(entries);
 
-            int retryTimes = 0;
-            final EventTranslator<StableClosureEvent> translator = (event, sequence) -> {
-                event.reset();
-                event.groupId = groupId;
-                event.type = EventType.OTHER;
-                event.done = done;
-            };
-            while (true) {
-                if (tryOfferEvent(done, translator)) {
-                    break;
-                }
-                else {
-                    retryTimes++;
-                    if (retryTimes > APPEND_LOG_RETRY_TIMES) {
-                        reportError(RaftError.EBUSY.getNumber(), "LogManager is busy, disk queue overload.");
-                        return;
-                    }
-                    ThreadHelper.onSpinWait();
-                }
-            }
             doUnlock = false;
             if (!wakeupAllWaiter(this.writeLock)) {
                 notifyLastLogIndexListeners();
             }
+
+            // publish event out of lock
+            this.diskQueue.publishEvent((event, sequence) -> {
+              event.reset();
+
+              event.nodeId = this.nodeId;
+              event.type = EventType.OTHER;
+              event.done = done;
+            });
         }
         finally {
             if (doUnlock) {
@@ -351,29 +345,25 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
+    /**
+     * Adds event to disk queue, NEVER call it in lock.
+     * @param done
+     * @param type
+     */
     private void offerEvent(final StableClosure done, final EventType type) {
+        assert(done != null);
+
         if (this.stopped) {
             Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.ESTOP, "Log manager is stopped."));
             return;
         }
-        if (!this.diskQueue.tryPublishEvent((event, sequence) -> {
+        this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
-            event.groupId = groupId;
+
+            event.nodeId = this.nodeId;
             event.type = type;
             event.done = done;
-        })) {
-            reportError(RaftError.EBUSY.getNumber(), "Log manager is overload.");
-            Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.EBUSY, "Log manager is overload."));
-        }
-    }
-
-    private boolean tryOfferEvent(final StableClosure done, final EventTranslator<StableClosureEvent> translator) {
-        if (this.stopped) {
-            Utils.runClosureInThread(nodeOptions.getCommonExecutor(), done, new Status(RaftError.ESTOP, "Log manager is stopped."));
-            return true;
-        }
-
-        return this.diskQueue.tryPublishEvent(translator);
+        });
     }
 
     private void notifyLastLogIndexListeners() {
@@ -408,7 +398,7 @@ public class LogManagerImpl implements LogManager {
         return true;
     }
 
-    private LogId appendToStorage(final List<LogEntry> toAppend) {
+    protected LogId appendToStorage(final List<LogEntry> toAppend) {
         LogId lastId = null;
         if (!this.hasError) {
             final long startMs = Utils.monotonicMs();
@@ -421,7 +411,7 @@ public class LogManagerImpl implements LogManager {
                     writtenSize += entry.getData() != null ? entry.getData().remaining() : 0;
                 }
                 this.nodeMetrics.recordSize("append-logs-bytes", writtenSize);
-                final int nAppent = this.logStorage.appendEntries(toAppend);
+                final int nAppent = appendToLogStorage(toAppend);
                 if (nAppent != entriesCount) {
                     LOG.error("**Critical error**, fail to appendEntries, nAppent={}, toAppend={}", nAppent,
                         toAppend.size());
@@ -430,7 +420,6 @@ public class LogManagerImpl implements LogManager {
                 if (nAppent > 0) {
                     lastId = toAppend.get(nAppent - 1).getId();
                 }
-                toAppend.clear();
             }
             finally {
                 this.nodeMetrics.recordLatency("append-logs", Utils.monotonicMs() - startMs);
@@ -439,15 +428,19 @@ public class LogManagerImpl implements LogManager {
         return lastId;
     }
 
-    private class AppendBatcher {
-        List<StableClosure> storage;
-        int cap;
-        int size;
-        int bufferSize;
-        List<LogEntry> toAppend;
-        LogId lastId;
+    protected int appendToLogStorage(List<LogEntry> toAppend) {
+        return this.logStorage.appendEntries(toAppend);
+    }
 
-        AppendBatcher(final List<StableClosure> storage, final int cap, final List<LogEntry> toAppend,
+    protected class AppendBatcher {
+        protected final List<StableClosure> storage;
+        protected final int cap;
+        protected int size;
+        protected int bufferSize;
+        protected final List<LogEntry> toAppend;
+        protected LogId lastId;
+
+        protected AppendBatcher(final List<StableClosure> storage, final int cap, final List<LogEntry> toAppend,
             final LogId lastId) {
             super();
             this.storage = storage;
@@ -456,7 +449,7 @@ public class LogManagerImpl implements LogManager {
             this.lastId = lastId;
         }
 
-        LogId flush() {
+        protected LogId flush() {
             if (this.size > 0) {
                 this.lastId = appendToStorage(this.toAppend);
                 for (int i = 0; i < this.size; i++) {
@@ -484,7 +477,7 @@ public class LogManagerImpl implements LogManager {
             return this.lastId;
         }
 
-        void append(final StableClosure done) {
+        protected void append(final StableClosure done) {
             if (this.size == this.cap || this.bufferSize >= LogManagerImpl.this.raftOptions.getMaxAppendBufferSize()) {
                 flush();
             }
@@ -497,10 +490,14 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
+    protected AppendBatcher newAppendBatcher(List<StableClosure> storages, int cap, LogId diskId) {
+        return new AppendBatcher(storages, cap, new ArrayList<>(), diskId);
+    }
+
     private class StableClosureEventHandler implements EventHandler<StableClosureEvent> {
         LogId lastId = LogManagerImpl.this.diskId;
         List<StableClosure> storage = new ArrayList<>(256);
-        AppendBatcher ab = new AppendBatcher(this.storage, 256, new ArrayList<>(), LogManagerImpl.this.diskId);
+        AppendBatcher ab = newAppendBatcher(this.storage, 256, LogManagerImpl.this.diskId);
 
         @Override
         public void onEvent(final StableClosureEvent event, final long sequence, final boolean endOfBatch)
@@ -509,17 +506,23 @@ public class LogManagerImpl implements LogManager {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);
                 LogManagerImpl.this.shutDownLatch.countDown();
+                event.reset();
                 return;
             }
             final StableClosure done = event.done;
+            final EventType eventType = event.type;
+
+            event.reset();
 
             if (done.getEntries() != null && !done.getEntries().isEmpty()) {
                 this.ab.append(done);
             }
             else {
                 this.lastId = this.ab.flush();
+                setDiskId(this.lastId);
+
                 boolean ret = true;
-                switch (event.type) {
+                switch (eventType) {
                     case LAST_LOG_ID:
                         ((LastLogIdClosure) done).setLastLogId(this.lastId.copy());
                         break;
@@ -527,7 +530,11 @@ public class LogManagerImpl implements LogManager {
                         long startMs = Utils.monotonicMs();
                         try {
                             final TruncatePrefixClosure tpc = (TruncatePrefixClosure) done;
-                            LOG.debug("Truncating storage to firstIndexKept={}.", tpc.firstIndexKept);
+                            LOG.info(
+                                    "Truncating log storage prefix [groupId={}, firstIndexKept={}]",
+                                    nodeId.getGroupId(),
+                                    tpc.firstIndexKept
+                            );
                             ret = LogManagerImpl.this.logStorage.truncatePrefix(tpc.firstIndexKept);
                         }
                         finally {
@@ -539,7 +546,11 @@ public class LogManagerImpl implements LogManager {
                         startMs = Utils.monotonicMs();
                         try {
                             final TruncateSuffixClosure tsc = (TruncateSuffixClosure) done;
-                            LOG.warn("Truncating storage to lastIndexKept={}.", tsc.lastIndexKept);
+                            LOG.warn(
+                                    "Truncating log storage suffix [groupId={}, lastIndexKept={}]",
+                                    nodeId.getGroupId(),
+                                    tsc.lastIndexKept
+                            );
                             ret = LogManagerImpl.this.logStorage.truncateSuffix(tsc.lastIndexKept);
                             if (ret) {
                                 this.lastId.setIndex(tsc.lastIndexKept);
@@ -554,7 +565,7 @@ public class LogManagerImpl implements LogManager {
                         break;
                     case RESET:
                         final ResetClosure rc = (ResetClosure) done;
-                        LOG.info("Resetting storage to nextLogIndex={}.", rc.nextLogIndex);
+                        LOG.info("Resetting log storage [groupId={}, nextLogIndex={}]", nodeId.getGroupId(), rc.nextLogIndex);
                         ret = LogManagerImpl.this.logStorage.reset(rc.nextLogIndex);
                         break;
                     default:
@@ -577,14 +588,14 @@ public class LogManagerImpl implements LogManager {
 
     }
 
-    private void reportError(final int code, final String fmt, final Object... args) {
+    protected void reportError(final int code, final String fmt, final Object... args) {
         this.hasError = true;
         final RaftException error = new RaftException(ErrorType.ERROR_TYPE_LOG);
         error.setStatus(new Status(code, fmt, args));
         this.fsmCaller.onError(error);
     }
 
-    private void setDiskId(final LogId id) {
+    protected void setDiskId(final LogId id) {
         if (id == null) {
             return;
         }
@@ -608,6 +619,7 @@ public class LogManagerImpl implements LogManager {
     @Override
     public void setSnapshot(final SnapshotMeta meta) {
         LOG.debug("set snapshot: {}.", meta);
+        boolean doUnlock = true;
         this.writeLock.lock();
         try {
             if (meta.lastIncludedIndex() <= this.lastSnapshotId.getIndex()) {
@@ -640,7 +652,9 @@ public class LogManagerImpl implements LogManager {
             if (term == 0) {
                 // last_included_index is larger than last_index
                 // FIXME: what if last_included_index is less than first_index?
-                truncatePrefix(meta.lastIncludedIndex() + 1);
+                doUnlock = false;
+                //unlock in truncatePrefix
+                truncatePrefix(meta.lastIncludedIndex() + 1, this.writeLock);
             }
             else if (term == meta.lastIncludedTerm()) {
                 // Truncating log to the index of the last snapshot.
@@ -649,7 +663,9 @@ public class LogManagerImpl implements LogManager {
                 // followers
                 // TODO if there are still be need? TODO asch
                 if (savedLastSnapshotIndex > 0) {
-                    truncatePrefix(savedLastSnapshotIndex + 1);
+                    doUnlock = false;
+                    //unlock in truncatePrefix
+                    truncatePrefix(savedLastSnapshotIndex + 1, this.writeLock);
                 }
             }
             else {
@@ -659,7 +675,9 @@ public class LogManagerImpl implements LogManager {
             }
         }
         finally {
-            this.writeLock.unlock();
+            if (doUnlock) {
+                this.writeLock.unlock();
+            }
         }
 
     }
@@ -709,14 +727,19 @@ public class LogManagerImpl implements LogManager {
 
     @Override
     public void clearBufferedLogs() {
+        boolean doUnlock = true;
         this.writeLock.lock();
         try {
             if (this.lastSnapshotId.getIndex() != 0) {
-                truncatePrefix(this.lastSnapshotId.getIndex() + 1);
+                doUnlock = false;
+                //unlock in truncatePrefix
+                truncatePrefix(this.lastSnapshotId.getIndex() + 1, this.writeLock);
             }
         }
         finally {
-            this.writeLock.unlock();
+            if (doUnlock) {
+                this.writeLock.unlock();
+            }
         }
     }
 
@@ -855,12 +878,12 @@ public class LogManagerImpl implements LogManager {
                     return this.lastLogIndex;
                 }
                 c = new LastLogIdClosure();
-                offerEvent(c, EventType.LAST_LOG_ID);
             }
         }
         finally {
             this.readLock.unlock();
         }
+        offerEvent(c, EventType.LAST_LOG_ID);
         try {
             c.await();
         }
@@ -906,12 +929,12 @@ public class LogManagerImpl implements LogManager {
                     return this.lastSnapshotId;
                 }
                 c = new LastLogIdClosure();
-                offerEvent(c, EventType.LAST_LOG_ID);
             }
         }
         finally {
             this.readLock.unlock();
         }
+        offerEvent(c, EventType.LAST_LOG_ID);
         try {
             c.await(); // TODO FIXME asch https://issues.apache.org/jira/browse/IGNITE-15974
         }
@@ -968,7 +991,7 @@ public class LogManagerImpl implements LogManager {
         }
     }
 
-    private boolean truncatePrefix(final long firstIndexKept) {
+    private boolean truncatePrefix(final long firstIndexKept, final Lock lock) {
 
         this.logsInMemory.removeFromFirstWhen(entry -> entry.getId().getIndex() < firstIndexKept);
 
@@ -983,6 +1006,7 @@ public class LogManagerImpl implements LogManager {
         }
         LOG.debug("Truncate prefix, firstIndexKept is :{}", firstIndexKept);
         this.configManager.truncatePrefix(firstIndexKept);
+        lock.unlock();
         final TruncatePrefixClosure c = new TruncatePrefixClosure(firstIndexKept);
         offerEvent(c, EventType.TRUNCATE_PREFIX);
         return true;
@@ -996,16 +1020,16 @@ public class LogManagerImpl implements LogManager {
             this.lastLogIndex = nextLogIndex - 1;
             this.configManager.truncatePrefix(this.firstLogIndex);
             this.configManager.truncateSuffix(this.lastLogIndex);
-            final ResetClosure c = new ResetClosure(nextLogIndex);
-            offerEvent(c, EventType.RESET);
             return true;
         }
         finally {
             this.writeLock.unlock();
+            final ResetClosure c = new ResetClosure(nextLogIndex);
+            offerEvent(c, EventType.RESET);
         }
     }
 
-    private void unsafeTruncateSuffix(final long lastIndexKept) {
+    private void unsafeTruncateSuffix(final long lastIndexKept, final Lock lock) {
         if (lastIndexKept < this.appliedId.getIndex()) {
             LOG.error("FATAL ERROR: Can't truncate logs before appliedId={}, lastIndexKept={}", this.appliedId,
                 lastIndexKept);
@@ -1019,12 +1043,14 @@ public class LogManagerImpl implements LogManager {
         Requires.requireTrue(this.lastLogIndex == 0 || lastTermKept != 0);
         LOG.debug("Truncate suffix :{}", lastIndexKept);
         this.configManager.truncateSuffix(lastIndexKept);
+        lock.unlock();
         final TruncateSuffixClosure c = new TruncateSuffixClosure(lastIndexKept, lastTermKept);
         offerEvent(c, EventType.TRUNCATE_SUFFIX);
+        lock.lock();
     }
 
     @SuppressWarnings("NonAtomicOperationOnVolatileField")
-    private boolean checkAndResolveConflict(final List<LogEntry> entries, final StableClosure done) {
+    private boolean checkAndResolveConflict(final List<LogEntry> entries, final StableClosure done, final Lock lock) {
         final LogEntry firstLogEntry = ArrayDeque.peekFirst(entries);
         if (firstLogEntry.getId().getIndex() == 0) {
             // Node is currently the leader and |entries| are from the user who
@@ -1074,7 +1100,7 @@ public class LogManagerImpl implements LogManager {
                     if (entries.get(conflictingIndex).getId().getIndex() <= this.lastLogIndex) {
                         // Truncate all the conflicting entries to make local logs
                         // consensus with the leader.
-                        unsafeTruncateSuffix(entries.get(conflictingIndex).getId().getIndex() - 1);
+                        unsafeTruncateSuffix(entries.get(conflictingIndex).getId().getIndex() - 1, lock);
                     }
                     this.lastLogIndex = lastLogEntry.getId().getIndex();
                 } // else this is a duplicated AppendEntriesRequest, we have

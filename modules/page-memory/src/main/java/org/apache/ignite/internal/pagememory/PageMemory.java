@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.pagememory;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Class responsible for pages storage and handling.
  */
-//TODO IGNITE-16350 Improve javadoc in this class.
+// TODO IGNITE-16350 Improve javadoc in this class.
 public interface PageMemory extends PageIdAllocator, PageSupport {
     /**
      * Starts page memory.
@@ -49,13 +49,13 @@ public interface PageMemory extends PageIdAllocator, PageSupport {
      *
      * @param groupId Group id.
      */
-    //TODO IGNITE-16350 Consider renaming.
+    // TODO IGNITE-16350 Consider renaming.
     int realPageSize(int groupId);
 
     /**
      * Returns a page's size with system overhead, in bytes.
      */
-    //TODO IGNITE-16350 Consider renaming.
+    // TODO IGNITE-16350 Consider renaming.
     int systemPageSize();
 
     /**

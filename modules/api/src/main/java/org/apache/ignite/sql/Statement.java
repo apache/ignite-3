@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,172 +17,118 @@
 
 package org.apache.ignite.sql;
 
+import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * The object represents SQL statement.
+ * Object represents an SQL statement.
  *
- * <p>Statement object is thread-safe.
+ * <p>The statement object is thread-safe.
  *
- * <p>Statement parameters and query plan can be cached on the server-side. The server-side resources are managed automatically.
- * Basically, if the server-side state is not exists due to any reason: very first run, current client node reconnect or cache invalidation
- * or any other - then it will be restored automatically as if statement is run at the first time. So, sometimes the user may experience a
- * slightly increased latency.
+ * <p>Statement parameters and query plan can be cached on the server side. The server-side resources are managed automatically.
+ * If the server-side state does not exist due to any reason - the very first run, current client node reconnect, cache
+ * invalidation, etc. - this state is restored automatically. This may cause the user to experience a slightly increased latency.
  */
-public interface Statement extends AutoCloseable {
+public interface Statement {
     /**
-     * Returns SQL statement string representation.
+     * Returns a string representation of an SQL statement.
      *
      * @return SQL statement string.
      */
-    @NotNull String query();
+    String query();
 
     /**
-     * Returns query timeout.
+     * Returns a query timeout.
      *
      * @param timeUnit Timeunit to convert timeout to.
      * @return Query timeout in the given timeunit.
      */
-    long queryTimeout(@NotNull TimeUnit timeUnit);
+    long queryTimeout(TimeUnit timeUnit);
 
     /**
-     * Returns statement default schema.
+     * Returns a statement's default schema.
      *
      * @return Default schema for the statement.
      */
     String defaultSchema();
 
     /**
-     * Returns page size, which is a maximal amount of results rows that can be fetched once at a time.
+     * Returns a page size - the maximum number of result rows that can be fetched at a time.
      *
-     * @return Maximal amount of rows in a page.
+     * @return Maximum number of rows per page.
      */
     int pageSize();
 
     /**
-     * Returns a value indicating whether this is a prepared statement.
+     * Returns time zone used for this statement.
      *
-     * @return Whether this is a prepared statement.
+     * @return Time zone used for this statement.
+     *
+     * @see StatementBuilder#timeZoneId(ZoneId)
      */
-    boolean prepared();
+    ZoneId timeZoneId();
 
     /**
-     * Returns statement property value that overrides the session property value or {@code null} if session property value should be used.
-     *
-     * @param name Property name.
-     * @return Property value or {@code null} if not set.
-     */
-    @Nullable Object property(@NotNull String name);
-
-    /**
-     * Creates a new statement builder from current statement.
+     * Creates a statement builder from the current statement.
      *
      * @return Statement builder based on the current statement.
      */
     StatementBuilder toBuilder();
 
     /**
-     * Statement builder provides methods for building statement object, which represents a query and holds a query-specific settings that
-     * overrides the session defaults.
+     * Statement builder provides methods for building a statement object, which represents a query and holds query-specific 
+     * settings that overrides the session defaults.
      */
     interface StatementBuilder {
         /**
-         * Returns SQL statement string representation.
+         * Sets an SQL statement string.
          *
-         * @return SQL statement string.
-         */
-        @NotNull String query();
-
-        /**
-         * Set SQL statement string.
-         *
-         * @param sql SQL query.
+         * @param query SQL query.
          * @return {@code this} for chaining.
          */
-        StatementBuilder query(String sql);
+        StatementBuilder query(String query);
 
         /**
-         * Returns prepared flag.
+         * Sets a query timeout.
          *
-         * @return Prepared flag.
-         */
-        boolean prepared();
-
-        /**
-         * Marks current statement as prepared.
-         *
-         * @param prepared if {@code true} marks current statement as prepared.
-         * @return {@code this} for chaining.
-         */
-        StatementBuilder prepared(boolean prepared);
-
-        /**
-         * Returns query timeout.
-         *
-         * @param timeUnit Timeunit to convert timeout to.
-         * @return Query timeout in the given timeunit.
-         */
-        long queryTimeout(@NotNull TimeUnit timeUnit);
-
-        /**
-         * Sets query timeout.
-         *
-         * @param timeout Query timeout value.
+         * @param timeout Query timeout value. Must be positive.
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.
          */
-        StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit);
+        StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit);
 
         /**
-         * Returns statement default schema.
-         *
-         * @return Default schema for the statement.
-         */
-        String defaultSchema();
-
-        /**
-         * Sets default schema for the statement, which the queries will be executed with.
+         * Sets a default schema for the statement.
          *
          * @param schema Default schema.
          * @return {@code this} for chaining.
          */
-        StatementBuilder defaultSchema(@NotNull String schema);
+        StatementBuilder defaultSchema(String schema);
 
         /**
-         * Returns page size, which is a maximal amount of results rows that can be fetched once at a time.
+         * Sets a page size - the maximum number of result rows that can be fetched at a time.
          *
-         * @return Maximal amount of rows in a page.
-         */
-        int pageSize();
-
-        /**
-         * Sets page size, which is a maximal amount of results rows that can be fetched once at a time.
-         *
-         * @param pageSize Maximal amount of rows in a page.
+         * @param pageSize Maximum number of rows per page. Must be positive.
          * @return {@code this} for chaining.
          */
         StatementBuilder pageSize(int pageSize);
 
         /**
-         * Returns statement property value that overrides the session property value or {@code null} if session property value should be
-         * used.
+         * Sets a time zone for this statement.
          *
-         * @param name Property name.
-         * @return Property value or {@code null} if not set.
-         */
-        @Nullable Object property(@NotNull String name);
-
-        /**
-         * Sets statement property value that overrides the session property value. If {@code null} is passed, then a session property value
-         * will be used.
+         * <p>This time zone is used in the following cases:
+         * <ol>
+         *     <li>When using SQL functions to obtain the current time (for example {@code SELECT CURRENT_TIME})</li>
+         *     <li>When converting a string literal to/from a TIMESTAMP WITH LOCAL TIME ZONE column
+         *     (for example {@code SELECT TIMESTAMP WITH LOCAL TIME ZONE '1992-01-18 02:30:00.123'}</li>
+         * </ol>
          *
-         * @param name Property name.
-         * @param value Property value or {@code null} to use a value defined in a session.
+         * <p>If the time zone has not been set explicitly, the current JVM default time zone will be used.
+         *
+         * @param timeZoneId Time-zone ID.
          * @return {@code this} for chaining.
          */
-        StatementBuilder property(@NotNull String name, @Nullable Object value);
+        StatementBuilder timeZoneId(ZoneId timeZoneId);
 
         /**
          * Creates an SQL statement abject.

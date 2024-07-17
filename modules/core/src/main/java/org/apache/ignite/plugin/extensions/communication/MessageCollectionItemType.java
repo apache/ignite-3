@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.plugin.extensions.communication;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -77,6 +78,9 @@ public enum MessageCollectionItemType {
     /** Bit set. */
     BIT_SET,
 
+    /** Byte buffer. */
+    BYTE_BUFFER,
+
     /** UUID. */
     UUID,
 
@@ -84,7 +88,10 @@ public enum MessageCollectionItemType {
     IGNITE_UUID,
 
     /** Message. */
-    MSG;
+    MSG,
+
+    /** {@link HybridTimestamp}. */
+    HYBRID_TIMESTAMP;
 
     /** Enum values. */
     private static final MessageCollectionItemType[] VALS = values();

@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -27,45 +30,38 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Base class for testing {@link ClusterStateStorage} implementations.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractClusterStateStorageTest {
-    @WorkDirectory
-    protected Path workDir;
-
+public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest {
     private ClusterStateStorage storage;
 
-    abstract ClusterStateStorage createStorage();
+    abstract ClusterStateStorage createStorage(String nodeName);
 
     @BeforeEach
-    void setUp() {
-        storage = createStorage();
+    void setUp(TestInfo testInfo) {
+        storage = createStorage(testNodeName(testInfo, 0));
 
-        storage.start();
-
-        assertTrue(storage.isStarted());
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        storage.close();
+    void tearDown() {
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
@@ -109,6 +105,72 @@ public abstract class AbstractClusterStateStorageTest {
         assertThat(storage.get(key), is(equalTo(value2)));
     }
 
+    @Test
+    void testReplaceAll() {
+        byte[] key1 = "key1".getBytes(UTF_8);
+        byte[] key2 = "key2".getBytes(UTF_8);
+        byte[] key3 = "keg".getBytes(UTF_8);
+
+        byte[] value1 = "value1".getBytes(UTF_8);
+        byte[] value2 = "value2".getBytes(UTF_8);
+        byte[] value3 = "value3".getBytes(UTF_8);
+
+        storage.put(key1, value1);
+        storage.put(key2, value2);
+        storage.put(key3, value3);
+
+        // Replace by prefix common for all keys
+        storage.replaceAll("ke".getBytes(UTF_8), key1, value2);
+
+        assertThat(storage.get(key1), is(equalTo(value2)));
+        assertThat(storage.get(key2), is(nullValue()));
+        assertThat(storage.get(key3), is(nullValue()));
+    }
+
+    @Test
+    void testReplaceAllNonExistentPrefix() {
+        byte[] key1 = "key1".getBytes(UTF_8);
+        byte[] key2 = "key2".getBytes(UTF_8);
+        byte[] key3 = "keg".getBytes(UTF_8);
+
+        byte[] value1 = "value1".getBytes(UTF_8);
+        byte[] value2 = "value2".getBytes(UTF_8);
+        byte[] value3 = "value3".getBytes(UTF_8);
+
+        storage.put(key1, value1);
+        storage.put(key2, value2);
+        storage.put(key3, value3);
+
+        // Replace by nonexistent prefix
+        storage.replaceAll("bar".getBytes(UTF_8), key1, value3);
+
+        assertThat(storage.get(key1), is(equalTo(value3)));
+        assertThat(storage.get(key2), is(equalTo(value2)));
+        assertThat(storage.get(key3), is(equalTo(value3)));
+    }
+
+    @Test
+    void testReplaceAllTwoKeys() {
+        byte[] key1 = "key1".getBytes(UTF_8);
+        byte[] key2 = "key2".getBytes(UTF_8);
+        byte[] key3 = "keg".getBytes(UTF_8);
+
+        byte[] value1 = "value1".getBytes(UTF_8);
+        byte[] value2 = "value2".getBytes(UTF_8);
+        byte[] value3 = "value3".getBytes(UTF_8);
+
+        storage.put(key1, value1);
+        storage.put(key2, value2);
+        storage.put(key3, value3);
+
+        // Replace by prefix common for two keys
+        storage.replaceAll("key".getBytes(UTF_8), key1, value3);
+
+        assertThat(storage.get(key1), is(equalTo(value3)));
+        assertThat(storage.get(key2), is(nullValue()));
+        assertThat(storage.get(key3), is(equalTo(value3)));
+    }
+
     /**
      * Tests the {@link ClusterStateStorage#remove} method.
      */
@@ -145,7 +207,7 @@ public abstract class AbstractClusterStateStorageTest {
      * Tests the {@link ClusterStateStorage#removeAll} method.
      */
     @Test
-    void testRemoveAll() throws Exception {
+    void testRemoveAll() {
         storage.put("key1".getBytes(UTF_8), "value1".getBytes(UTF_8));
         storage.put("key2".getBytes(UTF_8), "value2".getBytes(UTF_8));
         storage.put("key3".getBytes(UTF_8), "value3".getBytes(UTF_8));
@@ -156,93 +218,51 @@ public abstract class AbstractClusterStateStorageTest {
                 "key4".getBytes(UTF_8) // does not exist in storage
         ));
 
-        Cursor<String> cursor = storage.getWithPrefix("key".getBytes(UTF_8), (k, v) -> new String(v, UTF_8));
-
-        try (cursor) {
-            assertThat(cursor.stream().collect(toList()), contains("value3"));
-        }
+        assertThat(storage.getWithPrefix("key".getBytes(UTF_8), (k, v) -> new String(v, UTF_8)), contains("value3"));
     }
 
     /**
      * Tests the {@link ClusterStateStorage#getWithPrefix} method.
      */
     @Test
-    void testGetWithPrefix() throws Exception {
+    void testGetWithPrefix() {
         storage.put("key1".getBytes(UTF_8), "value1".getBytes(UTF_8));
         storage.put("key2".getBytes(UTF_8), "value2".getBytes(UTF_8));
         storage.put("foo".getBytes(UTF_8), "value3".getBytes(UTF_8));
 
-        Cursor<String> cursor = storage.getWithPrefix("ke".getBytes(UTF_8), (k, v) -> new String(v, UTF_8));
-
-        try (cursor) {
-            assertThat(cursor.stream().collect(toList()), containsInAnyOrder("value1", "value2"));
-        }
+        assertThat(storage.getWithPrefix("ke".getBytes(UTF_8), (k, v) -> new String(v, UTF_8)), containsInAnyOrder("value1", "value2"));
     }
 
     /**
      * Tests the {@link ClusterStateStorage#getWithPrefix} method (corner case, when keys are close together lexicographically).
      */
     @Test
-    void testGetWithPrefixBorder() throws Exception {
+    void testGetWithPrefixBorder() {
         byte[] key1 = "key1".getBytes(UTF_8);
-        byte[] key2 = key1.clone();
-
-        key2[key2.length - 1] += 1;
+        byte[] key2 = RocksUtils.incrementPrefix(key1);
 
         storage.put(key1, "value1".getBytes(UTF_8));
         storage.put(key2, "value2".getBytes(UTF_8));
 
-        Cursor<String> cursor = storage.getWithPrefix(key1, (k, v) -> new String(v, UTF_8));
-
-        try (cursor) {
-            assertThat(cursor.stream().collect(toList()), containsInAnyOrder("value1"));
-        }
+        assertThat(storage.getWithPrefix(key1, (k, v) -> new String(v, UTF_8)), containsInAnyOrder("value1"));
     }
 
     /**
      * Tests that {@link ClusterStateStorage#getWithPrefix} method works correctly over empty ranges.
      */
     @Test
-    void testGetWithPrefixEmpty() throws Exception {
+    void testGetWithPrefixEmpty() {
         storage.put("key1".getBytes(UTF_8), "value1".getBytes(UTF_8));
         storage.put("key2".getBytes(UTF_8), "value2".getBytes(UTF_8));
 
-        Cursor<String> cursor = storage.getWithPrefix("foo".getBytes(UTF_8), (k, v) -> new String(v, UTF_8));
-
-        try (cursor) {
-            assertThat(cursor.stream().collect(toList()), is(empty()));
-        }
-    }
-
-    /**
-     * Tests the {@link ClusterStateStorage#destroy()} method.
-     */
-    @Test
-    void testDestroy() {
-        byte[] key = "key".getBytes(UTF_8);
-
-        byte[] value = "value".getBytes(UTF_8);
-
-        storage.put(key, value);
-
-        assertThat(storage.get(key), is(equalTo(value)));
-
-        storage.destroy();
-
-        storage.start();
-
-        assertThat(storage.get(key), is(nullValue()));
-
-        storage.put(key, value);
-
-        assertThat(storage.get(key), is(equalTo(value)));
+        assertThat(storage.getWithPrefix("foo".getBytes(UTF_8), (k, v) -> new String(v, UTF_8)), is(empty()));
     }
 
     /**
      * Tests creating and restoring snapshots.
      */
     @Test
-    void testSnapshot() throws IOException {
+    void testSnapshot(TestInfo testInfo) throws Exception {
         Path snapshotDir = workDir.resolve("snapshot");
 
         Files.createDirectory(snapshotDir);
@@ -256,14 +276,24 @@ public abstract class AbstractClusterStateStorageTest {
         storage.put(key1, value1);
         storage.put(key2, value2);
 
-        assertThat(storage.snapshot(snapshotDir), willBe(nullValue(Void.class)));
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
-        storage.destroy();
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        storage.start();
+        storage = createStorage(testNodeName(testInfo, 1));
+
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(storage.get(key1), is(nullValue()));
         assertThat(storage.get(key2), is(nullValue()));
+
+        storage.restoreSnapshot(snapshotDir);
+
+        assertThat(storage.get(key1), is(value1));
+        assertThat(storage.get(key2), is(value2));
+
+        // Try restoring a snapshot a second time.
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
         storage.restoreSnapshot(snapshotDir);
 
@@ -301,11 +331,26 @@ public abstract class AbstractClusterStateStorageTest {
         assertThat(storage.get(keyAddedAfterSnapshotStart), is(nullValue()));
     }
 
+    @Test
+    void throwsNodeStoppingException() {
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        assertThrowsWithCause(() -> storage.get(BYTE_EMPTY_ARRAY), NodeStoppingException.class);
+        assertThrowsWithCause(() -> storage.put(BYTE_EMPTY_ARRAY, BYTE_EMPTY_ARRAY), NodeStoppingException.class);
+        assertThrowsWithCause(() -> storage.remove(BYTE_EMPTY_ARRAY), NodeStoppingException.class);
+        assertThrowsWithCause(() -> storage.removeAll(List.of(BYTE_EMPTY_ARRAY)), NodeStoppingException.class);
+        assertThrowsWithCause(() -> storage.replaceAll(BYTE_EMPTY_ARRAY, BYTE_EMPTY_ARRAY, BYTE_EMPTY_ARRAY), NodeStoppingException.class);
+        assertThrowsWithCause(() -> storage.getWithPrefix(BYTE_EMPTY_ARRAY, (k, v) -> null), NodeStoppingException.class);
+        assertThrowsWithCause(() -> storage.restoreSnapshot(workDir), NodeStoppingException.class);
+
+        assertThat(storage.snapshot(workDir), willThrow(NodeStoppingException.class));
+    }
+
     private void putKeyValue(int n) {
         storage.put(key(n), ("value" + n).getBytes(UTF_8));
     }
 
-    private byte[] key(int n) {
+    private static byte[] key(int n) {
         return ("key" + n).getBytes(UTF_8);
     }
 }

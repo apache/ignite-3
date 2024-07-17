@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal
 {
     using System;
+    using Common;
 
     /// <summary>
     /// Client protocol version.
@@ -182,9 +183,9 @@ namespace Apache.Ignite.Internal
         }
 
         /** <inheritdoc /> */
-        public override string ToString()
-        {
-            return $"{nameof(ClientProtocolVersion)} {{ {Major}.{Minor}.{Patch} }}";
-        }
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append($"{Major}.{Minor}.{Patch}", "Version")
+                .Build();
     }
 }

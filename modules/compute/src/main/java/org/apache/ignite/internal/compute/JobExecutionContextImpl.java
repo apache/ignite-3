@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
 
@@ -26,13 +27,40 @@ import org.apache.ignite.compute.JobExecutionContext;
 public class JobExecutionContextImpl implements JobExecutionContext {
     private final Ignite ignite;
 
-    public JobExecutionContextImpl(Ignite ignite) {
+    private final AtomicBoolean isInterrupted;
+
+    private final ClassLoader classLoader;
+
+    /**
+     * Constructor.
+     *
+     * @param ignite Ignite instance.
+     * @param isInterrupted Interrupted flag.
+     * @param classLoader Job class loader.
+     */
+    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, ClassLoader classLoader) {
         this.ignite = ignite;
+        this.isInterrupted = isInterrupted;
+        this.classLoader = classLoader;
     }
 
     /** {@inheritDoc} */
     @Override
     public Ignite ignite() {
         return ignite;
+    }
+
+    @Override
+    public boolean isCancelled() {
+        return isInterrupted.get();
+    }
+
+    /**
+     * Gets the job class loader.
+     *
+     * @return Job class loader.
+     */
+    public ClassLoader classLoader() {
+        return classLoader;
     }
 }

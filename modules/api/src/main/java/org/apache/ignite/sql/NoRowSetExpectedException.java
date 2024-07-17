@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,10 +19,8 @@ package org.apache.ignite.sql;
 
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
 
-import java.util.UUID;
-
 /**
- * Exception is thrown when the query doesn't intend to return any rows. E.g. DML or DDL queries.
+ * Exception is thrown when a query doesn't intend to return any rows (e.g. a DML or a DDL query).
  */
 public class NoRowSetExpectedException extends SqlException {
     /**
@@ -30,17 +28,5 @@ public class NoRowSetExpectedException extends SqlException {
      */
     public NoRowSetExpectedException() {
         super(QUERY_NO_RESULT_SET_ERR, "Query has no result set");
-    }
-
-    /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param code Full error code.
-     * @param message Detail message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public NoRowSetExpectedException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
     }
 }

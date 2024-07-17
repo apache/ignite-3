@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Options specific to a Raft group that is being started.
@@ -36,6 +39,12 @@ public class RaftGroupOptions {
 
     /** Raft meta storage factory. */
     private RaftMetaStorageFactory raftMetaStorageFactory;
+
+    /** Configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
+    private @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
+
+    /** Marshaller to marshall/unmarshall commands. */
+    private @Nullable Marshaller commandsMarshaller;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -123,6 +132,41 @@ public class RaftGroupOptions {
      */
     public RaftGroupOptions raftMetaStorageFactory(RaftMetaStorageFactory raftMetaStorageFactory) {
         this.raftMetaStorageFactory = raftMetaStorageFactory;
+
+        return this;
+    }
+
+    /**
+     * Returns configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor.
+     */
+    public @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig() {
+        return ownFsmCallerExecutorDisruptorConfig;
+    }
+
+    /**
+     * Sets configuration of own striped disruptor for FSMCaller service of raft node.
+     */
+    public RaftGroupOptions ownFsmCallerExecutorDisruptorConfig(RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig) {
+        this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
+
+        return this;
+    }
+
+    /**
+     * Returns Marshaller used to marshall/unmarshall commands.
+     */
+    public @Nullable Marshaller commandsMarshaller() {
+        return commandsMarshaller;
+    }
+
+    /**
+     * Sets the marshaller to use with commands.
+     *
+     * @param marshaller Marshaller.
+     * @return This object.
+     */
+    public RaftGroupOptions commandsMarshaller(Marshaller marshaller) {
+        commandsMarshaller = marshaller;
 
         return this;
     }

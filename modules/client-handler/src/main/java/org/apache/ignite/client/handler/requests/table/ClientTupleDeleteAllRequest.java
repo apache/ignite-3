@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuples;
@@ -27,7 +27,7 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 
 /**
  * Client tuple delete all request.
@@ -48,11 +48,12 @@ public class ClientTupleDeleteAllRequest {
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTable(in, tables);
-        var tx = readTx(in, resources);
-        var tuples = readTuples(in, table, true);
-
-        return table.recordView().deleteAllAsync(tx, tuples).thenAccept(skippedTuples ->
-            writeTuples(out, skippedTuples, TuplePart.KEY, table.schemaView(), true));
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, out, resources);
+            return readTuples(in, table, true).thenCompose(tuples -> {
+                return table.recordView().deleteAllAsync(tx, tuples).thenAccept(skippedTuples ->
+                        writeTuples(out, skippedTuples, TuplePart.KEY, table.schemaView()));
+            });
+        });
     }
 }

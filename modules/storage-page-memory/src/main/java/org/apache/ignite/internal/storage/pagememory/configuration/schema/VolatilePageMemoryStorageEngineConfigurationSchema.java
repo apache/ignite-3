@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,29 +17,22 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine.ENGINE_NAME;
-
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.Name;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.validation.ExceptKeys;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfigurationSchema;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.PowerOfTwo;
+import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 
 /**
- * Root configuration for {@link VolatilePageMemoryStorageEngine}.
+ * Configuration for {@link VolatilePageMemoryStorageEngine}.
  */
-@ConfigurationRoot(rootName = ENGINE_NAME, type = DISTRIBUTED)
-public class VolatilePageMemoryStorageEngineConfigurationSchema extends BasePageMemoryStorageEngineConfigurationSchema {
-    /** Default data region. */
-    @Name(DEFAULT_DATA_REGION_NAME)
-    @ConfigValue
-    public VolatilePageMemoryDataRegionConfigurationSchema defaultRegion;
-
-    /** Other data regions. */
-    @ExceptKeys(DEFAULT_DATA_REGION_NAME)
-    @NamedConfigValue
-    public VolatilePageMemoryDataRegionConfigurationSchema regions;
+@Config
+public class VolatilePageMemoryStorageEngineConfigurationSchema {
+    /** Page size in bytes. */
+    @Immutable
+    @PowerOfTwo
+    @Range(min = 1024, max = 16 * 1024)
+    @Value(hasDefault = true)
+    public int pageSize = 16 * 1024;
 }

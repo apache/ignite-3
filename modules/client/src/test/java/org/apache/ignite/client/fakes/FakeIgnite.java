@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,24 +20,46 @@ package org.apache.ignite.client.fakes;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 
 /**
  * Fake Ignite.
  */
 public class FakeIgnite implements Ignite {
+    private final String name;
+
+    private final HybridClock clock = new HybridClockImpl();
+
+    private final FakeTxManager txMgr = new FakeTxManager(clock);
+
+    /** Timestamp tracker. */
+    private final HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
+
     /**
      * Default constructor.
      */
     public FakeIgnite() {
-        super();
+        this(null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param name Name.
+     */
+    public FakeIgnite(String name) {
+        this.name = name;
     }
 
     private final IgniteTables tables = new FakeIgniteTables();
@@ -55,48 +77,13 @@ public class FakeIgnite implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        return new IgniteTransactions() {
-            @Override
-            public IgniteTransactions withTimeout(long timeout) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Transaction begin() {
-                return beginAsync().join();
-            }
-
-            @Override
-            public CompletableFuture<Transaction> beginAsync() {
-                return CompletableFuture.completedFuture(new Transaction() {
-                    @Override
-                    public void commit() throws TransactionException {
-
-                    }
-
-                    @Override
-                    public CompletableFuture<Void> commitAsync() {
-                        return CompletableFuture.completedFuture(null);
-                    }
-
-                    @Override
-                    public void rollback() throws TransactionException {
-
-                    }
-
-                    @Override
-                    public CompletableFuture<Void> rollbackAsync() {
-                        return CompletableFuture.completedFuture(null);
-                    }
-                });
-            }
-        };
+        return new IgniteTransactionsImpl(txMgr, hybridTimestampTracker);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteSql sql() {
-        return new FakeIgniteSql();
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
@@ -117,15 +104,18 @@ public class FakeIgnite implements Ignite {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void close() {
-        // No-op.
+    public IgniteCatalog catalog() {
+        return new IgniteCatalogSqlImpl(sql(), tables);
     }
 
     /** {@inheritDoc} */
     @Override
     public String name() {
-        return null;
+        return name;
+    }
+
+    public HybridTimestampTracker timestampTracker() {
+        return hybridTimestampTracker;
     }
 }

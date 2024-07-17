@@ -19,9 +19,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
     using System;
     using BenchmarkDotNet.Engines;
+    using Ignite.Sql;
     using Ignite.Table;
     using Internal.Buffers;
-    using Internal.Proto;
     using Internal.Table;
     using Internal.Table.Serialization;
 
@@ -44,26 +44,27 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             [nameof(Car.Seats)] = Object.Seats
         };
 
-        internal static readonly Schema Schema = new(1, 1, new[]
-        {
-            new Column(nameof(Car.Id), ClientDataType.Uuid, Nullable: false, IsKey: true, SchemaIndex: 0),
-            new Column(nameof(Car.BodyType), ClientDataType.String, Nullable: false, IsKey: false, SchemaIndex: 1),
-            new Column(nameof(Car.Seats), ClientDataType.Int32, Nullable: false, IsKey: false, SchemaIndex: 2)
-        });
+        internal static readonly Schema Schema = Schema.CreateInstance(
+            version: 1,
+            tableId: 1,
+            columns: new[]
+            {
+                new Column(nameof(Car.Id), ColumnType.Uuid, IsNullable: false, ColocationIndex: 0, KeyIndex: 0, SchemaIndex: 0, Scale: 0, Precision: 0),
+                new Column(nameof(Car.BodyType), ColumnType.String, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, SchemaIndex: 1, Scale: 0, Precision: 0),
+                new Column(nameof(Car.Seats), ColumnType.Int32, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, SchemaIndex: 2, Scale: 0, Precision: 0)
+            });
 
         internal static readonly byte[] SerializedData = GetSerializedData();
 
-        internal static readonly ObjectSerializerHandler<Car> ObjectSerializerHandler = new();
-
-        internal static readonly ObjectSerializerHandlerOld<Car> ObjectSerializerHandlerOld = new();
+        internal static readonly IRecordSerializerHandler<Car> ObjectSerializerHandler = new ObjectSerializerHandler<Car>();
 
         protected Consumer Consumer { get; } = new();
 
-        internal static void VerifyWritten(PooledArrayBufferWriter pooledWriter)
+        internal static void VerifyWritten(PooledArrayBuffer pooledWriter)
         {
             var bytesWritten = pooledWriter.GetWrittenMemory().Length;
 
-            if (bytesWritten != 29)
+            if (bytesWritten != 31)
             {
                 throw new Exception("Unexpected number of bytes written: " + bytesWritten);
             }
@@ -71,13 +72,12 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         private static byte[] GetSerializedData()
         {
-            using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
+            using var pooledWriter = new PooledArrayBuffer();
+            var writer = pooledWriter.MessageWriter;
 
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);
 
-            writer.Flush();
-            return pooledWriter.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize).ToArray();
+            return pooledWriter.GetWrittenMemory().Slice(3).ToArray();
         }
 
         protected internal class Car

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,123 +17,59 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import java.util.List;
-import java.util.UUID;
-import org.apache.calcite.config.CalciteConnectionConfig;
-import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.core.TableScan;
+import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.schema.Schema;
-import org.apache.calcite.schema.Statistic;
-import org.apache.calcite.schema.TranslatableTable;
-import org.apache.calcite.schema.Wrapper;
-import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
 /**
  * Table representation as object in SQL schema.
  */
-public interface IgniteTable extends TranslatableTable, Wrapper {
+public interface IgniteTable extends IgniteDataSource {
     /**
-     * Returns an id of the table.
+     * Checks whether it is possible to update a column with a given index.
      *
-     * @return And id of the table.
+     * @param colIdx Column index.
+     * @return {@code True} if update operation is allowed for a column with a given index.
      */
-    UUID id();
-
-    /**
-     * Returns the version of the table's schema.
-     *
-     * @return the version of the table's schema.
-     */
-    int version();
+    boolean isUpdateAllowed(int colIdx);
 
     /**
-     * Returns a descriptor of the table.
+     * Returns row type excluding effectively virtual or hidden fields.
      *
-     * @return A descriptor of the table.
+     * @param factory Type factory.
+     * @return Row type for INSERT operation.
      */
-    TableDescriptor descriptor();
-
-    /** {@inheritDoc} */
-    @Override
-    default RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        return getRowType(typeFactory, null);
-    }
+    RelDataType rowTypeForInsert(IgniteTypeFactory factory);
 
     /**
-     * Returns new type according {@code requiredColumns} param.
+     * Returns row type containing only key fields.
      *
-     * @param typeFactory     Factory.
-     * @param requiredColumns Used columns enumeration.
+     * @param factory Type factory.
+     * @return Row type for DELETE operation.
      */
-    RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns);
+    RelDataType rowTypeForDelete(IgniteTypeFactory factory);
 
-    /** {@inheritDoc} */
-    @Override
-    default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
-        return toRel(context.getCluster(), relOptTable);
-    }
+    /** Return indexes of column representing primary key in the order they are specified in the index. */
+    ImmutableIntList keyColumns();
 
     /**
-     * Converts table into relational expression.
-     *
-     * @param cluster   Custer.
-     * @param relOptTbl Table.
-     * @return Table relational expression.
+     * Return partition correspondence calculator.
      */
-    TableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl);
+    Supplier<PartitionCalculator> partitionCalculator();
 
     /**
-     * Returns table distribution.
+     * Returns all table indexes.
      *
-     * @return Table distribution.
+     * @return Indexes for the current table.
      */
-    IgniteDistribution distribution();
+    Map<String, IgniteIndex> indexes();
 
-    /** {@inheritDoc} */
-    @Override
-    default Schema.TableType getJdbcTableType() {
-        return Schema.TableType.TABLE;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    default boolean isRolledUp(String column) {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    default boolean rolledUpColumnValidInsideAgg(String column, SqlCall call,
-            @Nullable SqlNode parent,
-            @Nullable CalciteConnectionConfig config) {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    default Statistic getStatistic() {
-        return new Statistic() {
-            @Override
-            public List<RelCollation> getCollations() {
-                return List.of();
-            }
-        };
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    default <C> @Nullable C unwrap(Class<C> cls) {
-        if (cls.isInstance(this)) {
-            return cls.cast(this);
-        }
-        return null;
-    }
+    /**
+     * Returns the number of partitions for this table.
+     *
+     * @return Number of partitions.
+     */
+    int partitions();
 }

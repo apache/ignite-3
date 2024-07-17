@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+
 import java.util.UUID;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -30,22 +34,41 @@ import org.jetbrains.annotations.Nullable;
 public class VersionChain extends VersionChainKey {
     public static final long NULL_UUID_COMPONENT = 0;
 
-    private final @Nullable UUID transactionId;
-
     /** Link to the most recent version. */
     private final long headLink;
 
-    /** Link to the newest committed {@link RowVersion} if head is not yet committed, or {@link RowVersion#NULL_LINK} otherwise. */
+    /** Link to the newest committed {@link RowVersion} if head is not yet committed, or {@link PageIdUtils#NULL_LINK} otherwise. */
     private final long nextLink;
+
+    /** Transaction id (part of transaction state). */
+    private final @Nullable UUID transactionId;
+
+    /** Commit table id (part of transaction state). */
+    private final @Nullable Integer commitTableId;
+
+    /** Commit partition id (part of transaction state). */
+    private final int commitPartitionId;
 
     /**
      * Constructor.
      */
-    public VersionChain(RowId rowId, @Nullable UUID transactionId, long headLink, long nextLink) {
+    private VersionChain(RowId rowId, @Nullable UUID transactionId, @Nullable Integer commitTableId, int commitPartitionId, long headLink,
+            long nextLink) {
         super(rowId);
         this.transactionId = transactionId;
+        this.commitTableId = commitTableId;
+        this.commitPartitionId = commitPartitionId;
         this.headLink = headLink;
         this.nextLink = nextLink;
+    }
+
+    public static VersionChain createCommitted(RowId rowId, long headLink, long nextLink) {
+        return new VersionChain(rowId, null, null, ReadResult.UNDEFINED_COMMIT_PARTITION_ID, headLink, nextLink);
+    }
+
+    public static VersionChain createUncommitted(RowId rowId, UUID transactionId, int commitTableId, int commitPartitionId, long headLink,
+            long nextLink) {
+        return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
     }
 
     /**
@@ -56,6 +79,20 @@ public class VersionChain extends VersionChainKey {
     }
 
     /**
+     * Returns a commit table id, associated with a chain's head, or {@code null} if head is already committed.
+     */
+    public @Nullable Integer commitTableId() {
+        return commitTableId;
+    }
+
+    /**
+     * Returns a commit partition id, associated with a chain's head, or {@code -1} if head is already committed.
+     */
+    public int commitPartitionId() {
+        return commitPartitionId;
+    }
+
+    /**
      * Returns a link to the newest {@link RowVersion} in the chain.
      */
     public long headLink() {
@@ -63,7 +100,7 @@ public class VersionChain extends VersionChainKey {
     }
 
     /**
-     * Returns a link to the newest committed {@link RowVersion} if head is not yet committed, or {@link RowVersion#NULL_LINK} otherwise.
+     * Returns a link to the newest committed {@link RowVersion} if head is not yet committed, or {@link PageIdUtils#NULL_LINK} otherwise.
      *
      * @see #isUncommitted()
      * @see #newestCommittedLink()
@@ -91,12 +128,34 @@ public class VersionChain extends VersionChainKey {
      * Returns {@code true} if this version chain has at least one committed version.
      */
     public boolean hasCommittedVersions() {
-        return newestCommittedLink() != RowVersion.NULL_LINK;
+        return newestCommittedLink() != NULL_LINK;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns {@code true} if there is a link to the next version.
+     */
+    public boolean hasNextLink() {
+        return nextLink != NULL_LINK;
+    }
+
+    /**
+     * Returns {@code true} if there is a link to the head version.
+     */
+    public boolean hasHeadLink() {
+        return headLink != NULL_LINK;
+    }
+
+    /**
+     * Creates a copy of the version chain with new next link.
+     *
+     * @param nextLink New next link.
+     */
+    public VersionChain withNextLink(long nextLink) {
+        return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
+    }
+
     @Override
     public String toString() {
-        return S.toString(VersionChain.class, this);
+        return S.toString(VersionChain.class, this, "rowId", rowId);
     }
 }

@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,15 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.disruptor;
 
-import java.util.concurrent.ThreadFactory;
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.WaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import java.util.concurrent.ThreadFactory;
 import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
@@ -92,8 +92,6 @@ public class DisruptorBuilder<T> {
         Requires.requireNonNull(this.eventFactory, "Event factory not set");
         Requires.requireNonNull(this.threadFactory, "Thread factory not set");
 
-        return new Disruptor<>(this.eventFactory, this.ringBufferSize, this.threadFactory, this.producerType,
-            this.waitStrategy);
+        return new Disruptor<>(this.eventFactory, this.ringBufferSize, this.threadFactory, this.producerType, this.waitStrategy);
     }
-
 }

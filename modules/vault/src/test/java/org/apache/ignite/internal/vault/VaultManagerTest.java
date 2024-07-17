@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.vault;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,17 +38,17 @@ public class VaultManagerTest {
 
     @BeforeEach
     void setUp() {
-        vaultManager.start();
+        assertThat(vaultManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
      * After each.
      */
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         vaultManager.beforeNodeStop();
 
-        vaultManager.stop();
+        assertThat(vaultManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
@@ -54,15 +56,15 @@ public class VaultManagerTest {
      */
     @Test
     void testName() {
-        assertThat(vaultManager.name(), willBe(nullValue(String.class)));
+        assertThat(vaultManager.name(), is(nullValue(String.class)));
 
-        assertThat(vaultManager.putName("foobar"), willBe(nullValue(Void.class)));
+        vaultManager.putName("foobar");
 
-        assertThat(vaultManager.name(), willBe(equalTo("foobar")));
+        assertThat(vaultManager.name(), is(equalTo("foobar")));
 
-        assertThat(vaultManager.putName("foobarbaz"), willBe(nullValue(Void.class)));
+        vaultManager.putName("foobarbaz");
 
-        assertThat(vaultManager.name(), willBe(equalTo("foobarbaz")));
+        assertThat(vaultManager.name(), is(equalTo("foobarbaz")));
     }
 
     /**

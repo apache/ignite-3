@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import java.util.Collection;
 import java.util.UUID;
 
 /**
@@ -29,8 +30,20 @@ public interface RecoveryDescriptorProvider {
      * @param consistentId Remote node consistent id.
      * @param launchId Remote node launch id.
      * @param connectionIndex Connection id.
-     * @param inbound {@code true} if the connection is inbound, {@code false} otherwise.
      * @return Recovery descriptor.
      */
-    RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex, boolean inbound);
+    RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex);
+
+    /**
+     * Returns descriptors corresponding to the remote node with the given launch ID.
+     *
+     * @param launchId Launch ID to identify the node.
+     * @return Descriptors by launch ID.
+     */
+    Collection<RecoveryDescriptor> getRecoveryDescriptorsByLaunchId(UUID launchId);
+
+    /**
+     * Returns all descriptors.
+     */
+    Collection<RecoveryDescriptor> getAllRecoveryDescriptors();
 }

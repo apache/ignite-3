@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,8 +20,6 @@ package org.apache.ignite.internal.fileio;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 
 /**
  * Interface to perform file I/O operations.
@@ -221,32 +219,4 @@ public interface FileIo extends AutoCloseable {
      */
     @Override
     void close() throws IOException;
-
-    /**
-     * This method will transfer the content of file to the specified channel.
-     *
-     * <p>This is a synchronous operation, so performing it on asynchronous channels makes no sense and not provided.
-     *
-     * @param position Starting file position.
-     * @param count The number of bytes to be transferred.
-     * @param target Destination channel of the transfer.
-     * @return Count of bytes which was successfully transferred.
-     * @throws IOException If fails.
-     */
-    default long transferTo(long position, long count, WritableByteChannel target) throws IOException {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Transfers bytes into this file from the given readable byte channel.
-     *
-     * @param src The source channel.
-     * @param position Starting file position.
-     * @param count The maximum number of bytes to be transferred.
-     * @return The number of bytes, possibly zero, that were actually transferred.
-     * @throws IOException If fails.
-     */
-    default long transferFrom(ReadableByteChannel src, long position, long count) throws IOException {
-        throw new UnsupportedOperationException();
-    }
 }

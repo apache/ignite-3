@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,63 +17,59 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.lang.System.Logger;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.ResourceBundle;
-import java.util.function.Supplier;
 import org.apache.ignite.client.fakes.FakeIgnite;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.LoggerFactory;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests verifies an ability to set custom logger to the client.
  */
-public class ClientLoggingTest {
+public class ClientLoggingTest extends BaseIgniteAbstractTest {
     /** Test server. */
-    TestServer server;
+    private TestServer server;
 
     /** Test server 2. */
-    TestServer server2;
+    private TestServer server2;
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(server, server2);
+        closeAll(server, server2);
     }
 
     @Test
     public void loggersSetToDifferentClientsNotInterfereWithEachOther() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> {});
+        ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
-        server = startServer(10900, ignite1);
+        server = startServer(ignite1, 10901);
 
         var loggerFactory1 = new TestLoggerFactory("client1");
         var loggerFactory2 = new TestLoggerFactory("client2");
 
-        var client1 = createClient(loggerFactory1);
-        var client2 = createClient(loggerFactory2);
+        var client1 = createClient(loggerFactory1, 10901, 10902);
+        var client2 = createClient(loggerFactory2, 10901, 10902);
 
         assertEquals("t", client1.tables().tables().get(0).name());
         assertEquals("t", client2.tables().tables().get(0).name());
 
-        assertThat(loggerFactory1.logger.entries(), empty());
-        assertThat(loggerFactory2.logger.entries(), empty());
-
         server.close();
 
         FakeIgnite ignite2 = new FakeIgnite();
-        ignite2.tables().createTable("t2", c -> {});
+        ((FakeIgniteTables) ignite2.tables()).createTable("t2");
 
-        server2 = startServer(10950, ignite2);
+        server2 = startServer(ignite2, 10902);
 
         assertEquals("t2", client1.tables().tables().get(0).name());
         assertEquals("t2", client2.tables().tables().get(0).name());
@@ -85,101 +81,43 @@ public class ClientLoggingTest {
         loggerFactory2.logger.entries().forEach(msg -> assertThat(msg, startsWith("client2:")));
     }
 
-    private TestServer startServer(int port, FakeIgnite ignite) {
-        return AbstractClientTest.startServer(
-                port,
-                10,
-                0,
-                ignite
-        );
+    @Test
+    public void testBasicLogging() throws Exception {
+        FakeIgnite ignite = new FakeIgnite();
+        ((FakeIgniteTables) ignite.tables()).createTable("t");
+
+        server = startServer(ignite, null);
+        server2 = startServer(ignite, null);
+
+        var loggerFactory = new TestLoggerFactory("c");
+
+        try (var client = IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port(), "127.0.0.1:" + server2.port(), "127.0.0.1:43210")
+                .loggerFactory(loggerFactory)
+                .build()) {
+            client.tables().tables();
+            client.tables().table("t");
+
+            loggerFactory.waitForLogContains("Connection established", 5000);
+            loggerFactory.waitForLogContains("c:Sending request [opCode=3, remoteAddress=127.0.0.1", 5000);
+            loggerFactory.waitForLogMatches(".*c:Failed to establish connection to 127\\.0\\.0\\.1(/<unresolved>)?:43210.*", 5000);
+        }
     }
 
-    private IgniteClient createClient(LoggerFactory loggerFactory) {
+    private static TestServer startServer(FakeIgnite ignite, @Nullable Integer port) {
+        return new TestServer(0, ignite, null, null, null, AbstractClientTest.clusterId, null, port);
+    }
+
+    private static IgniteClient createClient(LoggerFactory loggerFactory, int... ports) {
+        var addrs = new ArrayList<String>();
+
+        for (int port : ports) {
+            addrs.add("127.0.0.1:" + port);
+        }
+
         return IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
-                .retryPolicy(new RetryLimitPolicy().retryLimit(1))
+                .addresses(addrs.toArray(new String[0]))
                 .loggerFactory(loggerFactory)
                 .build();
-    }
-
-    private static class TestLoggerFactory implements LoggerFactory {
-        private final SimpleCapturingLogger logger;
-
-        public TestLoggerFactory(String factoryName) {
-            this.logger = new SimpleCapturingLogger(factoryName);
-        }
-
-        @Override
-        public Logger forName(String name) {
-            return logger;
-        }
-    }
-
-    private static class SimpleCapturingLogger implements System.Logger {
-        private final String name;
-
-        private final List<String> logEntries = new ArrayList<>();
-
-        public SimpleCapturingLogger(String name) {
-            this.name = name;
-        }
-
-        @Override
-        public String getName() {
-            return name;
-        }
-
-        @Override
-        public boolean isLoggable(Level level) {
-            return true;
-        }
-
-        @Override
-        public void log(Level level, String msg) {
-            captureLog(msg);
-        }
-
-        @Override
-        public void log(Level level, Supplier<String> msgSupplier) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, Object obj) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, String msg, Throwable thrown) {
-            captureLog(msg);
-        }
-
-        @Override
-        public void log(Level level, Supplier<String> msgSupplier, Throwable thrown) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, String format, Object... params) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, ResourceBundle bundle, String msg, Throwable thrown) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, ResourceBundle bundle, String format, Object... params) {
-            throw new AssertionError("Should not be called");
-        }
-
-        public List<String> entries() {
-            return logEntries;
-        }
-
-        private void captureLog(String msg) {
-            logEntries.add(name + ":" + msg);
-        }
     }
 }

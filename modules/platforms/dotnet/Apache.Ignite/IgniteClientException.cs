@@ -18,87 +18,53 @@
 namespace Apache.Ignite
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.Serialization;
 
     /// <summary>
     /// Ignite thin client exception.
     /// </summary>
     [Serializable]
-    public class IgniteClientException : Exception
+    [SuppressMessage(
+        "Microsoft.Design",
+        "CA1032:ImplementStandardExceptionConstructors",
+        Justification="Ignite exceptions use a special constructor.")]
+    public class IgniteClientException : IgniteException
     {
-        /** Error code field. */
-        private const string ErrorCodeField = "StatusCode";
-
         /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientException"/> class.
         /// </summary>
-        public IgniteClientException()
+        /// <param name="code">Code.</param>
+        /// <param name="message">Message.</param>
+        /// <param name="innerException">Inner exception.</param>
+        public IgniteClientException(int code, string message, Exception? innerException = null)
+            : base(Guid.NewGuid(), code, message, innerException)
         {
             // No-op.
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="IgniteClientException" /> class.
-        /// </summary>
-        /// <param name="message">The message that describes the error.</param>
-        public IgniteClientException(string message)
-            : base(message)
-        {
-            // No-op.
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="IgniteClientException" /> class.
-        /// </summary>
-        /// <param name="message">The message.</param>
-        /// <param name="cause">The cause.</param>
-        public IgniteClientException(string message, Exception? cause)
-            : base(message, cause)
-        {
-            // No-op.
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="IgniteClientException" /> class.
-        /// </summary>
-        /// <param name="message">The message.</param>
-        /// <param name="cause">The cause.</param>
-        /// <param name="statusCode">The error code.</param>
-        public IgniteClientException(string message, Exception? cause, int statusCode)
-            : base(message, cause)
-        {
-            ErrorCode = statusCode;
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientException"/> class.
         /// </summary>
-        /// <param name="info">Serialization information.</param>
-        /// <param name="ctx">Streaming context.</param>
-        protected IgniteClientException(SerializationInfo info, StreamingContext ctx)
-            : base(info, ctx)
+        /// <param name="traceId">Trace id.</param>
+        /// <param name="code">Code.</param>
+        /// <param name="message">Message.</param>
+        /// <param name="innerException">Inner exception.</param>
+        public IgniteClientException(Guid traceId, int code, string message, Exception? innerException = null)
+            : base(traceId, code, message, innerException)
         {
-            ErrorCode = info.GetInt32(ErrorCodeField);
+            // No-op.
         }
 
         /// <summary>
-        /// Gets the error code.
+        /// Initializes a new instance of the <see cref="IgniteClientException"/> class.
         /// </summary>
-        public int ErrorCode { get; }
-
-        /// <summary>
-        /// When overridden in a derived class, sets the <see cref="SerializationInfo" />
-        /// with information about the exception.
-        /// </summary>
-        /// <param name="info">The <see cref="SerializationInfo" /> that holds the serialized object data
-        /// about the exception being thrown.</param>
-        /// <param name="context">The <see cref="StreamingContext" /> that contains contextual information
-        /// about the source or destination.</param>
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
+        /// <param name="serializationInfo">Serialization information.</param>
+        /// <param name="streamingContext">Streaming context.</param>
+        protected IgniteClientException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+            : base(serializationInfo, streamingContext)
         {
-            base.GetObjectData(info, context);
-
-            info.AddValue(ErrorCodeField, ErrorCode);
+            // No-op.
         }
     }
 }

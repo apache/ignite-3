@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,9 +23,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /**
@@ -60,20 +58,6 @@ public interface IgniteRel extends PhysicalNode {
      */
     default RelCollation collation() {
         return TraitUtils.collation(getTraitSet());
-    }
-
-    /**
-     * Get node rewindability.
-     */
-    default RewindabilityTrait rewindability() {
-        return TraitUtils.rewindability(getTraitSet());
-    }
-
-    /**
-     * Get node correlation.
-     */
-    default CorrelationTrait correlation() {
-        return TraitUtils.correlation(getTraitSet());
     }
 
     /** {@inheritDoc} */

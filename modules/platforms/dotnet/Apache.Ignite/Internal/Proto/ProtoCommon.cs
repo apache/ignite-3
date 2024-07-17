@@ -17,14 +17,33 @@
 
 namespace Apache.Ignite.Internal.Proto
 {
+    using System.Text;
+    using Buffers;
+
     /// <summary>
     /// Common protocol data.
     /// </summary>
     internal static class ProtoCommon
     {
         /// <summary>
+        /// Message prefix size.
+        /// </summary>
+        public const int MessagePrefixSize = 4 + 5 + 9; // Size (4 bytes) + OpCode (5 bytes) + RequestId (9 bytes)/
+
+        /// <summary>
         /// Magic bytes.
         /// </summary>
         public static readonly byte[] MagicBytes = { (byte)'I', (byte)'G', (byte)'N', (byte)'I' };
+
+        /// <summary>
+        /// UTF8 encoding without preamble (as opposed to <see cref="Encoding.UTF8"/>).
+        /// </summary>
+        public static readonly Encoding StringEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
+        /// <summary>
+        /// Gets a new message writer.
+        /// </summary>
+        /// <returns>Message writer.</returns>
+        public static PooledArrayBuffer GetMessageWriter() => new(prefixSize: MessagePrefixSize);
     }
 }

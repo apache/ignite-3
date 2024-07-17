@@ -38,7 +38,7 @@ namespace Apache.Ignite
         /// <inheritdoc />
         public virtual bool ShouldRetry(IRetryPolicyContext context)
         {
-            IgniteArgumentCheck.NotNull(context, nameof(context));
+            IgniteArgumentCheck.NotNull(context);
 
             if (RetryLimit <= 0)
             {
@@ -47,5 +47,11 @@ namespace Apache.Ignite
 
             return context.Iteration < RetryLimit;
         }
+
+        /// <inheritdoc />
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .Append(RetryLimit)
+                .Build();
     }
 }

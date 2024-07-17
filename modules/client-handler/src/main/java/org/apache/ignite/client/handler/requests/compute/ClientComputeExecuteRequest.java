@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,16 +17,23 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.NodeNotFoundException;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Compute execute request.
@@ -35,32 +42,71 @@ public class ClientComputeExecuteRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param compute   Compute.
-     * @param cluster   Cluster.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param compute Compute.
+     * @param cluster Cluster.
+     * @param notificationSender Notification sender.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteCompute compute,
-            ClusterService cluster) {
-        var nodeName = in.tryUnpackNil() ? null : in.unpackString();
+            IgniteComputeInternal compute,
+            ClusterService cluster,
+            NotificationSender notificationSender
+    ) {
+        Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
 
-        var node = nodeName == null
-                ? cluster.topologyService().localMember()
-                : cluster.topologyService().getByConsistentId(nodeName);
+        List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
+        String jobClassName = in.unpackString();
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
+        Object arg = unpackPayload(in);
 
-        if (node == null) {
-            throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
+        JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, arg);
+        sendResultAndState(execution, notificationSender, null);
+
+        //noinspection DataFlowIssue
+        return execution.idAsync().thenAccept(out::packUuid);
+    }
+
+    private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
+        int size = in.unpackInt();
+
+        if (size < 1) {
+            throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        String jobClassName = in.unpackString();
+        Set<String> nodeNames = new HashSet<>(size);
+        Set<ClusterNode> nodes = new HashSet<>(size);
 
-        Object[] args = unpackArgs(in);
+        for (int i = 0; i < size; i++) {
+            String nodeName = in.unpackString();
+            nodeNames.add(nodeName);
+            ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
+            if (node != null) {
+                nodes.add(node);
+            }
+        }
 
-        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectWithType);
+        if (nodes.isEmpty()) {
+            throw new NodeNotFoundException(nodeNames);
+        }
+
+        return nodes;
+    }
+
+    static CompletableFuture<Object> sendResultAndState(
+            JobExecution<Object> execution,
+            NotificationSender notificationSender,
+            Marshaler<Object, byte[]> marshaler
+    ) {
+        return execution.resultAsync().whenComplete((val, err) ->
+                execution.stateAsync().whenComplete((state, errState) ->
+                        notificationSender.sendNotification(w -> {
+                            w.packObjectAsBinaryTuple(val, marshaler);
+                            packJobState(w, state);
+                        }, err)));
     }
 
     /**
@@ -69,23 +115,7 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    @NotNull
-    public static Object[] unpackArgs(ClientMessageUnpacker in) {
-        if (in.tryUnpackNil()) {
-            return OBJECT_EMPTY_ARRAY;
-        }
-
-        int argCnt = in.unpackArrayHeader();
-
-        if (argCnt == 0) {
-            return OBJECT_EMPTY_ARRAY;
-        }
-
-        Object[] args = new Object[argCnt];
-
-        for (int i = 0; i < argCnt; i++) {
-            args[i] = in.unpackObjectWithType();
-        }
-        return args;
+    static Object unpackPayload(ClientMessageUnpacker in) {
+        return in.unpackObjectFromBinaryTuple();
     }
 }

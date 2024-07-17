@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
@@ -241,59 +240,6 @@ public abstract class AbstractFileIoTest {
         fileIo1.close();
 
         assertThrows(IOException.class, () -> fileIo1.read(ByteBuffer.allocate(0)));
-    }
-
-    @Test
-    void testTransferTo() throws Exception {
-        Path test0FilePath = workDir.resolve("test0");
-
-        byte[] randomByteArray = randomByteArray(1024);
-
-        writeBytes(test0FilePath, randomByteArray);
-
-        FileIo fileIo = fileIoFactory.create(test0FilePath);
-
-        Path test1FilePath = workDir.resolve("test1");
-
-        try (FileChannel fh = FileChannel.open(test1FilePath, CREATE, WRITE, READ)) {
-            assertEquals(512, fileIo.transferTo(512, 512, fh));
-            assertEquals(0, fileIo.position());
-
-            fh.force(true);
-        }
-
-        assertArrayEquals(copyOfRange(randomByteArray, 512, 1024), toByteArray(test1FilePath));
-    }
-
-    @Test
-    void testTransferFrom() throws Exception {
-        Path test0FilePath = workDir.resolve("test0");
-
-        byte[] randomByteArray = randomByteArray(1024);
-
-        writeBytes(test0FilePath, randomByteArray);
-
-        Path test1FilePath = workDir.resolve("test1");
-
-        FileIo fileIo = fileIoFactory.create(test1FilePath);
-
-        try (FileChannel fh = FileChannel.open(test0FilePath, CREATE, WRITE, READ)) {
-            assertEquals(0, fileIo.transferFrom(fh, 512, 512));
-            assertEquals(0, fileIo.position());
-
-            fileIo.writeFully(ByteBuffer.allocate(1024));
-
-            assertEquals(512, fileIo.transferFrom(fh, 512, 512));
-            assertEquals(1024, fileIo.position());
-
-            fileIo.force();
-        }
-
-        byte[] expectedBytes = new byte[1024];
-
-        System.arraycopy(randomByteArray, 0, expectedBytes, 512, 512);
-
-        assertArrayEquals(expectedBytes, toByteArray(test1FilePath));
     }
 
     /**

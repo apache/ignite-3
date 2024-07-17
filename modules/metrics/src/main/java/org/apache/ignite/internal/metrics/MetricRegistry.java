@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,12 +21,13 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 
 /**
  * Metric registry. Metrics source (see {@link MetricSource} must be registered in this metrics registry after initialization
@@ -108,7 +109,7 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source isn't registered.
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
-    public MetricSet enable(@NotNull MetricSource src) {
+    public MetricSet enable(MetricSource src) {
         lock.lock();
 
         try {
@@ -162,7 +163,7 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source isn't registered.
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
-    public void disable(@NotNull MetricSource src) {
+    public void disable(MetricSource src) {
         lock.lock();
 
         try {
@@ -193,7 +194,7 @@ public class MetricRegistry {
             MetricSource src = sources.get(srcName);
 
             if (src == null) {
-                throw new IllegalStateException("Metrics source with given name doesn't exists: " + srcName);
+                throw new IllegalStateException("Metrics source with given name doesn't exist: " + srcName);
             }
 
             if (!src.enabled()) {
@@ -216,8 +217,7 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source isn't registered.
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
-    @NotNull
-    private MetricSource checkAndGetRegistered(@NotNull MetricSource src) {
+    private MetricSource checkAndGetRegistered(MetricSource src) {
         assert lock.isHeldByCurrentThread() : "Access to shared state from an incorrect thread " + Thread.currentThread().getName();
 
         requireNonNull(src);
@@ -289,5 +289,19 @@ public class MetricRegistry {
      */
     public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
         return metricSnapshot;
+    }
+
+    /**
+     * Gets a collection of registered metric sources.
+     *
+     * @return Metric sources.
+     */
+    public Collection<MetricSource> metricSources() {
+        lock.lock();
+        try {
+            return List.copyOf(sources.values());
+        } finally {
+            lock.unlock();
+        }
     }
 }

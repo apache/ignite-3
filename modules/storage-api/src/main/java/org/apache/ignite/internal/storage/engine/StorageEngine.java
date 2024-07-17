@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 
 /**
  * General storage engine interface.
  */
 public interface StorageEngine {
+    /**
+     * Returns a storage engine name.
+     */
+    String name();
+
     /**
      * Starts the engine.
      *
@@ -39,23 +44,25 @@ public interface StorageEngine {
     void stop() throws StorageException;
 
     /**
-     * Creates new table storage.
-     *
-     * @param tableCfg Table configuration.
-     * @throws StorageException If an error has occurs while creating the table.
-     *
-     * @deprecated Replaced with {@link MvTableStorage}.
+     * Whether the data is lost upon engine restart or not.
      */
-    @Deprecated
-    default TableStorage createTable(TableConfiguration tableCfg) throws StorageException {
-        throw new UnsupportedOperationException();
-    }
+    boolean isVolatile();
 
     /**
      * Creates new table storage.
      *
-     * @param tableCfg Table configuration.
+     * @param tableDescriptor Table descriptor.
+     * @param indexDescriptorSupplier Index descriptor supplier at table start.
      * @throws StorageException If an error has occurs while creating the table.
      */
-    MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException;
+    // TODO: IGNITE-19717 Get rid of indexDescriptorSupplier
+    MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier);
+
+    /**
+     * Destroys the table if it exists.
+     *
+     * @param tableId Table ID.
+     * @throws StorageException If an error has occurs while dropping the table.
+     */
+    void dropMvTable(int tableId);
 }

@@ -1,0 +1,28 @@
+@startuml flow
+title General Rebalance Flow (diagram 1)
+
+skinparam maxMessageSize 400
+skinparam defaultFontSize 12
+
+User -> DistributionConfiguration : Change a number of replicas
+
+DistributionConfiguration --> DistributionZoneManager : Receives an update through the distribution configuration listener.
+
+DistributionZoneManager -> Metastore : Calculate new assignments based on the current datanodes and put the result of calculations to **zoneId.assignments.pending**/**planned** key [see 1]
+note left
+this put must be covered by the similar logic
+which we have in the current rebalance
+to prevent the metastore call from multiple nodes
+due to the fact, because each node has DistributionZoneManager
+and listens configuration updates
+end note
+
+Metastore --> DistributionZoneManager : Receives an update of **zoneId.assignments.pending** key and starts replica server if needed
+Metastore --> PlacementDriver : Receives an update of **zoneId.assignments.pending** key.
+PlacementDriver -> PartitionPrimaryReplica : Send a RebalanceRequest to PrimaryReplica for the rebalance of its group
+PartitionPrimaryReplica -> PartitionPrimaryReplica: Await for all replicas start [see 2]
+PartitionPrimaryReplica -> PartitionPrimaryReplica : Process replication group update [see 3 and separate diagram 2]
+PartitionPrimaryReplica -> PlacementDriver : Notify about rebalance done. PlacementDriver updates itself's cache for rebalanced group with the addresses of the new members.
+PlacementDriver -> Metastore : Update the zoneId.assignments.stable/planned/pending/cancel key [see 4]
+Metastore --> DistributionZoneManager : Receives the update about **zoneId.assignments.stable** update and stop the unneeded replication group members on the current node, if needed [see 5]
+@enduml

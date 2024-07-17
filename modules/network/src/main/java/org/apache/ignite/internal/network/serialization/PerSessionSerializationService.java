@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,20 +23,20 @@ import static org.apache.ignite.internal.network.serialization.ClassDescriptorRe
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageSerializer;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -49,7 +49,7 @@ public class PerSessionSerializationService {
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
 
     /** Integer value that is sent when there is no descriptor. */
-    private static final int NO_DESCRIPTOR_ID = Integer.MIN_VALUE;
+    private static final int NO_DESCRIPTOR_ID = -1;
 
     /** Global serialization service. */
     private final SerializationService serializationService;
@@ -92,6 +92,13 @@ public class PerSessionSerializationService {
     }
 
     /**
+     * Returns underlying serialization registry.
+     */
+    public MessageSerializationRegistry serializationRegistry() {
+        return serializationService.serializationRegistry();
+    }
+
+    /**
      * Creates a message serializer.
      *
      * @see SerializationService#createSerializer(short, short)
@@ -129,49 +136,38 @@ public class PerSessionSerializationService {
     }
 
     /**
-     * Creates a list of messages holding class descriptors.
+     * Creates a list of network messages holding class descriptors.
      *
-     * @param descriptorIds Class descriptors.
-     * @return List of class descriptor network messages.
+     * @param descriptorIds Class descriptor IDs
+     * @param registry Class descriptor registry.
      */
     public static List<ClassDescriptorMessage> createClassDescriptorsMessages(IntSet descriptorIds, ClassDescriptorRegistry registry) {
-        return descriptorIds.intStream()
-                .mapToObj(registry::getRequiredDescriptor)
-                .filter(descriptor -> !shouldBeBuiltIn(descriptor.descriptorId()))
-                .map(descriptor -> {
-                    List<FieldDescriptorMessage> fields = descriptor.fields().stream()
-                            .map(d -> {
-                                return MSG_FACTORY.fieldDescriptorMessage()
-                                        .name(d.name())
-                                        .typeDescriptorId(d.typeDescriptorId())
-                                        .className(d.typeName())
-                                        .flags(fieldFlags(d))
-                                        .build();
-                            })
-                            .collect(toList());
+        if (descriptorIds.isEmpty()) {
+            return List.of();
+        }
 
-                    Serialization serialization = descriptor.serialization();
+        var classDescriptorMessages = new ArrayList<ClassDescriptorMessage>();
 
-                    return MSG_FACTORY.classDescriptorMessage()
-                            .fields(fields)
-                            .serializationType((byte) serialization.type().value())
-                            .serializationFlags(serializationAttributeFlags(serialization))
-                            .descriptorId(descriptor.descriptorId())
-                            .className(descriptor.className())
-                            .superClassDescriptorId(superClassDescriptorIdForMessage(descriptor))
-                            .superClassName(descriptor.superClassName())
-                            .componentTypeDescriptorId(componentTypeDescriptorIdForMessage(descriptor))
-                            .componentTypeName(descriptor.componentTypeName())
-                            .attributes(classDescriptorAttributeFlags(descriptor))
-                            .build();
-                })
-                .collect(toList());
+        // Specially made by classical loops for optimization.
+        for (IntIterator it = descriptorIds.intIterator(); it.hasNext(); ) {
+            int descriptorId = it.nextInt();
+
+            if (shouldBeBuiltIn(descriptorId)) {
+                continue;
+            }
+
+            ClassDescriptor classDescriptor = registry.getRequiredDescriptor(descriptorId);
+
+            classDescriptorMessages.add(convert(classDescriptor));
+        }
+
+        return classDescriptorMessages;
     }
 
     private static byte fieldFlags(FieldDescriptor fieldDescriptor) {
         int bits = condMask(fieldDescriptor.isUnshared(), FieldDescriptorMessage.UNSHARED_MASK)
                 | condMask(fieldDescriptor.isPrimitive(), FieldDescriptorMessage.IS_PRIMITIVE)
-                | condMask(fieldDescriptor.isRuntimeTypeKnownUpfront(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT);
+                | condMask(fieldDescriptor.isSerializationTypeKnownUpfront(), FieldDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT);
         return (byte) bits;
     }
 
@@ -192,7 +188,7 @@ public class PerSessionSerializationService {
         int bits = condMask(descriptor.isPrimitive(), ClassDescriptorMessage.IS_PRIMITIVE_MASK)
                 | condMask(descriptor.isArray(), ClassDescriptorMessage.IS_ARRAY_MASK)
                 | condMask(descriptor.isRuntimeEnum(), ClassDescriptorMessage.IS_RUNTIME_ENUM_MASK)
-                | condMask(descriptor.isRuntimeTypeKnownUpfront(), ClassDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK);
+                | condMask(descriptor.isSerializationTypeKnownUpfront(), ClassDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT_MASK);
         return (byte) bits;
     }
 
@@ -295,7 +291,7 @@ public class PerSessionSerializationService {
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_PRIMITIVE_MASK),
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_ARRAY_MASK),
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_ENUM_MASK),
-                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK),
+                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT_MASK),
                 remoteFields,
                 serialization,
                 localDescriptor
@@ -317,7 +313,7 @@ public class PerSessionSerializationService {
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_PRIMITIVE_MASK),
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_ARRAY_MASK),
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_ENUM_MASK),
-                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK),
+                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT_MASK),
                 remoteFields,
                 serialization
         );
@@ -364,7 +360,7 @@ public class PerSessionSerializationService {
                 typeDescriptorId,
                 bitValue(fieldMessage.flags(), FieldDescriptorMessage.UNSHARED_MASK),
                 bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_PRIMITIVE),
-                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT),
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT),
                 declaringClass
         );
     }
@@ -377,7 +373,7 @@ public class PerSessionSerializationService {
                 typeDescriptorId,
                 bitValue(fieldMessage.flags(), FieldDescriptorMessage.UNSHARED_MASK),
                 bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_PRIMITIVE),
-                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT),
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT),
                 declaringClassName
         );
     }
@@ -425,5 +421,41 @@ public class PerSessionSerializationService {
     @TestOnly
     Map<Integer, ClassDescriptor> getDescriptorMapView() {
         return mergedIdToDescriptorMap;
+    }
+
+    private static FieldDescriptorMessage convert(FieldDescriptor descriptor) {
+        return MSG_FACTORY.fieldDescriptorMessage()
+                .name(descriptor.name())
+                .typeDescriptorId(descriptor.typeDescriptorId())
+                .className(descriptor.typeName())
+                .flags(fieldFlags(descriptor))
+                .build();
+    }
+
+    private static ClassDescriptorMessage convert(ClassDescriptor descriptor) {
+        List<FieldDescriptor> fieldDescriptors = descriptor.fields();
+        List<FieldDescriptorMessage> fieldDescriptorMessages = new ArrayList<>(fieldDescriptors.size());
+
+        // Specially made by classical loops for optimization.
+        for (int i = 0; i < fieldDescriptors.size(); i++) {
+            FieldDescriptor fieldDescriptor = fieldDescriptors.get(i);
+
+            fieldDescriptorMessages.add(convert(fieldDescriptor));
+        }
+
+        Serialization serialization = descriptor.serialization();
+
+        return MSG_FACTORY.classDescriptorMessage()
+                .fields(fieldDescriptorMessages)
+                .serializationType((byte) serialization.type().value())
+                .serializationFlags(serializationAttributeFlags(serialization))
+                .descriptorId(descriptor.descriptorId())
+                .className(descriptor.className())
+                .superClassDescriptorId(superClassDescriptorIdForMessage(descriptor))
+                .superClassName(descriptor.superClassName())
+                .componentTypeDescriptorId(componentTypeDescriptorIdForMessage(descriptor))
+                .componentTypeName(descriptor.componentTypeName())
+                .attributes(classDescriptorAttributeFlags(descriptor))
+                .build();
     }
 }

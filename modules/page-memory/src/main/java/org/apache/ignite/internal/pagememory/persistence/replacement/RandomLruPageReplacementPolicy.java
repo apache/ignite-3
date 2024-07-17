@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
 import org.apache.ignite.internal.pagememory.persistence.ReplaceCandidate;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Random-LRU page replacement policy implementation.

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,8 +34,6 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import sun.misc.Unsafe;
 
 /**
@@ -73,8 +71,8 @@ public abstract class GridUnsafe {
     /** Per-byte copy threshold. */
     private static final long PER_BYTE_THRESHOLD = 0L;
 
-    /** Big endian. */
-    public static final boolean BIG_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN;
+    /** Flag indicating whether system's native order is big endian. */
+    public static final boolean IS_BIG_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN;
 
     /** Address size. */
     public static final int ADDR_SIZE = UNSAFE.addressSize();
@@ -109,35 +107,20 @@ public abstract class GridUnsafe {
     /** {@link java.nio.Buffer#address} field offset. */
     private static final long DIRECT_BUF_ADDR_OFF = bufferAddressOffset();
 
-    /** Null object. */
-    private static final Object NULL_OBJ = null;
-
-    /** JavaNioAccess object. If {@code null} then {@link #NEW_DIRECT_BUF_CONSTRUCTOR} should be available. */
-    @Nullable
-    private static final Object JAVA_NIO_ACCESS_OBJ;
-
     /**
-     * JavaNioAccess#newDirectByteBuffer method handle. Usually {@code null} if {@link #JAVA_NIO_ACCESS_OBJ} is {@code null}. If {@code
-     * null} then {@link #NEW_DIRECT_BUF_CONSTRUCTOR} should be available.
+     * Implementation used to wrap a region if an unmanaged memory in a {@link ByteBuffer}.
      */
-    @Nullable
-    private static final MethodHandle NEW_DIRECT_BUF_MH;
-
-    /**
-     * New direct buffer class constructor obtained and tested using reflection. If {@code null} then both {@link #JAVA_NIO_ACCESS_OBJ} and
-     * {@link #NEW_DIRECT_BUF_MH} should be not {@code null}.
-     */
-    @Nullable
-    private static final MethodHandle NEW_DIRECT_BUF_CONSTRUCTOR;
+    private static final PointerWrapping POINTER_WRAPPING;
 
     static {
         Object nioAccessObj = null;
 
         MethodHandle directBufMtd = null;
-        MethodHandle directBufCtor = null;
+        MethodHandle directBufCtorWithIntLen = null;
+        MethodHandle directBufCtorWithLongLen = null;
 
         if (majorJavaVersion(jdkVersion()) < 12) {
-            // for old java prefer Java NIO & Shared Secrets obect init way
+            // for old java prefer Java NIO & Shared Secrets object init way
             try {
                 nioAccessObj = javaNioAccessObject();
                 directBufMtd = newDirectBufferMethodHandle(nioAccessObj);
@@ -146,46 +129,55 @@ public abstract class GridUnsafe {
                 directBufMtd = null;
 
                 try {
-                    directBufCtor = createAndTestNewDirectBufferCtor();
+                    directBufCtorWithIntLen = createAndTestNewDirectBufferCtor(int.class);
                 } catch (Exception exFallback) {
                     //noinspection CallToPrintStackTrace
-                    exFallback.printStackTrace();
+                    exFallback.printStackTrace(); // NOPMD
 
                     e.addSuppressed(exFallback);
 
                     throw e; // Fallback was not successful.
                 }
 
-                if (directBufCtor == null) {
+                if (directBufCtorWithIntLen == null) {
                     throw e;
                 }
             }
         } else {
             try {
-                directBufCtor = createAndTestNewDirectBufferCtor();
+                directBufCtorWithIntLen = createAndTestNewDirectBufferCtor(int.class);
             } catch (Exception e) {
                 try {
-                    nioAccessObj = javaNioAccessObject();
-                    directBufMtd = newDirectBufferMethodHandle(nioAccessObj);
-                } catch (Exception exFallback) {
-                    //noinspection CallToPrintStackTrace
-                    exFallback.printStackTrace();
+                    directBufCtorWithLongLen = createAndTestNewDirectBufferCtor(long.class);
+                } catch (Exception e2) {
+                    try {
+                        nioAccessObj = javaNioAccessObject();
+                        directBufMtd = newDirectBufferMethodHandle(nioAccessObj);
+                    } catch (Exception exFallback) {
+                        //noinspection CallToPrintStackTrace
+                        exFallback.printStackTrace(); // NOPMD
 
-                    e.addSuppressed(exFallback);
+                        e.addSuppressed(exFallback);
 
-                    throw e; // Fallback to shared secrets failed.
-                }
+                        throw e; // Fallback to shared secrets failed.
+                    }
 
-                if (nioAccessObj == null || directBufMtd == null) {
-                    throw e;
+                    if (nioAccessObj == null || directBufMtd == null) {
+                        throw e;
+                    }
                 }
             }
         }
 
-        JAVA_NIO_ACCESS_OBJ = nioAccessObj;
-        NEW_DIRECT_BUF_MH = directBufMtd;
-
-        NEW_DIRECT_BUF_CONSTRUCTOR = directBufCtor;
+        if (directBufMtd != null && nioAccessObj != null) {
+            POINTER_WRAPPING = new JavaNioPointerWrapping(directBufMtd, nioAccessObj);
+        } else if (directBufCtorWithIntLen != null) {
+            POINTER_WRAPPING = new WrapWithIntDirectBufferConstructor(directBufCtorWithIntLen);
+        } else if (directBufCtorWithLongLen != null) {
+            POINTER_WRAPPING = new WrapWithLongDirectBufferConstructor(directBufCtorWithLongLen);
+        } else {
+            POINTER_WRAPPING = new BrokenPointerWrapping();
+        }
     }
 
     /**
@@ -203,14 +195,7 @@ public abstract class GridUnsafe {
      * @return Byte buffer wrapping the given memory.
      */
     public static ByteBuffer wrapPointer(long ptr, int len) {
-        if (NEW_DIRECT_BUF_MH != null && JAVA_NIO_ACCESS_OBJ != null) {
-            return wrapPointerJavaNio(ptr, len, NEW_DIRECT_BUF_MH, JAVA_NIO_ACCESS_OBJ);
-        } else if (NEW_DIRECT_BUF_CONSTRUCTOR != null) {
-            return wrapPointerDirectBufferConstructor(ptr, len, NEW_DIRECT_BUF_CONSTRUCTOR);
-        } else {
-            throw new RuntimeException(
-                    "All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_VER_SPECIFIC_WARN);
-        }
+        return POINTER_WRAPPING.wrapPointer(ptr, len);
     }
 
     /**
@@ -221,8 +206,7 @@ public abstract class GridUnsafe {
      * @param constructor Constructor to use. Should create an instance of a direct ByteBuffer.
      * @return Byte buffer wrapping the given memory.
      */
-    @NotNull
-    private static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, int len, MethodHandle constructor) {
+    static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, int len, MethodHandle constructor) {
         try {
             ByteBuffer newDirectBuf = (ByteBuffer) constructor.invokeExact(ptr, len);
 
@@ -234,31 +218,20 @@ public abstract class GridUnsafe {
     }
 
     /**
-     * Wraps a pointer to unmanaged memory into a direct byte buffer. Uses the JavaNioAccess object.
+     * Wraps a pointer to unmanaged memory into a direct byte buffer. Uses the constructor of the direct byte buffer.
      *
-     * @param ptr              Pointer to wrap.
-     * @param len              Memory location length.
-     * @param newDirectBufMh   Method handle which should return an instance of a direct byte buffer.
-     * @param javaNioAccessObj Object to invoke method.
+     * @param ptr         Pointer to wrap.
+     * @param len         Memory location length.
+     * @param constructor Constructor to use. Should create an instance of a direct ByteBuffer.
      * @return Byte buffer wrapping the given memory.
      */
-    @NotNull
-    private static ByteBuffer wrapPointerJavaNio(
-            long ptr,
-            int len,
-            @NotNull MethodHandle newDirectBufMh,
-            @NotNull Object javaNioAccessObj
-    ) {
+    static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, long len, MethodHandle constructor) {
         try {
-            ByteBuffer buf = (ByteBuffer) newDirectBufMh.invokeExact(javaNioAccessObj, ptr, len, NULL_OBJ);
+            ByteBuffer newDirectBuf = (ByteBuffer) constructor.invokeExact(ptr, len);
 
-            assert buf.isDirect();
-
-            buf.order(NATIVE_BYTE_ORDER);
-
-            return buf;
+            return newDirectBuf.order(NATIVE_BYTE_ORDER);
         } catch (Throwable e) {
-            throw new RuntimeException("JavaNioAccess#newDirectByteBuffer() method is unavailable."
+            throw new RuntimeException("DirectByteBuffer#constructor is unavailable."
                     + FeatureChecker.JAVA_VER_SPECIFIC_WARN, e);
         }
     }
@@ -571,7 +544,7 @@ public abstract class GridUnsafe {
      * @return Short value from byte array.
      */
     public static short getShort(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getShort(arr, off) : getShortByByte(arr, off, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getShort(arr, off) : getShortByByte(arr, off, IS_BIG_ENDIAN);
     }
 
     /**
@@ -581,7 +554,7 @@ public abstract class GridUnsafe {
      * @return Short value from given address.
      */
     public static short getShort(long addr) {
-        return UNALIGNED ? UNSAFE.getShort(addr) : getShortByByte(addr, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getShort(addr) : getShortByByte(addr, IS_BIG_ENDIAN);
     }
 
     /**
@@ -595,7 +568,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putShort(arr, off, val);
         } else {
-            putShortByByte(arr, off, val, BIG_ENDIAN);
+            putShortByByte(arr, off, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -609,7 +582,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putShort(addr, val);
         } else {
-            putShortByByte(addr, val, BIG_ENDIAN);
+            putShortByByte(addr, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -621,7 +594,7 @@ public abstract class GridUnsafe {
      * @return Char value from byte array.
      */
     public static char getChar(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getChar(arr, off) : getCharByByte(arr, off, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getChar(arr, off) : getCharByByte(arr, off, IS_BIG_ENDIAN);
     }
 
     /**
@@ -631,7 +604,7 @@ public abstract class GridUnsafe {
      * @return Char value from given address.
      */
     public static char getChar(long addr) {
-        return UNALIGNED ? UNSAFE.getChar(addr) : getCharByByte(addr, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getChar(addr) : getCharByByte(addr, IS_BIG_ENDIAN);
     }
 
     /**
@@ -645,7 +618,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putChar(arr, off, val);
         } else {
-            putCharByByte(arr, off, val, BIG_ENDIAN);
+            putCharByByte(arr, off, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -659,7 +632,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putChar(addr, val);
         } else {
-            putCharByByte(addr, val, BIG_ENDIAN);
+            putCharByByte(addr, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -671,7 +644,7 @@ public abstract class GridUnsafe {
      * @return Integer value from byte array.
      */
     public static int getInt(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getInt(arr, off) : getIntByByte(arr, off, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getInt(arr, off) : getIntByByte(arr, off, IS_BIG_ENDIAN);
     }
 
     /**
@@ -681,7 +654,7 @@ public abstract class GridUnsafe {
      * @return Integer value from given address.
      */
     public static int getInt(long addr) {
-        return UNALIGNED ? UNSAFE.getInt(addr) : getIntByByte(addr, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getInt(addr) : getIntByByte(addr, IS_BIG_ENDIAN);
     }
 
     /**
@@ -695,7 +668,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putInt(arr, off, val);
         } else {
-            putIntByByte(arr, off, val, BIG_ENDIAN);
+            putIntByByte(arr, off, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -709,7 +682,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putInt(addr, val);
         } else {
-            putIntByByte(addr, val, BIG_ENDIAN);
+            putIntByByte(addr, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -721,7 +694,7 @@ public abstract class GridUnsafe {
      * @return Long value from byte array.
      */
     public static long getLong(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getLong(arr, off) : getLongByByte(arr, off, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getLong(arr, off) : getLongByByte(arr, off, IS_BIG_ENDIAN);
     }
 
     /**
@@ -731,7 +704,7 @@ public abstract class GridUnsafe {
      * @return Long value from given address.
      */
     public static long getLong(long addr) {
-        return UNALIGNED ? UNSAFE.getLong(addr) : getLongByByte(addr, BIG_ENDIAN);
+        return UNALIGNED ? UNSAFE.getLong(addr) : getLongByByte(addr, IS_BIG_ENDIAN);
     }
 
     /**
@@ -745,7 +718,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putLong(arr, off, val);
         } else {
-            putLongByByte(arr, off, val, BIG_ENDIAN);
+            putLongByByte(arr, off, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -759,7 +732,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putLong(addr, val);
         } else {
-            putLongByByte(addr, val, BIG_ENDIAN);
+            putLongByByte(addr, val, IS_BIG_ENDIAN);
         }
     }
 
@@ -771,7 +744,7 @@ public abstract class GridUnsafe {
      * @return Float value from byte array.
      */
     public static float getFloat(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getFloat(arr, off) : Float.intBitsToFloat(getIntByByte(arr, off, BIG_ENDIAN));
+        return UNALIGNED ? UNSAFE.getFloat(arr, off) : Float.intBitsToFloat(getIntByByte(arr, off, IS_BIG_ENDIAN));
     }
 
     /**
@@ -781,7 +754,7 @@ public abstract class GridUnsafe {
      * @return Float value from given address.
      */
     public static float getFloat(long addr) {
-        return UNALIGNED ? UNSAFE.getFloat(addr) : Float.intBitsToFloat(getIntByByte(addr, BIG_ENDIAN));
+        return UNALIGNED ? UNSAFE.getFloat(addr) : Float.intBitsToFloat(getIntByByte(addr, IS_BIG_ENDIAN));
     }
 
     /**
@@ -795,7 +768,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putFloat(arr, off, val);
         } else {
-            putIntByByte(arr, off, Float.floatToIntBits(val), BIG_ENDIAN);
+            putIntByByte(arr, off, Float.floatToIntBits(val), IS_BIG_ENDIAN);
         }
     }
 
@@ -809,7 +782,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putFloat(addr, val);
         } else {
-            putIntByByte(addr, Float.floatToIntBits(val), BIG_ENDIAN);
+            putIntByByte(addr, Float.floatToIntBits(val), IS_BIG_ENDIAN);
         }
     }
 
@@ -821,7 +794,7 @@ public abstract class GridUnsafe {
      * @return Double value from byte array. Alignment aware.
      */
     public static double getDouble(byte[] arr, long off) {
-        return UNALIGNED ? UNSAFE.getDouble(arr, off) : Double.longBitsToDouble(getLongByByte(arr, off, BIG_ENDIAN));
+        return UNALIGNED ? UNSAFE.getDouble(arr, off) : Double.longBitsToDouble(getLongByByte(arr, off, IS_BIG_ENDIAN));
     }
 
     /**
@@ -831,7 +804,7 @@ public abstract class GridUnsafe {
      * @return Double value from given address.
      */
     public static double getDouble(long addr) {
-        return UNALIGNED ? UNSAFE.getDouble(addr) : Double.longBitsToDouble(getLongByByte(addr, BIG_ENDIAN));
+        return UNALIGNED ? UNSAFE.getDouble(addr) : Double.longBitsToDouble(getLongByByte(addr, IS_BIG_ENDIAN));
     }
 
     /**
@@ -845,7 +818,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putDouble(arr, off, val);
         } else {
-            putLongByByte(arr, off, Double.doubleToLongBits(val), BIG_ENDIAN);
+            putLongByByte(arr, off, Double.doubleToLongBits(val), IS_BIG_ENDIAN);
         }
     }
 
@@ -859,7 +832,7 @@ public abstract class GridUnsafe {
         if (UNALIGNED) {
             UNSAFE.putDouble(addr, val);
         } else {
-            putLongByByte(addr, Double.doubleToLongBits(val), BIG_ENDIAN);
+            putLongByByte(addr, Double.doubleToLongBits(val), IS_BIG_ENDIAN);
         }
     }
 
@@ -1636,16 +1609,16 @@ public abstract class GridUnsafe {
      * @throws RuntimeException If getting access to the private API is failed.
      */
     private static Object javaNioAccessObject() {
-        String pkgName = miscPackage();
+        String pkgName = accessPackage();
 
         try {
-            Class<?> cls = Class.forName(pkgName + ".misc.SharedSecrets");
+            Class<?> cls = Class.forName(pkgName + ".SharedSecrets");
 
             Method mth = cls.getMethod("getJavaNioAccess");
 
             return mth.invoke(null);
         } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(pkgName + ".misc.JavaNioAccess class is unavailable."
+            throw new RuntimeException(pkgName + ".JavaNioAccess class is unavailable."
                     + FeatureChecker.JAVA_VER_SPECIFIC_WARN, e);
         }
     }
@@ -1681,38 +1654,38 @@ public abstract class GridUnsafe {
                     .unreflect(mtd)
                     .asType(mtdType);
         } catch (ReflectiveOperationException | PrivilegedActionException e) {
-            throw new RuntimeException(miscPackage() + ".JavaNioAccess#newDirectByteBuffer() method is unavailable."
+            throw new RuntimeException(accessPackage() + ".JavaNioAccess#newDirectByteBuffer() method is unavailable."
                     + FeatureChecker.JAVA_VER_SPECIFIC_WARN, e);
         }
     }
 
     /**
-     * Returns misc package name.
+     * Returns access package name.
      *
-     * @return Misc package name.
+     * @return Access package name.
      */
-    @NotNull
-    private static String miscPackage() {
-        int javaVer = majorJavaVersion(jdkVersion());
-
-        return javaVer < 9 ? "sun" : "jdk.internal";
+    private static String accessPackage() {
+        return "jdk.internal.access";
     }
 
 
     /**
      * Creates and tests contructor for Direct ByteBuffer. Test is wrapping one-byte unsafe memory into a buffer.
      *
+     * @param lengthType Type of the length parameter.
      * @return constructor for creating direct ByteBuffers.
      */
-    @NotNull
-    private static MethodHandle createAndTestNewDirectBufferCtor() {
-        MethodHandle ctorCandidate = createNewDirectBufferCtor();
+    private static MethodHandle createAndTestNewDirectBufferCtor(Class<?> lengthType) {
+        assert lengthType == int.class || lengthType == long.class : "Unsupported type of length: " + lengthType;
+
+        MethodHandle ctorCandidate = createNewDirectBufferCtor(lengthType);
 
         int l = 1;
         long ptr = UNSAFE.allocateMemory(l);
 
         try {
-            ByteBuffer buf = wrapPointerDirectBufferConstructor(ptr, l, ctorCandidate);
+            ByteBuffer buf = lengthType == int.class ? wrapPointerDirectBufferConstructor(ptr, l, ctorCandidate)
+                    : wrapPointerDirectBufferConstructor(ptr, (long) l, ctorCandidate);
 
             if (!buf.isDirect()) {
                 throw new IllegalArgumentException("Buffer expected to be direct, internal error during #wrapPointerDirectBufCtor()");
@@ -1728,14 +1701,14 @@ public abstract class GridUnsafe {
     /**
      * Simply create some instance of direct Byte Buffer and try to get it's class declared constructor.
      *
+     * @param lengthType Type of the length parameter.
      * @return constructor for creating direct ByteBuffers.
      */
-    @NotNull
-    private static MethodHandle createNewDirectBufferCtor() {
+    private static MethodHandle createNewDirectBufferCtor(Class<?> lengthType) {
         try {
             ByteBuffer buf = ByteBuffer.allocateDirect(1).order(NATIVE_BYTE_ORDER);
 
-            Constructor<?> ctor = buf.getClass().getDeclaredConstructor(long.class, int.class);
+            Constructor<?> ctor = buf.getClass().getDeclaredConstructor(long.class, lengthType);
 
             AccessController.doPrivileged((PrivilegedExceptionAction<?>) () -> {
                 ctor.setAccessible(true);
@@ -1746,14 +1719,14 @@ public abstract class GridUnsafe {
             MethodType mtdType = MethodType.methodType(
                     ByteBuffer.class,
                     long.class,
-                    int.class
+                    lengthType
             );
 
             return MethodHandles.lookup()
                     .unreflectConstructor(ctor)
                     .asType(mtdType);
-        } catch (NoSuchMethodException | SecurityException | PrivilegedActionException | IllegalAccessException e) {
-            throw new RuntimeException("Unable to set up byte buffer creation using reflections :" + e.getMessage(), e);
+        } catch (ReflectiveOperationException | PrivilegedActionException e) {
+            throw new RuntimeException("Unable to set up byte buffer creation using reflection :" + e.getMessage(), e);
         }
     }
 

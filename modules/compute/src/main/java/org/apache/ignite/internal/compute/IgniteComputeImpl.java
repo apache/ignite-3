@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,72 +17,190 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.ignite.compute.ComputeJob;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import org.apache.ignite.compute.AnyNodeJobTarget;
+import org.apache.ignite.compute.ColocatedJobTarget;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.NodeNotFoundException;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link IgniteCompute}.
  */
-public class IgniteComputeImpl implements IgniteCompute {
+public class IgniteComputeImpl implements IgniteComputeInternal {
     private final TopologyService topologyService;
+
     private final IgniteTablesInternal tables;
+
     private final ComputeComponent computeComponent;
 
-    private final ThreadLocalRandom random = ThreadLocalRandom.current();
+    private final PlacementDriver placementDriver;
+
+    private final HybridClock clock;
 
     /**
      * Create new instance.
      */
-    public IgniteComputeImpl(TopologyService topologyService, IgniteTablesInternal tables, ComputeComponent computeComponent) {
+    public IgniteComputeImpl(PlacementDriver placementDriver, TopologyService topologyService,
+            IgniteTablesInternal tables, ComputeComponent computeComponent,
+            HybridClock clock) {
+        this.placementDriver = placementDriver;
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
+        this.clock = clock;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        Objects.requireNonNull(nodes);
-        Objects.requireNonNull(jobClass);
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(descriptor);
 
-        if (nodes.isEmpty()) {
-            throw new IllegalArgumentException("nodes must not be empty.");
+        Marshaler<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
+
+        if (target instanceof AnyNodeJobTarget) {
+            Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
+
+            if (nodes.size() == 1) {
+                ClusterNode node = nodes.iterator().next();
+                if (node.id().equals(topologyService.localMember().id())) {
+                    return executeAsyncWithFailover(
+                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
+                    );
+                }
+            }
+
+            return executeAsyncWithFailover(
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                    argumentMarshaler == null ? args : argumentMarshaler.marshal(args)
+            );
         }
 
-        return executeOnOneNode(randomNode(nodes), jobClass, args);
-    }
+        if (target instanceof ColocatedJobTarget) {
+            ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;
+            var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
+            String tableName = colocatedTarget.tableName();
+            Object key = colocatedTarget.key();
 
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
-        Objects.requireNonNull(nodes);
-        Objects.requireNonNull(jobClassName);
+            CompletableFuture<JobExecution<R>> jobFut;
+            if (mapper != null) {
+                jobFut = requiredTable(tableName)
+                        .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, mapper)
+                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                                        primaryNode,
+                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
+                                        descriptor.units(),
+                                        descriptor.jobClassName(),
+                                        descriptor.options(),
+                                        argumentMarshaler == null ? args : argumentMarshaler.marshal(args)
+                                )));
 
-        if (nodes.isEmpty()) {
-            throw new IllegalArgumentException("nodes must not be empty.");
+            } else {
+                jobFut = requiredTable(tableName)
+                        .thenCompose(table -> submitColocatedInternal(
+                                table,
+                                (Tuple) key,
+                                descriptor.units(),
+                                descriptor.jobClassName(),
+                                descriptor.options(),
+                                argumentMarshaler == null ? args : argumentMarshaler.marshal(args)));
+            }
+
+            return new JobExecutionFutureWrapper<>(jobFut);
         }
 
-        return executeOnOneNode(randomNode(nodes), jobClassName, args);
+        throw new IllegalArgumentException("Unsupported job target: " + target);
     }
 
-    private ClusterNode randomNode(Set<ClusterNode> nodes) {
-        int nodesToSkip = random.nextInt(nodes.size());
+    @Override
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
+        return sync(executeAsync(target, descriptor, args));
+    }
+
+    @Override
+    public <R> JobExecution<R> executeAsyncWithFailover(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object args
+    ) {
+        Set<ClusterNode> candidates = new HashSet<>();
+        for (ClusterNode node : nodes) {
+            if (topologyService.getByConsistentId(node.name()) != null) {
+                candidates.add(node);
+            }
+        }
+        if (candidates.isEmpty()) {
+            Set<String> nodeNames = nodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
+            return new FailedExecution<>(new NodeNotFoundException(nodeNames));
+        }
+
+        ClusterNode targetNode = randomNode(candidates);
+        candidates.remove(targetNode);
+
+        NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
+
+        return new JobExecutionWrapper<>(
+                executeOnOneNodeWithFailover(
+                        targetNode,
+                        selector,
+                        units,
+                        jobClassName,
+                        options,
+                        args
+                ));
+    }
+
+    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
+        int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
 
         Iterator<ClusterNode> iterator = nodes.iterator();
         for (int i = 0; i < nodesToSkip; i++) {
@@ -92,19 +210,36 @@ public class IgniteComputeImpl implements IgniteCompute {
         return iterator.next();
     }
 
-    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode targetNode, Class<? extends ComputeJob<R>> jobClass, Object[] args) {
+    private <T, R> JobExecution<R> executeOnOneNodeWithFailover(
+            ClusterNode targetNode,
+            NextWorkerSelector nextWorkerSelector,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions jobExecutionOptions,
+            T payload
+    ) {
+        ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(jobClass, args);
+            return computeComponent.executeLocally(options, units, jobClassName, payload);
         } else {
-            return computeComponent.executeRemotely(targetNode, jobClass, args);
+            return computeComponent.executeRemotelyWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, payload);
         }
     }
 
-    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode targetNode, String jobClassName, Object[] args) {
-        if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(jobClassName, args);
-        } else {
-            return computeComponent.executeRemotely(targetNode, jobClassName, args);
+    private static class DeqNextWorkerSelector implements NextWorkerSelector {
+        private final ConcurrentLinkedDeque<ClusterNode> deque;
+
+        private DeqNextWorkerSelector(ConcurrentLinkedDeque<ClusterNode> deque) {
+            this.deque = deque;
+        }
+
+        @Override
+        public CompletableFuture<ClusterNode> next() {
+            try {
+                return completedFuture(deque.pop());
+            } catch (NoSuchElementException ex) {
+                return nullCompletedFuture();
+            }
         }
     }
 
@@ -112,110 +247,130 @@ public class IgniteComputeImpl implements IgniteCompute {
         return targetNode.equals(topologyService.localMember());
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(jobClass);
-
-        return requiredTable(tableName)
-                .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClass, args));
+    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+            TableViewInternal table,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object arg) {
+        return primaryReplicaForPartitionByTupleKey(table, key)
+                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                        primaryNode,
+                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
+                        units, jobClassName, options, arg
+                ));
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> CompletableFuture<R> executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            Class<? extends ComputeJob<R>> jobClass,
-            Object... args
-    ) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(keyMapper);
-        Objects.requireNonNull(jobClass);
+    private CompletableFuture<TableViewInternal> requiredTable(String tableName) {
+        String parsedName = IgniteNameUtils.parseSimpleName(tableName);
 
-        return requiredTable(tableName)
-                .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClass, args));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, String jobClassName, Object... args) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(jobClassName);
-
-        return requiredTable(tableName)
-                .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClassName, args));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(keyMapper);
-        Objects.requireNonNull(jobClassName);
-
-        return requiredTable(tableName)
-                .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClassName, args));
-    }
-
-    private CompletableFuture<TableImpl> requiredTable(String tableName) {
-        return tables.tableImplAsync(tableName)
+        return tables.tableViewAsync(parsedName)
                 .thenApply(table -> {
                     if (table == null) {
-                        throw new TableNotFoundException(tableName);
+                        throw new TableNotFoundException(SqlCommon.DEFAULT_SCHEMA_NAME, parsedName);
                     }
                     return table;
                 });
     }
 
-    private ClusterNode leaderOfTablePartitionByTupleKey(TableImpl table, Tuple key) {
-        return requiredLeaderByPartition(table, table.partition(key));
+    private CompletableFuture<ClusterNode> primaryReplicaForPartitionByTupleKey(TableViewInternal table, Tuple key) {
+        return primaryReplicaForPartition(table, table.partition(key));
     }
 
-    private <K> ClusterNode leaderOfTablePartitionByMappedKey(TableImpl table, K key, Mapper<K> keyMapper) {
-        return requiredLeaderByPartition(table, table.partition(key, keyMapper));
+    private <K> CompletableFuture<ClusterNode> primaryReplicaForPartitionByMappedKey(TableViewInternal table, K key,
+            Mapper<K> keyMapper) {
+        return primaryReplicaForPartition(table, table.partition(key, keyMapper));
     }
 
-    private ClusterNode requiredLeaderByPartition(TableImpl table, int partitionIndex) {
-        ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
-        if (leaderNode == null) {
-            throw new IgniteInternalException("Leader not found for partition " + partitionIndex);
-        }
+    private CompletableFuture<ClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
+        TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionIndex);
 
-        return leaderNode;
+        return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now(), 30, TimeUnit.SECONDS)
+                .thenApply(replicaMeta -> {
+                    if (replicaMeta != null && replicaMeta.getLeaseholderId() != null) {
+                        return topologyService.getById(replicaMeta.getLeaseholderId());
+                    }
+
+                    throw new ComputeException(
+                            Compute.PRIMARY_REPLICA_RESOLVE_ERR,
+                            "Can not find primary replica for [table=" + table.name() + ", partition=" + partitionIndex + "]."
+                    );
+                });
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            Class<? extends ComputeJob<R>> jobClass,
-            Object... args
+            JobDescriptor<T, R> descriptor,
+            T args
     ) {
         Objects.requireNonNull(nodes);
-        Objects.requireNonNull(jobClass);
+        Objects.requireNonNull(descriptor);
 
+        Marshaler<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
         return nodes.stream()
-                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClass, args)));
+                .collect(toUnmodifiableMap(identity(),
+                        // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
+                        // if worker node has left the cluster.
+                        node -> {
+                            if (topologyService.getByConsistentId(node.name()) == null) {
+                                return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
+                            }
+                            return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node, CompletableFutures::nullCompletedFuture,
+                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                                    argumentMarshaler == null ? args : argumentMarshaler.marshal(args)));
+                        }));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
-        Objects.requireNonNull(nodes);
-        Objects.requireNonNull(jobClassName);
+    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
+        Objects.requireNonNull(units);
+        Objects.requireNonNull(taskClassName);
 
-        return nodes.stream()
-                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClassName, args)));
+        return new TaskExecutionWrapper<>(computeComponent.executeTask(this::submitJob, units, taskClassName, args));
+    }
+
+    @Override
+    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
+        return sync(executeMapReduceAsync(units, taskClassName, args));
+    }
+
+    private <M, T> JobExecution<T> submitJob(MapReduceJob<M, T> runner) {
+        return submit(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.arg());
+    }
+
+    @Override
+    public CompletableFuture<Collection<JobState>> statesAsync() {
+        return computeComponent.statesAsync();
+    }
+
+    @Override
+    public CompletableFuture<@Nullable JobState> stateAsync(UUID jobId) {
+        return computeComponent.stateAsync(jobId);
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
+        return computeComponent.cancelAsync(jobId);
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
+        return computeComponent.changePriorityAsync(jobId, newPriority);
+    }
+
+    @TestOnly
+    ComputeComponent computeComponent() {
+        return computeComponent;
+    }
+
+    private static <R> R sync(CompletableFuture<R> future) {
+        try {
+            return future.join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
+        }
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -30,10 +30,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,17 +50,13 @@ public class LongOperationAsyncExecutorTest {
 
         // Checks that tasks are executed in a separate thread.
 
-        CompletableFuture<?> task0Future = new CompletableFuture<>();
-
         Runnable task0 = () -> {
-            assertNotSame(testMethodThread, Thread.currentThread());
+            assertNotSame(Thread.currentThread(), testMethodThread);
 
             assertThat(Thread.currentThread().getName(), containsString("%test%async-op0-task-"));
         };
 
-        executor.async(createTask(task0, null, task0Future), "op0");
-
-        task0Future.get(100, TimeUnit.MILLISECONDS);
+        executor.async(task0, "op0").get(1, TimeUnit.SECONDS);
 
         // Checks that the task will not be executed until the read lock is released.
 
@@ -85,15 +81,13 @@ public class LongOperationAsyncExecutorTest {
 
             startSupplierFuture.get(100, TimeUnit.MILLISECONDS);
 
-            CompletableFuture<?> task1Future = new CompletableFuture<>();
-
-            Runnable task1 = () -> {
-                assertNotSame(testMethodThread, Thread.currentThread());
+            RunnableX task1 = () -> {
+                assertNotSame(Thread.currentThread(), testMethodThread);
 
                 assertThat(Thread.currentThread().getName(), containsString("%test%async-op1-task-"));
             };
 
-            executor.async(createTask(task1, null, task1Future), "op1");
+            CompletableFuture<Void> task1Future = executor.async(task1, "op1");
 
             assertThrows(TimeoutException.class, () -> task1Future.get(100, TimeUnit.MILLISECONDS));
 
@@ -116,7 +110,7 @@ public class LongOperationAsyncExecutorTest {
         // Checks that the supplier does not change the thread and returns a value.
 
         assertEquals(0, executor.afterAsyncCompletion(() -> {
-            assertSame(testMethodThread, Thread.currentThread());
+            assertSame(Thread.currentThread(), testMethodThread);
 
             return 0;
         }));
@@ -127,18 +121,10 @@ public class LongOperationAsyncExecutorTest {
 
         CompletableFuture<?> waitTaskFuture = new CompletableFuture<>();
 
-        CompletableFuture<?> finishTaskFuture = new CompletableFuture<>();
-
         try {
-            Runnable task = () -> {
-                try {
-                    waitTaskFuture.get(1, TimeUnit.SECONDS);
-                } catch (Throwable e) {
-                    throw new IgniteInternalException("from_task", e);
-                }
-            };
+            RunnableX task = () -> waitTaskFuture.get(1, TimeUnit.SECONDS);
 
-            executor.async(createTask(task, startTaskFuture, finishTaskFuture), "op0");
+            CompletableFuture<Void> taskFuture = executor.async(createTask(task, startTaskFuture), "op0");
 
             startTaskFuture.get(100, TimeUnit.MILLISECONDS);
 
@@ -150,7 +136,7 @@ public class LongOperationAsyncExecutorTest {
 
             asyncExecuteSupplierFuture.get(100, TimeUnit.MILLISECONDS);
 
-            finishTaskFuture.get(100, TimeUnit.MILLISECONDS);
+            taskFuture.get(100, TimeUnit.MILLISECONDS);
         } finally {
             waitTaskFuture.complete(null);
         }
@@ -166,18 +152,10 @@ public class LongOperationAsyncExecutorTest {
 
         CompletableFuture<?> waitTask0Future = new CompletableFuture<>();
 
-        CompletableFuture<?> finishTask0Future = new CompletableFuture<>();
-
-        Runnable task0 = () -> {
-            try {
-                waitTask0Future.get(1, TimeUnit.SECONDS);
-            } catch (Throwable e) {
-                throw new IgniteInternalException("from_task_0", e);
-            }
-        };
+        RunnableX task0 = () -> waitTask0Future.get(1, TimeUnit.SECONDS);
 
         try {
-            executor.async(createTask(task0, startTask0Future, finishTask0Future), "op0");
+            CompletableFuture<Void> taskFuture = executor.async(createTask(task0, startTask0Future), "op0");
 
             startTask0Future.get(100, TimeUnit.MILLISECONDS);
 
@@ -189,7 +167,7 @@ public class LongOperationAsyncExecutorTest {
 
             awaitAsyncTaskCompletionFuture0.get(100, TimeUnit.MILLISECONDS);
 
-            finishTask0Future.get(100, TimeUnit.MILLISECONDS);
+            taskFuture.get(1, TimeUnit.SECONDS);
         } finally {
             waitTask0Future.complete(null);
         }
@@ -200,18 +178,10 @@ public class LongOperationAsyncExecutorTest {
 
         CompletableFuture<?> waitTask1Future = new CompletableFuture<>();
 
-        CompletableFuture<?> finishTask1Future = new CompletableFuture<>();
-
-        Runnable task1 = () -> {
-            try {
-                waitTask1Future.get(1, TimeUnit.SECONDS);
-            } catch (Throwable e) {
-                throw new IgniteInternalException("from_task_1", e);
-            }
-        };
+        RunnableX task1 = () -> waitTask1Future.get(1, TimeUnit.SECONDS);
 
         try {
-            executor.async(createTask(task1, startTask1Future, finishTask1Future), "op0");
+            CompletableFuture<Void> task1Future = executor.async(createTask(task1, startTask1Future), "op0");
 
             startTask1Future.get(100, TimeUnit.MILLISECONDS);
 
@@ -221,40 +191,23 @@ public class LongOperationAsyncExecutorTest {
 
             ExecutionException exception = assertThrows(
                     ExecutionException.class,
-                    () -> finishTask1Future.get(100, TimeUnit.MILLISECONDS)
+                    () -> task1Future.get(100, TimeUnit.MILLISECONDS)
             );
 
             // Checks that the exception will be from task1.
-            assertThat(exception.getCause(), instanceOf(IgniteInternalException.class));
-            assertThat(exception.getCause().getMessage(), containsString("from_task_1"));
-
-            assertThat(exception.getCause().getCause(), instanceOf(InterruptedException.class));
+            assertThat(exception.getCause(), instanceOf(InterruptedException.class));
         } finally {
             waitTask1Future.complete(null);
         }
     }
 
-    private Runnable createTask(
-            Runnable task,
-            @Nullable CompletableFuture<?> startTaskFuture,
-            CompletableFuture<?> finishTaskFuture
-    ) {
-        return new Runnable() {
-            /** {@inheritDoc} */
-            @Override
-            public void run() {
-                if (startTaskFuture != null) {
-                    startTaskFuture.complete(null);
-                }
-
-                try {
-                    task.run();
-
-                    finishTaskFuture.complete(null);
-                } catch (Throwable t) {
-                    finishTaskFuture.completeExceptionally(t);
-                }
+    private static RunnableX createTask(RunnableX task, CompletableFuture<?> startTaskFuture) {
+        return () -> {
+            if (startTaskFuture != null) {
+                startTaskFuture.complete(null);
             }
+
+            task.run();
         };
     }
 

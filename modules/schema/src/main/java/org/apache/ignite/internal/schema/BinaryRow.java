@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,81 +17,16 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-/**
- * Binary row interface. Data layout is described in packages' {@code README.md}.
- */
+/** Binary row interface. Data layout is described in packages' {@code README.md}. */
 public interface BinaryRow {
-    /** Size of chunk length field. */
-    int CHUNK_LEN_FLD_SIZE = Integer.BYTES;
-
-    /** Size of flags field. */
-    int FLAGS_FLD_SIZE = Byte.BYTES;
-
-    /** Size of schema version length field. */
-    int SCHEMA_VERSION_FLD_LEN = Short.BYTES;
-
-    /** Size of key hash field. */
-    int HASH_FLD_SIZE = Integer.BYTES;
-
-    /** Row schema version field offset. */
-    int SCHEMA_VERSION_OFFSET = 0;
-
-    /** Row flags field offset from the chunk start. */
-    int FLAGS_FIELD_OFFSET = CHUNK_LEN_FLD_SIZE;
-
-    /** Key hash field offset. */
-    int KEY_HASH_FIELD_OFFSET = SCHEMA_VERSION_FLD_LEN;
-
-    /** Key chunk field offset. */
-    int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + HASH_FLD_SIZE;
-
-    /** Size of chunk header (offset for nullmap or vartable or data). */
-    int CHUNK_HEADER_SIZE = CHUNK_LEN_FLD_SIZE + FLAGS_FLD_SIZE;
-
-    /** Row header size. */
-    int HEADER_SIZE = KEY_CHUNK_OFFSET;
-
-    /**
-     * Get row schema version.
-     */
+    /** Get row schema version. */
     int schemaVersion();
 
-    /**
-     * Get has value flag: {@code True} if row has non-null value, {@code false} otherwise.
-     */
-    boolean hasValue();
+    /** Length of the {@link #tupleSlice}. */
+    int tupleSliceLength();
 
-    /**
-     * Row hash code is a result of hash function applied to the row affinity columns values.
-     *
-     * @return Row hash code.
-     */
-    int hash();
-
-    /**
-     * Get ByteBuffer slice representing the key chunk.
-     */
-    ByteBuffer keySlice();
-
-    /**
-     * Get ByteBuffer slice representing the value chunk.
-     */
-    ByteBuffer valueSlice();
-
-    /**
-     * Writes binary row to given stream.
-     *
-     * @param stream Stream to write to.
-     * @throws IOException If write operation fails.
-     */
-    void writeTo(OutputStream stream) throws IOException;
-
-    /**
-     * Get byte array of the row.
-     */
-    byte[] bytes();
+    /** Get ByteBuffer slice representing the binary tuple. */
+    ByteBuffer tupleSlice();
 }

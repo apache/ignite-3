@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,14 +19,13 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Interface for write page to {@link PageStore}.
  */
-// TODO: IGNITE-15818 Maybe refactor.
 public interface PageStoreWriter {
     /**
      * Callback for write page. {@link PersistentPageMemory} will copy page content to buffer before call.

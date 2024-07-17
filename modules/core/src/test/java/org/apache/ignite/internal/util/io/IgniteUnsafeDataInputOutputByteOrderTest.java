@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,7 +27,19 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.BitSet;
 import java.util.Random;
+import java.util.UUID;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,15 +47,22 @@ import org.junit.jupiter.api.Test;
 /**
  * Ignite unsafe data input/output byte order sanity tests.
  */
-class IgniteUnsafeDataInputOutputByteOrderTest {
+class IgniteUnsafeDataInputOutputByteOrderTest extends BaseIgniteAbstractTest {
     /** Array length. */
     private static final int ARR_LEN = 16;
 
     /** Length bytes. */
     private static final int LEN_BYTES = 0;
 
+    private static final long SEED = System.nanoTime();
+
     /** Rnd. */
-    private static final Random RND = new Random();
+    private static final Random RND = new Random(SEED);
+
+    @BeforeEach
+    public void setup() {
+        log.info("Seed: {}", SEED);
+    }
 
     /** Out. */
     private IgniteUnsafeDataOutput out;
@@ -70,7 +89,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeShort(val);
 
-        assertEquals(val, IgniteTestIoUtils.getShortByByteLittleEndian(out.internalArray()));
+        assertEquals(val, getShortByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readShort());
     }
 
@@ -99,7 +118,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeChar(val);
 
-        assertEquals(val, IgniteTestIoUtils.getCharByByteLittleEndian(out.internalArray()));
+        assertEquals(val, getCharByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readChar());
     }
 
@@ -128,7 +147,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeInt(val);
 
-        assertEquals(val, IgniteTestIoUtils.getIntByByteLittleEndian(out.internalArray()));
+        assertEquals(val, getIntByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readInt());
     }
 
@@ -157,7 +176,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeLong(val);
 
-        assertEquals(val, IgniteTestIoUtils.getLongByByteLittleEndian(out.internalArray()));
+        assertEquals(val, getLongByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readLong());
     }
 
@@ -186,7 +205,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeFloat(val);
 
-        assertEquals(val, IgniteTestIoUtils.getFloatByByteLittleEndian(out.internalArray()), 0);
+        assertEquals(val, getFloatByByteLittleEndian(out.internalArray()), 0);
         assertEquals(val, in.readFloat(), 0);
     }
 
@@ -215,7 +234,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeDouble(val);
 
-        assertEquals(val, IgniteTestIoUtils.getDoubleByByteLittleEndian(out.internalArray()), 0);
+        assertEquals(val, getDoubleByByteLittleEndian(out.internalArray()), 0);
         assertEquals(val, in.readDouble(), 0);
     }
 
@@ -236,5 +255,102 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
         }
 
         assertArrayEquals(arr, in.readDoubleArray(ARR_LEN), 0);
+    }
+
+    @Test
+    public void testLocalTime() throws IOException {
+        LocalTime val = LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(10000));
+
+        out.writeLocalTime(val);
+
+        assertEquals(val, in.readLocalTime());
+    }
+
+    @Test
+    public void testLocalDate() throws IOException {
+        LocalDate val = LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, 1 + RND.nextInt(27));
+
+        out.writeLocalDate(val);
+
+        assertEquals(val, in.readLocalDate());
+    }
+
+    @Test
+    public void testLocalDateTime() throws IOException {
+        LocalTime time = LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(10000));
+        LocalDate date = LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, 1 + RND.nextInt(27));
+        LocalDateTime val = LocalDateTime.of(date, time);
+
+        out.writeLocalDateTime(val);
+
+        assertEquals(val, in.readLocalDateTime());
+    }
+
+    @Test
+    public void testInstant() throws IOException {
+        Instant val = Instant.ofEpochMilli(RND.nextLong());
+
+        out.writeInstant(val);
+
+        assertEquals(val, in.readInstant());
+    }
+
+    @Test
+    public void testBigInteger() throws IOException {
+        BigInteger val = BigInteger.valueOf(RND.nextLong());
+
+        out.writeBigInteger(val);
+
+        assertEquals(val, in.readBigInteger());
+    }
+
+    @Test
+    public void testBigDecimal() throws IOException {
+        BigDecimal val = new BigDecimal(BigInteger.valueOf(RND.nextLong()), RND.nextInt(120));
+
+        out.writeBigDecimal(val);
+
+        assertEquals(val, in.readBigDecimal());
+    }
+
+    @Test
+    public void testPeriod() throws IOException {
+        Period val = Period.of(RND.nextInt(10_000), RND.nextInt(10_000), RND.nextInt(10_000));
+
+        out.writePeriod(val);
+
+        assertEquals(val, in.readPeriod());
+    }
+
+    @Test
+    public void testDuration() throws IOException {
+        Duration val = Duration.ofSeconds(RND.nextInt(100_000), RND.nextInt(100_000));
+
+        out.writeDuration(val);
+
+        assertEquals(val, in.readDuration());
+    }
+
+    @Test
+    public void testUuid() throws IOException {
+        UUID val = UUID.randomUUID();
+
+        out.writeUuid(val);
+
+        assertEquals(val, in.readUuid());
+    }
+
+    @Test
+    public void testBitSet() throws IOException {
+        BitSet val = new BitSet();
+
+        for (int i = 0; i < RND.nextInt(100); i++) {
+            int b = RND.nextInt(256);
+            val.set(Math.abs(b));
+        }
+
+        out.writeBitSet(val);
+
+        assertEquals(val, in.readBitSet());
     }
 }

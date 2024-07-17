@@ -20,9 +20,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
-    using System.Linq;
+    using System.ComponentModel.DataAnnotations.Schema;
     using System.Linq.Expressions;
     using System.Reflection;
+    using System.Runtime.CompilerServices;
     using System.Runtime.Serialization;
 
     /// <summary>
@@ -41,15 +42,105 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
 
-        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, FieldInfo>> FieldsByNameCache = new();
+        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, ColumnInfo>> FieldsByColumnNameCache = new();
+
+        /// <summary>
+        /// Gets column names for all fields in the specified type.
+        /// </summary>
+        /// <param name="type">Type.</param>
+        /// <returns>Columns.</returns>
+        public static ICollection<ColumnInfo> GetColumns(this Type type) => (ICollection<ColumnInfo>)GetFieldsByColumnName(type).Values;
+
+        /// <summary>
+        /// Gets a pair of types for <see cref="KeyValuePair{TKey,TValue}"/>.
+        /// </summary>
+        /// <param name="type">Type.</param>
+        /// <returns>Resulting pair, or null when specified type is not <see cref="KeyValuePair{TKey,TValue}"/>.</returns>
+        public static (Type KeyType, Type ValType)? GetKeyValuePairTypes(this Type type)
+        {
+            if (!type.IsKeyValuePair())
+            {
+                return null;
+            }
+
+            var types = type.GetGenericArguments();
+
+            return (types[0], types[1]);
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the type is <see cref="KeyValuePair{TKey,TValue}"/>.
+        /// </summary>
+        /// <param name="type">Type.</param>
+        /// <returns>Whether the provided type is a <see cref="KeyValuePair{TKey,TValue}"/>.</returns>
+        public static bool IsKeyValuePair(this Type? type) =>
+            type is { IsGenericType: true } && type.GetGenericTypeDefinition() == typeof(KeyValuePair<,>);
+
+        /// <summary>
+        /// Gets the underlying enum type, if applicable. Otherwise, returns the type itself.
+        /// </summary>
+        /// <param name="type">Type to unwrap.</param>
+        /// <returns>Underlying type when enum; type itself otherwise.</returns>
+        public static Type UnwrapEnum(this Type type)
+        {
+            if (Nullable.GetUnderlyingType(type) is { IsEnum: true } underlyingType)
+            {
+                return typeof(Nullable<>).MakeGenericType(Enum.GetUnderlyingType(underlyingType));
+            }
+
+            return type.IsEnum
+                ? Enum.GetUnderlyingType(type)
+                : type;
+        }
+
+        /// <summary>
+        /// Gets a map of fields by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
+        /// </summary>
+        /// <param name="type">Type to get the map for.</param>
+        /// <returns>Map.</returns>
+        public static IReadOnlyDictionary<string, ColumnInfo> GetFieldsByColumnName(this Type type)
+        {
+            // ReSharper disable once HeapView.CanAvoidClosure, HeapView.ClosureAllocation, HeapView.DelegateAllocation (false positive)
+            return FieldsByColumnNameCache.GetOrAdd(type, static t => RetrieveFieldsByColumnName(t));
+
+            static IReadOnlyDictionary<string, ColumnInfo> RetrieveFieldsByColumnName(Type type)
+            {
+                var res = new Dictionary<string, ColumnInfo>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var field in type.GetAllFields())
+                {
+                    var columnInfo = field.GetColumnInfo();
+
+                    if (columnInfo == null)
+                    {
+                        continue;
+                    }
+
+                    if (res.TryGetValue(columnInfo.Name, out var existingColInfo))
+                    {
+                        throw new ArgumentException(
+                            $"Column '{columnInfo.Name}' maps to more than one field of type {type}: {field} and {existingColInfo.Field}");
+                    }
+
+                    res.Add(columnInfo.Name, columnInfo);
+                }
+
+                return res;
+            }
+        }
 
         /// <summary>
         /// Gets all fields from the type, including non-public and inherited.
         /// </summary>
         /// <param name="type">Type.</param>
         /// <returns>Fields.</returns>
-        public static IEnumerable<FieldInfo> GetAllFields(this Type type)
+        private static IEnumerable<FieldInfo> GetAllFields(this Type type)
         {
+            if (type.IsPrimitive)
+            {
+                yield break;
+            }
+
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public |
                                        BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
@@ -67,35 +158,58 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <summary>
-        /// Gets the field by name ignoring case.
-        /// </summary>
-        /// <param name="type">Type.</param>
-        /// <param name="name">Field name.</param>
-        /// <returns>Field info, or null when no matching fields exist.</returns>
-        public static FieldInfo? GetFieldIgnoreCase(this Type type, string name)
-        {
-            // ReSharper disable once HeapView.CanAvoidClosure, ConvertClosureToMethodGroup
-            return FieldsByNameCache.GetOrAdd(type, t => GetFieldsByName(t)).TryGetValue(name, out var fieldInfo)
-                ? fieldInfo
-                : null;
-
-            static IReadOnlyDictionary<string, FieldInfo> GetFieldsByName(Type type) =>
-                type.GetAllFields().ToDictionary(f => f.GetCleanName(), StringComparer.OrdinalIgnoreCase);
-        }
-
-        /// <summary>
         /// Gets cleaned up member name without compiler-generated prefixes and suffixes.
         /// </summary>
         /// <param name="memberInfo">Member.</param>
         /// <returns>Clean name.</returns>
-        public static string GetCleanName(this MemberInfo memberInfo) => CleanFieldName(memberInfo.Name);
+        private static string GetCleanName(this MemberInfo memberInfo) => CleanFieldName(memberInfo.Name);
+
+        /// <summary>
+        /// Gets column name for the specified field: uses <see cref="ColumnAttribute"/> when available,
+        /// falls back to cleaned up field name otherwise.
+        /// </summary>
+        /// <param name="fieldInfo">Member.</param>
+        /// <returns>Clean name.</returns>
+        private static ColumnInfo? GetColumnInfo(this FieldInfo fieldInfo)
+        {
+            if (fieldInfo.GetCustomAttribute<NotMappedAttribute>() != null)
+            {
+                return null;
+            }
+
+            if (fieldInfo.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName })
+            {
+                return new(columnAttributeName, fieldInfo, null, HasColumnNameAttribute: true);
+            }
+
+            var cleanName = fieldInfo.GetCleanName();
+
+            if (fieldInfo.IsDefined(typeof(CompilerGeneratedAttribute), inherit: true) &&
+                fieldInfo.DeclaringType?.GetProperty(cleanName) is { } property)
+            {
+                if (property.GetCustomAttribute<NotMappedAttribute>() != null)
+                {
+                    return null;
+                }
+
+                if (property.GetCustomAttribute<ColumnAttribute>() is { Name: { } columnAttributeName2 })
+                {
+                    // This is a compiler-generated backing field for an automatic property - get the attribute from the property.
+                    return new(columnAttributeName2, fieldInfo, property, HasColumnNameAttribute: true);
+                }
+
+                return new(cleanName, fieldInfo, property, HasColumnNameAttribute: false);
+            }
+
+            return new(cleanName, fieldInfo, null, HasColumnNameAttribute: false);
+        }
 
         /// <summary>
         /// Cleans the field name and removes compiler-generated prefixes and suffixes.
         /// </summary>
         /// <param name="fieldName">Field name to clean.</param>
         /// <returns>Resulting field name.</returns>
-        public static string CleanFieldName(string fieldName)
+        private static string CleanFieldName(string fieldName)
         {
             // C# auto property backing field (<MyProperty>k__BackingField)
             // or anonymous type backing field (<MyProperty>i__Field):
@@ -120,6 +234,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="expression">Expression.</param>
         /// <typeparam name="T">Argument type.</typeparam>
         /// <returns>Corresponding MethodInfo.</returns>
-        public static MethodInfo GetMethodInfo<T>(Expression<Func<T>> expression) => ((MethodCallExpression)expression.Body).Method;
+        private static MethodInfo GetMethodInfo<T>(Expression<Func<T>> expression) => ((MethodCallExpression)expression.Body).Method;
+
+        /// <summary>
+        /// Column info.
+        /// </summary>
+        /// <param name="Name">Column name.</param>
+        /// <param name="Field">Corresponding field.</param>
+        /// <param name="Property">Corresponding property (when <see cref="Field"/> is a backing field of a auto property).</param>
+        /// <param name="HasColumnNameAttribute">Whether corresponding field or property has <see cref="ColumnAttribute"/>
+        /// with <see cref="ColumnAttribute.Name"/> set.</param>
+        internal record ColumnInfo(string Name, FieldInfo Field, PropertyInfo? Property, bool HasColumnNameAttribute);
     }
 }

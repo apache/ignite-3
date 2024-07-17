@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
-import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 
 /**
  * Handshake start response message, contains info about the node, connection id and the quantity of the received messages.
@@ -27,26 +27,8 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(NetworkMessageTypes.HANDSHAKE_START_RESPONSE)
 public interface HandshakeStartResponseMessage extends InternalMessage {
-    /**
-     * Returns launch id.
-     *
-     * @return Launch id.
-     */
-    UUID launchId();
-
-    /**
-     * Returns consistent id.
-     *
-     * @return Consistent id.
-     */
-    String consistentId();
-
-    /**
-     * Returns number of received messages.
-     *
-     * @return Number of received messages.
-     */
-    long receivedCount();
+    /** Returns the client node that sends this. */
+    ClusterNodeMessage clientNode();
 
     /**
      * Returns connection id.
@@ -54,4 +36,11 @@ public interface HandshakeStartResponseMessage extends InternalMessage {
      * @return Connection id.
      */
     short connectionId();
+
+    /**
+     * Returns number of received messages.
+     *
+     * @return Number of received messages.
+     */
+    long receivedCount();
 }

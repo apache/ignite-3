@@ -1,0 +1,105 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+
+description = 'ignite-rest'
+
+dependencies {
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.micronaut.inject.annotation.processor
+    annotationProcessor libs.auto.service
+
+    implementation project(':ignite-api')
+    implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-presentation')
+    implementation project(':ignite-rest-api')
+    implementation project(':ignite-core')
+    implementation project(':ignite-network')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-metrics')
+    implementation project(':ignite-table')
+    implementation project(':ignite-code-deployment')
+    implementation project(':ignite-security-api')
+    implementation project(':ignite-compute')
+    implementation project(':ignite-eventlog')
+    implementation project(':ignite-system-view-api')
+    implementation project(':ignite-partition-replicator')
+    implementation libs.jetbrains.annotations
+    implementation libs.micronaut.inject
+    implementation libs.micronaut.http.server.netty
+    implementation libs.micronaut.openapi
+    implementation libs.micronaut.security
+    implementation libs.micronaut.security.annotations
+    // TODO It might worth shadowing reactor library https://issues.apache.org/jira/browse/IGNITE-18942
+    implementation libs.micronaut.reactor
+    implementation libs.micronaut.reactor.http.client
+    implementation libs.jackson.databind
+    implementation libs.auto.service.annotations
+    implementation libs.typesafe.config
+
+    testAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    testAnnotationProcessor libs.micronaut.inject.annotation.processor
+
+    testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-security')
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation libs.micronaut.junit5
+    testImplementation libs.micronaut.http.client
+    testImplementation libs.mockito.core
+    testImplementation libs.hamcrest.core
+    testImplementation libs.hamcrest.optional
+
+    integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
+    integrationTestAnnotationProcessor testFixtures(project(':ignite-core'))
+
+    integrationTestImplementation project(':ignite-rest-api')
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-security')
+    integrationTestImplementation project(':ignite-code-deployment')
+    integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(":ignite-api"))
+    integrationTestImplementation testFixtures(project(":ignite-rest"))
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.micronaut.junit5
+    integrationTestImplementation libs.micronaut.test
+    integrationTestImplementation libs.micronaut.http.client
+    integrationTestImplementation libs.micronaut.http.server.netty
+    integrationTestImplementation libs.typesafe.config
+    integrationTestImplementation libs.swaggerv3.annotations
+    integrationTestImplementation(libs.jsonpath.assert) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
+
+    testFixturesImplementation(project(":ignite-rest-api"))
+    testFixturesImplementation testFixtures(project(":ignite-core"))
+    testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.micronaut.http.core
+}

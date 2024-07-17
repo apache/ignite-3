@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
+    using System.ComponentModel.DataAnnotations.Schema;
 
     /// <summary>
     /// Test user object.
@@ -28,8 +29,12 @@ namespace Apache.Ignite.Tests.Table
 
         public string? Val { get; set; }
 
+        [NotMapped]
         public Guid UnmappedId { get; set; }
 
+        [NotMapped]
         public string? UnmappedStr { get; set; }
+
+        public override string ToString() => $"Poco [Key={Key}, Val={Val}]";
     }
 }

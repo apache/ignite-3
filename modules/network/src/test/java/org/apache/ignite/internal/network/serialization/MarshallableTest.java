@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
@@ -42,32 +43,28 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
-import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.messages.MessageWithMarshallable;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.InboundDecoder;
 import org.apache.ignite.internal.network.netty.OutboundEncoder;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalException;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
-import org.apache.ignite.network.TestMessagesFactory;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests marshallable serialization.
  */
-public class MarshallableTest {
+public class MarshallableTest extends BaseIgniteAbstractTest {
     /** {@link ByteBuf} allocator. */
     private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 
     /** Registry. */
-    private final MessageSerializationRegistry registry = new TestMessageSerializationRegistryImpl();
+    private final MessageSerializationRegistry registry = defaultSerializationRegistry();
 
     private final TestMessagesFactory msgFactory = new TestMessagesFactory();
 
@@ -90,15 +87,11 @@ public class MarshallableTest {
     private ByteBuffer write(Map<String, SimpleSerializableObject> testMap) throws Exception {
         var serializers = new Serialization();
 
-        var writer = new DirectMessageWriter(serializers.perSessionSerializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
-
         MessageWithMarshallable msg = msgFactory.messageWithMarshallable().marshallableMap(testMap).build();
 
         IntSet ids = new IntOpenHashSet();
 
         msg.prepareMarshal(ids, serializers.userObjectSerializer);
-
-        MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
         var channel = new EmbeddedChannel(
                 new ChunkedWriteHandler(),
@@ -235,9 +228,8 @@ public class MarshallableTest {
             }
         }
 
-        @SuppressWarnings("unchecked")
         @Override
-        public <T> @Nullable T unmarshal(byte[] bytes, DescriptorRegistry mergedDescriptors) {
+        public <T> @Nullable T unmarshal(byte[] bytes, Object mergedDescriptors) {
             try (var bais = new ByteArrayInputStream(bytes); var ois = new ObjectInputStream(bais)) {
                 return (T) ois.readObject();
             } catch (Exception e) {

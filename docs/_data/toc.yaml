@@ -12,44 +12,141 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-- title: Documentation Overview
+- title: About Apache Ignite 3
   url: index
-- title: Getting Started Guide
-  url: quick-start/getting-started-guide
-- title: Ignite CLI Tool
-  url: ignite-cli-tool
-- title: Working with SQL
+- title: Installation
+  url: installation/installing-using-zip
   items:
-    - title: Introduction
-      url: sql/calcite-based-sql-engine
-    - title: JDBC Driver
-      url: sql/jdbc-driver
-    - title: Java API
-      url: sql/java
+    - title: Installing Using ZIP Archive
+      url: installation/installing-using-zip
+    - title: Installing DEB or RPM package
+      url: installation/deb-rpm
+    - title: Installing Docker
+      url: installation/installing-using-docker
+- title: Getting Started
+  url: quick-start/getting-started-guide
+- title: Embedded Mode
+  url: quick-start/embedded-mode
+- title: GridGain CLI Tool
+  url: ignite-cli-tool
+- title: Developers Guide
+  url: developers-guide/table-api
+  items:
+    - title: Table API
+      url: developers-guide/table-api
+    - title: Clients
+      url: developers-guide/clients/overview
+      items:
+        - title: Overview
+          url: developers-guide/clients/overview
+        - title: Java Clients
+          url: developers-guide/clients/java
+        - title: .NET Clients
+          url: developers-guide/clients/dotnet
+        - title: C++ Clients
+          url: developers-guide/clients/cpp
+        - title: .NET LINQ Queries
+          url: developers-guide/clients/linq
+    - title: Working with SQL
+      url: developers-guide/sql/calcite-based-sql-engine
+      items:
+        - title: Introduction
+          url: developers-guide/sql/calcite-based-sql-engine
+        - title: JDBC Driver
+          url: developers-guide/sql/jdbc-driver
+        - title: System Views
+          url: developers-guide/sql/system-views
+        - title: ODBC Driver
+          url: developers-guide/sql/odbc/odbc-driver
+          items:
+            - title: ODBC Driver
+              url: developers-guide/sql/odbc/odbc-driver
+            - title: Connection String
+              url: developers-guide/sql/odbc/connection-string
+            - title: Querying and Modifying Data
+              url: developers-guide/sql/odbc/querying-modifying-data
+            - title: Standard Conformance
+              url: developers-guide/sql/odbc/specification
+    - title: Tables from Java Classes
+      url: developers-guide/java-to-tables
+    - title: Distributed Computing
+      url: developers-guide/compute/compute
+    - title: Transactions
+      url: developers-guide/transactions
+    - title: Data Streaming
+      url: developers-guide/data-streamer
+    - title: Code Deployment
+      url: developers-guide/code-deployment/code-deployment
+    - title: Cache Storage
+      url: developers-guide/cache
+    - title: REST API
+      url: developers-guide/rest/rest-api
+      items:
+        - title: Overview
+          url: developers-guide/rest/rest-api
+- title: Administrator’s Guide
+  url: administrators-guide/config/config
+  items:
+    - title: GridGain Configuration
+      url: administrators-guide/config/config
+      items:
+        - title: Node Configuration Parameters
+          url: administrators-guide/config/node-config
+        - title: Cluster Configuration Parameters
+          url: administrators-guide/config/cluster-config
+        - title: Storage Configuration
+          url: administrators-guide/config/storage/persistent
+          items:
+            - title: Native Persistent Storage
+              url: administrators-guide/config/storage/persistent
+            - title: RocksDB Persistent Storage
+              url: administrators-guide/config/storage/rocksdb
+            - title: Volatile Storage
+              url: administrators-guide/config/storage/volatile
+            - title: Table Configuration
+              url: administrators-guide/config/storage/table-configuration
+        - title: Memory Quotas Configuration
+          url: administrators-guide/config/memory-quotas
+    - title: Security and Authentication
+      url: administrators-guide/security/ssl-tls
+      items:
+        - title: SSL/TLS
+          url: administrators-guide/security/ssl-tls
+        - title: Authentication
+          url: administrators-guide/security/authentication
+        - title: JWT Authentication
+          url: administrators-guide/security/jwt
+        - title: User Permissions and Roles
+          url: administrators-guide/security/permissions
+    - title: Metrics and Monitoring
+      url: administrators-guide/metrics/configuring-metrics
+      items:
+        - title: Configuring Metrics
+          url: administrators-guide/metrics/configuring-metrics
+        - title: Metrics List
+          url: administrators-guide/metrics/metrics-list
+    - title: Handling Exceptions
+      url: administrators-guide/handling-exceptions
 - title: SQL Reference
+  url: sql-reference/ddl
   items:
     - title: Data Definition Language (DDL)
       url: sql-reference/ddl
     - title: Data Manipulation Language (DML)
       url: sql-reference/dml
+    - title: Transactions
+      url: sql-reference/transactions
+    - title: Distribution Zones
+      url: sql-reference/distribution-zones
     - title: Supported Operators and Functions
       url: sql-reference/operators-and-functions
-- title: REST API
-  url: rest/rest-api
-- title: Distributed Computing
-  url: compute/compute
-- title: Data Region Configuration
-  url: config/data-region
-- title: Binary Client Protocol
-  url: binary-protocol
-- title: Native Persistence
-  url: persistence
-- title: Data Rebalancing
-  url: rebalance
-- title: Performing Transactions
-  url: transactions/performing-transactions
-- title: Table Views
-  url: table-views
-- title: Handling Exceptions
-  url: handling-exceptions
-
+    - title: Grammar Reference
+      url: sql-reference/grammar-reference
+    - title: Data Types
+      url: sql-reference/data-types
+- title: SQL Performance Tuning
+  url: sql-tuning
+- title: General Configuration Tips
+  url: general-tips
+- title: Glossary
+  url: glossary/glossary

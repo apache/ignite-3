@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -51,7 +52,8 @@ public class ChangePeersAsyncRequestProcessor extends BaseCliRequestProcessor<Ch
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ChangePeersAsyncRequest request,
             final IgniteCliRpcRequestClosure done) {
-        final List<PeerId> oldConf = ctx.node.listPeers();
+        final List<PeerId> oldPeers = ctx.node.listPeers();
+        final List<PeerId> oldLearners = ctx.node.listLearners();
 
         final Configuration conf = new Configuration();
         for (final String peerIdStr : request.newPeersList()) {
@@ -62,6 +64,17 @@ public class ChangePeersAsyncRequestProcessor extends BaseCliRequestProcessor<Ch
             else {
                 return RaftRpcFactory.DEFAULT //
                         .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
+            }
+        }
+
+        for (final String learnerIdStr : request.newLearnersList()) {
+            final PeerId learner = new PeerId();
+            if (learner.parse(learnerIdStr)) {
+                conf.addLearner(learner);
+            }
+            else {
+                return RaftRpcFactory.DEFAULT //
+                        .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse learner id %s", learnerIdStr);
             }
         }
 
@@ -76,14 +89,20 @@ public class ChangePeersAsyncRequestProcessor extends BaseCliRequestProcessor<Ch
             }
             else {
                 ChangePeersAsyncResponse resp = msgFactory().changePeersAsyncResponse()
-                        .oldPeersList(oldConf.stream().map(Object::toString).collect(toList()))
-                        .newPeersList(conf.getPeers().stream().map(Object::toString).collect(toList()))
+                        .oldPeersList(toStringList(oldPeers))
+                        .newPeersList(toStringList(conf.getPeers()))
+                        .oldLearnersList(toStringList(oldLearners))
+                        .newLearnersList(toStringList(conf.getLearners()))
                         .build();
 
                 done.sendResponse(resp);
             }
         });
         return null;
+    }
+
+    private static List<String> toStringList(Collection<?> collection) {
+        return collection.stream().map(Object::toString).collect(toList());
     }
 
     @Override

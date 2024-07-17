@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
- * MV partition storage test implementation for {@link TestConcurrentHashMapMvPartitionStorage} class.
+ * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
  */
 public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
-    /**
-     * Creates new instance.
-     */
-    public TestMvPartitionStorageTest() {
-        storage = new TestConcurrentHashMapMvPartitionStorage(0);
+    @BeforeEach
+    void setUp() {
+        initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));
     }
 }

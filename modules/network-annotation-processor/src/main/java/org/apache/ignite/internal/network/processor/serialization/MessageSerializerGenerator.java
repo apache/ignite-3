@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import static java.util.stream.Collectors.toList;
+
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
@@ -27,12 +30,13 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageMappingException;
-import org.apache.ignite.network.serialization.MessageSerializer;
-import org.apache.ignite.network.serialization.MessageWriter;
+import org.apache.ignite.internal.network.serialization.MessageMappingException;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
 
 /**
  * Class for generating {@link MessageSerializer} classes.
@@ -63,11 +67,24 @@ public class MessageSerializerGenerator {
      */
     public TypeSpec generateSerializer(MessageClass message) {
         processingEnvironment.getMessager()
-                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializer", message.element());
+                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializer for " + message.className());
 
-        return TypeSpec.classBuilder(message.simpleName() + "Serializer")
+        ClassName serializerClassName = message.serializerClassName();
+
+        return TypeSpec.classBuilder(serializerClassName)
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(MessageSerializer.class), message.className()))
+                .addMethod(MethodSpec.constructorBuilder()
+                        .addModifiers(Modifier.PRIVATE)
+                        .build())
                 .addMethod(writeMessageMethod(message))
+                .addField(FieldSpec.builder(serializerClassName, "INSTANCE")
+                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                        .build()
+                )
+                .addStaticBlock(CodeBlock.builder()
+                        .addStatement("INSTANCE = new $T()", serializerClassName)
+                        .build()
+                )
                 .addOriginatingElement(message.element())
                 .addOriginatingElement(messageGroup.element())
                 .build();
@@ -87,7 +104,9 @@ public class MessageSerializerGenerator {
 
         method.addStatement("$T message = ($T) msg", message.implClassName(), message.implClassName()).addCode("\n");
 
-        List<ExecutableElement> getters = message.getters();
+        List<ExecutableElement> getters = message.getters().stream()
+                .filter(e -> e.getAnnotation(Transient.class) == null)
+                .collect(toList());
 
         method
                 .beginControlFlow("if (!writer.isHeaderWritten())")

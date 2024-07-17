@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,81 +17,69 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
-
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Asynchronous result set implementation.
  */
-public class AsyncResultSetImpl implements AsyncResultSet {
-    private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
-            CompletableFuture.failedFuture(new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
+public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
+    private final AsyncSqlCursor<InternalSqlRow> cursor;
 
-    private final AsyncSqlCursor<List<Object>> cur;
-
-    private volatile BatchedResult<List<Object>> curPage;
+    private volatile BatchedResult<InternalSqlRow> curPage;
 
     private final int pageSize;
-
-    private final Runnable closeRun;
 
     /**
      * Constructor.
      *
-     * @param cur Asynchronous query cursor.
+     * @param cursor Query cursor representing the result of execution.
+     * @param page Current page.
+     * @param pageSize Size of the page to fetch.
      */
-    public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize, Runnable closeRun) {
-        this.cur = cur;
+    public AsyncResultSetImpl(
+            AsyncSqlCursor<InternalSqlRow> cursor,
+            BatchedResult<InternalSqlRow> page,
+            int pageSize
+    ) {
+        this.cursor = cursor;
         this.curPage = page;
         this.pageSize = pageSize;
-        this.closeRun = closeRun;
-
-        assert cur.queryType() == SqlQueryType.QUERY
-                || ((cur.queryType() == SqlQueryType.DML || cur.queryType() == SqlQueryType.DDL)
-                && curPage.items().size() == 1
-                && curPage.items().get(0).size() == 1
-                && !curPage.hasMore()) : "Invalid query result: [type=" + cur.queryType() + "res=" + curPage + ']';
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable ResultSetMetadata metadata() {
-        return hasRowSet() ? cur.metadata() : null;
+        return hasRowSet() ? cursor.metadata() : null;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasRowSet() {
-        return cur.queryType() == SqlQueryType.QUERY || cur.queryType() == SqlQueryType.EXPLAIN;
+        return cursor.queryType() == SqlQueryType.QUERY || cursor.queryType() == SqlQueryType.EXPLAIN;
     }
 
     /** {@inheritDoc} */
     @Override
     public long affectedRows() {
-        if (cur.queryType() != SqlQueryType.DML) {
+        if (cursor.queryType() != SqlQueryType.DML) {
             return -1;
         }
 
@@ -103,7 +91,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public boolean wasApplied() {
-        if (cur.queryType() != SqlQueryType.DDL) {
+        if (cursor.queryType() != SqlQueryType.DDL) {
             return false;
         }
 
@@ -114,13 +102,14 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public Iterable<SqlRow> currentPage() {
+    public Iterable<T> currentPage() {
         requireResultSet();
 
-        final Iterator<List<Object>> it0 = curPage.items().iterator();
-        final ResultSetMetadata meta0 = cur.metadata();
+        Iterator<InternalSqlRow> it0 = curPage.items().iterator();
+        ResultSetMetadata meta0 = cursor.metadata();
 
-        return () -> new TransformingIterator<>(it0, (item) -> new SqlRowImpl(item, meta0));
+        // TODO: IGNITE-18695 map rows to objects when mapper is provided.
+        return () -> new TransformingIterator<>(it0, (item) -> (T) new SqlRowImpl(item, meta0));
     }
 
     /** {@inheritDoc} */
@@ -133,19 +122,19 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
+    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
-        if (!hasMorePages()) {
-            return HAS_NO_MORE_PAGE_FUTURE;
-        } else {
-            return cur.requestNextAsync(pageSize)
-                    .thenApply(page -> {
-                        curPage = page;
+        return cursor.requestNextAsync(pageSize)
+                .thenApply(page -> {
+                    curPage = page;
 
-                        return AsyncResultSetImpl.this;
-                    });
-        }
+                    if (!curPage.hasMore()) {
+                        closeAsync();
+                    }
+
+                    return this;
+                });
     }
 
     /** {@inheritDoc} */
@@ -156,8 +145,8 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<Void> closeAsync() {
-        return cur.closeAsync().thenRun(closeRun);
+    public CompletableFuture<Void> closeAsync() {
+        return cursor.closeAsync();
     }
 
     private void requireResultSet() {
@@ -167,11 +156,11 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     }
 
     private static class SqlRowImpl implements SqlRow {
-        private final List<Object> row;
+        private final InternalSqlRow row;
 
         private final ResultSetMetadata meta;
 
-        SqlRowImpl(List<Object> row, ResultSetMetadata meta) {
+        SqlRowImpl(InternalSqlRow row, ResultSetMetadata meta) {
             this.row = row;
             this.meta = meta;
         }
@@ -190,11 +179,11 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public int columnIndex(@NotNull String columnName) {
+        public int columnIndex(String columnName) {
             return meta.indexOf(columnName);
         }
 
-        private int columnIndexChecked(@NotNull String columnName) {
+        private int columnIndexChecked(String columnName) {
             int idx = columnIndex(columnName);
 
             if (idx == -1) {
@@ -206,7 +195,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
+        public <T> T valueOrDefault(String columnName, T defaultValue) {
             T ret = (T) row.get(columnIndexChecked(columnName));
 
             return ret != null ? ret : defaultValue;
@@ -214,13 +203,13 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public Tuple set(@NotNull String columnName, Object value) {
+        public Tuple set(String columnName, Object value) {
             throw new UnsupportedOperationException("Operation not supported.");
         }
 
         /** {@inheritDoc} */
         @Override
-        public <T> T value(@NotNull String columnName) throws IllegalArgumentException {
+        public <T> T value(String columnName) throws IllegalArgumentException {
             return (T) row.get(columnIndexChecked(columnName));
         }
 
@@ -232,19 +221,19 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public BinaryObject binaryObjectValue(@NotNull String columnName) {
-            return (BinaryObject) row.get(columnIndexChecked(columnName));
+        public boolean booleanValue(String columnName) {
+            return (boolean) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
         @Override
-        public BinaryObject binaryObjectValue(int columnIndex) {
-            return (BinaryObject) row.get(columnIndex);
+        public boolean booleanValue(int columnIndex) {
+            return (boolean) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */
         @Override
-        public byte byteValue(@NotNull String columnName) {
+        public byte byteValue(String columnName) {
             return (byte) row.get(columnIndexChecked(columnName));
         }
 
@@ -256,7 +245,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public short shortValue(@NotNull String columnName) {
+        public short shortValue(String columnName) {
             return (short) row.get(columnIndexChecked(columnName));
         }
 
@@ -268,7 +257,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public int intValue(@NotNull String columnName) {
+        public int intValue(String columnName) {
             return (int) row.get(columnIndexChecked(columnName));
         }
 
@@ -280,7 +269,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public long longValue(@NotNull String columnName) {
+        public long longValue(String columnName) {
             return (long) row.get(columnIndexChecked(columnName));
         }
 
@@ -292,7 +281,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public float floatValue(@NotNull String columnName) {
+        public float floatValue(String columnName) {
             return (float) row.get(columnIndexChecked(columnName));
         }
 
@@ -304,7 +293,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public double doubleValue(@NotNull String columnName) {
+        public double doubleValue(String columnName) {
             return (double) row.get(columnIndexChecked(columnName));
         }
 
@@ -316,7 +305,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public String stringValue(@NotNull String columnName) {
+        public String stringValue(String columnName) {
             return (String) row.get(columnIndexChecked(columnName));
         }
 
@@ -328,7 +317,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public UUID uuidValue(@NotNull String columnName) {
+        public UUID uuidValue(String columnName) {
             return (UUID) row.get(columnIndexChecked(columnName));
         }
 
@@ -340,7 +329,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public BitSet bitmaskValue(@NotNull String columnName) {
+        public BitSet bitmaskValue(String columnName) {
             return (BitSet) row.get(columnIndexChecked(columnName));
         }
 
@@ -400,14 +389,13 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
         /** {@inheritDoc} */
         @Override
-        public Iterator<Object> iterator() {
-            return row.iterator();
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public ResultSetMetadata metadata() {
             return meta;
+        }
+
+        @Override
+        public String toString() {
+            return "Row " + row;
         }
     }
 }

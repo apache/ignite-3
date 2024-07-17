@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,44 +17,43 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
-import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -62,6 +61,7 @@ import org.junit.jupiter.api.Test;
  * Tests row assembling and reading.
  */
 public class UpgradingRowAdapterTest {
+    public static final String NULL_COLUMN_NAME = "valNullCol";
     /** Random. */
     private Random rnd;
 
@@ -78,61 +78,90 @@ public class UpgradingRowAdapterTest {
     }
 
     @Test
-    public void testVariousColumnTypes() {
-        SchemaDescriptor schema = new SchemaDescriptor(1,
-                new Column[]{new Column("keyUuidCol", NativeTypes.UUID, false)},
-                new Column[]{
+    public void testUpgradeRowWithVariousColumnTypes() {
+        SchemaDescriptor schema = createSchemaDescriptorWithColumnsOfAllTypes();
+        SchemaDescriptor schema2 = applyAddingValueColumn(schema, 1, new Column("added", INT8, true));
+
+        var schemaRegistry = new SchemaRegistryImpl(
+                v -> v == 1 ? schema : schema2,
+                schema2
+        );
+
+        List<Object> values = generateRowValues(schema);
+        BinaryRow originalBinaryRow = serializeValuesToRow(schema, values);
+
+        Row originalRow = Row.wrapBinaryRow(schema, originalBinaryRow);
+        Row resolvedRow = schemaRegistry.resolve(originalBinaryRow, schema2);
+
+        // validate UpgradedRowAdapter methods.
+        assertThat("Colocation hash mismatch", resolvedRow.colocationHash(), equalTo(originalRow.colocationHash()));
+        assertThat("KeyOnly flag mismatch", resolvedRow.keyOnly(), equalTo(originalRow.keyOnly()));
+        assertThat("Unexpected element count", resolvedRow.elementCount(), equalTo(originalRow.elementCount() + 1));
+
+        assertNotNull(resolvedRow.byteBuffer());
+        assertNull(resolvedRow.binaryTuple(), "Underlying binary tuple must never be used");
+        assertThrows(UnsupportedOperationException.class, resolvedRow::tupleSlice, "Underlying binary tuple must never be used");
+        assertThrows(UnsupportedOperationException.class, resolvedRow::tupleSliceLength, "Underlying binary tuple must never be used");
+
+        // Validate original row.
+        validateRow(values, originalRow);
+
+        // Validate upgraded row.
+        values.add(1, null);
+        validateRow(values, resolvedRow);
+
+        BinaryRowImpl restoredRow = new BinaryRowImpl(schema2.version(), resolvedRow.byteBuffer());
+        assertThat(restoredRow.schemaVersion(), equalTo(schema2.version()));
+        validateRow(values, Row.wrapBinaryRow(schema2, restoredRow));
+    }
+
+    private static SchemaDescriptor createSchemaDescriptorWithColumnsOfAllTypes() {
+        return new SchemaDescriptor(1,
+                List.of(new Column("valBooleanCol", BOOLEAN, true),
                         new Column("valByteCol", INT8, true),
                         new Column("valShortCol", INT16, true),
                         new Column("valIntCol", INT32, true),
+                        new Column("keyUuidCol", NativeTypes.UUID, false),
                         new Column("valLongCol", INT64, true),
+                        new Column(NULL_COLUMN_NAME, INT64, true),
                         new Column("valFloatCol", FLOAT, true),
                         new Column("valDoubleCol", DOUBLE, true),
                         new Column("valDateCol", DATE, true),
-                        new Column("valTimeCol", time(), true),
-                        new Column("valDateTimeCol", datetime(), true),
-                        new Column("valTimeStampCol", timestamp(), true),
+                        new Column("valTimeCol", time(0), true),
+                        new Column("valDateTimeCol", datetime(6), true),
+                        new Column("valTimeStampCol", timestamp(6), true),
                         new Column("valBitmask1Col", NativeTypes.bitmaskOf(22), true),
                         new Column("valBytesCol", BYTES, false),
                         new Column("valStringCol", STRING, false),
                         new Column("valNumberCol", NativeTypes.numberOf(20), false),
-                        new Column("valDecimalCol", NativeTypes.decimalOf(25, 5), false),
-                }
+                        new Column("valDecimalCol", NativeTypes.decimalOf(25, 5), false)),
+                List.of("keyUuidCol"),
+                null
+        );
+    }
+
+    private static SchemaDescriptor applyAddingValueColumn(SchemaDescriptor desc, int position, Column newColumn) {
+        List<Column> columns = new ArrayList<>(desc.columns());
+        columns.add(position, newColumn);
+
+        SchemaDescriptor newSchema = new SchemaDescriptor(
+                desc.version() + 1,
+                columns,
+                desc.keyColumns().stream().map(Column::name).collect(Collectors.toList()),
+                desc.colocationColumns().stream().map(Column::name).collect(Collectors.toList())
         );
 
-        SchemaDescriptor schema2 = new SchemaDescriptor(2,
-                new Column[]{new Column("keyUuidCol", NativeTypes.UUID, false)},
-                new Column[]{
-                        new Column("added", INT8, true),
-                        new Column("valByteCol", INT8, true),
-                        new Column("valShortCol", INT16, true),
-                        new Column("valIntCol", INT32, true),
-                        new Column("valLongCol", INT64, true),
-                        new Column("valFloatCol", FLOAT, true),
-                        new Column("valDoubleCol", DOUBLE, true),
-                        new Column("valDateCol", DATE, true),
-                        new Column("valTimeCol", time(), true),
-                        new Column("valDateTimeCol", datetime(), true),
-                        new Column("valTimeStampCol", timestamp(), true),
-                        new Column("valBitmask1Col", NativeTypes.bitmaskOf(22), true),
-                        new Column("valBytesCol", BYTES, false),
-                        new Column("valStringCol", STRING, false),
-                        new Column("valNumberCol", NativeTypes.numberOf(20), false),
-                        new Column("valDecimalCol", NativeTypes.decimalOf(25, 5), false),
-                }
-        );
+        int addedColumnIndex = newSchema.column(newColumn.name()).positionInRow();
 
-        int addedColumnIndex = schema2.column("added").schemaIndex();
-
-        schema2.columnMapping(new ColumnMapper() {
+        newSchema.columnMapping(new ColumnMapper() {
             @Override
-            public ColumnMapper add(@NotNull Column col) {
-                return null;
+            public ColumnMapper add(Column col) {
+                return fail();
             }
 
             @Override
             public ColumnMapper add(int from, int to) {
-                return null;
+                return fail();
             }
 
             @Override
@@ -142,39 +171,21 @@ public class UpgradingRowAdapterTest {
 
             @Override
             public Column mappedColumn(int idx) {
-                return idx == addedColumnIndex ? schema2.column(idx) : null;
+                return idx == addedColumnIndex ? newSchema.column(idx) : null;
             }
         });
 
-        List<Object> values = generateRowValues(schema);
-
-        ByteBufferRow row = new ByteBufferRow(serializeValuesToRow(schema, values));
-
-        // Validate row.
-        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? schema : schema2, () -> INITIAL_SCHEMA_VERSION, schema), row);
-
-        // Validate upgraded row.
-        values.add(addedColumnIndex, null);
-
-        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? schema : schema2, () -> schema2.version(), schema2), row);
+        return newSchema;
     }
 
-    private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, ByteBufferRow binaryRow) {
-        Row row = schemaRegistry.resolve(binaryRow);
-
+    private static void validateRow(List<Object> values, Row row) {
         SchemaDescriptor schema = row.schema();
 
         for (int i = 0; i < values.size(); i++) {
             Column col = schema.column(i);
 
-            NativeTypeSpec type = col.type().spec();
-
-            if (type == NativeTypeSpec.BYTES) {
-                assertArrayEquals((byte[]) values.get(i), (byte[]) NativeTypeSpec.BYTES.objectValue(row, col.schemaIndex()),
-                        "Failed for column: " + col);
-            } else {
-                assertEquals(values.get(i), type.objectValue(row, col.schemaIndex()), "Failed for column: " + col);
-            }
+            assertThat("Failed for column: " + col, row.hasNullValue(col.positionInRow()), is(equalTo(values.get(i) == null)));
+            assertThat("Failed for column: " + col, row.value(col.positionInRow()), is(equalTo(values.get(i))));
         }
     }
 
@@ -190,7 +201,11 @@ public class UpgradingRowAdapterTest {
         for (int i = 0; i < schema.length(); i++) {
             NativeType type = schema.column(i).type();
 
-            res.add(SchemaTestUtils.generateRandomValue(rnd, type));
+            if (NULL_COLUMN_NAME.equals(schema.column(i).name())) {
+                res.add(null);
+            } else {
+                res.add(SchemaTestUtils.generateRandomValue(rnd, type));
+            }
         }
 
         return res;
@@ -200,144 +215,18 @@ public class UpgradingRowAdapterTest {
      * Validates row values after serialization-then-deserialization.
      *
      * @param schema Row schema.
-     * @param vals   Row values.
+     * @param vals Row values.
      * @return Row bytes.
      */
-    private byte[] serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
-        assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.size());
+    private static BinaryRow serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
+        assertEquals(schema.columns().size(), vals.size());
 
-        int nonNullVarLenKeyCols = 0;
-        int nonNullVarLenValCols = 0;
-        int nonNullVarLenKeySize = 0;
-        int nonNullVarLenValSize = 0;
+        RowAssembler asm = new RowAssembler(schema, -1);
 
-        for (int i = 0; i < vals.size(); i++) {
-            NativeTypeSpec type = schema.column(i).type().spec();
-
-            if (vals.get(i) != null && !type.fixedLength()) {
-                if (type == NativeTypeSpec.BYTES) {
-                    byte[] val = (byte[]) vals.get(i);
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += val.length;
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += val.length;
-                    }
-                } else if (type == NativeTypeSpec.STRING) {
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.utf8EncodedLength((CharSequence) vals.get(i));
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.utf8EncodedLength((CharSequence) vals.get(i));
-                    }
-                } else if (type == NativeTypeSpec.NUMBER) {
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.sizeInBytes((BigInteger) vals.get(i));
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.sizeInBytes((BigInteger) vals.get(i));
-                    }
-                } else if (type == NativeTypeSpec.DECIMAL) {
-                    if (schema.isKeyColumn(i)) {
-                        nonNullVarLenKeyCols++;
-                        nonNullVarLenKeySize += RowAssembler.sizeInBytes((BigDecimal) vals.get(i));
-                    } else {
-                        nonNullVarLenValCols++;
-                        nonNullVarLenValSize += RowAssembler.sizeInBytes((BigDecimal) vals.get(i));
-                    }
-                } else {
-                    throw new IllegalStateException("Unsupported variable-length type: " + type);
-                }
-            }
+        for (Object val : vals) {
+            asm.appendValue(val);
         }
 
-        RowAssembler asm = new RowAssembler(
-                schema,
-                nonNullVarLenKeySize,
-                nonNullVarLenKeyCols,
-                nonNullVarLenValSize,
-                nonNullVarLenValCols);
-
-        for (int i = 0; i < vals.size(); i++) {
-            if (vals.get(i) == null) {
-                asm.appendNull();
-            } else {
-                NativeType type = schema.column(i).type();
-
-                switch (type.spec()) {
-                    case INT8:
-                        asm.appendByte((Byte) vals.get(i));
-                        break;
-
-                    case INT16:
-                        asm.appendShort((Short) vals.get(i));
-                        break;
-
-                    case INT32:
-                        asm.appendInt((Integer) vals.get(i));
-                        break;
-
-                    case INT64:
-                        asm.appendLong((Long) vals.get(i));
-                        break;
-
-                    case FLOAT:
-                        asm.appendFloat((Float) vals.get(i));
-                        break;
-
-                    case DOUBLE:
-                        asm.appendDouble((Double) vals.get(i));
-                        break;
-
-                    case UUID:
-                        asm.appendUuid((java.util.UUID) vals.get(i));
-                        break;
-
-                    case STRING:
-                        asm.appendString((String) vals.get(i));
-                        break;
-
-                    case NUMBER:
-                        asm.appendNumber((BigInteger) vals.get(i));
-                        break;
-
-                    case DECIMAL:
-                        asm.appendDecimal((BigDecimal) vals.get(i));
-                        break;
-
-                    case BYTES:
-                        asm.appendBytes((byte[]) vals.get(i));
-                        break;
-
-                    case BITMASK:
-                        asm.appendBitmask((BitSet) vals.get(i));
-                        break;
-
-                    case DATE:
-                        asm.appendDate((LocalDate) vals.get(i));
-                        break;
-
-                    case TIME:
-                        asm.appendTime((LocalTime) vals.get(i));
-                        break;
-
-                    case DATETIME:
-                        asm.appendDateTime((LocalDateTime) vals.get(i));
-                        break;
-
-                    case TIMESTAMP:
-                        asm.appendTimestamp((Instant) vals.get(i));
-                        break;
-
-                    default:
-                        throw new IllegalStateException("Unsupported test type: " + type);
-                }
-            }
-        }
-
-        return asm.toBytes();
+        return asm.build();
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -52,8 +52,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -62,8 +61,8 @@ import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -73,10 +72,8 @@ import org.mockito.ArgumentCaptor;
 /**
  * For {@link CheckpointPagesWriter} testing.
  */
-public class CheckpointPagesWriterTest {
+public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
-
-    private final IgniteLogger log = Loggers.forClass(CheckpointPagesWriterTest.class);
 
     private static PageIoRegistry ioRegistry;
 
@@ -130,7 +127,6 @@ public class CheckpointPagesWriterTest {
         PartitionMeta partitionMeta1 = mock(PartitionMeta.class);
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
-                log,
                 tracker,
                 writePageIds,
                 updatedPartitions,
@@ -198,7 +194,6 @@ public class CheckpointPagesWriterTest {
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
-                log,
                 new CheckpointMetricsTracker(),
                 new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(fullPageId(0, 0, 1)))),
                 new ConcurrentHashMap<>(),
@@ -249,7 +244,6 @@ public class CheckpointPagesWriterTest {
         ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
-                log,
                 new CheckpointMetricsTracker(),
                 writePageIds,
                 updatedPartitions,

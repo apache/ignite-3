@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,54 +17,40 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Deque;
 import java.util.List;
 import java.util.function.BiPredicate;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * NestedLoopJoinNode.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    protected static final int NOT_WAITING = -1;
-
+public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterializedJoinNode<RowT> {
     protected final BiPredicate<RowT, RowT> cond;
 
     protected final RowHandler<RowT> handler;
 
-    protected int requested;
-
-    protected int waitingLeft;
-
-    protected int waitingRight;
-
-    protected final List<RowT> rightMaterialized = new ArrayList<>(inBufSize);
-
-    protected final Deque<RowT> leftInBuf = new ArrayDeque<>(inBufSize);
-
-    protected boolean inLoop;
+    final List<RowT> rightMaterialized = new ArrayList<>(inBufSize);
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx  Execution context.
-     * @param rowType Rel data type.
      * @param cond Join expression.
      */
-    private NestedLoopJoinNode(ExecutionContext<RowT> ctx, RelDataType rowType, BiPredicate<RowT, RowT> cond) {
-        super(ctx, rowType);
+    NestedLoopJoinNode(ExecutionContext<RowT> ctx, BiPredicate<RowT, RowT> cond) {
+        super(ctx);
 
         this.cond = cond;
         handler = ctx.rowHandler();
@@ -72,98 +58,14 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public void request(int rowsCnt) throws Exception {
-        assert !nullOrEmpty(sources()) && sources().size() == 2;
-        assert rowsCnt > 0 && requested == 0;
-
-        checkState();
-
-        requested = rowsCnt;
-
-        if (!inLoop) {
-            context().execute(this::doJoin, this::onError);
-        }
-    }
-
-    private void doJoin() throws Exception {
-        checkState();
-
-        join();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     protected void rewindInternal() {
-        requested = 0;
-        waitingLeft = 0;
-        waitingRight = 0;
-
         rightMaterialized.clear();
-        leftInBuf.clear();
+
+        super.rewindInternal();
     }
 
-    /** {@inheritDoc} */
     @Override
-    protected Downstream<RowT> requestDownstream(int idx) {
-        if (idx == 0) {
-            return new Downstream<RowT>() {
-                /** {@inheritDoc} */
-                @Override
-                public void push(RowT row) throws Exception {
-                    pushLeft(row);
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public void end() throws Exception {
-                    endLeft();
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public void onError(Throwable e) {
-                    NestedLoopJoinNode.this.onError(e);
-                }
-            };
-        } else if (idx == 1) {
-            return new Downstream<RowT>() {
-                /** {@inheritDoc} */
-                @Override
-                public void push(RowT row) throws Exception {
-                    pushRight(row);
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public void end() throws Exception {
-                    endRight();
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public void onError(Throwable e) {
-                    NestedLoopJoinNode.this.onError(e);
-                }
-            };
-        }
-
-        throw new IndexOutOfBoundsException();
-    }
-
-    private void pushLeft(RowT row) throws Exception {
-        assert downstream() != null;
-        assert waitingLeft > 0;
-
-        checkState();
-
-        waitingLeft--;
-
-        leftInBuf.add(row);
-
-        join();
-    }
-
-    private void pushRight(RowT row) throws Exception {
+    protected void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
 
@@ -178,73 +80,44 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    private void endLeft() throws Exception {
-        assert downstream() != null;
-        assert waitingLeft > 0;
-
-        checkState();
-
-        waitingLeft = NOT_WAITING;
-
-        join();
-    }
-
-    private void endRight() throws Exception {
-        assert downstream() != null;
-        assert waitingRight > 0;
-
-        checkState();
-
-        waitingRight = NOT_WAITING;
-
-        join();
-    }
-
-    protected Node<RowT> leftSource() {
-        return sources().get(0);
-    }
-
-    protected Node<RowT> rightSource() {
-        return sources().get(1);
-    }
-
-    protected abstract void join() throws Exception;
-
     /**
      * Create.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @NotNull
     public static <RowT> NestedLoopJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType,
             RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, BiPredicate<RowT, RowT> cond) {
         switch (joinType) {
             case INNER:
-                return new InnerJoin<>(ctx, outputRowType, cond);
+                return new InnerJoin<>(ctx, cond);
 
             case LEFT: {
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
-                return new LeftJoin<>(ctx, outputRowType, cond, rightRowFactory);
+                return new LeftJoin<>(ctx, cond, rightRowFactory);
             }
 
             case RIGHT: {
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
+                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
 
-                return new RightJoin<>(ctx, outputRowType, cond, leftRowFactory);
+                return new RightJoin<>(ctx, cond, leftRowFactory);
             }
 
             case FULL: {
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
+                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
-                return new FullOuterJoin<>(ctx, outputRowType, cond, leftRowFactory, rightRowFactory);
+                return new FullOuterJoin<>(ctx, cond, leftRowFactory, rightRowFactory);
             }
 
             case SEMI:
-                return new SemiJoin<>(ctx, outputRowType, cond);
+                return new SemiJoin<>(ctx, cond);
 
             case ANTI:
-                return new AntiJoin<>(ctx, outputRowType, cond);
+                return new AntiJoin<>(ctx, cond);
 
             default:
                 throw new IllegalStateException("Join type \"" + joinType + "\" is not supported yet");
@@ -252,8 +125,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     }
 
     private static class InnerJoin<RowT> extends NestedLoopJoinNode<RowT> {
-        private RowT left;
-
         private int rightIdx;
 
         /**
@@ -261,17 +132,15 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx  Execution context.
-         * @param rowType Rel data type.
          * @param cond Join expression.
          */
-        private InnerJoin(ExecutionContext<RowT> ctx, RelDataType rowType, BiPredicate<RowT, RowT> cond) {
-            super(ctx, rowType, cond);
+        private InnerJoin(ExecutionContext<RowT> ctx, BiPredicate<RowT, RowT> cond) {
+            super(ctx, cond);
         }
 
         /** {@inheritDoc} */
         @Override
         protected void rewindInternal() {
-            left = null;
             rightIdx = 0;
 
             super.rewindInternal();
@@ -331,8 +200,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         /** Whether current left row was matched or not. */
         private boolean matched;
 
-        private RowT left;
-
         private int rightIdx;
 
         /**
@@ -340,17 +207,15 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx  Execution context.
-         * @param rowType Rel data type.
          * @param cond Join expression.
          * @param rightRowFactory Right row factory.
          */
         private LeftJoin(
                 ExecutionContext<RowT> ctx,
-                RelDataType rowType,
                 BiPredicate<RowT, RowT> cond,
                 RowHandler.RowFactory<RowT> rightRowFactory
         ) {
-            super(ctx, rowType, cond);
+            super(ctx, cond);
 
             this.rightRowFactory = rightRowFactory;
         }
@@ -358,7 +223,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         @Override
         protected void rewindInternal() {
             matched = false;
-            left = null;
             rightIdx = 0;
 
             super.rewindInternal();
@@ -428,14 +292,12 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     }
 
     private static class RightJoin<RowT> extends NestedLoopJoinNode<RowT> {
-        /** Right row factory. */
+        /** Left row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
 
-        private BitSet rightNotMatchedIndexes;
+        private @Nullable BitSet rightNotMatchedIndexes;
 
         private int lastPushedInd;
-
-        private RowT left;
 
         private int rightIdx;
 
@@ -444,17 +306,15 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx  Execution context.
-         * @param rowType Rel data type.
          * @param cond Join expression.
          * @param leftRowFactory Left row factory.
          */
         private RightJoin(
                 ExecutionContext<RowT> ctx,
-                RelDataType rowType,
                 BiPredicate<RowT, RowT> cond,
                 RowHandler.RowFactory<RowT> leftRowFactory
         ) {
-            super(ctx, rowType, cond);
+            super(ctx, cond);
 
             this.leftRowFactory = leftRowFactory;
         }
@@ -462,8 +322,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void rewindInternal() {
-            left = null;
-            rightNotMatchedIndexes.clear();
+            rightNotMatchedIndexes = null;
             lastPushedInd = 0;
             rightIdx = 0;
 
@@ -569,11 +428,9 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         /** Whether current left row was matched or not. */
         private boolean leftMatched;
 
-        private BitSet rightNotMatchedIndexes;
+        private @Nullable BitSet rightNotMatchedIndexes;
 
         private int lastPushedInd;
-
-        private RowT left;
 
         private int rightIdx;
 
@@ -582,19 +439,17 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx  Execution context.
-         * @param rowType Rel data type.
          * @param cond Join expression.
          * @param leftRowFactory Left row factory.
          * @param rightRowFactory Right row factory.
          */
         private FullOuterJoin(
                 ExecutionContext<RowT> ctx,
-                RelDataType rowType,
                 BiPredicate<RowT, RowT> cond,
                 RowHandler.RowFactory<RowT> leftRowFactory,
                 RowHandler.RowFactory<RowT> rightRowFactory
         ) {
-            super(ctx, rowType, cond);
+            super(ctx, cond);
 
             this.leftRowFactory = leftRowFactory;
             this.rightRowFactory = rightRowFactory;
@@ -603,9 +458,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected void rewindInternal() {
-            left = null;
             leftMatched = false;
-            rightNotMatchedIndexes.clear();
+            rightNotMatchedIndexes = null;
             lastPushedInd = 0;
             rightIdx = 0;
 
@@ -716,8 +570,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     }
 
     private static class SemiJoin<RowT> extends NestedLoopJoinNode<RowT> {
-        private RowT left;
-
         private int rightIdx;
 
         /**
@@ -725,17 +577,15 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx  Execution context.
-         * @param rowType Rel data type.
          * @param cond Join expression.
          */
-        private SemiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, BiPredicate<RowT, RowT> cond) {
-            super(ctx, rowType, cond);
+        private SemiJoin(ExecutionContext<RowT> ctx, BiPredicate<RowT, RowT> cond) {
+            super(ctx, cond);
         }
 
         /** {@inheritDoc} */
         @Override
         protected void rewindInternal() {
-            left = null;
             rightIdx = 0;
 
             super.rewindInternal();
@@ -789,8 +639,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     }
 
     private static class AntiJoin<RowT> extends NestedLoopJoinNode<RowT> {
-        private RowT left;
-
         private int rightIdx;
 
         /**
@@ -798,16 +646,14 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param ctx  Execution context.
-         * @param rowType Rel data type.
          * @param cond Join expression.
          */
-        private AntiJoin(ExecutionContext<RowT> ctx, RelDataType rowType, BiPredicate<RowT, RowT> cond) {
-            super(ctx, rowType, cond);
+        private AntiJoin(ExecutionContext<RowT> ctx, BiPredicate<RowT, RowT> cond) {
+            super(ctx, cond);
         }
 
         @Override
         protected void rewindInternal() {
-            left = null;
             rightIdx = 0;
 
             super.rewindInternal();

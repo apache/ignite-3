@@ -38,6 +38,16 @@ github:
     squash:  true
     merge:   false
     rebase:  false
+  protected_branches:
+    main:
+      allow_force_pushes: false
+      required_linear_history: true
+      required_signatures: false
+  autolink_jira:
+    - IGNITE
+  dependabot_alerts:  true
+  dependabot_updates: true
+  
 notifications:
   commits:      commits@ignite.apache.org
   issues:       notifications@ignite.apache.org

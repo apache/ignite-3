@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Class descriptor registry.
@@ -126,8 +127,6 @@ public class ClassDescriptorRegistry implements DescriptorRegistry {
      * @param descriptor Descriptor.
      */
     void addDescriptor(Class<?> clazz, ClassDescriptor descriptor) {
-        assert clazz.getName().equals(descriptor.className());
-
         Integer descriptorId = idMap.get(clazz);
 
         assert descriptorId != null : "Attempting to store an unregistered descriptor";
@@ -137,18 +136,42 @@ public class ClassDescriptorRegistry implements DescriptorRegistry {
         assert descriptorId == realDescriptorId : "Descriptor id doesn't match, registered=" + descriptorId + ", real="
             + realDescriptorId;
 
-        descriptorMap.put(realDescriptorId, descriptor);
+        addDescriptorToMap(clazz, descriptor);
+    }
+
+    private void addDescriptorToMap(Class<?> clazz, ClassDescriptor descriptor) {
+        assert clazz.getName().equals(descriptor.className());
+
+        descriptorMap.put(descriptor.descriptorId(), descriptor);
+    }
+
+    /**
+     * Injects a class descriptor created in another registry, with the ID assigned in the original registry.
+     *
+     * @param descriptor Descriptor to inject.
+     */
+    @TestOnly
+    public void injectDescriptor(ClassDescriptor descriptor) {
+        if (shouldBeBuiltIn(descriptor.typeDescriptorId())) {
+            return;
+        }
+
+        assert !idMap.containsKey(descriptor.localClass());
+        assert !descriptorMap.containsKey(descriptor.descriptorId());
+
+        idMap.put(descriptor.localClass(), descriptor.descriptorId());
+
+        addDescriptorToMap(descriptor.localClass(), descriptor);
     }
 
     /**
      * Returns {@code true} if descriptor with the specified descriptor id belongs to the range reserved for built-in
      * types, {@code false} otherwise.
      *
-     *
      * @param descriptorId Descriptor id.
      * @return Whether descriptor should be a built-in.
      */
-    public static boolean shouldBeBuiltIn(int descriptorId) {
+    static boolean shouldBeBuiltIn(int descriptorId) {
         return descriptorId < BUILTIN_DESCRIPTORS_OFFSET_COUNT;
     }
 }

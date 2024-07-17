@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,9 +28,9 @@ import org.apache.calcite.rel.logical.LogicalMinus;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceMinus;
-import org.apache.ignite.internal.sql.engine.rel.set.IgniteSingleMinus;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 
 /**
@@ -58,7 +58,7 @@ public class MinusConverterRule {
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
 
-            return new IgniteSingleMinus(cluster, outTrait, inputs, setOp.all);
+            return new IgniteColocatedMinus(cluster, outTrait, inputs, setOp.all);
         }
     }
 

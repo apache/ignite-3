@@ -1,0 +1,183 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'java'
+    id 'signing'
+    alias(libs.plugins.docker)
+    alias(libs.plugins.checksum)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.crypto.checksum.Checksum
+
+configurations {
+    dbArtifacts
+    cliArtifacts
+    cliZip
+    dbZip
+    release
+    localDefaults
+}
+
+dependencies {
+    dbArtifacts project(':ignite-runner')
+    cliArtifacts project(':ignite-cli')
+    cliZip project(path: ':packaging-cli', configuration: 'cliZip')
+    dbZip project(path: ':packaging-db', configuration: 'dbZip')
+    release project(path: ':packaging-cli', configuration: 'cliRelease')
+    release project(path: ':packaging-db', configuration: 'dbRelease')
+    release project(path: ':ignite-jdbc', configuration: 'jdbcRelease')
+    release project(path: ':platforms', configuration: 'platformsRelease')
+    localDefaults project(path: ':packaging-db', configuration: 'localDefaults')
+}
+
+// Task that generates start script for cli
+task cliStartScript(type: CreateStartScripts) {
+    // Will be passed to exec "java ... <mainClassName>"
+    mainClass = "org.apache.ignite.internal.cli.Main"
+    // Forms a classpath string that will be passed to exec "java -cp <classpath> .."
+    // it is expected to locate the "lib" dir together with "bin"
+    classpath = files 'lib/*'
+    outputDir = file "$buildDir/scripts"
+    applicationName = 'ignite3'
+}
+
+def tokens = [
+        INSTALL_DIR         : '${IGNITE_HOME}',
+        CONF_DIR            : '${IGNITE_HOME}/etc',
+        LIB_DIR             : '${IGNITE_HOME}/lib',
+        APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
+        MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
+        BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh',
+        ADD_OPENS           : project.addOpens.join(' ')
+]
+
+task replaceVars(type: Copy) {
+    from "$rootDir/packaging/common/linux"
+    from "$rootDir/packaging/docker/docker-entrypoint.sh"
+    filter(ReplaceTokens, tokens: tokens)
+    into "$buildDir/docker"
+}
+
+docker {
+    name 'apacheignite/ignite3'
+    dockerfile file('docker/Dockerfile')
+
+    copySpec.into 'dist', {
+        into('') {
+            fileMode 0755
+            from "$buildDir/docker/docker-entrypoint.sh"
+        }
+        into('db') {
+            into('') {
+                File.createTempDir().with {
+                    ['etc', 'work'].each { new File(absolutePath, it).mkdirs() }
+                    from(absolutePath) {
+                        includeEmptyDirs = true
+                    }
+                }
+                from "$rootDir/LICENSE"
+                from "$rootDir/NOTICE"
+                from "$rootDir/assembly/README.md"
+            }
+            into('etc') {
+                from configurations.localDefaults
+                from 'docker/ignite.java.util.logging.properties'
+            }
+            into('lib') {
+                from configurations.dbArtifacts
+                from "$buildDir/docker/$tokens.BOOTSTRAP_FILE_NAME"
+                from "$buildDir/docker/$tokens.SETUP_JAVA_FILE_NAME"
+            }
+        }
+        into('cli') {
+            into('') {
+                from "$rootDir/LICENSE"
+                from "$rootDir/NOTICE"
+                from "$rootDir/assembly/README.md"
+            }
+            into('bin') {
+                fileMode 0755
+                from cliStartScript
+            }
+            into('lib') {
+                from configurations.cliArtifacts
+            }
+        }
+    }
+}
+
+dockerPrepare.dependsOn replaceVars
+
+// create an uber zip with all distributions
+task allDistZip(type: Zip) {
+    archiveBaseName = "ignite3"
+    dependsOn configurations.cliZip, configurations.dbZip
+
+    def allZipFiles = configurations.cliZip + configurations.dbZip
+    allZipFiles.each {
+        from(zipTree(it))
+    }
+}
+
+task allSrcZip(type: Exec) {
+    workingDir rootDir
+
+    def outFile = "$buildDir/distributions/apache-ignite-${project.version}-src.zip"
+    commandLine "git", "archive",
+            "--prefix=apache-ignite-${project.version}-src/",
+            "-o", outFile,
+            "HEAD"
+    outputs.file outFile
+}
+
+task createChecksums(type: Checksum) {
+    dependsOn allDistZip, allSrcZip
+
+    inputFiles.from allDistZip.outputs.files, allSrcZip.outputs.files
+    checksumAlgorithm = Checksum.Algorithm.SHA512
+}
+
+// Need to create a separate task since signing single file doesn't automatically create a task
+task signAllSrcZip(type: Sign) {
+    dependsOn allSrcZip
+
+    sign allSrcZip.outputs.files.singleFile
+}
+
+// Explicitly create task so that the resulting artifact is not added to the configuration
+tasks.register('signAllDistZip', Sign) {
+    sign allDistZip
+}
+
+tasks.register('prepareRelease', Copy) {
+    from configurations.release
+    dependsOn createChecksums, signAllSrcZip, signAllDistZip
+    from file("$buildDir/distributions")
+    from file("$buildDir/checksums")
+    include '*.zip', '*.asc', '*.sha512'
+    include '*.rpm', '*.deb', '*.changes'
+    include '*.jar'
+    into file("$buildDir/release")
+}

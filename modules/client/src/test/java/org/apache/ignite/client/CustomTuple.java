@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,10 +24,8 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.util.IgniteObjectName;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * User-defined test {@link Tuple} implementation.
@@ -80,8 +78,8 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public int columnIndex(@NotNull String columnName) {
-        switch (IgniteObjectName.parse(columnName)) {
+    public int columnIndex(String columnName) {
+        switch (IgniteNameUtils.parseSimpleName(columnName)) {
             case "ID":
                 return 0;
             case "NAME":
@@ -95,8 +93,8 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public <T> T valueOrDefault(@NotNull String columnName, T def) {
-        switch (IgniteObjectName.parse(columnName)) {
+    public <T> T valueOrDefault(String columnName, T def) {
+        switch (IgniteNameUtils.parseSimpleName(columnName)) {
             case "ID":
                 return (T) id;
             case "NAME":
@@ -110,13 +108,13 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(String columnName, Object value) {
         throw new UnsupportedOperationException("Tuple is immutable.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> T value(@NotNull String columnName) {
+    public <T> T value(String columnName) {
         return valueOrDefault(columnName, null);
     }
 
@@ -137,19 +135,19 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public BinaryObject binaryObjectValue(@NotNull String columnName) {
+    public boolean booleanValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public BinaryObject binaryObjectValue(int columnIndex) {
+    public boolean booleanValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public byte byteValue(@NotNull String columnName) {
+    public byte byteValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -161,7 +159,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public short shortValue(@NotNull String columnName) {
+    public short shortValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -173,7 +171,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public int intValue(@NotNull String columnName) {
+    public int intValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -185,7 +183,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public long longValue(@NotNull String columnName) {
+    public long longValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -197,7 +195,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public float floatValue(@NotNull String columnName) {
+    public float floatValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -209,7 +207,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public double doubleValue(@NotNull String columnName) {
+    public double doubleValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -221,7 +219,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public String stringValue(@NotNull String columnName) {
+    public String stringValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -233,7 +231,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public UUID uuidValue(@NotNull String columnName) {
+    public UUID uuidValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -245,7 +243,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public BitSet bitmaskValue(@NotNull String columnName) {
+    public BitSet bitmaskValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -304,7 +302,6 @@ public class CustomTuple implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Iterator<Object> iterator() {
         throw new UnsupportedOperationException();

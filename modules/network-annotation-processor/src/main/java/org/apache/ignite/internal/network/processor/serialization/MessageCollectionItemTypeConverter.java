@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -24,10 +25,11 @@ import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**
@@ -125,8 +127,12 @@ class MessageCollectionItemTypeConverter {
             return MessageCollectionItemType.MSG;
         } else if (typeUtils.isSameType(parameterType, BitSet.class)) {
             return MessageCollectionItemType.BIT_SET;
-        } else {
-            throw new ProcessingException("Unsupported MessageCollectionItemType: " + parameterType);
+        } else if (typeUtils.isSameType(parameterType, ByteBuffer.class)) {
+            return MessageCollectionItemType.BYTE_BUFFER;
+        } else if (typeUtils.isSameType(parameterType, HybridTimestamp.class)) {
+            return MessageCollectionItemType.HYBRID_TIMESTAMP;
         }
+
+        throw new ProcessingException("Unsupported MessageCollectionItemType: " + parameterType);
     }
 }

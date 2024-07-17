@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -37,7 +37,9 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 /**
  * Relational expression that imposes a particular distribution on its input without otherwise changing its content.
  */
-public class IgniteExchange extends Exchange implements InternalIgniteRel {
+public class IgniteExchange extends Exchange implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Exchange";
+
     /**
      * Creates an Exchange.
      *
@@ -102,5 +104,11 @@ public class IgniteExchange extends Exchange implements InternalIgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteExchange(cluster, getTraitSet(), sole(inputs), distribution);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

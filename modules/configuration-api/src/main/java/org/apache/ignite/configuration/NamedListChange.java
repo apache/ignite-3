@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -99,10 +99,11 @@ public interface NamedListChange<VIEWT, CHANGET extends VIEWT> extends NamedList
     NamedListChange<VIEWT, CHANGET> update(String key, Consumer<CHANGET> valConsumer);
 
     /**
-     * Renames the existing value in the named list configuration. Element with key {@code oldKey} must exist and key
-     * {@code newKey} must not. Error will occur if {@code newKey} has just been deleted on the same
+     * Renames the existing value in the named list configuration. Does nothing if {@code oldKey} and {@code newKey} are the same.
+     * Element with key {@code oldKey} must exist and key {@code newKey} must not.
+     * Error will occur if {@code newKey} has just been deleted on the same
      * {@link NamedListChange} instance (to distinguish between
-     * {@link ConfigurationNamedListListener#onRename(String, String, ConfigurationNotificationEvent)} and
+     * {@link ConfigurationNamedListListener#onRename(ConfigurationNotificationEvent)} and
      * {@link ConfigurationNamedListListener#onUpdate(ConfigurationNotificationEvent)} on {@code newKey}).
      *
      * @param oldKey Key for the value to be updated.

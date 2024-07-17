@@ -48,13 +48,17 @@ void CreateTableOption(List<SqlNode> list) :
 {
     key = SimpleIdentifier() { s = span(); }
     <EQ>
-    val = Literal()
+    (
+        val = Literal()
+    |
+        val = SimpleIdentifier()
+    )
     {
         list.add(new IgniteSqlCreateTableOption(key, val, s.end(this)));
     }
 }
 
-SqlDataTypeSpec DataTypeEx() :
+SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType) :
 {
     final SqlDataTypeSpec dt;
 }
@@ -65,6 +69,13 @@ SqlDataTypeSpec DataTypeEx() :
         dt = IntervalType()
     )
     {
+        if (!allowCharType
+                && dt.getTypeName().isSimple()
+                && ("CHAR".equals(dt.getTypeName().getSimple()) || "CHARACTER".equals(dt.getTypeName().getSimple()))) {
+
+            throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.charDataTypeIsNotSupportedInTable());
+        }
+
         return dt;
     }
 }
@@ -80,18 +91,31 @@ SqlDataTypeSpec IntervalType() :
     }
 }
 
+SqlTypeNameSpec UuidType(Span s) :
+{
+    final SqlIdentifier typeName;
+}
+{
+    <UUID> { s = span(); typeName = new SqlIdentifier(UuidType.NAME, s.pos()); }
+    {
+        return new IgniteSqlTypeNameSpec(typeName, s.end(this));
+    }
+}
+
+
 void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
     final Boolean nullable;
-    final SqlNodeList columnList;
     final Span s = Span.of();
     final ColumnStrategy strategy;
     final SqlNode dflt;
     SqlIdentifier id = null;
+    SqlNodeList columnList = new SqlNodeList(s.end(this));
+    IgniteSqlPrimaryKeyIndexType primaryIndexType = IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH;
 }
 {
-    id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
+    id = SimpleIdentifier() type = DataTypeEx(s, false) nullable = NullableOptDefaultNull()
     (
         <DEFAULT_> { s.add(this); }
         (
@@ -114,7 +138,7 @@ void TableElement(List<SqlNode> list) :
     [
         <PRIMARY> { s.add(this); } <KEY> {
             columnList = SqlNodeList.of(id);
-            list.add(SqlDdlNodes.primary(s.end(columnList), null, columnList));
+            list.add(new IgniteSqlPrimaryKeyConstraint(s.end(columnList), null, columnList, primaryIndexType));
         }
     ]
     {
@@ -125,8 +149,24 @@ void TableElement(List<SqlNode> list) :
 |
     [ <CONSTRAINT> { s.add(this); } id = SimpleIdentifier() ]
     <PRIMARY> { s.add(this); } <KEY>
-    columnList = ParenthesizedSimpleIdentifierList() {
-        list.add(SqlDdlNodes.primary(s.end(columnList), id, columnList));
+    (
+        LOOKAHEAD(2)
+        <USING> <SORTED> {
+            s.add(this);
+            primaryIndexType = IgniteSqlPrimaryKeyIndexType.SORTED;
+        }
+        columnList = ColumnNameWithSortDirectionList()
+     |
+        LOOKAHEAD(2)
+        <USING> <HASH> {
+            s.add(this);
+            primaryIndexType = IgniteSqlPrimaryKeyIndexType.HASH;
+        }
+        columnList = ColumnNameList()
+    |
+       columnList = ParenthesizedSimpleIdentifierList()
+    ) {
+       list.add(new IgniteSqlPrimaryKeyConstraint(s.end(columnList), id, columnList, primaryIndexType));
     }
 }
 
@@ -168,7 +208,6 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final SqlNodeList columnList;
     SqlNodeList optionList = null;
     SqlNodeList colocationColumns = null;
-    SqlIdentifier engine = null;
 }
 {
     <TABLE>
@@ -180,13 +219,10 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
             colocationColumns = ParenthesizedSimpleIdentifierList()
     ]
     [
-            <ENGINE> { s.add(this); } engine = SimpleIdentifier()
-    ]
-    [
         <WITH> { s.add(this); } optionList = CreateTableOptionList()
     ]
     {
-        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, engine, columnList, colocationColumns, optionList);
+        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, optionList);
     }
 }
 
@@ -201,15 +237,6 @@ SqlNode ColumnNameWithSortDirection() :
         <ASC>
     |   <DESC> {
             col = SqlStdOperatorTable.DESC.createCall(getPos(), col);
-        }
-    )?
-    (
-        <NULLS> <FIRST> {
-            col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
-        }
-    |
-        <NULLS> <LAST> {
-            col = SqlStdOperatorTable.NULLS_LAST.createCall(getPos(), col);
         }
     )?
     {
@@ -257,7 +284,7 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
     final SqlIdentifier idxId;
     final SqlIdentifier tblId;
     final SqlNodeList columnList;
-    IgniteSqlIndexType type = IgniteSqlIndexType.IMPLICIT_TREE;
+    IgniteSqlIndexType type = IgniteSqlIndexType.IMPLICIT_SORTED;
 }
 {
     <INDEX>
@@ -268,10 +295,11 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
     (
         columnList = ColumnNameWithSortDirectionList()
     |
-        <USING> <TREE> {
+        LOOKAHEAD(2)
+        <USING> <SORTED> {
             s.add(this);
 
-            type = IgniteSqlIndexType.TREE;
+            type = IgniteSqlIndexType.SORTED;
         }
 
         columnList = ColumnNameWithSortDirectionList()
@@ -304,7 +332,7 @@ SqlDrop SqlDropTable(Span s, boolean replace) :
 }
 {
     <TABLE> ifExists = IfExistsOpt() id = CompoundIdentifier() {
-        return SqlDdlNodes.dropTable(s.end(this), ifExists, id);
+        return new IgniteSqlDropTable(s.end(this), ifExists, id);
     }
 }
 
@@ -327,7 +355,7 @@ void InfixCast(List<Object> list, ExprContext exprContext, Span s) :
     <INFIX_CAST> {
         checkNonQueryExpression(exprContext);
     }
-    dt = DataTypeEx() {
+    dt = DataTypeEx(s, true) {
         list.add(
             new SqlParserUtil.ToTreeListItem(SqlLibraryOperators.INFIX_CAST,
                 s.pos()));
@@ -362,11 +390,15 @@ SqlNode ColumnWithType() :
     final Span s = Span.of();
 }
 {
-    id = SimpleIdentifier()
-    type = DataTypeEx()
+    id = SimpleIdentifier() { s.add(this); }
+    type = DataTypeEx(s, false)
     [
         <NOT> <NULL> {
             nullable = false;
+        }
+        |
+        <NULL> {
+            nullable = true;
         }
     ]
     (
@@ -374,7 +406,7 @@ SqlNode ColumnWithType() :
             strategy = ColumnStrategy.DEFAULT;
         }
     |
-        {
+    {
             dflt = null;
             strategy = nullable ? ColumnStrategy.NULLABLE
                 : ColumnStrategy.NOT_NULLABLE;
@@ -409,18 +441,261 @@ SqlNode SqlAlterTable() :
     <ALTER> { s = span(); }
     <TABLE> ifExists = IfExistsOpt() id = CompoundIdentifier()
     (
-        <ADD> [<COLUMN>] colIgnoreErr = IfNotExistsOpt() cols = ColumnWithTypeOrList() {
-            return new IgniteSqlAlterTableAddColumn(s.end(this), ifExists, id, colIgnoreErr, cols);
+        <ADD> [<COLUMN>] cols = ColumnWithTypeOrList() {
+            return new IgniteSqlAlterTableAddColumn(s.end(this), ifExists, id, cols);
         }
     |
-        <DROP> [<COLUMN>] colIgnoreErr = IfExistsOpt() cols = SimpleIdentifierOrList() {
-            return new IgniteSqlAlterTableDropColumn(s.end(this), ifExists, id, colIgnoreErr, cols);
+        <DROP> [<COLUMN>] cols = SimpleIdentifierOrList() {
+            return new IgniteSqlAlterTableDropColumn(s.end(this), ifExists, id, cols);
+        }
+    |
+        <ALTER> [<COLUMN>] {
+            return SqlAlterColumn(s, id, ifExists);
         }
     )
+}
+
+SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
+{
+    SqlIdentifier id;
+    SqlDataTypeSpec type;
+    Boolean nullable;
+    SqlNode dflt;
+}
+{
+    id = SimpleIdentifier()
+    (
+        LOOKAHEAD(2)
+        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx(s, false) nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, false, dflt, nullable == null ? null : !nullable);
+        }
+    |
+        LOOKAHEAD(2)
+        <SET> <NOT> <NULL> {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, null, true);
+        }
+    |
+        LOOKAHEAD(2)
+        <DROP> <NOT> <NULL> {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, null, false);
+        }
+    |
+        <SET> <DEFAULT_> { s.add(this); } dflt = Literal()
+        {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, dflt, null);
+        }
+    |
+        <DROP> <DEFAULT_> {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, true, SqlLiteral.createNull(s.end(this)), null);
+        }
+    )
+}
+
+SqlNode DefaultLiteralOrNull() :
+{
+    SqlNode dflt;
+}
+{
+    <DEFAULT_> dflt = Literal()
+    {
+        return dflt;
+    }
+    |
+    {
+        return null;
+    }
 }
 
 <DEFAULT, DQID, BTID> TOKEN :
 {
 < NEGATE: "!" >
 |   < TILDE: "~" >
+}
+
+SqlCreate SqlCreateZone(Span s, boolean replace) :
+{
+        final boolean ifNotExists;
+        final SqlIdentifier id;
+        SqlNodeList optionList = null;
+}
+{
+    <ZONE> { s.add(this); }
+        ifNotExists = IfNotExistsOpt()
+        id = CompoundIdentifier()
+    [
+        <WITH> { s.add(this); } optionList = CreateZoneOptionList()
+    ]
+    {
+        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
+    }
+}
+
+SqlNodeList CreateZoneOptionList() :
+{
+    List<SqlNode> list = new ArrayList<SqlNode>();
+    final Span s = Span.of();
+}
+{
+    CreateZoneOption(list)
+    (
+        <COMMA> { s.add(this); } CreateZoneOption(list)
+    )*
+    {
+        return new SqlNodeList(list, s.end(this));
+    }
+}
+
+void CreateZoneOption(List<SqlNode> list) :
+{
+    final Span s;
+    final SqlIdentifier key;
+    final SqlNode val;
+}
+{
+    key = SimpleIdentifier() { s = span(); }
+    <EQ>
+    val = Literal()
+    {
+        list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
+    }
+}
+
+SqlDrop SqlDropZone(Span s, boolean replace) :
+{
+    final boolean ifExists;
+    final SqlIdentifier zoneId;
+}
+{
+    <ZONE> ifExists = IfExistsOpt() zoneId = CompoundIdentifier() {
+        return new IgniteSqlDropZone(s.end(this), ifExists, zoneId);
+    }
+}
+
+SqlNode SqlAlterZone() :
+{
+    final Span s;
+    final SqlIdentifier zoneId;
+    final boolean ifExists;
+    final SqlIdentifier newZoneId;
+    SqlNodeList optionList = null;
+}
+{
+    <ALTER> { s = span(); }
+    <ZONE>
+    ifExists = IfExistsOpt()
+    zoneId = CompoundIdentifier()
+
+    (
+      <RENAME> <TO> newZoneId = SimpleIdentifier() {
+        return new IgniteSqlAlterZoneRenameTo(s.end(this), zoneId, newZoneId, ifExists);
+      }
+      |
+      <SET>
+      (
+        <DEFAULT_> {
+          return new IgniteSqlAlterZoneSetDefault(s.end(this), zoneId, ifExists);
+        }
+        |
+        { s.add(this); } optionList = AlterZoneOptions() {
+          return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
+        }
+      )
+    )
+}
+
+SqlNodeList AlterZoneOptions() :
+{
+  List<SqlNode> list = new ArrayList<SqlNode>();
+  final Span s = Span.of();
+}
+{
+  AlterZoneOption(list)
+  (
+      <COMMA> { s.add(this); } AlterZoneOption(list)
+  )*
+  {
+      return new SqlNodeList(list, s.end(this));
+  }
+}
+
+void AlterZoneOption(List<SqlNode> list) :
+{
+    final Span s;
+    final SqlIdentifier key;
+    final SqlNode val;
+}
+{
+  key = SimpleIdentifier() { s = span(); }
+  <EQ>
+  val = Literal()
+  {
+      list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
+  }
+}
+
+/**
+* Parse datetime types: date, time, timestamp.
+*
+* TODO Method doesn't recognize 'TIME_WITH_LOCAL_TIME_ZONE' type and should be removed after IGNITE-21555.
+*/
+SqlTypeNameSpec IgniteDateTimeTypeName() :
+{
+    int precision = -1;
+    SqlTypeName typeName;
+    boolean withLocalTimeZone = false;
+    final Span s;
+}
+{
+    <DATE> {
+        typeName = SqlTypeName.DATE;
+        return new SqlBasicTypeNameSpec(typeName, getPos());
+    }
+|
+    <TIME> { s = span(); }
+    precision = PrecisionOpt()
+    {
+        typeName = SqlTypeName.TIME;
+        return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
+    }
+|
+    <TIMESTAMP> { s = span(); }
+    precision = PrecisionOpt()
+    typeName = TimeZoneOpt(false)
+    {
+        return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
+    }
+}
+
+SqlNode SqlStartTransaction() :
+{
+    final Span s;
+    IgniteSqlStartTransactionMode mode = IgniteSqlStartTransactionMode.IMPLICIT_READ_WRITE;
+}
+{
+    <START> { s = span(); }
+    <TRANSACTION>
+    [
+        (
+          LOOKAHEAD(2)
+          <READ> <ONLY> {
+            mode = IgniteSqlStartTransactionMode.READ_ONLY;
+          }
+          |
+          <READ> <WRITE> {
+            mode = IgniteSqlStartTransactionMode.READ_WRITE;
+          }
+        )
+    ] {
+       return new IgniteSqlStartTransaction(s.end(this), mode);
+    }
+}
+
+SqlNode SqlCommitTransaction() :
+{
+    final Span s;
+}
+{
+    <COMMIT> { s = span(); } {
+       return new IgniteSqlCommitTransaction(s.end(this));
+    }
 }

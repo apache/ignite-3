@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.nio.ByteBuffer;
+import java.nio.ReadOnlyBufferException;
 import java.util.Arrays;
 import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
@@ -27,8 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class LogEntryTest {
     @Test
@@ -36,7 +40,7 @@ public class LogEntryTest {
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
         entry.setId(new LogId(100, 3));
         entry.setPeers(Arrays.asList(new PeerId("localhost", 99, 1), new PeerId("localhost", 100, 2)));
-        assertNull(entry.getData());
+        assertSame(LogEntry.EMPTY_DATA, entry.getData());
         assertNull(entry.getOldPeers());
 
         DefaultLogEntryCodecFactory factory = DefaultLogEntryCodecFactory.getInstance();
@@ -55,7 +59,7 @@ public class LogEntryTest {
         assertEquals(2, nentry.getPeers().size());
         assertEquals("localhost:99:1", nentry.getPeers().get(0).toString());
         assertEquals("localhost:100:2", nentry.getPeers().get(1).toString());
-        assertNull(nentry.getData());
+        assertSame(LogEntry.EMPTY_DATA, entry.getData());
         assertNull(nentry.getOldPeers());
     }
 
@@ -120,5 +124,38 @@ public class LogEntryTest {
         entry.setData(ByteBuffer.wrap("hEllo".getBytes(UTF_8)));
         assertNotEquals(c, entry.checksum());
         assertTrue(entry.isCorrupted());
+    }
+
+    @Test
+    public void testSliceReadOnlyData() {
+        ByteBuffer buf = ByteBuffer.wrap("hello".getBytes());
+        LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
+        entry.setData(buf);
+        assertSame(buf, entry.getData());
+        final ByteBuffer slice = entry.sliceData();
+        assertNotSame(buf, slice);
+        assertEquals(5, slice.remaining());
+        assertEquals("hello", new String(slice.array()));
+        slice.position(4);
+        assertEquals(4, slice.position());
+        assertEquals(0, entry.getData().position());
+        slice.put((byte) 'a');
+        assertEquals(97, slice.get(4));
+        assertEquals("hella", new String(entry.getData().array()));
+
+        ByteBuffer readOnly = entry.getReadOnlyData();
+        assertNotSame(buf, readOnly);
+        assertEquals(5, readOnly.remaining());
+        byte[] bs = new byte[5];
+        readOnly.get(bs);
+        assertEquals("hella", new String(bs));
+
+        try {
+            readOnly.position(4);
+            readOnly.put((byte) 1);
+            fail();
+        } catch (ReadOnlyBufferException e) {
+
+        }
     }
 }

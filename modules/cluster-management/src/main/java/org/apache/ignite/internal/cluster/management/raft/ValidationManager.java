@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,22 +17,19 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import static java.util.stream.Collectors.toSet;
+
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,37 +37,23 @@ import org.jetbrains.annotations.Nullable;
  * Class responsible for validating cluster nodes.
  *
  * <p>If a node passes the validation successfully, a unique validation token is issued which exists for a specific period of time.
- * After the node finishes local recovery procedures, it sends a {@link JoinReadyCommand} containing the validation
- * token. If the local token and the received token match, the node will be added to the logical topology and the token will be invalidated.
+ * After the node finishes local recovery procedures, it sends a {@link JoinReadyCommand} containing the validation token. If the local
+ * token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
-class ValidationManager implements AutoCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(CmgRaftGroupListener.class);
+public class ValidationManager {
+    protected final ClusterStateStorageManager storageManager;
 
-    private final ScheduledExecutorService executor =
-            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("node-validator", LOG));
+    protected final LogicalTopology logicalTopology;
 
-    private final RaftStorageManager storage;
-
-    /**
-     * Map for storing tasks, submitted to the {@link #executor}, so that it is possible to cancel them.
-     */
-    private final Map<String, Future<?>> cleanupFutures = new ConcurrentHashMap<>();
-
-    ValidationManager(RaftStorageManager storage) {
-        this.storage = storage;
-
-        // Schedule removal of possibly stale node IDs in case the leader has changed or the node has been restarted.
-        storage.getValidatedNodeIds().forEach(this::scheduleValidatedNodeRemoval);
+    public ValidationManager(ClusterStateStorageManager storageManager, LogicalTopology logicalTopology) {
+        this.storageManager = storageManager;
+        this.logicalTopology = logicalTopology;
     }
 
     /**
      * Validates a given {@code state} against the {@code nodeState} received from an {@link InitCmgStateCommand}.
      */
-    static ValidationResult validateState(@Nullable ClusterState state, ClusterNode node, ClusterState nodeState) {
-        if (state == null) {
-            return ValidationResult.errorResult("Cluster has not been initialized yet");
-        }
-
+    static ValidationResult validateState(ClusterState state, ClusterNode node, ClusterState nodeState) {
         if (!state.cmgNodes().equals(nodeState.cmgNodes())) {
             return ValidationResult.errorResult(String.format(
                     "CMG node names do not match. CMG nodes: %s, nodes stored in CMG: %s",
@@ -105,90 +88,86 @@ class ValidationManager implements AutoCloseable {
     }
 
     /**
-     * Validates a given node and issues a validation token.
+     * Validates a given node and saves it in the set of validated nodes.
      *
-     * @return {@code null} in case of successful validation or a {@link ValidationErrorResponse} otherwise.
+     * @param state Cluster state.
+     * @param node Node that wishes to join the logical topology.
+     * @param version Version of the Ignite node.
+     * @param clusterTag Cluster tag.
+     * @return A {@link ValidationErrorResponse} with validation results.
      */
-    ValidationResult validateNode(
+    protected ValidationResult validateNode(
             @Nullable ClusterState state,
-            ClusterNode node,
+            LogicalNode node,
             IgniteProductVersion version,
             ClusterTag clusterTag
     ) {
-        if (storage.isNodeValidated(node.id())) {
+        if (isNodeValidated(node)) {
             return ValidationResult.successfulResult();
-        }
-
-        if (state == null) {
+        } else if (state == null) {
             return ValidationResult.errorResult("Cluster has not been initialized yet");
-        }
-
-        if (!state.igniteVersion().equals(version)) {
+        } else if (!state.igniteVersion().equals(version)) {
             return ValidationResult.errorResult(String.format(
                     "Ignite versions do not match. Version: %s, version stored in CMG: %s",
                     version, state.igniteVersion()
             ));
-        }
-
-        if (!state.clusterTag().equals(clusterTag)) {
+        } else if (!state.clusterTag().equals(clusterTag)) {
             return ValidationResult.errorResult(String.format(
                     "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                     clusterTag, state.clusterTag()
             ));
+        } else {
+            putValidatedNode(node);
+
+            return ValidationResult.successfulResult();
         }
+    }
 
-        putValidatedNode(node.id());
+    boolean isNodeValidated(LogicalNode node) {
+        return storageManager.isNodeValidated(node) || logicalTopology.isNodeInLogicalTopology(node);
+    }
 
-        return ValidationResult.successfulResult();
+    void putValidatedNode(LogicalNode node) {
+        storageManager.putValidatedNode(node);
+
+        logicalTopology.onNodeValidated(node);
+    }
+
+    void removeValidatedNodes(Collection<LogicalNode> nodes) {
+        Set<String> validatedNodeIds = storageManager.getValidatedNodes().stream()
+                .map(ClusterNode::id)
+                .collect(toSet());
+
+        // Using a sorted stream to have a stable notification order.
+        nodes.stream()
+                .filter(node -> validatedNodeIds.contains(node.id()))
+                .sorted(Comparator.comparing(ClusterNode::id))
+                .forEach(node -> {
+                    storageManager.removeValidatedNode(node);
+
+                    logicalTopology.onNodeInvalidated(node);
+                });
     }
 
     /**
-     * Checks and removes the node from the list of validated nodes thus completing the validation procedure.
+     * Removes the node from the list of validated nodes thus completing the validation procedure.
      *
      * @param node Node that wishes to join the logical topology.
-     * @return {@code null} if the tokens match or {@link ValidationErrorResponse} otherwise.
+     * @return A {@link ValidationErrorResponse} with validation results.
      */
-    ValidationResult completeValidation(ClusterNode node) {
-        String nodeId = node.id();
+    protected ValidationResult completeValidation(LogicalNode node) {
+        // Remove all other versions of this node, if they were validated at some point, but not removed from the physical topology.
+        storageManager.getValidatedNodes().stream()
+                .filter(n -> n.name().equals(node.name()) && !n.id().equals(node.id()))
+                .sorted(Comparator.comparing(ClusterNode::id))
+                .forEach(nodeVersion -> {
+                    storageManager.removeValidatedNode(nodeVersion);
 
-        if (!storage.isNodeValidated(nodeId) && !storage.isNodeInLogicalTopology(node)) {
-            return ValidationResult.errorResult(String.format("Node \"%s\" has not yet passed the validation step", node));
-        }
+                    logicalTopology.onNodeInvalidated(nodeVersion);
+                });
 
-        Future<?> cleanupFuture = cleanupFutures.remove(nodeId);
-
-        if (cleanupFuture != null) {
-            cleanupFuture.cancel(false);
-        }
-
-        storage.removeValidatedNode(nodeId);
+        storageManager.removeValidatedNode(node);
 
         return ValidationResult.successfulResult();
-    }
-
-    private void putValidatedNode(String nodeId) {
-        storage.putValidatedNode(nodeId);
-
-        scheduleValidatedNodeRemoval(nodeId);
-    }
-
-    private void scheduleValidatedNodeRemoval(String nodeId) {
-        // TODO: delay should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
-        Future<?> future = executor.schedule(() -> {
-            LOG.info("Removing node from the list of validated nodes since no JoinReady requests have been received [node={}]", nodeId);
-
-            cleanupFutures.remove(nodeId);
-
-            storage.removeValidatedNode(nodeId);
-        }, 1, TimeUnit.HOURS);
-
-        cleanupFutures.put(nodeId, future);
-    }
-
-    @Override
-    public void close() {
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
-        cleanupFutures.clear();
     }
 }

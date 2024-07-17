@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,15 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
+import java.nio.ByteBuffer;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.TimerManager;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.CopyOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -30,8 +34,6 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.ByteString;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
@@ -48,12 +50,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 @ExtendWith(MockitoExtension.class)
-public class CopySessionTest {
+public class CopySessionTest extends BaseIgniteAbstractTest {
     private CopySession session;
     @Mock
     private RaftClientService rpcService;
     private GetFileRequestBuilder rb;
-    private final Endpoint address = new Endpoint("localhost", 8081);
+    private final PeerId address = new PeerId(UUID.randomUUID().toString());
     private CopyOptions copyOpts;
     private RaftOptions raftOpts;
     private NodeOptions nodeOptions;
@@ -113,7 +115,7 @@ public class CopySessionTest {
             this.session.setDestBuf(bufRef);
 
             this.session.onRpcReturned(Status.OK(), raftOpts.getRaftMessagesFactory().getFileResponse().readSize(100).eof(true)
-                .data(new ByteString(new byte[100])).build());
+                .data(ByteBuffer.wrap(new byte[100])).build());
             assertEquals(100, bufRef.capacity());
             //should be flip
             assertEquals(0, bufRef.getBuffer().position());
@@ -145,7 +147,7 @@ public class CopySessionTest {
             .thenReturn(future);
 
         this.session.onRpcReturned(Status.OK(), raftOpts.getRaftMessagesFactory().getFileResponse().readSize(100).eof(false)
-            .data(new ByteString(new byte[100])).build());
+            .data(ByteBuffer.wrap(new byte[100])).build());
         assertEquals(100, bufRef.capacity());
         assertEquals(100, bufRef.getBuffer().position());
 

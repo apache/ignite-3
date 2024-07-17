@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
+import static org.apache.ignite.raft.jraft.util.BytesUtil.writeTo;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Scheduler;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.CopyOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -41,7 +43,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -58,7 +59,7 @@ public class CopySession implements Session {
     private final GetFileResponseClosure done = new GetFileResponseClosure();
     private final RaftClientService rpcService;
     private final GetFileRequestBuilder requestBuilder;
-    private final Endpoint endpoint;
+    private final PeerId peerId;
     private final Scheduler timerManager;
     private final SnapshotThrottle snapshotThrottle;
     private final RaftOptions raftOptions;
@@ -109,6 +110,10 @@ public class CopySession implements Session {
             if (!this.finished) {
                 Utils.closeQuietly(this.outputStream);
             }
+            if (null != this.destBuf) {
+                this.destBuf.recycle();
+                this.destBuf = null;
+            }
         }
         finally {
             this.lock.unlock();
@@ -117,14 +122,14 @@ public class CopySession implements Session {
 
     public CopySession(final RaftClientService rpcService, final Scheduler timerManager,
         final SnapshotThrottle snapshotThrottle, final RaftOptions raftOptions,
-        NodeOptions nodeOptions, final GetFileRequestBuilder rb, final Endpoint ep) {
+        NodeOptions nodeOptions, final GetFileRequestBuilder rb, final PeerId peerId) {
         super();
         this.snapshotThrottle = snapshotThrottle;
         this.raftOptions = raftOptions;
         this.timerManager = timerManager;
         this.rpcService = rpcService;
         this.requestBuilder = rb;
-        this.endpoint = ep;
+        this.peerId = peerId;
         this.nodeOptions = nodeOptions;
     }
 
@@ -238,7 +243,7 @@ public class CopySession implements Session {
             }
             if (this.outputStream != null) {
                 try {
-                    response.data().writeTo(this.outputStream);
+                    writeTo(this.outputStream, response.data());
                 }
                 catch (final IOException e) {
                     LOG.error("Fail to write into file {}", this.destPath, e);
@@ -248,7 +253,7 @@ public class CopySession implements Session {
                 }
             }
             else {
-                this.destBuf.put(response.data().asReadOnlyByteBuffer());
+                this.destBuf.put(response.data().asReadOnlyBuffer());
             }
             if (response.eof()) {
                 onFinished();
@@ -290,8 +295,8 @@ public class CopySession implements Session {
             }
             this.requestBuilder.count(newMaxCount);
             final GetFileRequest request = this.requestBuilder.build();
-            LOG.debug("Send get file request {} to peer {}", request, this.endpoint);
-            this.rpcCall = this.rpcService.getFile(this.endpoint, request, this.copyOptions.getTimeoutMs(), this.done);
+            LOG.debug("Send get file request {} to peer {}", request, this.peerId);
+            this.rpcCall = this.rpcService.getFile(this.peerId, request, this.copyOptions.getTimeoutMs(), this.done);
         }
         finally {
             this.lock.unlock();

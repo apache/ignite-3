@@ -1,0 +1,185 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply plugin: 'java'
+apply plugin: 'jacoco'
+apply plugin: 'checkstyle'
+apply plugin: 'pmd'
+apply plugin: 'java-library'
+apply plugin: libs.plugins.spotbugs.get().pluginId
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+    withSourcesJar()
+    withJavadocJar()
+}
+
+test {
+    finalizedBy(jacocoTestReport)
+}
+
+pmd {
+    ignoreFailures = false
+    consoleOutput = true
+    incrementalAnalysis = true
+
+    toolVersion = libs.versions.pmdTool.get()
+    ruleSets = ["$rootDir/check-rules/pmd-rules.xml"]
+}
+
+processResources {
+    filesMatching('**/*.properties') {
+        filter { String line ->
+            line.replace("\${project.version}", project.version)
+        }
+    }
+}
+
+pmdMain {
+    enabled = true
+}
+
+pmdTest {
+    enabled = true
+}
+
+checkstyle {
+    toolVersion = libs.versions.checkstyleTool.get()
+    ignoreFailures = false
+    showViolations = true
+    maxWarnings = 0
+    configFile = file("$rootDir/check-rules/checkstyle-rules.xml")
+    configProperties = [
+            "checkstyle.header.file" : file("$rootDir/check-rules/LICENSE.txt"),
+            "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.xml")
+    ]
+}
+
+tasks.withType(Checkstyle) {
+    excludes = ["**/generated-source/**",
+                "**/generated/**",
+                "com/facebook/presto/bytecode/**/*",
+                "org/apache/ignite/raft/jraft/**/*"]
+    reports {
+        xml.required = false
+        html {
+            required = true
+            outputLocation = file("$rootDir/build/reports/checkstyle/${project.name}.html")
+        }
+
+    }
+}
+
+javadoc {
+    source = sourceSets.main.allJava
+    classpath = configurations.compileClasspath
+
+    def sourceDirs = sourceSets.main.java.sourceDirectories.join(":")
+    def generatedSources = "$buildDir/generated/sources/annotationProcessor/java/main"
+
+    options.addStringOption("-source-path", sourceDirs + File.pathSeparator + generatedSources)
+
+    exclude 'org/apache/ignite/internal/**'
+    exclude 'org/apache/ignite/raft/jraft/**'
+    exclude 'org/apache/calcite/plan/volcano/**'
+    exclude 'com/facebook/presto/**'
+
+    enabled = true
+}
+
+javadoc.dependsOn compileJava
+
+
+jacoco {
+    toolVersion = libs.versions.jacocoTool.get()
+}
+
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        xml.required = false
+        html.required = true
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it,
+                    exclude: ['org/apache/calcite/**/*'])
+        }))
+    }
+}
+
+
+spotbugs {
+    ignoreFailures = false
+    showStackTraces = true
+    showProgress = false
+    omitVisitors = ["ConstructorThrow", "FindNullDeref", "SwitchFallthrough", "SerializableIdiom", ""]
+    reportsDir = file("$buildDir/reports/spotbugs")
+    excludeFilter = file("${rootDir}/check-rules/spotbugs-excludes.xml")
+    maxHeapSize = "1g"
+    extraArgs = ["-longBugCodes"]
+    toolVersion = libs.versions.spotbugsTool.get()
+}
+
+spotbugsMain {
+    reports {
+        text {
+            enabled = true
+        }
+        html {
+            enabled = true
+            stylesheet = 'fancy-hist.xsl'
+        }
+        xml {
+            enabled = true
+        }
+    }
+}
+
+def reportSpotbugsViolations = tasks.register("reportSpotbugsViolations") {
+    onlyIf { spotbugsMain.state.failure != null }
+    def spotbugsTextReportFile = file("$buildDir/reports/spotbugs/main.txt")
+
+    inputs.file spotbugsTextReportFile
+
+    doLast {
+        try {
+            if (!spotbugsTextReportFile.isFile()) return
+            println()
+            def spotbugsReport = spotbugsTextReportFile.readLines()
+            spotbugsReport.forEach {
+                System.err.println(it)
+            }
+        } catch (Exception ex) {
+            throw new GradleException("Failed to open spotbugs text report", ex);
+        }
+        def failure = spotbugsMain.state.failure
+        if (failure != null) {
+            throw new GradleException(failure.getCause().getMessage(), failure.getCause());
+        }
+    }
+}
+
+spotbugsMain.finalizedBy(reportSpotbugsViolations)
+
+
+spotbugsTest {
+    enabled(false)
+}

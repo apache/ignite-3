@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.util.zip.CRC32;
 import java.util.zip.CheckedInputStream;
 
@@ -94,12 +94,13 @@ public class FastCrc {
      * @return CRC32 checksum.
      * @throws IOException If fails.
      */
+    @SuppressWarnings("PMD.EmptyControlStatement")
     public static int calcCrc(File file) throws IOException {
         assert !file.isDirectory() : "CRC32 can't be calculated over directories";
 
         CRC32 algo = new CRC32();
 
-        try (InputStream in = new CheckedInputStream(new FileInputStream(file), algo)) {
+        try (InputStream in = new CheckedInputStream(Files.newInputStream(file.toPath()), algo)) {
             byte[] buf = new byte[1024];
 
             while (in.read(buf) != -1) {

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -33,12 +33,16 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
  * Base class for physical MINUS (EXCEPT) set op.
  */
 public abstract class IgniteMinus extends Minus implements IgniteSetOp {
-    /** Count of counter fields used to aggregate results. */
-    protected static final int COUNTER_FIELDS_CNT = 2;
+    /** The number of counter fields to aggregate results. */
+    public static final int COUNTER_FIELDS_CNT = 2;
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traits The traits of this rel.
+     * @param inputs Input relational expressions.
+     * @param all Whether this operator should return all rows or only distinct rows.
      */
     IgniteMinus(RelOptCluster cluster, RelTraitSet traits, List<RelNode> inputs, boolean all) {
         super(cluster, traits, inputs, all);

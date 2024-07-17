@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,30 +17,44 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createDataPageId;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.randomBytes;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
+import org.apache.ignite.internal.fileio.FileIo;
+import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Abstract class for testing descendants of {@link AbstractFilePageStoreIo}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractFilePageStoreIoTest {
+public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest {
     protected static final int PAGE_SIZE = 1024;
 
     @WorkDirectory
@@ -50,8 +64,18 @@ public abstract class AbstractFilePageStoreIoTest {
      * Creates an instance of {@link AbstractFilePageStoreIo}.
      *
      * @param filePath File page store path.
+     * @param ioFactory {@link FileIo} factory.
      */
-    abstract AbstractFilePageStoreIo createFilePageStoreIo(Path filePath);
+    abstract <T extends AbstractFilePageStoreIo> T createFilePageStoreIo(Path filePath, FileIoFactory ioFactory);
+
+    /**
+     * Creates an instance of {@link AbstractFilePageStoreIo}.
+     *
+     * @param filePath File page store path.
+     */
+    <T extends AbstractFilePageStoreIo> T createFilePageStoreIo(Path filePath) {
+        return createFilePageStoreIo(filePath, new RandomAccessFileIoFactory());
+    }
 
     @Test
     void testStop() throws Exception {
@@ -214,7 +238,7 @@ public abstract class AbstractFilePageStoreIoTest {
 
             assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
 
-            assertEquals(0, PageIo.getCrc(pageByteBuffer));
+            assertEquals(0, getCrc(pageByteBuffer));
         }
     }
 
@@ -307,5 +331,80 @@ public abstract class AbstractFilePageStoreIoTest {
 
             assertEquals(2 * PAGE_SIZE, Files.size(testFilePath1));
         }
+    }
+
+    @Test
+    void testRenameAndEnsure() throws Exception {
+        Path filePath = workDir.resolve("test");
+
+        FileIoFactory ioFactory = spy(new RandomAccessFileIoFactory());
+
+        try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(filePath, ioFactory)) {
+            filePageStoreIo.ensure();
+
+            clearInvocations(ioFactory);
+
+            Path newFilePath = workDir.resolve("test0");
+
+            filePageStoreIo.renameFilePath(newFilePath);
+
+            filePageStoreIo.ensure();
+
+            verify(ioFactory).create(newFilePath, CREATE, READ, WRITE);
+        }
+    }
+
+    @RepeatedTest(100)
+    void testRenameAndEnsureRace() throws Exception {
+        Path filePath = workDir.resolve("test");
+
+        FileIoFactory ioFactory = spy(new RandomAccessFileIoFactory());
+
+        try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(filePath, ioFactory)) {
+            filePageStoreIo.ensure();
+
+            clearInvocations(ioFactory);
+
+            Path newFilePath = workDir.resolve("test0");
+
+            runRace(
+                    () -> filePageStoreIo.renameFilePath(newFilePath),
+                    filePageStoreIo::ensure
+            );
+
+            verify(ioFactory).create(newFilePath, CREATE, READ, WRITE);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("ioFactories")
+    void testRenameAndReadRace(FileIoFactory ioFactory) throws Exception {
+        Path filePath = workDir.resolve("test");
+
+        try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(filePath, ioFactory)) {
+            filePageStoreIo.ensure();
+
+            long expPageId = createDataPageId(() -> 1);
+
+            ByteBuffer byteBuffer = createPageByteBuffer(expPageId, PAGE_SIZE);
+
+            filePageStoreIo.write(expPageId, byteBuffer.rewind(), true);
+
+            // Loop works way better than @RepeatedTest when you need to reproduce a particularly naughty race.
+            for (int i = 0; i < 1000; i++) {
+                Path newFilePath = workDir.resolve("test" + i);
+
+                byteBuffer.rewind();
+
+                runRace(
+                        () -> filePageStoreIo.renameFilePath(newFilePath),
+                        () -> filePageStoreIo.read(expPageId, filePageStoreIo.pageOffset(expPageId), byteBuffer, false)
+                );
+            }
+        }
+    }
+
+    private static FileIoFactory[] ioFactories() {
+        return new FileIoFactory[]{new RandomAccessFileIoFactory(), new AsyncFileIoFactory()};
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,81 +17,89 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
+
 import java.nio.ByteBuffer;
-import java.util.Objects;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
+import org.apache.ignite.internal.pagememory.util.PageUtils;
+import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents row version inside row version chain.
  */
-public class RowVersion implements Storable {
-    /** A 'timestamp' representing absense of a timestamp. */
-    public static final Timestamp NULL_TIMESTAMP = new Timestamp(Long.MIN_VALUE, Long.MIN_VALUE);
-
-    /** Represents an absent partitionless link. */
-    public static final long NULL_LINK = 0;
-
-    private static final int TIMESTAMP_STORE_SIZE_BYTES = 2 * Long.BYTES;
+public final class RowVersion implements Storable {
+    public static final byte DATA_TYPE = 0;
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
-
-    public static final int TIMESTAMP_OFFSET = 0;
-    public static final int NEXT_LINK_OFFSET = TIMESTAMP_STORE_SIZE_BYTES;
+    private static final int SCHEMA_VERSION_SIZE_BYTES = Short.BYTES;
+    public static final int TIMESTAMP_OFFSET = DATA_TYPE_OFFSET + DATA_TYPE_SIZE_BYTES;
+    public static final int NEXT_LINK_OFFSET = TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
     public static final int VALUE_SIZE_OFFSET = NEXT_LINK_OFFSET + NEXT_LINK_STORE_SIZE_BYTES;
-    public static final int VALUE_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
+    public static final int SCHEMA_VERSION_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
+    public static final int VALUE_OFFSET = SCHEMA_VERSION_OFFSET + SCHEMA_VERSION_SIZE_BYTES;
 
     private final int partitionId;
 
     private long link;
 
-    private final @Nullable Timestamp timestamp;
+    private final @Nullable HybridTimestamp timestamp;
 
     private final long nextLink;
 
     private final int valueSize;
 
     @IgniteToStringExclude
-    private final @Nullable ByteBuffer value;
+    private final @Nullable BinaryRow value;
 
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long nextLink, ByteBuffer value) {
+    public RowVersion(int partitionId, long nextLink, @Nullable BinaryRow value) {
         this(partitionId, 0, null, nextLink, value);
     }
 
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long link, @Nullable Timestamp timestamp, long nextLink, @Nullable ByteBuffer value) {
+    public RowVersion(int partitionId, HybridTimestamp commitTimestamp, long nextLink, @Nullable BinaryRow value) {
+        this(partitionId, 0, commitTimestamp, nextLink, value);
+    }
+
+    /**
+     * Constructor.
+     */
+    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp timestamp, long nextLink, @Nullable BinaryRow value) {
         this.partitionId = partitionId;
         link(link);
 
-        assert !NULL_TIMESTAMP.equals(timestamp) : "Null timestamp provided";
-
         this.timestamp = timestamp;
         this.nextLink = nextLink;
-        this.valueSize = value == null ? -1 : value.limit();
+        this.valueSize = value == null ? 0 : value.tupleSliceLength();
         this.value = value;
     }
 
-    public @Nullable Timestamp timestamp() {
+    /**
+     * Constructor.
+     */
+    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp timestamp, long nextLink, int valueSize) {
+        this.partitionId = partitionId;
+        link(link);
+
+        this.timestamp = timestamp;
+        this.nextLink = nextLink;
+        this.valueSize = valueSize;
+        this.value = null;
+    }
+
+    public @Nullable HybridTimestamp timestamp() {
         return timestamp;
-    }
-
-    public Timestamp timestampForStorage() {
-        return timestampForStorage(timestamp);
-    }
-
-    static Timestamp timestampForStorage(@Nullable Timestamp timestamp) {
-        return timestamp == null ? NULL_TIMESTAMP : timestamp;
     }
 
     /**
@@ -105,8 +113,8 @@ public class RowVersion implements Storable {
         return valueSize;
     }
 
-    public ByteBuffer value() {
-        return Objects.requireNonNull(value);
+    public @Nullable BinaryRow value() {
+        return value;
     }
 
     public boolean hasNextLink() {
@@ -114,22 +122,10 @@ public class RowVersion implements Storable {
     }
 
     boolean isTombstone() {
-        return isTombstone(valueSize());
-    }
-
-    static boolean isTombstone(int valueSize) {
         return valueSize == 0;
     }
 
-    static boolean isTombstone(byte[] valueBytes) {
-        return isTombstone(valueBytes.length);
-    }
-
     boolean isUncommitted() {
-        return isUncommitted(timestamp);
-    }
-
-    static boolean isUncommitted(Timestamp timestamp) {
         return timestamp == null;
     }
 
@@ -137,45 +133,91 @@ public class RowVersion implements Storable {
         return timestamp != null;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public final void link(long link) {
+    public void link(long link) {
         this.link = link;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public final long link() {
+    public long link() {
         return link;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public final int partition() {
+    public int partition() {
         return partitionId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int size() {
-        assert value != null;
-
-        return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES + value.limit();
+        return headerSize() + valueSize;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int headerSize() {
-        return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES;
+        return HYBRID_TIMESTAMP_SIZE + DATA_TYPE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES
+                + SCHEMA_VERSION_SIZE_BYTES;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public IoVersions<? extends AbstractDataPageIo<?>> ioVersions() {
-        return RowVersionDataIo.VERSIONS;
+    public void writeRowData(long pageAddr, int dataOff, int payloadSize, boolean newRow) {
+        PageUtils.putShort(pageAddr, dataOff, (short) payloadSize);
+        dataOff += Short.BYTES;
+
+        PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, DATA_TYPE);
+
+        HybridTimestamps.writeTimestampToMemory(pageAddr, dataOff + TIMESTAMP_OFFSET, timestamp());
+
+        writePartitionless(pageAddr + dataOff + NEXT_LINK_OFFSET, nextLink());
+
+        PageUtils.putInt(pageAddr, dataOff + VALUE_SIZE_OFFSET, valueSize());
+
+        if (value != null) {
+            PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, (short) value.schemaVersion());
+
+            PageUtils.putByteBuffer(pageAddr, dataOff + VALUE_OFFSET, value.tupleSlice());
+        } else {
+            PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, (short) 0);
+        }
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public void writeFragmentData(ByteBuffer pageBuf, int rowOff, int payloadSize) {
+        int headerSize = headerSize();
+
+        int bufferOffset;
+        int bufferSize;
+
+        if (rowOff == 0) {
+            // first fragment
+            assert headerSize <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
+                    + headerSize + " and payload size is " + payloadSize;
+
+            pageBuf.put(DATA_TYPE);
+
+            HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
+
+            PartitionlessLinks.writeToBuffer(pageBuf, nextLink());
+
+            pageBuf.putInt(valueSize());
+
+            pageBuf.putShort(value == null ? 0 : (short) value.schemaVersion());
+
+            bufferOffset = 0;
+            bufferSize = payloadSize - headerSize;
+        } else {
+            // non-first fragment
+            assert rowOff >= headerSize;
+
+            bufferOffset = rowOff - headerSize;
+            bufferSize = payloadSize;
+        }
+
+        if (value != null) {
+            Storable.putValueBufferIntoPage(pageBuf, value.tupleSlice(), bufferOffset, bufferSize);
+        }
+    }
+
     @Override
     public String toString() {
         return S.toString(RowVersion.class, this);

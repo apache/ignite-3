@@ -19,6 +19,6 @@ namespace Apache.Ignite.Internal.Sql
 {
     using Ignite.Sql;
 
-    internal sealed record ColumnMetadata(string Name, SqlColumnType Type, int Precision, int Scale, bool Nullable, IColumnOrigin? Origin)
+    internal sealed record ColumnMetadata(string Name, ColumnType Type, int Precision, int Scale, bool Nullable, IColumnOrigin? Origin)
         : IColumnMetadata;
 }

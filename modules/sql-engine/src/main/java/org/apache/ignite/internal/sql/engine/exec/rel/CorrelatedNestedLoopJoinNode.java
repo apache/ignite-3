@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,9 +28,9 @@ import java.util.Set;
 import java.util.function.BiPredicate;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 
 /**
  * CorrelatedNestedLoopJoinNode.
@@ -51,6 +51,8 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     private final BitSet leftMatched = new BitSet();
 
+    private final RowT rightEmptyRow;
+
     private int requested;
 
     private int waitingLeft;
@@ -65,8 +67,6 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     private int rightIdx;
 
-    private RowT rightEmptyRow;
-
     private State state = State.INITIAL;
 
     private enum State {
@@ -78,14 +78,14 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx  Execution context.
-     * @param rowType Rel data type.
      * @param cond Join expression.
      * @param correlationIds Set of collections ids.
      * @param joinType Join rel type.
+     * @param rightRowFactory Right row factory.
      */
-    public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, RelDataType rowType, BiPredicate<RowT, RowT> cond,
-            Set<CorrelationId> correlationIds, JoinRelType joinType) {
-        super(ctx, rowType);
+    public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, BiPredicate<RowT, RowT> cond,
+            Set<CorrelationId> correlationIds, JoinRelType joinType, RowFactory<RowT> rightRowFactory) {
+        super(ctx);
 
         assert !nullOrEmpty(correlationIds);
 
@@ -95,6 +95,8 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
         leftInBufferSize = correlationIds.size();
         rightInBufferSize = inBufSize;
+
+        rightEmptyRow = rightRowFactory.create();
 
         handler = ctx.rowHandler();
     }
@@ -292,10 +294,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             assert waitingLeft == 0;
 
             prepareCorrelations();
-
-            if (waitingRight == -1) {
-                rightSource().rewind();
-            }
+            rightSource().rewind();
 
             state = State.FILLING_RIGHT;
             rightSource().request(waitingRight = rightInBufferSize);
@@ -407,20 +406,22 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             }
 
             if (joinType == JoinRelType.LEFT && !nullOrEmpty(leftInBuf)) {
-                if (rightEmptyRow == null) {
-                    rightEmptyRow = handler.factory(context().getTypeFactory(), rightSource().rowType()).create();
-                }
-
                 int notMatchedIdx = leftMatched.nextClearBit(0);
 
-                while (requested > 0 && notMatchedIdx < leftInBuf.size()) {
-                    downstream().push(handler.concat(leftInBuf.get(notMatchedIdx), rightEmptyRow));
+                state = State.IN_LOOP;
 
-                    requested--;
+                try {
+                    while (requested > 0 && notMatchedIdx < leftInBuf.size()) {
+                        requested--;
 
-                    leftMatched.set(notMatchedIdx);
+                        downstream().push(handler.concat(leftInBuf.get(notMatchedIdx), rightEmptyRow));
 
-                    notMatchedIdx = leftMatched.nextClearBit(notMatchedIdx + 1);
+                        leftMatched.set(notMatchedIdx);
+
+                        notMatchedIdx = leftMatched.nextClearBit(notMatchedIdx + 1);
+                    }
+                } finally {
+                    state = State.IDLE;
                 }
 
                 if (requested == 0 && notMatchedIdx < leftInBuf.size()) {
@@ -472,7 +473,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     private void prepareCorrelations() {
         for (int i = 0; i < correlationIds.size(); i++) {
             RowT row = i < leftInBuf.size() ? leftInBuf.get(i) : first(leftInBuf);
-            context().setCorrelated(row, correlationIds.get(i).getId());
+            context().correlatedVariable(row, correlationIds.get(i).getId());
         }
     }
 }

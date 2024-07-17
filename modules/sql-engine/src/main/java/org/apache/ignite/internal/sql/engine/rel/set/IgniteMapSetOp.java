@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,18 +18,14 @@
 package org.apache.ignite.internal.sql.engine.rel.set;
 
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -40,25 +36,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 public interface IgniteMapSetOp extends IgniteSetOp {
     /** {@inheritDoc} */
     @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits
-    ) {
-        boolean rewindable = inputTraits.stream()
-                .map(TraitUtils::rewindability)
-                .allMatch(RewindabilityTrait::rewindable);
-
-        if (rewindable) {
-            return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE), inputTraits));
-        }
-
-        return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
-                Commons.transform(inputTraits, t -> t.replace(RewindabilityTrait.ONE_WAY))));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
+    default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
@@ -75,38 +53,36 @@ public interface IgniteMapSetOp extends IgniteSetOp {
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits
-    ) {
-        Set<CorrelationId> correlationIds = inTraits.stream()
-                .map(TraitUtils::correlation)
-                .flatMap(corrTr -> corrTr.correlationIds().stream())
-                .collect(Collectors.toSet());
-
-        return List.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(correlationIds)),
-                inTraits));
-    }
-
-    /** Build RowType for MAP node. */
-    public default RelDataType buildRowType() {
-        RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
-
-        assert typeFactory instanceof IgniteTypeFactory;
-
+    /**
+     * Creates a row type produced by MAP phase of INTERSECT/EXCEPT operator.
+     *
+     * <p>For input row (a:type1, b:type2) and {@code inputsNum} = {@code 3} it produces the following row type:
+     * <pre>
+     *     f0: type1
+     *     f1: type2
+     *     _count_0: int
+     *     _count_1: int
+     *     _count_2: int
+     * </pre>
+     */
+    public static RelDataType buildRowType(IgniteTypeFactory typeFactory, RelDataType inputRowType, int inputsNum) {
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
 
-        builder.add("GROUP_KEY", typeFactory.createJavaType(GroupKey.class));
-        builder.add("COUNTERS", typeFactory.createJavaType(int[].class));
+        for (int i = 0; i < inputRowType.getFieldCount(); i++) {
+            RelDataTypeField field = inputRowType.getFieldList().get(i);
+            builder.add("f" + i, field.getType());
+        }
+
+        for (int i = 0; i < inputsNum; i++) {
+            builder.add("_COUNT_" + i, typeFactory.createSqlType(SqlTypeName.INTEGER));
+        }
 
         return builder.build();
     }
 
     /** {@inheritDoc} */
     @Override
-    public default AggregateType aggregateType() {
+    default AggregateType aggregateType() {
         return AggregateType.MAP;
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,8 +20,8 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
-import org.apache.ignite.network.OutNetworkObject;
 
 /** Outbound handler that adds outgoing message to the recovery descriptor. */
 public class OutboundRecoveryHandler extends ChannelOutboundHandlerAdapter {

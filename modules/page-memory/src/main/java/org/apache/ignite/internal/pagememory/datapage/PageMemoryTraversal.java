@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +21,8 @@ import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 
 /**
  * Controls page memory traversal.
+ *
+ * @param <T> Argument type.
  *
  * @see DataPageReader#traverse(long, PageMemoryTraversal, Object)
  */
@@ -42,7 +44,7 @@ public interface PageMemoryTraversal<T> {
     long consumePagePayload(long link, long pageAddr, DataPagePayload payload, T arg);
 
     /**
-     * Called when the traversal is finishced successfully.
+     * Called when the traversal is finished successfully.
      */
     default void finish() {
         // no-op

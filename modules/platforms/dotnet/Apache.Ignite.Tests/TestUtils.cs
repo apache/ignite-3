@@ -20,9 +20,17 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Diagnostics;
     using System.IO;
+    using System.Linq;
     using System.Reflection;
     using System.Runtime.InteropServices;
-    using System.Threading;
+    using System.Threading.Tasks;
+    using Ignite.Transactions;
+    using Internal;
+    using Internal.Buffers;
+    using Internal.Common;
+    using Internal.Proto;
+    using Internal.Transactions;
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 
     public static class TestUtils
@@ -33,9 +41,15 @@ namespace Apache.Ignite.Tests
 
         public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
-        public static void WaitForCondition(Func<bool> condition, int timeoutMs = 1000)
+        public static void WaitForCondition(Func<bool> condition, int timeoutMs = 1000, Func<string>? messageFactory = null) =>
+            WaitForConditionAsync(() => Task.FromResult(condition()), timeoutMs, messageFactory).GetAwaiter().GetResult();
+
+        public static async Task WaitForConditionAsync(
+            Func<Task<bool>> condition,
+            int timeoutMs = 1000,
+            Func<string>? messageFactory = null)
         {
-            if (condition())
+            if (await condition())
             {
                 return;
             }
@@ -44,15 +58,63 @@ namespace Apache.Ignite.Tests
 
             while (sw.ElapsedMilliseconds < timeoutMs)
             {
-                if (condition())
+                if (await condition())
                 {
                     return;
                 }
 
-                Thread.Sleep(50);
+                await Task.Delay(10);
             }
 
-            Assert.Fail("Condition not reached after " + sw.Elapsed);
+            var message = "Condition not reached after " + sw.Elapsed;
+
+            if (messageFactory != null)
+            {
+                message += $" ({messageFactory()})";
+            }
+
+            Assert.Fail(message);
+        }
+
+        public static T GetFieldValue<T>(this object obj, string fieldName) => (T) GetNonPublicField(obj, fieldName).GetValue(obj)!;
+
+        public static void SetFieldValue(this object obj, string fieldName, object? value) =>
+            GetNonPublicField(obj, fieldName).SetValue(obj, value);
+
+        public static bool IsRecordClass(this Type type) =>
+            type.GetMethods().Any(m => m.Name == "<Clone>$" && m.ReturnType == type);
+
+        public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel) => new ConsoleLogger(minLevel);
+
+        public static void CheckByteArrayPoolLeak(int timeoutMs = 1000)
+        {
+#if DEBUG
+            WaitForCondition(
+                condition: () => ByteArrayPool.CurrentlyRentedArrays.IsEmpty,
+                timeoutMs: timeoutMs,
+                messageFactory: () =>
+                {
+                    var bufs = ByteArrayPool.CurrentlyRentedArrays
+                        .Select(x => $"{x.Value.DeclaringType}.{x.Value.Name}")
+                        .StringJoin();
+
+                    return $"Leaked buffers: {bufs}";
+                });
+#endif
+        }
+
+        internal static async Task ForceLazyTxStart(ITransaction tx, IIgnite client, PreferredNode preferredNode = default) =>
+            await LazyTransaction.EnsureStartedAsync(
+                tx,
+                client.GetFieldValue<ClientFailoverSocket>("_socket"),
+                preferredNode);
+
+        private static FieldInfo GetNonPublicField(object obj, string fieldName)
+        {
+            var field = obj.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, $"Field '{fieldName}' not found in '{obj.GetType()}'");
+
+            return field!;
         }
 
         private static string GetSolutionDir()

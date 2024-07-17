@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,13 +26,12 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.direct.DirectMarshallingUtils;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.direct.DirectMessageReader;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageReader;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageReader;
 
 /**
  * Decodes {@link ByteBuf}s into {@link NetworkMessage}s.
@@ -49,6 +48,9 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
     /** Message deserializer channel attribute key. */
     private static final AttributeKey<MessageDeserializer<NetworkMessage>> DESERIALIZER_KEY = AttributeKey.valueOf("DESERIALIZER");
+
+    /** Message group type, for partially read message headers. */
+    private static final AttributeKey<Short> GROUP_TYPE_KEY = AttributeKey.valueOf("GROUP_TYPE");
 
     /** Serialization service. */
     private final PerSessionSerializationService serializationService;
@@ -71,48 +73,67 @@ public class InboundDecoder extends ByteToMessageDecoder {
         MessageReader reader = readerAttr.get();
 
         if (reader == null) {
-            reader = new DirectMessageReader(serializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+            reader = new DirectMessageReader(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
             readerAttr.set(reader);
         }
 
-        Attribute<MessageDeserializer<NetworkMessage>> messageAttr = ctx.channel().attr(DESERIALIZER_KEY);
+        Attribute<MessageDeserializer<NetworkMessage>> deserializerAttr = ctx.channel().attr(DESERIALIZER_KEY);
+
+        Attribute<Short> groupTypeAttr = ctx.channel().attr(GROUP_TYPE_KEY);
+
+        reader.setBuffer(buffer);
 
         while (buffer.hasRemaining()) {
             int initialNioBufferPosition = buffer.position();
 
-            MessageDeserializer<NetworkMessage> msg = messageAttr.get();
+            MessageDeserializer<NetworkMessage> deserializer = deserializerAttr.get();
 
             try {
                 // Read message type.
-                if (msg == null) {
-                    if (buffer.remaining() >= NetworkMessage.MSG_TYPE_SIZE_BYTES) {
-                        msg = serializationService.createMessageDeserializer(DirectMarshallingUtils.getShort(buffer),
-                                DirectMarshallingUtils.getShort(buffer));
-                    } else {
+                if (deserializer == null) {
+                    Short groupType = groupTypeAttr.get();
+
+                    if (groupType == null) {
+                        groupType = reader.readHeaderShort();
+
+                        if (!reader.isLastRead()) {
+                            fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
+
+                            break;
+                        }
+                    }
+
+                    short messageType = reader.readHeaderShort();
+
+                    if (!reader.isLastRead()) {
+                        groupTypeAttr.set(groupType);
+
+                        fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
+
                         break;
                     }
+
+                    deserializer = serializationService.createMessageDeserializer(groupType, messageType);
+
+                    groupTypeAttr.set(null);
                 }
 
                 boolean finished = false;
 
                 // Read message if buffer has remaining data.
-                if (msg != null && buffer.hasRemaining()) {
-                    reader.setCurrentReadClass(msg.klass());
-                    reader.setBuffer(buffer);
+                if (deserializer != null && buffer.hasRemaining()) {
+                    reader.setCurrentReadClass(deserializer.klass());
 
-                    finished = msg.readMessage(reader);
+                    finished = deserializer.readMessage(reader);
                 }
 
-                int readBytes = buffer.position() - initialNioBufferPosition;
-
-                // Set read position to Netty's ByteBuf.
-                in.readerIndex(in.readerIndex() + readBytes);
+                int readBytes = fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
 
                 if (finished) {
                     reader.reset();
-                    messageAttr.set(null);
+                    deserializerAttr.set(null);
 
-                    NetworkMessage message = msg.getMessage();
+                    NetworkMessage message = deserializer.getMessage();
 
                     if (message instanceof ClassDescriptorListMessage) {
                         onClassDescriptorMessage((ClassDescriptorListMessage) message);
@@ -120,7 +141,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
                         out.add(message);
                     }
                 } else {
-                    messageAttr.set(msg);
+                    deserializerAttr.set(deserializer);
                 }
 
                 if (readBytes == 0) {
@@ -130,13 +151,22 @@ public class InboundDecoder extends ByteToMessageDecoder {
                     break;
                 }
             } catch (Throwable e) {
-                LOG.debug("Failed to read message [msg={}, buf={}, reader={}, reason={}]",
-                                e, msg, buffer, reader, e.getMessage()
+                LOG.debug("Failed to read message [deserializer={}, buf={}, reader={}, reason={}]",
+                                e, deserializer, buffer, reader, e.getMessage()
                 );
 
                 throw e;
             }
         }
+    }
+
+    private static int fixNettyBufferReaderIndex(ByteBuf in, ByteBuffer buffer, int initialNioBufferPosition) {
+        int readBytes = buffer.position() - initialNioBufferPosition;
+
+        // Set read position to Netty's ByteBuf.
+        in.readerIndex(in.readerIndex() + readBytes);
+
+        return readBytes;
     }
 
     private void onClassDescriptorMessage(ClassDescriptorListMessage msg) {

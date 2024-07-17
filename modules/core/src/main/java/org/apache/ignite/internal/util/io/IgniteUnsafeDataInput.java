@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.util.io;
 
-import static org.apache.ignite.internal.util.GridUnsafe.BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.CHAR_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.DOUBLE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.FLOAT_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.INT_ARR_OFF;
+import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
@@ -30,7 +30,18 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UTFDataFormatException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.BitSet;
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.util.FastTimestamps;
@@ -274,7 +285,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getShortLittleEndian(buf, off);
 
@@ -298,7 +309,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getIntLittleEndian(buf, off);
 
@@ -322,7 +333,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getDoubleLittleEndian(buf, off);
 
@@ -358,7 +369,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getCharLittleEndian(buf, off);
 
@@ -373,6 +384,105 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
     /** {@inheritDoc} */
     @Override
+    public BigInteger readBigInteger() throws IOException {
+        int length = readInt();
+        byte[] bytes = readByteArray(length);
+        return new BigInteger(bytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal readBigDecimal() throws IOException {
+        short scale = readShort();
+        BigInteger bigInteger = readBigInteger();
+
+        return new BigDecimal(bigInteger, scale);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public LocalTime readLocalTime() throws IOException {
+        byte hour = readByte();
+        byte minute = readByte();
+        byte second = readByte();
+        int nano = readInt();
+
+        return LocalTime.of(hour, minute, second, nano);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public LocalDate readLocalDate() throws IOException {
+        int year = readInt();
+        short month = readShort();
+        short day = readShort();
+
+        return LocalDate.of(year, month, day);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public LocalDateTime readLocalDateTime() throws IOException {
+        int year = readInt();
+        short month = readShort();
+        short day = readShort();
+        byte hour = readByte();
+        byte minute = readByte();
+        byte second = readByte();
+        int nano = readInt();
+
+        return LocalDateTime.of(year, month, day, hour, minute, second, nano);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Instant readInstant() throws IOException {
+        long epochSecond = readLong();
+        int nano = readInt();
+        return Instant.ofEpochSecond(epochSecond, nano);
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration readDuration() throws IOException {
+        long seconds = readLong();
+        int nano = readInt();
+
+        return Duration.ofSeconds(seconds, nano);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period readPeriod() throws IOException {
+        int years = readInt();
+        int months = readInt();
+        int days = readInt();
+
+        return Period.of(years, months, days);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public UUID readUuid() throws IOException {
+        int length = readByte();
+        byte[] bytes = readByteArray(length);
+
+        return UUID.fromString(new String(bytes, StandardCharsets.UTF_8));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BitSet readBitSet() throws IOException {
+        int length = readInt();
+        byte[] bytes = readByteArray(length);
+
+        return BitSet.valueOf(bytes);
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
     public long[] readLongArray(int arrSize) throws IOException {
         int bytesToCp = arrSize << 3;
 
@@ -382,7 +492,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getLongLittleEndian(buf, off);
 
@@ -406,7 +516,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             for (int i = 0; i < arr.length; i++) {
                 arr[i] = GridUnsafe.getFloatLittleEndian(buf, off);
 
@@ -495,7 +605,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(2);
 
-        return BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(buf, off) : GridUnsafe.getShort(buf, off);
+        return IS_BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(buf, off) : GridUnsafe.getShort(buf, off);
     }
 
     /** {@inheritDoc} */
@@ -511,7 +621,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + this.off;
 
-        char v = BIG_ENDIAN ? GridUnsafe.getCharLittleEndian(buf, off) : GridUnsafe.getChar(buf, off);
+        char v = IS_BIG_ENDIAN ? GridUnsafe.getCharLittleEndian(buf, off) : GridUnsafe.getChar(buf, off);
 
         advanceOffset(2);
 
@@ -525,7 +635,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(4);
 
-        return BIG_ENDIAN ? GridUnsafe.getIntLittleEndian(buf, off) : GridUnsafe.getInt(buf, off);
+        return IS_BIG_ENDIAN ? GridUnsafe.getIntLittleEndian(buf, off) : GridUnsafe.getInt(buf, off);
     }
 
     /** {@inheritDoc} */
@@ -535,7 +645,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
 
         long off = BYTE_ARR_OFF + advanceOffset(8);
 
-        return BIG_ENDIAN ? GridUnsafe.getLongLittleEndian(buf, off) : GridUnsafe.getLong(buf, off);
+        return IS_BIG_ENDIAN ? GridUnsafe.getLongLittleEndian(buf, off) : GridUnsafe.getLong(buf, off);
     }
 
     /** {@inheritDoc} */

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -191,21 +191,21 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     }
 
     private void writeReference(int objectId, @Nullable DeclaredType declaredClass, DataOutput output) throws IOException {
-        if (!runtimeTypeIsKnownUpfront(declaredClass)) {
+        if (!serializationTypeIsKnownUpfront(declaredClass)) {
             ProtocolMarshalling.writeDescriptorOrCommandId(BuiltInType.REFERENCE.descriptorId(), output);
         }
         ProtocolMarshalling.writeObjectId(objectId, output);
     }
 
     private void marshalIdentifiable(
-            Object object,
+            @Nullable Object object,
             ClassDescriptor descriptor,
             @Nullable DeclaredType declaredType,
             int objectId,
             IgniteDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
-        if (!runtimeTypeIsKnownUpfront(declaredType)) {
+        if (!serializationTypeIsKnownUpfront(declaredType)) {
             writeDescriptorId(descriptor, output);
         }
         ProtocolMarshalling.writeObjectId(objectId, output);
@@ -213,8 +213,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
         writeObject(object, descriptor, output, context);
     }
 
-    private boolean runtimeTypeIsKnownUpfront(@Nullable DeclaredType declaredType) {
-        return declaredType != null && declaredType.isRuntimeTypeKnownUpfront();
+    private boolean serializationTypeIsKnownUpfront(@Nullable DeclaredType declaredType) {
+        return declaredType != null && declaredType.isSerializationTypeKnownUpfront();
     }
 
     private void writeDescriptorId(ClassDescriptor descriptor, DataOutput output) throws IOException {
@@ -222,13 +222,13 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     }
 
     private void marshalValue(
-            Object object,
+            @Nullable Object object,
             ClassDescriptor descriptor,
-            DeclaredType declaredType,
+            @Nullable DeclaredType declaredType,
             IgniteDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
-        if (!runtimeTypeIsKnownUpfront(declaredType)) {
+        if (!serializationTypeIsKnownUpfront(declaredType)) {
             writeDescriptorId(descriptor, output);
         }
 
@@ -271,11 +271,11 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     /** {@inheritDoc} */
     @Override
     @Nullable
-    public <T> T unmarshal(byte[] bytes, DescriptorRegistry mergedDescriptors) throws UnmarshalException {
+    public <T> T unmarshal(byte[] bytes, Object mergedDescriptors) throws UnmarshalException {
         var input = new IgniteUnsafeDataInput(bytes);
 
         try {
-            UnmarshallingContext context = new UnmarshallingContext(input, mergedDescriptors, classLoader);
+            UnmarshallingContext context = new UnmarshallingContext(input, (DescriptorRegistry) mergedDescriptors, classLoader);
             T result = unmarshalShared(input, context);
 
             throwIfNotDrained(input);
@@ -318,13 +318,12 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
 
         Object readObject = readObject(input, context, remoteDescriptor, unshared);
 
-        @SuppressWarnings("unchecked") T resolvedObject = (T) readResolver.applyReadResolveIfNeeded(readObject, remoteDescriptor);
-        return resolvedObject;
+        return (T) readResolver.applyReadResolveIfNeeded(readObject, remoteDescriptor);
     }
 
     private ClassDescriptor resolveDescriptor(IgniteDataInput input, @Nullable DeclaredType declaredType, UnmarshallingContext context)
             throws IOException {
-        if (runtimeTypeIsKnownUpfront(declaredType)) {
+        if (serializationTypeIsKnownUpfront(declaredType)) {
             return context.getRequiredDescriptor(declaredType.typeDescriptorId());
         } else {
             int commandOrDescriptorId = ProtocolMarshalling.readDescriptorOrCommandId(input);

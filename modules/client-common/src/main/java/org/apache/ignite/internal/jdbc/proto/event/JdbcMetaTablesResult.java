@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -46,8 +46,6 @@ public class JdbcMetaTablesResult extends Response {
         Objects.requireNonNull(meta);
 
         this.meta = meta;
-
-        this.hasResults = true;
     }
 
     /** {@inheritDoc} */
@@ -55,11 +53,11 @@ public class JdbcMetaTablesResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
-        packer.packArrayHeader(meta.size());
+        packer.packInt(meta.size());
 
         for (JdbcTableMeta m : meta) {
             m.writeBinary(packer);
@@ -71,11 +69,11 @@ public class JdbcMetaTablesResult extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         meta = new ArrayList<>(size);
 

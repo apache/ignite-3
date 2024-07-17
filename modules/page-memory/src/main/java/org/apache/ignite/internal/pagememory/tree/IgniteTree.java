@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.tree;
 
-import org.apache.ignite.internal.util.IgniteCursor;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,7 +63,7 @@ public interface IgniteTree<L, T> {
      * @param upper Upper bound or {@code null} if unbounded.
      * @throws IgniteInternalCheckedException If failed.
      */
-    IgniteCursor<T> find(@Nullable L lower, @Nullable L upper) throws IgniteInternalCheckedException;
+    Cursor<T> find(@Nullable L lower, @Nullable L upper) throws IgniteInternalCheckedException;
 
     /**
      * Returns a cursor from lower to upper bounds inclusive.
@@ -73,7 +73,7 @@ public interface IgniteTree<L, T> {
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    IgniteCursor<T> find(@Nullable L lower, @Nullable L upper, @Nullable Object x) throws IgniteInternalCheckedException;
+    Cursor<T> find(@Nullable L lower, @Nullable L upper, @Nullable Object x) throws IgniteInternalCheckedException;
 
     /**
      * Returns a value mapped to the lowest key, or {@code null} if tree is empty.
@@ -126,6 +126,17 @@ public interface IgniteTree<L, T> {
          * Returns operation type for this closure.
          */
         OperationType operationType();
+
+        /**
+         * Callback after inserting/replacing/deleting a tree row.
+         *
+         * <p>It is performed under the same write lock of page on which the tree row is located.
+         *
+         * <p>What can allow us to ensure the atomicity of changes in the tree row and the data associated with it.
+         */
+        default void onUpdate() {
+            // No-op.
+        }
     }
 
     /**

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -105,9 +105,6 @@ public class ClientOp {
     /** Get primary key metadata. */
     public static final int JDBC_PK_META = 41;
 
-    /** Get query metadata. */
-    public static final int JDBC_QUERY_META = 42;
-
     /** Begin transaction. */
     public static final int TX_BEGIN = 43;
 
@@ -137,4 +134,57 @@ public class ClientOp {
 
     /** Close cursor. */
     public static final int SQL_CURSOR_CLOSE = 52;
+
+    /** Get partition assignment. */
+    public static final int PARTITION_ASSIGNMENT_GET = 53;
+
+    /** Create JDBC connection context on a server. */
+    public static final int JDBC_CONNECT = 54;
+
+    /** JDBC command to commit/rollback transaction. */
+    public static final int JDBC_TX_FINISH = 55;
+
+    /** Execute SQL script. */
+    public static final int SQL_EXEC_SCRIPT = 56;
+
+    /** SQL query metadata. */
+    public static final int SQL_QUERY_META = 57;
+
+    /** JDBC get more results command. */
+    public static final int JDBC_MORE_RESULTS = 58;
+
+    /** Get compute job state. */
+    public static final int COMPUTE_GET_STATE = 59;
+
+    /** Cancel compute job. */
+    public static final int COMPUTE_CANCEL = 60;
+
+    /** Change compute job priority. */
+    public static final int COMPUTE_CHANGE_PRIORITY = 61;
+
+    /** Send streamer batch. */
+    public static final int STREAMER_BATCH_SEND = 62;
+
+    /** Execute SQL query with the parameters batch. */
+    public static final int SQL_EXEC_BATCH = 63;
+
+    /** Execute MapReduce task. */
+    public static final int COMPUTE_EXECUTE_MAPREDUCE = 64;
+
+    /** Get all primary replicas mapping to cluster nodes. */
+    public static final int PRIMARY_REPLICAS_GET = 65;
+
+    /** Send streamer batch with receiver. */
+    public static final int STREAMER_WITH_RECEIVER_BATCH_SEND = 66;
+
+    /** Check if all tuples with the given keys collection exist. */
+    public static final int TUPLE_CONTAINS_ALL_KEYS = 67;
+
+    /** Reserved for extensions: min. */
+    @SuppressWarnings("unused")
+    public static final int RESERVED_EXTENSION_RANGE_START = 1000;
+
+    /** Reserved for extensions: max. */
+    @SuppressWarnings("unused")
+    public static final int RESERVED_EXTENSION_RANGE_END = 2000;
 }

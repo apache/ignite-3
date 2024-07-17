@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,18 +27,24 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.TableFunctionScan;
 import org.apache.calcite.rel.metadata.RelColumnMapping;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
+import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
 
 /**
  * Relational operator for table function scan.
  */
-public class IgniteTableFunctionScan extends TableFunctionScan implements InternalIgniteRel {
+public class IgniteTableFunctionScan extends TableFunctionScan implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "TableFunctionScan";
+
     /** Default estimate row count. */
     private static final int ESTIMATE_ROW_COUNT = 100;
+
+    private final long sourceId;
 
     /**
      * Creates a TableFunctionScan.
@@ -49,7 +55,30 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Intern
             RexNode call,
             RelDataType rowType
     ) {
+        this(-1L, cluster, traits, call, rowType);
+    }
+
+    /**
+     * Creates a new Scan over function.
+     *
+     * @param sourceId An identifier of a source of rows. Will be assigned by {@link QuerySplitter}.
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traits A set of particular properties this relation satisfies.
+     * @param call A call to a function emitting the rows to scan over.
+     * @param rowType Row type for tuples produced by this rel.
+     *
+     * @see QuerySplitter
+     */
+    private IgniteTableFunctionScan(
+            long sourceId,
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RexNode call,
+            RelDataType rowType
+    ) {
         super(cluster, traits, List.of(), call, null, rowType, null);
+
+        this.sourceId = sourceId;
     }
 
     /**
@@ -59,12 +88,25 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Intern
      */
     public IgniteTableFunctionScan(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
+
+        Object srcIdObj = input.get("sourceId");
+        if (srcIdObj != null) {
+            sourceId = ((Number) srcIdObj).longValue();
+        } else {
+            sourceId = -1;
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTableFunctionScan(cluster, getTraitSet(), getCall(), getRowType());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel clone(long sourceId) {
+        return new IgniteTableFunctionScan(sourceId, getCluster(), getTraitSet(), getCall(), getRowType());
     }
 
     /** {@inheritDoc} */
@@ -84,7 +126,26 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Intern
 
     /** {@inheritDoc} */
     @Override
+    public RelWriter explainTerms(RelWriter pw) {
+        return super.explainTerms(pw)
+                .itemIf("sourceId", sourceId, sourceId != -1);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long sourceId() {
+        return sourceId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public double estimateRowCount(RelMetadataQuery mq) {
         return ESTIMATE_ROW_COUNT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

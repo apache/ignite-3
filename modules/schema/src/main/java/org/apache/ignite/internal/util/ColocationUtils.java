@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,7 +25,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Colocation hash utilities.
@@ -43,15 +46,19 @@ public class ColocationUtils {
      *
      * @param calc Hash calculator.
      * @param v Value to update hash.
-     * @param typeSpec Value type.
+     * @param type Value type.
      */
-    public static void append(HashCalculator calc, Object v, NativeTypeSpec typeSpec) {
+    public static void append(HashCalculator calc, @Nullable Object v, NativeType type) {
         if (v == null) {
             calc.appendNull();
             return;
         }
 
-        switch (typeSpec) {
+        switch (type.spec()) {
+            case BOOLEAN:
+                calc.appendBoolean((boolean) v);
+                return;
+
             case INT8:
                 calc.appendByte((byte) v);
                 return;
@@ -77,7 +84,7 @@ public class ColocationUtils {
                 return;
 
             case DECIMAL:
-                calc.appendDecimal((BigDecimal) v);
+                calc.appendDecimal((BigDecimal) v, ((DecimalNativeType) type).scale());
                 return;
 
             case UUID:
@@ -105,19 +112,19 @@ public class ColocationUtils {
                 return;
 
             case TIME:
-                calc.appendTime((LocalTime) v);
+                calc.appendTime((LocalTime) v, ((TemporalNativeType) type).precision());
                 return;
 
             case DATETIME:
-                calc.appendDateTime((LocalDateTime) v);
+                calc.appendDateTime((LocalDateTime) v, ((TemporalNativeType) type).precision());
                 return;
 
             case TIMESTAMP:
-                calc.appendTimestamp((Instant) v);
+                calc.appendTimestamp((Instant) v, ((TemporalNativeType) type).precision());
                 return;
 
             default:
-                throw new IllegalStateException("Unexpected type: " + typeSpec);
+                throw new IllegalStateException("Unexpected type: " + type.spec());
         }
     }
 }

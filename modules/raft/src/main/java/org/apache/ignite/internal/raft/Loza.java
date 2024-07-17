@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,61 +17,67 @@
 
 package org.apache.ignite.internal.raft;
 
+import static java.util.Objects.requireNonNullElse;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.nio.file.Path;
-import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import java.util.function.BiConsumer;
+import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftView;
+import org.apache.ignite.internal.raft.configuration.VolatileRaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Best raft manager ever since 1982.
  */
-public class Loza implements IgniteComponent {
+// TODO: Encapsulate RaftGroupOptions and move other methods to the RaftManager interface,
+//  see https://issues.apache.org/jira/browse/IGNITE-18273
+public class Loza implements RaftManager {
     /** Factory. */
-    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
+    public static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Raft client pool name. */
     public static final String CLIENT_POOL_NAME = "Raft-Group-Client";
 
     /** Raft client pool size. Size was taken from jraft's TimeManager. */
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
-
-    /** Timeout. */
-    private static final int RETRY_TIMEOUT = 10000;
-
-    /** Network timeout. */
-    private static final int RPC_TIMEOUT = 3000;
-
-    /** Retry delay. */
-    private static final int DELAY = 200;
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Loza.class);
@@ -80,7 +86,7 @@ public class Loza implements IgniteComponent {
     private final ClusterService clusterNetSvc;
 
     /** Raft server. */
-    private final RaftServer raftServer;
+    private final JraftServerImpl raftServer;
 
     /** Executor for raft group services. */
     private final ScheduledExecutorService executor;
@@ -88,89 +94,184 @@ public class Loza implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /** Raft configuration. */
+    private final RaftConfiguration raftConfiguration;
+
+    private final NodeOptions opts;
+
+    private final MetricManager metricManager;
 
     /**
      * The constructor.
      *
      * @param clusterNetSvc Cluster network service.
-     * @param dataPath      Data path.
+     * @param metricManager Metric manager.
+     * @param raftConfiguration Raft configuration.
+     * @param dataPath Data path.
+     * @param clock A hybrid logical clock.
+     * @param defaultLogStorageFactory The factory for default log storage.
      */
-    public Loza(ClusterService clusterNetSvc, Path dataPath) {
+    public Loza(
+            ClusterService clusterNetSvc,
+            MetricManager metricManager,
+            RaftConfiguration raftConfiguration,
+            Path dataPath,
+            HybridClock clock,
+            RaftGroupEventsClientListener raftGroupEventsClientListener,
+            LogStorageFactory defaultLogStorageFactory
+    ) {
         this.clusterNetSvc = clusterNetSvc;
+        this.raftConfiguration = raftConfiguration;
+        this.metricManager = metricManager;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath);
+        NodeOptions options = new NodeOptions();
 
-        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME), LOG
-                )
+        options.setClock(clock);
+        options.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(clusterNetSvc.serializationRegistry()));
+
+        this.opts = options;
+
+        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options, raftGroupEventsClientListener, defaultLogStorageFactory);
+
+        this.executor = new ScheduledThreadPoolExecutor(
+                CLIENT_POOL_SIZE,
+                NamedThreadFactory.create(clusterNetSvc.nodeName(), CLIENT_POOL_NAME, LOG)
         );
     }
 
     /**
-     * The constructor. Used for testing purposes.
+     * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
+     * to {@link #startAsync()} the component.
      *
-     * @param srv Pre-started raft server.
+     * @param appendEntriesRequestInterceptor Interceptor to use.
      */
-    @TestOnly
-    public Loza(JraftServerImpl srv) {
-        this.clusterNetSvc = srv.clusterService();
+    public void appendEntriesRequestInterceptor(AppendEntriesRequestInterceptor appendEntriesRequestInterceptor) {
+        raftServer.appendEntriesRequestInterceptor(appendEntriesRequestInterceptor);
+    }
 
-        this.raftServer = srv;
-
-        this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME), LOG
-                )
-        );
+    /**
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used
+     * to {@link #startAsync()} the component.
+     *
+     * @param actionRequestInterceptor Interceptor to use.
+     */
+    public void actionRequestInterceptor(ActionRequestInterceptor actionRequestInterceptor) {
+        raftServer.actionRequestInterceptor(actionRequestInterceptor);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
-        raftServer.start();
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        RaftView raftConfig = raftConfiguration.value();
+
+        var stripeSource = new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount());
+
+        metricManager.registerSource(stripeSource);
+        metricManager.enable(stripeSource);
+
+        opts.setRaftMetrics(stripeSource);
+        opts.setRpcInstallSnapshotTimeout(raftConfig.rpcInstallSnapshotTimeout());
+        opts.setStripes(raftConfig.stripes());
+        opts.setLogStripesCount(raftConfig.logStripesCount());
+        opts.setLogYieldStrategy(raftConfig.logYieldStrategy());
+
+        opts.getRaftOptions().setSync(raftConfig.fsync());
+
+        return raftServer.startAsync(componentContext);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        raftServer.stop();
+        return raftServer.stopAsync(componentContext);
+    }
+
+    @Override
+    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftServiceFactory<T> factory
+    ) throws NodeStoppingException {
+        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults(), factory);
     }
 
     /**
-     * Determines whether a RAFT group should be started locally according to a collection of nodes that should have a RAFT group.
-     */
-    public boolean shouldHaveRaftGroupLocally(Collection<ClusterNode> raftNodes) {
-        String locNodeName = clusterNetSvc.topologyService().localMember().name();
-
-        return raftNodes.stream().anyMatch(n -> locNodeName.equals(n.name()));
-    }
-
-    /**
-     * Creates a raft group service providing operations on a raft group. If {@code nodes} contains the current node, then raft group starts
-     * on the current node.
+     * Starts a Raft group on the current node.
      *
-     * @param groupId      Raft group id.
-     * @param nodes        Raft group nodes.
-     * @param lsnrSupplier Raft group listener supplier.
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
      * @param groupOptions Options to apply to the group.
-     * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public CompletableFuture<RaftGroupService> prepareRaftGroup(
-            String groupId,
-            List<ClusterNode> nodes,
-            Supplier<RaftGroupListener> lsnrSupplier,
+    public CompletableFuture<RaftGroupService> startRaftGroupNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftGroupOptions groupOptions
+    ) throws NodeStoppingException {
+        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, groupOptions, null);
+    }
+
+    /**
+     * Starts a Raft group on the current node.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param groupOptions Options to apply to the group.
+     * @param raftServiceFactory If not null, used for creation of raft group service.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNode(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftGroupOptions groupOptions,
+            @Nullable RaftServiceFactory<T> raftServiceFactory
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            return startRaftGroupNodeInternal(nodeId, configuration, lsnr, eventsLsnr, groupOptions, raftServiceFactory);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Starts a Raft group on the current node without starting raft service.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param groupOptions Options to apply to the group.
+     */
+    public void startRaftGroupNodeWithoutService(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
             RaftGroupOptions groupOptions
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -178,151 +279,262 @@ public class Loza implements IgniteComponent {
         }
 
         try {
-            return prepareRaftGroupInternal(groupId, nodes, lsnrSupplier, () -> RaftGroupEventsListener.noopLsnr, groupOptions);
+            startRaftGroupNodeInternalWithoutService(nodeId, configuration, lsnr, eventsLsnr, groupOptions);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /**
-     * Internal method to a raft group creation.
-     *
-     * @param groupId                 Raft group id.
-     * @param nodes                   Raft group nodes.
-     * @param lsnrSupplier            Raft group listener supplier.
-     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
-     * @param groupOptions Options to apply to the group.
-     * @return Future representing pending completion of the operation.
-     */
-    private CompletableFuture<RaftGroupService> prepareRaftGroupInternal(
-            String groupId,
-            List<ClusterNode> nodes,
-            Supplier<RaftGroupListener> lsnrSupplier,
-            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier,
-            RaftGroupOptions groupOptions
-    ) {
-        assert !nodes.isEmpty();
+    @Override
+    public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr
+    ) throws NodeStoppingException {
+        CompletableFuture<RaftGroupService> fut = startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, RaftGroupOptions.defaults());
 
-        List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+        return fut;
+    }
 
-        boolean hasLocalRaft = shouldHaveRaftGroupLocally(nodes);
+    @Override
+    public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftNodeDisruptorConfiguration disruptorConfiguration
+    ) throws NodeStoppingException {
+        return startRaftGroupNodeAndWaitNodeReadyFuture(nodeId, configuration, lsnr, eventsLsnr, disruptorConfiguration, null);
+    }
 
-        if (hasLocalRaft) {
-            LOG.info("Start new raft node for group={} with initial peers={}", groupId, peers);
-
-            if (!raftServer.startRaftGroup(groupId, raftGrpEvtsLsnrSupplier.get(), lsnrSupplier.get(), peers, groupOptions)) {
-                throw new IgniteInternalException(IgniteStringFormatter.format(
-                        "Raft group on the node is already started [raftGrp={}]",
-                        groupId
-                ));
-            }
+    @Override
+    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeAndWaitNodeReadyFuture(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            RaftNodeDisruptorConfiguration disruptorConfiguration,
+            @Nullable RaftServiceFactory<T> factory
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
         }
 
+        try {
+            CompletableFuture<T> startRaftServiceFuture = startRaftGroupNodeInternal(
+                    nodeId,
+                    configuration,
+                    lsnr,
+                    eventsLsnr,
+                    // Use default marshaller here, because this particular method is used in very specific circumstances.
+                    RaftGroupOptions.defaults()
+                            .ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration),
+                    factory
+            );
+
+            return startRaftServiceFuture;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @TestOnly
+    @Override
+    public CompletableFuture<RaftGroupService> startRaftGroupService(
+            ReplicationGroupId groupId,
+            PeersAndLearners configuration
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            // Use default command marshaller here.
+            return startRaftGroupServiceInternal(groupId, configuration, opts.getCommandsMarshaller());
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public <T extends RaftGroupService> CompletableFuture<T> startRaftGroupService(
+            ReplicationGroupId groupId,
+            PeersAndLearners configuration,
+            RaftServiceFactory<T> factory,
+            @Nullable Marshaller commandsMarshaller
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            if (commandsMarshaller == null) {
+                commandsMarshaller = opts.getCommandsMarshaller();
+            }
+
+            return factory.startRaftGroupService(groupId, configuration, raftConfiguration, executor, commandsMarshaller);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private <T extends RaftGroupService> CompletableFuture<T> startRaftGroupNodeInternal(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener raftGrpEvtsLsnr,
+            RaftGroupOptions groupOptions,
+            @Nullable RaftServiceFactory<T> raftServiceFactory
+    ) {
+        startRaftGroupNodeInternalWithoutService(nodeId, configuration, lsnr, raftGrpEvtsLsnr, groupOptions);
+
+        Marshaller cmdMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), opts.getCommandsMarshaller());
+
+        return raftServiceFactory == null
+                ? (CompletableFuture<T>) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller)
+                : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor, cmdMarshaller);
+    }
+
+    private void startRaftGroupNodeInternalWithoutService(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener raftGrpEvtsLsnr,
+            RaftGroupOptions groupOptions
+    ) {
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Start new raft node={} with initial configuration={}", nodeId, configuration);
+        }
+
+        boolean started = raftServer.startRaftNode(nodeId, configuration, raftGrpEvtsLsnr, lsnr, groupOptions);
+
+        if (!started) {
+            throw new IgniteInternalException(IgniteStringFormatter.format(
+                    "Raft group on the node is already started [nodeId={}]",
+                    nodeId
+            ));
+        }
+    }
+
+    private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(
+            ReplicationGroupId grpId,
+            PeersAndLearners membersConfiguration,
+            Marshaller commandsMarshaller
+    ) {
         return RaftGroupServiceImpl.start(
-                groupId,
+                grpId,
                 clusterNetSvc,
                 FACTORY,
-                RETRY_TIMEOUT,
-                RPC_TIMEOUT,
-                peers,
+                raftConfiguration,
+                membersConfiguration,
                 true,
-                DELAY,
-                executor
+                executor,
+                commandsMarshaller
         );
     }
 
     /**
-     * Start RAFT group on the current node.
+     * Check if the node is started.
      *
-     * @param grpId Raft group id.
-     * @param nodes Full set of raft group nodes.
-     * @param lsnr Raft group listener.
-     * @param raftGrpEvtsLsnr Raft group events listener.
-     * @param groupOptions Options to apply to the group.
-     * @throws NodeStoppingException If node stopping intention was detected.
+     * @param nodeId Raft node ID.
+     * @return True if the node is started.
      */
-    public void startRaftGroupNode(
-            String grpId,
-            Collection<ClusterNode> nodes,
-            RaftGroupListener lsnr,
-            RaftGroupEventsListener raftGrpEvtsLsnr,
-            RaftGroupOptions groupOptions
-    ) throws NodeStoppingException {
-        assert !nodes.isEmpty();
+    public boolean isStarted(RaftNodeId nodeId) {
+        return raftServer.isStarted(nodeId);
+    }
 
+    @Override
+    public boolean stopRaftNode(RaftNodeId nodeId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
-
-            LOG.info("Start new raft node for group={} with initial peers={}", grpId, peers);
-
-            if (!raftServer.startRaftGroup(grpId, raftGrpEvtsLsnr, lsnr, peers, groupOptions)) {
-                throw new IgniteInternalException(IgniteStringFormatter.format(
-                        "Raft group on the node is already started [raftGrp={}]",
-                        grpId
-                ));
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Stop raft node={}", nodeId);
             }
+
+            return raftServer.stopRaftNode(nodeId);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public boolean stopRaftNodes(ReplicationGroupId groupId) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Stop raft group={}", groupId);
+            }
+
+            return raftServer.stopRaftNodes(groupId);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     /**
-     * Creates and starts a raft group service providing operations on a raft group.
+     * Performs a {@code resetPeers} operation on raft node.
      *
-     * @param grpId RAFT group id.
-     * @param nodes Full set of raft group nodes.
-     * @return Future that will be completed with an instance of RAFT group service.
-     * @throws NodeStoppingException If node stopping intention was detected.
+     * @param raftNodeId Raft node ID.
+     * @param peersAndLearners New node configuration.
      */
-    public CompletableFuture<RaftGroupService> startRaftGroupService(
-            String grpId,
-            Collection<ClusterNode> nodes
-    ) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
+    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
+        LOG.warn("Reset peers for raft group {}, new configuration is {}", raftNodeId, peersAndLearners);
 
-        List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
-
-        try {
-            return RaftGroupServiceImpl.start(
-                    grpId,
-                    clusterNetSvc,
-                    FACTORY,
-                    RETRY_TIMEOUT,
-                    RPC_TIMEOUT,
-                    peers,
-                    true,
-                    DELAY,
-                    executor
-            );
-        } finally {
-            busyLock.leaveBusy();
-        }
+        raftServer.resetPeers(raftNodeId, peersAndLearners);
     }
 
     /**
-     * Stops a raft group on the current node.
+     * Iterates over all currently started raft services. Doesn't block the starting or stopping of other services, so consumer may
+     * accidentally receive stopped service.
      *
-     * @param groupId Raft group id.
-     * @throws NodeStoppingException If node stopping intention was detected.
+     * @param consumer Closure to process each service.
      */
-    public void stopRaftGroup(String groupId) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
+    public void forEach(BiConsumer<RaftNodeId, org.apache.ignite.raft.jraft.RaftGroupService> consumer) {
+        raftServer.forEach(consumer);
+    }
 
-        try {
-            LOG.info("Stop raft group={}", groupId);
+    /**
+     * Returns messaging service.
+     *
+     * @return Messaging service.
+     */
+    public MessagingService messagingService() {
+        return clusterNetSvc.messagingService();
+    }
 
-            raftServer.stopRaftGroup(groupId);
-        } finally {
-            busyLock.leaveBusy();
-        }
+    /**
+     * Returns topology service.
+     *
+     * @return Topology service.
+     */
+    public TopologyService topologyService() {
+        return clusterNetSvc.topologyService();
+    }
+
+    public VolatileRaftConfiguration volatileRaft() {
+        return raftConfiguration.volatileRaft();
+    }
+
+    /**
+     * Returns a raft server.
+     *
+     * @return An underlying raft server.
+     */
+    @TestOnly
+    public RaftServer server() {
+        return raftServer;
+    }
+
+    @Override
+    public LogSyncer getLogSyncer() {
+        return raftServer.getLogSyncer();
     }
 
     /**
@@ -336,22 +548,12 @@ public class Loza implements IgniteComponent {
     }
 
     /**
-     * Returns a raft server.
+     * Returns a set of locally running Raft nodes.
      *
-     * @return An underlying raft server.
+     * @return Set of Raft node IDs (can be empty if no local Raft nodes have been started).
      */
     @TestOnly
-    public RaftServer server() {
-        return raftServer;
-    }
-
-    /**
-     * Returns started groups.
-     *
-     * @return Started groups.
-     */
-    @TestOnly
-    public Set<String> startedGroups() {
-        return raftServer.startedGroups();
+    public Set<RaftNodeId> localNodes() {
+        return raftServer.localNodes();
     }
 }

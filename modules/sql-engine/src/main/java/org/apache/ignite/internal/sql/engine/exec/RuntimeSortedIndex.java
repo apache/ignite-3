@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,9 +25,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,18 +79,16 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<RowT> find(RowT lower, RowT upper) {
+    public Cursor<RowT> find(RowT lower, RowT upper, boolean lowerInclude, boolean upperInclude) {
         int firstCol = first(collation.getKeys());
 
-        if (ectx.rowHandler().get(firstCol, lower) != null && ectx.rowHandler().get(firstCol, upper) != null) {
-            return new CursorImpl(rows, lower, upper);
-        } else if (ectx.rowHandler().get(firstCol, lower) == null && ectx.rowHandler().get(firstCol, upper) != null) {
-            return new CursorImpl(rows, null, upper);
-        } else if (ectx.rowHandler().get(firstCol, lower) != null && ectx.rowHandler().get(firstCol, upper) == null) {
-            return new CursorImpl(rows, lower, null);
-        } else {
-            return new CursorImpl(rows, null, null);
-        }
+        Object lowerBound = (lower == null) ? null : ectx.rowHandler().get(firstCol, lower);
+        Object upperBound = (upper == null) ? null : ectx.rowHandler().get(firstCol, upper);
+
+        RowT lowerRow = (lowerBound == null) ? null : lower;
+        RowT upperRow = (upperBound == null) ? null : upper;
+
+        return new CursorImpl(rows, lowerRow, upperRow, lowerInclude, upperInclude);
     }
 
     /**
@@ -100,10 +98,9 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
             ExecutionContext<RowT> ectx,
             RelDataType rowType,
             Predicate<RowT> filter,
-            Supplier<RowT> lowerBound,
-            Supplier<RowT> upperBound
+            RangeIterable<RowT> ranges
     ) {
-        return new IndexScan(rowType, this, filter, lowerBound, upperBound);
+        return new IndexScan(rowType, this, filter, ranges);
     }
 
     /**
@@ -116,14 +113,27 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
         /** Upper bound. */
         private final RowT upper;
 
+        /** Include upper bound. */
+        private final boolean includeUpper;
+
         /** Current index of list element. */
         private int idx;
 
-        CursorImpl(List<RowT> rows, @Nullable RowT lower, @Nullable RowT upper) {
+        /**
+         * Creates sorted index cursor.
+         *
+         * @param rows List of rows.
+         * @param lower Lower bound.
+         * @param upper Upper bound.
+         * @param lowerInclude {@code True} for inclusive lower bound.
+         * @param upperInclude {@code True} for inclusive upper bound.
+         */
+        CursorImpl(List<RowT> rows, @Nullable RowT lower, @Nullable RowT upper, boolean lowerInclude, boolean upperInclude) {
             this.rows = rows;
             this.upper = upper;
+            this.includeUpper = upperInclude;
 
-            idx = lower == null ? 0 : lowerBound(rows, lower);
+            idx = lower == null ? 0 : lowerBound(rows, lower, lowerInclude);
         }
 
         /**
@@ -131,9 +141,10 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
          *
          * @param rows List of rows.
          * @param bound Lower bound.
+         * @param includeBound {@code True} for inclusive bound.
          * @return Lower bound position in the list.
          */
-        private int lowerBound(List<RowT> rows, RowT bound) {
+        private int lowerBound(List<RowT> rows, RowT bound, boolean includeBound) {
             int low = 0;
             int high = rows.size() - 1;
             int idx = -1;
@@ -144,7 +155,7 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
 
                 if (compRes > 0) {
                     high = mid - 1;
-                } else if (compRes == 0) {
+                } else if (compRes == 0 && includeBound) {
                     idx = mid;
                     high = mid - 1;
                 } else {
@@ -158,7 +169,7 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
         /** {@inheritDoc} */
         @Override
         public boolean hasNext() {
-            if (idx == rows.size() || (upper != null && comp.compare(upper, rows.get(idx)) < 0)) {
+            if (idx == rows.size() || (upper != null && comp.compare(upper, rows.get(idx)) < (includeUpper ? 0 : 1))) {
                 return false;
             }
 
@@ -177,7 +188,7 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
 
         /** {@inheritDoc} */
         @Override
-        public void close() throws Exception {
+        public void close() {
             // No-op.
         }
     }
@@ -186,14 +197,21 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
      * Index scan for RuntimeSortedIndex.
      */
     private class IndexScan extends AbstractIndexScan<RowT, RowT> {
+        /**
+         * Creates index scan.
+         *
+         * @param rowType Row type.
+         * @param idx Physical index.
+         * @param filter Additional filters.
+         * @param ranges Index scan bounds.
+         */
         IndexScan(
                 RelDataType rowType,
                 TreeIndex<RowT> idx,
                 Predicate<RowT> filter,
-                Supplier<RowT> lowerBound,
-                Supplier<RowT> upperBound
+                RangeIterable<RowT> ranges
         ) {
-            super(RuntimeSortedIndex.this.ectx, rowType, idx, filter, lowerBound, upperBound, null);
+            super(RuntimeSortedIndex.this.ectx, rowType, idx, filter, ranges, null);
         }
 
         /** {@inheritDoc} */

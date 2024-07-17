@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.isA;
@@ -37,12 +38,15 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,7 +60,7 @@ import org.mockito.quality.Strictness;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class ClusterInitializerTest {
+public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     @Mock
     private MessagingService messagingService;
 
@@ -72,7 +76,11 @@ public class ClusterInitializerTest {
         when(clusterService.messagingService()).thenReturn(messagingService);
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        clusterInitializer = new ClusterInitializer(clusterService);
+        clusterInitializer = new ClusterInitializer(
+                clusterService,
+                hocon -> hocon,
+                new TestConfigurationValidator()
+        );
     }
 
     /**
@@ -80,8 +88,8 @@ public class ClusterInitializerTest {
      */
     @Test
     void testNormalInit() {
-        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -108,8 +116,8 @@ public class ClusterInitializerTest {
      */
     @Test
     void testNormalInitSingleNodeList() {
-        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -135,8 +143,8 @@ public class ClusterInitializerTest {
      */
     @Test
     void testInitCancel() {
-        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -150,7 +158,7 @@ public class ClusterInitializerTest {
                 });
 
         when(messagingService.send(any(ClusterNode.class), any(CancelInitMessage.class)))
-                .thenReturn(CompletableFuture.completedFuture(null));
+                .thenReturn(nullCompletedFuture());
 
         CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
                 List.of(metastorageNode.name()),
@@ -171,8 +179,8 @@ public class ClusterInitializerTest {
      */
     @Test
     void testInitNoCancel() {
-        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);

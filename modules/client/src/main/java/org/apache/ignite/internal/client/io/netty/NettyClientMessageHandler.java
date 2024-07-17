@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.client.io.netty.NettyClientConnection.A
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import java.io.IOException;
 
 /**
  * Netty client message handler.
@@ -30,7 +29,7 @@ import java.io.IOException;
 public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
         ctx.channel().attr(ATTR_CONN).get().onMessage((ByteBuf) msg);
     }
 

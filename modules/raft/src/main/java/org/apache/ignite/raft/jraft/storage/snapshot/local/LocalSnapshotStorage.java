@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,6 +31,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
@@ -40,7 +41,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 
@@ -53,7 +53,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
     private static final String TEMP_PATH = "temp";
     private final ConcurrentMap<Long, AtomicInteger> refMap = new ConcurrentHashMap<>();
     private final String path;
-    private Endpoint addr;
+    private PeerId peerId;
     private boolean filterBeforeCopyRemote;
     private long lastSnapshotIndex;
     private final Lock lock;
@@ -65,12 +65,12 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         this.snapshotThrottle = snapshotThrottle;
     }
 
-    public boolean hasServerAddr() {
-        return this.addr != null;
+    public boolean hasServerPeerId() {
+        return this.peerId != null;
     }
 
-    public void setServerAddr(Endpoint addr) {
-        this.addr = addr;
+    public void setServerPeerId(PeerId peerId) {
+        this.peerId = peerId;
     }
 
     public LocalSnapshotStorage(String path, RaftOptions raftOptions) {
@@ -189,7 +189,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         int ret = writer.getCode();
         IOException ioe = null;
 
-        // noinspection ConstantConditions
+        //noinspection ConstantConditions
         do {
             if (ret != 0) {
                 break;
@@ -201,7 +201,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
                 }
             }
             catch (final IOException e) {
-                LOG.error("Fail to sync writer {}.", writer.getPath());
+                LOG.error("Fail to sync writer {}.", writer.getPath(), e);
                 ret = RaftError.EIO.getNumber();
                 ioe = e;
                 break;
@@ -223,7 +223,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
                 break;
             }
             LOG.info("Renaming {} to {}.", tempPath, newPath);
-            if (!new File(tempPath).renameTo(new File(newPath))) {
+            if (!Utils.atomicMoveFile(new File(tempPath), new File(newPath), true)) {
                 LOG.error("Renamed temp snapshot failed, from path {} to path {}.", tempPath, newPath);
                 ret = RaftError.EIO.getNumber();
                 ioe = new IOException("Fail to rename temp snapshot from: " + tempPath + " to: " + newPath);
@@ -273,7 +273,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
 
     public SnapshotWriter create(final boolean fromEmpty) {
         LocalSnapshotWriter writer = null;
-        // noinspection ConstantConditions
+        //noinspection ConstantConditions
         do {
             final String snapshotPath = this.path + File.separator + TEMP_PATH;
             // delete temp
@@ -312,7 +312,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
             return null;
         }
         final String snapshotPath = getSnapshotPath(lsIndex);
-        final SnapshotReader reader = new LocalSnapshotReader(this, this.snapshotThrottle, this.addr, this.raftOptions,
+        final SnapshotReader reader = new LocalSnapshotReader(this, this.snapshotThrottle, this.peerId, this.raftOptions,
             snapshotPath);
         if (!reader.init(null)) {
             LOG.error("Fail to init reader for path {}.", snapshotPath);

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -42,6 +42,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteReduceSortAggregate extends IgniteReduceAggregateBase implements IgniteSortAggregateBase {
+    private static final String REL_TYPE_NAME = "ReduceSortAggregate";
+
     /** Collation. */
     private final RelCollation collation;
 
@@ -62,21 +64,20 @@ public class IgniteReduceSortAggregate extends IgniteReduceAggregateBase impleme
         super(cluster, traits, input, groupSet, groupSets, aggCalls, rowType);
 
         assert Objects.nonNull(collation);
-        assert !collation.isDefault();
 
         this.collation = collation;
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteReduceSortAggregate(RelInput input) {
         super(input);
         collation = input.getCollation();
 
         assert Objects.nonNull(collation);
-        assert !collation.isDefault();
     }
 
     /** {@inheritDoc} */
@@ -133,5 +134,17 @@ public class IgniteReduceSortAggregate extends IgniteReduceAggregateBase impleme
                 rows * IgniteCost.ROW_PASS_THROUGH_COST,
                 0
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelCollation collation() {
+        return collation;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

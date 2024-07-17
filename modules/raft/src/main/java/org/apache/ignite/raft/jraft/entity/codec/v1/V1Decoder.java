@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.entity.codec.v1;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -51,98 +52,127 @@ public final class V1Decoder implements LogEntryDecoder {
         return log;
     }
 
+    // Refactored to look closer to Ignites code style.
     public void decode(final LogEntry log, final byte[] content) {
-        // 1-5 type
-        final int iType = Bits.getInt(content, 1);
-        log.setType(EnumOutter.EntryType.forNumber(iType));
-        // 5-13 index
-        // 13-21 term
-        final long index = Bits.getLong(content, 5);
-        final long term = Bits.getLong(content, 13);
+        var reader = new Reader(content);
+        reader.pos = LogEntryV1CodecFactory.PAYLOAD_OFFSET;
+
+        int typeNumber = (int)reader.readLong();
+        EnumOutter.EntryType type = Objects.requireNonNull(EnumOutter.EntryType.forNumber(typeNumber));
+        log.setType(type);
+
+        long index = reader.readLong();
+        long term = reader.readLong();
         log.setId(new LogId(index, term));
-        // 21-29 checksum
-        log.setChecksum(Bits.getLong(content, 21));
-        // 29-33 peer count
-        int peerCount = Bits.getInt(content, 29);
-        // peers
-        int pos = 33;
-        if (peerCount > 0) {
-            List<PeerId> peers = new ArrayList<>(peerCount);
-            while (peerCount-- > 0) {
-                final short len = Bits.getShort(content, pos);
-                final byte[] bs = new byte[len];
-                System.arraycopy(content, pos + 2, bs, 0, len);
-                // peer len (short in 2 bytes)
-                // peer str
-                pos += 2 + len;
-                final PeerId peer = new PeerId();
-                peer.parse(AsciiStringUtil.unsafeDecode(bs));
-                peers.add(peer);
+
+        long checksum = Bits.getLong(content, reader.pos);
+        log.setChecksum(checksum);
+
+        int pos = reader.pos + Long.BYTES;
+
+        // Peers and learners.
+        if (type != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
+            reader.pos = pos;
+            int peerCount = (int)reader.readLong();
+            pos = reader.pos;
+            if (peerCount > 0) {
+                List<PeerId> peers = new ArrayList<>(peerCount);
+
+                pos = readNodesList(pos, content, peerCount, peers);
+
+                log.setPeers(peers);
             }
-            log.setPeers(peers);
-        }
-        // old peers
-        int oldPeerCount = Bits.getInt(content, pos);
-        pos += 4;
-        if (oldPeerCount > 0) {
-            List<PeerId> oldPeers = new ArrayList<>(oldPeerCount);
-            while (oldPeerCount-- > 0) {
-                final short len = Bits.getShort(content, pos);
-                final byte[] bs = new byte[len];
-                System.arraycopy(content, pos + 2, bs, 0, len);
-                // peer len (short in 2 bytes)
-                // peer str
-                pos += 2 + len;
-                final PeerId peer = new PeerId();
-                peer.parse(AsciiStringUtil.unsafeDecode(bs));
-                oldPeers.add(peer);
+
+            reader.pos = pos;
+            int oldPeerCount = (int)reader.readLong();
+            pos = reader.pos;
+            if (oldPeerCount > 0) {
+                List<PeerId> oldPeers = new ArrayList<>(oldPeerCount);
+
+                pos = readNodesList(pos, content, oldPeerCount, oldPeers);
+
+                log.setOldPeers(oldPeers);
             }
-            log.setOldPeers(oldPeers);
-        }
-        // learners
-        int learnersCount = Bits.getInt(content, pos);
-        pos += 4;
-        if (learnersCount > 0) {
-            List<PeerId> learners = new ArrayList<>(learnersCount);
-            while (learnersCount-- > 0) {
-                final short len = Bits.getShort(content, pos);
-                final byte[] bs = new byte[len];
-                System.arraycopy(content, pos + 2, bs, 0, len);
-                // peer len (short in 2 bytes)
-                // peer str
-                pos += 2 + len;
-                final PeerId peer = new PeerId();
-                peer.parse(AsciiStringUtil.unsafeDecode(bs));
-                learners.add(peer);
+
+            reader.pos = pos;
+            int learnersCount = (int)reader.readLong();
+            pos = reader.pos;
+            if (learnersCount > 0) {
+                List<PeerId> learners = new ArrayList<>(learnersCount);
+
+                pos = readNodesList(pos, content, learnersCount, learners);
+
+                log.setLearners(learners);
             }
-            log.setLearners(learners);
-        }
-        // old learners
-        int oldLearnersCount = Bits.getInt(content, pos);
-        pos += 4;
-        if (oldLearnersCount > 0) {
-            List<PeerId> oldLearners = new ArrayList<>(oldLearnersCount);
-            while (oldLearnersCount-- > 0) {
-                final short len = Bits.getShort(content, pos);
-                final byte[] bs = new byte[len];
-                System.arraycopy(content, pos + 2, bs, 0, len);
-                // peer len (short in 2 bytes)
-                // peer str
-                pos += 2 + len;
-                final PeerId peer = new PeerId();
-                peer.parse(AsciiStringUtil.unsafeDecode(bs));
-                oldLearners.add(peer);
+
+            reader.pos = pos;
+            int oldLearnersCount = (int)reader.readLong();
+            pos = reader.pos;
+            if (oldLearnersCount > 0) {
+                List<PeerId> oldLearners = new ArrayList<>(oldLearnersCount);
+
+                pos = readNodesList(pos, content, oldLearnersCount, oldLearners);
+
+                log.setOldLearners(oldLearners);
             }
-            log.setOldLearners(oldLearners);
         }
 
-        // data
-        if (content.length > pos) {
-            final int len = content.length - pos;
-            ByteBuffer data = ByteBuffer.allocate(len);
-            data.put(content, pos, len);
-            data.flip();
-            log.setData(data);
+        // Data.
+        if (type != EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
+            if (content.length > pos) {
+                int len = content.length - pos;
+
+                ByteBuffer data = ByteBuffer.wrap(content, pos, len).slice();
+
+                log.setData(data);
+            }
+        }
+    }
+
+    private static int readNodesList(int pos, byte[] content, int count, List<PeerId> nodes) {
+        for (int i = 0; i < count; i++) {
+            short len = Bits.getShort(content, pos);
+            pos += 2;
+
+            PeerId peer = new PeerId();
+            peer.parse(AsciiStringUtil.unsafeDecode(content, pos, len));
+            nodes.add(peer);
+
+            pos += len;
+        }
+
+        return pos;
+    }
+
+    /*
+     * Allows reading varlen numbers and tracking position at the same time. Simply having a "readLong" method wasn't enough.
+     */
+    private static class Reader {
+        private final byte[] content;
+        int pos;
+
+        private Reader(byte[] content) {
+            this.content = content;
+        }
+
+        // Based on DirectByteBufferStreamImplV1.
+        long readLong() {
+            long val = 0;
+            int shift = 0;
+
+            while (true) {
+                byte b = content[pos];
+
+                pos++;
+
+                val |= ((long) b & 0x7F) << shift;
+
+                if ((b & 0x80) == 0) {
+                    return val;
+                } else {
+                    shift += 7;
+                }
+            }
         }
     }
 }

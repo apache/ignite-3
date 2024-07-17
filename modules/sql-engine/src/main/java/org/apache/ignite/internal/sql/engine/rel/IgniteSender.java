@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -33,7 +33,9 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 /**
  * Relational expression that iterates over its input and sends elements to remote {@link IgniteReceiver}.
  */
-public class IgniteSender extends SingleRel implements InternalIgniteRel {
+public class IgniteSender extends SingleRel implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Sender";
+
     private final long exchangeId;
 
     private final long targetFragmentId;
@@ -154,5 +156,11 @@ public class IgniteSender extends SingleRel implements InternalIgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteSender(cluster, getTraitSet(), sole(inputs), exchangeId(), targetFragmentId(), distribution());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

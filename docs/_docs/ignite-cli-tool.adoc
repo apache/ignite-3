@@ -12,72 +12,129 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+= Ignite 3 CLI Tool
 
-= Ignite CLI Tool
+== Overview
 
-The Ignite CLI tool uses REST API as a communication protocol between the node and the CLI,
-allowing you to configure the node. By default, the CLI tool runs in the REPL (Read Eval Print Loop) mode, but you can also execute commands without entering it.
+The Ignite 3 CLI tool uses REST API as a communication protocol between the node and the CLI, allowing you to configure the node. By default, the CLI tool runs in the interactive mode, but you can also execute commands without entering it.
 
-Below is a list of Ignite CLI tool commands with short descriptions:
+When using the Ignite 3 CLI tool, the arguments should be put in quotation marks, and the string should not include line breaks. For example:
 
-== Installation and Usage
+[source, bash]
+----
+cluster config update "security.authentication.providers.basic4={type=basic,username=name,password=pass}"
+----
 
-You can find detailed installation guide in the link:quick-start/getting-started-guide[Getting Started] tutorial. The tutorial also includes some basic usage examples.
+Otherwise, special POSIX characters in strings (`{` and `}` in the above command) will be handled appropriately, leading to potentially unpredictable results.
 
-== Command Options
+Alternatively, you can use the backslash (`\`) to escape all special characters in your command. For example:
 
-The following commands can be executed in REPL mode of the command line tool:
+[source, bash]
+----
+cluster config update security.authentication.providers.basic4=\{type=basic,username=name,password=pass\}
+----
+
+== Commands and Options
+
+The following commands can be executed in the interactive CLI mode.
+
+=== CLI Commands
+
+These commands help you configure your CLI tool and cluster.
 
 [cols="1,1,3",opts="header", stripes=none]
 |===
 | Command| Parameters | Description
-| `bootsrap` || Installs Ignite core modules locally. Previously `init`.
-| `clear` || Clears the terminal.
 | `cli config` || Gets all CLI tool configuration values.
-| `cli config get` | `<config key-value>` | Gets the value of the specified CLI tool configuration.
-| `cli config set` | `<config key-value>` | Sets the value of the specified CLI tool configuration.
-| `cluster init` | `[--cluster-url] <--meta-storage-node> [--cmg-node]`| Initializes the cluster on the specified URL.
-| `cluster show` | `[--cluster-url]` | Displays the detailed status of the specified cluster.
-| `cluster config show` | `[--cluster-url] [--selector]` | Gets the configuration of the specified cluster.
-| `cluster config update` | `[--cluster-url] <config in HOCON format>` | Updates the configuration of the cluster with the provided configuration in HOCON format.
-| `connect` | [--cluster-url] | Connects to the specified cluster, or `localhost:3000` if no cluster url is specified. All subsequent commands use the specified cluster url.
-| `disconnect` || Disconnects from the cluster.
-| `exit` || Stops current interactive session.
-| `help` | `<command>` | Provides information on available commands, or for specific command if the `command` parameter is specified.
-| `node classpath` || Shows the current classpath used by Ignite nodes.
-| `node config show` | `[--node-url][--selector]` | Gets the local node configuration.
-|`node config update` | `[--node-url] <config in HOCON format>` | Updates the local node configuration with the provided configuration in HOCON format.
-| `node list` || Shows the list of currently running local Ignite nodes.
-| `node start` | `[--config] <nodeName>` | Starts an Ignite node locally.
-| `node stop` | `<nodeName>` | Stops a locally running Ignite node.
-| `status` | `--cluster-url` |Shows the status of the default cluster, or a different one if cluster-url is provided.
-| `sql` | `[--cluster-url][--script-file] <query>` | Executes the specified SQL query.
-| `version` || Displays current CLI tool version.
+| `cli config profile create` | `[--copy-from] <profileName>` | Creates a profile with the given name.
+| `cli config profile activate` | `<profileName>` | Activates the profile identified by name.
+| `cli config profile list` | | Lists configuration profiles.
+| `cli config profile show` | | Gets the current profile details.
+| `cli config get` | `<key>` | Gets the value for the specified configuration key.
+| `cli config set` | `<key=value>` | Sets configuration parameters using comma-separated input key-value pair(s).
+| `cli config show` | `[--url] [--selector]` | Shows the cluster configuration.
+| `cli config remove` | `<key>` | Removes a configuration key.
 |===
 
-== Non-interactive Mode
+=== Cluster Commands
 
-The following commands can be executed in non-REPL mode of the command-line tool:
+These commands let you manage your cluster.
 
 [cols="1,1,3",opts="header", stripes=none]
 |===
 | Command| Parameters | Description
-| `ignite cli config` || Gets all CLI tool configuration values.
-| `ignite cli config get` | `<config key-value>` | Gets the value of the specified CLI tool configuration.
-| `ignite cli config set` | `<config key-value>` | Sets the value of the specified CLI tool configuration.
-| `ignite bootsrap` || Installs Ignite core modules locally. Previously `init`.
-| `ignite cluster config show` | `[--cluster-url] [--selector]` | Gets the configuration of the specified cluster.
-| `ignite cluster config update` | `[--cluster-url] <config in HOCON format>` | Sets the configuration of the cluster with the provided configuration in HOCON format.
-| `ignite cluster init` | `[--cluster-url] <--meta-storage-node> [--cmg-node]`| Initializes the cluster on the specified URL.
-| `ignite cluster show` | `[--cluster-url]` | Displays the detailed status of the specified cluster.
-| `ignite help` | `<command>` | Provides information on available commands, or for specific command if the `command` parameter is specified.
-| `ignite node classpath` || Shows the current classpath used by Ignite nodes.
-| `ignite node config show` | `[--node-url][--selector]` | Gets the local node configuration.
-| `ignite node list` || Shows the list of currently running local Ignite nodes.
-| `ignite node start` | `[--config] <nodeName>` | Starts an Ignite node locally.
-| `ignite node stop` | `<nodeName>` | Stops a locally running Ignite node.
-|`ignite node config update` | `[--node-url] <config in HOCON format>` | Updates the local node configuration with the provided configuration in HOCON format.
-| `ignite status` | `--cluster-url` |Shows the status of the default cluster, or a different one if cluster-url is provided.
-| `ignite sql` | `[--cluster-url][--script-file] <query>` | Executes the specified SQL query.
-| `ignite version` || Displays current CLI tool version.
+| `cluster init` | `[--cmg-node] [--meta-storage-node] <clusterName> or < --url> <cluster-config> or < --config-files>`| Initializes a cluster.
+| `cluster status` | `[--url]` | Displays the detailed status of the specified cluster.
+| `cluster topology physical` | `[--plain] [--url]` | Shows physical topology of the specified cluster.
+| `cluster topology logical` | `[--plain] [--url]` | Shows logical topology of the specified cluster.
+| `cluster unit deploy` | `[clusterUrl] [--nodes] <path> <version> <id>` | Deploys a unit for the cluster.
+| `cluster unit undeploy` | `[clusterUrl] <version> <id>` | Undeploys a cluster's unit.
+| `cluster unit list` | `[--plain] [clusterUrl] [--status] [<unitId>[--version]]` | Lists cluster's deployed units.
+| `connect` | `[--username] [--password] --url[--node]` | Connects to the specified cluster, or to `localhost:3000` if no cluster is specified. All subsequent commands use the specified cluster URL.
+| `disconnect` || Disconnects from the current cluster.
+|===
+
+=== Snapshot Commands
+
+[cols="1,1,3",opts="header", stripes=none]
+|===
+| Command| Parameters | Description
+|`cluster snapshot create`|`[--tables <list_of_tables> \| --all]`| Creates a new link:snapshots/snapshots-and-recovery[snapshot], optionally for the specified tables only.
+|`cluster snapshot restore`| `<snapshot_id> [--tables <list_of_tables> \| --all]` | Restores data from the specified snapshot, optionally for the specified tables only.
+|`cluster snapshot status`|`[<snapshot_id> [--all-nodes] [--tables <list_of_tables> \| --all]]`| Provides information about the current status of the specified snapshot, optionally for the specified tables only. If no snapshot ID is specified, provides information about the status of all snapshots.
+|===
+
+=== Node Commands
+
+These commands address specific node(s) in a cluster.
+
+[cols="1,1,3",opts="header", stripes=none]
+|===
+| Command| Parameters | Description
+| `node config show` | `[--url]/[--node] [--selector]` | Gets the specified node configuration.
+|`node config update` | `[--url]/[--node] [<args>...]` | Updates the local node configuration with the arguments in the HOCON format.
+| `node status` | `[--url]/[--node]` |Shows the status of the default node, or a different one if specified.
+| `node version` | `[--url]/[--node]` |Shows the node's build version.
+| `node metric list` | `[--url]/[--node][--plain]` |Lists node's metrics.
+| `node metric source enable` | `[--url]/[--node]<srcName>` |Enables a metric source for the node.
+| `node metric source disable` | `[--url]/[--node]<srcName>` |Disables a metric source for the node.
+| `node metric source list` | `[--url]/[--node][--plain]` |Lists node metrics' sources.
+| `node unit list` | `[--plain] [--status] [<unitId> [--version]] [--url]/[--node]]` |Lists node's deployment units.
+|===
+
+=== User and Role Commands
+
+These commands help you manage access to the system - users and and roles.
+
+[cols="1,1,3",opts="header", stripes=none]
+|===
+| Command| Parameters | Description
+|`role create`|`[--url] <roleName>`| Creates a new role. New roles do not have any privileges.
+|`role delete`|`[--url] <roleName>`| Deletes the specified role. Role with assigned privileges cannot be deleted.
+|`role list`|`[--plain] [--url] [--user]`| Lists roles for the specified cluster, optionally filtered by user(s).
+|`role show`|`[--with-privileges] [--with-users] [--url] <roleName>`| Shows the role information, optionally including privileges assigned to the role and/or the users who have that role.
+|`role privilege grant`|`[--on] [--url] [--action] --to`| Grants to the specified role a privilege (permission to perform the specified action on an the specified object). For more information, see link:security/permissions[User Permissions and Roles].
+|`role privilege revoke`|`[--action] [--from] [--url] --to`|Revoke privilege(s) (permissions)(s) to perform the specified action on the specified object) from the role. For more information, see link:security/permissions[User Permissions and Roles].
+| `user create` |`[--password] [cluster-endpoint-url] <username>` | Creates a new user.
+| `user delete` |`[--url] [--with-revoke] <username>`| Deletes the user.
+| `user edit` |`[--password] [--url] <username>` |  Edits user configuration.
+| `user list` |`[--plain] [--url] [--role]`| Provides a list of users on the server, optionally filtered by role(s).
+| `user show` |`[--with-roles] [--url] <username>`| Provides extended information about the specific user, optionally with information about roles assigned to the user.
+| `user role assign` | `[--profile] [--url] [--role] [--to]`| Assigns role(s) to the specified user.
+| `user role revoke` | `[--profile] [--url] [--from] [--role]`| Revokes role(s) from the specified user.
+|===
+
+=== Miscellaneous Commands
+
+These are general-purpose commands.
+
+[cols="1,1,3",opts="header", stripes=none]
+|===
+| Command| Parameters | Description
+| `cls` || Clears the terminal.
+| `exit` || Stops the current interactive session.
+| `help` | `<command or command group>` | Provides information on available command groups, commands in the specified group, or for the specified command.
+| `sql` | `[--plain] [jdbc-url] [--file] <command>`| Executes the specified SQL query (command) or teh queries included in the specified file, on the specified cluster.
+|`token revoke`|`[--url] [--profile] [--token\|--username]`| Revokes the link:security/jwt[JWT token]. Can revoke a specific token, or all tokens from the user.
+| `version` || Displays the current CLI tool version.
 |===

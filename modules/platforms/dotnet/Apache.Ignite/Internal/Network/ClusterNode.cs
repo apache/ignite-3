@@ -17,11 +17,90 @@
 
 namespace Apache.Ignite.Internal.Network
 {
+    using System;
+    using System.Diagnostics;
+    using System.Linq;
     using System.Net;
     using Ignite.Network;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Cluster node.
     /// </summary>
-    internal sealed record ClusterNode(string Id, string Name, IPEndPoint Address) : IClusterNode;
+    internal sealed record ClusterNode : IClusterNode
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ClusterNode"/> class.
+        /// </summary>
+        /// <param name="id">Id.</param>
+        /// <param name="name">Name.</param>
+        /// <param name="endpoint">Endpoint.</param>
+        /// <param name="metricsContext">Metrics context.</param>
+        internal ClusterNode(string id, string name, IPEndPoint endpoint, MetricsContext? metricsContext = null)
+        {
+            Id = id;
+            Name = name;
+            Address = endpoint;
+            MetricsContext = metricsContext;
+        }
+
+        /// <inheritdoc/>
+        public string Id { get; }
+
+        /// <inheritdoc/>
+        public string Name { get; }
+
+        /// <inheritdoc/>
+        public IPEndPoint Address { get; }
+
+        /// <summary>
+        /// Gets the metric tags.
+        /// </summary>
+        /// <returns>Metric tags for this node.</returns>
+        internal MetricsContext? MetricsContext { get; }
+
+        /// <inheritdoc/>
+        public bool Equals(ClusterNode? other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return Id == other.Id && Name == other.Name && Address.Equals(other.Address);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode() => HashCode.Combine(Id, Name, Address);
+
+        /// <summary>
+        /// Read node from reader.
+        /// </summary>
+        /// <param name="r">Reader.</param>
+        /// <returns>Cluster node.</returns>
+        internal static ClusterNode Read(ref MsgPackReader r)
+        {
+            var fieldCount = r.ReadInt32();
+            Debug.Assert(fieldCount == 4, "fieldCount == 4");
+
+            var id = r.ReadString();
+            var name = r.ReadString();
+            var addr = r.ReadString();
+            var port = r.ReadInt32();
+
+            // TODO IGNITE-22695 .NET: ClusterNode.Address does not support host names
+            var ipAddress = IPAddress.TryParse(addr, out var ip)
+                ? ip
+                : Dns.GetHostEntry(addr).AddressList.FirstOrDefault() ?? IPAddress.Loopback;
+
+            var endPoint = new IPEndPoint(ipAddress, port);
+
+            return new ClusterNode(id, name, endPoint);
+        }
+    }
 }

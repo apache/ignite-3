@@ -14,7 +14,7 @@
 // limitations under the License.
 = Data Manipulation Language (DML)
 
-This section walks you through all data manipulation language (DML) commands supported by Apache Ignite 3.0 Alpha 5.
+This section walks you through all data manipulation language (DML) commands supported by Ignite 3.
 
 WARNING: Currently, `WITH` and `MERGE` commands are not supported.
 
@@ -24,7 +24,7 @@ Retrieves data from a table or multiple tables.
 
 [source,sql]
 ----
-SELECT [ hintComment ] [ STREAM ] [ ALL | DISTINCT ]
+SELECT [ hintComment ] [ ALL | DISTINCT ]
     { * | projectItem [, projectItem ]* }
 FROM tableExpression
 [ WHERE booleanExpression ]
@@ -34,7 +34,7 @@ FROM tableExpression
 
 === JOINs
 
-Ignite supports colocated and non-colocated distributed SQL joins. Furthermore, if the data resides in different tables (caches), Ignite allows for cross-table joins as well.
+Ignite supports colocated and non-colocated distributed SQL joins. Furthermore, if the data resides in different tables, Ignite allows for cross-table joins as well.
 Joins between partitioned and replicated data sets always work without any limitations.
 However, if you join partitioned data sets, then you have to make sure that the keys you are joining on are either colocated or make sure you switched on the non-colocated joins parameter for a query.
 

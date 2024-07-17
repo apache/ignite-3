@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -28,27 +29,38 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 
 /**
  * Tests for {@link NettyClient}.
  */
-public class NettyClientTest {
+@ExtendWith(ConfigurationExtension.class)
+public class NettyClientTest extends BaseIgniteAbstractTest {
     /** Client. */
     private NettyClient client;
 
-    private final SocketAddress address = InetSocketAddress.createUnresolved("", 0);
+    private final InetSocketAddress address = InetSocketAddress.createUnresolved("", 0);
+
+    /** Network configuration. */
+    @InjectConfiguration
+    private NetworkConfiguration networkConfiguration;
 
     /**
      * After each.
@@ -64,7 +76,7 @@ public class NettyClientTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testSuccessfulConnect() throws InterruptedException, ExecutionException, TimeoutException {
+    public void testSuccessfulConnect() throws Exception {
         var channel = new EmbeddedChannel();
 
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newSucceededFuture());
@@ -83,11 +95,9 @@ public class NettyClientTest {
 
     /**
      * Tests a scenario where NettyClient fails to connect.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testFailedToConnect() throws InterruptedException, ExecutionException, TimeoutException {
+    public void testFailedToConnect() {
         var channel = new EmbeddedChannel();
 
         ClientAndSender tuple = createClientAndSenderFromChannelFuture(channel.newFailedFuture(new ClosedChannelException()));
@@ -134,11 +144,9 @@ public class NettyClientTest {
 
     /**
      * Tests a scenario where a connection is established successfully after a client has been stopped.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testStoppedBeforeStarted() throws Exception {
+    public void testStoppedBeforeStarted() {
         var channel = new EmbeddedChannel();
 
         var future = channel.newPromise();
@@ -161,11 +169,9 @@ public class NettyClientTest {
 
     /**
      * Tests that a {@link NettyClient#start} method can be called only once.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testStartTwice() throws Exception {
+    public void testStartTwice() {
         var channel = new EmbeddedChannel();
 
         Bootstrap bootstrap = mockBootstrap();
@@ -176,8 +182,8 @@ public class NettyClientTest {
                 address,
                 null,
                 new MockClientHandshakeManager(channel),
-                (message) -> {
-                }
+                (message) -> {},
+                networkConfiguration.ssl().value()
         );
 
         client.start(bootstrap);
@@ -200,8 +206,8 @@ public class NettyClientTest {
                 address,
                 null,
                 new MockClientHandshakeManager(future.channel()),
-                (message) -> {
-                }
+                (message) -> {},
+                networkConfiguration.ssl().value()
         );
 
         Bootstrap bootstrap = mockBootstrap();
@@ -217,7 +223,7 @@ public class NettyClientTest {
      * @return Mocked bootstrap.
      */
     private Bootstrap mockBootstrap() {
-        Bootstrap bootstrap = Mockito.mock(Bootstrap.class);
+        Bootstrap bootstrap = mock(Bootstrap.class);
 
         Mockito.doReturn(bootstrap).when(bootstrap).clone();
 
@@ -230,7 +236,7 @@ public class NettyClientTest {
     private static class ClientAndSender {
         private final NettyClient client;
 
-        private final CompletableFuture<NettySender> sender;
+        private final OrderingFuture<NettySender> sender;
 
         /**
          * Constructor.
@@ -238,7 +244,7 @@ public class NettyClientTest {
          * @param client Netty client.
          * @param sender Netty sender.
          */
-        private ClientAndSender(NettyClient client, CompletableFuture<NettySender> sender) {
+        private ClientAndSender(NettyClient client, OrderingFuture<NettySender> sender) {
             this.client = client;
             this.sender = sender;
         }
@@ -253,7 +259,7 @@ public class NettyClientTest {
 
         /** Constructor. */
         private MockClientHandshakeManager(Channel channel) {
-            this.sender = new NettySender(channel, "", "");
+            this.sender = new NettySender(channel, "", "", (short) 0, mock(RecoveryDescriptor.class));
         }
 
         /** {@inheritDoc} */
@@ -264,8 +270,13 @@ public class NettyClientTest {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<NettySender> handshakeFuture() {
+        public CompletableFuture<NettySender> localHandshakeFuture() {
             return CompletableFuture.completedFuture(sender);
+        }
+
+        @Override
+        public CompletionStage<NettySender> finalHandshakeFuture() {
+            return localHandshakeFuture();
         }
 
         /** {@inheritDoc} */

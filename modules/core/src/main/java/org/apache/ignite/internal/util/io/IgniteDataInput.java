@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +20,16 @@ package org.apache.ignite.internal.util.io;
 import java.io.DataInput;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.BitSet;
+import java.util.UUID;
 
 /**
  * Extended data input.
@@ -148,6 +158,86 @@ public interface IgniteDataInput extends DataInput {
      * @throws IOException In case of error.
      */
     char[] readCharArray(int length) throws IOException;
+
+    /**
+     * Reads big integer.
+     *
+     * @return Big integer.
+     * @throws IOException In case of error.
+     */
+    BigInteger readBigInteger() throws IOException;
+
+    /**
+     * Reads big decimal.
+     *
+     * @return Big decimal.
+     * @throws IOException In case of error.
+     */
+    BigDecimal readBigDecimal() throws IOException;
+
+    /**
+     * Reads local time.
+     *
+     * @return Local time.
+     * @throws IOException In case of error.
+     */
+    LocalTime readLocalTime() throws IOException;
+
+    /**
+     * Reads local date.
+     *
+     * @return Local date.
+     * @throws IOException In case of error.
+     */
+    LocalDate readLocalDate() throws IOException;
+
+    /**
+     * Reads local date time.
+     *
+     * @return Local date time.
+     * @throws IOException In case of error.
+     */
+    LocalDateTime readLocalDateTime() throws IOException;
+
+    /**
+     * Reads instant.
+     *
+     * @return Instant.
+     * @throws IOException In case of error.
+     */
+    Instant readInstant() throws IOException;
+
+    /**
+     * Reads duration.
+     *
+     * @return Duration.
+     * @throws IOException In case of error.
+     */
+    Duration readDuration() throws IOException;
+
+    /**
+     * Reads period.
+     *
+     * @return Period.
+     * @throws IOException In case of error.
+     */
+    Period readPeriod() throws IOException;
+
+    /**
+     * Reads uuid.
+     *
+     * @return UUID.
+     * @throws IOException In case of error.
+     */
+    UUID readUuid() throws IOException;
+
+    /**
+     * Reads bit set.
+     *
+     * @return Bit set.
+     * @throws IOException In case of error.
+     */
+    BitSet readBitSet() throws IOException;
 
     /**
      * Reads the requested number of bytes from the input stream into the given

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,23 +17,22 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.sample.DiscoveryConfiguration;
 import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfiguration;
 import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfigurationSchema;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -41,13 +40,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test basic scenarios of {@link ConfigurationExtension}.
  */
 @ExtendWith(ConfigurationExtension.class)
-class ConfigurationExtensionTest {
+class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
     /** Injected field. */
-    @InjectConfiguration(internalExtensions = ExtendedDiscoveryConfigurationSchema.class)
+    @InjectConfiguration(extensions = ExtendedDiscoveryConfigurationSchema.class)
     private DiscoveryConfiguration fieldCfg;
 
-    @InjectRevisionListenerHolder
-    private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
+    @BeforeAll
+    static void staticParameterInjection(
+            @InjectConfiguration(extensions = ExtendedDiscoveryConfigurationSchema.class) DiscoveryConfiguration paramCfg
+    ) {
+        assertThat(paramCfg.joinTimeout().update(100), willCompleteSuccessfully());
+
+        assertEquals(100, paramCfg.joinTimeout().value());
+    }
 
     /** Test that contains injected parameter. */
     @Test
@@ -75,19 +80,19 @@ class ConfigurationExtensionTest {
         fieldCfg.listen(ctx -> {
             log.add("update");
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         fieldCfg.joinTimeout().listen(ctx -> {
             log.add("join");
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         fieldCfg.failureDetectionTimeout().listen(ctx -> {
             log.add("failure");
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         fieldCfg.change(change -> change.changeJoinTimeout(1000_000)).get(1, SECONDS);
@@ -104,7 +109,7 @@ class ConfigurationExtensionTest {
     /** Tests that internal configuration extensions work properly on injected configuration instance. */
     @Test
     public void internalConfiguration(
-            @InjectConfiguration(internalExtensions = {ExtendedConfigurationSchema.class}) BasicConfiguration cfg
+            @InjectConfiguration(extensions = {ExtendedConfigurationSchema.class}) BasicConfiguration cfg
     ) throws Exception {
         assertThat(cfg, is(instanceOf(ExtendedConfiguration.class)));
 
@@ -125,58 +130,11 @@ class ConfigurationExtensionTest {
         assertEquals(4, ((ExtendedConfiguration) cfg).invisible().value());
     }
 
-    @Test
-    void testFieldConfigurationStorageRevisionListenerHolder() throws Exception {
-        assertNotNull(fieldRevisionListenerHolder);
-
-        List<Long> revisions = new CopyOnWriteArrayList<>();
-
-        fieldRevisionListenerHolder.listenUpdateStorageRevision(revision -> {
-            revisions.add(revision);
-
-            return completedFuture(null);
-        });
-
-        fieldCfg.joinTimeout().update(1_000_000).get(1, SECONDS);
-
-        fieldCfg.joinTimeout().update(2_000_000).get(1, SECONDS);
-
-        assertEquals(2, revisions.size(), revisions::toString);
-
-        assertTrue(revisions.get(0) < revisions.get(1), revisions::toString);
-    }
-
-    @Test
-    void testParamConfigurationStorageRevisionListenerHolder(
-            @InjectConfiguration("mock.joinTimeout=100") DiscoveryConfiguration paramCfg,
-            @InjectRevisionListenerHolder ConfigurationStorageRevisionListenerHolder paramRevisionListenerHolder
-    ) throws Exception {
-        assertNotNull(paramRevisionListenerHolder);
-
-        assertSame(fieldRevisionListenerHolder, paramRevisionListenerHolder);
-
-        List<Long> revisions = new CopyOnWriteArrayList<>();
-
-        paramRevisionListenerHolder.listenUpdateStorageRevision(revision -> {
-            revisions.add(revision);
-
-            return completedFuture(null);
-        });
-
-        paramCfg.joinTimeout().update(1_000_000).get(1, SECONDS);
-
-        paramCfg.joinTimeout().update(2_000_000).get(1, SECONDS);
-
-        assertEquals(2, revisions.size(), revisions::toString);
-
-        assertTrue(revisions.get(0) < revisions.get(1), revisions::toString);
-    }
-
     /** Test UUID generation in mocks. */
     @Test
     public void testInjectInternalId(
             @InjectConfiguration(
-                    internalExtensions = ExtendedDiscoveryConfigurationSchema.class,
+                    extensions = ExtendedDiscoveryConfigurationSchema.class,
                     name = "test"
             ) DiscoveryConfiguration discoveryConfig
     ) {

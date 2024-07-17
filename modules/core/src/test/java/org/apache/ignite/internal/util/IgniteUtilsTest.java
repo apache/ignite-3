@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,16 +20,21 @@ package org.apache.ignite.internal.util;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
+import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
-import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,17 +50,14 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite for {@link IgniteUtils}.
  */
-class IgniteUtilsTest {
-    private final IgniteLogger log = Loggers.forClass(IgniteUtilsTest.class);
-
+class IgniteUtilsTest extends BaseIgniteAbstractTest {
     /**
      * Tests that all resources are closed by the {@link IgniteUtils#closeAll} even if {@link AutoCloseable#close} throws an exception.
      */
@@ -129,7 +131,7 @@ class IgniteUtilsTest {
 
     @Test
     void testGetUninterruptibly() throws Exception {
-        assertThat(getUninterruptibly(completedFuture(true)), equalTo(true));
+        assertThat(getUninterruptibly(trueCompletedFuture()), equalTo(true));
         assertThat(Thread.currentThread().isInterrupted(), equalTo(false));
 
         ExecutionException exception0 = assertThrows(
@@ -153,37 +155,13 @@ class IgniteUtilsTest {
             try {
                 Thread.currentThread().interrupt();
 
-                getUninterruptibly(completedFuture(null));
+                getUninterruptibly(nullCompletedFuture());
 
                 assertThat(Thread.currentThread().isInterrupted(), equalTo(true));
             } catch (ExecutionException e) {
                 throw new RuntimeException(e);
             }
         }).get(1, TimeUnit.SECONDS);
-    }
-
-    @Test
-    void testToHexStringByteBuffer() {
-        ByteBuffer buffer = ByteBuffer.allocate(8);
-
-        assertEquals("00000000ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).rewind()));
-        assertEquals("00000000aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).rewind()));
-
-        assertEquals("", toHexString(buffer.rewind().putLong(0xffffaaaaL)));
-        assertEquals("", toHexString(buffer.rewind().putLong(0xaaaabbbbL)));
-
-        assertEquals("ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).position(4)));
-        assertEquals("aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).position(4)));
-
-        assertEquals("00001111", toHexString(buffer.rewind().limit(8).putLong(0x1111ffffaaaaL).rewind().limit(4)));
-        assertEquals("00002222", toHexString(buffer.rewind().limit(8).putLong(0x2222aaaabbbbL).rewind().limit(4)));
-
-        buffer.rewind().limit(8);
-
-        // Checks slice.
-
-        assertEquals("ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).position(4).slice()));
-        assertEquals("aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).position(4).slice()));
     }
 
     @Test
@@ -208,5 +186,35 @@ class IgniteUtilsTest {
 
         verify(worker0, times(2)).join();
         verify(worker1, times(2)).join();
+    }
+
+    @Test
+    void testCopyStateToNormal() {
+        CompletableFuture<Number> result = new CompletableFuture<>();
+
+        completedFuture(2).whenComplete(copyStateTo(result));
+
+        assertThat(result, willBe(equalTo(2)));
+    }
+
+    @Test
+    void testCopyStateToException() {
+        CompletableFuture<Number> result = new CompletableFuture<>();
+
+        CompletableFuture.<Integer>failedFuture(new NumberFormatException()).whenComplete(copyStateTo(result));
+
+        assertThat(result, willThrow(NumberFormatException.class));
+    }
+
+    @Test
+    void testByteBufferToByteArray() {
+        ByteBuffer heapBuffer = ByteBuffer.wrap(new byte[]{0, 1, 2, 3, 4}, 1, 3).slice();
+        assertArrayEquals(new byte[] {1, 2, 3}, byteBufferToByteArray(heapBuffer));
+
+        ByteBuffer bigDirectBuffer = ByteBuffer.allocateDirect(5);
+        bigDirectBuffer.put(new byte[]{0, 1, 2, 3, 4});
+
+        ByteBuffer smallDirectBuffer = bigDirectBuffer.position(1).limit(4).slice();
+        assertArrayEquals(new byte[] {1, 2, 3}, byteBufferToByteArray(smallDirectBuffer));
     }
 }

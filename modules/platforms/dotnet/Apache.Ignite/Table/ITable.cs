@@ -33,6 +33,16 @@ namespace Apache.Ignite.Table
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }
 
         /// <summary>
+        /// Gets the key-value binary view.
+        /// </summary>
+        public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
+
+        /// <summary>
+        /// Gets the partition manager.
+        /// </summary>
+        public IPartitionManager PartitionManager { get; }
+
+        /// <summary>
         /// Gets the record view mapped to specified type <typeparamref name="T"/>.
         /// <para />
         /// Table columns will be mapped to properties or fields by name, ignoring case. Any fields are supported,
@@ -40,7 +50,19 @@ namespace Apache.Ignite.Table
         /// </summary>
         /// <typeparam name="T">Record type.</typeparam>
         /// <returns>Record view.</returns>
-        public IRecordView<T> GetRecordView<T>() // TODO: Custom mapping (IGNITE-16356)
-            where T : class;
+        public IRecordView<T> GetRecordView<T>()
+            where T : notnull;
+
+        /// <summary>
+        /// Gets the record view mapped to specified key and value types.
+        /// <para />
+        /// Table columns will be mapped to properties or fields by name, ignoring case. Any fields are supported,
+        /// including private and readonly.
+        /// </summary>
+        /// <typeparam name="TK">Key type.</typeparam>
+        /// <typeparam name="TV">Value type.</typeparam>
+        /// <returns>Key-value view.</returns>
+        public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
+            where TK : notnull;
     }
 }

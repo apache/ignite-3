@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -29,13 +30,18 @@ import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.util.FilteringIterator;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Runtime hash index based on on-heap hash map.
  */
 public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
+    /**
+     * Placeholder for keys containing NULL values. Used to skip rows with such keys, since condition NULL=NULL should not satisfy the
+     * filter.
+     */
+    private static final GroupKey NULL_KEY = new GroupKey(OBJECT_EMPTY_ARRAY);
+
     protected final ExecutionContext<RowT> ectx;
 
     private final ImmutableBitSet keys;
@@ -43,26 +49,37 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
     /** Rows. */
     private HashMap<GroupKey, List<RowT>> rows;
 
+    /** Allow NULL values. */
+    private final boolean allowNulls;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public RuntimeHashIndex(
             ExecutionContext<RowT> ectx,
-            ImmutableBitSet keys
+            ImmutableBitSet keys,
+            boolean allowNulls
     ) {
         this.ectx = ectx;
 
         assert !nullOrEmpty(keys);
 
         this.keys = keys;
+        this.allowNulls = allowNulls;
         rows = new HashMap<>();
     }
 
     /** {@inheritDoc} */
     @Override
     public void push(RowT r) {
-        List<RowT> eqRows = rows.computeIfAbsent(key(r), k -> new ArrayList<>());
+        GroupKey key = key(r);
+
+        if (key == NULL_KEY) {
+            return;
+        }
+
+        List<RowT> eqRows = rows.computeIfAbsent(key, k -> new ArrayList<>());
 
         eqRows.add(r);
     }
@@ -80,7 +97,13 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         GroupKey.Builder b = GroupKey.builder(keys.cardinality());
 
         for (Integer field : keys) {
-            b.add(ectx.rowHandler().get(field, r));
+            Object fieldVal = ectx.rowHandler().get(field, r);
+
+            if (fieldVal == null && !allowNulls) {
+                return NULL_KEY;
+            }
+
+            b.add(fieldVal);
         }
 
         return b.build();
@@ -110,10 +133,15 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         }
 
         /** {@inheritDoc} */
-        @NotNull
         @Override
         public Iterator<RowT> iterator() {
-            List<RowT> eqRows = rows.get(key(searchRow.get()));
+            GroupKey key = key(searchRow.get());
+
+            if (key == NULL_KEY) {
+                return Collections.emptyIterator();
+            }
+
+            List<RowT> eqRows = rows.get(key);
 
             if (eqRows == null) {
                 return Collections.emptyIterator();

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
-import java.util.List;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdSelectivity;
 import org.apache.calcite.rel.metadata.RelMdUtil;
@@ -28,10 +24,12 @@ import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
-import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
@@ -45,53 +43,6 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
     public static final RelMetadataProvider SOURCE =
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
-
-    /**
-     * GetSelectivity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public Double getSelectivity(AbstractIndexScan rel, RelMetadataQuery mq, RexNode predicate) {
-        if (predicate != null) {
-            return getSelectivity((ProjectableFilterableTableScan) rel, mq, predicate);
-        }
-
-        List<RexNode> lowerCond = rel.lowerCondition();
-        List<RexNode> upperCond = rel.upperCondition();
-
-        if (nullOrEmpty(lowerCond) && nullOrEmpty(upperCond)) {
-            return RelMdUtil.guessSelectivity(rel.condition());
-        }
-
-        double idxSelectivity = 1.0;
-        int len = nullOrEmpty(lowerCond) ? upperCond.size() : nullOrEmpty(upperCond) ? lowerCond.size() :
-                Math.max(lowerCond.size(), upperCond.size());
-
-        for (int i = 0; i < len; i++) {
-            RexCall lower = nullOrEmpty(lowerCond) || lowerCond.size() <= i ? null : (RexCall) lowerCond.get(i);
-            RexCall upper = nullOrEmpty(upperCond) || upperCond.size() <= i ? null : (RexCall) upperCond.get(i);
-
-            assert lower != null || upper != null;
-
-            if (lower != null && upper != null) {
-                idxSelectivity *= lower.op.kind == SqlKind.EQUALS ? .1 : .2;
-            } else {
-                idxSelectivity *= .35;
-            }
-        }
-
-        List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.condition());
-
-        if (!nullOrEmpty(lowerCond)) {
-            conjunctions.removeAll(lowerCond);
-        }
-        if (!nullOrEmpty(upperCond)) {
-            conjunctions.removeAll(upperCond);
-        }
-
-        RexNode remaining = RexUtil.composeConjunction(RexUtils.builder(rel), conjunctions, true);
-
-        return idxSelectivity * RelMdUtil.guessSelectivity(remaining);
-    }
 
     /**
      * GetSelectivity.
@@ -141,5 +92,29 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         }
 
         return mq.getSelectivity(rel.getInput(), rel.condition());
+    }
+
+    /** Guess cost multiplier regarding search bounds only. */
+    private static double guessCostMultiplier(SearchBounds bounds) {
+        if (bounds instanceof ExactBounds) {
+            return .1;
+        } else if (bounds instanceof RangeBounds) {
+            RangeBounds rangeBounds = (RangeBounds) bounds;
+
+            if (rangeBounds.condition() != null) {
+                return ((RexCall) rangeBounds.condition()).op.kind == SqlKind.EQUALS ? .1 : .2;
+            } else {
+                return .35;
+            }
+        } else if (bounds instanceof MultiBounds) {
+            MultiBounds multiBounds = (MultiBounds) bounds;
+
+            return multiBounds.bounds().stream()
+                    .mapToDouble(IgniteMdSelectivity::guessCostMultiplier)
+                    .max()
+                    .orElseThrow(AssertionError::new);
+        }
+
+        return 1.0;
     }
 }

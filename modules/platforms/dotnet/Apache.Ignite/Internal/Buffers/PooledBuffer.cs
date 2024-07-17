@@ -18,67 +18,78 @@
 namespace Apache.Ignite.Internal.Buffers
 {
     using System;
-    using System.Diagnostics;
-    using MessagePack;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Pooled byte buffer. Wraps a byte array rented from <see cref="ByteArrayPool"/>,
     /// returns it to the pool on <see cref="Dispose"/>.
     /// </summary>
-    internal readonly struct PooledBuffer : IDisposable
+    internal sealed class PooledBuffer : IDisposable
     {
         /// <summary>
         /// Default capacity for all buffers.
         /// </summary>
         public const int DefaultCapacity = 65_535;
 
-        /** Bytes. */
         private readonly byte[] _bytes;
 
-        /** Position. */
-        private readonly int _position;
-
-        /** Length. */
         private readonly int _length;
 
+        private bool _disposed;
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="PooledBuffer"/> struct.
+        /// Initializes a new instance of the <see cref="PooledBuffer"/> class.
         /// </summary>
         /// <param name="bytes">Bytes.</param>
         /// <param name="position">Data position within specified byte array.</param>
         /// <param name="length">Data length within specified byte array.</param>
-        public PooledBuffer(byte[] bytes, int position, int length)
+        /// <param name="metadata">Optional metadata.</param>
+        public PooledBuffer(byte[] bytes, int position, int length, object? metadata = null)
         {
             _bytes = bytes;
-            _position = position;
+            Position = position;
             _length = length;
+            Metadata = metadata;
         }
 
         /// <summary>
-        /// Gets a <see cref="MessagePackReader"/> for this buffer.
+        /// Finalizes an instance of the <see cref="PooledBuffer"/> class.
+        /// </summary>
+        ~PooledBuffer()
+        {
+            Dispose();
+        }
+
+        /// <summary>
+        /// Gets or sets the position.
+        /// </summary>
+        public int Position { get; set; }
+
+        /// <summary>
+        /// Gets or sets the optional metadata.
+        /// </summary>
+        public object? Metadata { get; set; }
+
+        /// <summary>
+        /// Gets a <see cref="MsgPackReader"/> for this buffer.
         /// </summary>
         /// <param name="offset">Offset.</param>
-        /// <returns><see cref="MessagePackReader"/> for this buffer.</returns>
-        public MessagePackReader GetReader(int offset = 0) => new(AsMemory(offset));
+        /// <returns><see cref="MsgPackReader"/> for this buffer.</returns>
+        public MsgPackReader GetReader(int offset = 0)
+        {
+            CheckDisposed();
+            return new MsgPackReader(_bytes.AsSpan(Position + offset, _length - offset - Position));
+        }
 
         /// <summary>
         /// Gets this buffer contents as memory.
         /// </summary>
         /// <param name="offset">Offset.</param>
         /// <returns>Memory of byte.</returns>
-        public ReadOnlyMemory<byte> AsMemory(int offset = 0) => new(_bytes, _position + offset, _length - offset);
-
-        /// <summary>
-        /// Gets a slice of the current buffer.
-        /// </summary>
-        /// <param name="offset">Offset.</param>
-        /// <returns>Sliced buffer.</returns>
-        public PooledBuffer Slice(int offset)
+        public ReadOnlyMemory<byte> AsMemory(int offset = 0)
         {
-            Debug.Assert(offset > 0, "offset > 0");
-            Debug.Assert(offset <= _length, "offset <= _length");
-
-            return new(_bytes, _position + offset, _length - offset);
+            CheckDisposed();
+            return new ReadOnlyMemory<byte>(_bytes, Position + offset, _length - offset - Position);
         }
 
         /// <summary>
@@ -86,7 +97,23 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             ByteArrayPool.Return(_bytes);
+            _disposed = true;
+
+            GC.SuppressFinalize(this);
+        }
+
+        private void CheckDisposed()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(PooledBuffer));
+            }
         }
     }
 }

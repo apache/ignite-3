@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -34,9 +34,16 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
  * Physical node for REDUCE phase of INTERSECT operator.
  */
 public class IgniteReduceIntersect extends IgniteIntersect implements IgniteReduceSetOp {
+    private static final String REL_TYPE_NAME = "ReduceIntersect";
+
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traitSet The traits of this rel.
+     * @param input Input relational expression.
+     * @param all Whether this operator should return all rows or only distinct rows.
+     * @param rowType Row type this expression produces.
      */
     public IgniteReduceIntersect(
             RelOptCluster cluster,
@@ -47,12 +54,16 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
     ) {
         super(cluster, traitSet, List.of(input), all);
 
+        // Since REDUCE.inputRowType. != REDUCE.outputRowType,
+        // we do not want for a call to SetOp::deriveRowType to take place,
+        // because it is going to produce incorrect result.
         this.rowType = rowType;
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteReduceIntersect(RelInput input) {
         this(
@@ -94,6 +105,12 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
     /** {@inheritDoc} */
     @Override
     public int aggregateFieldsCount() {
-        return rowType.getFieldCount() + 2 /* At least two fields required for count aggregation. */;
+        return getInput(0).getRowType().getFieldCount();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

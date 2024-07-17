@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapLong;
 import static org.apache.ignite.internal.util.GridUnsafe.getLongVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putLongVolatile;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;

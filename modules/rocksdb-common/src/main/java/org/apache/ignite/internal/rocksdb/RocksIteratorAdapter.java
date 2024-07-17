@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,8 +19,6 @@ package org.apache.ignite.internal.rocksdb;
 
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
 /**
@@ -43,7 +41,7 @@ public abstract class RocksIteratorAdapter<T> implements Cursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         it.close();
     }
 
@@ -54,12 +52,8 @@ public abstract class RocksIteratorAdapter<T> implements Cursor<T> {
 
         if (!isValid) {
             // check the status first. This operation is guaranteed to throw if an internal error has occurred during
-            // the iteration. Otherwise we've exhausted the data range.
-            try {
-                it.status();
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException(e);
-            }
+            // the iteration. Otherwise, we've exhausted the data range.
+            RocksUtils.checkIterator(it);
         }
 
         return isValid;

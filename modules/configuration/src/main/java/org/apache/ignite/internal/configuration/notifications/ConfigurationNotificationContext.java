@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -56,21 +55,25 @@ class ConfigurationNotificationContext {
     /**
      * Adds {@link ConfigurationContainer container}.
      *
-     * @param config Configuration.
-     * @param name Key in named list.
+     * @param oldNode Old node value.
+     * @param newNode New node value.
+     * @param oldName Old name of the node, only applicable to named list elements.
+     * @param newName New name of the node, only applicable to named list elements.
      */
-    void addContainer(DynamicConfiguration<InnerNode, ?> config, @Nullable String name) {
-        tailContainers = new ConfigurationContainer(config, name, tailContainers);
+    void addContainer(
+            @Nullable InnerNode oldNode,
+            @Nullable InnerNode newNode,
+            @Nullable String oldName,
+            @Nullable String newName
+    ) {
+        tailContainers = new ConfigurationContainer(tailContainers, oldNode, newNode, oldName, newName);
     }
 
     /**
      * Removes {@link ConfigurationContainer container}.
-     *
-     * @param config Configuration.
      */
-    void removeContainer(DynamicConfiguration<InnerNode, ?> config) {
+    void removeContainer() {
         assert tailContainers != null;
-        assert tailContainers.config == config;
 
         tailContainers = tailContainers.prev;
     }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,13 +18,13 @@
 package org.apache.ignite.table;
 
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.table.partition.PartitionManager;
 
 /**
- * Table provides different views (key-value vs record) and approaches (mapped-object vs binary) to reach the data.
+ * Table provides the different views (key-value vs record) and approaches (mapped-object vs binary) to access the data.
  *
- * <p>Binary table views might be useful in cases (but not limited) when user key-value classes are not in classpath and/or when
- * deserialization of whole table record is unwanted due to performance reasons.
+ * <p>Binary table views might be useful in the various scenarios, including when the user key-value classes 
+ * are not in classpath and/or when deserialization of the entire table record is undesirable for performance reasons.
  *
  * @see RecordView
  * @see KeyValueView
@@ -32,14 +32,21 @@ import org.jetbrains.annotations.NotNull;
  */
 public interface Table {
     /**
-     * Gets a name of the table.
+     * Gets a name of a table.
      *
      * @return Table name.
      */
-    @NotNull String name();
+    String name();
 
     /**
-     * Creates record view of table for record class mapper provided.
+     * Gets a partition manager of a table.
+     *
+     * @return Partition manager.
+     */
+    PartitionManager partitionManager();
+
+    /**
+     * Creates a record view of a table for the record class mapper provided.
      *
      * @param recMapper Record class mapper.
      * @param <R>       Record type.
@@ -48,14 +55,14 @@ public interface Table {
     <R> RecordView<R> recordView(Mapper<R> recMapper);
 
     /**
-     * Creates record view of table regarding the binary object concept.
+     * Creates a record view of a table for the binary object concept.
      *
      * @return Table record view.
      */
     RecordView<Tuple> recordView();
 
     /**
-     * Creates record view of table for record class provided.
+     * Creates a record view of a table for the record class provided.
      *
      * @param recCls Record class.
      * @param <R>    Record type.
@@ -66,7 +73,7 @@ public interface Table {
     }
 
     /**
-     * Creates key-value view of table for key-value class mappers provided.
+     * Creates a key-value view of a table for the key-value class mappers provided.
      *
      * @param keyMapper Key class mapper.
      * @param valMapper Value class mapper.
@@ -77,14 +84,14 @@ public interface Table {
     <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper);
 
     /**
-     * Creates key-value view of table regarding the binary object concept.
+     * Creates a key-value view of a table for the binary object concept.
      *
      * @return Table key-value view.
      */
     KeyValueView<Tuple, Tuple> keyValueView();
 
     /**
-     * Creates key-value view of table for key and value classes provided.
+     * Creates a key-value view of a table for the key and value classes provided.
      *
      * @param keyCls Key class.
      * @param valCls Value class.

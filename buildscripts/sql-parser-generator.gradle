@@ -1,0 +1,93 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply plugin: "com.intershop.gradle.javacc"
+apply plugin: 'idea'
+
+
+configurations {
+    calcite
+    fmpp
+}
+
+dependencies {
+    calcite(libs.calcite.core)
+    fmpp(libs.fmpp)
+}
+
+pmdMain {
+    excludes = [
+            "**/org/apache/ignite/internal/generated/query/calcite/sql/IgniteSqlParserImplTokenManager.java",
+            "**/org/apache/ignite/internal/generated/query/calcite/sql/IgniteSqlParserImpl.java"
+    ]
+}
+
+task copyFmppResources(type: Copy) {
+    from("$rootDir/modules/sql-engine/src/main/codegen")
+    into("$buildDir/codegen")
+}
+
+task extractParserTemplate(type: Copy) {
+    from({ zipTree(configurations.calcite.files[0]) }) {
+        include 'codegen/templates/Parser.jj'
+        include 'codegen/default_config.fmpp'
+    }
+    into("${buildDir}")
+
+    // TODO: IGNITE-21638 - remove this.
+    if (System.getProperty("os.name").toLowerCase().contains("windows"))
+        doNotTrackState("IGNITE-21638 - do not track state in extractParserTemplate on Windows")
+}
+
+task generateFmppSources() {
+    doLast {
+        ant.taskdef(name: "fmpp", classname: "fmpp.tools.AntTask", classpath: configurations.fmpp.asPath)
+
+        // Configuration info from http://fmpp.sourceforge.net/ant.html
+        ant.fmpp(configuration: "$buildDir/codegen/config.fmpp",
+                sourceRoot: "$buildDir/codegen/templates",
+                data: "tdd($buildDir/codegen/config.fmpp), " +
+                        "default: tdd($buildDir/codegen/default_config.fmpp)",
+                outputRoot: "$buildDir/generated-sources/fmpp")
+    }
+}
+
+
+javacc {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20227
+    javaCCVersion = '4.0'
+
+    configs {
+        template {
+            inputFile = file("${buildDir}/generated-sources/fmpp/javacc/Parser.jj")
+            outputDir = file("${buildDir}/generated-sources/javacc")
+            packageName = 'org.apache.ignite.internal.generated.query.calcite.sql'
+            lookahead = 1
+            staticParam = false
+        }
+    }
+}
+
+extractParserTemplate.dependsOn copyFmppResources
+generateFmppSources.dependsOn extractParserTemplate
+javaccTemplate.dependsOn generateFmppSources
+compileJava.dependsOn javaccTemplate
+javadocJar.dependsOn compileJava
+
+idea.module {
+    sourceDirs += file("${buildDir}/generated-sources/javacc")
+}

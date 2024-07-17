@@ -1,0 +1,17 @@
+N1
+SELECT 1
+---
+Fragment#0 root
+  executionNodes: [N1]
+  tree:
+    Values
+---
+
+N2
+SELECT 1
+---
+Fragment#0 root
+  executionNodes: [N2]
+  tree:
+    Values
+---

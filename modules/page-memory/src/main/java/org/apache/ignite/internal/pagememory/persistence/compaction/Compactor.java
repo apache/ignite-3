@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,10 +19,11 @@ package org.apache.ignite.internal.pagememory.persistence.compaction;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toCollection;
+import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -30,28 +31,31 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Entity to compact delta files.
  *
- * <p>To start compacting delta files, you need to notify about the appearance of {@link #addDeltaFiles(int) delta files ready for
- * compaction}. Then all delta files {@link FilePageStore#getDeltaFileToCompaction() ready for compaction} will be collected and merged with
- * their {@link FilePageStore file page stores} until all delta files are compacted.
+ * <p>When delta files appear, {@link #triggerCompaction()} must be called to initiate compaction. Then all delta files
+ * {@link FilePageStore#getDeltaFileToCompaction() ready for compaction} will be collected and merged with their
+ * {@link FilePageStore file page stores} until all delta files are compacted.
  *
  * <p>Delta file compaction process consists of:
  * <ul>
@@ -65,12 +69,22 @@ public class Compactor extends IgniteWorker {
 
     private final @Nullable ThreadPoolExecutor threadPoolExecutor;
 
-    private final AtomicInteger deltaFileCount = new AtomicInteger();
+    /** Guarded by {@link #mux}. */
+    private boolean addedDeltaFiles;
 
     private final FilePageStoreManager filePageStoreManager;
 
     /** Thread local with buffers for the compaction threads. */
-    private final ThreadLocal<ByteBuffer> threadBuf;
+    private static final ThreadLocal<ByteBuffer> THREAD_BUF = new ThreadLocal<>();
+
+    /** Partitions for which delta files are currently compacted. */
+    private final PartitionProcessingCounterMap partitionCompactionInProgressMap = new PartitionProcessingCounterMap();
+
+    /** Page size in bytes. */
+    private final int pageSize;
+
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
 
     /**
      * Creates new ignite worker with given parameters.
@@ -81,6 +95,7 @@ public class Compactor extends IgniteWorker {
      * @param threads Number of compaction threads.
      * @param filePageStoreManager File page store manager.
      * @param pageSize Page size in bytes.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      */
     public Compactor(
             IgniteLogger log,
@@ -88,19 +103,13 @@ public class Compactor extends IgniteWorker {
             @Nullable IgniteWorkerListener listener,
             ConfigurationValue<Integer> threads,
             FilePageStoreManager filePageStoreManager,
-            int pageSize
+            int pageSize,
+            FailureProcessor failureProcessor
     ) {
         super(log, igniteInstanceName, "compaction-thread", listener);
 
         this.filePageStoreManager = filePageStoreManager;
-
-        threadBuf = ThreadLocal.withInitial(() -> {
-            ByteBuffer tmpWriteBuf = ByteBuffer.allocateDirect(pageSize);
-
-            tmpWriteBuf.order(ByteOrder.nativeOrder());
-
-            return tmpWriteBuf;
-        });
+        this.failureProcessor = failureProcessor;
 
         int threadCount = threads.value();
 
@@ -116,9 +125,10 @@ public class Compactor extends IgniteWorker {
         } else {
             threadPoolExecutor = null;
         }
+
+        this.pageSize = pageSize;
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void body() throws InterruptedException {
         try {
@@ -134,7 +144,7 @@ public class Compactor extends IgniteWorker {
                 doCompaction();
             }
         } catch (Throwable t) {
-            // TODO: IGNITE-16899 By analogy with 2.0, we need to handle the exception (err) by the FailureProcessor
+            failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
 
             throw new IgniteInternalException(t);
         }
@@ -142,11 +152,13 @@ public class Compactor extends IgniteWorker {
 
     /**
      * Waiting for delta files.
+     *
+     * <p>It is expected that only the compactor will call it.
      */
     void waitDeltaFiles() {
         try {
             synchronized (mux) {
-                while (deltaFileCount.get() == 0 && !isCancelled()) {
+                while (!addedDeltaFiles && !isCancelled()) {
                     blockingSectionBegin();
 
                     try {
@@ -155,6 +167,8 @@ public class Compactor extends IgniteWorker {
                         blockingSectionEnd();
                     }
                 }
+
+                addedDeltaFiles = false;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -164,77 +178,97 @@ public class Compactor extends IgniteWorker {
     }
 
     /**
-     * Adds the number of delta files to compact.
-     *
-     * @param count Number of delta files.
+     * Triggers compacting for new delta files.
      */
-    public void addDeltaFiles(int count) {
-        assert count >= 0;
+    public void triggerCompaction() {
+        synchronized (mux) {
+            addedDeltaFiles = true;
 
-        if (count > 0) {
-            deltaFileCount.addAndGet(count);
-
-            synchronized (mux) {
-                mux.notifyAll();
-            }
+            mux.notifyAll();
         }
     }
 
     /**
      * Merges delta files with partition files.
+     *
+     * <p>Only compactor is expected to call this method. When compaction is {@link #triggerCompaction() triggered} by other threads, we
+     * need to compact all delta files for all partitions as long as the delta files exist. Delta files are compacted in batches (one for
+     * each partition file) into several threads, which evenly reduces the load for all partition files on reading pages, since when reading
+     * pages, we must look for it from the oldest delta file.
      */
     void doCompaction() {
-        // Let's collect one delta file for each partition.
-        Queue<IgniteBiTuple<FilePageStore, DeltaFilePageStoreIo>> queue = filePageStoreManager.allPageStores().stream()
-                .flatMap(List::stream)
-                .map(filePageStore -> {
-                    DeltaFilePageStoreIo deltaFileToCompaction = filePageStore.getDeltaFileToCompaction();
+        while (true) {
+            // Let's collect one delta file for each partition.
+            Queue<DeltaFileForCompaction> queue = filePageStoreManager.allPageStores()
+                    .map(groupPartitionFilePageStore -> {
+                        DeltaFilePageStoreIo deltaFileToCompaction = groupPartitionFilePageStore.pageStore().getDeltaFileToCompaction();
 
-                    return deltaFileToCompaction == null ? null : new IgniteBiTuple<>(filePageStore, deltaFileToCompaction);
-                })
-                .filter(Objects::nonNull)
-                .collect(toCollection(ConcurrentLinkedQueue::new));
+                        if (deltaFileToCompaction == null) {
+                            return null;
+                        }
 
-        assert !queue.isEmpty();
+                        return new DeltaFileForCompaction(groupPartitionFilePageStore, deltaFileToCompaction);
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(toCollection(ConcurrentLinkedQueue::new));
 
-        updateHeartbeat();
+            if (queue.isEmpty()) {
+                break;
+            }
 
-        int threads = threadPoolExecutor == null ? 1 : threadPoolExecutor.getMaximumPoolSize();
+            updateHeartbeat();
 
-        CompletableFuture<?>[] futures = new CompletableFuture[threads];
+            int threads = threadPoolExecutor == null ? 1 : threadPoolExecutor.getMaximumPoolSize();
 
-        for (int i = 0; i < threads; i++) {
-            CompletableFuture<?> future = futures[i] = new CompletableFuture<>();
+            CompletableFuture<?>[] futures = new CompletableFuture[threads];
 
-            Runnable merger = () -> {
-                IgniteBiTuple<FilePageStore, DeltaFilePageStoreIo> toMerge;
+            for (int i = 0; i < threads; i++) {
+                CompletableFuture<?> future = futures[i] = new CompletableFuture<>();
 
-                try {
-                    while ((toMerge = queue.poll()) != null) {
-                        mergeDeltaFileToMainFile(toMerge.get1(), toMerge.get2());
+                Runnable merger = () -> {
+                    DeltaFileForCompaction toMerge;
+
+                    try {
+                        while (true) {
+                            toMerge = queue.poll();
+
+                            if (toMerge == null) {
+                                break;
+                            }
+
+                            GroupPartitionId groupPartitionId = toMerge.groupPartitionFilePageStore.groupPartitionId();
+
+                            partitionCompactionInProgressMap.incrementPartitionProcessingCounter(groupPartitionId);
+
+                            try {
+                                mergeDeltaFileToMainFile(toMerge.groupPartitionFilePageStore.pageStore(), toMerge.deltaFilePageStoreIo);
+                            } finally {
+                                partitionCompactionInProgressMap.decrementPartitionProcessingCounter(groupPartitionId);
+                            }
+                        }
+                    } catch (Throwable ex) {
+                        future.completeExceptionally(ex);
                     }
-                } catch (Throwable ex) {
-                    future.completeExceptionally(ex);
+
+                    future.complete(null);
+                };
+
+                if (isCancelled()) {
+                    return;
                 }
 
-                future.complete(null);
-            };
-
-            if (isCancelled()) {
-                return;
+                if (threadPoolExecutor == null) {
+                    merger.run();
+                } else {
+                    threadPoolExecutor.execute(merger);
+                }
             }
 
-            if (threadPoolExecutor == null) {
-                merger.run();
-            } else {
-                threadPoolExecutor.execute(merger);
-            }
+            updateHeartbeat();
+
+            // Wait and check for errors.
+            CompletableFuture.allOf(futures).join();
         }
-
-        updateHeartbeat();
-
-        // Wait and check for errors.
-        CompletableFuture.allOf(futures).join();
     }
 
     /**
@@ -277,7 +311,6 @@ public class Compactor extends IgniteWorker {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void cancel() {
         if (log.isDebugEnabled()) {
@@ -311,12 +344,16 @@ public class Compactor extends IgniteWorker {
             DeltaFilePageStoreIo deltaFilePageStore
     ) throws Throwable {
         // Copy pages deltaFilePageStore -> filePageStore.
-        ByteBuffer buffer = threadBuf.get();
+        ByteBuffer buffer = getThreadLocalBuffer(pageSize);
 
         for (long pageIndex : deltaFilePageStore.pageIndexes()) {
             updateHeartbeat();
 
             if (isCancelled()) {
+                return;
+            }
+
+            if (filePageStore.isMarkedToDestroy()) {
                 return;
             }
 
@@ -338,6 +375,10 @@ public class Compactor extends IgniteWorker {
                 return;
             }
 
+            if (filePageStore.isMarkedToDestroy()) {
+                return;
+            }
+
             filePageStore.write(pageId, buffer.rewind(), true);
         }
 
@@ -345,6 +386,10 @@ public class Compactor extends IgniteWorker {
         updateHeartbeat();
 
         if (isCancelled()) {
+            return;
+        }
+
+        if (filePageStore.isMarkedToDestroy()) {
             return;
         }
 
@@ -357,14 +402,62 @@ public class Compactor extends IgniteWorker {
             return;
         }
 
-        boolean removed = filePageStore.removeDeltaFile(deltaFilePageStore);
-
-        assert removed : filePageStore.filePath();
+        if (filePageStore.isMarkedToDestroy()) {
+            return;
+        }
 
         deltaFilePageStore.markMergedToFilePageStore();
 
         deltaFilePageStore.stop(true);
 
-        deltaFileCount.decrementAndGet();
+        boolean removed = filePageStore.removeDeltaFile(deltaFilePageStore);
+
+        assert removed : filePageStore.filePath();
+    }
+
+    /**
+     * Prepares the compactor to destroy a partition.
+     *
+     * <p>If the partition compaction is in progress, then we will wait until it is completed so that there are no errors when we want to
+     * destroy the partition file and its delta file, and at this time its compaction occurs.
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @return Future at the complete of which we can delete the partition file and its delta files.
+     */
+    public CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
+        CompletableFuture<Void> partitionProcessingFuture = partitionCompactionInProgressMap.getProcessedPartitionFuture(groupPartitionId);
+
+        return partitionProcessingFuture == null ? nullCompletedFuture() : partitionProcessingFuture;
+    }
+
+    private static ByteBuffer getThreadLocalBuffer(int pageSize) {
+        ByteBuffer buffer = THREAD_BUF.get();
+
+        if (buffer == null) {
+            buffer = ByteBuffer.allocateDirect(pageSize);
+
+            buffer.order(ByteOrder.nativeOrder());
+
+            THREAD_BUF.set(buffer);
+        }
+
+        return buffer;
+    }
+
+    /**
+     * Delta file for compaction.
+     */
+    private static class DeltaFileForCompaction {
+        private final GroupPartitionPageStore<FilePageStore> groupPartitionFilePageStore;
+
+        private final DeltaFilePageStoreIo deltaFilePageStoreIo;
+
+        private DeltaFileForCompaction(
+                GroupPartitionPageStore<FilePageStore> groupPartitionFilePageStore,
+                DeltaFilePageStoreIo deltaFilePageStoreIo
+        ) {
+            this.groupPartitionFilePageStore = groupPartitionFilePageStore;
+            this.deltaFilePageStoreIo = deltaFilePageStoreIo;
+        }
     }
 }

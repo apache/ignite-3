@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Tree index interface.
@@ -30,7 +31,9 @@ public interface TreeIndex<R> {
      *
      * @param lower Lower bound.
      * @param upper Upper bound.
+     * @param lowerInclude Inclusive lower bound.
+     * @param upperInclude Inclusive upper bound.
      * @return Cursor over the rows within bounds.
      */
-    Cursor<R> find(R lower, R upper);
+    Cursor<R> find(@Nullable R lower, @Nullable R upper, boolean lowerInclude, boolean upperInclude);
 }

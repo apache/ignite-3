@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,27 +17,18 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-
 /**
- * This exception is thrown when a lock cannot be acquired due to conflict.
+ * This exception is thrown when a lock cannot be acquired, released or downgraded.
  */
-public class LockException extends IgniteInternalCheckedException {
+public class LockException extends TransactionInternalCheckedException {
     /**
-     * The constructor.
+     * Creates a new instance of LockException with the given message.
      *
-     * @param msg The message.
+     * @param code Full error code. {{@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
+     *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_TIMEOUT_ERR},
+     * @param msg The detail message.
      */
-    public LockException(String msg) {
-        super(msg);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param waiter Conflicting waiter.
-     */
-    public LockException(Waiter waiter) {
-        super("Failed to acquire a lock due to a conflict with: " + waiter);
+    public LockException(int code, String msg) {
+        super(code, msg);
     }
 }

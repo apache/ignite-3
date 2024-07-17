@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,15 +17,21 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -48,7 +54,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                 assertEquals(1, tables.size());
 
                 Table table = tables.get(0);
-                assertEquals(String.format("%s.%s", SCHEMA_NAME, TABLE_NAME), table.name());
+                assertEquals(TABLE_NAME, table.name());
 
                 var tuple = Tuple.create().set(COLUMN_KEY, 1).set(COLUMN_VAL, "Hello");
                 var keyTuple = Tuple.create().set(COLUMN_KEY, 1);
@@ -68,8 +74,26 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
                 List<ClusterNode> nodes = client.connections();
                 assertEquals(1, nodes.size());
-                assertThat(nodes.get(0).name(), startsWith("ItThinClientConnectionTest_null_"));
+                assertThat(nodes.get(0).name(), startsWith("itcct_n_"));
             }
         }
+    }
+
+    @SuppressWarnings("resource")
+    @Test
+    void testAccessDroppedTableThrowsTableDoesNotExistsError() {
+        IgniteSql sql = client().sql();
+        sql.execute(null, "CREATE TABLE IF NOT EXISTS DELME (key INTEGER PRIMARY KEY)");
+
+        var table = client().tables().table("DELME");
+        sql.execute(null, "DROP TABLE DELME");
+
+        IgniteException ex = assertThrows(IgniteException.class, () -> table.recordView(Integer.class).delete(null, 1));
+        assertEquals(TABLE_NOT_FOUND_ERR, ex.code(), ex.getMessage());
+    }
+
+    @Test
+    void clusterName() {
+        assertThat(((TcpIgniteClient) client()).clusterName(), is("cluster"));
     }
 }

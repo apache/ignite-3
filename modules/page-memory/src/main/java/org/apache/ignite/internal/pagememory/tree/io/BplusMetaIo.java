@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,19 +18,18 @@
 package org.apache.ignite.internal.pagememory.tree.io;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getUnsignedByte;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putUnsignedByte;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Abstract IO routines for B+Tree meta pages.
- *
- * <p>NOTE: If there is a need to store additional data, then they should be after the maximum level offset, and also override method {@link
- * #getMaxLevels}.
  */
 public abstract class BplusMetaIo extends PageIo {
     /** Offset where the number of levels is stored. */
@@ -38,6 +37,15 @@ public abstract class BplusMetaIo extends PageIo {
 
     /** Offset where each level's page ID starts to be stored. */
     private static final int REFS_OFFSET = LVLS_OFFSET + Byte.BYTES;
+
+    /** Size of the link in bytes. */
+    private static final int LINK_SIZE = PARTITIONLESS_LINK_SIZE_BYTES;
+
+    /** Maximum level of the tree. */
+    private static final int MAX_LEVEL = 32;
+
+    /** Size of the B+tree common meta in bytes. */
+    protected static final int COMMON_META_END = REFS_OFFSET + (LINK_SIZE * MAX_LEVEL);
 
     /**
      * Constructor.
@@ -54,12 +62,11 @@ public abstract class BplusMetaIo extends PageIo {
      *
      * @param pageAdrr Page address.
      * @param rootId Root page ID.
-     * @param pageSize Page size.
      */
-    public void initRoot(long pageAdrr, long rootId, int pageSize) {
+    public void initRoot(long pageAdrr, long rootId) {
         assertPageType(pageAdrr);
 
-        setLevelsCount(pageAdrr, 1, pageSize);
+        setLevelsCount(pageAdrr, 1);
         setFirstPageId(pageAdrr, 0, rootId);
     }
 
@@ -73,24 +80,13 @@ public abstract class BplusMetaIo extends PageIo {
     }
 
     /**
-     * Returns max levels possible for this page size.
-     *
-     * @param pageSize Page size.
-     */
-    protected int getMaxLevels(int pageSize) {
-        // Number of levels is an unsigned byte, so 0xff.
-        return Math.min(0xff, (pageSize - REFS_OFFSET) / 8);
-    }
-
-    /**
      * Sets number of levels in this tree.
      *
      * @param pageAddr Page address.
      * @param lvls Number of levels in this tree.
-     * @param pageSize Page size.
      */
-    private void setLevelsCount(long pageAddr, int lvls, int pageSize) {
-        assert lvls >= 0 && lvls <= getMaxLevels(pageSize) : lvls;
+    private void setLevelsCount(long pageAddr, int lvls) {
+        assert lvls >= 0 && lvls <= MAX_LEVEL : lvls;
 
         putUnsignedByte(pageAddr, LVLS_OFFSET, lvls);
 
@@ -103,7 +99,7 @@ public abstract class BplusMetaIo extends PageIo {
      * @param lvl Level.
      */
     private int offset(int lvl) {
-        return lvl * 8 + REFS_OFFSET;
+        return lvl * LINK_SIZE + REFS_OFFSET;
     }
 
     /**
@@ -111,9 +107,10 @@ public abstract class BplusMetaIo extends PageIo {
      *
      * @param pageAddr Page address.
      * @param lvl Level.
+     * @param partId Partition ID.
      */
-    public long getFirstPageId(long pageAddr, int lvl) {
-        return getLong(pageAddr, offset(lvl));
+    public long getFirstPageId(long pageAddr, int lvl, int partId) {
+        return readPartitionless(partId, pageAddr, offset(lvl));
     }
 
     /**
@@ -126,9 +123,9 @@ public abstract class BplusMetaIo extends PageIo {
     private void setFirstPageId(long pageAddr, int lvl, long pageId) {
         assert lvl >= 0 && lvl < getLevelsCount(pageAddr) : lvl;
 
-        putLong(pageAddr, offset(lvl), pageId);
+        writePartitionless(pageAddr + offset(lvl), pageId);
 
-        assert getFirstPageId(pageAddr, lvl) == pageId;
+        assert getFirstPageId(pageAddr, lvl, partitionId(pageId)) == pageId;
     }
 
     /**
@@ -149,14 +146,13 @@ public abstract class BplusMetaIo extends PageIo {
      *
      * @param pageAddr Page address.
      * @param rootPageId New root page ID.
-     * @param pageSize Page size.
      */
-    public void addRoot(long pageAddr, long rootPageId, int pageSize) {
+    public void addRoot(long pageAddr, long rootPageId) {
         assertPageType(pageAddr);
 
         int lvl = getLevelsCount(pageAddr);
 
-        setLevelsCount(pageAddr, lvl + 1, pageSize);
+        setLevelsCount(pageAddr, lvl + 1);
         setFirstPageId(pageAddr, lvl, rootPageId);
     }
 
@@ -164,20 +160,18 @@ public abstract class BplusMetaIo extends PageIo {
      * Cuts (decrease tree height) root.
      *
      * @param pageAddr Page address.
-     * @param pageSize Page size.
      */
-    public void cutRoot(long pageAddr, int pageSize) {
+    public void cutRoot(long pageAddr) {
         assertPageType(pageAddr);
 
         int lvl = getRootLevel(pageAddr);
 
-        setLevelsCount(pageAddr, lvl, pageSize); // Decrease tree height.
+        setLevelsCount(pageAddr, lvl); // Decrease tree height.
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-16350
+        // TODO https://issues.apache.org/jira/browse/IGNITE-16350
         sb.app("BPlusMeta [\n\tlevelsCnt=").app(getLevelsCount(addr))
                 .app(",\n\trootLvl=").app(getRootLevel(addr))
                 .app("\n]");

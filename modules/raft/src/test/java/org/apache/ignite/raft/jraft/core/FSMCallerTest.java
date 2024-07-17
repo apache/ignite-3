@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,15 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -32,6 +39,8 @@ import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.NodeId;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
@@ -52,12 +61,8 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @ExtendWith(MockitoExtension.class)
-public class FSMCallerTest {
+public class FSMCallerTest extends BaseIgniteAbstractTest {
     private FSMCallerImpl fsmCaller;
     private FSMCallerOptions opts;
     @Mock
@@ -73,6 +78,9 @@ public class FSMCallerTest {
 
     private ExecutorService executor;
 
+    private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
+            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+
     @BeforeEach
     public void setup() {
         this.fsmCaller = new FSMCallerImpl();
@@ -83,17 +91,20 @@ public class FSMCallerTest {
         opts = new FSMCallerOptions();
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getOptions()).thenReturn(options);
+        Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("foo", new PeerId("bar")));
         opts.setNode(this.node);
         opts.setFsm(this.fsm);
         opts.setLogManager(this.logManager);
         opts.setBootstrapId(new LogId(10, 1));
         opts.setClosureQueue(this.closureQueue);
         opts.setRaftMessagesFactory(new RaftMessagesFactory());
-        opts.setGroupId("TestSrv");
-        opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("TestFSMDisruptor",
-            1024,
-            () -> new FSMCallerImpl.ApplyTask(),
-            1));
+        opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("test", "TestFSMDisruptor",
+                1024,
+                () -> new FSMCallerImpl.ApplyTask(),
+                1,
+                false,
+                false,
+                null));
         assertTrue(this.fsmCaller.init(opts));
     }
 

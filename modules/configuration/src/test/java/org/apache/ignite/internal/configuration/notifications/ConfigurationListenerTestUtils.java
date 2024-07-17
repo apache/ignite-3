@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.configuration.notifications;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -38,12 +37,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
  * Utility class for testing configuration listeners.
  */
 class ConfigurationListenerTestUtils {
-    /**
-     * Private constructor.
-     */
-    private ConfigurationListenerTestUtils() {
-    }
-
     /**
      * Returns consumer who does nothing.
      */
@@ -65,7 +58,7 @@ class ConfigurationListenerTestUtils {
                 return failedFuture(t);
             }
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         };
     }
 
@@ -135,7 +128,7 @@ class ConfigurationListenerTestUtils {
                     return failedFuture(t);
                 }
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         };
     }
@@ -151,14 +144,14 @@ class ConfigurationListenerTestUtils {
         return new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
-            public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<T> ctx) {
+            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<T> ctx) {
                 try {
                     consumer.accept(ctx);
                 } catch (Throwable t) {
                     return failedFuture(t);
                 }
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         };
     }
@@ -181,7 +174,7 @@ class ConfigurationListenerTestUtils {
                     return failedFuture(t);
                 }
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
         };
     }
@@ -204,21 +197,8 @@ class ConfigurationListenerTestUtils {
                     return failedFuture(t);
                 }
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
-        };
-    }
-
-    /**
-     * Returns configuration storage revision change listener.
-     *
-     * @param consumer Consumer of storage revision change.
-     */
-    static ConfigurationStorageRevisionListener configStorageRevisionListener(LongConsumer consumer) {
-        return (newStorageRevision) -> {
-            consumer.accept(newStorageRevision);
-
-            return completedFuture(null);
         };
     }
 

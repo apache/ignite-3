@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,8 +19,10 @@ package org.apache.ignite.internal.client;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClientAddressFinder;
+import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,29 +45,48 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Reconnect throttling retries. */
     private final int reconnectThrottlingRetries;
 
+    /** Reconnect interval, in milliseconds. */
+    private final long reconnectInterval;
+
     /** Async continuation executor. */
     private final Executor asyncContinuationExecutor;
 
     /** Heartbeat interval. */
     private final long heartbeatInterval;
 
+    /** Heartbeat timout. */
+    private final long heartbeatTimeout;
+
     /** Retry policy. */
     private final RetryPolicy retryPolicy;
 
     private final LoggerFactory loggerFactory;
 
+    private final SslConfiguration sslConfiguration;
+
+    private final boolean metricsEnabled;
+
+    private final @Nullable  IgniteClientAuthenticator authenticator;
+
+    private final long operationTimeout;
+
     /**
      * Constructor.
      *
      * @param addressFinder Address finder.
-     * @param addresses  Addresses.
+     * @param addresses Addresses.
      * @param connectTimeout Socket connect timeout.
      * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
      * @param reconnectThrottlingRetries Reconnect throttling retries.
+     * @param reconnectInterval Reconnect throttling retries.
      * @param asyncContinuationExecutor Async continuation executor.
      * @param heartbeatInterval Heartbeat message interval.
+     * @param heartbeatTimeout Heartbeat message timeout.
      * @param retryPolicy Retry policy.
-     * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when needed.
+     * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when
+     *         needed.
+     * @param metricsEnabled Whether metrics are enabled.
+     * @param authenticator Authenticator.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -73,11 +94,16 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long connectTimeout,
             long reconnectThrottlingPeriod,
             int reconnectThrottlingRetries,
+            long reconnectInterval,
             Executor asyncContinuationExecutor,
             long heartbeatInterval,
-            RetryPolicy retryPolicy,
-            LoggerFactory loggerFactory
-    ) {
+            long heartbeatTimeout,
+            @Nullable RetryPolicy retryPolicy,
+            @Nullable LoggerFactory loggerFactory,
+            @Nullable SslConfiguration sslConfiguration,
+            boolean metricsEnabled,
+            @Nullable IgniteClientAuthenticator authenticator,
+            long operationTimeout) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -86,10 +112,16 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.connectTimeout = connectTimeout;
         this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
         this.reconnectThrottlingRetries = reconnectThrottlingRetries;
+        this.reconnectInterval = reconnectInterval;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.heartbeatInterval = heartbeatInterval;
+        this.heartbeatTimeout = heartbeatTimeout;
         this.retryPolicy = retryPolicy;
         this.loggerFactory = loggerFactory;
+        this.sslConfiguration = sslConfiguration;
+        this.metricsEnabled = metricsEnabled;
+        this.authenticator = authenticator;
+        this.operationTimeout = operationTimeout;
     }
 
     /** {@inheritDoc} */
@@ -124,6 +156,12 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     /** {@inheritDoc} */
     @Override
+    public long reconnectInterval() {
+        return reconnectInterval;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @Nullable Executor asyncContinuationExecutor() {
         return asyncContinuationExecutor;
     }
@@ -136,6 +174,12 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     /** {@inheritDoc} */
     @Override
+    public long heartbeatTimeout() {
+        return heartbeatTimeout;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @Nullable LoggerFactory loggerFactory() {
         return loggerFactory;
     }
@@ -144,5 +188,28 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public @Nullable RetryPolicy retryPolicy() {
         return retryPolicy;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable SslConfiguration ssl() {
+        return sslConfiguration;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean metricsEnabled() {
+        return metricsEnabled;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteClientAuthenticator authenticator() {
+        return authenticator;
+    }
+
+    @Override
+    public long operationTimeout() {
+        return operationTimeout;
     }
 }

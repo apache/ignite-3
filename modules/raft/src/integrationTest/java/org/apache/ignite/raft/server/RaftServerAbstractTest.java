@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,31 +17,46 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract test for raft server.
  */
-abstract class RaftServerAbstractTest {
-    protected static final IgniteLogger LOG = Loggers.forClass(RaftServerAbstractTest.class);
-
+@ExtendWith(ConfigurationExtension.class)
+abstract class RaftServerAbstractTest extends IgniteAbstractTest {
     protected static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /**
      * Server port offset.
      */
     protected static final int PORT = 20010;
+
+    /** Raft configuration. */
+    @InjectConfiguration
+    protected RaftConfiguration raftConfiguration;
 
     /** Test info. */
     TestInfo testInfo;
@@ -55,7 +70,7 @@ abstract class RaftServerAbstractTest {
 
     @AfterEach
     protected void after() throws Exception {
-        clusterServices.forEach(ClusterService::stop);
+        assertThat(stopAsync(new ComponentContext(), clusterServices), willCompleteSuccessfully());
     }
 
     /**
@@ -73,11 +88,16 @@ abstract class RaftServerAbstractTest {
         );
 
         if (start) {
-            network.start();
+            assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         clusterServices.add(network);
 
         return network;
+    }
+
+    protected JraftServerImpl jraftServer(int idx, ClusterService service, NodeOptions opts) {
+        Path dataPath = workDir.resolve("node" + idx);
+        return TestJraftServerFactory.create(service, dataPath, raftConfiguration, opts);
     }
 }

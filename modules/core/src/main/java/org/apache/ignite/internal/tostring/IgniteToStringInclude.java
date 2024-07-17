@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,15 +22,15 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 
 /**
- * Class or field annotated with IgniteToStringInclude claims the element <b>should</b> be included in {@code toString()} output. This
- * annotation is used to override the default exclusion policy.
+ * Class, field or method annotated with IgniteToStringInclude claims the element <b>should</b> be included in {@code toString()} output.
+ * This annotation is used to override the default exclusion policy.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.TYPE})
+@Target({ElementType.FIELD, ElementType.TYPE, ElementType.METHOD})
 public @interface IgniteToStringInclude {
     /**
      * A flag indicating if sensitive information stored in the field or fields of the class. Such information will be included to {@code

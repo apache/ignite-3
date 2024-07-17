@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,9 +20,13 @@ package org.apache.ignite.raft.jraft.core;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.raft.jraft.core.ItNodeTest.waitForTopologyOnEveryNode;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,11 +49,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.CliService;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -59,9 +65,10 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.option.CliOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
+import org.apache.ignite.raft.jraft.test.TestPeer;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,7 +79,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Jraft cli tests.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItCliServiceTest {
+public class ItCliServiceTest extends BaseIgniteAbstractTest {
     /**
      * The logger.
      */
@@ -81,6 +88,8 @@ public class ItCliServiceTest {
     private static final int LEARNER_PORT_STEP = 100;
 
     private TestCluster cluster;
+
+    private ClusterService clientSvc;
 
     private final String groupId = "CliServiceTest";
 
@@ -95,52 +104,53 @@ public class ItCliServiceTest {
     public void setup(TestInfo testInfo, @WorkDirectory Path dataPath) throws Exception {
         LOG.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getDisplayName());
 
-        List<PeerId> peers = TestUtils.generatePeers(3);
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
 
-        LinkedHashSet<PeerId> learners = new LinkedHashSet<>();
+        LinkedHashSet<TestPeer> learners = new LinkedHashSet<>();
 
         // 2 learners
         for (int i = 0; i < 2; i++) {
-            learners.add(new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + LEARNER_PORT_STEP + i));
+            learners.add(new TestPeer(testInfo, TestUtils.INIT_PORT + LEARNER_PORT_STEP + i));
         }
 
         cluster = new TestCluster(groupId, dataPath.toString(), peers, learners, ELECTION_TIMEOUT_MILLIS, testInfo);
-        for (PeerId peer : peers) {
-            cluster.start(peer.getEndpoint());
+        for (TestPeer peer : peers) {
+            cluster.start(peer);
         }
 
-        for (PeerId peer : learners) {
+        for (TestPeer peer : learners) {
             cluster.startLearner(peer);
         }
 
-        cluster.waitLeader();
-        cluster.ensureLeader(cluster.getLeader());
+        cluster.ensureLeader(cluster.waitAndGetLeader());
 
         cliService = new CliServiceImpl();
-        conf = new Configuration(peers, learners);
+        conf = new Configuration(
+                peers.stream().map(TestPeer::getPeerId).collect(toList()),
+                learners.stream().map(TestPeer::getPeerId).collect(toList())
+        );
 
         CliOptions opts = new CliOptions();
         clientExecutor = JRaftUtils.createClientExecutor(opts, "client");
         opts.setClientExecutor(clientExecutor);
 
         List<NetworkAddress> addressList = peers.stream()
-                .map(PeerId::getEndpoint)
-                .map(JRaftUtils::addressFromEndpoint)
+                .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
                 .collect(toList());
 
-        ClusterService clientSvc = ClusterServiceTestUtils.clusterService(
+        clientSvc = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 TestUtils.INIT_PORT - 1,
                 new StaticNodeFinder(addressList)
         );
 
-        clientSvc.start();
+        assertThat(clientSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc) {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientSvc.stop();
+                assertThat(clientSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         };
 
@@ -150,6 +160,7 @@ public class ItCliServiceTest {
 
     @AfterEach
     public void teardown(TestInfo testInfo) throws Exception {
+        LOG.info(">>>>>>>>>>>>>>> Teardown started: " + testInfo.getDisplayName());
         cliService.shutdown();
         cluster.stopAll();
         ExecutorServiceHelper.shutdownAndAwaitTermination(clientExecutor);
@@ -174,8 +185,7 @@ public class ItCliServiceTest {
         }
         assertNotNull(targetPeer);
         assertTrue(cliService.transferLeader(groupId, conf, targetPeer).isOk());
-        cluster.waitLeader();
-        assertEquals(targetPeer, cluster.getLeader().getNodeId().getPeerId());
+        assertEquals(targetPeer, cluster.waitAndGetLeader().getNodeId().getPeerId());
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -190,27 +200,27 @@ public class ItCliServiceTest {
     }
 
     @Test
-    public void testLearnerServices() throws Exception {
-        PeerId learner3 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + LEARNER_PORT_STEP + 3);
+    public void testLearnerServices(TestInfo testInfo) throws Exception {
+        TestPeer learner3 = new TestPeer(testInfo, TestUtils.INIT_PORT + LEARNER_PORT_STEP + 3);
         assertTrue(cluster.startLearner(learner3));
         sendTestTaskAndWait(cluster.getLeader(), 0);
-        cluster.ensureSame(addr -> addr.equals(learner3.getEndpoint()));
+        cluster.ensureSame(id -> id.equals(learner3.getPeerId()));
 
         for (MockStateMachine fsm : cluster.getFsms()) {
-            if (!fsm.getAddress().equals(learner3.getEndpoint())) {
+            if (!fsm.getPeerId().equals(learner3.getPeerId())) {
                 assertEquals(10, fsm.getLogs().size());
             }
         }
 
-        assertEquals(0, cluster.getFsmByPeer(learner3).getLogs().size());
+        assertEquals(0, cluster.getFsmByPeer(learner3.getPeerId()).getLogs().size());
         List<PeerId> oldLearners = new ArrayList<PeerId>(conf.getLearners());
         assertEquals(oldLearners, cliService.getLearners(groupId, conf));
         assertEquals(oldLearners, cliService.getAliveLearners(groupId, conf));
 
         // Add learner3
-        cliService.addLearners(groupId, conf, Collections.singletonList(learner3));
+        cliService.addLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()));
 
-        assertTrue(waitForCondition(() -> cluster.getFsmByPeer(learner3).getLogs().size() == 10, 5_000));
+        assertTrue(waitForCondition(() -> cluster.getFsmByPeer(learner3.getPeerId()).getLogs().size() == 10, 5_000));
 
         sendTestTaskAndWait(cluster.getLeader(), 0);
 
@@ -221,66 +231,83 @@ public class ItCliServiceTest {
         }
 
         List<PeerId> newLearners = new ArrayList<>(oldLearners);
-        newLearners.add(learner3);
+        newLearners.add(learner3.getPeerId());
         assertEquals(newLearners, cliService.getLearners(groupId, conf));
         assertEquals(newLearners, cliService.getAliveLearners(groupId, conf));
 
         // Remove  3
-        cliService.removeLearners(groupId, conf, Collections.singletonList(learner3));
+        cliService.removeLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()));
         sendTestTaskAndWait(cluster.getLeader(), 0);
 
-        cluster.ensureSame(addr -> addr.equals(learner3.getEndpoint()));
+        cluster.ensureSame(id -> id.equals(learner3.getPeerId()));
 
         for (MockStateMachine fsm : cluster.getFsms()) {
-            if (!fsm.getAddress().equals(learner3.getEndpoint())) {
+            if (!fsm.getPeerId().equals(learner3.getPeerId())) {
                 assertEquals(30, fsm.getLogs().size());
             }
         }
 
         // Latest 10 logs are not replicated to learner3, because it's removed.
-        assertEquals(20, cluster.getFsmByPeer(learner3).getLogs().size());
+        assertEquals(20, cluster.getFsmByPeer(learner3.getPeerId()).getLogs().size());
         assertEquals(oldLearners, cliService.getLearners(groupId, conf));
         assertEquals(oldLearners, cliService.getAliveLearners(groupId, conf));
 
         // Set learners into [learner3]
-        cliService.resetLearners(groupId, conf, Collections.singletonList(learner3));
+        cliService.resetLearners(groupId, conf, Collections.singletonList(learner3.getPeerId()));
 
-        assertTrue(waitForCondition(() -> cluster.getFsmByPeer(learner3).getLogs().size() == 30, 5_000));
+        assertTrue(waitForCondition(() -> cluster.getFsmByPeer(learner3.getPeerId()).getLogs().size() == 30, 5_000));
 
         sendTestTaskAndWait(cluster.getLeader(), 0);
 
-        cluster.ensureSame(addr -> oldLearners.contains(new PeerId(addr, 0)));
+        cluster.ensureSame(oldLearners::contains);
 
         // Latest 10 logs are not replicated to learner1 and learner2, because they were removed by resetting learners set.
         for (MockStateMachine fsm : cluster.getFsms()) {
-            if (!oldLearners.contains(new PeerId(fsm.getAddress(), 0))) {
+            if (!oldLearners.contains(fsm.getPeerId())) {
                 assertEquals(40, fsm.getLogs().size());
             } else {
                 assertEquals(30, fsm.getLogs().size());
             }
         }
 
-        assertEquals(Collections.singletonList(learner3), cliService.getLearners(groupId, conf));
-        assertEquals(Collections.singletonList(learner3), cliService.getAliveLearners(groupId, conf));
+        assertEquals(Collections.singletonList(learner3.getPeerId()), cliService.getLearners(groupId, conf));
+        assertEquals(Collections.singletonList(learner3.getPeerId()), cliService.getAliveLearners(groupId, conf));
 
         // Stop learner3
-        cluster.stop(learner3.getEndpoint());
+        cluster.stop(learner3.getPeerId());
         sleep(1000);
-        assertEquals(Collections.singletonList(learner3), cliService.getLearners(groupId, conf));
+        assertEquals(Collections.singletonList(learner3.getPeerId()), cliService.getLearners(groupId, conf));
         assertTrue(cliService.getAliveLearners(groupId, conf).isEmpty());
+
+        TestPeer learner4 = new TestPeer(testInfo, TestUtils.INIT_PORT + LEARNER_PORT_STEP + 4);
+        assertTrue(cluster.startLearner(learner4));
+
+        cliService.addLearners(groupId, conf, Collections.singletonList(learner4.getPeerId()));
+        sleep(1000);
+        assertEquals(1, cliService.getAliveLearners(groupId, conf).size());
+        assertTrue(cliService.learner2Follower(groupId, conf, learner4.getPeerId()).isOk());
+
+        sleep(1000);
+        List<PeerId> currentLearners = cliService.getAliveLearners(groupId, conf);
+        assertFalse(currentLearners.contains(learner4.getPeerId()));
+
+        List<PeerId> currentFollowers = cliService.getPeers(groupId, conf);
+        assertTrue(currentFollowers.contains(learner4.getPeerId()));
+
+        cluster.stop(learner4.getPeerId());
     }
 
     @Test
-    public void testAddPeerRemovePeer() throws Exception {
-        PeerId peer3 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 3);
-        assertTrue(cluster.start(peer3.getEndpoint()));
+    public void testAddPeerRemovePeer(TestInfo testInfo) throws Exception {
+        TestPeer peer3 = new TestPeer(testInfo, TestUtils.INIT_PORT + 3);
+        assertTrue(cluster.start(peer3));
         sendTestTaskAndWait(cluster.getLeader(), 0);
-        cluster.ensureSame(addr -> addr.equals(peer3.getEndpoint()));
-        assertEquals(0, cluster.getFsmByPeer(peer3).getLogs().size());
+        cluster.ensureSame(addr -> addr.equals(peer3.getPeerId()));
+        assertEquals(0, cluster.getFsmByPeer(peer3.getPeerId()).getLogs().size());
 
-        assertTrue(cliService.addPeer(groupId, conf, peer3).isOk());
+        assertTrue(cliService.addPeer(groupId, conf, peer3.getPeerId()).isOk());
 
-        assertTrue(waitForCondition(() -> cluster.getFsmByPeer(peer3).getLogs().size() == 10, 5_000));
+        assertTrue(waitForCondition(() -> cluster.getFsmByPeer(peer3.getPeerId()).getLogs().size() == 10, 5_000));
         sendTestTaskAndWait(cluster.getLeader(), 0);
 
         assertEquals(6, cluster.getFsms().size());
@@ -292,16 +319,16 @@ public class ItCliServiceTest {
         }
 
         //remove peer3
-        assertTrue(cliService.removePeer(groupId, conf, peer3).isOk());
+        assertTrue(cliService.removePeer(groupId, conf, peer3.getPeerId()).isOk());
         sleep(200);
         sendTestTaskAndWait(cluster.getLeader(), 0);
 
         assertEquals(6, cluster.getFsms().size());
 
-        cluster.ensureSame(addr -> addr.equals(peer3.getEndpoint()));
+        cluster.ensureSame(addr -> addr.equals(peer3.getPeerId()));
 
         for (MockStateMachine fsm : cluster.getFsms()) {
-            if (fsm.getAddress().equals(peer3.getEndpoint())) {
+            if (fsm.getPeerId().equals(peer3.getPeerId())) {
                 assertEquals(20, fsm.getLogs().size());
             } else {
                 assertEquals(30, fsm.getLogs().size());
@@ -310,47 +337,54 @@ public class ItCliServiceTest {
     }
 
     @Test
-    public void testChangePeers() throws Exception {
-        List<PeerId> newPeers = TestUtils.generatePeers(6);
-        newPeers.removeAll(conf.getPeerSet());
+    public void testChangePeers(TestInfo testInfo) throws Exception {
+        List<TestPeer> newPeers = TestUtils.generatePeers(testInfo, 6);
+        newPeers.removeIf(p -> conf.getPeerSet().contains(p.getPeerId()));
 
         assertEquals(3, newPeers.size());
 
-        for (PeerId peer : newPeers) {
-            assertTrue(cluster.start(peer.getEndpoint()));
+        for (TestPeer peer : newPeers) {
+            assertTrue(cluster.start(peer));
         }
-        cluster.waitLeader();
-        Node oldLeaderNode = cluster.getLeader();
+        Node oldLeaderNode = cluster.waitAndGetLeader();
         assertNotNull(oldLeaderNode);
         PeerId oldLeader = oldLeaderNode.getNodeId().getPeerId();
         assertNotNull(oldLeader);
-        Status status = cliService.changePeers(groupId, conf, new Configuration(newPeers));
+        Status status = cliService.changePeers(groupId, conf, new Configuration(newPeers.stream().map(TestPeer::getPeerId).collect(toList())));
         assertTrue(status.isOk(), status.getErrorMsg());
-        cluster.waitLeader();
-        PeerId newLeader = cluster.getLeader().getNodeId().getPeerId();
+        PeerId newLeader = cluster.waitAndGetLeader().getNodeId().getPeerId();
         assertNotEquals(oldLeader, newLeader);
-        assertTrue(newPeers.contains(newLeader));
+        assertTrue(newPeers.stream().anyMatch(p -> p.getPeerId().equals(newLeader)));
     }
 
     @Test
     public void testSnapshot() throws Exception {
         sendTestTaskAndWait(cluster.getLeader(), 0);
         assertEquals(5, cluster.getFsms().size());
+
+        waitForTopologyOnEveryNode(6, cluster);
+
+        assertTrue(waitForTopology(clientSvc, 6,10_000));
+
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(0, fsm.getSaveSnapshotTimes());
         }
 
         for (PeerId peer : conf) {
-            assertTrue(cliService.snapshot(groupId, peer).isOk());
+            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from peer = " + peer);
         }
 
         for (PeerId peer : conf.getLearners()) {
-            assertTrue(cliService.snapshot(groupId, peer).isOk());
+            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from learner = " + peer);
         }
 
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(1, fsm.getSaveSnapshotTimes());
         }
+    }
+
+    private static boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
+        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= expected, timeout);
     }
 
     @Test
@@ -362,11 +396,9 @@ public class ItCliServiceTest {
 
         // stop one peer
         List<PeerId> peers = conf.getPeers();
-        cluster.stop(peers.get(0).getEndpoint());
+        cluster.stop(peers.get(0));
 
-        cluster.waitLeader();
-
-        leader = cluster.getLeader().getNodeId().getPeerId();
+        leader = cluster.waitAndGetLeader().getNodeId().getPeerId();
         assertNotNull(leader);
         assertArrayEquals(conf.getPeerSet().toArray(),
             new HashSet<>(cliService.getPeers(groupId, conf)).toArray());
@@ -390,14 +422,12 @@ public class ItCliServiceTest {
 
         // stop one peer
         List<PeerId> peers = conf.getPeers();
-        cluster.stop(peers.get(0).getEndpoint());
+        cluster.stop(peers.get(0));
         peers.remove(0);
-
-        cluster.waitLeader();
 
         sleep(1000);
 
-        leader = cluster.getLeader().getNodeId().getPeerId();
+        leader = cluster.waitAndGetLeader().getNodeId().getPeerId();
         assertNotNull(leader);
         assertArrayEquals(new HashSet<>(peers).toArray(),
             new HashSet<>(cliService.getAlivePeers(groupId, conf)).toArray());

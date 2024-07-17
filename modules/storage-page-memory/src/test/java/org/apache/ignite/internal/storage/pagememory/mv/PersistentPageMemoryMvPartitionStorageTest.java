@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,99 +17,91 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.mock;
 
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
-import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageChange;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(WorkDirectoryExtension.class)
 class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
-    @InjectConfiguration(
-            value = "mock.checkpoint.checkpointDelayMillis = 0",
-            polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class
-    )
+    @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
     private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
-    @InjectConfiguration(
-            name = "table",
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    PersistentPageMemoryDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class,
-                    EntryCountBudgetConfigurationSchema.class
-            }
-    )
-    private TableConfiguration tableCfg;
+    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+    private StorageConfiguration storageConfiguration;
 
-    private LongJvmPauseDetector longJvmPauseDetector;
+    @WorkDirectory
+    private Path workDir;
 
     private PersistentPageMemoryStorageEngine engine;
 
-    private PersistentPageMemoryTableStorage table;
+    private MvTableStorage table;
 
     @BeforeEach
-    void setUp() throws Exception {
-        longJvmPauseDetector = new LongJvmPauseDetector("test", Loggers.forClass(LongJvmPauseDetector.class));
+    void setUp() {
+        var ioRegistry = new PageIoRegistry();
 
-        longJvmPauseDetector.start();
+        ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, longJvmPauseDetector);
+        engine = new PersistentPageMemoryStorageEngine(
+                "test",
+                engineConfig,
+                storageConfiguration,
+                ioRegistry,
+                workDir,
+                null,
+                mock(FailureProcessor.class),
+                mock(LogSyncer.class)
+        );
 
         engine.start();
 
-        tableCfg
-                .change(c -> c.changeDataStorage(dsc -> dsc.convert(PersistentPageMemoryDataStorageChange.class)))
-                .get(1, TimeUnit.SECONDS);
-
-        assertEquals(
-                PersistentPageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
-                ((PersistentPageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
+        table = engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
-        table = engine.createMvTable(tableCfg);
-        table.start();
-
-        storage = table.createMvPartitionStorage(PARTITION_ID);
+        initialize(table);
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                storage,
-                table == null ? null : table::stop,
-                engine == null ? null : engine::stop,
-                longJvmPauseDetector == null ? null : longJvmPauseDetector::stop
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+
+        IgniteUtils.closeAllManually(
+                table,
+                engine == null ? null : engine::stop
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     int pageSize() {
         return engineConfig.pageSize().value();
@@ -119,16 +111,90 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     void testReadAfterRestart() throws Exception {
         RowId rowId = insert(binaryRow, txId);
 
-        engine
-                .checkpointManager()
-                .forceCheckpoint("before_stop_engine")
-                .futureFor(FINISHED)
-                .get(1, TimeUnit.SECONDS);
+        restartStorage();
+
+        assertThat(read(rowId, HybridTimestamp.MAX_VALUE), is(equalToRow(binaryRow)));
+    }
+
+    private void restartStorage() throws Exception {
+        assertThat(
+                engine.checkpointManager().forceCheckpoint("before_stop_engine").futureFor(FINISHED),
+                willCompleteSuccessfully()
+        );
 
         tearDown();
 
         setUp();
+    }
 
-        assertRowMatches(binaryRow, read(rowId, txId));
+    @Test
+    void groupConfigIsPersisted() throws Exception {
+        byte[] originalConfig = {1, 2, 3};
+
+        storage.runConsistently(locker -> {
+            storage.committedGroupConfiguration(originalConfig);
+
+            return null;
+        });
+
+        restartStorage();
+
+        byte[] readConfig = storage.committedGroupConfiguration();
+
+        assertThat(readConfig, is(equalTo(originalConfig)));
+    }
+
+    @Test
+    void groupConfigWhichDoesNotFitInOnePageIsPersisted() throws Exception {
+        byte[] originalConfig = configThatDoesNotFitInOnePage();
+
+        storage.runConsistently(locker -> {
+            storage.committedGroupConfiguration(originalConfig);
+
+            return null;
+        });
+
+        restartStorage();
+
+        byte[] readConfig = storage.committedGroupConfiguration();
+
+        assertThat(readConfig, is(equalTo(originalConfig)));
+    }
+
+    private static byte[] configThatDoesNotFitInOnePage() {
+        byte[] originalconfig = new byte[1_000_000];
+
+        for (int i = 0; i < originalconfig.length; i++) {
+            originalconfig[i] = (byte) (i % 100);
+        }
+
+        return originalconfig;
+    }
+
+    @Test
+    void groupConfigShorteningWorksCorrectly() throws Exception {
+        byte[] originalConfigOfMoreThanOnePage = configThatDoesNotFitInOnePage();
+
+        assertThat(originalConfigOfMoreThanOnePage.length, is(greaterThan(5 * pageSize())));
+
+        storage.runConsistently(locker -> {
+            storage.committedGroupConfiguration(originalConfigOfMoreThanOnePage);
+
+            return null;
+        });
+
+        byte[] configWhichFitsInOnePage = {1, 2, 3};
+
+        storage.runConsistently(locker -> {
+            storage.committedGroupConfiguration(configWhichFitsInOnePage);
+
+            return null;
+        });
+
+        restartStorage();
+
+        byte[] readConfig = storage.committedGroupConfiguration();
+
+        assertThat(readConfig, is(equalTo(configWhichFitsInOnePage)));
     }
 }

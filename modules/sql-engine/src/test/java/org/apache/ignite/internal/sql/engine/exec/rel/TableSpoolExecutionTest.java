@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,39 +28,39 @@ import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /**
  * TableSpoolExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class TableSpoolExecutionTest extends AbstractExecutionTest {
+public class TableSpoolExecutionTest extends AbstractExecutionTest<Object[]> {
     @Test
     public void testLazyTableSpool() {
         checkTableSpool(
-                (ctx, rowType) -> new TableSpoolNode<>(ctx, rowType, true)
+                (ctx, rowType) -> new TableSpoolNode<>(ctx, true)
         );
     }
 
     @Test
     public void testEagerTableSpool() {
         checkTableSpool(
-                (ctx, rowType) -> new TableSpoolNode<>(ctx, rowType, false)
+                (ctx, rowType) -> new TableSpoolNode<>(ctx, false)
         );
     }
 
     /**
-     * Ensure eager spool reads underlying input till the end before emmitting the very first row.
+     * Ensure eager spool reads underlying input till the end before emitting the very first row.
      */
     @Test
     public void testEagerSpoolReadsWholeInput() {
         ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
@@ -71,7 +71,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
 
             AtomicReference<Iterator<Object[]>> itRef = new AtomicReference<>();
 
-            ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, () -> {
+            ScanNode<Object[]> scan = new ScanNode<>(ctx, () -> {
                 if (itRef.get() != null) {
                     throw new AssertionError();
                 }
@@ -81,11 +81,11 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
                 return itRef.get();
             });
 
-            TableSpoolNode<Object[]> spool = new TableSpoolNode<>(ctx, rowType, false);
+            TableSpoolNode<Object[]> spool = new TableSpoolNode<>(ctx, false);
 
             spool.register(singletonList(scan));
 
-            RootNode<Object[]> root = new RootNode<>(ctx, rowType);
+            RootNode<Object[]> root = new RootNode<>(ctx);
             root.register(spool);
 
             assertTrue(root.hasNext());
@@ -103,7 +103,8 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
     public void checkTableSpool(BiFunction<ExecutionContext<Object[]>, RelDataType, TableSpoolNode<Object[]>> spoolFactory) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
@@ -114,11 +115,11 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
         for (int size : sizes) {
             log.info("Check: size=" + size);
 
-            ScanNode<Object[]> right = new ScanNode<>(ctx, rowType, new TestTable(size, rowType) {
+            ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(size, rowType) {
                 boolean first = true;
 
                 @Override
-                public @NotNull Iterator<Object[]> iterator() {
+                public Iterator<Object[]> iterator() {
                     assertTrue(first, "Rewind table");
 
                     first = false;
@@ -130,7 +131,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
 
             spool.register(singletonList(right));
 
-            RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+            RootRewindable<Object[]> root = new RootRewindable<>(ctx);
             root.register(spool);
 
             for (int i = 0; i < rewindCnts; ++i) {
@@ -147,5 +148,10 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
                 root.rewind();
             }
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * Serialization service implementation.
@@ -48,6 +45,13 @@ public class SerializationService {
         this.messageRegistry = messageRegistry;
         this.localDescriptorRegistry = userObjectSerializationContext.descriptorRegistry();
         this.descriptorFactory = userObjectSerializationContext.descriptorFactory();
+    }
+
+    /**
+     * Returns underlying serialization registry.
+     */
+    public MessageSerializationRegistry serializationRegistry() {
+        return messageRegistry;
     }
 
     /**

@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -28,9 +31,10 @@ import java.util.List;
 import java.util.Map;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Callback for a relational expression to dump itself as JSON.
@@ -62,6 +66,21 @@ public class RelJsonWriter implements RelWriter {
         rel.explain(writer);
 
         return writer.asString();
+    }
+
+    /** Converts the given {@link RexNode} to json. */
+    public static String toExprJson(RexNode node) {
+        ObjectMapper mapper = new ObjectMapper();
+
+        try {
+            RelJson relJson = new RelJson();
+
+            Object map = relJson.toJson(node);
+
+            return mapper.writeValueAsString(map);
+        } catch (JsonProcessingException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "RelJson expression serialization error", e);
+        }
     }
 
     /**
@@ -127,7 +146,7 @@ public class RelJsonWriter implements RelWriter {
 
             return writer.toString();
         } catch (IOException e) {
-            throw new IgniteException(e);
+            throw new IgniteInternalException(INTERNAL_ERR, "RelJson serialization error", e);
         }
     }
 

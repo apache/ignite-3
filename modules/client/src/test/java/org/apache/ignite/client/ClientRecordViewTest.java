@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,7 +19,9 @@ package org.apache.ignite.client;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -45,7 +48,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Record view tests.
  */
-@SuppressWarnings("ZeroLengthArrayAllocation")
 public class ClientRecordViewTest extends AbstractClientTableTest {
     @Test
     public void testBinaryPutPojoGet() {
@@ -91,25 +93,21 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testMissingValueColumnsAreSkipped() {
+    public void testMissingValueColumnsThrowException() {
         Table table = fullTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         RecordView<IncompletePojo> pojoView = table.recordView(IncompletePojo.class);
 
-        kvView.put(null, allClumnsTableKey(1), allColumnsTableVal("x"));
+        kvView.put(null, allColumnsTableKey(1), allColumnsTableVal("x", true));
 
         var key = new IncompletePojo();
         key.id = "1";
         key.gid = 1;
 
-        // This POJO does not have fields for all table columns, and this is ok.
-        IncompletePojo val = pojoView.get(null, key);
-
-        assertEquals(1, val.gid);
-        assertEquals("1", val.id);
-        assertEquals("x", val.zstring);
-        assertEquals(2, val.zbytes[1]);
-        assertEquals(11, val.zbyte);
+        // This POJO does not have fields for all table columns, which is not allowed (to avoid unexpected data loss).
+        IgniteException ex = assertThrows(IgniteException.class, () -> pojoView.get(null, key));
+        assertEquals("Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'", ex.getMessage());
+        assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientRecordView"))));
     }
 
     @Test
@@ -117,10 +115,10 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         Table table = fullTable();
         RecordView<AllColumnsPojo> pojoView = table.recordView(Mapper.of(AllColumnsPojo.class));
 
-        table.recordView().upsert(null, allColumnsTableVal("foo"));
+        table.recordView().upsert(null, allColumnsTableVal("foo", false));
 
         var key = new AllColumnsPojo();
-        key.gid = (int) (long) DEFAULT_ID;
+        key.gid = DEFAULT_ID;
         key.id = String.valueOf(DEFAULT_ID);
 
         AllColumnsPojo res = pojoView.get(null, key);
@@ -172,10 +170,10 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(null, val);
 
-        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111));
+        Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111L));
 
         assertNotNull(res);
-        assertEquals(111, res.intValue("gid"));
+        assertEquals(111, res.longValue("gid"));
         assertEquals("112", res.stringValue("id"));
         assertEquals(113, res.byteValue("zbyte"));
         assertEquals(114, res.shortValue("zshort"));
@@ -189,7 +187,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
-        assertEquals(122, ((Number) res.value("zdecimal")).longValue());
+        assertEquals(122, ((BigDecimal) res.value("zdecimal")).longValue());
         assertEquals(BigInteger.valueOf(123), res.value("znumber"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
@@ -200,26 +198,28 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         IgniteException e = assertThrows(IgniteException.class, () -> recordView.get(null, new NamePojo()));
 
-        assertThat(e.getMessage(), containsString("No field found for column ID"));
+        assertThat(e.getMessage(), containsString("No mapped object field found for column 'ID'"));
+        assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientRecordView"))));
     }
 
     @Test
     public void testNullablePrimitiveFields() {
-        RecordView<IncompletePojoNullable> pojoView = fullTable().recordView(IncompletePojoNullable.class);
+        RecordView<AllColumnsPojoNullable> pojoView = fullTable().recordView(AllColumnsPojoNullable.class);
         RecordView<Tuple> tupleView = fullTable().recordView();
 
-        var rec = new IncompletePojoNullable();
+        var rec = new AllColumnsPojoNullable();
         rec.id = "1";
-        rec.gid = 1;
+        rec.gid = 1L;
 
         pojoView.upsert(null, rec);
 
-        IncompletePojoNullable res = pojoView.get(null, rec);
+        AllColumnsPojoNullable res = pojoView.get(null, rec);
         Tuple binRes = tupleView.get(null, Tuple.create().set("id", "1").set("gid", 1L));
 
         assertNotNull(res);
         assertNotNull(binRes);
 
+        assertNull(res.zboolean);
         assertNull(res.zbyte);
         assertNull(res.zshort);
         assertNull(res.zint);
@@ -251,16 +251,17 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         PersonPojo[] res = pojoView.getAll(null, keys).toArray(new PersonPojo[0]);
 
-        assertEquals(2, res.length);
+        assertEquals(3, res.length);
 
         assertNotNull(res[0]);
-        assertNotNull(res[1]);
+        assertNull(res[1]);
+        assertNotNull(res[2]);
 
         assertEquals(DEFAULT_ID, res[0].id);
         assertEquals(DEFAULT_NAME, res[0].name);
 
-        assertEquals(100L, res[1].id);
-        assertEquals("100", res[1].name);
+        assertEquals(100L, res[2].id);
+        assertEquals("100", res[2].name);
     }
 
     @Test
@@ -273,8 +274,62 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         String[] res = primitiveView.getAll(null, List.of("a", "b", "c")).toArray(new String[0]);
 
         assertEquals("a", res[0]);
-        assertEquals("c", res[1]);
+        assertNull(res[1]);
+        assertEquals("c", res[2]);
     }
+
+    @Test
+    public void testContains() {
+        RecordView<PersonPojo> recordView = defaultTable().recordView(PersonPojo.class);
+        PersonPojo pojo = new PersonPojo(DEFAULT_ID, DEFAULT_NAME);
+
+        recordView.insert(null, pojo);
+
+        assertTrue(recordView.contains(null, pojo));
+        assertTrue(recordView.contains(null, new PersonPojo(DEFAULT_ID, "")));
+        assertFalse(recordView.contains(null, new PersonPojo(DEFAULT_ID - 1, DEFAULT_NAME)));
+    }
+
+    @Test
+    public void testContainsAll() {
+        RecordView<PersonPojo> recordView = defaultTable().recordView(PersonPojo.class);
+
+        long firstKey = 101L;
+        PersonPojo firstPerson = new PersonPojo(firstKey, "201");
+
+        long secondKey = 102L;
+        PersonPojo secondPerson = new PersonPojo(secondKey, "202");
+
+        long thirdKey = 103L;
+        PersonPojo thirdPerson = new PersonPojo(thirdKey, "203");
+
+        List<PersonPojo> recs = List.of(firstPerson, secondPerson, thirdPerson);
+
+        recordView.insertAll(null, recs);
+
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstPerson, null, thirdPerson)));
+
+        assertTrue(recordView.containsAll(null, List.of()));
+        assertTrue(recordView.containsAll(null, List.of(firstPerson)));
+        assertTrue(recordView.containsAll(null, List.of(firstPerson, secondPerson, thirdPerson)));
+        assertTrue(recordView.containsAll(null, List.of(
+                new PersonPojo(firstKey, " "),
+                new PersonPojo(secondKey, " "),
+                new PersonPojo(thirdKey, " ")
+        )));
+
+        long zeroKey = 0L;
+        PersonPojo missedPojo = new PersonPojo(zeroKey, DEFAULT_NAME);
+
+        assertFalse(recordView.containsAll(null, List.of(missedPojo)));
+        assertFalse(recordView.containsAll(null, List.of(firstPerson, secondPerson, missedPojo)));
+        assertFalse(recordView.containsAll(null, List.of(
+                new PersonPojo(firstKey, " "),
+                new PersonPojo(secondKey, " "),
+                new PersonPojo(zeroKey, " ")
+        )));
+    }    
 
     @Test
     public void testUpsertAll() {
@@ -485,20 +540,6 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testColumnWithDefaultValueNotSetReturnsDefault() {
-        Table table = tableWithDefaultValues();
-        RecordView<Tuple> recordView = table.recordView();
-        RecordView<PersonPojo> pojoView = table.recordView(PersonPojo.class);
-
-        pojoView.upsert(null, new PersonPojo());
-
-        var res = recordView.get(null, tupleKey(0));
-
-        assertEquals("def_str", res.stringValue("str"));
-        assertEquals("def_str2", res.stringValue("strNonNull"));
-    }
-
-    @Test
     public void testNullableColumnWithDefaultValueSetNullReturnsNull() {
         Table table = tableWithDefaultValues();
         RecordView<Tuple> recordView = table.recordView();
@@ -511,7 +552,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         pojoView.upsert(null, pojo);
 
-        var res = recordView.get(null, tupleKey(1));
+        var res = recordView.get(null, Tuple.create().set("id", 1));
 
         assertNull(res.stringValue("str"));
     }
@@ -527,6 +568,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         var ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, pojo));
 
-        assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Column 'STRNONNULL' does not allow NULLs"));
+        assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientRecordView"))));
     }
 }

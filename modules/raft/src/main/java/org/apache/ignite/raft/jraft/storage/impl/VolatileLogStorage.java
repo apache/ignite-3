@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +17,6 @@
 package org.apache.ignite.raft.jraft.storage.impl;
 
 import java.util.List;
-import java.util.NavigableMap;
-import java.util.SortedMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -28,8 +25,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.VolatileStorage;
@@ -38,35 +33,39 @@ import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
  * Stores RAFT log in memory.
+ *
+ * <p>Also, supports spilling out to disk if the in-memory storage is overflowed.
+ *
+ * <p>Current implementation always spills out a prefix of all the logs currently stored by the storage.
  */
 public class VolatileLogStorage implements LogStorage, Describer, VolatileStorage {
     private static final IgniteLogger LOG = Loggers.forClass(VolatileLogStorage.class);
 
-    private final LogStorageBudget budget;
+    private final LogStorageBudget inMemoryBudget;
+
+    private final Logs inMemoryLogs;
+    private final Logs spiltOnDisk;
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Lock readLock = this.readWriteLock.readLock();
     private final Lock writeLock = this.readWriteLock.writeLock();
 
-    private final NavigableMap<Long, LogEntry> log = new ConcurrentSkipListMap<>();
+    private volatile long firstLogIndex = -1;
+    private volatile long lastLogIndex = -1;
 
-    private LogEntryEncoder logEntryEncoder;
-    private LogEntryDecoder logEntryDecoder;
-
-    private volatile long firstLogIndex = 1;
-    private volatile long lastLogIndex = 0;
+    private volatile long lastSpiltLogIndex = -1;
 
     private volatile boolean initialized = false;
 
-    public VolatileLogStorage(LogStorageBudget budget) {
-        super();
+    public VolatileLogStorage(LogStorageBudget inMemoryBudget, Logs inMemoryLogs, Logs spiltOnDisk) {
+        this.inMemoryBudget = inMemoryBudget;
 
-        this.budget = budget;
+        this.inMemoryLogs = inMemoryLogs;
+        this.spiltOnDisk = spiltOnDisk;
     }
 
     @Override
     public boolean init(final LogStorageOptions opts) {
-        Requires.requireNonNull(opts.getConfigurationManager(), "Null conf manager");
         Requires.requireNonNull(opts.getLogEntryCodecFactory(), "Null log entry codec factory");
 
         this.writeLock.lock();
@@ -76,11 +75,11 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
                 LOG.warn("VolatileLogStorage init() was already called.");
                 return true;
             }
+
+            inMemoryLogs.init(opts);
+            spiltOnDisk.init(opts);
+
             this.initialized = true;
-            this.logEntryDecoder = opts.getLogEntryCodecFactory().decoder();
-            this.logEntryEncoder = opts.getLogEntryCodecFactory().encoder();
-            Requires.requireNonNull(this.logEntryDecoder, "Null log entry decoder");
-            Requires.requireNonNull(this.logEntryEncoder, "Null log entry encoder");
 
             return true;
         } finally {
@@ -94,7 +93,9 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
 
         try {
             this.initialized = false;
-            this.log.clear();
+
+            this.inMemoryLogs.shutdown();
+            this.spiltOnDisk.shutdown();
         } finally {
             this.writeLock.unlock();
         }
@@ -105,10 +106,14 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
         this.readLock.lock();
 
         try {
-            return this.firstLogIndex;
+            return hasAnyEntries() ? this.firstLogIndex : 1;
         } finally {
             this.readLock.unlock();
         }
+    }
+
+    private boolean hasAnyEntries() {
+        return firstLogIndex != -1;
     }
 
     @Override
@@ -116,7 +121,7 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
         this.readLock.lock();
 
         try {
-            return this.lastLogIndex;
+            return hasAnyEntries() ? this.lastLogIndex : 0;
         } finally {
             this.readLock.unlock();
         }
@@ -127,11 +132,15 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
         this.readLock.lock();
 
         try {
-            if (index < getFirstLogIndex()) {
+            if (!hasAnyEntries() || index < firstLogIndex) {
                 return null;
             }
 
-            return log.get(index);
+            if (isSomethingSpilt() && index <= lastSpiltLogIndex) {
+                return spiltOnDisk.getEntry(index);
+            } else {
+                return inMemoryLogs.getEntry(index);
+            }
         } finally {
             this.readLock.unlock();
         }
@@ -140,9 +149,11 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
     @Override
     public long getTerm(final long index) {
         final LogEntry entry = getEntry(index);
+
         if (entry != null) {
             return entry.getId().getTerm();
         }
+
         return 0;
     }
 
@@ -156,16 +167,59 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
                 return false;
             }
 
-            this.log.put(entry.getId().getIndex(), entry);
-
-            lastLogIndex = log.lastKey();
-            firstLogIndex = log.firstKey();
-
-            budget.onAppended(entry);
+            appendEntryInternal(entry);
 
             return true;
         } finally {
             this.readLock.unlock();
+        }
+    }
+
+    private void appendEntryInternal(LogEntry entry) {
+        final boolean hadAnyEntries = hasAnyEntries();
+
+        spillToDiskUntilEnoughInMemorySpaceIsAvailable(entry);
+
+        long entryIndex = entry.getId().getIndex();
+
+        if (!inMemoryBudget.hasRoomFor(entry)) {
+            // We spilt everything we could but the new entry is alone so big that we cannot put it to memory.
+            // So spill it immediately.
+            spiltOnDisk.appendEntry(entry);
+
+            lastSpiltLogIndex = entryIndex;
+        } else {
+            inMemoryLogs.appendEntry(entry);
+        }
+
+        lastLogIndex = entryIndex;
+
+        if (!hadAnyEntries) {
+            firstLogIndex = entryIndex;
+        }
+
+        inMemoryBudget.onAppended(entry);
+    }
+
+    private void spillToDiskUntilEnoughInMemorySpaceIsAvailable(LogEntry entry) {
+        while (!inMemoryBudget.hasRoomFor(entry)) {
+            long indexToSpill = isSomethingSpilt() ? lastSpiltLogIndex + 1 : getFirstLogIndex();
+            assert indexToSpill >= getFirstLogIndex() : indexToSpill + " must be after " + getFirstLogIndex();
+
+            if (indexToSpill > lastLogIndex) {
+                // We spilt everything we could but the new entry is alone so big that we cannot put it to memory.
+                break;
+            }
+
+            LogEntry entryToSpill = inMemoryLogs.getEntry(indexToSpill);
+            assert entryToSpill != null;
+
+            spiltOnDisk.appendEntry(entryToSpill);
+            inMemoryLogs.truncatePrefix(indexToSpill + 1);
+
+            inMemoryBudget.onTruncatedPrefix(indexToSpill + 1);
+
+            lastSpiltLogIndex = indexToSpill;
         }
     }
 
@@ -185,15 +239,9 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
                 return 0;
             }
 
-            for (LogEntry logEntry : entries) {
-                log.put(logEntry.getId().getIndex(), logEntry);
+            for (LogEntry entry : entries) {
+                appendEntryInternal(entry);
             }
-
-            lastLogIndex = log.lastKey();
-            firstLogIndex = log.firstKey();
-
-            // TODO: IGNITE-17336 - use the budgeting
-            budget.onAppended(entries);
 
             return entriesCount;
         } catch (Exception e) {
@@ -209,13 +257,28 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
         this.readLock.lock();
 
         try {
-            SortedMap<Long, LogEntry> map = log.headMap(firstIndexKept);
+            if (!hasAnyEntries() || firstIndexKept <= firstLogIndex) {
+                return true;
+            }
 
-            map.clear();
+            if (isSomethingSpilt()) {
+                spiltOnDisk.truncatePrefix(Math.min(firstIndexKept, lastSpiltLogIndex + 1));
+            }
+            inMemoryLogs.truncatePrefix(firstIndexKept);
 
-            firstLogIndex = log.isEmpty() ? 1 : log.firstKey();
+            boolean stillNotEmpty = firstIndexKept <= lastLogIndex;
+            firstLogIndex = stillNotEmpty ? firstIndexKept : -1;
+            lastLogIndex = stillNotEmpty ? lastLogIndex : -1;
 
-            budget.onTruncatedPrefix(firstIndexKept);
+            if (isSomethingSpilt() && stillNotEmpty) {
+                if (lastSpiltLogIndex < firstIndexKept) {
+                    lastSpiltLogIndex = -1;
+                }
+            } else {
+                lastSpiltLogIndex = -1;
+            }
+
+            inMemoryBudget.onTruncatedPrefix(firstIndexKept);
 
             return true;
         } finally {
@@ -223,17 +286,30 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
         }
     }
 
+    private boolean isSomethingSpilt() {
+        return lastSpiltLogIndex > 0;
+    }
+
     @Override
     public boolean truncateSuffix(final long lastIndexKept) {
         this.readLock.lock();
+
         try {
-            SortedMap<Long, LogEntry> suffix = log.tailMap(lastIndexKept, false);
+            if (!hasAnyEntries() || lastIndexKept >= lastLogIndex) {
+                return true;
+            }
 
-            suffix.clear();
+            if (isSomethingSpilt() && lastIndexKept < lastSpiltLogIndex) {
+                spiltOnDisk.truncateSuffix(lastIndexKept);
+                lastSpiltLogIndex = lastIndexKept < firstLogIndex ? -1 : lastIndexKept;
+            }
+            inMemoryLogs.truncateSuffix(lastIndexKept);
 
-            lastLogIndex = log.isEmpty() ? 0 : log.lastKey();
+            boolean stillNotEmpty = lastIndexKept >= firstLogIndex;
+            firstLogIndex = stillNotEmpty ? firstLogIndex : -1;
+            lastLogIndex = stillNotEmpty ? lastIndexKept : -1;
 
-            budget.onTruncatedSuffix(lastIndexKept);
+            inMemoryBudget.onTruncatedSuffix(lastIndexKept);
 
             return true;
         } catch (Exception e) {
@@ -255,9 +331,11 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
         try {
             LogEntry entry = getEntry(nextLogIndex);
 
-            log.clear();
-            firstLogIndex = 1;
-            lastLogIndex = 0;
+            inMemoryLogs.reset();
+            spiltOnDisk.reset();
+
+            firstLogIndex = -1;
+            lastLogIndex = -1;
 
             if (entry == null) {
                 entry = new LogEntry();
@@ -266,7 +344,7 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
                 LOG.warn("Entry not found for nextLogIndex {} when reset.", nextLogIndex);
             }
 
-            budget.onReset();
+            inMemoryBudget.onReset();
 
             return appendEntry(entry);
         } finally {

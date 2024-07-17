@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -39,6 +39,8 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "TrimExchange";
+
     private final long sourceId;
 
     /**
@@ -63,8 +65,9 @@ public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteTrimExchange(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE, input.getDistribution()));
@@ -133,5 +136,11 @@ public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTrimExchange(sourceId, cluster, getTraitSet(), sole(inputs), getDistribution());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,78 +17,117 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.proto.ClientDataType.BIGINTEGER;
-import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
-import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
-import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
-import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
-import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
-import static org.apache.ignite.internal.client.proto.ClientDataType.DECIMAL;
-import static org.apache.ignite.internal.client.proto.ClientDataType.DOUBLE;
-import static org.apache.ignite.internal.client.proto.ClientDataType.FLOAT;
-import static org.apache.ignite.internal.client.proto.ClientDataType.INT16;
-import static org.apache.ignite.internal.client.proto.ClientDataType.INT32;
-import static org.apache.ignite.internal.client.proto.ClientDataType.INT64;
-import static org.apache.ignite.internal.client.proto.ClientDataType.INT8;
-import static org.apache.ignite.internal.client.proto.ClientDataType.NUMBER;
-import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
-import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
-import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
-
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.internal.client.proto.ClientDataType;
+import java.util.Objects;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Client schema.
  */
-@SuppressWarnings({"rawtypes", "AssignmentOrReturnOfFieldWithMutableType", "unchecked"})
+@SuppressWarnings({"rawtypes", "AssignmentOrReturnOfFieldWithMutableType"})
 public class ClientSchema {
+    private static final ClientColumn[] EMPTY_COLUMNS = new ClientColumn[0];
+
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
-
-    /** Key columns count. */
-    private final int keyColumnCount;
 
     /** Columns. */
     private final ClientColumn[] columns;
 
+    private final ClientColumn[] keyColumns;
+
+    private final ClientColumn[] valColumns;
+
+    /** Colocation columns. */
+    private final ClientColumn[] colocationColumns;
+
     /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
+
+    /** Marshaller provider. */
+    private final MarshallersProvider marshallers;
+
+    /** Marshaller schema. */
+    private MarshallerSchema marshallerSchema;
 
     /**
      * Constructor.
      *
-     * @param ver     Schema version.
+     * @param ver Schema version.
      * @param columns Columns.
+     * @param marshallers Marshallers provider.
      */
-    public ClientSchema(int ver, ClientColumn[] columns) {
+    public ClientSchema(
+            int ver,
+            ClientColumn[] columns,
+            MarshallersProvider marshallers) {
         assert ver >= 0;
         assert columns != null;
 
         this.ver = ver;
         this.columns = columns;
+        this.marshallers = marshallers;
 
-        var keyCnt = 0;
+        int keyColumnCount = 0;
+        int colocationColumnCount = 0;
+
+        for (var col : columns) {
+            ClientColumn existing = map.put(col.name(), col);
+            assert existing == null : "Duplicate column name: " + col.name();
+
+            if (col.key()) {
+                keyColumnCount++;
+            }
+
+            if (col.colocationIndex() >= 0) {
+                colocationColumnCount++;
+            }
+        }
+
+        int valColumnCount = columns.length - keyColumnCount;
+
+        this.keyColumns = keyColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[keyColumnCount];
+        this.colocationColumns = colocationColumnCount == 0 ? keyColumns : new ClientColumn[colocationColumnCount];
+        this.valColumns = valColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[valColumnCount];
 
         for (var col : columns) {
             if (col.key()) {
-                keyCnt++;
+                assert this.keyColumns[col.keyIndex()] == null : "Duplicate key index: name=" + col.name() + ", keyIndex=" + col.keyIndex()
+                        + ", other.name=" + this.keyColumns[col.keyIndex()].name();
+
+                this.keyColumns[col.keyIndex()] = col;
+            } else {
+                assert this.valColumns[col.valIndex()] == null : "Duplicate val index: name=" + col.name() + ", valIndex=" + col.valIndex()
+                        + ", other.name=" + this.valColumns[col.valIndex()].name();
+
+                this.valColumns[col.valIndex()] = col;
             }
 
-            map.put(col.name(), col);
+            if (col.colocationIndex() >= 0) {
+                assert this.colocationColumns[col.colocationIndex()] == null
+                        : "Duplicate colocation index: name=" + col.name() + ", colocationIndex=" + col.colocationIndex()
+                        + ", other.name=" + this.colocationColumns[col.colocationIndex()].name();
+
+                this.colocationColumns[col.colocationIndex()] = col;
+            }
         }
 
-        keyColumnCount = keyCnt;
+        assert Arrays.stream(keyColumns).allMatch(Objects::nonNull) : "Some key columns are missing";
+        assert Arrays.stream(valColumns).allMatch(Objects::nonNull) : "Some val columns are missing";
+        assert Arrays.stream(colocationColumns).allMatch(Objects::nonNull) : "Some colocation columns are missing";
     }
 
     /**
@@ -105,8 +144,52 @@ public class ClientSchema {
      *
      * @return Columns.
      */
-    public @NotNull ClientColumn[] columns() {
+    public ClientColumn[] columns() {
         return columns;
+    }
+
+    /**
+     * Returns columns for the specified tuple part.
+     *
+     * @return Partial columns.
+     */
+    public ClientColumn[] columns(TuplePart part) {
+        if (part == TuplePart.KEY) {
+            return keyColumns;
+        }
+
+        if (part == TuplePart.VAL) {
+            return valColumns;
+        }
+
+        return columns;
+    }
+
+    /**
+     * Returns key columns.
+     *
+     * @return Key columns.
+     */
+    ClientColumn[] keyColumns() {
+        return keyColumns;
+    }
+
+    /**
+     * Returns key columns.
+     *
+     * @return Key columns.
+     */
+    ClientColumn[] valColumns() {
+        return valColumns;
+    }
+
+    /**
+     * Returns colocation columns.
+     *
+     * @return Colocation columns.
+     */
+    ClientColumn[] colocationColumns() {
+        return colocationColumns;
     }
 
     /**
@@ -116,7 +199,7 @@ public class ClientSchema {
      * @return Column by name.
      * @throws IgniteException When a column with the specified name does not exist.
      */
-    public @NotNull ClientColumn column(String name) {
+    public ClientColumn column(String name) {
         var column = map.get(name);
 
         if (column == null) {
@@ -132,50 +215,66 @@ public class ClientSchema {
      * @param name Column name.
      * @return Column by name.
      */
-    public @Nullable ClientColumn columnSafe(String name) {
+    @Nullable ClientColumn columnSafe(String name) {
         return map.get(name);
     }
 
-    /**
-     * Returns key column count.
-     *
-     * @return Key column count.
-     */
-    public int keyColumnCount() {
-        return keyColumnCount;
+    <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
+        return getMarshaller(mapper, part, part == TuplePart.KEY);
     }
 
-    public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
-        // TODO: Cache Marshallers (IGNITE-16094).
-        return createMarshaller(mapper, part);
+    /** Returns a marshaller for columns defined by this client schema. */
+    public <T> Marshaller getMarshaller(Mapper mapper) {
+        MarshallerColumn[] marshallerColumns = toMarshallerColumns(TuplePart.KEY_AND_VAL);
+
+        return marshallers.getMarshaller(marshallerColumns, mapper, true, false);
     }
 
-    private Marshaller createMarshaller(Mapper mapper, TuplePart part) {
-        int colCount = columns.length;
-        int firstColIdx = 0;
+    <T> Marshaller getMarshaller(Mapper mapper, TuplePart part, boolean allowUnmappedFields) {
+        switch (part) {
+            case KEY:
+                return marshallers.getKeysMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+            case VAL:
+                return marshallers.getValuesMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+            case KEY_AND_VAL:
+                return marshallers.getRowMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+            default:
+                throw new AssertionError("Unexpected tuple part: " + part);
+        }
+    }
 
-        if (part == TuplePart.KEY) {
-            colCount = keyColumnCount;
-        } else if (part == TuplePart.VAL) {
-            colCount = columns.length - keyColumnCount;
-            firstColIdx = keyColumnCount;
+    private MarshallerColumn[] toMarshallerColumns(TuplePart part) {
+        if (part == TuplePart.VAL) {
+            var res = new MarshallerColumn[columns.length - keyColumns.length];
+            int idx = 0;
+
+            for (var col : columns) {
+                if (!col.key()) {
+                    res[idx++] = marshallerColumn(col);
+                }
+            }
+
+            return res;
         }
 
-        MarshallerColumn[] cols = new MarshallerColumn[colCount];
+        ClientColumn[] cols = part == TuplePart.KEY_AND_VAL ? columns : keyColumns;
+        var res = new MarshallerColumn[cols.length];
 
-        for (int i = 0; i < colCount; i++) {
-            var col = columns[i  + firstColIdx];
-
-            cols[i] = new MarshallerColumn(col.name(), mode(col.type()));
+        for (int i = 0; i < cols.length; i++) {
+            res[i] = marshallerColumn(cols[i]);
         }
 
-        return Marshaller.createMarshaller(cols, mapper, part == TuplePart.KEY);
+        return res;
     }
 
-    private static BinaryMode mode(int dataType) {
+    private static MarshallerColumn marshallerColumn(ClientColumn col) {
+        return new MarshallerColumn(col.schemaIndex(), col.name(), mode(col.type()), null, col.scale());
+    }
+
+    private static BinaryMode mode(ColumnType dataType) {
         switch (dataType) {
             case BOOLEAN:
-                throw new IgniteException("TODO: " + dataType);
+                return BinaryMode.BOOLEAN;
 
             case INT8:
                 return BinaryMode.BYTE;
@@ -195,20 +294,18 @@ public class ClientSchema {
             case DOUBLE:
                 return BinaryMode.DOUBLE;
 
-            case ClientDataType.UUID:
+            case UUID:
                 return BinaryMode.UUID;
 
             case STRING:
                 return BinaryMode.STRING;
 
-            case BYTES:
+            case BYTE_ARRAY:
                 return BinaryMode.BYTE_ARR;
 
             case DECIMAL:
                 return BinaryMode.DECIMAL;
 
-            // Falls through.
-            case BIGINTEGER:
             case NUMBER:
                 return BinaryMode.NUMBER;
 
@@ -228,7 +325,58 @@ public class ClientSchema {
                 return BinaryMode.TIMESTAMP;
 
             default:
-                throw new IgniteException("Unknown client data type: " + dataType);
+                throw new IgniteException(Client.PROTOCOL_ERR, "Unknown client data type: " + dataType);
+        }
+    }
+
+    private MarshallerSchema marshallerSchema() {
+        if (marshallerSchema == null) {
+            marshallerSchema = new ClientMarshallerSchema(this);
+        }
+        return marshallerSchema;
+    }
+
+    private static class ClientMarshallerSchema implements MarshallerSchema {
+
+        private final ClientSchema schema;
+
+        private MarshallerColumn[] keys;
+
+        private MarshallerColumn[] values;
+
+        private MarshallerColumn[] row;
+
+        private ClientMarshallerSchema(ClientSchema schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public int schemaVersion() {
+            return schema.version();
+        }
+
+        @Override
+        public MarshallerColumn[] keys() {
+            if (keys == null) {
+                keys = schema.toMarshallerColumns(TuplePart.KEY);
+            }
+            return keys;
+        }
+
+        @Override
+        public MarshallerColumn[] values() {
+            if (values == null) {
+                values = schema.toMarshallerColumns(TuplePart.VAL);
+            }
+            return values;
+        }
+
+        @Override
+        public MarshallerColumn[] row() {
+            if (row == null) {
+                row = schema.toMarshallerColumns(TuplePart.KEY_AND_VAL);
+            }
+            return row;
         }
     }
 }

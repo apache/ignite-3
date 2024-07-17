@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
+import static org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost.FETCH_IS_PARAM_FACTOR;
+import static org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost.OFFSET_IS_PARAM_FACTOR;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.changeTraits;
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.doubleFromRex;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
@@ -37,17 +40,41 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite sort operator.
  */
-public class IgniteSort extends Sort implements InternalIgniteRel {
+public class IgniteSort extends Sort implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Sort";
+
     /**
      * Constructor.
      *
-     * @param cluster   Cluster.
-     * @param traits    Trait set.
-     * @param child     Input node.
+     * @param cluster Cluster.
+     * @param traits Trait set.
+     * @param child Input node.
+     * @param collation Collation.
+     * @param offset Offset.
+     * @param fetch Limit.
+     */
+    public IgniteSort(
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelNode child,
+            RelCollation collation,
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
+    ) {
+        super(cluster, traits, child, collation, offset, fetch);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param cluster Cluster.
+     * @param traits Trait set.
+     * @param child Input node.
      * @param collation Collation.
      */
     public IgniteSort(
@@ -55,12 +82,13 @@ public class IgniteSort extends Sort implements InternalIgniteRel {
             RelTraitSet traits,
             RelNode child,
             RelCollation collation) {
-        super(cluster, traits, child, collation);
+        this(cluster, traits, child, collation, null, null);
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteSort(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
@@ -72,12 +100,10 @@ public class IgniteSort extends Sort implements InternalIgniteRel {
             RelTraitSet traitSet,
             RelNode newInput,
             RelCollation newCollation,
-            RexNode offset,
-            RexNode fetch
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
     ) {
-        assert offset == null && fetch == null;
-
-        return new IgniteSort(getCluster(), traitSet, newInput, newCollation);
+        return new IgniteSort(getCluster(), traitSet, newInput, traitSet.getCollation(), offset, fetch);
     }
 
     /** {@inheritDoc} */
@@ -99,9 +125,14 @@ public class IgniteSort extends Sort implements InternalIgniteRel {
             return null;
         }
 
-        RelCollation collation = TraitUtils.collation(required);
+        RelCollation requiredCollation = TraitUtils.collation(required);
+        RelCollation relCollation = traitSet.getCollation();
 
-        return Pair.of(required.replace(collation), List.of(required.replace(RelCollations.EMPTY)));
+        if (!requiredCollation.satisfies(relCollation)) {
+            return null;
+        }
+
+        return Pair.of(required, List.of(required.replace(RelCollations.EMPTY)));
     }
 
     /** {@inheritDoc} */
@@ -118,19 +149,28 @@ public class IgniteSort extends Sort implements InternalIgniteRel {
 
     /** {@inheritDoc} */
     @Override
-    public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
-        double rows = mq.getRowCount(getInput());
+    public double estimateRowCount(RelMetadataQuery mq) {
+        return memRows(mq.getRowCount(getInput()));
+    }
 
-        double cpuCost = rows * IgniteCost.ROW_PASS_THROUGH_COST + Util.nLogN(rows) * IgniteCost.ROW_COMPARISON_COST;
-        double memory = rows * getRowType().getFieldCount() * IgniteCost.AVERAGE_FIELD_SIZE;
+    /** {@inheritDoc} */
+    @Override
+    public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
+        double inputRows = mq.getRowCount(getInput());
+
+        double memRows = memRows(inputRows);
+
+        double cpuCost = inputRows * IgniteCost.ROW_PASS_THROUGH_COST + Util.nLogM(inputRows, memRows)
+                * IgniteCost.ROW_COMPARISON_COST;
+        double memory = memRows * getRowType().getFieldCount() * IgniteCost.AVERAGE_FIELD_SIZE;
 
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
 
-        RelOptCost cost = costFactory.makeCost(rows, cpuCost, 0, memory, 0);
+        RelOptCost cost = costFactory.makeCost(inputRows, cpuCost, 0, memory, 0);
 
         // Distributed sorting is more preferable than sorting on the single node.
-        if (TraitUtils.distribution(traitSet).satisfies(IgniteDistributions.single())) {
-            cost.plus(costFactory.makeTinyCost());
+        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(traitSet).satisfies(IgniteDistributions.single())) {
+            cost = cost.plus(costFactory.makeTinyCost());
         }
 
         return cost;
@@ -139,6 +179,22 @@ public class IgniteSort extends Sort implements InternalIgniteRel {
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSort(cluster, getTraitSet(), sole(inputs), collation);
+        return new IgniteSort(cluster, getTraitSet(), sole(inputs), collation, offset, fetch);
+    }
+
+    /** Rows number to keep in memory and sort. */
+    private double memRows(double inputRows) {
+        double fetch = this.fetch != null ? doubleFromRex(this.fetch, inputRows * FETCH_IS_PARAM_FACTOR)
+                : inputRows;
+        double offset = this.offset != null ? doubleFromRex(this.offset, inputRows * OFFSET_IS_PARAM_FACTOR)
+                : 0;
+
+        return Math.min(inputRows, fetch + offset);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

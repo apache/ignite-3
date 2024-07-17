@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -97,6 +97,14 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
         return config == null ? null : (T) config.specificConfigTree();
     }
 
+    @Override
+    @Nullable
+    public T get(UUID internalId) {
+        var value = (NamedListNode<?>) value();
+
+        return get(value.keyByInternalId(internalId));
+    }
+
     /**
      * Get a raw named config.
      *
@@ -110,21 +118,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
         return (DynamicConfiguration<?, ?>) members.get(name);
     }
 
-    /**
-     * Retrieves a named list element by its internal id.
-     *
-     * @param internalId Internal id.
-     * @return Named list element, associated with the passed internal id, or {@code null} if it doesn't exist.
-     */
-    public T getByInternalId(UUID internalId) {
-        var value = (NamedListNode<?>) value();
-
-        return (T) members.get(value.keyByInternalId(internalId));
-    }
-
-    /**
-     * Returns all internal ids of the elements from the list.
-     */
+    @Override
     public List<UUID> internalIds() {
         NamedListView<VIEWT> value = value();
 
@@ -202,7 +196,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable Class<?>[] internalConfigTypes() {
+    public Class<?> @Nullable [] extensionConfigTypes() {
         throw new UnsupportedOperationException("Not supported.");
     }
 
@@ -220,7 +214,8 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
 
     /** {@inheritDoc} */
     @Override
-    public DirectPropertyProxy<NamedListView<VIEWT>> directProxy() {
+    @SuppressWarnings("unchecked")
+    public NamedConfigurationTree<T, VIEWT, CHANGET> directProxy() {
         if (listenOnly) {
             throw listenOnlyException();
         }

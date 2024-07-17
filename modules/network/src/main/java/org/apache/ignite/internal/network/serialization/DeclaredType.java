@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,11 +29,10 @@ public interface DeclaredType {
     int typeDescriptorId();
 
     /**
-     * Returns {@code true} if the type slot can only host (at runtime) instances of its declared type (and not subtypes),
-     * so the runtime marshalling type is known upfront. This is also true for enums, even though technically their values might
+     * Returns {@code true} if the contents of the type slot can only have (at runtime) instances serialized as its declared type
+     * (and not subtypes or other types coming from write replacement),
+     * so the serialization type is known upfront. This is also true for enums, even though technically their values might
      * have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
-     *
-     * @return {@code true} if the type slot can only host (at runtime) instances of the declared type that is known upfront
      */
-    boolean isRuntimeTypeKnownUpfront();
+    boolean isSerializationTypeKnownUpfront();
 }

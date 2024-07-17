@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,7 +25,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Distributed transaction test using a single partition table, collocated on a leader.
  */
-public class ItTxDistributedTestSingleNodeCollocated extends ItTxDistributedTestSingleNode {
+public class ItTxDistributedTestSingleNodeCollocated extends ItTxAbstractDistributedTestSingleNode {
     /**
      * The constructor.
      *
@@ -47,8 +47,14 @@ public class ItTxDistributedTestSingleNodeCollocated extends ItTxDistributedTest
     public void before() throws Exception {
         super.before();
 
-        assertSame(accRaftClients.get(0).clusterService(), getLeader(accRaftClients.get(0)).service());
-        assertSame(custRaftClients.get(0).clusterService(), getLeader(custRaftClients.get(0)).service());
+        assertSame(
+                txTestCluster.raftClients.get(ACC_TABLE_NAME).get(0).clusterService(),
+                txTestCluster.getLeader(ACC_TABLE_NAME).service()
+        );
+        assertSame(
+                txTestCluster.raftClients.get(CUST_TABLE_NAME).get(0).clusterService(),
+                txTestCluster.getLeader(CUST_TABLE_NAME).service()
+        );
     }
 }
 

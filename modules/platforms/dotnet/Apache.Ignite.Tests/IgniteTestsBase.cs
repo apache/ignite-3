@@ -18,26 +18,55 @@
 namespace Apache.Ignite.Tests
 {
     using System;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
-    using Log;
+    using Internal.Proto;
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
     using Table;
 
     /// <summary>
     /// Base class for client tests.
+    /// <para />
+    /// NOTE: Timeout is set for the entire assembly in csproj file.
     /// </summary>
     public class IgniteTestsBase
     {
-        protected const string TableName = "PUB.TBL1";
+        protected const string TableName = "TBL1";
+        protected const int TablePartitionCount = 10;
+
+        protected const string TableAllColumnsName = "TBL_ALL_COLUMNS";
+        protected const string TableAllColumnsNotNullName = "TBL_ALL_COLUMNS_NOT_NULL";
+        protected const string TableAllColumnsSqlName = "TBL_ALL_COLUMNS_SQL";
+
+        protected const string TableInt8Name = "TBL_INT8";
+        protected const string TableBoolName = "TBL_BOOLEAN";
+        protected const string TableInt16Name = "TBL_INT16";
+        protected const string TableInt32Name = "TBL_INT32";
+        protected const string TableInt64Name = "TBL_INT64";
+        protected const string TableFloatName = "TBL_FLOAT";
+        protected const string TableDoubleName = "TBL_DOUBLE";
+        protected const string TableDecimalName = "TBL_DECIMAL";
+        protected const string TableStringName = "TBL_STRING";
+        protected const string TableDateName = "TBL_DATE";
+        protected const string TableDateTimeName = "TBL_DATETIME";
+        protected const string TableTimeName = "TBL_TIME";
+        protected const string TableTimestampName = "TBL_TIMESTAMP";
+        protected const string TableNumberName = "TBL_NUMBER";
+        protected const string TableBytesName = "TBL_BYTE_ARRAY";
+        protected const string TableBitmaskName = "TBL_BITMASK";
 
         protected const string KeyCol = "key";
 
         protected const string ValCol = "val";
 
-        protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(1000); // See PlatformTestNodeRunner.
+        protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(3000); // See PlatformTestNodeRunner.
 
         private static readonly JavaServer ServerNode;
+
+        private readonly List<IDisposable> _disposables = new();
 
         private TestEventListener _eventListener = null!;
 
@@ -58,6 +87,14 @@ namespace Apache.Ignite.Tests
 
         protected IRecordView<Poco> PocoView { get; private set; } = null!;
 
+        protected IRecordView<PocoAllColumns> PocoAllColumnsView { get; private set; } = null!;
+
+        protected IRecordView<PocoAllColumnsNullable> PocoAllColumnsNullableView { get; private set; } = null!;
+
+        protected IRecordView<PocoAllColumnsSql> PocoAllColumnsSqlView { get; private set; } = null!;
+
+        protected IRecordView<PocoAllColumnsSqlNullable> PocoAllColumnsSqlNullableView { get; private set; } = null!;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
@@ -68,6 +105,16 @@ namespace Apache.Ignite.Tests
             Table = (await Client.Tables.GetTableAsync(TableName))!;
             TupleView = Table.RecordBinaryView;
             PocoView = Table.GetRecordView<Poco>();
+
+            var tableAllColumns = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            PocoAllColumnsNullableView = tableAllColumns!.GetRecordView<PocoAllColumnsNullable>();
+
+            var tableAllColumnsNotNull = await Client.Tables.GetTableAsync(TableAllColumnsNotNullName);
+            PocoAllColumnsView = tableAllColumnsNotNull!.GetRecordView<PocoAllColumns>();
+
+            var tableAllColumnsSql = await Client.Tables.GetTableAsync(TableAllColumnsSqlName);
+            PocoAllColumnsSqlView = tableAllColumnsSql!.GetRecordView<PocoAllColumnsSql>();
+            PocoAllColumnsSqlNullableView = tableAllColumnsSql.GetRecordView<PocoAllColumnsSqlNullable>();
         }
 
         [OneTimeTearDown]
@@ -77,25 +124,96 @@ namespace Apache.Ignite.Tests
             Client?.Dispose();
 
             Assert.Greater(_eventListener.BuffersRented, 0);
-            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
+
+            CheckPooledBufferLeak();
+
             _eventListener.Dispose();
+        }
+
+        [SetUp]
+        public void SetUp()
+        {
+            Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
+            TestUtils.CheckByteArrayPoolLeak();
         }
 
         [TearDown]
         public void TearDown()
         {
-            Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
+            Console.WriteLine("TearDown start: " + TestContext.CurrentContext.Test.Name);
+
+            _disposables.ForEach(x => x.Dispose());
+            _disposables.Clear();
+
+            CheckPooledBufferLeak();
+
+            Console.WriteLine("TearDown end: " + TestContext.CurrentContext.Test.Name);
         }
 
-        protected static IIgniteTuple GetTuple(long id, string? val = null) =>
-            new IgniteTuple { [KeyCol] = id, [ValCol] = val };
+        internal static string GetRequestTargetNodeName(IEnumerable<IgniteProxy> proxies, ClientOp op)
+        {
+            foreach (var proxy in proxies)
+            {
+                var ops = proxy.ClientOps;
+                proxy.ClearOps();
 
-        protected static Poco GetPoco(long id, string? val = null) => new() {Key = id, Val = val};
+                if (ops.Contains(op))
+                {
+                    return proxy.NodeName;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        protected static IIgniteTuple GetTuple(long id) => new IgniteTuple { [KeyCol] = id };
+
+        protected static IIgniteTuple GetTuple(long id, string? val) => new IgniteTuple { [KeyCol] = id, [ValCol] = val };
+
+        protected static IIgniteTuple GetTuple(string? val) => new IgniteTuple { [ValCol] = val };
+
+        protected static Poco GetPoco(long id, string? val = null) => new() { Key = id, Val = val };
+
+        protected static KeyPoco GetKeyPoco(long id) => new() { Key = id };
+
+        protected static ValPoco GetValPoco(string? val) => new() { Val = val };
 
         protected static IgniteClientConfiguration GetConfig() => new()
         {
-            Endpoints = { "127.0.0.1:" + ServerNode.Port },
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            Endpoints =
+            {
+                "127.0.0.1:" + ServerNode.Port,
+                "127.0.0.1:" + (ServerNode.Port + 1)
+            },
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
+
+        protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
+            new(proxies.Select(x => x.Endpoint).ToArray())
+            {
+                LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+            };
+
+        protected List<IgniteProxy> GetProxies()
+        {
+            var proxies = Client.GetConnections().Select(c => new IgniteProxy(c.Node.Address, c.Node.Name)).ToList();
+
+            _disposables.AddRange(proxies);
+
+            return proxies;
+        }
+
+        private void CheckPooledBufferLeak()
+        {
+            // Use WaitForCondition to check rented/returned buffers equality:
+            // Buffer pools are used by everything, including testing framework, internal .NET needs, etc.
+            var listener = _eventListener;
+            TestUtils.WaitForCondition(
+                condition: () => listener.BuffersReturned == listener.BuffersRented,
+                timeoutMs: 1000,
+                messageFactory: () => $"rented = {listener.BuffersRented}, returned = {listener.BuffersReturned}");
+
+            TestUtils.CheckByteArrayPoolLeak();
+        }
     }
 }

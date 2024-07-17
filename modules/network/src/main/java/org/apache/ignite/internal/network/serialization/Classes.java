@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,7 +19,9 @@ package org.apache.ignite.internal.network.serialization;
 
 import java.io.Externalizable;
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utilities to work with classes.
@@ -109,11 +111,54 @@ public class Classes {
         }
 
         if (clazz == String.class) {
-            // a String may be represented with more than one built-in type, so sd don't know the type upfront
+            // A String may be represented with more than one built-in type, so we don't know the type upfront.
             return false;
         }
 
         return clazz.isPrimitive() || Modifier.isFinal(clazz.getModifiers()) || isRuntimeEnum(clazz);
+    }
+
+    /**
+     * Returns whether the declared class unambigously defines the class of the object that will be written when serializing an instance of
+     * the original class. This means that the runtime type is known upfront and that it does not have a writeReplace()
+     * method (as it can return any replacement).
+     *
+     * @param clazz Class to check.
+     * @see #isRuntimeTypeKnownUpfront(Class)
+     */
+    public static boolean isSerializationTypeKnownUpfront(Class<?> clazz) {
+        return isRuntimeTypeKnownUpfront(clazz) && !typeCanBeReplacedDuringSerialization(clazz);
+    }
+
+    private static boolean typeCanBeReplacedDuringSerialization(Class<?> clazz) {
+        return Serializable.class.isAssignableFrom(clazz)
+                && !Externalizable.class.isAssignableFrom(clazz)
+                && hasWriteReplace(clazz);
+    }
+
+    /**
+     * Returns whether the given class defines a writeReplace() method.
+     *
+     * @param clazz Class to check.
+     */
+    static boolean hasWriteReplace(Class<?> clazz) {
+        return getWriteReplace(clazz) != null;
+    }
+
+    /**
+     * Gets a method with the signature
+     * {@code ANY-ACCESS-MODIFIER Object writeReplace() throws ObjectStreamException}.
+     *
+     * @param clazz Class.
+     * @return Method.
+     */
+    @Nullable
+    private static Method getWriteReplace(Class<?> clazz) {
+        try {
+            return clazz.getDeclaredMethod("writeReplace");
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
     }
 
     private Classes() {

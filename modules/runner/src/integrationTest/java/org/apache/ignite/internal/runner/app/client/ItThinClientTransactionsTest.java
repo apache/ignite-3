@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,7 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -37,7 +41,10 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client transactions integration test.
@@ -118,7 +125,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertFalse(recordView.delete(tx, key));
 
         recordView.upsertAll(tx, List.of(rec(1, "6"), rec(2, "7")));
-        assertEquals(2, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
+        assertEquals(3, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
 
         tx.rollback();
         assertEquals(rec(1, "1"), recordView.get(null, key));
@@ -144,7 +151,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertFalse(recordView.delete(tx, key));
 
         recordView.upsertAll(tx, List.of(kv(1, "6"), kv(2, "7")));
-        assertEquals(2, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
+        assertEquals(3, recordView.getAll(tx, List.of(key, key(2), key(3))).size());
 
         tx.rollback();
         assertEquals(kv(1, "1"), recordView.get(null, key));
@@ -183,34 +190,47 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testAccessLockedKeyTimesOut() {
+    void testAccessLockedKeyTimesOut() throws Exception {
         KeyValueView<Integer, String> kvView = kvView();
 
-        Transaction tx = client().transactions().begin();
-        kvView.put(tx, -100, "1");
+        Transaction tx1 = client().transactions().begin();
+        client().sql().execute(tx1, "SELECT 1").close(); // Force lazy tx init.
 
-        var ex = assertThrows(IgniteException.class, () -> kvView.get(null, -100));
-        assertThat(ex.getMessage(), containsString("TimeoutException"));
+        // Here we guarantee that tx2 will strictly after tx2 even if the transactions start in different server nodes.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19900 Client should participate in RW TX clock adjustment
+        Thread.sleep(50);
 
-        tx.rollback();
+        // Lock the key in tx2.
+        Transaction tx2 = client().transactions().begin();
+
+        try {
+            kvView.put(tx2, -100, "1");
+
+            // Get the key in tx1 - time out.
+            assertThrows(TimeoutException.class, () -> kvView.getAsync(tx1, -100).get(1, TimeUnit.SECONDS));
+        } finally {
+            tx2.rollback();
+        }
     }
 
     @Test
-    void testCommitRollbackSameTxThrows() {
+    void testCommitRollbackSameTxDoesNotThrow() {
         Transaction tx = client().transactions().begin();
         tx.commit();
 
-        TransactionException ex = assertThrows(TransactionException.class, tx::rollback);
-        assertThat(ex.getMessage(), containsString("Transaction is already committed"));
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
     }
 
     @Test
-    void testRollbackCommitSameTxThrows() {
+    void testRollbackCommitSameTxDoesNotThrow() {
         Transaction tx = client().transactions().begin();
         tx.rollback();
 
-        TransactionException ex = assertThrows(TransactionException.class, tx::commit);
-        assertThat(ex.getMessage(), containsString("Transaction is already rolled back"));
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
     }
 
     @Test
@@ -233,6 +253,11 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             public CompletableFuture<Void> rollbackAsync() {
                 return null;
             }
+
+            @Override
+            public boolean isReadOnly() {
+                return false;
+            }
         };
 
         var ex = assertThrows(IgniteException.class, () -> kvView().put(tx, 1, "1"));
@@ -246,6 +271,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @Test
     void testTransactionFromAnotherChannelThrows() throws Exception {
         Transaction tx = client().transactions().begin();
+        client().sql().execute(tx, "SELECT 1").close(); // Force lazy tx init.
 
         try (IgniteClient client2 = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();
@@ -253,7 +279,75 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             var ex = assertThrows(IgniteException.class, () -> recordView.upsert(tx, Tuple.create()));
 
             assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors"));
+            assertEquals(ErrorGroups.Client.CONNECTION_ERR, ex.code());
         }
+    }
+
+    @Test
+    void testReadOnlyTxSeesOldDataAfterUpdate() {
+        KeyValueView<Integer, String> kvView = kvView();
+        kvView.put(null, 1, "1");
+
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals("1", kvView.get(tx, 1));
+
+        // Update data in a different tx.
+        Transaction tx2 = client().transactions().begin();
+        kvView.put(tx2, 1, "2");
+        tx2.commit();
+
+        // Old tx sees old data.
+        assertEquals("1", kvView.get(tx, 1));
+
+        // New tx sees new data
+        Transaction tx3 = client().transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals("2", kvView.get(tx3, 1));
+    }
+
+    @Test
+    void testUpdateInReadOnlyTxThrows() {
+        KeyValueView<Integer, String> kvView = kvView();
+        kvView.put(null, 1, "1");
+
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        var ex = assertThrows(TransactionException.class, () -> kvView.put(tx, 1, "2"));
+
+        assertThat(ex.getMessage(), containsString("Failed to enlist read-write operation into read-only transaction"));
+        assertEquals(ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, ex.code());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testCommitRollbackReadOnlyTxDoesNothing(boolean commit) {
+        KeyValueView<Integer, String> kvView = kvView();
+        kvView.put(null, 10, "1");
+
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals("1", kvView.get(tx, 10));
+
+        if (commit) {
+            tx.commit();
+        } else {
+            tx.rollback();
+        }
+    }
+
+    @Test
+    void testReadOnlyTxAttributes() {
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+
+        assertTrue(tx.isReadOnly());
+
+        tx.rollback();
+    }
+
+    @Test
+    void testReadWriteTxAttributes() {
+        Transaction tx = client().transactions().begin();
+
+        assertFalse(tx.isReadOnly());
+
+        tx.rollback();
     }
 
     private KeyValueView<Integer, String> kvView() {

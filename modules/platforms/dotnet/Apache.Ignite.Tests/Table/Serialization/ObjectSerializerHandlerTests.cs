@@ -18,11 +18,12 @@
 namespace Apache.Ignite.Tests.Table.Serialization
 {
     using System;
+    using Ignite.Sql;
     using Internal.Buffers;
-    using Internal.Proto;
+    using Internal.Proto.BinaryTuple;
+    using Internal.Proto.MsgPack;
     using Internal.Table;
     using Internal.Table.Serialization;
-    using MessagePack;
     using NUnit.Framework;
 
     /// <summary>
@@ -31,42 +32,30 @@ namespace Apache.Ignite.Tests.Table.Serialization
     // ReSharper disable NotAccessedPositionalProperty.Local
     public class ObjectSerializerHandlerTests
     {
-        private static readonly Schema Schema = new(1, 1, new[]
-        {
-            new Column("Key", ClientDataType.Int64, false, true, 0),
-            new Column("Val", ClientDataType.String, false, false, 1)
-        });
+        private static readonly Schema Schema = Schema.CreateInstance(
+            version: 1,
+            tableId: 1,
+            columns: new[]
+            {
+                new Column("Key", ColumnType.Int64, IsNullable: false, ColocationIndex: 0, KeyIndex: 0, SchemaIndex: 0, Scale: 0, Precision: 0),
+                new Column("Val", ColumnType.String, IsNullable: false, ColocationIndex: -1, KeyIndex: -1, SchemaIndex: 1, Scale: 0, Precision: 0)
+            });
 
         [Test]
         public void TestWrite()
         {
-            var reader = WriteAndGetReader();
+            var reader = WriteAndGetTupleReader();
 
-            Assert.AreEqual(1234, reader.ReadInt32());
-            Assert.AreEqual("foo", reader.ReadString());
-            Assert.IsTrue(reader.End);
-        }
-
-        [Test]
-        public void TestWriteUnsigned()
-        {
-            var bytes = Write(new UnsignedPoco(ulong.MaxValue, "foo"));
-
-            var resMem = bytes[PooledArrayBufferWriter.ReservedPrefixSize..]; // Skip length header.
-            var reader = new MessagePackReader(resMem);
-
-            Assert.AreEqual(ulong.MaxValue, reader.ReadUInt64());
-            Assert.AreEqual("foo", reader.ReadString());
-            Assert.IsTrue(reader.End);
+            Assert.AreEqual(1234, reader.GetInt(0));
+            Assert.AreEqual("foo", reader.GetString(1));
         }
 
         [Test]
         public void TestWriteKeyOnly()
         {
-            var reader = WriteAndGetReader(keyOnly: true);
+            var reader = WriteAndGetTupleReader(keyOnly: true);
 
-            Assert.AreEqual(1234, reader.ReadInt32());
-            Assert.IsTrue(reader.End);
+            Assert.AreEqual(1234, reader.GetInt(0));
         }
 
         [Test]
@@ -82,22 +71,11 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestReadKeyOnly()
         {
-            var reader = WriteAndGetReader();
+            var reader = WriteAndGetReader(true);
             var resPoco = new ObjectSerializerHandler<Poco>().Read(ref reader, Schema, keyOnly: true);
 
             Assert.AreEqual(1234, resPoco.Key);
             Assert.IsNull(resPoco.Val);
-        }
-
-        [Test]
-        public void TestReadValuePart()
-        {
-            var reader = WriteAndGetReader();
-            reader.Skip(); // Skip key.
-            var resPoco = new ObjectSerializerHandler<Poco>().ReadValuePart(ref reader, Schema, new Poco{Key = 4321});
-
-            Assert.AreEqual(4321, resPoco.Key);
-            Assert.AreEqual("foo", resPoco.Val);
         }
 
         [Test]
@@ -126,29 +104,34 @@ namespace Apache.Ignite.Tests.Table.Serialization
                 ex!.Message);
         }
 
-        private static MessagePackReader WriteAndGetReader(bool keyOnly = false)
+        private static MsgPackReader WriteAndGetReader(bool keyOnly = false)
         {
             var bytes = Write(new Poco { Key = 1234, Val = "foo" }, keyOnly);
 
-            var resMem = bytes[PooledArrayBufferWriter.ReservedPrefixSize..]; // Skip length header.
-            return new MessagePackReader(resMem);
+            return new MsgPackReader(bytes);
+        }
+
+        private static BinaryTupleReader WriteAndGetTupleReader(bool keyOnly = false)
+        {
+            var msgPackReader = WriteAndGetReader(keyOnly);
+            var bytes = msgPackReader.ReadBinary();
+
+            return new BinaryTupleReader(bytes, keyOnly ? 1 : 2);
         }
 
         private static byte[] Write<T>(T obj, bool keyOnly = false)
-            where T : class
         {
-            var handler = new ObjectSerializerHandler<T>();
+            IRecordSerializerHandler<T> handler = new ObjectSerializerHandler<T>();
 
-            using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
+            using var pooledWriter = new PooledArrayBuffer();
+            var writer = pooledWriter.MessageWriter;
 
             handler.Write(ref writer, Schema, obj, keyOnly);
-            writer.Flush();
-            return pooledWriter.GetWrittenMemory().ToArray();
+
+            // Slice NoValueSet.
+            return pooledWriter.GetWrittenMemory().Slice(3).ToArray();
         }
 
         private record BadPoco(Guid Key, DateTimeOffset Val);
-
-        private record UnsignedPoco(ulong Key, string Val);
     }
 }

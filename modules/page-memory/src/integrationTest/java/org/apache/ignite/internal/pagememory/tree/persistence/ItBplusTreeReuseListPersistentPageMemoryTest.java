@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.tree.persistence;
 
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
@@ -26,11 +27,13 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreeReusePageMemoryTest;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -38,20 +41,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusTreeReusePageMemoryTest {
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(
+            polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
+            value = "mock.engine = aipersist"
+    )
+    private StorageProfileConfiguration dataRegionCfg;
 
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c -> c.changeSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
+        dataRegionCfg
+                .change(c -> ((PersistentPageMemoryProfileChange) c)
+                        .changeSize(MAX_MEMORY_SIZE))
+                .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PersistentPageMemory(
-                dataRegionCfg,
+                (PersistentPageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
                 ioRegistry,
                 LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
                 10 * MiB,
@@ -60,7 +69,7 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
                 },
                 (fullPageId, buf, tag) -> {
                 },
-                mockCheckpointTimeoutLock(log, true),
+                mockCheckpointTimeoutLock(true),
                 PAGE_SIZE
         );
     }

@@ -15,60 +15,44 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Compute
+namespace Apache.Ignite.Compute;
+
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Network;
+
+/// <summary>
+/// Ignite Compute API provides distributed job execution functionality.
+/// </summary>
+public interface ICompute
 {
-    using System.Collections.Generic;
-    using System.Threading.Tasks;
-    using Network;
-    using Table;
+    /// <summary>
+    /// Submits a compute job represented by the given class for an execution on one of the specified nodes.
+    /// </summary>
+    /// <param name="target">Job execution target.</param>
+    /// <param name="jobDescriptor">Job descriptor.</param>
+    /// <param name="arg">Job arguments.</param>
+    /// <typeparam name="TTarget">Job target type.</typeparam>
+    /// <typeparam name="TArg">Job argument type.</typeparam>
+    /// <typeparam name="TResult">Job result type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task<IJobExecution<TResult>> SubmitAsync<TTarget, TArg, TResult>(
+        IJobTarget<TTarget> target,
+        JobDescriptor<TArg, TResult> jobDescriptor,
+        TArg arg)
+        where TTarget : notnull;
 
     /// <summary>
-    /// Ignite Compute API provides distributed job execution functionality.
+    /// Submits a compute job represented by the given class for an execution on all of the specified nodes.
     /// </summary>
-    public interface ICompute
-    {
-        /// <summary>
-        /// Executes a compute job represented by the given class on one of the specified nodes.
-        /// </summary>
-        /// <param name="nodes">Nodes to use for the job execution.</param>
-        /// <param name="jobClassName">Java class name of the job to execute.</param>
-        /// <param name="args">Job arguments.</param>
-        /// <typeparam name="T">Job result type.</typeparam>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args);
-
-        /// <summary>
-        /// Executes a job represented by the given class on one node where the given key is located.
-        /// </summary>
-        /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
-        /// <param name="key">Table key to be used to determine the target node for job execution.</param>
-        /// <param name="jobClassName">Java class name of the job to execute.</param>
-        /// <param name="args">Job arguments.</param>
-        /// <typeparam name="T">Job result type.</typeparam>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args);
-
-        /// <summary>
-        /// Executes a job represented by the given class on one node where the given key is located.
-        /// </summary>
-        /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
-        /// <param name="key">Table key to be used to determine the target node for job execution.</param>
-        /// <param name="jobClassName">Java class name of the job to execute.</param>
-        /// <param name="args">Job arguments.</param>
-        /// <typeparam name="T">Job result type.</typeparam>
-        /// <typeparam name="TKey">Key type.</typeparam>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
-            where TKey : class; // TODO: Remove class constraint (IGNITE-16355)
-
-        /// <summary>
-        /// Executes a compute job represented by the given class on all of the specified nodes.
-        /// </summary>
-        /// <param name="nodes">Nodes to use for the job execution.</param>
-        /// <param name="jobClassName">Java class name of the job to execute.</param>
-        /// <param name="args">Job arguments.</param>
-        /// <typeparam name="T">Job result type.</typeparam>
-        /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
-        IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args);
-    }
+    /// <param name="nodes">Nodes to use for the job execution.</param>
+    /// <param name="jobDescriptor">Job descriptor.</param>
+    /// <param name="arg">Job arguments.</param>
+    /// <typeparam name="TArg">Job argument type.</typeparam>
+    /// <typeparam name="TResult">Job result type.</typeparam>
+    /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
+    IDictionary<IClusterNode, Task<IJobExecution<TResult>>> SubmitBroadcast<TArg, TResult>(
+        IEnumerable<IClusterNode> nodes,
+        JobDescriptor<TArg, TResult> jobDescriptor,
+        TArg arg);
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,384 +17,122 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.BitSet;
-import java.util.Iterator;
-import java.util.Objects;
-import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
+import java.util.Collection;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Client tuple builder.
+ * Client tuple. Wraps {@link BinaryTupleReader} and allows mutability.
+ *
+ * <p>The following use cases are supported:
+ * <ul>
+ *     <li>Full binary tuple, TuplePart.KEY_AND_VAL - obvious one.</li>
+ *     <li>Key only binary tuple, TuplePart.KEY - key only part,
+ *     returned from methods like {@link org.apache.ignite.table.RecordView#deleteAll(Transaction, Collection)}.</li>
+ *     <li>Full binary tuple, TuplePart.KEY - key part of full tuple, returned from KV APIs -
+ *     single binary tuple is presented as a pair of {@link ClientTuple} instances.</li>
+ *     <li>Full binary tuple, TuplePart.VAL - same as above, value part.</li>
+ *     <li>Value only binary tuple, TuplePart.VAL - not used currently,
+ *     but we might optimize the protocol to return value-only data for key-based operations.</li>
+ * </ul>
  */
-public final class ClientTuple implements Tuple {
-    /** Null object to differentiate unset values and null values. */
-    private static final Object NULL_OBJ = new Object();
-
-    /** Columns values. */
-    private final Object[] vals;
-
-    /** Schema. */
+public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     private final ClientSchema schema;
 
-    /** Offset within schema. */
-    private final int minColumnIndex;
+    private final TuplePart part;
 
-    /** Limit within schema. */
-    private final int maxColumnIndex;
+    private final boolean fullBinaryTuple;
 
     /**
      * Constructor.
      *
      * @param schema Schema.
+     * @param part Schema part.
+     * @param binaryTuple Tuple.
      */
-    public ClientTuple(ClientSchema schema) {
-        this(schema, 0, schema.columns().length - 1);
-    }
+    public ClientTuple(ClientSchema schema, TuplePart part, BinaryTupleReader binaryTuple) {
+        super(binaryTuple, schema.columns(part).length, null);
 
-    /**
-     * Constructor.
-     *
-     * @param schema Schema.
-     */
-    public ClientTuple(ClientSchema schema, int minColumnIndex, int maxColumnIndex) {
-        assert schema != null : "Schema can't be null.";
-        assert schema.columns().length > 0 : "Schema can't be empty.";
-        assert minColumnIndex >= 0 : "offset >= 0";
-        assert maxColumnIndex >= minColumnIndex : "maxColumnIndex >= minColumnIndex";
-        assert maxColumnIndex < schema.columns().length : "maxColumnIndex < schema.columns().length";
+        assert binaryTuple.elementCount() <= schema.columns().length
+                : "Binary tuple element count is greater than schema column count: [binaryTuple="
+                + binaryTuple.elementCount() + ", schema=" + schema.columns().length + ']';
 
         this.schema = schema;
-        this.vals = new Object[maxColumnIndex + 1 - minColumnIndex];
-        this.minColumnIndex = minColumnIndex;
-        this.maxColumnIndex = maxColumnIndex;
+        this.part = part;
+        this.fullBinaryTuple = binaryTuple.elementCount() == schema.columns().length;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
-        var col = schema.column(IgniteObjectName.parse(columnName));
-
-        vals[col.schemaIndex() - minColumnIndex] = value == null ? NULL_OBJ : value;
-
-        return this;
+    protected String schemaColumnName(int binaryTupleIndex) {
+        return column(binaryTupleIndex).name();
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <T> T valueOrDefault(@NotNull String columnName, T def) {
-        var col = schema.columnSafe(IgniteObjectName.parse(columnName));
+    protected int binaryTupleIndex(String columnName) {
+        return binaryTupleIndex(column(columnName));
+    }
 
-        if (col == null) {
-            return def;
+    @Override
+    protected int binaryTupleIndex(int publicIndex) {
+        if (part == TuplePart.KEY_AND_VAL) {
+            return publicIndex;
         }
 
-        var val = (T) vals[col.schemaIndex() - minColumnIndex];
-
-        return val == null ? def : convertValue(val);
+        return binaryTupleIndex(schema.columns(part)[publicIndex]);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <T> T value(@NotNull String columnName) {
-        var col = schema.column(IgniteObjectName.parse(columnName));
-
-        return getValue(col.schemaIndex() - minColumnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T> T value(int columnIndex) {
-        Objects.checkIndex(columnIndex, vals.length);
-
-        return getValue(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int columnCount() {
-        return vals.length;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String columnName(int columnIndex) {
-        Objects.checkIndex(columnIndex, vals.length);
-
-        return schema.columns()[columnIndex + minColumnIndex].name();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int columnIndex(@NotNull String columnName) {
-        var col = schema.columnSafe(IgniteObjectName.parse(columnName));
-
-        if (col == null || col.schemaIndex() < minColumnIndex || col.schemaIndex() > maxColumnIndex) {
+    private int binaryTupleIndex(@Nullable ClientColumn column) {
+        if (column == null) {
             return -1;
         }
 
-        return col.schemaIndex() - minColumnIndex;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(@NotNull String columnName) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(int columnIndex) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public byte byteValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public byte byteValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public short shortValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public short shortValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int intValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int intValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long longValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long longValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public float floatValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public float floatValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public double doubleValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public double doubleValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String stringValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String stringValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public UUID uuidValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public UUID uuidValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public LocalDate dateValue(String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public LocalDate dateValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public LocalTime timeValue(String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public LocalTime timeValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public LocalDateTime datetimeValue(String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public LocalDateTime datetimeValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Instant timestampValue(String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Instant timestampValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Iterator<Object> iterator() {
-        return new Iterator<>() {
-            /** Current column index. */
-            private int cur;
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                return cur < vals.length;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Object next() {
-                return cur < vals.length ? vals[cur++] : null;
-            }
-        };
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int hashCode() {
-        return Tuple.hashCode(this);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
+        if (fullBinaryTuple) {
+            return column.schemaIndex();
         }
 
-        if (obj instanceof Tuple) {
-            return Tuple.equals(this, (Tuple) obj);
-        }
-
-        return false;
+        return part == TuplePart.KEY
+                ? column.keyIndex()
+                : column.valIndex();
     }
 
-    /** {@inheritDoc} */
+
     @Override
-    public String toString() {
-        var sb = new StringBuilder("ClientTuple [");
-
-        for (int i = 0; i < columnCount(); i++) {
-            if (i > 0) {
-                sb.append(", ");
-            }
-
-            sb.append(columnName(i)).append('=').append((Object) value(i));
+    protected int publicIndex(int binaryTupleIndex) {
+        if (part == TuplePart.KEY_AND_VAL) {
+            return binaryTupleIndex;
         }
 
-        sb.append(']');
+        var col = column(binaryTupleIndex);
 
-        return sb.toString();
+        return part == TuplePart.KEY ? col.keyIndex() : col.valIndex();
     }
 
-    /**
-     * Sets column value by index.
-     *
-     * @param columnIndex Column index.
-     * @param value       Value to set.
-     */
-    public void setInternal(int columnIndex, Object value) {
-        // Do not validate column index for internal needs.
-        vals[columnIndex] = value;
+    @Override
+    protected ColumnType schemaColumnType(int binaryTupleIndex) {
+        ClientColumn column = column(binaryTupleIndex);
+
+        return column.type();
     }
 
-    /**
-     * Gets the schema.
-     *
-     * @return Schema.
-     */
-    public ClientSchema schema() {
-        return schema;
+    @Override
+    protected int schemaDecimalScale(int binaryTupleIndex) {
+        return column(binaryTupleIndex).scale();
     }
 
-    private <T> T getValue(int columnIndex) {
-        return convertValue((T) vals[columnIndex]);
+    @Nullable
+    private ClientColumn column(String columnName) {
+        return schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));
     }
 
-    private static <T> T convertValue(T val) {
-        return val == NULL_OBJ ? null : val;
+    private ClientColumn column(int binaryTupleIndex) {
+        if (fullBinaryTuple) {
+            return schema.columns()[binaryTupleIndex];
+        }
+
+        return schema.columns(part)[binaryTupleIndex];
     }
 }

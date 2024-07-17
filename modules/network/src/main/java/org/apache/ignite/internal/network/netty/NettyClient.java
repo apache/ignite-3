@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,19 +17,28 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.ssl.SslContext;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.ssl.SslContextProvider;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,16 +54,8 @@ public class NettyClient {
     /** Destination address. */
     private final SocketAddress address;
 
-    /** Future that resolves when the client finished the handshake. */
-    @Nullable
-    private volatile CompletableFuture<NettySender> clientFuture = null;
-
     /** Future that resolves when the client channel is opened. */
-    private CompletableFuture<Void> channelFuture = new CompletableFuture<>();
-
-    /** Client channel. */
-    @Nullable
-    private volatile Channel channel = null;
+    private final CompletableFuture<Void> channelFuture = new CompletableFuture<>();
 
     /** Message listener. */
     private final Consumer<InNetworkObject> messageListener;
@@ -62,27 +63,41 @@ public class NettyClient {
     /** Handshake manager. */
     private final HandshakeManager handshakeManager;
 
+    /** SSL configuration. */
+    private final SslView sslConfiguration;
+
+    /** Future that resolves when the client finished the handshake. */
+    @Nullable
+    private volatile OrderingFuture<NettySender> senderFuture = null;
+
+    /** Client channel. */
+    @Nullable
+    private volatile Channel channel = null;
+
     /** Flag indicating if {@link #stop()} has been called. */
     private boolean stopped = false;
 
     /**
-     * Constructor.
+     * Constructor with SSL configuration.
      *
      * @param address               Destination address.
      * @param serializationService  Serialization service.
      * @param manager               Client handshake manager.
      * @param messageListener       Message listener.
+     * @param sslConfiguration         SSL configuration.
      */
     public NettyClient(
-            SocketAddress address,
+            InetSocketAddress address,
             SerializationService serializationService,
             HandshakeManager manager,
-            Consumer<InNetworkObject> messageListener
+            Consumer<InNetworkObject> messageListener,
+            SslView sslConfiguration
     ) {
         this.address = address;
         this.serializationService = serializationService;
         this.handshakeManager = manager;
         this.messageListener = messageListener;
+        this.sslConfiguration = sslConfiguration;
     }
 
     /**
@@ -91,13 +106,13 @@ public class NettyClient {
      * @param bootstrapTemplate Template client bootstrap.
      * @return Future that resolves when client channel is opened.
      */
-    public CompletableFuture<NettySender> start(Bootstrap bootstrapTemplate) {
+    public OrderingFuture<NettySender> start(Bootstrap bootstrapTemplate) {
         synchronized (startStopLock) {
             if (stopped) {
                 throw new IgniteInternalException("Attempted to start an already stopped NettyClient");
             }
 
-            if (clientFuture != null) {
+            if (senderFuture != null) {
                 throw new IgniteInternalException("Attempted to start an already started NettyClient");
             }
 
@@ -109,11 +124,16 @@ public class NettyClient {
                 public void initChannel(SocketChannel ch) {
                     var sessionSerializationService = new PerSessionSerializationService(serializationService);
 
-                    PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener);
+                    if (sslConfiguration.enabled()) {
+                        SslContext sslContext = SslContextProvider.createClientSslContext(sslConfiguration);
+                        PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener, sslContext);
+                    } else {
+                        PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener);
+                    }
                 }
             });
 
-            clientFuture = NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
+            CompletableFuture<NettySender> senderCompletableFuture = NettyUtils.toChannelCompletableFuture(bootstrap.connect(address))
                     .handle((channel, throwable) -> {
                         synchronized (startStopLock) {
                             this.channel = channel;
@@ -129,13 +149,14 @@ public class NettyClient {
                             } else if (throwable != null) {
                                 return CompletableFuture.<NettySender>failedFuture(throwable);
                             } else {
-                                return handshakeManager.handshakeFuture();
+                                return handshakeManager.finalHandshakeFuture();
                             }
                         }
                     })
                     .thenCompose(Function.identity());
+            senderFuture = OrderingFuture.adapt(senderCompletableFuture);
 
-            return clientFuture;
+            return senderFuture;
         }
     }
 
@@ -144,9 +165,10 @@ public class NettyClient {
      *
      * @return Client start future.
      */
-    @Nullable
-    public CompletableFuture<NettySender> sender() {
-        return clientFuture;
+    public OrderingFuture<NettySender> sender() {
+        Objects.requireNonNull(senderFuture, "NettyClient is not connected yet");
+
+        return senderFuture;
     }
 
     /**
@@ -157,19 +179,19 @@ public class NettyClient {
     public CompletableFuture<Void> stop() {
         synchronized (startStopLock) {
             if (stopped) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             stopped = true;
 
-            if (clientFuture == null) {
-                return CompletableFuture.completedFuture(null);
+            if (senderFuture == null) {
+                return nullCompletedFuture();
             }
 
             return channelFuture
                     .handle((sender, throwable) ->
                             channel == null
-                                    ? CompletableFuture.<Void>completedFuture(null) : NettyUtils.toCompletableFuture(channel.close()))
+                                    ? CompletableFutures.<Void>nullCompletedFuture() : NettyUtils.toCompletableFuture(channel.close()))
                     .thenCompose(Function.identity());
         }
     }
@@ -180,7 +202,9 @@ public class NettyClient {
      * @return {@code true} if the client has failed to connect to the remote server, {@code false} otherwise.
      */
     public boolean failedToConnect() {
-        return clientFuture != null && clientFuture.isCompletedExceptionally();
+        OrderingFuture<NettySender> currentFuture = senderFuture;
+
+        return currentFuture != null && currentFuture.isCompletedExceptionally();
     }
 
     /**
@@ -189,6 +213,8 @@ public class NettyClient {
      * @return {@code true} if the client has lost the connection or has been stopped, {@code false} otherwise.
      */
     public boolean isDisconnected() {
-        return (channel != null && !channel.isOpen()) || stopped;
+        Channel currentChannel = channel;
+
+        return (currentChannel != null && !currentChannel.isOpen()) || stopped;
     }
 }

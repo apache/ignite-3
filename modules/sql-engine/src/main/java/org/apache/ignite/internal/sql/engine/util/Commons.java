@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
+import static org.apache.calcite.rel.hint.HintPredicates.AGGREGATE;
+import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
+import static org.apache.ignite.internal.sql.engine.prepare.PlanningContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -39,81 +46,82 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
-import org.apache.calcite.config.Lex;
 import org.apache.calcite.config.NullCollation;
 import org.apache.calcite.linq4j.Ord;
-import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitDef;
+import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.hint.HintStrategyTable;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.parser.SqlParseException;
-import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.type.SqlTypeCoercionRule;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.calcite.util.SourceStringReader;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.schema.BitmaskNativeType;
-import org.apache.ignite.internal.schema.DecimalNativeType;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NumberNativeType;
-import org.apache.ignite.internal.schema.TemporalNativeType;
-import org.apache.ignite.internal.schema.VarlenNativeType;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
+import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
+import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.sql.engine.prepare.AbstractMultiStepPlan;
-import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.type.BitmaskNativeType;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NumberNativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -124,10 +132,31 @@ public final class Commons {
 
     public static final int IN_BUFFER_SIZE = 512;
 
+    public static final int IO_BATCH_SIZE = 256;
+    public static final int IO_BATCH_COUNT = 4;
+
+    /**
+     * The number of elements to be prefetched from each partition when scanning the sorted index.
+     * The higher the value, the fewer calls to the upstream will be, but at the same time, the bigger
+     * internal buffer will be.
+     */
+    public static final int SORTED_IDX_PART_PREFETCH_SIZE = 100;
+
+    @SuppressWarnings("rawtypes")
+    public static final List<RelTraitDef> DISTRIBUTED_TRAITS_SET = List.of(
+            ConventionTraitDef.INSTANCE,
+            DistributionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE
+    );
+
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
             .executor(new RexExecutorImpl(DataContexts.EMPTY))
             .sqlToRelConverterConfig(SqlToRelConverter.config()
                     .withTrimUnusedFields(true)
+                    // Disable `RemoveSortInSubQuery` hint that causes incorrect plan transformation
+                    // because calcite does not distinguish between VIEWs and nested subqueries.
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22392
+                    .withRemoveSortInSubQuery(false)
                     // currently SqlToRelConverter creates not optimal plan for both optimization and execution
                     // so it's better to disable such rewriting right now
                     // TODO: remove this after IGNITE-14277
@@ -136,21 +165,21 @@ public final class Commons {
                     .withExpand(false)
                     .withHintStrategyTable(
                             HintStrategyTable.builder()
-                                    .hintStrategy("DISABLE_RULE", (hint, rel) -> true)
-                                    .hintStrategy("EXPAND_DISTINCT_AGG", (hint, rel) -> rel instanceof Aggregate)
+                                    .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), JOIN)
+                                    .hintStrategy(IgniteHint.DISABLE_RULE.name(), (hint, rel) -> true)
+                                    .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), AGGREGATE)
+                                    .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
+                                    .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .build()
                     )
             )
             .convertletTable(IgniteConvertletTable.INSTANCE)
-            .parserConfig(
-                    SqlParser.config()
-                            .withParserFactory(IgniteSqlParserImpl.FACTORY)
-                            .withLex(Lex.ORACLE)
-                            .withConformance(IgniteSqlConformance.INSTANCE))
+            .parserConfig(IgniteSqlParser.PARSER_CONFIG)
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
-                    .withDefaultNullCollation(NullCollation.LOW)
+                    .withDefaultNullCollation(NullCollation.HIGH)
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
+                    .withTypeCoercionRules(standardCompatibleCoercionRules())
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
             .operatorTable(IgniteSqlOperatorTable.INSTANCE)
@@ -159,67 +188,14 @@ public final class Commons {
             // Custom cost factory to use during optimization
             .costFactory(new IgniteCostFactory())
             .typeSystem(IgniteTypeSystem.INSTANCE)
-            .traitDefs(new RelTraitDef<?>[] {
-                    ConventionTraitDef.INSTANCE,
-                    RelCollationTraitDef.INSTANCE,
-                    DistributionTraitDef.INSTANCE,
-                    RewindabilityTraitDef.INSTANCE,
-                    CorrelationTraitDef.INSTANCE,
-            })
+            .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
-
-    private static Boolean implicitPkEnabled;
 
     private Commons() {
     }
 
-    /**
-     * Create cursor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan plan) {
-        return createCursor(iterable.iterator(), plan);
-    }
-
-    /**
-     * Create cursor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
-        return new SqlCursor<>() {
-            @Override
-            public SqlQueryType queryType() {
-                return SqlQueryType.mapPlanTypeToSqlType(plan.type());
-            }
-
-            @Override
-            public ResultSetMetadata metadata() {
-                return plan instanceof AbstractMultiStepPlan ? ((MultiStepPlan) plan).metadata()
-                        : ((ExplainPlan) plan).metadata();
-            }
-
-            @Override
-            public void remove() {
-                iter.remove();
-            }
-
-            @Override
-            public boolean hasNext() {
-                return iter.hasNext();
-            }
-
-            @Override
-            public T next() {
-                return iter.next();
-            }
-
-            @Override
-            public void close() throws Exception {
-                if (iter instanceof AutoCloseable) {
-                    ((AutoCloseable) iter).close();
-                }
-            }
-        };
+    private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
+        return SqlTypeCoercionRule.instance(IgniteCustomAssignmentsRules.instance().getTypeMapping());
     }
 
     /**
@@ -231,49 +207,9 @@ public final class Commons {
      * @param row2 row2.
      * @return Returns field by offset.
      */
-    public static <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
+    public static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
         return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
             hnd.get(offset - hnd.columnCount(row1), row2);
-    }
-
-    /**
-     * Combines two lists.
-     */
-    public static <T> List<T> combine(List<T> left, List<T> right) {
-        Set<T> set = new HashSet<>(left.size() + right.size());
-
-        set.addAll(left);
-        set.addAll(right);
-
-        return new ArrayList<>(set);
-    }
-
-    /**
-     * Intersects two lists.
-     */
-    public static <T> List<T> intersect(List<T> left, List<T> right) {
-        if (nullOrEmpty(left) || nullOrEmpty(right)) {
-            return Collections.emptyList();
-        }
-
-        return left.size() > right.size()
-                ? intersect(new HashSet<>(right), left)
-                : intersect(new HashSet<>(left), right);
-    }
-
-    /**
-     * Intersects a set and a list.
-     *
-     * @return A List of unique entries that presented in both the given set and the given list.
-     */
-    public static <T> List<T> intersect(Set<T> set, List<T> list) {
-        if (nullOrEmpty(set) || nullOrEmpty(list)) {
-            return Collections.emptyList();
-        }
-
-        return list.stream()
-                .filter(set::contains)
-                .collect(Collectors.toList());
     }
 
     /**
@@ -287,7 +223,7 @@ public final class Commons {
     /**
      * Transforms a given list using map function.
      */
-    public static <T, R> List<R> transform(@NotNull List<T> src, @NotNull Function<T, R> mapFun) {
+    public static <T, R> List<R> transform(List<T> src, Function<T, R> mapFun) {
         if (nullOrEmpty(src)) {
             return Collections.emptyList();
         }
@@ -319,41 +255,66 @@ public final class Commons {
      * Standalone type factory.
      */
     public static IgniteTypeFactory typeFactory() {
-        return typeFactory(cluster());
+        return typeFactory(emptyCluster());
+    }
+
+    /** Row-expression builder. **/
+    public static RexBuilder rexBuilder() {
+        return emptyCluster().getRexBuilder();
     }
 
     /**
      * Extracts query context.
      */
-    public static BaseQueryContext context(RelNode rel) {
+    public static PlanningContext context(RelNode rel) {
         return context(rel.getCluster());
     }
 
     /**
      * Extracts query context.
      */
-    public static BaseQueryContext context(RelOptCluster cluster) {
-        return Objects.requireNonNull(cluster.getPlanner().getContext().unwrap(BaseQueryContext.class));
+    public static PlanningContext context(RelOptCluster cluster) {
+        return Objects.requireNonNull(cluster.getPlanner().getContext().unwrap(PlanningContext.class));
     }
 
     /**
-     * Extracts planner context.
-     */
-    public static PlanningContext context(Context ctx) {
-        return Objects.requireNonNull(ctx.unwrap(PlanningContext.class));
-    }
-
-    /**
-     * ParametersMap.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates a map of parameters values from the given array of dynamic parameter values.
+     * All dynamic parameter should have their values specified.
      *
      * @param params Parameters.
      * @return Parameters map.
      */
     public static Map<String, Object> parametersMap(@Nullable Object[] params) {
-        HashMap<String, Object> res = new HashMap<>();
+        if (ArrayUtils.nullOrEmpty(params)) {
+            return Collections.emptyMap();
+        } else {
+            HashMap<String, Object> res = new HashMap<>();
 
-        return params != null ? populateParameters(res, params) : res;
+            populateParameters(res, params);
+
+            return res;
+        }
+    }
+
+    /**
+     * Creates an array from the given map in which array indices become map keys. e.g: [1, null, "3"] -> {0: 1, 1: null, 2: "3"}.
+     * If the given array is null, this method returns an empty map.
+     *
+     * @param params Array of values.
+     * @return Map of values.
+     */
+    public static Int2ObjectMap<Object> arrayToMap(@Nullable Object[] params) {
+        if (ArrayUtils.nullOrEmpty(params)) {
+            return Int2ObjectMaps.emptyMap();
+        } else {
+            Int2ObjectMap<Object> res = new Int2ObjectArrayMap<>(params.length);
+
+            for (int i = 0; i < params.length; i++) {
+                res.put(i, params[i]);
+            }
+
+            return res;
+        }
     }
 
     /**
@@ -361,52 +322,12 @@ public final class Commons {
      *
      * @param dst    Map to populate.
      * @param params Parameters.
-     * @return Parameters map.
      */
-    public static Map<String, Object> populateParameters(@NotNull Map<String, Object> dst, @Nullable Object[] params) {
-        if (!ArrayUtils.nullOrEmpty(params)) {
-            for (int i = 0; i < params.length; i++) {
-                dst.put("?" + i, params[i]);
-            }
-        }
-        return dst;
-    }
-
-    /**
-     * Close.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param o Object to close.
-     */
-    public static void close(Object o) throws Exception {
-        if (o instanceof AutoCloseable) {
-            ((AutoCloseable) o).close();
+    private static void populateParameters(Map<String, Object> dst, Object[] params) {
+        for (int i = 0; i < params.length; i++) {
+            dst.put("?" + i, params[i]);
         }
     }
-
-    /**
-     * Closes given resource logging possible checked exception.
-     *
-     * @param o   Resource to close. If it's {@code null} - it's no-op.
-     * @param log Logger to log possible checked exception.
-     */
-    public static void close(Object o, @NotNull IgniteLogger log) {
-        if (o instanceof AutoCloseable) {
-            try {
-                ((AutoCloseable) o).close();
-            } catch (Exception e) {
-                log.warn("Failed to close resource", e);
-            }
-        }
-    }
-    //
-    //    /**
-    //     * @param o Object to close.
-    //     */
-    //    public static void closeQuiet(Object o) {
-    //        if (o instanceof AutoCloseable)
-    //            U.closeQuiet((AutoCloseable) o);
-    //    }
 
     /**
      * Flat.
@@ -414,42 +335,6 @@ public final class Commons {
      */
     public static <T> List<T> flat(List<List<? extends T>> src) {
         return src.stream().flatMap(List::stream).collect(Collectors.toList());
-    }
-
-    /**
-     * Max.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static int max(ImmutableIntList list) {
-        if (list.isEmpty()) {
-            throw new UnsupportedOperationException();
-        }
-
-        int res = list.getInt(0);
-
-        for (int i = 1; i < list.size(); i++) {
-            res = Math.max(res, list.getInt(i));
-        }
-
-        return res;
-    }
-
-    /**
-     * Min.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static int min(ImmutableIntList list) {
-        if (list.isEmpty()) {
-            throw new UnsupportedOperationException();
-        }
-
-        int res = list.getInt(0);
-
-        for (int i = 1; i < list.size(); i++) {
-            res = Math.min(res, list.getInt(i));
-        }
-
-        return res;
     }
 
     /**
@@ -467,7 +352,7 @@ public final class Commons {
             final ICompilerFactory compilerFactory;
 
             try {
-                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory();
+                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory(ExpressionFactoryImpl.class.getClassLoader());
             } catch (Exception e) {
                 throw new IllegalStateException(
                         "Unable to instantiate java compiler", e);
@@ -476,7 +361,6 @@ public final class Commons {
             IClassBodyEvaluator cbe = compilerFactory.newClassBodyEvaluator();
 
             cbe.setImplementedInterfaces(new Class[]{interfaceType});
-            cbe.setParentClassLoader(ExpressionFactoryImpl.class.getClassLoader());
 
             if (debug) {
                 // Add line numbers to the generated janino class
@@ -485,7 +369,7 @@ public final class Commons {
 
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
-            throw new IgniteException(e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Unable to compile expression", e);
         }
     }
 
@@ -493,7 +377,7 @@ public final class Commons {
      * CheckRange.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static void checkRange(@NotNull Object[] array, int idx) {
+    public static void checkRange(Object[] array, int idx) {
         if (idx < 0 || idx >= array.length) {
             throw new ArrayIndexOutOfBoundsException(idx);
         }
@@ -530,62 +414,83 @@ public final class Commons {
     }
 
     /**
-     * Negate.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static <T> Predicate<T> negate(Predicate<T> p) {
-        return p.negate();
-    }
-
-    /**
-     * Mapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static Mappings.TargetMapping mapping(ImmutableBitSet bitSet, int sourceSize) {
-        Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, bitSet.cardinality());
-        for (Ord<Integer> ord : Ord.zip(bitSet)) {
-            mapping.set(ord.e, ord.i);
-        }
-        return mapping;
-    }
-
-    /**
-     * InverseMapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static Mappings.TargetMapping inverseMapping(ImmutableBitSet bitSet, int sourceSize) {
-        Mapping mapping = Mappings.create(MappingType.INVERSE_FUNCTION, sourceSize, bitSet.cardinality());
-        for (Ord<Integer> ord : Ord.zip(bitSet)) {
-            mapping.set(ord.e, ord.i);
-        }
-        return mapping;
-    }
-
-    /**
-     * Checks if there is a such permutation of all {@code elems} that is prefix of provided {@code seq}.
+     * Creates mapping to trim the fields.
      *
-     * @param seq   Sequence.
-     * @param elems Elems.
-     * @return {@code true} if there is a permutation of all {@code elems} that is prefix of {@code seq}.
+     * <p>To find a new index of element after trimming call {@code mapping.getTargetOpt(index)}.
+     *
+     * <p>To find an old index of element before trimming call {@code mapping.getSourceOpt(index)}.
+     *
+     * <p>This mapping can be used to adjust traits or aggregations, for example, when several fields have been truncated.
+     * Assume the following scenario:
+     * <pre>
+     *     We got a plan like below:
+     *
+     *     Project(b, d)
+     *       TableScan(t, Distribution(b:1, d:3)): RowType(a, b, c, d)
+     *
+     *     In order to decrease amount of occupied memory, we can trim
+     *     all the fields we aren't interested in. But such a trimming
+     *     should change and indexes in Distribution trait as well. The
+     *     plan after trimming should looks like this:
+     *
+     *     Project(b, d)
+     *       TableScan(t, Distribution(b:0, d:1)): RowType(b, d)
+     * </pre>
+     *
+     * @param sourceSize A size of the source collection.
+     * @param requiredElements A set of elements that should be preserved.
+     * @return A mapping for desired elements.
+     * @see org.apache.calcite.plan.RelTrait#apply(TargetMapping)
+     * @see org.apache.calcite.rel.core.AggregateCall#transform(TargetMapping)
      */
-    public static <T> boolean isPrefix(List<T> seq, Collection<T> elems) {
-        Set<T> elems0 = new HashSet<>(elems);
-
-        if (seq.size() < elems0.size()) {
-            return false;
+    public static Mapping trimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
+        Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, sourceSize, requiredElements.cardinality());
+        for (Ord<Integer> ord : Ord.zip(requiredElements)) {
+            mapping.set(ord.e, ord.i);
         }
+        return mapping;
+    }
 
-        for (T e : seq) {
-            if (!elems0.remove(e)) {
-                return false;
-            }
-
-            if (elems0.isEmpty()) {
-                break;
-            }
+    /**
+     * Creates mapping from given projection.
+     *
+     * <p>Projection is a list of integers representing an index of element from source
+     * at desired position.
+     *
+     * @param sourceSize Size of the source.
+     * @param projection Desired projection.
+     * @return Mapping for given projection.
+     */
+    public static Mapping projectedMapping(int sourceSize, ImmutableIntList projection) {
+        Mapping result = Mappings.create(MappingType.INVERSE_SURJECTION, sourceSize, projection.size());
+        for (int i = 0; i < projection.size(); i++) {
+            result.set(projection.getInt(i), i);
         }
+        return result;
+    }
 
-        return true;
+    /** Reads the value from given tuple according to provided type. */
+    public static @Nullable Object readValue(InternalTuple tuple, NativeType nativeType, int fieldIndex) {
+        switch (nativeType.spec()) {
+            case BOOLEAN: return tuple.booleanValueBoxed(fieldIndex);
+            case INT8: return tuple.byteValueBoxed(fieldIndex);
+            case INT16: return tuple.shortValueBoxed(fieldIndex);
+            case INT32: return tuple.intValueBoxed(fieldIndex);
+            case INT64: return tuple.longValueBoxed(fieldIndex);
+            case FLOAT: return tuple.floatValueBoxed(fieldIndex);
+            case DOUBLE: return tuple.doubleValueBoxed(fieldIndex);
+            case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
+            case UUID: return tuple.uuidValue(fieldIndex);
+            case STRING: return tuple.stringValue(fieldIndex);
+            case BYTES: return tuple.bytesValue(fieldIndex);
+            case BITMASK: return tuple.bitmaskValue(fieldIndex);
+            case NUMBER: return tuple.numberValue(fieldIndex);
+            case DATE: return tuple.dateValue(fieldIndex);
+            case TIME: return tuple.timeValue(fieldIndex);
+            case DATETIME: return tuple.dateTimeValue(fieldIndex);
+            case TIMESTAMP: return tuple.timestampValue(fieldIndex);
+            default: throw new InvalidTypeException("Unknown element type: " + nativeType);
+        }
     }
 
     /**
@@ -630,13 +535,18 @@ public final class Commons {
     }
 
     /**
-     * NativeTypeToClass.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provide mapping Native types to java classes.
+     *
+     * @param type Native type
+     * @return Java corresponding class.
      */
     public static Class<?> nativeTypeToClass(NativeType type) {
         assert type != null;
 
         switch (type.spec()) {
+            case BOOLEAN:
+                return Boolean.class;
+
             case INT8:
                 return Byte.class;
 
@@ -691,8 +601,10 @@ public final class Commons {
     }
 
     /**
-     * NativeTypePrecision.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Gets the precision of this type. Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if
+     * precision is not applicable for this type.
+     *
+     * @return Precision for current type.
      */
     public static int nativeTypePrecision(NativeType type) {
         assert type != null;
@@ -720,9 +632,10 @@ public final class Commons {
             case DECIMAL:
                 return ((DecimalNativeType) type).precision();
 
+            case BOOLEAN:
             case UUID:
             case DATE:
-                return -1;
+                return UNDEFINED_PRECISION;
 
             case TIME:
             case DATETIME:
@@ -742,8 +655,10 @@ public final class Commons {
     }
 
     /**
-     * NativeTypeScale.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Gets the scale of this type. Returns {@link ColumnMetadata#UNDEFINED_SCALE} if
+     * scale is not valid for this type.
+     *
+     * @return number of digits of scale
      */
     public static int nativeTypeScale(NativeType type) {
         switch (type.spec()) {
@@ -754,6 +669,7 @@ public final class Commons {
             case NUMBER:
                 return 0;
 
+            case BOOLEAN:
             case FLOAT:
             case DOUBLE:
             case UUID:
@@ -764,7 +680,7 @@ public final class Commons {
             case BYTES:
             case STRING:
             case BITMASK:
-                return Integer.MIN_VALUE;
+                return UNDEFINED_SCALE;
 
             case DECIMAL:
                 return ((DecimalNativeType) type).scale();
@@ -793,36 +709,32 @@ public final class Commons {
     }
 
     /**
-     * Parses a SQL statement.
+     * Returns cluster that can be used only as a stub to keep query tree in the cache.
      *
-     * @param qry Query string.
-     * @param parserCfg Parser config.
-     * @return Parsed query.
+     * <p>Any attempt to invoke operation involving cluster on a tree attached to this cluster
+     * will result in an error.
+     *
+     * @return A stub of a cluster.
      */
-    public static SqlNodeList parse(String qry, SqlParser.Config parserCfg) {
-        try {
-            return parse(new SourceStringReader(qry), parserCfg);
-        } catch (SqlParseException e) {
-            throw new SqlException(QUERY_INVALID_ERR, "Failed to parse query", e);
-        }
+    public static RelOptCluster emptyCluster() {
+        return CLUSTER;
     }
 
     /**
-     * Parses a SQL statement.
+     * Returns cluster that may be used to acquire metadata from a relation tree, but should not
+     * be used for planning.
      *
-     * @param reader Source string reader.
-     * @param parserCfg Parser config.
-     * @return Parsed query.
-     * @throws org.apache.calcite.sql.parser.SqlParseException on parse error.
+     * @return A new cluster.
      */
-    public static SqlNodeList parse(Reader reader, SqlParser.Config parserCfg) throws SqlParseException {
-        SqlParser parser = SqlParser.create(reader, parserCfg);
-
-        return parser.parseStmtList();
-    }
-
     public static RelOptCluster cluster() {
-        return CLUSTER;
+        RelOptCluster emptyCluster = emptyCluster();
+
+        RelOptCluster cluster = RelOptCluster.create(emptyCluster.getPlanner(), emptyCluster.getRexBuilder());
+
+        cluster.setMetadataProvider(IgniteMetadata.METADATA_PROVIDER);
+        cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
+
+        return cluster;
     }
 
     /**
@@ -833,10 +745,139 @@ public final class Commons {
      * @return A {@code true} if implicit pk mode is enabled, {@code false} otherwise.
      */
     public static boolean implicitPkEnabled() {
-        if (implicitPkEnabled == null) {
-            implicitPkEnabled = IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
+        return IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
+    }
+
+    /**
+     * Returns a short version of a rule description.
+     *
+     * <p>Short description is used to match the rule to disable in DISABLE_RULE hint processor.
+     *
+     * @param rule A rule to derive description from.
+     * @return A short description of the rule.
+     */
+    public static String shortRuleName(RelOptRule rule) {
+        String ruleDescription = rule.toString();
+
+        int pos = ruleDescription.indexOf('(');
+
+        if (pos == -1) {
+            return ruleDescription;
         }
 
-        return implicitPkEnabled;
+        return ruleDescription.substring(0, pos);
+    }
+
+    /**
+     * Returns a {@link SqlQueryType} for the given {@link SqlNode}.
+     *
+     * <p>If the given node is neither {@code QUERY}, nor {@code DDL}, nor {@code DML}, this method returns {@code null}.
+     *
+     * @param sqlNode An SQL node.
+     * @return A query type.
+     */
+    @Nullable
+    public static SqlQueryType getQueryType(SqlNode sqlNode) {
+        SqlKind sqlKind = sqlNode.getKind();
+
+        // Check for tx control types earlier, because COMMIT, ROLLBACK belongs to SqlKind.DDL
+        if (sqlNode instanceof IgniteSqlStartTransaction || sqlNode instanceof IgniteSqlCommitTransaction) {
+            return SqlQueryType.TX_CONTROL;
+        }
+
+        if (SqlKind.DDL.contains(sqlKind)) {
+            return SqlQueryType.DDL;
+        }
+
+        switch (sqlKind) {
+            case SELECT:
+            case ORDER_BY:
+            case WITH:
+            case VALUES:
+            case UNION:
+            case EXCEPT:
+            case INTERSECT:
+                return SqlQueryType.QUERY;
+
+            case INSERT:
+            case DELETE:
+            case UPDATE:
+            case MERGE:
+                return SqlQueryType.DML;
+
+            case EXPLAIN:
+                return SqlQueryType.EXPLAIN;
+
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Computes the least restrictive type among the provided inputs and
+     * adds a projection where a cast to the inferred type is needed.
+     *
+     * @param inputs Input relational expressions.
+     * @param cluster Cluster.
+     * @param traits Traits of relational expression.
+     * @return Converted inputs.
+     */
+    public static List<RelNode> castInputsToLeastRestrictiveTypeIfNeeded(List<RelNode> inputs, RelOptCluster cluster, RelTraitSet traits) {
+        List<RelDataType> inputRowTypes = inputs.stream()
+                .map(RelNode::getRowType)
+                .collect(Collectors.toList());
+
+        // Output type of a set operator is equal to leastRestrictive(inputTypes) (see SetOp::deriveRowType)
+
+        RelDataTypeFactory typeFactory = cluster.getTypeFactory();
+        RelDataType resultType = typeFactory.leastRestrictive(inputRowTypes);
+        if (resultType == null) {
+            throw new IllegalArgumentException("Cannot compute compatible row type for arguments to set op: " + inputRowTypes);
+        }
+
+        // Check output type of each input, if input's type does not match the result type,
+        // then add a projection with casts for non-matching fields.
+
+        RexBuilder rexBuilder = cluster.getRexBuilder();
+        List<RelNode> actualInputs = new ArrayList<>(inputs.size());
+
+        for (RelNode input : inputs) {
+            RelDataType inputRowType = input.getRowType();
+
+            // We can ignore nullability because it is always safe to convert from
+            // ROW (T1 nullable, T2 not nullable) to ROW (T1 nullable, T2 nullable)
+            // and leastRestrictive does exactly that.
+            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory, resultType, inputRowType, null)) {
+                actualInputs.add(input);
+
+                continue;
+            }
+
+            List<RexNode> exprs = new ArrayList<>(inputRowType.getFieldCount());
+
+            for (int i = 0; i < resultType.getFieldCount(); i++) {
+                RelDataType fieldType = inputRowType.getFieldList().get(i).getType();
+                RelDataType outFieldType = resultType.getFieldList().get(i).getType();
+                RexNode ref = rexBuilder.makeInputRef(input, i);
+
+                if (fieldType.equals(outFieldType)) {
+                    exprs.add(ref);
+                } else {
+                    RexNode expr = rexBuilder.makeCast(outFieldType, ref, true, false);
+                    exprs.add(expr);
+                }
+            }
+
+            actualInputs.add(new IgniteProject(cluster, traits, input, exprs, resultType));
+        }
+
+        return actualInputs;
+    }
+
+    /** Returns {@code true} if the specified properties allow multi-statement query execution. */
+    public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
+        Set<SqlQueryType> allowedTypes = properties.get(ALLOWED_QUERY_TYPES);
+
+        return allowedTypes.contains(SqlQueryType.TX_CONTROL);
     }
 }

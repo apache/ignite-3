@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,69 +19,36 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.function.UnaryOperator;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * HashIndexSpoolPlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-18689")
 public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
     /**
-     * Check equi-join on not colocated fields. CorrelatedNestedLoopJoinTest is applicable for this case only with
-     * IndexSpool.
+     * Check equi-join on not colocated fields. CorrelatedNestedLoopJoinTest is applicable for this case only with IndexSpool.
      */
     @Test
     public void testSingleKey() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        publicSchema.addTable(
-                "T0",
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build()) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T0", "hash");
-                    }
-                }
-                        .addIndex("t0_jid_idx", 1, 0)
-        );
-
-        publicSchema.addTable(
-                "T1",
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build()) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T1", "hash");
-                    }
-                }
-                        .addIndex("t1_jid_idx", 1, 0)
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableA("T0"),
+                tableA("T1").andThen(addHashIndex("JID", "ID"))
         );
 
         String sql = "select * "
@@ -91,7 +58,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule"
+                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule", "HashJoinConverter"
         );
 
         System.out.println("+++\n" + RelOptUtil.toString(phys));
@@ -103,49 +70,16 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(searchRow);
         assertEquals(3, searchRow.size());
 
-        assertTrue(((RexLiteral) searchRow.get(0)).isNull());
-        assertTrue(((RexLiteral) searchRow.get(2)).isNull());
+        assertNull(searchRow.get(0));
         assertTrue(searchRow.get(1) instanceof RexFieldAccess);
+        assertNull(searchRow.get(2));
     }
 
     @Test
     public void testMultipleKeys() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        publicSchema.addTable(
-                "T0",
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID0", f.createJavaType(Integer.class))
-                                .add("JID1", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build()) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T0", "hash");
-                    }
-                }
-        );
-
-        publicSchema.addTable(
-                "T1",
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID0", f.createJavaType(Integer.class))
-                                .add("JID1", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build()) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T1", "hash");
-                    }
-                }
-                        .addIndex("t1_jid0_idx", 1, 0)
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableB("T0"),
+                tableB("T1").andThen(addHashIndex("JID", "ID"))
         );
 
         String sql = "select * "
@@ -155,20 +89,20 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule"
+                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule", "HashJoinConverter"
         );
 
         IgniteHashIndexSpool idxSpool = findFirstNode(phys, byClass(IgniteHashIndexSpool.class));
 
-        List<RexNode> searcRow = idxSpool.searchRow();
+        List<RexNode> searchRow = idxSpool.searchRow();
 
-        assertNotNull(searcRow);
-        assertEquals(4, searcRow.size());
+        assertNotNull(searchRow);
+        assertEquals(4, searchRow.size());
 
-        assertTrue(((RexLiteral) searcRow.get(0)).isNull());
-        assertTrue(searcRow.get(1) instanceof RexFieldAccess);
-        assertTrue(searcRow.get(2) instanceof RexFieldAccess);
-        assertTrue(((RexLiteral) searcRow.get(3)).isNull());
+        assertNull(searchRow.get(0));
+        assertTrue(searchRow.get(1) instanceof RexFieldAccess);
+        assertTrue(searchRow.get(2) instanceof RexFieldAccess);
+        assertNull(searchRow.get(3));
     }
 
     /**
@@ -176,39 +110,9 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testSourceWithoutCollation() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        publicSchema.addTable(
-                "T0",
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build()) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T0", "hash");
-                    }
-                }
-        );
-
-        publicSchema.addTable(
-                "T1",
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build()) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, "T1", "hash");
-                    }
-                }
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableA("T0"),
+                tableA("T1")
         );
 
         String sql = "select * "
@@ -218,7 +122,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "MergeJoinConverter", "NestedLoopJoinConverter"
+                "MergeJoinConverter", "NestedLoopJoinConverter", "HashJoinConverter"
         );
 
         IgniteHashIndexSpool idxSpool = findFirstNode(phys, byClass(IgniteHashIndexSpool.class));
@@ -228,8 +132,27 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(searchRow);
         assertEquals(3, searchRow.size());
 
-        assertTrue(((RexLiteral) searchRow.get(0)).isNull());
-        assertTrue(((RexLiteral) searchRow.get(2)).isNull());
+        assertNull(searchRow.get(0));
         assertTrue(searchRow.get(1) instanceof RexFieldAccess);
+        assertNull(searchRow.get(2));
+    }
+
+    private static UnaryOperator<TableBuilder> tableA(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("JID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .distribution(someAffinity());
+    }
+
+    private static UnaryOperator<TableBuilder> tableB(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("JID0", NativeTypes.INT32)
+                .addColumn("JID1", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .distribution(someAffinity());
     }
 }

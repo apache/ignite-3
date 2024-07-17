@@ -1,0 +1,266 @@
+
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+[versions]
+assertj = "3.26.0"
+asm = "9.7"
+bouncycastle = "1.78.1"
+compileTesting = "0.21.0"
+fliptables = "1.1.1"
+fmpp = "0.9.16"
+jackson = "2.17.1"
+jakarta = "2.0.0"
+jansi = "2.4.1"
+netty = "4.1.111.Final"
+javapoet = "1.13.0"
+javax = "1.3.2"
+jetbrainsAnnotations = "24.1.0"
+jline = "3.26.2"
+jmh = "1.37"
+junit5 = "5.10.3"
+junitPioneer = "2.2.0"
+jsr305 = "3.0.2"
+okhttp = "4.12.0"
+gson = "2.11.0"
+gsonFire = "1.9.0"
+threetenbp = "1.6.9"
+micronaut = "3.10.3"
+micronautPicocli = "4.4.0"
+micronautJunit5 = "3.9.2"
+micronautSecurity="3.11.1"
+micronautReactor="2.6.0"
+mockito = "5.12.0"
+picocli = "4.7.5"
+slf4j = "2.0.13"
+log4j = "2.23.0"
+spoon = "10.4.3-beta-20"
+swagger = "2.2.22"
+swaggerLegacy = "1.6.14"
+typesafe = "1.4.3"
+hamcrest = "2.2"
+hamcrestOptional = "2.0.0"
+hamcrestPath = "1.0.1"
+hamcrestJson = "0.3"
+scalecube = "2.6.15"
+calcite = "1.37.0"
+value = "2.10.1"
+janino = "3.1.12"
+jsonpath = "2.9.0"
+javassist = "3.30.2-GA"
+rocksdb = "9.3.1"
+disruptor = "4.0.0"
+metrics = "4.2.26"
+jctools = "4.0.5"
+msgpack = "0.8.24"
+caffeine = "3.0.4"
+fastutil = "8.5.13"
+kryo = "5.6.0"
+bytebuddy = "1.14.18"
+mockServer = "5.15.0"
+archunit = "1.3.0"
+testkit = "1.10.3"
+openapi = "4.10.0"
+autoService = "1.1.1"
+awaitility = "4.2.1"
+progressBar = "0.9.4"
+guava = "33.2.1-jre"
+jna = "5.14.0"
+tree-sitter = "0.22.5"
+tree-sitter-json = "0.21.0"
+tree-sitter-sql = "gh-pages"
+
+#Tools
+pmdTool = "6.55.0"
+checkstyleTool = "10.3.3"
+jacocoTool = "0.8.11"
+spotbugsTool = "4.8.3"
+
+[plugins]
+openapiGenerator = "org.openapi.generator:7.7.0"
+javacc = "com.intershop.gradle.javacc:4.1.3"
+shadow = "io.github.goooler.shadow:8.1.8"
+cmake = "dev.welbyseely.gradle-cmake-plugin:0.0.5"
+nebula = "com.netflix.nebula.ospackage:11.9.1"
+docker = "com.palantir.docker:0.36.0"
+checksum = "org.gradle.crypto.checksum:1.4.0"
+setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
+aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
+ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.8"
+spotbugs = "com.github.spotbugs:6.0.18"
+
+
+[libraries]
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+
+bouncycastle-bcprov-jdk18on = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+
+jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrainsAnnotations" }
+
+hamcrest-core = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
+hamcrest-optional = { module = "com.github.npathai:hamcrest-optional", version.ref = "hamcrestOptional" }
+hamcrest-path = { module = "ca.seinesoftware:hamcrest-path", version.ref = "hamcrestPath" }
+hamcrest-json = { module = "uk.co.datumedge:hamcrest-json", version.ref = "hamcrestJson" }
+
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-junit = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
+
+asm-core = { module = "org.ow2.asm:asm", version.ref = "asm" }
+asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
+asm-util = { module = "org.ow2.asm:asm-util", version.ref = "asm" }
+
+fliptables = { module = "com.jakewharton.fliptables:fliptables", version.ref = "fliptables" }
+
+jline-core = { module = "org.jline:jline", version.ref = "jline" }
+jline-console = { module = "org.jline:jline-console", version.ref = "jline" }
+
+#JUnit
+junit5-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit5" }
+junit5-impl = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit5" }
+junit5-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit5" }
+junit-testkit = { module = "org.junit.platform:junit-platform-testkit", version.ref = "testkit" }
+
+#junit-pioneer
+junit-pioneer = { module = "org.junit-pioneer:junit-pioneer", version.ref = "junitPioneer" }
+
+#guava
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+
+#Micronaut
+micronaut-inject = { module = "io.micronaut:micronaut-inject", version.ref = "micronaut" }
+micronaut-runtime = { module = "io.micronaut:micronaut-runtime", version.ref = "micronaut" }
+micronaut-validation = { module = "io.micronaut:micronaut-validation", version.ref = "micronaut" }
+micronaut-http-core = { module = "io.micronaut:micronaut-http", version.ref = "micronaut" }
+micronaut-http-server-core = { module = "io.micronaut:micronaut-http-server", version.ref = "micronaut" }
+micronaut-http-client = { module = "io.micronaut:micronaut-http-client", version.ref = "micronaut" }
+micronaut-http-server-netty = { module = "io.micronaut:micronaut-http-server-netty", version.ref = "micronaut" }
+micronaut-security = { module = "io.micronaut.security:micronaut-security", version.ref = "micronautSecurity" }
+micronaut-security-annotations = { module = "io.micronaut.security:micronaut-security-annotations", version.ref = "micronautSecurity" }
+micronaut-reactor = { module = "io.micronaut.reactor:micronaut-reactor", version.ref = "micronautReactor" }
+micronaut-reactor-http-client = { module = "io.micronaut.reactor:micronaut-reactor-http-client", version.ref = "micronautReactor" }
+micronaut-openapi = { module = "io.micronaut.openapi:micronaut-openapi", version.ref = "openapi" }
+micronaut-picocli = { module = "io.micronaut.picocli:micronaut-picocli", version.ref = "micronautPicocli" }
+micronaut-junit5 = { module = "io.micronaut.test:micronaut-test-junit5", version.ref = "micronautJunit5" }
+micronaut-test = { module = "io.micronaut.test:micronaut-test-core", version.ref = "micronautJunit5" }
+micronaut-inject-annotation-processor = { module = "io.micronaut:micronaut-inject-java", version.ref = "micronaut" }
+micronaut-validation-annotation-processor = { module = "io.micronaut:micronaut-validation", version.ref = "micronaut" }
+
+picocli-shell-jline3 = { module = "info.picocli:picocli-shell-jline3", version.ref = "picocli" }
+picocli-core = { module = "info.picocli:picocli", version.ref = "picocli" }
+picocli-annotation-processor = { module = "info.picocli:picocli-codegen", version.ref = "picocli" }
+
+jansi-core = { module = "org.fusesource.jansi:jansi", version.ref = "jansi" }
+
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
+
+typesafe-config = { module = "com.typesafe:config", version.ref = "typesafe" }
+
+slf4j-jdk14 = { module = "org.slf4j:slf4j-jdk14", version.ref = "slf4j" }
+slf4j-log4j = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4j" }
+
+log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "log4j" }
+log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j" }
+log4j-bridge = { module = "org.apache.logging.log4j:log4j-jpl", version.ref = "log4j" }
+
+gson-core = { module = "com.google.code.gson:gson", version.ref = "gson" }
+gson-fire = { module = "io.gsonfire:gson-fire", version.ref = "gsonFire" }
+
+jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305" }
+
+okhttp-core = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-logging = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "okhttp" }
+
+threetenbp = { module = "org.threeten:threetenbp", version.ref = "threetenbp" }
+
+swaggerv3-annotations = { module = "io.swagger.core.v3:swagger-annotations", version.ref = "swagger" }
+swagger-legacy-annotations = { module = "io.swagger:swagger-annotations", version.ref = "swaggerLegacy" }
+
+mock-server-netty = { module = "org.mock-server:mockserver-netty", version.ref = "mockServer" }
+mock-server-junit = { module = "org.mock-server:mockserver-junit-jupiter", version.ref = "mockServer" }
+
+msgpack-core = { module = "org.msgpack:msgpack-core", version.ref = "msgpack" }
+
+netty-common = { module = "io.netty:netty-common", version.ref = "netty" }
+netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty" }
+netty-codec = { module = "io.netty:netty-codec", version.ref = "netty" }
+netty-handler = { module = "io.netty:netty-handler", version.ref = "netty" }
+netty-transport = { module = "io.netty:netty-transport", version.ref = "netty" }
+
+archunit-core = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+jmh-annotation-processor = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
+
+javapoet = { module = "com.squareup:javapoet", version.ref = "javapoet" }
+
+compileTesting = { module = "com.google.testing.compile:compile-testing", version.ref = "compileTesting" }
+
+spoon-core = { module = "fr.inria.gforge.spoon:spoon-core", version.ref = "spoon" }
+
+fastutil-core = { module = "it.unimi.dsi:fastutil-core", version.ref = "fastutil" }
+
+scalecube-cluster = { module = "io.scalecube:scalecube-cluster", version.ref = "scalecube" }
+
+kryo = { module = "com.esotericsoftware:kryo", version.ref = "kryo" }
+
+bytebuddy = { module = "net.bytebuddy:byte-buddy", version.ref = "bytebuddy" }
+
+disruptor = { module = "com.lmax:disruptor", version.ref = "disruptor" }
+
+rocksdb-jni = { module = "org.rocksdb:rocksdbjni", version.ref = "rocksdb" }
+
+dropwizard-metrics = { module = "io.dropwizard.metrics:metrics-core", version.ref = "metrics" }
+
+jctools-core = { module = "org.jctools:jctools-core", version.ref = "jctools" }
+
+jakarta-annotations = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta" }
+jakarta-inject = { module = "jakarta.inject:jakarta.inject-api", version.ref = "jakarta" }
+
+jsonpath-core = { module = "com.jayway.jsonpath:json-path", version.ref = "jsonpath" }
+jsonpath-assert = { module = "com.jayway.jsonpath:json-path-assert", version.ref = "jsonpath" }
+
+javax-annotations = { module = "javax.annotation:javax.annotation-api", version.ref = "javax" }
+
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+
+calcite-core = { module = "org.apache.calcite:calcite-core", version.ref = "calcite" }
+calcite-linq4j = { module = "org.apache.calcite:calcite-linq4j", version.ref = "calcite" }
+fmpp = { module = "net.sourceforge.fmpp:fmpp", version.ref = "fmpp" }
+
+value-annotations = { module = "org.immutables:value-annotations", version.ref = "value" }
+value-annotation-processor = { module = "org.immutables:value", version.ref = "value" }
+
+janino-core = { module = "org.codehaus.janino:janino", version.ref = "janino" }
+janino-compiler = { module = "org.codehaus.janino:commons-compiler", version.ref = "janino" }
+
+javassist = { module = "org.javassist:javassist", version.ref = "javassist" }
+
+auto-service = { module = "com.google.auto.service:auto-service", version.ref = "autoService" }
+auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "autoService" }
+
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+
+progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
+
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna"}
+
+tree-sitter = { module = "io.github.bonede:tree-sitter", version.ref = "tree-sitter" }
+tree-sitter-json = { module = "io.github.bonede:tree-sitter-json", version.ref = "tree-sitter-json" }
+tree-sitter-sql = { module = "io.github.bonede:tree-sitter-sql", version.ref = "tree-sitter-sql" }

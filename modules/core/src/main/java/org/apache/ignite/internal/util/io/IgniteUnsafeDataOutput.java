@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,18 +17,29 @@
 
 package org.apache.ignite.internal.util.io;
 
-import static org.apache.ignite.internal.util.GridUnsafe.BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.CHAR_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.DOUBLE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.FLOAT_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.INT_ARR_OFF;
+import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.Arrays;
+import java.util.BitSet;
+import java.util.UUID;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -266,7 +277,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (double val : arr) {
@@ -282,7 +293,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
     }
 
     private void putInt(int val, long off) {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             GridUnsafe.putIntLittleEndian(bytes, off, val);
         } else {
             GridUnsafe.putInt(bytes, off, val);
@@ -307,7 +318,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (char val : arr) {
@@ -324,6 +335,116 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
     /** {@inheritDoc} */
     @Override
+    public void writeBigInteger(BigInteger val) throws IOException {
+        byte[] bytes = val.toByteArray();
+        writeInt(bytes.length);
+        writeByteArray(bytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeBigDecimal(BigDecimal val) throws IOException {
+        short scale = (short) val.scale();
+        byte[] bytes = val.unscaledValue().toByteArray();
+
+        writeShort(scale);
+        writeInt(bytes.length);
+        writeByteArray(bytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeLocalTime(LocalTime val) throws IOException {
+        byte hour = (byte) val.getHour();
+        byte minute = (byte) val.getMinute();
+        byte second = (byte) val.getSecond();
+        int nano = val.getNano();
+
+        writeByte(hour);
+        writeByte(minute);
+        writeByte(second);
+        writeInt(nano);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeLocalDate(LocalDate date) throws IOException {
+        int year = date.getYear();
+        short month = (short) date.getMonth().getValue();
+        short day = (short) date.getDayOfMonth();
+
+        writeInt(year);
+        writeShort(month);
+        writeShort(day);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeLocalDateTime(LocalDateTime val) throws IOException {
+        int year = val.getYear();
+        short month = (short) val.getMonth().getValue();
+        short day = (short) val.getDayOfMonth();
+
+        byte hour = (byte) val.getHour();
+        byte minute = (byte) val.getMinute();
+        byte second = (byte) val.getSecond();
+        int nano = val.getNano();
+
+        writeInt(year);
+        writeShort(month);
+        writeShort(day);
+
+        writeByte(hour);
+        writeByte(minute);
+        writeByte(second);
+        writeInt(nano);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeInstant(Instant val) throws IOException {
+        long epochSecond = val.getEpochSecond();
+        int nano = val.getNano();
+
+        writeLong(epochSecond);
+        writeInt(nano);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writePeriod(Period val) throws IOException {
+        writeInt(val.getYears());
+        writeInt(val.getMonths());
+        writeInt(val.getDays());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeDuration(Duration val) throws IOException {
+        writeLong(val.getSeconds());
+        writeInt(val.getNano());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeUuid(UUID val) throws IOException {
+        byte[] bytes = val.toString().getBytes(StandardCharsets.US_ASCII);
+
+        writeByte(bytes.length);
+        writeByteArray(bytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeBitSet(BitSet val) throws IOException {
+        byte[] bytes = val.toByteArray();
+
+        writeInt(bytes.length);
+        writeByteArray(bytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void writeLongArray(long[] arr) throws IOException {
         checkArrayAllocationOverflow(8, arr.length, "long");
 
@@ -331,7 +452,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (long val : arr) {
@@ -355,7 +476,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (float val : arr) {
@@ -397,7 +518,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (short val : arr) {
@@ -421,7 +542,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         requestFreeSize(bytesToCp);
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             long off = BYTE_ARR_OFF + this.off;
 
             for (int val : arr) {
@@ -481,7 +602,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
     }
 
     private void putShort(short val, long off) {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             GridUnsafe.putShortLittleEndian(bytes, off, val);
         } else {
             GridUnsafe.putShort(bytes, off, val);
@@ -497,7 +618,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         long off = BYTE_ARR_OFF + this.off;
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             GridUnsafe.putCharLittleEndian(bytes, off, val);
         } else {
             GridUnsafe.putChar(bytes, off, val);
@@ -525,7 +646,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
 
         long off = BYTE_ARR_OFF + this.off;
 
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             GridUnsafe.putLongLittleEndian(bytes, off, v);
         } else {
             GridUnsafe.putLong(bytes, off, v);

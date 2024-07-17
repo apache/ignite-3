@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,20 +17,16 @@
 
 package org.apache.ignite.internal.benchmarks;
 
-import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
-
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -107,24 +103,9 @@ public class TupleMarshallerFixlenOnlyBenchmark {
                         .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION, schema) {
-            @Override
-            public SchemaDescriptor schema() {
-                return schema;
-            }
+        marshaller = new TupleMarshallerImpl(schema);
 
-            @Override
-            public SchemaDescriptor schema(int ver) {
-                return schema;
-            }
-
-            @Override
-            public int lastSchemaVersion() {
-                return schema.version();
-            }
-        });
-
-        vals = new Object[schema.valueColumns().length()];
+        vals = new Object[schema.valueColumns().size()];
 
         for (int i = 0; i < vals.length; i++) {
             vals[i] = rnd.nextLong();
@@ -137,13 +118,13 @@ public class TupleMarshallerFixlenOnlyBenchmark {
      * @param bh Black hole.
      */
     @Benchmark
-    public void measureTupleBuildAndMarshallerCost(Blackhole bh) throws TupleMarshallerException {
-        final Columns cols = schema.valueColumns();
+    public void measureTupleBuildAndMarshallerCost(Blackhole bh) {
+        List<Column> cols = schema.valueColumns();
 
-        final Tuple valBld = Tuple.create(cols.length());
+        final Tuple valBld = Tuple.create(cols.size());
 
-        for (int i = 0; i < cols.length(); i++) {
-            valBld.set(cols.column(i).name(), vals[i]);
+        for (int i = 0; i < cols.size(); i++) {
+            valBld.set(cols.get(i).name(), vals[i]);
         }
 
         Tuple keyTuple = Tuple.create(1).set("key", rnd.nextLong());

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,18 +17,17 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
-import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
-
-import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.NativeType;
+import java.util.List;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerSchema;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,21 +52,31 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** Value type. */
     private final Class<V> valClass;
 
+    /** Positions of key fields in the schema. */
+    private final int[] keyPositions;
+
+    /** Positions of value fields in the schema. */
+    private final int[] valPositions;
+
     /**
      * Creates KV marshaller.
      *
-     * @param schema      Schema descriptor.
-     * @param keyMapper   Mapper for key objects.
+     * @param schema Schema descriptor.
+     * @param marshallers Marshallers provider.
+     * @param keyMapper Mapper for key objects.
      * @param valueMapper Mapper for value objects.
      */
-    public KvMarshallerImpl(SchemaDescriptor schema, @NotNull Mapper<K> keyMapper, @NotNull Mapper<V> valueMapper) {
+    public KvMarshallerImpl(SchemaDescriptor schema, MarshallersProvider marshallers, Mapper<K> keyMapper, Mapper<V> valueMapper) {
         this.schema = schema;
 
         keyClass = keyMapper.targetType();
         valClass = valueMapper.targetType();
 
-        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), keyMapper, true);
-        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper, false);
+        MarshallerSchema marshallerSchema = schema.marshallerSchema();
+        keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, keyMapper, true, false);
+        valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, true, false);
+        keyPositions = schema.keyColumns().stream().mapToInt(Column::positionInRow).toArray();
+        valPositions = schema.valueColumns().stream().mapToInt(Column::positionInRow).toArray();
     }
 
     /** {@inheritDoc} */
@@ -78,33 +87,54 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull K key) throws MarshallerException {
+    public Row marshal(K key) throws MarshallerException {
         assert keyClass.isInstance(key);
 
-        final RowAssembler asm = createAssembler(key, null);
+        RowAssembler asm = createAssembler(key);
 
-        keyMarsh.writeObject(key, asm);
+        keyMarsh.writeObject(key, new RowWriter(asm));
 
-        return new Row(schema, new ByteBufferRow(asm.toBytes()));
+        return Row.wrapKeyOnlyBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull K key, V val) throws MarshallerException {
+    public Row marshal(K key, @Nullable V val) throws MarshallerException {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
-        final RowAssembler asm = createAssembler(key, val);
-        keyMarsh.writeObject(key, asm);
-        valMarsh.writeObject(val, asm);
-        return new Row(schema, new ByteBufferRow(asm.toBytes()));
+        List<Column> columns = schema.columns();
+        RowAssembler asm = createAssembler(key, val);
+
+        var writer = new RowWriter(asm);
+
+        for (Column column : columns) {
+            if (column.positionInKey() >= 0) {
+                keyMarsh.writeField(key, writer, column.positionInKey());
+            } else {
+                valMarsh.writeField(val, writer, column.positionInValue());
+            }
+        }
+
+        return Row.wrapBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
-    public K unmarshalKey(@NotNull Row row) throws MarshallerException {
-        final Object o = keyMarsh.readObject(row);
+    public K unmarshalKeyOnly(Row row) throws MarshallerException {
+        assert row.elementCount() == keyPositions.length : "Number of key columns does not match";
+
+        Object o = keyMarsh.readObject(new RowReader(row), null);
+
+        assert keyClass.isInstance(o);
+
+        return (K) o;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public K unmarshalKey(Row row) throws MarshallerException {
+        Object o = keyMarsh.readObject(new RowReader(row, keyPositions), null);
 
         assert keyClass.isInstance(o);
 
@@ -114,16 +144,36 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Nullable
     @Override
-    public V unmarshalValue(@NotNull Row row) throws MarshallerException {
-        if (!row.hasValue()) {
-            return null;
-        }
-
-        final Object o = valMarsh.readObject(row);
+    public V unmarshalValue(Row row) throws MarshallerException {
+        Object o = valMarsh.readObject(new RowReader(row, valPositions), null);
 
         assert o == null || valClass.isInstance(o);
 
         return (V) o;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable Object value(Object obj, int fldIdx) {
+        Column column = schema.column(fldIdx);
+        return column.positionInKey() >= 0
+                ? keyMarsh.value(obj, column.positionInKey())
+                : valMarsh.value(obj, column.positionInValue());
+    }
+
+    /**
+     * Creates {@link RowAssembler} for key.
+     *
+     * @param key Key object.
+     * @return Row assembler.
+     * @throws MarshallerException If failed to read key or value object content.
+     */
+    private RowAssembler createAssembler(Object key) throws MarshallerException {
+        try {
+            return ObjectStatistics.createAssembler(schema, keyMarsh, key);
+        } catch (Throwable e) {
+            throw new MarshallerException(e.getMessage(), e);
+        }
     }
 
     /**
@@ -134,59 +184,11 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
      * @return Row assembler.
      * @throws MarshallerException If failed to read key or value object content.
      */
-    private RowAssembler createAssembler(Object key, Object val) throws MarshallerException {
-        ObjectStatistic keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
-        ObjectStatistic valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
-
-        return new RowAssembler(schema, keyStat.nonNullColsSize, keyStat.nonNullCols,
-                valStat.nonNullColsSize, valStat.nonNullCols);
-    }
-
-    /**
-     * Reads object fields and gather statistic.
-     *
-     * @throws MarshallerException If failed to read object content.
-     */
-    private ObjectStatistic collectObjectStats(Columns cols, Marshaller marsh, Object obj) throws MarshallerException {
-        if (obj == null || !cols.hasVarlengthColumns()) {
-            return ObjectStatistic.ZERO_VARLEN_STATISTICS;
-        }
-
-        int cnt = 0;
-        int size = 0;
-
-        for (int i = cols.firstVarlengthColumn(); i < cols.length(); i++) {
-            final Object val = marsh.value(obj, i);
-            final NativeType colType = cols.column(i).type();
-
-            if (val == null || colType.spec().fixedLength()) {
-                continue;
-            }
-
-            size += getValueSize(val, colType);
-            cnt++;
-        }
-
-        return new ObjectStatistic(cnt, size);
-    }
-
-    /**
-     * Object statistic.
-     */
-    private static class ObjectStatistic {
-        /** Cached zero statistics. */
-        static final ObjectStatistic ZERO_VARLEN_STATISTICS = new ObjectStatistic(0, 0);
-
-        /** Non-null columns of varlen type. */
-        int nonNullCols;
-
-        /** Length of all non-null columns of varlen types. */
-        int nonNullColsSize;
-
-        /** Constructor. */
-        ObjectStatistic(int nonNullCols, int nonNullColsSize) {
-            this.nonNullCols = nonNullCols;
-            this.nonNullColsSize = nonNullColsSize;
+    private RowAssembler createAssembler(Object key, @Nullable Object val) throws MarshallerException {
+        try {
+            return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
+        } catch (Throwable e) {
+            throw new MarshallerException(e.getMessage(), e);
         }
     }
 }

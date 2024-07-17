@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import java.util.Collection;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 
 /**
@@ -26,29 +24,10 @@ import org.apache.ignite.internal.storage.RowId;
  *
  * <p>This storage serves as an unordered mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
  * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
- *
- * @see org.apache.ignite.schema.definition.index.HashIndexDefinition
  */
-public interface HashIndexStorage {
+public interface HashIndexStorage extends IndexStorage {
     /**
      * Returns the Index Descriptor of this storage.
      */
-    HashIndexDescriptor indexDescriptor();
-
-    /**
-     * Returns a collection of {@code RowId}s that correspond to the given index key.
-     */
-    Collection<RowId> get(BinaryTuple key);
-
-    /**
-     * Adds the given index row to the index.
-     */
-    void put(IndexRow row);
-
-    /**
-     * Removes the given row from the index.
-     *
-     * <p>Removing a non-existent row is a no-op.
-     */
-    void remove(IndexRow row);
+    StorageHashIndexDescriptor indexDescriptor();
 }

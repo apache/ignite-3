@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,7 +19,8 @@ package org.apache.ignite.internal.util;
 
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Lock state structure is as follows.
@@ -162,7 +163,7 @@ public class OffheapReadWriteLock {
 
             if (lockCount(state) <= 0) {
                 throw new IllegalMonitorStateException("Attempted to release a read lock while not holding it "
-                        + "[lock=" + IgniteUtils.hexLong(lock) + ", state=" + IgniteUtils.hexLong(state) + ']');
+                        + "[lock=" + StringUtils.hexLong(lock) + ", state=" + StringUtils.hexLong(state) + ']');
             }
 
             long updated = updateState(state, -1, 0, 0);
@@ -281,7 +282,7 @@ public class OffheapReadWriteLock {
 
             if (lockCount(state) != -1) {
                 throw new IllegalMonitorStateException("Attempted to release write lock while not holding it "
-                        + "[lock=" + IgniteUtils.hexLong(lock) + ", state=" + IgniteUtils.hexLong(state) + ']');
+                        + "[lock=" + StringUtils.hexLong(lock) + ", state=" + StringUtils.hexLong(state) + ']');
             }
 
             updated = releaseWithTag(state, tag);
@@ -346,7 +347,7 @@ public class OffheapReadWriteLock {
      *      the write lock without leaving a gap. Returns {@code false} otherwise, in this case the resource
      *      state must be re-validated.
      */
-    public Boolean upgradeToWriteLock(long lock, int tag) {
+    public @Nullable Boolean upgradeToWriteLock(long lock, int tag) {
         for (int i = 0; i < SPIN_CNT; i++) {
             long state = GridUnsafe.getLongVolatile(null, lock);
 

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,507 +17,170 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import org.apache.calcite.plan.Convention;
+import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelReferentialConstraint;
-import org.apache.calcite.rel.core.TableModify;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Statistic;
-import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Ignite table implementation.
+ * Table implementation for sql engine.
  */
-public class IgniteTableImpl extends AbstractTable implements InternalIgniteTable {
-    private final TableDescriptor desc;
+public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteTable {
+    private final ImmutableIntList keyColumns;
+    private final @Nullable ImmutableBitSet columnsToInsert;
 
-    private final int ver;
+    private final Map<String, IgniteIndex> indexMap;
 
-    private final InternalTable table;
+    private final int partitions;
 
-    private final SchemaRegistry schemaRegistry;
+    private final Lazy<NativeType[]> colocationColumnTypes;
 
-    public final SchemaDescriptor schemaDescriptor;
-
-    private final Statistic statistic;
-
-    private final Map<String, IgniteIndex> indexes = new ConcurrentHashMap<>();
-
-    private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
-
-    /**
-     * Constructor.
-     *
-     * @param desc  Table descriptor.
-     * @param table Physical table this schema object created for.
-     */
+    /** Constructor. */
     public IgniteTableImpl(
+            String name,
+            int id,
+            int version,
             TableDescriptor desc,
-            InternalTable table,
-            SchemaRegistry schemaRegistry
+            ImmutableIntList keyColumns,
+            Statistic statistic,
+            Map<String, IgniteIndex> indexMap,
+            int partitions
     ) {
-        this.ver = schemaRegistry.lastSchemaVersion();
-        this.desc = desc;
-        this.table = table;
-        this.schemaRegistry = schemaRegistry;
-        this.schemaDescriptor = schemaRegistry.schema();
+        super(name, id, version, desc, statistic);
 
-        assert schemaDescriptor != null;
+        this.keyColumns = keyColumns;
+        this.indexMap = indexMap;
+        this.partitions = partitions;
+        this.columnsToInsert = deriveColumnsToInsert(desc);
 
-        List<ColumnDescriptor> tmp = new ArrayList<>(desc.columnsCount());
-        for (int i = 0; i < desc.columnsCount(); i++) {
-            tmp.add(desc.columnDescriptor(i));
+        colocationColumnTypes = new Lazy<>(this::evaluateTypes);
+    }
+
+    private static RelDataType deriveDeleteRowType(
+            IgniteTypeFactory typeFactory,
+            TableDescriptor desc,
+            ImmutableIntList keyColumns
+    ) {
+        var builder = new RelDataTypeFactory.Builder(typeFactory);
+
+        RelDataType fullRow = desc.rowType(typeFactory, null);
+        for (int i : keyColumns) {
+            builder.add(fullRow.getFieldList().get(i));
         }
 
-        tmp.sort(Comparator.comparingInt(ColumnDescriptor::physicalIndex));
+        return builder.build();
+    }
 
-        columnsOrderedByPhysSchema = tmp;
-        statistic = new StatisticsImpl();
+    private static @Nullable ImmutableBitSet deriveColumnsToInsert(TableDescriptor desc) {
+        /*
+        Columns to insert are columns which will be expanded in case user omit
+        columns list in insert statement as in example below:
+
+            INSERT INTO table VALUES (1, 1); -- mind omitted columns list after table identifier
+
+        Although hidden columns are currently not supported by Ignite, we have special mode
+        where we allow to omit primary key declaration during table creation. In that case, we
+        inject the column that will serve as primary key, but this column must be hidden during
+        star expansion (SELECT * FROM ... clause), as well as must be ignored during columns
+        list inference for INSERT INTO statement.
+
+        See org.apache.ignite.internal.sql.engine.util.Commons.implicitPkEnabled, and
+        org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl.injectDefault for details.
+         */
+        ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
+
+        boolean hiddenColumnFound = false;
+        for (ColumnDescriptor columnDescriptor : desc) {
+            if (columnDescriptor.hidden()) {
+                hiddenColumnFound = true;
+
+                continue;
+            }
+
+            builder.set(columnDescriptor.logicalIndex());
+        }
+
+        if (hiddenColumnFound) {
+            return builder.build();
+        }
+
+        return null;
     }
 
     /** {@inheritDoc} */
     @Override
-    public UUID id() {
-        return table.tableId();
+    public Supplier<PartitionCalculator> partitionCalculator() {
+        return () -> new PartitionCalculator(partitions, Objects.requireNonNull(colocationColumnTypes.get()));
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public int version() {
-        return ver;
-    }
+    private NativeType[] evaluateTypes() {
+        int fieldCnt = descriptor().distribution().getKeys().size();
+        NativeType[] fieldTypes = new NativeType[fieldCnt];
 
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns) {
-        return desc.rowType((IgniteTypeFactory) typeFactory, requiredColumns);
-    }
+        int[] colocationColumns = descriptor().distribution().getKeys().toIntArray();
 
-    /** {@inheritDoc} */
-    @Override
-    public Statistic getStatistic() {
-        return statistic;
-    }
+        for (int i = 0; i < fieldCnt; i++) {
+            ColumnDescriptor colDesc = descriptor().columnDescriptor(colocationColumns[i]);
 
+            fieldTypes[i] = colDesc.physicalType();
+        }
 
-    /** {@inheritDoc} */
-    @Override
-    public TableDescriptor descriptor() {
-        return desc;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public InternalTable table() {
-        return table;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteLogicalTableScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTbl,
-            @Nullable List<RexNode> proj,
-            @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
-    ) {
-        RelTraitSet traitSet = cluster.traitSetOf(distribution())
-                .replace(RewindabilityTrait.REWINDABLE);
-
-        return IgniteLogicalTableScan.create(cluster, traitSet, relOptTbl, proj, cond, requiredColumns);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteLogicalIndexScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTable,
-            String idxName,
-            List<RexNode> proj,
-            RexNode condition,
-            ImmutableBitSet requiredCols
-    ) {
-        RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
-                .replace(distribution())
-                .replace(RewindabilityTrait.REWINDABLE)
-                .replace(getIndex(idxName).collation());
-
-        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, idxName, proj, condition, requiredCols);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteDistribution distribution() {
-        return desc.distribution();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-        return partitionedGroup();
+        return fieldTypes;
     }
 
     /** {@inheritDoc} */
     @Override
     public Map<String, IgniteIndex> indexes() {
-        return Collections.unmodifiableMap(indexes);
+        return indexMap;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void addIndex(IgniteIndex idxTbl) {
-        indexes.put(idxTbl.name(), idxTbl);
+    public int partitions() {
+        return partitions;
+    }
+
+    @Override
+    public ImmutableIntList keyColumns() {
+        return keyColumns;
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteIndex getIndex(String idxName) {
-        return indexes.get(idxName);
+    protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
+        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void removeIndex(String idxName) {
-        indexes.remove(idxName);
+    public boolean isUpdateAllowed(int colIdx) {
+        return !descriptor().columnDescriptor(colIdx).key();
     }
 
     /** {@inheritDoc} */
     @Override
-    public <C> C unwrap(Class<C> cls) {
-        if (cls.isInstance(desc)) {
-            return cls.cast(desc);
-        }
-
-        return super.unwrap(cls);
+    public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
+        return descriptor().rowType(factory, columnsToInsert);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> RowT toRow(
-            ExecutionContext<RowT> ectx,
-            BinaryRow binaryRow,
-            RowHandler.RowFactory<RowT> factory,
-            @Nullable ImmutableBitSet requiredColumns
-    ) {
-        RowHandler<RowT> handler = factory.handler();
-
-        assert handler == ectx.rowHandler();
-
-        RowT res = factory.create();
-
-        assert handler.columnCount(res) == (requiredColumns == null ? desc.columnsCount() : requiredColumns.cardinality());
-
-        Row row = schemaRegistry.resolve(binaryRow, schemaDescriptor);
-
-        if (requiredColumns == null) {
-            for (int i = 0; i < desc.columnsCount(); i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(i);
-
-                handler.set(i, res, TypeUtils.toInternal(ectx, row.value(colDesc.physicalIndex())));
-            }
-        } else {
-            for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(j);
-
-                handler.set(i, res, TypeUtils.toInternal(ectx, row.value(colDesc.physicalIndex())));
-            }
-        }
-
-        return res;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <RowT> ModifyRow toModifyRow(
-            ExecutionContext<RowT> ectx,
-            RowT row,
-            TableModify.Operation op,
-            List<String> arg
-    ) {
-        switch (op) {
-            case INSERT:
-                return insertTuple(row, ectx);
-            case DELETE:
-                return deleteTuple(row, ectx);
-            case UPDATE:
-                return updateTuple(row, arg, 0, ectx);
-            case MERGE:
-                return mergeTuple(row, arg, ectx);
-            default:
-                throw new AssertionError();
-        }
-    }
-
-    private <RowT> ModifyRow insertTuple(RowT row, ExecutionContext<RowT> ectx) {
-        int nonNullVarlenKeyCols = 0;
-        int nonNullVarlenValCols = 0;
-
-        RowHandler<RowT> hnd = ectx.rowHandler();
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (colDesc.physicalType().spec().fixedLength()) {
-                continue;
-            }
-
-            Object val = hnd.get(colDesc.logicalIndex(), row);
-
-            if (val != null) {
-                if (colDesc.key()) {
-                    nonNullVarlenKeyCols++;
-                } else {
-                    nonNullVarlenValCols++;
-                }
-            }
-        }
-
-        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            Object val;
-
-            if (colDesc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(colDesc.name())) {
-                val = colDesc.defaultValue();
-            } else {
-                val = replaceDefault(hnd.get(colDesc.logicalIndex(), row), colDesc);
-            }
-
-            val = TypeUtils.fromInternal(ectx, val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
-
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
-        }
-
-        return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.INSERT_ROW);
-    }
-
-    private <RowT> ModifyRow mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
-        RowHandler<RowT> hnd = ectx.rowHandler();
-
-        int rowColumnsCnt = hnd.columnCount(row);
-
-        if (desc.columnsCount() == rowColumnsCnt) { // Only WHEN NOT MATCHED clause in MERGE.
-            return insertTuple(row, ectx);
-        } else if (desc.columnsCount() + updateColList.size() == rowColumnsCnt) { // Only WHEN MATCHED clause in MERGE.
-            return updateTuple(row, updateColList, 0, ectx);
-        } else { // Both WHEN MATCHED and WHEN NOT MATCHED clauses in MERGE.
-            int off = columnsOrderedByPhysSchema.size();
-
-            if (hnd.get(off, row) == null) {
-                return insertTuple(row, ectx);
-            } else {
-                return updateTuple(row, updateColList, off, ectx);
-            }
-        }
-    }
-
-    private <RowT> ModifyRow updateTuple(RowT row, List<String> updateColList, int offset, ExecutionContext<RowT> ectx) {
-        RowHandler<RowT> hnd = ectx.rowHandler();
-
-        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
-
-        for (int i = 0; i < updateColList.size(); i++) {
-            columnToIndex.put(updateColList.get(i), i + desc.columnsCount() + offset);
-        }
-
-        int nonNullVarlenKeyCols = 0;
-        int nonNullVarlenValCols = 0;
-
-        int keyOffset = schemaDescriptor.keyColumns().firstVarlengthColumn();
-
-        if (keyOffset > -1) {
-            nonNullVarlenKeyCols = countNotNullColumns(
-                    keyOffset,
-                    schemaDescriptor.keyColumns().length(),
-                    columnToIndex, offset, hnd, row);
-        }
-
-        int valOffset = schemaDescriptor.valueColumns().firstVarlengthColumn();
-
-        if (valOffset > -1) {
-            nonNullVarlenValCols = countNotNullColumns(
-                    schemaDescriptor.keyColumns().length() + valOffset,
-                    schemaDescriptor.length(),
-                    columnToIndex, offset, hnd, row);
-        }
-
-        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            int colIdx = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
-
-            Object val = TypeUtils.fromInternal(ectx, hnd.get(colIdx, row),
-                    NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
-
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
-        }
-
-        return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.UPDATE_ROW);
-    }
-
-    private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex, int offset,
-            RowHandler<RowT> hnd, RowT row) {
-        int nonNullCols = 0;
-
-        for (int i = start; i < end; i++) {
-            ColumnDescriptor colDesc = Objects.requireNonNull(columnsOrderedByPhysSchema.get(i));
-
-            assert !colDesc.physicalType().spec().fixedLength();
-
-            int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
-
-            if (hnd.get(colIdInRow, row) != null) {
-                nonNullCols++;
-            }
-        }
-
-        return nonNullCols;
-    }
-
-    private <RowT> ModifyRow deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
-        int nonNullVarlenKeyCols = 0;
-
-        RowHandler<RowT> hnd = ectx.rowHandler();
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (!colDesc.key()) {
-                break;
-            }
-
-            if (colDesc.physicalType().spec().fixedLength()) {
-                continue;
-            }
-
-            Object val = hnd.get(colDesc.logicalIndex(), row);
-
-            if (val != null) {
-                nonNullVarlenKeyCols++;
-            }
-        }
-
-        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, 0);
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (!colDesc.key()) {
-                break;
-            }
-
-            Object val = TypeUtils.fromInternal(ectx, hnd.get(colDesc.logicalIndex(), row),
-                    NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
-
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
-        }
-
-        return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.DELETE_ROW);
-    }
-
-    private ColocationGroup partitionedGroup() {
-        List<List<String>> assignments = table.assignments().stream()
-                .map(Collections::singletonList)
-                .collect(Collectors.toList());
-
-        return ColocationGroup.forAssignments(assignments);
-    }
-
-    private Object replaceDefault(Object val, ColumnDescriptor desc) {
-        return val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
-    }
-
-    private class StatisticsImpl implements Statistic {
-        private static final int STATS_CLI_UPDATE_THRESHOLD = 200;
-
-        AtomicInteger statReqCnt = new AtomicInteger();
-
-        private volatile long localRowCnt;
-
-        /** {@inheritDoc} */
-        @Override
-        public Double getRowCount() {
-            if (statReqCnt.getAndIncrement() % STATS_CLI_UPDATE_THRESHOLD == 0) {
-                int parts = table.storage().configuration().partitions().value();
-
-                long size = 0L;
-
-                for (int p = 0; p < parts; ++p) {
-                    @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
-
-                    if (part != null) {
-                        size += part.rowsCount();
-                    }
-                }
-
-                localRowCnt = size;
-            }
-
-            return (double) localRowCnt;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isKey(ImmutableBitSet cols) {
-            return false; // TODO
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<ImmutableBitSet> getKeys() {
-            return null; // TODO
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelReferentialConstraint> getReferentialConstraints() {
-            return List.of();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelCollation> getCollations() {
-            return List.of(); // The method isn't used
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteDistribution getDistribution() {
-            return distribution();
-        }
+    public RelDataType rowTypeForDelete(IgniteTypeFactory factory) {
+        return deriveDeleteRowType(factory, descriptor(), keyColumns);
     }
 }

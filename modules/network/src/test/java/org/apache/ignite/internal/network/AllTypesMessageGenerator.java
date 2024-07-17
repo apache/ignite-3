@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,16 +19,21 @@ package org.apache.ignite.internal.network;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.IntStream;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.IgniteUuidGenerator;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TestMessagesFactory;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.lang.IgniteUuidGenerator;
+import org.apache.ignite.internal.network.messages.AllTypesMessage;
+import org.apache.ignite.internal.network.messages.AllTypesMessageBuilder;
+import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
+import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,9 +76,17 @@ public class AllTypesMessageGenerator {
                         .mapToObj(unused -> generate(seed, false, fillArrays))
                         .collect(toList()));
 
-                message.newMsgMapX(IntStream.range(0, 10)
+                message.netMsgMapX(IntStream.range(0, 10)
                         .boxed()
                         .collect(toMap(String::valueOf, unused -> generate(seed, false, fillArrays))));
+
+                message.netMsgListY(IntStream.range(0, 10)
+                        .mapToObj(unused -> generate(seed, false, fillArrays))
+                        .collect(toList()));
+
+                message.netMsgSetY(IntStream.range(0, 10)
+                        .mapToObj(unused -> generate(seed, false, fillArrays))
+                        .collect(toSet()));
             }
 
             return message.build();
@@ -92,23 +105,27 @@ public class AllTypesMessageGenerator {
      */
     @Nullable
     private static Object randomValue(Random random, Field field, boolean nestedMsg) {
+        if (field.isAnnotationPresent(Nullable.class) && random.nextBoolean()) {
+            return null;
+        }
+
         Class<?> type = field.getType();
 
-        if (type == byte.class) {
+        if (type == byte.class || type == Byte.class) {
             return (byte) random.nextInt();
-        } else if (type == short.class) {
+        } else if (type == short.class || type == Short.class) {
             return (short) random.nextInt();
-        } else if (type == int.class) {
+        } else if (type == int.class || type == Integer.class) {
             return random.nextInt();
-        } else if (type == long.class) {
+        } else if (type == long.class || type == Long.class) {
             return random.nextLong();
-        } else if (type == float.class) {
+        } else if (type == float.class || type == Float.class) {
             return random.nextFloat();
-        } else if (type == double.class) {
+        } else if (type == double.class || type == Double.class) {
             return random.nextDouble();
-        } else if (type == char.class) {
+        } else if (type == char.class || type == Character.class) {
             return (char) random.nextInt();
-        } else if (type == boolean.class) {
+        } else if (type == boolean.class || type == Boolean.class) {
             return random.nextBoolean();
         } else if (type == byte[].class) {
             int byteArrLen = random.nextInt(1024);
@@ -196,6 +213,19 @@ public class AllTypesMessageGenerator {
                 return generate(random.nextLong(), false);
             }
             return null;
+        } else if (type == ByteBuffer.class) {
+            byte[] bytes = new byte[16];
+            random.nextBytes(bytes);
+
+            ByteBuffer outerBuffer = random.nextBoolean() ? ByteBuffer.allocate(20) : ByteBuffer.allocateDirect(20);
+            ByteBuffer buffer = outerBuffer.position(2).limit(18).slice();
+            buffer.put(bytes);
+
+            buffer.order(random.nextBoolean() ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN);
+            buffer.position(random.nextInt(3));
+            buffer.limit(14 + random.nextInt(3));
+
+            return buffer;
         } else {
             return null;
         }

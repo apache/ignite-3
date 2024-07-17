@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,14 +25,14 @@ import io.netty.handler.stream.ChunkedInput;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.serialization.MessageSerializer;
 
 /**
  * An encoder for the outbound messages that uses {@link DirectMessageWriter}.
@@ -40,6 +40,8 @@ import org.apache.ignite.network.serialization.MessageSerializer;
 public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     /** Handler name. */
     public static final String NAME = "outbound-encoder";
+
+    private static final int IO_BUFFER_CAPACITY = 16 * 1024;
 
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
 
@@ -96,14 +98,12 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             this.serializationService = serializationService;
             this.msg = outObject.networkMessage();
 
-            if (!outObject.descriptors().isEmpty()) {
-                List<ClassDescriptorMessage> descriptors = outObject.descriptors();
+            List<ClassDescriptorMessage> outDescriptors = outObject.descriptors().stream()
+                    .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))
+                    .collect(Collectors.toList());
 
-                descriptors = descriptors.stream()
-                        .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))
-                        .collect(Collectors.toList());
-
-                this.descriptors = MSG_FACTORY.classDescriptorListMessage().messages(descriptors).build();
+            if (!outDescriptors.isEmpty()) {
+                this.descriptors = MSG_FACTORY.classDescriptorListMessage().messages(outDescriptors).build();
                 short groupType = this.descriptors.groupType();
                 short messageType = this.descriptors.messageType();
                 descriptorSerializer = serializationService.createMessageSerializer(groupType, messageType);
@@ -114,7 +114,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             }
 
             this.serializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
-            this.writer = new DirectMessageWriter(serializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
+            this.writer = new DirectMessageWriter(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
         }
 
         /** {@inheritDoc} */
@@ -138,8 +138,8 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
         /** {@inheritDoc} */
         @Override
-        public ByteBuf readChunk(ByteBufAllocator allocator) throws Exception {
-            ByteBuf buffer = allocator.ioBuffer();
+        public ByteBuf readChunk(ByteBufAllocator allocator) {
+            ByteBuf buffer = allocator.ioBuffer(IO_BUFFER_CAPACITY);
             int capacity = buffer.capacity();
 
             ByteBuffer byteBuffer = buffer.internalNioBuffer(0, capacity);

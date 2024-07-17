@@ -1,0 +1,207 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'signing'
+    alias(libs.plugins.checksum)
+    alias(libs.plugins.cmake)
+}
+
+import org.apache.tools.ant.taskdefs.condition.Os
+import org.gradle.crypto.checksum.Checksum
+
+configurations {
+    cppClient
+    cppClientHeaders
+    dotNet
+    odbc
+}
+
+cmakeConfigure.enabled = false
+cmakeBuild.enabled = false
+cmakeClean.enabled = false
+
+task restoreTool(type: Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "tool", "restore"
+}
+
+task docfx(type: Exec) {
+    dependsOn restoreTool
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "docfx", "docs/docfx.json"
+}
+
+
+task aggregateDotnetDocs(type: Copy) {
+    dependsOn docfx
+
+    from("$rootDir/modules/platforms/dotnet/docs/_site")
+    into("$rootDir/build/docs/dotnet")
+}
+
+
+task doxygenCppClient(type: Exec) {
+    workingDir "$rootDir/modules/platforms/cpp"
+
+    commandLine "doxygen"
+}
+
+
+task copyNativeLibs(type: Copy) {
+    include "**/*.so"
+    from("$rootDir/modules/platforms/cpp")
+    into("$buildDir/classes/")
+}
+
+cmake {
+    workingFolder=file("$buildDir/cpp")
+    sourceFolder=file("$projectDir/cpp")
+    buildConfig='Release'
+    buildTarget='install'
+    getDef().CMAKE_INSTALL_PREFIX="$buildDir/install"
+    getDef().CMAKE_BUILD_TYPE='Release'
+    getDef().CMAKE_CONFIGURATION_TYPES='Release'
+}
+
+task cmakeConfigureClient(type: dev.welbyseely.CMakeConfigureTask) {
+    configureFromProject() // uses everything in the cmake { ... } section.
+    getDef().put('ENABLE_CLIENT', 'ON')
+    getDef().put('ENABLE_ODBC', 'OFF')
+}
+
+task cmakeBuildClient(type: dev.welbyseely.CMakeBuildTask) {
+    configureFromProject() // uses everything in the cmake { ... } section.
+}
+
+cmakeBuildClient.dependsOn cmakeConfigureClient
+
+task cmakeConfigureOdbc(type: dev.welbyseely.CMakeConfigureTask) {
+    configureFromProject() // uses everything in the cmake { ... } section.
+    getDef().put('ENABLE_CLIENT', 'OFF')
+    getDef().put('ENABLE_ODBC', 'ON')
+}
+
+task cmakeBuildOdbc(type: dev.welbyseely.CMakeBuildTask) {
+    configureFromProject() // uses everything in the cmake { ... } section.
+}
+
+cmakeBuildOdbc.dependsOn cmakeConfigureOdbc
+
+task buildNuGet(type: Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "pack", "Apache.Ignite",
+            "--configuration", "Release",
+            "--include-source",
+            "--output", "$buildDir/nupkg"
+            "/p:Version=${project.version}"
+}
+
+task buildDotNet(type: Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "build", "Apache.Ignite",
+            "--configuration", "Release",
+            "--output", "$buildDir/dotnet"
+    "/p:Version=${project.version}"
+}
+
+task zipNuGet(type: Zip) {
+    archiveFileName = "apache-ignite-${project.version}-nuget.zip"
+
+    from ("$buildDir/nupkg") {
+        include "*.nupkg"
+        include "*.snupkg"
+    }
+
+    dependsOn buildNuGet
+}
+
+task zipCppClient(type: Zip) {
+    archiveFileName = "apache-ignite-${project.version}-cpp.zip"
+
+    from ("$projectDir/cpp") {
+        exclude "CMakeFiles"
+        exclude "pom.xml"
+        exclude "StyleGuide.md"
+        exclude ".clang-tidy"
+    }
+}
+
+task createChecksums(type: Checksum) {
+    dependsOn zipCppClient, zipNuGet
+
+    inputFiles.from zipCppClient.outputs.files, zipNuGet.outputs.files
+    checksumAlgorithm = Checksum.Algorithm.SHA512
+}
+
+// Explicitly create task so that the resulting artifact is not added to the configuration
+tasks.register('signArtifacts', Sign) {
+    sign zipNuGet
+    sign zipCppClient
+}
+
+configurations {
+    platformsRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+if (project.hasProperty('prepareRelease')) {
+    artifacts {
+        platformsRelease(file("$buildDir/distributions")) {
+            builtBy signArtifacts
+        }
+        platformsRelease(file("$buildDir/checksums")) {
+            builtBy createChecksums
+        }
+    }
+}
+
+artifacts {
+    if (project.hasProperty('platforms.enable')) {
+        dotNet(file("$buildDir/dotnet")) {
+            builtBy buildDotNet
+        }
+        cppClientHeaders(file("$buildDir/install/include")) {
+            builtBy cmakeBuildClient
+        }
+        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.3")) {
+            builtBy cmakeBuildClient
+        }
+        cppClient(file("$buildDir/cpp/lib/libignite3-client.so")) {
+            builtBy cmakeBuildClient
+        }
+
+        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            odbc(file("$buildDir/cpp/Release/bin/ignite3-odbc.dll")) {
+                builtBy cmakeBuildOdbc
+            }
+        } else {
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
+                builtBy cmakeBuildOdbc
+            }
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
+                builtBy cmakeBuildOdbc
+            }
+        }
+    }
+}

@@ -16,6 +16,15 @@
 
 == Aggregate Functions
 
+=== AVG
+
+[source,sql]
+----
+AVG( [ ALL | DISTINCT ] numeric)
+----
+
+Returns the average (arithmetic mean) of numeric across all input values.
+
 === COUNT
 
 [source,sql]
@@ -25,14 +34,23 @@ COUNT( [ ALL | DISTINCT ] value [, value ]*)
 
 Returns the number of input rows for which value is not null (wholly not null if value is composite).
 
-=== AVG
+=== MAX
 
 [source,sql]
 ----
-AVG( [ ALL | DISTINCT ] numeric)
+MAX( [ ALL | DISTINCT ] value)
 ----
 
-Returns the average (arithmetic mean) of numeric across all input values.
+Returns the maximum value across all input values.
+
+=== MIN
+
+[source,sql]
+----
+MIN( [ ALL | DISTINCT ] value)
+----
+
+Returns the minimum value across all input values.
 
 === SUM
 
@@ -43,130 +61,94 @@ SUM( [ ALL | DISTINCT ] numeric)
 
 Returns the sum of numeric across all input values.
 
-=== MIN
-
-[source,sql]
-----
-MIN( [ ALL | DISTINCT ] value)
-----
-
-Returns the minimum value of value across all input values.
-
-=== MAX
-
-[source,sql]
-----
-MAX( [ ALL | DISTINCT ] value)
-----
-
-Returns the maximum value of value across all input values.
-
-=== STRING_AGG
-
-[source,sql]
-----
-STRING_AGG( value [, separator ] [ ORDER BY ...])
-----
-
-Concatenates the values of string expressions and places separator values between them.
-
-=== STRING_CONCAT
-
-[source,sql]
-----
-STRING_CONCAT(string1, string2, ... stringN)
-----
-
-Concatenates the text values in the specified data ranges.
-
 
 == Functions
 
+=== GENERAL
+
+* CAST
+* COALESCE
+* GREATEST
+* NULLIF
+* NVL
+
+For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
 
 === JSON
 
-* JSON_EXISTS
-* JSON_VALUE
-* JSON_QUERY
-* JSON_OBJECT
-* JSON_ARRAY
-* JSON_PRETTY
-* STRING
+* ASCII
 * CHAR_LENGTH
 * CHARACTER_LENGTH
-* UPPER
-* LOWER
-* POSITION
-* TRIM
-* OVERLAY
-* SUBSTRING
-* INITCAP
-* SPACE
-* STRCMP
-* REVERSE
-* REGEXP_REPLACE
-* SHA1
-* MD5
-* LTRIM
-* TO_BASE64
-* FROM_BASE64
 * COMPRESS
 * CONCAT
-* TRANSLATE
-* ASCII
+* FROM_BASE64
+* INITCAP
+* JSON_ARRAY
+* JSON_EXISTS
+* JSON_OBJECT
+* JSON_PRETTY
+* JSON_QUERY
+* JSON_VALUE
 * LEFT
-* RIGHT
+* LOWER
+* LTRIM
+* MD5
+* OVERLAY
+* POSITION
+* REGEXP_REPLACE
 * REPEAT
+* REVERSE
+* RIGHT
+* SHA1
 * SOUNDEX
-* For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
+* SPACE
+* STRCMP
+* STRING
+* SUBSTRING
+* TO_BASE64
+* TRANSLATE
+* TRIM
+* UPPER
+
+For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
 
 === NUMERIC
 
-* POWER
 * ABS
-* MOD
-* SQRT
-* LN
-* LOG10
-* EXP
-* CEIL
-* FLOOR
-* RAND
 * ACOS
 * ASIN
 * ATAN
 * ATAN2
 * CBRT
+* CEIL
+* CHR
 * COS
+* COSH
 * COT
 * DEGREES
+* EXP
+* FLOOR
+* LN
+* LOG10
+* MOD
 * PI()
+* POWER
 * RADIANS
+* RAND
 * ROUND
 * SIGN
 * SIN
-* TAN
-* TRUNCATE
-* CHR
-* COSH
 * SINH
+* SQRT
+* TAN
 * TANH
-* For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
+* TRUNCATE
 
-=== GENERAL
-
-* NULLIF
-* COALESCE
-* CAST
-* NVL
-* GREATEST
-* For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
-
+For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
 
 === TIMESTAMP
 
-* TIMESTAMP_ADD
-* TIMESTAMP_DIFF
 * EXTRACT
 * LAST_DAY
-* For more information on functions supported by Apache Calcite, see the link:https://calcite.apache.org/docs/reference.html#operators-and-functions[product documentation,window=_blank].
+* TIMESTAMP_ADD
+* TIMESTAMP_DIFF

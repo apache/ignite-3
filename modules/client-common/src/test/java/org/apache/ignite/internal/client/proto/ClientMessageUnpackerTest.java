@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,8 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import java.math.BigInteger;
-import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
@@ -103,14 +101,6 @@ public class ClientMessageUnpackerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
-            Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
-    public void testUnpackBigInteger(long l) {
-        var bi = BigInteger.valueOf(l);
-        testUnpacker(p -> p.packBigInteger(bi), ClientMessageUnpacker::unpackBigInteger, bi);
-    }
-
-    @ParameterizedTest
     @ValueSource(floats = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE})
     public void testUnpackFloat(float f) {
@@ -139,18 +129,6 @@ public class ClientMessageUnpackerTest {
 
         String s2 = "x".repeat(length);
         testUnpacker(p -> p.packString(s2), ClientMessageUnpacker::unpackString, s2);
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testUnpackArrayHeader(int i) {
-        testUnpacker(p -> p.packArrayHeader(i), ClientMessageUnpacker::unpackArrayHeader, i);
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testUnpackMapHeader(int i) {
-        testUnpacker(p -> p.packMapHeader(i), ClientMessageUnpacker::unpackMapHeader, i);
     }
 
     @ParameterizedTest
@@ -186,13 +164,8 @@ public class ClientMessageUnpackerTest {
             p.packInt(123456);
             p.packBoolean(false);
 
-            p.packMapHeader(3);
-            p.packString("x");
-            p.packNil();
-            p.packUuid(UUID.randomUUID());
-            p.packLong(123);
-            p.packUuid(UUID.randomUUID());
-            p.packLong(UUID.randomUUID().getLeastSignificantBits());
+            p.packBinaryHeader(33);
+            p.writePayload(new byte[33]);
 
             p.packDouble(1.1);
             p.packDouble(2.2);

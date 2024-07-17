@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,33 +17,52 @@
 
 package org.apache.ignite.internal.marshaller;
 
+import static org.apache.ignite.internal.marshaller.FieldAccessor.createIdentityAccessor;
+
+import java.util.Collection;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.OneColumnMapper;
 import org.apache.ignite.table.mapper.PojoMapper;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Marshaller.
- * TODO: Reuse this code in ignite-schema module (IGNITE-16088).
  */
 public abstract class Marshaller {
     /**
      * Creates a marshaller for class.
      *
-     * @param cols             Columns.
-     * @param mapper           Mapper.
+     * @param cols Columns.
+     * @param mapper Mapper.
      * @param requireAllFields If specified class should contain fields for all columns.
+     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Marshaller.
      */
-    public static <T> Marshaller createMarshaller(MarshallerColumn[] cols, @NotNull Mapper<T> mapper, boolean requireAllFields) {
+    static Marshaller createMarshaller(
+            MarshallerColumn[] cols,
+            Mapper<?> mapper,
+            boolean requireAllFields,
+            boolean allowUnmappedFields) {
+        if (mapper.targetType() == Void.class) {
+            return new NoOpMarshaller();
+        }
+
+        if (mapper.targetType().isPrimitive()) {
+            throw new IllegalArgumentException("Mappers for primitive types are not supported: " + mapper.targetType());
+        }
+
         if (mapper instanceof OneColumnMapper) {
-            return simpleMarshaller(cols, (OneColumnMapper<T>) mapper);
+            return simpleMarshaller(cols, (OneColumnMapper<?>) mapper);
         } else if (mapper instanceof PojoMapper) {
-            return pojoMarshaller(cols, (PojoMapper<T>) mapper, requireAllFields);
+            return pojoMarshaller(cols, (PojoMapper<?>) mapper, requireAllFields, allowUnmappedFields);
         } else {
             throw new IllegalArgumentException("Mapper of unsupported type: " + mapper.getClass());
         }
@@ -56,41 +75,90 @@ public abstract class Marshaller {
      * @param mapper Mapper.
      * @return Marshaller.
      */
-    static <T> SimpleMarshaller simpleMarshaller(MarshallerColumn[] cols, @NotNull OneColumnMapper<T> mapper) {
-        final BinaryMode mode = MarshallerUtil.mode(mapper.targetType());
+    private static SimpleMarshaller simpleMarshaller(MarshallerColumn[] cols, OneColumnMapper<?> mapper) {
+        MarshallerColumn column = findColumnIndex(cols, mapper.mappedColumn());
 
-        final MarshallerColumn col = cols[0];
+        return new SimpleMarshaller(createIdentityAccessor(column, column.schemaIndex(), mapper.converter()));
+    }
 
-        assert cols.length == 1;
-        assert mode == col.type() : "Target type is not compatible.";
-        assert !mapper.targetType().isPrimitive() : "Non-nullable types are not allowed.";
+    private static MarshallerColumn findColumnIndex(MarshallerColumn[] cols, @Nullable String name) {
+        if (name == null) {
+            if (cols.length != 1) {
+                throw new IllegalArgumentException(String.format(
+                        "Failed to map object to a single column: schema contains %d columns but no mapped columns were provided",
+                        cols.length
+                ));
+            }
 
-        return new SimpleMarshaller(FieldAccessor.createIdentityAccessor(col.name(), 0, mode));
+            return cols[0];
+        }
+
+        for (MarshallerColumn column : cols) {
+            if (column.name().equals(name)) {
+                return column;
+            }
+        }
+
+        throw new IllegalArgumentException(String.format(
+                "Failed to map object to a single column: mappedColumn '%s' is not present in the schema",
+                name
+        ));
     }
 
     /**
      * Creates a pojo marshaller for class.
      *
-     * @param cols             Columns.
-     * @param mapper           Mapper.
-     * @param requireAllFields If specified class should contain fields for all columns.
+     * @param cols                Columns.
+     * @param mapper              Mapper.
+     * @param requireAllFields    If specified class should contain fields for all columns.
+     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Pojo marshaller.
      */
-    static <T> PojoMarshaller pojoMarshaller(MarshallerColumn[] cols, @NotNull PojoMapper<T> mapper, boolean requireAllFields) {
+    private static PojoMarshaller pojoMarshaller(
+            MarshallerColumn[] cols,
+            PojoMapper<?> mapper,
+            boolean requireAllFields,
+            boolean allowUnmappedFields) {
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
+        int usedFields = 0;
 
         // Build handlers.
         for (int i = 0; i < cols.length; i++) {
-            final MarshallerColumn col = cols[i];
+            MarshallerColumn col = cols[i];
+            String columnName = col.name();
 
-            String fieldName = mapper.fieldForColumn(col.name());
+            String fieldName = mapper.fieldForColumn(columnName);
 
-            if (requireAllFields && fieldName == null) {
-                throw new IllegalArgumentException("No field found for column " + col.name());
+            if (fieldName == null) {
+                if (requireAllFields) {
+                    throw new IllegalArgumentException(String.format("No mapped object field found for column '%s'", columnName));
+                }
+
+                fieldAccessors[i] = FieldAccessor.noopAccessor(col);
+            } else {
+                usedFields++;
+
+                TypeConverter<Object, Object> converter = mapper.converterForColumn(columnName);
+
+                fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), fieldName, col, i, converter);
             }
+        }
 
-            fieldAccessors[i] = (fieldName == null) ? FieldAccessor.noopAccessor(col) :
-                    FieldAccessor.create(mapper.targetType(), fieldName, col, i);
+        if (!allowUnmappedFields) {
+            Collection<String> fields = mapper.fields();
+
+            if (fields.size() > usedFields) {
+                Set<String> fieldSet = new TreeSet<>(fields);
+                for (MarshallerColumn col : cols) {
+                    String fieldName = mapper.fieldForColumn(col.name());
+                    fieldSet.remove(fieldName);
+                }
+
+                throw new IllegalArgumentException(
+                        String.format("Fields %s of type %s are not mapped to columns", fieldSet, mapper.targetType().getName()),
+                        new UnmappedColumnsException()
+                );
+            }
         }
 
         return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
@@ -116,36 +184,37 @@ public abstract class Marshaller {
     public abstract Object readObject(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
 
     /**
-     * Copies field values from one object to another.
-     *
-     * @param source Source.
-     * @param target Target.
-     * @throws MarshallerException If failed.
-     */
-    public abstract void copyObject(Object source, Object target) throws MarshallerException;
-
-    /**
      * Write an object to a row.
      *
      * @param obj    Object.
      * @param writer Row writer.
      * @throws MarshallerException If failed.
      */
-    public abstract void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException;
+    public abstract void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException;
+
+    /**
+     * Write the specified field of an object to a row.
+     *
+     * @param obj Object.
+     * @param writer Row writer.
+     * @param fldIdx Field index.
+     * @throws MarshallerException If failed.
+     */
+    public abstract void writeField(@Nullable Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException;
 
     /**
      * Marshaller for objects of natively supported types.
      */
     private static class SimpleMarshaller extends Marshaller {
         /** Identity accessor. */
-        private final FieldAccessor fieldAccessor;
+        private final IdentityAccessor fieldAccessor;
 
         /**
          * Creates a marshaller for objects of natively supported type.
          *
          * @param fieldAccessor Identity field accessor for objects of natively supported type.
          */
-        SimpleMarshaller(FieldAccessor fieldAccessor) {
+        SimpleMarshaller(IdentityAccessor fieldAccessor) {
             this.fieldAccessor = fieldAccessor;
         }
 
@@ -166,13 +235,15 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public void copyObject(Object source, Object target) throws MarshallerException {
-            throw new UnsupportedOperationException("SimpleMarshaller can't copy objects.");
+        public void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException {
+            fieldAccessor.write(writer, obj);
         }
 
         /** {@inheritDoc} */
         @Override
-        public void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException {
+        public void writeField(Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException {
+            assert fldIdx == 0;
+
             fieldAccessor.write(writer, obj);
         }
     }
@@ -200,15 +271,14 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable
-        Object value(Object obj, int fldIdx) {
+        public @Nullable Object value(Object obj, int fldIdx) {
             return fieldAccessors[fldIdx].value(obj);
         }
 
         /** {@inheritDoc} */
         @Override
         public Object readObject(MarshallerReader reader, Object target) throws MarshallerException {
-            final Object obj = target == null ? factory.create() : target;
+            Object obj = target == null ? factory.create() : target;
 
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].read(reader, obj);
@@ -219,20 +289,38 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public void copyObject(Object source, Object target) throws MarshallerException {
+        public void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException {
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
-                FieldAccessor fieldAccessor = fieldAccessors[fldIdx];
-                var val = fieldAccessor.get(source);
-                fieldAccessor.set(target, val);
+                fieldAccessors[fldIdx].write(writer, obj);
             }
         }
 
         /** {@inheritDoc} */
         @Override
-        public void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException {
-            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
-                fieldAccessors[fldIdx].write(writer, obj);
-            }
+        public void writeField(@Nullable Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException {
+            fieldAccessors[fldIdx].write(writer, obj);
+        }
+    }
+
+    private static class NoOpMarshaller extends Marshaller {
+        @Override
+        public @Nullable Object value(Object obj, int fldIdx) {
+            return null;
+        }
+
+
+        @Override
+        public Object readObject(MarshallerReader reader, @Nullable Object target) {
+            return null;
+        }
+
+        @Override
+        public void writeObject(Object obj, MarshallerWriter writer) {
+        }
+
+        @Override
+        public void writeField(Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException {
+
         }
     }
 }

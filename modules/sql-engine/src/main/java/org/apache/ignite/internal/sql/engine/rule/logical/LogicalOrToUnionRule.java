@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,6 +16,8 @@
  */
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
+
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.tryToDnf;
 
 import java.util.BitSet;
 import java.util.List;
@@ -38,7 +40,7 @@ import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -63,13 +65,14 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     }
 
     private static @Nullable List<RexNode> getOrOperands(RexBuilder rexBuilder, RexNode condition) {
-        RexNode dnf = RexUtil.toDnf(rexBuilder, condition);
+        RexNode dnf = tryToDnf(rexBuilder, condition, 2);
 
-        if (!dnf.isA(SqlKind.OR)) {
+        if (dnf != null && !dnf.isA(SqlKind.OR)) {
             return null;
         }
 
         List<RexNode> operands = RelOptUtil.disjunctions(dnf);
+        assert operands.size() <= 2 : "unexpected operands count: " + operands.size();
 
         if (operands.size() != 2 || RexUtil.find(SqlKind.IS_NULL).anyContain(operands)) {
             return null;
@@ -87,6 +90,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         relBldr.push(IgniteLogicalTableScan.create(
                 scan.getCluster(),
                 trait,
+                scan.getHints(),
                 scan.getTable(),
                 scan.projects(),
                 condition,
@@ -130,7 +134,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     private boolean idxCollationCheck(RelOptRuleCall call, List<RexNode> operands) {
         final IgniteLogicalTableScan scan = call.rel(0);
 
-        InternalIgniteTable tbl = scan.getTable().unwrap(InternalIgniteTable.class);
+        IgniteTable tbl = scan.getTable().unwrap(IgniteTable.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(scan.getCluster());
         int fieldCnt = tbl.getRowType(typeFactory).getFieldCount();
 
@@ -145,7 +149,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         }
 
         Mappings.TargetMapping mapping = scan.requiredColumns() == null ? null :
-                Commons.inverseMapping(scan.requiredColumns(), fieldCnt);
+                Commons.trimmingMapping(fieldCnt, scan.requiredColumns());
 
         for (RexNode op : operands) {
             BitSet conditionFields = new BitSet(fieldCnt);

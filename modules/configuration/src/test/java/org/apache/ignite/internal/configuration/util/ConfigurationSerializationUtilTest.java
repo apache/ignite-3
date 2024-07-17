@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ConfigurationSerializationUtilTest {
@@ -46,6 +47,8 @@ class ConfigurationSerializationUtilTest {
         assertSingleValue(0.3d);
 
         assertSingleValue("foo");
+
+        assertSingleValue(UUID.randomUUID());
     }
 
     @Test
@@ -67,6 +70,8 @@ class ConfigurationSerializationUtilTest {
         assertArray(new double[]{0.1d, -0.1d});
 
         assertArray(new String[]{"foo", "bar"});
+
+        assertArray(new UUID[]{UUID.randomUUID(), UUID.randomUUID()});
     }
 
     private void assertSingleValue(Object value) {

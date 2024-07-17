@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,21 +20,21 @@ package org.apache.ignite.internal.client.proto;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
-import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
+import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -43,6 +43,11 @@ import org.junit.jupiter.api.Test;
 public class ClientMessagePackerUnpackerTest {
     /** Random. */
     private final Random rnd = new Random();
+
+    /** Args of all types. */
+    private final Object[] argsAllTypes = new Object[]{(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(),
+            LocalTime.now(), LocalDate.now(), LocalDateTime.now(), Instant.now(), Period.of(1, 2, 3),
+            Duration.of(1, ChronoUnit.DAYS)};
 
     @Test
     public void testPackerCloseReleasesPooledBuffer() {
@@ -108,66 +113,6 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     @Test
-    public void testNumber() {
-        testNumber(BigInteger.ZERO);
-        testNumber(BigInteger.valueOf(Long.MIN_VALUE));
-        testNumber(BigInteger.valueOf(Long.MAX_VALUE));
-
-        testNumber(new BigInteger(randomBytes(rnd, 100)));
-        testNumber(new BigInteger(randomBytes(rnd, 250)));
-        testNumber(new BigInteger(randomBytes(rnd, 1000)));
-    }
-
-    private void testNumber(BigInteger val) {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            packer.packNumber(val);
-
-            var buf = packer.getBuffer();
-            //noinspection unused
-            var len = buf.readInt();
-
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                var res = unpacker.unpackNumber();
-
-                assertEquals(val, res);
-            }
-        }
-    }
-
-    @Test
-    public void testDecimal() {
-        testDecimal(BigDecimal.ZERO);
-        testDecimal(BigDecimal.valueOf(Long.MIN_VALUE));
-        testDecimal(BigDecimal.valueOf(Long.MAX_VALUE));
-
-        testDecimal(new BigDecimal(new BigInteger(randomBytes(rnd, 100)), 50));
-        testDecimal(new BigDecimal(new BigInteger(randomBytes(rnd, 250)), 200));
-        testDecimal(new BigDecimal(new BigInteger(randomBytes(rnd, 1000)), 500));
-    }
-
-    private void testDecimal(BigDecimal val) {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            packer.packDecimal(val);
-
-            var buf = packer.getBuffer();
-            //noinspection unused
-            var len = buf.readInt();
-
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                var res = unpacker.unpackDecimal();
-
-                assertEquals(val, res);
-            }
-        }
-    }
-
-    @Test
     public void testBitSet() {
         testBitSet(BitSet.valueOf(new byte[0]));
         testBitSet(BitSet.valueOf(randomBytes(rnd, 1)));
@@ -180,8 +125,7 @@ public class ClientMessagePackerUnpackerTest {
             packer.packBitSet(val);
 
             var buf = packer.getBuffer();
-            //noinspection unused
-            var len = buf.readInt();
+            buf.readInt();
 
             byte[] data = new byte[buf.readableBytes()];
             buf.readBytes(data);
@@ -190,73 +134,6 @@ public class ClientMessagePackerUnpackerTest {
                 var res = unpacker.unpackBitSet();
 
                 assertEquals(val, res);
-            }
-        }
-    }
-
-    @Test
-    public void testTemporalTypes() {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            LocalDate date = LocalDate.now();
-            LocalTime time = LocalTime.now();
-            Instant timestamp = Instant.now();
-
-            packer.packDate(date);
-            packer.packTime(time);
-            packer.packTimestamp(timestamp);
-            packer.packDateTime(LocalDateTime.of(date, time));
-
-            var buf = packer.getBuffer();
-            //noinspection unused
-            var len = buf.readInt();
-
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                assertEquals(date, unpacker.unpackDate());
-                assertEquals(time, unpacker.unpackTime());
-                assertEquals(timestamp, unpacker.unpackTimestamp());
-                assertEquals(LocalDateTime.of(date, time), unpacker.unpackDateTime());
-            }
-        }
-    }
-
-    @Test
-    public void testVariousTypesSupport() {
-        Object[] values = new Object[]{
-                (byte) 1, (short) 2, 3, 4L, 5.5f, 6.6d,
-                BigDecimal.valueOf(rnd.nextLong()),
-                UUID.randomUUID(),
-                IgniteTestUtils.randomString(rnd, 11),
-                IgniteTestUtils.randomBytes(rnd, 22),
-                IgniteTestUtils.randomBitSet(rnd, 33),
-                LocalDate.now(),
-                LocalTime.now(),
-                LocalDateTime.now(),
-                Instant.now()
-        };
-
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            for (Object val : values) {
-                packer.packObject(val);
-            }
-
-            var buf = packer.getBuffer();
-            //noinspection unused
-            var len = buf.readInt();
-
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                for (int i = 0; i < values.length; i++) {
-                    if (values[i] instanceof byte[]) {
-                        assertArrayEquals((byte[]) values[i], (byte[]) unpacker.unpackObject(i + 1));
-                    } else {
-                        assertEquals(values[i], unpacker.unpackObject(i + 1));
-                    }
-                }
             }
         }
     }
@@ -283,66 +160,41 @@ public class ClientMessagePackerUnpackerTest {
     }
 
     @Test
-    public void testObjectArray() {
+    public void testObjectArrayAsBinaryTuple() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            Object[] args = new Object[]{(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(), false};
-            packer.packObjectArray(args);
+            packer.packObjectArrayAsBinaryTuple(argsAllTypes, null);
+            packer.packObjectArrayAsBinaryTuple(null, null);
+            packer.packObjectArrayAsBinaryTuple(new Object[0], null);
 
-            var buf = packer.getBuffer();
+            byte[] data = ByteBufUtil.getBytes(packer.getBuffer());
 
-            byte[] data = new byte[buf.readableBytes()];
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data, 4, data.length - 4))) {
+                Object[] res1 = unpacker.unpackObjectArrayFromBinaryTuple();
+                Object[] res2 = unpacker.unpackObjectArrayFromBinaryTuple();
+                Object[] res3 = unpacker.unpackObjectArrayFromBinaryTuple();
 
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                unpacker.skipValues(4);
-                Object[] res = unpacker.unpackObjectArray();
-                assertArrayEquals(args, res);
+                assertArrayEquals(argsAllTypes, res1);
+                assertNull(res2);
+                assertEquals(0, res3.length);
             }
         }
     }
 
     @Test
-    public void testObjectArrayLongValue() {
+    public void testObjectAsBinaryTuple() {
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            Object[] args = new Object[]{16L};
-            packer.packObjectArray(args);
-
-            var buf = packer.getBuffer();
-
-            byte[] data = new byte[buf.readableBytes()];
-
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                unpacker.skipValues(4);
-
-                Object[] res = unpacker.unpackObjectArray();
-
-                assertEquals(16L, (Long) res[0]);
+            for (Object arg : argsAllTypes) {
+                packer.packObjectAsBinaryTuple(arg, null);
             }
-        }
-    }
 
-    @Test
-    public void testNoValue() {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-            packer.packInt(1);
-            packer.packNoValue();
-            packer.packString("s");
+            byte[] data = ByteBufUtil.getBytes(packer.getBuffer());
 
-            var buf = packer.getBuffer();
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data, 4, data.length - 4))) {
+                for (Object arg : argsAllTypes) {
+                    var res = unpacker.unpackObjectFromBinaryTuple();
 
-            byte[] data = new byte[buf.readableBytes()];
-            buf.readBytes(data);
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
-                unpacker.skipValues(4);
-
-                assertFalse(unpacker.tryUnpackNoValue());
-                assertEquals(1, unpacker.unpackInt());
-                assertTrue(unpacker.tryUnpackNoValue());
-                assertEquals("s", unpacker.unpackString());
+                    assertEquals(arg, res);
+                }
             }
         }
     }
@@ -354,7 +206,6 @@ public class ClientMessagePackerUnpackerTest {
             packer.packInt(Byte.MAX_VALUE);
             packer.packInt(Short.MAX_VALUE);
             packer.packInt(Integer.MAX_VALUE);
-            packer.packNoValue();
             packer.packString("s");
 
             var buf = packer.getBuffer();
@@ -369,9 +220,6 @@ public class ClientMessagePackerUnpackerTest {
                 assertEquals(Byte.MAX_VALUE, unpacker.tryUnpackInt(-1));
                 assertEquals(Short.MAX_VALUE, unpacker.tryUnpackInt(-1));
                 assertEquals(Integer.MAX_VALUE, unpacker.tryUnpackInt(-1));
-
-                assertEquals(-1, unpacker.tryUnpackInt(-1));
-                assertTrue(unpacker.tryUnpackNoValue());
 
                 assertEquals(-2, unpacker.tryUnpackInt(-2));
                 assertEquals("s", unpacker.unpackString());

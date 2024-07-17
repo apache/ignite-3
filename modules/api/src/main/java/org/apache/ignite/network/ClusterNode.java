@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,84 +18,38 @@
 package org.apache.ignite.network;
 
 import java.io.Serializable;
-import java.util.Objects;
-import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Representation of a node in a cluster.
  */
-public class ClusterNode implements Serializable {
-    /** Local id assigned to this node instance. Changes between restarts. */
-    private final String id;
-
-    /** Unique name of member in the cluster. Consistent between restarts. */
-    private final String name;
-
-    /** Network address of this node. */
-    private final NetworkAddress address;
+public interface ClusterNode extends Serializable {
+    /**
+     * Returns the node's local ID.
+     *
+     * @return Node's local ID.
+     */
+    String id();
 
     /**
-     * Constructor.
+     * Returns the unique name (consistent ID) of the node in the cluster. Does not change between restarts.
      *
-     * @param id      Local id that changes between restarts.
-     * @param name    Unique name of a member in a cluster.
-     * @param address Node address.
+     * @return Unique name of a cluster member.
      */
-    public ClusterNode(String id, String name, NetworkAddress address) {
-        this.id = id;
-        this.name = name;
-        this.address = address;
-    }
+    String name();
 
     /**
-     * Returns this node's local ID.
+     * Returns the network address of the node.
      *
-     * @return Node's local id.
+     * @return Network address of the node.
      */
-    public String id() {
-        return id;
-    }
+    NetworkAddress address();
 
     /**
-     * Returns the unique name (consistent id) of this node in a cluster. Doesn't change between restarts.
+     * Returns the metadata of the node.
      *
-     * @return Unique name of the member in a cluster.
+     * @return Metadata of the node.
      */
-    public String name() {
-        return name;
-    }
-
-    /**
-     * Returns the network address of this node.
-     *
-     * @return Network address of this node.
-     */
-    public NetworkAddress address() {
-        return address;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ClusterNode that = (ClusterNode) o;
-        return name.equals(that.name) && address.equals(that.address);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int hashCode() {
-        return Objects.hash(name, address);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(ClusterNode.class, this);
-    }
+    @Nullable
+    NodeMetadata nodeMetadata();
 }

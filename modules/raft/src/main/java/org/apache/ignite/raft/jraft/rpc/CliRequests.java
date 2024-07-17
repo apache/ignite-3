@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,9 +20,12 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.Collection;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup;
+import org.jetbrains.annotations.Nullable;
 
 public final class CliRequests {
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.ADD_PEER_REQUEST)
@@ -36,6 +39,7 @@ public final class CliRequests {
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.ADD_PEER_RESPONSE)
     public interface AddPeerResponse extends Message {
+        @Nullable
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
@@ -52,6 +56,7 @@ public final class CliRequests {
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.REMOVE_PEER_RESPONSE)
     public interface RemovePeerResponse extends Message {
+        @Nullable
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
@@ -68,6 +73,7 @@ public final class CliRequests {
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_RESPONSE)
     public interface ChangePeersResponse extends Message {
+        @Nullable
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
@@ -81,6 +87,8 @@ public final class CliRequests {
 
         Collection<String> newPeersList();
 
+        Collection<String> newLearnersList();
+
         long term();
     }
 
@@ -89,6 +97,10 @@ public final class CliRequests {
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
+
+        Collection<String> oldLearnersList();
+
+        Collection<String> newLearnersList();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.SNAPSHOT_REQUEST)
@@ -104,6 +116,7 @@ public final class CliRequests {
 
         String peerId();
 
+        @Nullable
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
@@ -122,6 +135,7 @@ public final class CliRequests {
     public interface GetLeaderRequest extends Message {
         String groupId();
 
+        @Nullable
         String peerId();
     }
 
@@ -136,6 +150,7 @@ public final class CliRequests {
     public interface GetPeersRequest extends Message {
         String groupId();
 
+        @Nullable
         String leaderId();
 
         boolean onlyAlive();
@@ -177,8 +192,34 @@ public final class CliRequests {
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.LEARNERS_OP_RESPONSE)
     public interface LearnersOpResponse extends Message {
+        @Nullable
         Collection<String> oldLearnersList();
 
         Collection<String> newLearnersList();
+    }
+
+    @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_REQUEST)
+    public interface SubscriptionLeaderChangeRequest extends Message {
+        @Marshallable
+        ReplicationGroupId groupId();
+
+        /**
+        * Gets a subscription flag.
+        *
+        * @return True if subscription is started, false when it finished.
+        */
+        boolean subscribe();
+    }
+
+    @Transferable(value = RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_REQUEST_ACKNOWLEDGE)
+    public interface SubscriptionLeaderChangeRequestAcknowledge extends Message {
+    }
+
+    @Transferable(value = RpcClientMessageGroup.LEADER_CHANGE_NOTIFICATION)
+    public interface LeaderChangeNotification extends Message {
+        long term();
+
+        @Marshallable
+        ReplicationGroupId groupId();
     }
 }

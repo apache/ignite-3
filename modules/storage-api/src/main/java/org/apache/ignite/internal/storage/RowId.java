@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,34 +17,46 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.io.Serializable;
 import java.util.UUID;
-import org.apache.ignite.internal.tx.Timestamp;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
- * Class that represents row id in primary index of the table. Contains a timestamp-based UUID and a partition id.
+ * Class that represents row ID in primary index of the table. Contains a timestamp-based UUID and a partition ID.
  *
  * @see MvPartitionStorage
  */
-public final class RowId {
-    /** Partition id. Short type reduces payload when transfering an object over network. */
+public final class RowId implements Serializable, Comparable<RowId> {
+    /** Partition ID. Short type reduces payload when transferring an object over network. */
     private final short partitionId;
 
-    /** Unique id. */
+    /** Unique ID. */
     private final UUID uuid;
 
+    public static RowId lowestRowId(int partitionId) {
+        return new RowId(partitionId, Long.MIN_VALUE, Long.MIN_VALUE);
+    }
+
+    public static RowId highestRowId(int partitionId) {
+        return new RowId(partitionId, Long.MAX_VALUE, Long.MAX_VALUE);
+    }
+
     /**
-     * Create a row id with the UUID value based on {@link Timestamp}.
+     * Create a row ID with the UUID value based on {@link UUID#randomUUID()}.
+     * Intended for tests only, because random UUIDs are very slow when it comes to frequent usages.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      */
+    @TestOnly
     public RowId(int partitionId) {
-        this(partitionId, Timestamp.nextVersion().toUuid());
+        this(partitionId, UUID.randomUUID());
     }
 
     /**
      * Constructor.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      * @param mostSignificantBits UUID's most significant bits.
      * @param leastSignificantBits UUID's least significant bits.
      */
@@ -52,51 +64,53 @@ public final class RowId {
         this(partitionId, new UUID(mostSignificantBits, leastSignificantBits));
     }
 
-    private RowId(int partitionId, UUID uuid) {
+    /**
+     * Constructor.
+     *
+     * @param partitionId Partition ID.
+     * @param uuid UUID.
+     */
+    public RowId(int partitionId, UUID uuid) {
         this.partitionId = (short) partitionId;
         this.uuid = uuid;
     }
 
-    /**
-     * Returns a partition id for current row id.
-     */
+    /** Returns a partition ID for current row ID. */
     public int partitionId() {
         return partitionId & 0xFFFF;
     }
 
-    /**
-     * Returns the most significant 64 bits of row id's UUID.
-     */
+    /** Returns the most significant 64 bits of row ID's UUID.*/
     public long mostSignificantBits() {
         return uuid.getMostSignificantBits();
     }
 
-    /**
-     * Returns the least significant 64 bits of row id's UUID.
-     */
+    /** Returns the least significant 64 bits of row ID's UUID. */
     public long leastSignificantBits() {
         return uuid.getLeastSignificantBits();
     }
 
-    /** {@inheritDoc} */
+    /** Returns the UUID equivalent of {@link #mostSignificantBits()} and {@link #leastSignificantBits()}. */
+    public UUID uuid() {
+        return uuid;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
+
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
 
         RowId rowId = (RowId) o;
 
-        if (partitionId != rowId.partitionId) {
-            return false;
-        }
-        return uuid.equals(rowId.uuid);
+        return partitionId == rowId.partitionId && uuid.equals(rowId.uuid);
+
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         int result = partitionId;
@@ -104,7 +118,34 @@ public final class RowId {
         return result;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public int compareTo(RowId rowId) {
+        int cmp = Short.compareUnsigned(partitionId, rowId.partitionId);
+
+        if (cmp != 0) {
+            return cmp;
+        }
+
+        return uuid.compareTo(rowId.uuid);
+    }
+
+    /** Returns the next row ID withing a single partition, or {@code null} if current row ID already has maximal possible value. */
+    public @Nullable RowId increment() {
+        long lsb = uuid.getLeastSignificantBits() + 1;
+
+        long msb = uuid.getMostSignificantBits();
+
+        if (lsb == Long.MIN_VALUE) {
+            ++msb;
+
+            if (msb == Long.MIN_VALUE) {
+                return null;
+            }
+        }
+
+        return new RowId(partitionId, msb, lsb);
+    }
+
     @Override
     public String toString() {
         return "RowId [partitionId=" + partitionId() + ", uuid=" + uuid + ']';

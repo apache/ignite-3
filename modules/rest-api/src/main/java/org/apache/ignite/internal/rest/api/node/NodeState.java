@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,18 +20,26 @@ package org.apache.ignite.internal.rest.api.node;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
 /**
  * Node state that is returned by REST.
  */
+@Schema(description = "Node state.")
 public class NodeState {
+    @Schema(description = "Unique node name.", requiredMode = RequiredMode.REQUIRED)
+    private final String name;
 
-    private String name;
+    @Schema(description = "Node status.", requiredMode = RequiredMode.REQUIRED)
+    private final State state;
 
-    private State state;
-
+    /**
+     * Construct NodeState DTO.
+     */
     @JsonCreator
-    public NodeState(@JsonProperty("name") String name, @JsonProperty("state") State state) {
+    public NodeState(@JsonProperty("name") String name,
+            @JsonProperty("state") State state) {
         this.name = name;
         this.state = state;
     }

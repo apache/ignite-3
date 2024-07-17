@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,10 +19,11 @@ package org.apache.ignite.internal.cluster.management;
 
 import java.io.Serializable;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class that represents a local CMG state (persisted in the Vault).
@@ -33,6 +34,8 @@ class LocalStateStorage {
     private static final ByteArray CMG_STATE_VAULT_KEY = ByteArray.fromString("cmg_state");
 
     static class LocalState implements Serializable {
+        private static final long serialVersionUID = -5069326157367860480L;
+
         private final Set<String> cmgNodeNames;
 
         private final ClusterTag clusterTag;
@@ -62,27 +65,25 @@ class LocalStateStorage {
      *
      * @return Local state.
      */
-    CompletableFuture<LocalState> getLocalState() {
-        return vault.get(CMG_STATE_VAULT_KEY)
-                .thenApply(entry -> entry == null ? null : (LocalState) ByteUtils.fromBytes(entry.value()));
+    @Nullable LocalState getLocalState() {
+        VaultEntry entry = vault.get(CMG_STATE_VAULT_KEY);
+
+        return entry == null ? null : ByteUtils.fromBytes(entry.value());
     }
 
     /**
      * Saves a given local state.
      *
      * @param state Local state to save.
-     * @return Future that represents the state of the operation.
      */
-    CompletableFuture<Void> saveLocalState(LocalState state) {
-        return vault.put(CMG_STATE_VAULT_KEY, ByteUtils.toBytes(state));
+    void saveLocalState(LocalState state) {
+        vault.put(CMG_STATE_VAULT_KEY, ByteUtils.toBytes(state));
     }
 
     /**
      * Removes all data from the local storage.
-     *
-     * @return Future that represents the state of the operation.
      */
-    CompletableFuture<Void> clear() {
-        return vault.remove(CMG_STATE_VAULT_KEY);
+    void clear() {
+        vault.remove(CMG_STATE_VAULT_KEY);
     }
 }

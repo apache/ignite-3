@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,40 +17,39 @@
 
 package org.apache.ignite.internal.sql.engine.trait;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.function.ToIntFunction;
+import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.engine.exec.RowPartitionExtractor;
 
 /**
  * Partitioned.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public final class Partitioned<RowT> implements Destination<RowT> {
-    private final List<List<String>> assignments;
+    private final Map<Integer, String> assignments;
 
-    private final ToIntFunction<RowT> partFun;
+    private final RowPartitionExtractor<RowT> calc;
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public Partitioned(List<List<String>> assignments, ToIntFunction<RowT> partFun) {
+    public Partitioned(Map<Integer, String> assignments, RowPartitionExtractor<RowT> calc) {
+        this.calc = calc;
         this.assignments = assignments;
-        this.partFun = partFun;
     }
 
     /** {@inheritDoc} */
     @Override
     public List<String> targets(RowT row) {
-        return assignments.get(partFun.applyAsInt(row) % assignments.size());
+        int part = calc.partition(row);
+        return List.of(assignments.get(part));
     }
 
     /** {@inheritDoc} */
     @Override
     public List<String> targets() {
-        return assignments.stream()
-                .flatMap(Collection::stream)
-                .distinct().collect(Collectors.toList());
+        return assignments.values().stream().distinct().collect(Collectors.toUnmodifiableList());
     }
 }

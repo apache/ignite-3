@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.util.Bits;
-import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
@@ -59,7 +59,7 @@ public class MessageFile {
             }
             final byte[] nameBytes = new byte[len];
             readBytes(nameBytes, input);
-            return Marshaller.DEFAULT.unmarshall(nameBytes);
+            return JDKMarshaller.INSTANCE.unmarshall(nameBytes);
         }
     }
 
@@ -82,7 +82,7 @@ public class MessageFile {
         final File file = new File(this.path + ".tmp");
         try (final FileOutputStream fOut = new FileOutputStream(file);
              final BufferedOutputStream output = new BufferedOutputStream(fOut)) {
-            byte[] bytes = Marshaller.DEFAULT.marshall(msg);
+            byte[] bytes = JDKMarshaller.INSTANCE.marshall(msg);
 
             final byte[] lenBytes = new byte[4];
             Bits.putInt(lenBytes, 0, bytes.length);

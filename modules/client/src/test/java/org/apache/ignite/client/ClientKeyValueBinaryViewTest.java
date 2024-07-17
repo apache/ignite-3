@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,10 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -24,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -174,6 +179,35 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
 
         var ex = assertThrows(IgniteException.class, () -> kvView.contains(null, Tuple.create()));
         assertTrue(ex.getMessage().contains("Missed key column: ID"), ex.getMessage());
+        assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueBinaryView"))));
+    }
+
+    @Test
+    public void testContainsAll() {
+        KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
+
+        Tuple firstKeyTuple = tupleKey(101L);
+        Tuple secondKeyTuple = tupleKey(102L);
+        Tuple thirdKeyTuple = tupleKey(103L);
+
+        Map<Tuple, Tuple> kvs = Map.of(
+                firstKeyTuple, tupleVal("201"),
+                secondKeyTuple, tupleVal("202"),
+                thirdKeyTuple, tupleVal("203")
+        );
+
+        kvView.putAll(null, kvs);
+
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, List.of(firstKeyTuple, null, thirdKeyTuple)));
+
+        assertTrue(kvView.containsAll(null, List.of()));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple)));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, thirdKeyTuple)));
+
+        Tuple zeroKeyTuple = tupleKey(0L);
+        assertFalse(kvView.containsAll(null, List.of(zeroKeyTuple)));
+        assertFalse(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, zeroKeyTuple)));
     }
 
     @Test

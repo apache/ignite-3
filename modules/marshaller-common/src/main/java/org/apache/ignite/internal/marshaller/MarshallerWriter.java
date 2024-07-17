@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -42,6 +42,13 @@ public interface MarshallerWriter {
      * <p>Absent value means that the user has not specified any value, or the column is not mapped. This is different from null.
      */
     void writeAbsentValue();
+
+    /**
+     * Writes boolean.
+     *
+     * @param val Value.
+     */
+    void writeBoolean(boolean val);
 
     /**
      * Writes byte.
@@ -125,7 +132,7 @@ public interface MarshallerWriter {
      *
      * @param val Value.
      */
-    void writeBigDecimal(BigDecimal val);
+    void writeBigDecimal(BigDecimal val, int scale);
 
     /**
      * Writes date.
@@ -169,6 +176,11 @@ public interface MarshallerWriter {
         }
 
         switch (col.type()) {
+            case BOOLEAN: {
+                writeBoolean((boolean) val);
+
+                break;
+            }
             case BYTE: {
                 writeByte((byte) val);
 
@@ -245,7 +257,7 @@ public interface MarshallerWriter {
                 break;
             }
             case DECIMAL: {
-                writeBigDecimal((BigDecimal) val);
+                writeBigDecimal((BigDecimal) val, col.scale());
 
                 break;
             }

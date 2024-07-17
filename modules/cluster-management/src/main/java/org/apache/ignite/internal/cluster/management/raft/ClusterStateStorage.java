@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,27 +19,16 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage for the CMG Raft service.
  */
-public interface ClusterStateStorage extends AutoCloseable {
-    /**
-     * Starts the storage.
-     */
-    void start();
-
-    /**
-     * Returns {@code true} if the storage has been started.
-     *
-     * @return {@code true} if the storage has been started.
-     */
-    boolean isStarted();
-
+public interface ClusterStateStorage extends IgniteComponent {
     /**
      * Retrieves a value associated with the given key or {@code null} if no such value exists.
      *
@@ -57,6 +46,15 @@ public interface ClusterStateStorage extends AutoCloseable {
     void put(byte[] key, byte[] value);
 
     /**
+     * Atomically removes all keys starting with the given prefix and inserts a new value associated with the given key.
+     *
+     * @param prefix Key prefix that should be removed.
+     * @param key Key to insert.
+     * @param value Value to insert.
+     */
+    void replaceAll(byte[] prefix, byte[] key, byte[] value);
+
+    /**
      * Removes the value associated with the given key. Does nothing if no such association exists.
      *
      * @param key Key which value should be removed.
@@ -71,14 +69,14 @@ public interface ClusterStateStorage extends AutoCloseable {
     void removeAll(Collection<byte[]> keys);
 
     /**
-     * Creates a cursor over a range of keys, starting with the given prefix.
+     * Creates a list containing a range of keys, starting with the given prefix.
      *
      * @param prefix Key prefix.
      * @param entryTransformer Entry transformation function.
      * @param <T> Type of converted entry.
-     * @return Cursor over a range of existing keys.
+     * @return List containing a range of existing keys.
      */
-    <T> Cursor<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer);
+    <T> List<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer);
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.
@@ -94,9 +92,4 @@ public interface ClusterStateStorage extends AutoCloseable {
      * @param snapshotPath Path to the snapshot's directory.
      */
     void restoreSnapshot(Path snapshotPath);
-
-    /**
-     * Removes all data from the storage and frees all resources.
-     */
-    void destroy();
 }

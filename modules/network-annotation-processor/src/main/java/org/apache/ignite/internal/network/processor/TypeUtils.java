@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -46,6 +46,14 @@ public class TypeUtils {
         this.elements = processingEnvironment.getElementUtils();
     }
 
+    public Types types() {
+        return types;
+    }
+
+    public Elements elements() {
+        return elements;
+    }
+
     /**
      * Returns {@code true} if the <i>erasure</i> of the given types are actually the same type.
      *
@@ -69,7 +77,18 @@ public class TypeUtils {
     public boolean isSubType(TypeMirror type1, Class<?> type2) {
         TypeMirror type2Mirror = typeMirrorFromClass(type2);
 
-        return types.isSubtype(erasure(type1), erasure(type2Mirror));
+        return isSubType(type1, type2Mirror);
+    }
+
+    /**
+     * Returns {@code true} if the <i>erasure</i> of the first type is a subtype of the second type.
+     *
+     * @param type1 first type (represented by a mirror)
+     * @param type2 second type (represented by a mirror)
+     * @return {@code true} if the erasure of the first type is a subtype of the second type, {@code false} otherwise.
+     */
+    public boolean isSubType(TypeMirror type1, TypeMirror type2) {
+        return types.isSubtype(erasure(type1), erasure(type2));
     }
 
     /**

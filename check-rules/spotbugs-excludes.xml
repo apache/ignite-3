@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<FindBugsFilter
+  xmlns="https://github.com/spotbugs/filter/3.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/4.8.3/spotbugs/etc/findbugsfilter.xsd">
+  <!-- General exclusion rules -->
+  <Match>
+    <!-- exclude 3rd party classes and generated code -->
+    <Or>
+      <Class name="~org\.apache\.ignite\.example\..*" />
+      <Class name="~org\.apache\.ignite\.raft\.jraft\..*" />
+      <Class name="~com\.facebook\.presto\..*" />
+      <Class name="~org\.apache\.ignite\.internal\.generated\..*"/>
+      <Class name="~org\.apache\.ignite\.rest\.client\..*"/>
+      <Annotation name="org.immutables.value.Generated" />
+    </Or>
+  </Match>
+  <Match>
+    <!-- disabled rules -->
+    <Or>
+      <!-- Disabled because it's already checked by PMD -->
+      <Bug pattern="EQ_DOESNT_OVERRIDE_EQUALS"/>
+      <!-- TODO: non-standard equals definition, is it a crime? -->
+      <Bug pattern="EQ_UNUSUAL"/>
+      <!-- This rule has way too many false positives -->
+      <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE"/>
+      <!-- TODO: There are many places where we reference variables which we know to be null, which is a dangerous practice.
+           Currently there is no real associated problems with this, but we should consider to don't do that. -->
+      <Bug pattern="NP_LOAD_OF_KNOWN_NULL_VALUE"/>
+      <!-- Those rules generate a huge amount of noise
+           because they report every exposed array/mutable object you receive as input or return in getter -->
+      <Bug code="EI,EI2" />
+      <!-- our codebase has a lot of cases with intentional switch-fallthrough so we disable related rules -->
+      <Bug code="SF"/>
+      <!-- we don't use Serializable so there is no reason to check bugs related to it -->
+      <Bug code="Se"/>
+      <!-- we exclude this rule because we often compare boxed booleans by reference, which is ok-ish -->
+      <Bug pattern="RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN"/>
+      <!-- we specifically catch even not thrown exceptions is some places to be extra defendant -->
+      <Bug pattern="REC_CATCH_EXCEPTION"/>
+    </Or>
+  </Match>
+  <Match>
+    <!-- in configuration Schema classes we ignore unread fields -->
+    <Bug code="SS,UrF"/>
+    <Or>
+      <Annotation name="org.apache.ignite.configuration.annotation.ConfigurationRoot"/>
+      <Annotation name="org.apache.ignite.configuration.annotation.Config"/>
+      <Annotation name="org.apache.ignite.configuration.annotation.PolymorphicConfig"/>
+      <Annotation name="org.apache.ignite.configuration.annotation.AbstractConfiguration"/>
+    </Or>
+  </Match>
+
+  <!-- false-positives exclusions -->
+  <Match>
+    <Bug pattern="MS_EXPOSE_REP"/>
+    <Or>
+      <And>
+        <Class name="org.apache.ignite.internal.util.CompletableFutures"/>
+        <Or>
+          <Method name="nullCompletedFuture"/>
+          <Method name="trueCompletedFuture"/>
+          <Method name="falseCompletedFuture"/>
+        </Or>
+      </And>
+      <And>
+        <Class name="org.apache.ignite.internal.util.IgniteUtils"/>
+        <Method name="igniteClassLoader"/>
+      </And>
+      <And>
+        <Class name="org.apache.ignite.internal.schema.mapping.ColumnMapping"/>
+        <Method name="identityMapping"/>
+      </And>
+    </Or>
+  </Match>
+  <Match>
+    <!-- updates cached state, uses putIfAbsent -->
+    <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
+    <Class name="org.apache.ignite.internal.schema.registry.SchemaRegistryImpl"/>
+    <Method name="makeSchemaVersionAvailable"/>
+  </Match>
+  <Match>
+    <Bug pattern="RV_RETURN_VALUE_IGNORED_BAD_PRACTICE"/>
+    <Or>
+      <And>
+        <!-- the flow is organized such that there is not much value to check returns -->
+        <Class name="org.apache.ignite.internal.cli.config.StateConfig"/>
+        <Method name="createDefaultConfig"/>
+      </And>
+      <And>
+        <Class name="org.apache.ignite.internal.cli.config.ini.IniConfigManager"/>
+        <Or>
+          <!-- the flow is organized such that there is not much value to check returns -->
+          <Method name="createDefaultConfig"/>
+          <Method name="createDefaultSecretConfig"/>
+        </Or>
+      </And>
+    </Or>
+  </Match>
+  <Match>
+    <!-- this method has side effects -->
+    <Bug pattern="RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"/>
+    <Or>
+      <Class name="org.apache.ignite.internal.client.table.AbstractClientView"/>
+      <Class name="org.apache.ignite.client.handler.requests.sql.ClientSqlCommon"/>
+    </Or>
+  </Match>
+  <Match>
+    <Bug pattern="MS_PKGPROTECT"/>
+    <Or>
+      <And>
+        <Class name="org.apache.ignite.internal.client.proto.ClientMessageCommon"/>
+        <Field name="MAGIC_BYTES"/>
+      </And>
+      <And>
+        <Class name="org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl"/>
+        <Field name="LOGICAL_TOPOLOGY_KEY"/>
+      </And>
+    </Or>
+  </Match>
+  <Match>
+    <Bug pattern="EI_EXPOSE_STATIC_REP2"/>
+    <Class name="org.apache.ignite.internal.cli.logger.CliLoggers"/>
+    <Method name="startOutputRedirect"/>
+  </Match>
+  <Match>
+    <!-- casts types by contract based on enum value -->
+    <Bug pattern="BC_UNCONFIRMED_CAST"/>
+    <Class name="org.apache.ignite.internal.sql.engine.util.Commons"/>
+    <Or>
+      <Method name="nativeTypePrecision"/>
+      <Method name="nativeTypeScale"/>
+      <Method name="readValue"/>
+    </Or>
+  </Match>
+  <Match>
+    <!-- this class have specific implementation by design -->
+    <Bug pattern="EQ_COMPARETO_USE_OBJECT_EQUALS"/>
+    <Source name="Version.java"/>
+  </Match>
+  <Match>
+    <!-- Trusted cast based on a method contract -->
+    <Bug pattern="BC_BAD_CAST_TO_ABSTRACT_COLLECTION"/>
+    <Class name="org.apache.ignite.internal.network.serialization.marshal.BuiltInContainerMarshallers"/>
+    <Method name="writeBuiltInCollection"/>
+  </Match>
+  <Match>
+    <!-- casts types by contract based on enum value -->
+    <Bug pattern="BC_UNCONFIRMED_CAST"/>
+    <Class name="org.apache.ignite.internal.util.ColocationUtils"/>
+    <Method name="append"/>
+  </Match>
+  <Match>
+    <!-- casts types by contract based on enum value -->
+    <Bug pattern="BC_UNCONFIRMED_CAST"/>
+    <Source name="BinaryTupleSchema.java"/>
+  </Match>
+  <Match>
+    <!-- consumes buffer data -->
+    <Bug pattern="DLS_DEAD_LOCAL_STORE"/>
+    <Class name="org.apache.ignite.internal.client.proto.ClientMessageUnpacker"/>
+    <Method name="unpackObjectArrayFromBinaryTupleArray"/>
+  </Match>
+  <Match>
+    <Bug pattern="INT_BAD_COMPARISON_WITH_NONNEGATIVE_VALUE"/>
+    <Source name="DistributionZoneRebalanceEngine.java"/>
+  </Match>
+  <Match>
+    <!-- wait/notify condition is atomic, so there is n need to put it into synchronized block for performance reasons -->
+    <Bug pattern="NN_NAKED_NOTIFY"/>
+    <Class name="org.apache.ignite.internal.pagememory.persistence.checkpoint.Checkpointer"/>
+    <Method name="cancel"/>
+  </Match>
+  <Match>
+    <!-- duplicate reported because constants have same value -->
+    <Bug pattern="DB_DUPLICATE_BRANCHES"/>
+    <Source name="AbstractPageMemoryIndexStorage.java"/>
+  </Match>
+  <Match>
+    <!-- suppressed in code as well -->
+    <Bug pattern="VO_VOLATILE_INCREMENT"/>
+    <Class name="org.apache.ignite.internal.tx.impl.TransactionInflights$TxContext"/>
+    <Field name="inflights"/>
+  </Match>
+  <Match>
+    <!-- suppressed in code as well -->
+    <Bug pattern="VO_VOLATILE_DECREMENT"/>
+    <Class name="org.apache.ignite.internal.tx.impl.TransactionInflights$TxContext"/>
+    <Field name="inflights"/>
+  </Match>
+  <Match>
+    <!-- Public byte array constants, not expected to be modified. -->
+    <Bug pattern="MS_MUTABLE_ARRAY"/>
+    <Class name="org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage"/>
+    <Or>
+      <Field name="PARTITION_META_PREFIX"/>
+      <Field name="PARTITION_CONF_PREFIX"/>
+      <Field name="INDEX_ROW_ID_PREFIX"/>
+      <Field name="LEASE_PREFIX"/>
+    </Or>
+  </Match>
+  <Match>
+    <!-- Public byte array constants, not expected to be modified. -->
+    <Bug pattern="MS_MUTABLE_ARRAY"/>
+    <Class name="org.apache.ignite.internal.metastorage.server.KeyValueStorage"/>
+    <Or>
+      <Field name="INVOKE_RESULT_FALSE_BYTES"/>
+      <Field name="INVOKE_RESULT_TRUE_BYTES"/>
+    </Or>
+  </Match>
+  <Match>
+    <!-- Public byte array constants, not expected to be modified. -->
+    <Bug pattern="MS_MUTABLE_ARRAY"/>
+    <Class name="org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler"/>
+    <Field name="IDEMPOTENT_COMMAND_PREFIX_BYTES"/>
+  </Match>
+  <Match>
+    <Bug pattern="IT_NO_SUCH_ELEMENT"/>
+    <Class name="org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage$ReadOnlyScanCursor"/>
+    <Method name="next"/>
+  </Match>
+  <!-- end of false-positive exclusions -->
+
+
+
+  <!-- the list of potential bugs which has to be investigated -->
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-16350 -->
+    <Bug pattern="MS_SHOULD_BE_FINAL"/>
+    <Class name="org.apache.ignite.internal.pagememory.datastructure.DataStructure"/>
+    <Field name="rnd"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21690 -->
+    <Bug pattern="IS2_INCONSISTENT_SYNC"/>
+    <Class name="org.apache.ignite.internal.configuration.ConfigurationNode"/>
+    <Or>
+      <Field name="invalid"/>
+      <Field name="val"/>
+    </Or>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21691 -->
+    <Bug pattern="IS2_INCONSISTENT_SYNC"/>
+    <Class name="org.apache.ignite.internal.metrics.exporters.BasicMetricExporter"/>
+    <Field name="configuration"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21692 -->
+    <Bug pattern="UPM_UNCALLED_PRIVATE_METHOD"/>
+    <Class name="org.apache.ignite.internal.pagememory.freelist.FreeListImpl"/>
+    <Method name="initReusedPage"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21694 -->
+    <Bug pattern="WMI_WRONG_MAP_ITERATOR"/>
+    <Source name="HeapLockManager.java"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21694 -->
+    <Bug pattern="WMI_WRONG_MAP_ITERATOR"/>
+    <Source name="HeapUnboundedLockManager.java"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21695 -->
+    <Bug pattern="UCF_USELESS_CONTROL_FLOW"/>
+    <Class name="org.apache.ignite.internal.pagememory.util.PageHandler"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21698 -->
+    <Bug pattern="BX_UNBOXING_IMMEDIATELY_REBOXED"/>
+    <Source name="LocalConfigurationStorage.java"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21699 -->
+    <Bug pattern="ES_COMPARING_STRINGS_WITH_EQ"/>
+    <Class name="org.apache.ignite.internal.sql.engine.trait.DistributionFunction"/>
+    <Or>
+      <Method name="equals"/>
+      <Method name="satisfy"/>
+    </Or>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21701 -->
+    <Bug pattern="EC_UNRELATED_TYPES_USING_POINTER_EQUALITY"/>
+    <Class name="org.apache.ignite.internal.sql.engine.rel.IgniteSender"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21702 -->
+    <Bug pattern="SS_SHOULD_BE_STATIC"/>
+    <Class name="org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode"/>
+    <Field name="inBufSize"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21703 -->
+    <Bug pattern="DM_DEFAULT_ENCODING"/>
+    <Class name="org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions"/>
+    <Method name="octetLength"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21704 -->
+    <Bug pattern="BC_EQUALS_METHOD_SHOULD_WORK_FOR_ALL_OBJECTS"/>
+    <Source name="ConfigurationListenerHolder.java"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21704 -->
+    <Bug pattern="NP_EQUALS_SHOULD_HANDLE_NULL_ARGUMENT"/>
+    <Source name="ConfigurationListenerHolder.java"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21705 -->
+    <Bug pattern="BC_EQUALS_METHOD_SHOULD_WORK_FOR_ALL_OBJECTS"/>
+    <Source name="CheckpointWorkflow.java"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21705 -->
+    <Bug pattern="NP_EQUALS_SHOULD_HANDLE_NULL_ARGUMENT"/>
+    <Source name="CheckpointWorkflow.java"/>
+  </Match>
+  <Match>
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21706 -->
+    <Bug pattern="UC_USELESS_CONDITION"/>
+    <Class name="org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPageReplacementPolicy"/>
+    <Method name="replace"/>
+  </Match>
+</FindBugsFilter>

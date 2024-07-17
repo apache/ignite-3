@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.network.netty;
 
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.flush.FlushConsolidationHandler;
+import io.netty.handler.ssl.SslContext;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -31,6 +33,22 @@ public class PipelineUtils {
     private static final String CHUNKED_WRITE_HANDLER_NAME = "chunked-write-handler";
 
     /**
+     * Sets up initial pipeline with ssl.
+     *
+     * @param pipeline Channel pipeline.
+     * @param serializationService Serialization service.
+     * @param handshakeManager Handshake manager.
+     * @param messageListener Message listener.
+     * @param sslContext Netty SSL context.
+     */
+    public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
+            HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener, SslContext sslContext) {
+        pipeline.addFirst("ssl", sslContext.newHandler(pipeline.channel().alloc()));
+
+        setup(pipeline, serializationService, handshakeManager, messageListener);
+    }
+
+    /**
      * Sets up initial pipeline.
      *
      * @param pipeline Channel pipeline.
@@ -39,7 +57,10 @@ public class PipelineUtils {
      * @param messageListener Message listener.
      */
     public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
-                HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener) {
+            HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener) {
+        // Consolidate flushes to bigger ones (improves throughput with smaller messages at the price of the latency).
+        pipeline.addLast(new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
+
         pipeline.addLast(InboundDecoder.NAME, new InboundDecoder(serializationService));
         pipeline.addLast(HandshakeHandler.NAME, new HandshakeHandler(handshakeManager, messageListener, serializationService));
         pipeline.addLast(CHUNKED_WRITE_HANDLER_NAME, new ChunkedWriteHandler());

@@ -1,0 +1,96 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+
+description = 'ignite-network'
+
+dependencies {
+    api project(':ignite-api')
+    api project(':ignite-network-api')
+
+    implementation project(':ignite-configuration-api')
+    implementation project(':ignite-core')
+    implementation project(':ignite-vault')
+    implementation project(':ignite-workers')
+    implementation project(':ignite-failure-handler')
+    implementation libs.jetbrains.annotations
+    implementation libs.scalecube.cluster
+    implementation libs.fastutil.core
+    implementation libs.netty.handler
+    implementation libs.netty.transport
+    implementation libs.jackson.core
+    implementation libs.jackson.databind
+    implementation libs.auto.service.annotations
+
+    annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor libs.auto.service
+
+    testAnnotationProcessor project(":ignite-network-annotation-processor")
+    testAnnotationProcessor libs.jmh.annotation.processor
+    testImplementation project(':ignite-configuration')
+    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation project(':ignite-core')
+    testImplementation project(':ignite-network-annotation-processor')
+    testImplementation libs.jmh.core
+    testImplementation(libs.kryo) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
+    testImplementation libs.hamcrest.core
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
+    testImplementation libs.javapoet
+    testImplementation libs.bytebuddy
+    testImplementation libs.compileTesting
+    testImplementation libs.awaitility
+    testImplementation libs.bouncycastle.bcpkix.jdk18on;
+
+    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
+    testFixturesImplementation project(':ignite-configuration')
+    testFixturesImplementation project(':ignite-failure-handler')
+    testFixturesImplementation(testFixtures(project(':ignite-core')))
+    testFixturesImplementation(testFixtures(project(':ignite-configuration')))
+    testFixturesImplementation(testFixtures(project(':ignite-workers')))
+    testFixturesImplementation libs.fastutil.core
+    testFixturesImplementation libs.scalecube.cluster
+    testFixturesImplementation libs.jetbrains.annotations
+    integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
+
+    integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
+    integrationTestImplementation project(':ignite-network-annotation-processor')
+    integrationTestImplementation project(':ignite-failure-handler')
+    integrationTestImplementation(testFixtures(project))
+    integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
+    integrationTestImplementation libs.compileTesting
+    integrationTestImplementation libs.netty.handler
+    integrationTestImplementation libs.scalecube.cluster
+    integrationTestImplementation libs.javapoet
+    integrationTestImplementation libs.jetbrains.annotations
+}
+
+tasks.withType(Test).configureEach {
+    jvmArgs += '-Dio.netty.leakDetectionLevel=paranoid'
+}

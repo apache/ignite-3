@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,26 +17,29 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Factory for reflection-based marshaller.
  */
 public class ReflectionMarshallerFactory implements MarshallerFactory {
+    private final MarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
     /** {@inheritDoc} */
     @Override
-    public <K, V> KvMarshaller<K, V> create(SchemaDescriptor schema, @NotNull Mapper<K> keyMapper, @NotNull Mapper<V> valueMapper) {
-        return new KvMarshallerImpl<>(schema, keyMapper, valueMapper);
+    public <K, V> KvMarshaller<K, V> create(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper) {
+        return new KvMarshallerImpl<>(schema, marshallers, keyMapper, valueMapper);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> RecordMarshaller<R> create(SchemaDescriptor schema, @NotNull Mapper<R> mapper) {
-        return new RecordMarshallerImpl<>(schema, mapper);
+    public <R> RecordMarshaller<R> create(SchemaDescriptor schema, Mapper<R> mapper) {
+        return new RecordMarshallerImpl<>(schema, marshallers, mapper);
     }
 }

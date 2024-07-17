@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,159 +25,218 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.table.ClientColumn;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Binary reader over {@link ClientMessageUnpacker}.
  */
 public class ClientMarshallerReader implements MarshallerReader {
     /** Unpacker. */
-    private final ClientMessageUnpacker unpacker;
+    private final BinaryTupleReader unpacker;
+
+    private final ClientColumn @Nullable [] columns;
+
+    private final TuplePart part;
+
+    /** Index. */
+    private int index;
 
     /**
      * Constructor.
      *
      * @param unpacker Unpacker.
+     * @param columns Columns.
      */
-    public ClientMarshallerReader(ClientMessageUnpacker unpacker) {
+    public ClientMarshallerReader(BinaryTupleReader unpacker, ClientColumn @Nullable [] columns, TuplePart part) {
         this.unpacker = unpacker;
+        this.columns = columns;
+        this.part = part;
     }
 
     /** {@inheritDoc} */
     @Override
     public void skipValue() {
-        unpacker.skipValues(1);
+        index++;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean readBoolean() {
+        return unpacker.booleanValue(nextSchemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Boolean readBooleanBoxed() {
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.booleanValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte readByte() {
-        return unpacker.unpackByte();
+        return unpacker.byteValue(nextSchemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override
     public Byte readByteBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackByte();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.byteValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public short readShort() {
-        return unpacker.unpackShort();
+        return unpacker.shortValue(nextSchemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override
     public Short readShortBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackShort();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.shortValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public int readInt() {
-        return unpacker.unpackInt();
+        return unpacker.intValue(nextSchemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override
     public Integer readIntBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackInt();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.intValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public long readLong() {
-        return unpacker.unpackLong();
+        return unpacker.longValue(nextSchemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override
     public Long readLongBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackLong();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.longValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public float readFloat() {
-        return unpacker.unpackFloat();
+        return unpacker.floatValue(nextSchemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override
     public Float readFloatBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackFloat();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.floatValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public double readDouble() {
-        return unpacker.unpackDouble();
+        return unpacker.doubleValue(nextSchemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override
     public Double readDoubleBoxed() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackDouble();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.doubleValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public String readString() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.stringValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public UUID readUuid() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackUuid();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.uuidValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte[] readBytes() {
-        return unpacker.tryUnpackNil() ? null : unpacker.readPayload(unpacker.unpackBinaryHeader());
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.bytesValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public BitSet readBitSet() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackBitSet();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.bitmaskValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public BigInteger readBigInt() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackNumber();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.numberValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public BigDecimal readBigDecimal() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackDecimal();
+    public BigDecimal readBigDecimal(int scale) {
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.decimalValue(idx, scale);
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalDate readDate() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackDate();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.dateValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalTime readTime() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackTime();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.timeValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public Instant readTimestamp() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackTimestamp();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.timestampValue(idx);
     }
 
     /** {@inheritDoc} */
     @Override
     public LocalDateTime readDateTime() {
-        return unpacker.tryUnpackNil() ? null : unpacker.unpackDateTime();
+        var idx = nextSchemaIndex();
+        return unpacker.hasNullValue(idx) ? null : unpacker.dateTimeValue(idx);
+    }
+
+    private int nextSchemaIndex() {
+        int i = index++;
+        if (columns == null) {
+            return i;
+        }
+
+        switch (part) {
+            case KEY:
+                return columns[i].keyIndex();
+            case VAL:
+                return columns[i].valIndex();
+            default:
+                return columns[i].schemaIndex();
+        }
     }
 }

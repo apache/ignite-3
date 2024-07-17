@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,6 +29,9 @@ public class JdbcQueryCloseRequest implements ClientMessage {
     /** Cursor ID. */
     private long cursorId;
 
+    /** Delete from resources flag. */
+    private boolean removeFromResources;
+
     /**
      * Default constructor.
      */
@@ -39,9 +42,11 @@ public class JdbcQueryCloseRequest implements ClientMessage {
      * Constructor.
      *
      * @param cursorId Cursor ID.
+     * @param removeFromResources If {@code true} cursor need to be removed from resources.
      */
-    public JdbcQueryCloseRequest(long cursorId) {
+    public JdbcQueryCloseRequest(long cursorId, boolean removeFromResources) {
         this.cursorId = cursorId;
+        this.removeFromResources = removeFromResources;
     }
 
     /**
@@ -53,16 +58,22 @@ public class JdbcQueryCloseRequest implements ClientMessage {
         return cursorId;
     }
 
+    public boolean removeFromResources() {
+        return removeFromResources;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
         packer.packLong(cursorId);
+        packer.packBoolean(removeFromResources);
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
         cursorId = unpacker.unpackLong();
+        removeFromResources = unpacker.unpackBoolean();
     }
 
     /** {@inheritDoc} */

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -30,23 +30,26 @@ public interface IgniteClientConfiguration {
     /** Default port. */
     int DFLT_PORT = 10800;
 
-    /** Default port range. */
-    int DFLT_PORT_RANGE = 100;
-
     /** Default socket connect timeout, in milliseconds. */
     int DFLT_CONNECT_TIMEOUT = 5000;
+
+    /** Default heartbeat timeout, in milliseconds. */
+    int DFLT_HEARTBEAT_TIMEOUT = 5000;
 
     /** Default heartbeat interval, in milliseconds. */
     int DFLT_HEARTBEAT_INTERVAL = 30_000;
 
-    /** Default operation retry limit. */
-    int DFLT_RETRY_LIMIT = 5;
-
-    /** Default reconnect throttling period. */
+    /** Default reconnect throttling period, in milliseconds. */
     long DFLT_RECONNECT_THROTTLING_PERIOD = 30_000L;
 
     /** Default reconnect throttling retries. */
     int DFLT_RECONNECT_THROTTLING_RETRIES = 3;
+
+    /** Default reconnect interval, in milliseconds. */
+    long DFLT_RECONNECT_INTERVAL = 30_000L;
+
+    /** Default operation timeout, in milliseconds. */
+    int DFLT_OPERATION_TIMEOUT = 0;
 
     /**
      * Gets the address finder.
@@ -57,8 +60,10 @@ public interface IgniteClientConfiguration {
 
     /**
      * Gets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port. If
-     * port is not set then Ignite will generate multiple addresses for default port range. See {@link IgniteClientConfiguration#DFLT_PORT},
-     * {@link IgniteClientConfiguration#DFLT_PORT_RANGE}.
+     * port is not set then Ignite will use {@link IgniteClientConfiguration#DFLT_PORT}.
+     *
+     * <p>Providing addresses of multiple nodes in the cluster will improve performance: Ignite will balance requests across all
+     * connections, and use partition awareness to send key-based requests directly to the primary node.
      *
      * @return Addresses.
      */
@@ -94,9 +99,22 @@ public interface IgniteClientConfiguration {
     int reconnectThrottlingRetries();
 
     /**
+     * Gets the background reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
+     * Default is {@link #DFLT_RECONNECT_INTERVAL}.
+     *
+     * <p>Ignite balances requests across all healthy connections (when multiple endpoints are configured).
+     * Ignite also repairs connections on demand (when a request is made).
+     * However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
+     * client will check all configured endpoints and try to reconnect them in case of failure.
+     *
+     * @return Background reconnect interval, in milliseconds.
+     */
+    long reconnectInterval();
+
+    /**
      * Gets the async continuation executor.
      *
-     * <p>When <code>null</code> (default), {@link ForkJoinPool#commonPool()} is used.
+     * <p>When {@code null} (default), {@link ForkJoinPool#commonPool()} is used.
      *
      * <p>When async client operation completes, corresponding {@link java.util.concurrent.CompletableFuture} continuations
      * (such as {@link java.util.concurrent.CompletableFuture#thenApply(Function)}) will be invoked using this executor.
@@ -109,17 +127,29 @@ public interface IgniteClientConfiguration {
     @Nullable Executor asyncContinuationExecutor();
 
     /**
-     * Gets the heartbeat message interval, in milliseconds. Default is <code>30_000</code>.
+     * Gets the heartbeat message interval, in milliseconds. Default is {@code 30_000}.
      *
      * <p>When server-side idle timeout is not zero, effective heartbeat
-     * interval is set to <code>min(heartbeatInterval, idleTimeout / 3)</code>.
+     * interval is set to {@code min(heartbeatInterval, idleTimeout / 3)}.
      *
      * <p>When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
      * to keep the connection alive and detect potential half-open state.
      *
      * @return Heartbeat interval.
      */
-    public long heartbeatInterval();
+    long heartbeatInterval();
+
+    /**
+     * Gets the heartbeat message timeout, in milliseconds. Default is {@code 5000}.
+     *
+     * <p>When a server does not respond to a heartbeat within the specified timeout, client will close the connection.
+     *
+     * <p>When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+     * to keep the connection alive and detect potential half-open state.
+     *
+     * @return Heartbeat interval.
+     */
+    long heartbeatTimeout();
 
     /**
      * Returns the logger factory. This factory will be used to create a logger instance when needed.
@@ -129,4 +159,37 @@ public interface IgniteClientConfiguration {
      * @return Configured logger factory.
      */
     @Nullable LoggerFactory loggerFactory();
+
+    /**
+     * Returns the client SSL configuration. This configuration will be used to setup the SSL connection with
+     * the Ignite 3 nodes.
+     *
+     * <p>When {@code null} then no SSL is used.
+     *
+     * @return Client SSL configuration.
+     */
+    @Nullable SslConfiguration ssl();
+
+    /**
+     * Gets a value indicating whether JMX metrics are enabled.
+     *
+     * @return {@code true} if metrics are enabled.
+     */
+    boolean metricsEnabled();
+
+    /**
+     * Gets the authenticator.
+     *
+     * <p>See also: {@link BasicAuthenticator}.
+     *
+     * @return Authenticator.
+     */
+    @Nullable IgniteClientAuthenticator authenticator();
+
+    /**
+     * Gets the operation timeout, in milliseconds. Default is {@code 0} (no timeout).
+     *
+     * @return Operation timeout, in milliseconds.
+     */
+    long operationTimeout();
 }

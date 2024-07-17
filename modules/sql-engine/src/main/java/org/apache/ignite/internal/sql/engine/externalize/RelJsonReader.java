@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,23 +17,26 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.prepare.RelOptTableImpl;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelDistribution;
@@ -43,14 +46,15 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * RelJsonReader.
@@ -58,14 +62,15 @@ import org.apache.ignite.lang.IgniteException;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class RelJsonReader {
-    private static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {
-    };
+    static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {};
+
+    private static final Map<String, Object> EMPTY_JSON_RELS = Map.of("rels", List.of());
 
     private final ObjectMapper mapper = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 
-    private final SqlSchemaManager schemaManager;
-
     private final RelJson relJson;
+
+    private final RelOptSchema relOptSchema;
 
     private final Map<String, RelNode> relMap = new LinkedHashMap<>();
 
@@ -75,18 +80,33 @@ public class RelJsonReader {
      * FromJson.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static <T extends RelNode> T fromJson(SqlSchemaManager schemaManager, String json) {
-        RelJsonReader reader = new RelJsonReader(schemaManager);
+    public static <T extends RelNode> T fromJson(SchemaPlus rootSchema, String json) {
+        RelJsonReader reader = new RelJsonReader(rootSchema);
 
         return (T) reader.read(json);
+    }
+
+    /** Creates a {@link RexNode} from the given json. */
+    public static RexNode fromExprJson(String json) {
+        try {
+            RelJsonReader reader = new RelJsonReader(null);
+
+            RelInput relInput = reader.newInput(EMPTY_JSON_RELS);
+
+            LinkedHashMap<String, Object> val = reader.mapper.readValue(json, TYPE_REF);
+
+            return reader.relJson.toRex(relInput, val);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "RelJson expression serialization error", e);
+        }
     }
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public RelJsonReader(SqlSchemaManager schemaManager) {
-        this.schemaManager = schemaManager;
+    public RelJsonReader(SchemaPlus rootSchema) {
+        this.relOptSchema = new RelOptSchemaImpl(rootSchema);
 
         relJson = new RelJson();
     }
@@ -103,7 +123,7 @@ public class RelJsonReader {
             readRels(rels);
             return lastRel;
         } catch (IOException e) {
-            throw new IgniteException(e);
+            throw new IgniteInternalException(INTERNAL_ERR, "RelJson deserialization error", e);
         }
     }
 
@@ -117,9 +137,13 @@ public class RelJsonReader {
         String id = (String) jsonRel.get("id");
         String type = (String) jsonRel.get("relOp");
         Function<RelInput, RelNode> factory = relJson.factory(type);
-        RelNode rel = factory.apply(new RelInputImpl(jsonRel));
+        RelNode rel = factory.apply(newInput(jsonRel));
         relMap.put(id, rel);
         lastRel = rel;
+    }
+
+    private RelInput newInput(Map<String, Object> jsonRel) {
+        return new RelInputImpl(jsonRel);
     }
 
     private class RelInputImpl implements RelInputEx {
@@ -132,37 +156,20 @@ public class RelJsonReader {
         /** {@inheritDoc} */
         @Override
         public RelOptCluster getCluster() {
-            return Commons.cluster();
+            return Commons.emptyCluster();
         }
 
         /** {@inheritDoc} */
         @Override
         public RelTraitSet getTraitSet() {
-            return Commons.cluster().traitSet();
+            return Commons.emptyCluster().traitSet();
         }
 
         /** {@inheritDoc} */
         @Override
         public RelOptTable getTable(String table) {
-            // For deserialization #getTableById() should be used instead because
-            // it's the only way to find out that someone just recreate the table
-            // (probably with different schema) with the same name while the plan
-            // was serialized
-            throw new AssertionError("Unexpected method was called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelOptTable getTableById() {
-            String tableId = getString("tableId");
-            int ver = ((Number) get("tableVer")).intValue();
-
-            IgniteTable table = schemaManager.tableById(UUID.fromString(tableId), ver);
-
-            List<String> tableName = getStringList("table");
-
-            return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), tableName,
-                    table, null);
+            List<String> list = getStringList(table);
+            return relOptSchema.getTableForMember(list);
         }
 
         /** {@inheritDoc} */
@@ -264,6 +271,15 @@ public class RelJsonReader {
             return ((Number) jsonRel.get(tag)).floatValue();
         }
 
+        @Override
+        public BigDecimal getBigDecimal(String tag) {
+            return SqlFunctions.toBigDecimal(getNonNull(tag));
+        }
+
+        private Object getNonNull(String tag) {
+            return requireNonNull(get(tag), () -> "no entry for tag " + tag);
+        }
+
         /** {@inheritDoc} */
         @Override
         public boolean getBoolean(String tag, boolean def) {
@@ -331,6 +347,12 @@ public class RelJsonReader {
 
         /** {@inheritDoc} */
         @Override
+        public List<SearchBounds> getSearchBounds(String tag) {
+            return relJson.toSearchBoundList(this, (List<Map<String, Object>>) get(tag));
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public RelDistribution getDistribution() {
             return relJson.toDistribution(get("distribution"));
         }
@@ -371,16 +393,21 @@ public class RelJsonReader {
 
         private AggregateCall toAggCall(Map<String, Object> jsonAggCall) {
             Map<String, Object> aggMap = (Map) jsonAggCall.get("agg");
-            SqlAggFunction aggregation = (SqlAggFunction) relJson.toOp(aggMap);
+            SqlAggFunction aggregation =
+                    requireNonNull((SqlAggFunction) relJson.toOp(aggMap),
+                            () -> "relJson.toAggregation output for " + aggMap);
             Boolean distinct = (Boolean) jsonAggCall.get("distinct");
             List<Integer> operands = (List<Integer>) jsonAggCall.get("operands");
             Integer filterOperand = (Integer) jsonAggCall.get("filter");
             RelDataType type = relJson.toType(Commons.typeFactory(), jsonAggCall.get("type"));
             String name = (String) jsonAggCall.get("name");
-            return AggregateCall.create(aggregation, distinct, false, false, operands,
-                    filterOperand == null ? -1 : filterOperand,
-                    RelCollations.EMPTY,
-                    type, name);
+
+            Object rexList = jsonAggCall.get("rexList");
+            RexNode r0 = relJson.toRex(this, rexList);
+
+            return AggregateCall.create(aggregation, distinct, false, false,
+                    r0 == null ? ImmutableList.of() : List.of(r0), operands, filterOperand == null ? -1 : filterOperand,
+                    null, RelCollations.EMPTY, type, name);
         }
     }
 }

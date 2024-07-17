@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,16 +19,21 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.function.BiFunction;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.ReadCommand;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.client.service.CommandClosure;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -40,11 +45,12 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
+import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
-import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 
 /**
  * Process action request.
@@ -56,6 +62,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     private final RaftMessagesFactory factory;
 
+    /**
+    * Mapping from group IDs to monitors used to synchronized on (only used when
+    * RaftGroupListener instance implements {@link BeforeApplyHandler} and the command is a write command.
+    */
+    private final Map<String, Object> groupIdsToMonitors = new ConcurrentHashMap<>();
+
     public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
         this.executor = executor;
         this.factory = factory;
@@ -63,8 +75,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     /** {@inheritDoc} */
     @Override
-    public void handleRequest(RpcContext rpcCtx, ActionRequest request) {
-        Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalAddress()));
+    public final void handleRequest(RpcContext rpcCtx, ActionRequest request) {
+        Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalConsistentId()));
 
         if (node == null) {
             rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build());
@@ -72,50 +84,107 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             return;
         }
 
-        JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+        Marshaller commandsMarshaller = node.getOptions().getCommandsMarshaller();
 
-        // Apply a filter before commiting to STM.
-        CompletableFuture<Void> fut = fsm.getListener().onBeforeApply(request.command());
+        assert commandsMarshaller != null : "Marshaller for group " + request.groupId() + " is not found.";
 
-        if (fut != null) {
-            fut.handle(new BiFunction<Void, Throwable, Void>() {
-                @Override
-                public Void apply(Void ignored, Throwable err) {
-                    if (err == null) {
-                        if (request.command() instanceof WriteCommand) {
-                            applyWrite(node, request, rpcCtx);
-                        } else {
-                            applyRead(node, request, rpcCtx);
-                        }
-                    } else {
-                        sendSMError(rpcCtx, err, false);
+        handleRequestInternal(rpcCtx, node, request, commandsMarshaller);
+    }
+
+    /**
+     * Internal part of the {@link #handleRequest(RpcContext, ActionRequest)}, that contains resolved RAFT node, as well as a commands
+     * marshaller instance. May be conveniently reused in subclasses.
+     */
+    protected void handleRequestInternal(RpcContext rpcCtx, Node node, ActionRequest request, Marshaller commandsMarshaller) {
+        DelegatingStateMachine fsm = (DelegatingStateMachine) node.getOptions().getFsm();
+        RaftGroupListener listener = fsm.getListener();
+
+        if (request instanceof WriteActionRequest) {
+            WriteActionRequest writeRequest = (WriteActionRequest)request;
+
+            WriteCommand command = writeRequest.deserializedCommand();
+
+            if (command == null) {
+                command = commandsMarshaller.unmarshall(writeRequest.command());
+            }
+
+            if (fsm.getListener() instanceof BeforeApplyHandler) {
+                synchronized (groupIdSyncMonitor(request.groupId())) {
+                    try {
+                        writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
+                    } catch (SafeTimeReorderException e) {
+                        rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.EREORDER.getNumber()).build());
+
+                        return;
                     }
 
-                    return null;
+                    applyWrite(node, writeRequest, command, rpcCtx);
                 }
-            });
-        } else {
-            if (request.command() instanceof WriteCommand) {
-                applyWrite(node, request, rpcCtx);
             } else {
-                applyRead(node, request, rpcCtx);
+                applyWrite(node, writeRequest, command, rpcCtx);
             }
+        } else {
+            ReadActionRequest readRequest = (ReadActionRequest) request;
+
+            if (listener instanceof BeforeApplyHandler) {
+                ReadCommand command = readRequest.command();
+
+                readRequest = patchCommandBeforeApply(readRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
+            }
+
+            applyRead(node, readRequest, rpcCtx);
         }
     }
 
     /**
-     * @param node    The node.
-     * @param request The request.
-     * @param rpcCtx  The context.
+     * This method calls {@link BeforeApplyHandler#onBeforeApply(Command)} and returns action request with a serialized version of the
+     * updated command, if it has been updated. Otherwise, the method returns the original {@code request} instance. The reason for such
+     * behavior is the fact that we use {@code byte[]} in action requests, thus modified command should be serialized twice.
      */
-    private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
-        // TODO asch get rid of JDK marshaller IGNITE-14832
-        node.apply(new Task(ByteBuffer.wrap(JDKMarshaller.DEFAULT.marshall(request.command())),
-                new CommandClosureImpl<>(request.command()) {
+    private <AR extends ActionRequest> AR patchCommandBeforeApply(
+            AR request,
+            BeforeApplyHandler beforeApplyHandler,
+            Command command,
+            Marshaller commandsMarshaller
+    ) throws SafeTimeReorderException {
+        if (!beforeApplyHandler.onBeforeApply(command)) {
+            return request;
+        }
+
+        if (request instanceof WriteActionRequest) {
+            return (AR) factory.writeActionRequest()
+                .groupId(request.groupId())
+                .command(commandsMarshaller.marshall(command))
+                .deserializedCommand((WriteCommand)command)
+                .build();
+        } else {
+            return (AR) factory.readActionRequest()
+                .groupId(request.groupId())
+                .command((ReadCommand)command)
+                .readOnlySafe(((ReadActionRequest)request).readOnlySafe())
+                .build();
+        }
+    }
+
+    private Object groupIdSyncMonitor(String groupId) {
+        assert groupId != null;
+
+        return groupIdsToMonitors.computeIfAbsent(groupId, k -> groupId);
+    }
+
+    /**
+     * @param node The node.
+     * @param request The request.
+     * @param command The command.
+     * @param rpcCtx The context.
+     */
+    private void applyWrite(Node node, WriteActionRequest request, Command command, RpcContext rpcCtx) {
+        node.apply(new Task(ByteBuffer.wrap(request.command()),
+                new CommandClosureImpl<>(command) {
                     @Override
                     public void result(Serializable res) {
                         if (res instanceof Throwable) {
-                            sendSMError(rpcCtx, (Throwable)res, true);
+                            sendSMError(rpcCtx, (Throwable)res, false);
 
                             return;
                         }
@@ -133,11 +202,11 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /**
-     * @param node    The node.
+     * @param node The node.
      * @param request The request.
-     * @param rpcCtx  The context.
+     * @param rpcCtx The context.
      */
-    private void applyRead(Node node, ActionRequest request, RpcContext rpcCtx) {
+    private void applyRead(Node node, ReadActionRequest request, RpcContext rpcCtx) {
         if (request.readOnlySafe()) {
             node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
                 @Override public void run(Status status, long index, byte[] reqCtx) {
@@ -148,12 +217,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                         try {
                             fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
                                 @Override public ReadCommand command() {
-                                    return (ReadCommand)request.command();
+                                    return request.command();
                                 }
 
                                 @Override public void result(Serializable res) {
                                     if (res instanceof Throwable) {
-                                        sendSMError(rpcCtx, (Throwable)res, true);
+                                        sendSMError(rpcCtx, (Throwable)res, false);
 
                                         return;
                                     }
@@ -178,12 +247,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             try {
                 fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
                     @Override public ReadCommand command() {
-                        return (ReadCommand)request.command();
+                        return request.command();
                     }
 
                     @Override public void result(Serializable res) {
                         if (res instanceof Throwable) {
-                            sendSMError(rpcCtx, (Throwable)res, true);
+                            sendSMError(rpcCtx, (Throwable)res, false);
 
                             return;
                         }
@@ -238,7 +307,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
         ctx.sendResponse(resp);
 
-        LOG.info("Error occurred on a user's state machine", th);
+        LOG.warn("Error occurred on a user's state machine", th);
     }
 
     /**
@@ -249,12 +318,17 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private void sendRaftError(RpcContext ctx, Status status, Node node) {
         RaftError raftError = status.getRaftError();
 
-        Message response;
+        Message response = null;
 
-        if (raftError == RaftError.EPERM && node.getLeaderId() != null)
-            response = RaftRpcFactory.DEFAULT
-                .newResponse(node.getLeaderId().toString(), factory, RaftError.EPERM, status.getErrorMsg());
-        else
+        if (raftError == RaftError.EPERM) {
+            PeerId leaderId = node.getLeaderId();
+
+            if (leaderId != null)
+                response = RaftRpcFactory.DEFAULT
+                    .newResponse(leaderId.toString(), factory, RaftError.EPERM, status.getErrorMsg());
+        }
+
+        if (response == null)
             response = RaftRpcFactory.DEFAULT
                 .newResponse(factory, raftError, status.getErrorMsg());
 

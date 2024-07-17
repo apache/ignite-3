@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,11 @@
 
 package org.apache.ignite.table.mapper;
 
-import org.apache.ignite.internal.util.IgniteObjectName;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Simple mapper implementation that maps a whole object of the type {@link ObjectT} to a one column.
+ * Maps an entire object of the {@link ObjectT} type to a single column.
  *
  * @param <ObjectT> Target type.
  */
@@ -36,9 +35,9 @@ class OneColumnMapperImpl<ObjectT> implements OneColumnMapper<ObjectT> {
     /** Converter. */
     private final TypeConverter<ObjectT, ?> converter;
 
-    OneColumnMapperImpl(@NotNull Class<ObjectT> targetType, @Nullable String mappedColumn, @Nullable TypeConverter<ObjectT, ?> converter) {
+    OneColumnMapperImpl(Class<ObjectT> targetType, @Nullable String mappedColumn, @Nullable TypeConverter<ObjectT, ?> converter) {
         this.targetType = targetType;
-        this.mappedColumn = IgniteObjectName.parse(mappedColumn);
+        this.mappedColumn = IgniteNameUtils.parseSimpleName(mappedColumn);
         this.converter = converter;
     }
 

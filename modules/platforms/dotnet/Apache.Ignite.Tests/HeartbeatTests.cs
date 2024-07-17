@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 
     /// <summary>
@@ -29,9 +30,13 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestServerDoesNotDisconnectIdleClientWithHeartbeats()
         {
-            var logger = new ListLogger();
+            var logger = new ListLoggerFactory(enabledLevels: new[] { LogLevel.Error, LogLevel.Warning });
 
-            var cfg = new IgniteClientConfiguration(GetConfig()) { Logger = logger };
+            var cfg = new IgniteClientConfiguration
+            {
+                Endpoints = { "127.0.0.1:" + ServerPort },
+                LoggerFactory = logger
+            };
             using var client = await IgniteClient.StartAsync(cfg);
 
             logger.Clear();
@@ -48,9 +53,9 @@ namespace Apache.Ignite.Tests
             var log = await ConnectAndGetLog(IgniteClientConfiguration.DefaultHeartbeatInterval);
 
             StringAssert.Contains(
-                "ClientSocket [Warn] Server-side IdleTimeout is 00:00:01, " +
+                "[Warning] Server-side IdleTimeout is 00:00:06, " +
                 "configured IgniteClientConfiguration.HeartbeatInterval is 00:00:30, which is longer than recommended IdleTimeout / 3. " +
-                "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:00.5000000",
+                "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:02",
                 log);
         }
 
@@ -60,7 +65,7 @@ namespace Apache.Ignite.Tests
             var log = await ConnectAndGetLog(TimeSpan.FromMilliseconds(50));
 
             StringAssert.Contains(
-                "ClientSocket [Info] Server-side IdleTimeout is 00:00:01, " +
+                "[Information] Server-side IdleTimeout is 00:00:06, " +
                 "using configured IgniteClientConfiguration.HeartbeatInterval: 00:00:00.0500000",
                 log);
         }
@@ -68,29 +73,29 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestCustomHeartbeatIntervalLongerThanRecommendedDoesNotOverrideCalculatedFromIdleTimeout()
         {
-            var log = await ConnectAndGetLog(TimeSpan.FromSeconds(4));
+            var log = await ConnectAndGetLog(TimeSpan.FromSeconds(8));
 
             StringAssert.Contains(
-                "ClientSocket [Warn] Server-side IdleTimeout is 00:00:01, " +
-                "configured IgniteClientConfiguration.HeartbeatInterval is 00:00:04, which is longer than recommended IdleTimeout / 3. " +
-                "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:00.5000000",
+                "[Warning] Server-side IdleTimeout is 00:00:06, " +
+                "configured IgniteClientConfiguration.HeartbeatInterval is 00:00:08, which is longer than recommended IdleTimeout / 3. " +
+                "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:02",
                 log);
         }
 
         [Test]
         public void TestZeroOrNegativeHeartbeatIntervalThrows()
         {
-            Assert.ThrowsAsync<IgniteClientException>(async () => await ConnectAndGetLog(TimeSpan.Zero));
-            Assert.ThrowsAsync<IgniteClientException>(async () => await ConnectAndGetLog(TimeSpan.FromSeconds(-1)));
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await ConnectAndGetLog(TimeSpan.Zero));
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await ConnectAndGetLog(TimeSpan.FromSeconds(-1)));
         }
 
         private static async Task<string> ConnectAndGetLog(TimeSpan heartbeatInterval)
         {
-            var logger = new ListLogger();
+            var logger = new ListLoggerFactory();
 
             var cfg = new IgniteClientConfiguration(GetConfig())
             {
-                Logger = logger,
+                LoggerFactory = logger,
                 HeartbeatInterval = heartbeatInterval
             };
 

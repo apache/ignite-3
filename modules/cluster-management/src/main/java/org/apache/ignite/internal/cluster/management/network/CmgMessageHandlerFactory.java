@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,13 +19,13 @@ package org.apache.ignite.internal.cluster.management.network;
 
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 
 /**
  * Class for creating {@link NetworkMessageHandler} instances that share some common logic.
@@ -59,22 +59,22 @@ public class CmgMessageHandlerFactory {
      * @return Handler proxy with added common logic.
      */
     public NetworkMessageHandler wrapHandler(NetworkMessageHandler handler) {
-        return (message, senderAddr, correlationId) -> {
+        return (message, sender, correlationId) -> {
             if (!busyLock.enterBusy()) {
                 if (correlationId != null) {
-                    clusterService.messagingService().respond(senderAddr, initFailed(new NodeStoppingException()), correlationId);
+                    clusterService.messagingService().respond(sender, initFailed(new NodeStoppingException()), correlationId);
                 }
 
                 return;
             }
 
             try {
-                handler.onReceived(message, senderAddr, correlationId);
+                handler.onReceived(message, sender, correlationId);
             } catch (Exception e) {
                 LOG.debug("CMG message handling failed", e);
 
                 if (correlationId != null) {
-                    clusterService.messagingService().respond(senderAddr, initFailed(e), correlationId);
+                    clusterService.messagingService().respond(sender, initFailed(e), correlationId);
                 }
             } finally {
                 busyLock.leaveBusy();

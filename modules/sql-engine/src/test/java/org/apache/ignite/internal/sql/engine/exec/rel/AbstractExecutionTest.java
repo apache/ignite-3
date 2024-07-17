@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -27,92 +29,109 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
+import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
+import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.Pair;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
- * AbstractExecutionTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Base abstract class for testing SQL execution.
  */
-public class AbstractExecutionTest extends IgniteAbstractTest {
-    private Throwable lastE;
+public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
+    public static final Object[][] EMPTY = new Object[0][];
 
     private QueryTaskExecutorImpl taskExecutor;
 
-    private List<UUID> nodes;
-
     @BeforeEach
     public void beforeTest() {
-        taskExecutor = new QueryTaskExecutorImpl("no_node");
+        var failureProcessor = new FailureProcessor(new NoOpFailureHandler());
+        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor);
         taskExecutor.start();
     }
 
     /**
-     * AfterTest.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * After each test.
      */
     @AfterEach
     public void afterTest() {
         taskExecutor.stop();
-
-        if (lastE != null) {
-            throw new AssertionError(lastE);
-        }
     }
 
-    protected ExecutionContext<Object[]> executionContext() {
+    protected abstract RowHandler<T> rowHandler();
+
+    protected ExecutionContext<T> executionContext() {
         return executionContext(false);
     }
 
-    protected ExecutionContext<Object[]> executionContext(boolean withDelays) {
+    protected ExecutionContext<T> executionContext(boolean withDelays) {
         if (withDelays) {
             StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
-                    NamedThreadFactory.threadPrefix("fake-test-node", "sqlTestExec"),
-                    new LogUncaughtExceptionHandler(log),
+                    NamedThreadFactory.create("fake-test-node", "sqlTestExec", log),
                     false,
                     0);
-            IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
+
+            StripedThreadPoolExecutor stripedThreadPoolExecutor = IgniteTestUtils.getFieldValue(
+                    taskExecutor,
+                    QueryTaskExecutorImpl.class,
+                    "stripedThreadPoolExecutor"
+            );
+
+            // change it once on startup
+            if (!(stripedThreadPoolExecutor instanceof IgniteTestStripedThreadPoolExecutor)) {
+                stripedThreadPoolExecutor.shutdown();
+
+                IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
+            }
         }
 
-        FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
+        FragmentDescription fragmentDesc = getFragmentDescription();
+
         return new ExecutionContext<>(
-                BaseQueryContext.builder()
-                        .logger(log)
-                        .build(),
                 taskExecutor,
                 UUID.randomUUID(),
-                "fake-test-node",
+                new ClusterNodeImpl("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                 "fake-test-node",
                 fragmentDesc,
-                ArrayRowHandler.INSTANCE,
+                rowHandler(),
                 Map.of(),
+                TxAttributes.fromTx(new NoOpTransaction("fake-test-node")),
+                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
                 null
         );
     }
 
-    private void handle(Thread t, Throwable ex) {
-        log.error(ex.getMessage(), ex);
-        lastE = ex;
+    protected FragmentDescription getFragmentDescription() {
+        return new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null, null);
     }
 
     protected Object[] row(Object... fields) {
@@ -134,12 +153,11 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         public IgniteTestStripedThreadPoolExecutor(
                 int concurrentLvl,
-                String threadNamePrefix,
-                Thread.UncaughtExceptionHandler exHnd,
+                ThreadFactory threadFactory,
                 boolean allowCoreThreadTimeOut,
                 long keepAliveTime
         ) {
-            super(concurrentLvl, threadNamePrefix, exHnd, allowCoreThreadTimeOut, keepAliveTime);
+            super(concurrentLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime);
 
             fut = IgniteTestUtils.runAsync(() -> {
                 while (!stop.get()) {
@@ -178,6 +196,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         @Override public void shutdown() {
             stop.set(true);
 
+            exec.shutdown();
             fut.cancel(true);
 
             super.shutdown();
@@ -187,15 +206,15 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         @Override public List<Runnable> shutdownNow() {
             stop.set(true);
 
+            List<Runnable> runnables = exec.shutdownNow();
             fut.cancel(true);
 
-            return super.shutdownNow();
+            return Stream.concat(runnables.stream(), super.shutdownNow().stream()).collect(Collectors.toList());
         }
     }
 
     /**
-     * TestTable.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provides ability to generate test table data.
      */
     public static class TestTable implements Iterable<Object[]> {
         private int rowsCnt;
@@ -255,7 +274,6 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @NotNull
         @Override
         public Iterator<Object[]> iterator() {
             return new Iterator<>() {
@@ -279,12 +297,8 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static class RootRewindable<RowT> extends RootNode<RowT> {
-        /**
-         * Constructor.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-         */
-        public RootRewindable(ExecutionContext<RowT> ctx, RelDataType rowType) {
-            super(ctx, rowType);
+        public RootRewindable(ExecutionContext<RowT> ctx) {
+            super(ctx);
         }
 
         /** {@inheritDoc} */
@@ -300,6 +314,21 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             // No-op
         }
 
+        /** Remind count of rows. */
+        public int rowsCount() {
+            int cnt = 0;
+
+            while (hasNext()) {
+                next();
+
+                cnt++;
+            }
+
+            rewind();
+
+            return cnt;
+        }
+
         /**
          * CloseRewindableRoot.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -309,11 +338,16 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         }
     }
 
-    protected RowHandler.RowFactory<Object[]> rowFactory() {
+    static RowHandler.RowFactory<Object[]> rowFactory() {
         return new RowHandler.RowFactory<>() {
             @Override
             public RowHandler<Object[]> handler() {
                 return ArrayRowHandler.INSTANCE;
+            }
+
+            @Override
+            public RowBuilder<Object[]> rowBuilder() {
+                throw new UnsupportedOperationException();
             }
 
             @Override
@@ -325,6 +359,45 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             public Object[] create(Object... fields) {
                 return fields;
             }
+
+            @Override
+            public Object[] create(InternalTuple tuple) {
+                throw new UnsupportedOperationException();
+            }
         };
+    }
+
+    static TupleFactory tupleFactoryFromSchema(BinaryTupleSchema schema) {
+        return new BinaryTupleFactory(schema);
+    }
+
+    @FunctionalInterface
+    interface TupleFactory {
+        InternalTuple create(Object... values);
+    }
+
+    private static class BinaryTupleFactory implements TupleFactory {
+        private final BinaryTupleSchema schema;
+
+        BinaryTupleFactory(BinaryTupleSchema schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public InternalTuple create(Object... values) {
+            if (schema.elementCount() != values.length) {
+                throw new IllegalArgumentException(
+                        format("Expecting {} elements, but was {}", schema.elementCount(), values.length)
+                );
+            }
+
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(schema.elementCount());
+
+            for (int i = 0; i < schema.elementCount(); i++) {
+                BinaryRowConverter.appendValue(builder, schema.element(i), values[i]);
+            }
+
+            return new BinaryTuple(schema.elementCount(), builder.build());
+        }
     }
 }

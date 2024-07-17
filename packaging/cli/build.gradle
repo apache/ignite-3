@@ -1,0 +1,213 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'java'
+    id 'distribution'
+    id 'signing'
+    alias(libs.plugins.nebula)
+    alias(libs.plugins.checksum)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.crypto.checksum.Checksum
+
+configurations {
+    cliArtifacts
+    cliScripts
+}
+
+dependencies {
+    cliArtifacts(project(':ignite-cli'))
+    cliScripts(project(path: ':ignite-cli', configuration: 'cliScripts'))
+}
+
+// Common for ZIP and RPM/DEB
+
+def tokens = [
+        PRODUCT_NAME        : 'ignite3-cli',
+        PRODUCT_DISPLAY_NAME: 'Apache Ignite CLI',
+        LOG_DIR             : '${HOME}/.ignite3',
+        APP_JAR             : "${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar".toString(),
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh',
+        MAIN_CLASS          : 'org.apache.ignite.internal.cli.Main',
+        ARGS                : '$@'
+]
+
+task createChecksums(type: Checksum) {
+    dependsOn distZip
+
+    inputFiles.from distZip.outputs.files
+    checksumAlgorithm = Checksum.Algorithm.SHA512
+}
+
+
+// ZIP packaging
+
+def zipTokens = tokens + [
+        LIB_DIR             : '$(dirname "$0")/../lib',
+]
+
+task replaceScriptVarsZip(type: Copy) {
+    from 'start.sh'
+    filter(ReplaceTokens, tokens: zipTokens)
+    into "$buildDir/zip"
+    rename {
+        'ignite3'
+    }
+}
+
+// task that generates start script for cli
+task cliStartScript(type: CreateStartScripts) {
+    // will be passed to exec "java ... <mainClassName>"
+    mainClass = "org.apache.ignite.internal.cli.Main"
+    // forms a classpath string that will be passed to exec "java -cp <classpath> .."
+    // it is expected to locate the "lib" dir together with "bin"
+    classpath = files(new File("../lib/*"))
+    outputDir = file "$buildDir/scripts"
+    applicationName = 'ignite3'
+}
+
+task windowsCliStartScript(type: Copy) {
+    from cliStartScript
+    include '*.bat'
+    into "$buildDir/windows"
+}
+
+distributions {
+    main {
+        distributionBaseName = 'ignite3-cli'
+        contents {
+            into('') {
+                from "$rootDir/LICENSE"
+                from "$rootDir/NOTICE"
+                from "$rootDir/assembly/README.md"
+            }
+            into('bin') {
+                duplicatesStrategy= DuplicatesStrategy.EXCLUDE
+                from configurations.cliScripts
+                from replaceScriptVarsZip
+                from windowsCliStartScript
+                fileMode 0755
+            }
+            into('lib') {
+                from configurations.cliArtifacts
+                from "$rootDir/packaging/common/linux/setup-java.sh"
+            }
+        }
+    }
+}
+
+// Expose zip artifacts to be consumed by others
+configurations {
+    cliZip {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    cliZip(distZip)
+}
+
+// Explicitly create task so that the resulting artifact is not added to the configuration
+tasks.register('signCliZip', Sign) {
+    sign configurations.cliZip
+}
+
+// DEB/RPM packaging
+
+def linuxTokens = tokens + [
+        INSTALL_DIR         : '/usr/bin',
+        LIB_DIR             : '/usr/lib/ignite3'
+]
+
+task replaceScriptVarsLinux(type: Copy) {
+    from 'start.sh'
+    from 'postInstall.sh'
+    filter(ReplaceTokens, tokens: linuxTokens)
+    into "$buildDir/linux"
+}
+
+buildDeb {
+    dependsOn replaceScriptVarsLinux
+    signingKeyId = project.findProperty("signing.keyId")
+    signingKeyPassphrase = project.findProperty("signing.password")
+    signingKeyRingFile = project.hasProperty("signing.secretKeyRingFile") ? file(project.property("signing.secretKeyRingFile")) : null
+
+    into("/usr/share/bash-completion/completions/") {
+        from configurations.cliScripts
+        fileMode 0755
+    }
+}
+
+buildRpm {
+    dependsOn replaceScriptVarsLinux
+
+    into("/etc/bash_completion.d/") {
+        from configurations.cliScripts
+        fileMode 0755
+    }
+}
+
+ospackage {
+    license "ASL 2.0"
+    packageName linuxTokens.PRODUCT_NAME
+    packageGroup "CLI"
+    url "https://ignite.apache.org"
+    packageDescription "This package will install Apache Ignite CLI"
+    os LINUX
+    user 'root'
+
+    into(linuxTokens.INSTALL_DIR) {
+        from "$buildDir/linux/start.sh"
+        fileMode 0755
+        rename {
+            'ignite3'
+        }
+    }
+
+    into(linuxTokens.LIB_DIR) {
+        from configurations.cliArtifacts
+        from "$rootDir/packaging/common/linux/setup-java.sh"
+    }
+
+    postInstall file("$buildDir/linux/postInstall.sh")
+}
+
+configurations {
+    cliRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+if (project.hasProperty('prepareRelease')) {
+    artifacts {
+        cliRelease(file("$buildDir/distributions")) {
+            builtBy signCliZip, buildDeb, buildRpm
+        }
+        cliRelease(file("$buildDir/checksums")) {
+            builtBy createChecksums
+        }
+    }
+}

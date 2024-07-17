@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,19 +21,23 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Tuple represents arbitrary set of columns whose values is accessible by column name.
- * Attention: column name arguments passed to the methods of the tuple must use  SQL-parser style quotation, e.g.
- * "myColumn" - means name "MYCOLUMN", "\"MyColumn\"" - "MyColumn", etc.
+ * Tuple represents an arbitrary set of columns whose values are accessible by column name.
+ * Column name arguments passed to the tuple methods must use SQL-parser style notation; e.g.,
+ * "myColumn" - column named "MYCOLUMN", "\"MyColumn\"" - "MyColumn", etc.
  *
- * <p>Provides specialized method for some value-types to avoid boxing/unboxing.
+ * <p>Note: "\"MYCOLUMN\"" is equivalent to a normalized name "MYCOLUMN".
+ *
+ * <p>Provides a specialized method for some value-types to avoid boxing/unboxing.
  */
 public interface Tuple extends Iterable<Object> {
     /**
@@ -46,7 +50,7 @@ public interface Tuple extends Iterable<Object> {
     }
 
     /**
-     * Creates a tuple with specified initial capacity.
+     * Creates a tuple with a specified initial capacity.
      *
      * @param capacity Initial capacity.
      * @return A new tuple.
@@ -56,7 +60,7 @@ public interface Tuple extends Iterable<Object> {
     }
 
     /**
-     * Creates a tuple from given mapping.
+     * Creates a tuple from a given mapping.
      *
      * @param map Column values.
      * @return A new tuple.
@@ -77,18 +81,18 @@ public interface Tuple extends Iterable<Object> {
      * @param tuple Tuple to copy.
      * @return A new tuple.
      */
-    static Tuple create(Tuple tuple) {
+    static Tuple copy(Tuple tuple) {
         return new TupleImpl(tuple);
     }
 
     /**
-     * Returns the hash code value for the tuple.
+     * Returns a hash code value for the tuple.
      *
-     * <p>The hash code of a tuple is defined to be the sum of the hash codes of each pair of column name and column value. This ensures
-     * that {@code m1.equals(m2)} implies that {@code m1.hashCode()==m2.hashCode()} for any tuples {@code m1} and {@code m2}, as required
-     * by the general contract of {@link Object#hashCode}.
+     * <p>The hash code of a tuple is the sum of the hash codes of each pair of column name and column value. Therefore, 
+     * {@code m1.equals(m2)} implies that {@code m1.hashCode()==m2.hashCode()} for any tuples {@code m1} and {@code m2}, 
+     * as required by the general contract of {@link Object#hashCode}.
      *
-     * <p>The hash code of a pair of column name and column value {@code i} is defined to be:
+     * <p>The hash code of a pair of column name and column value {@code i} is:
      * <pre>(columnName(i).hashCode()) ^ (value(i)==null ? 0 : value(i).hashCode())</pre>
      *
      * @param tuple Tuple.
@@ -101,29 +105,41 @@ public interface Tuple extends Iterable<Object> {
             String columnName = tuple.columnName(idx);
             Object columnValue = tuple.value(idx);
 
-            hash += columnName.hashCode() ^ (columnValue == null ? 0 : columnValue.hashCode());
+            int columnValueHash = 0;
+
+            if (columnValue != null) {
+                if (columnValue instanceof byte[]) {
+                    columnValueHash = Arrays.hashCode((byte[]) columnValue);
+                } else {
+                    columnValueHash = columnValue.hashCode();
+                }
+            }
+
+            hash += columnName.hashCode() ^ columnValueHash;
         }
 
         return hash;
     }
 
     /**
-     * Returns the hash code value for this tuple.
+     * Returns a hash code value for the tuple.
      *
-     * @return the hash code value for this tuple.
+     * @return The hash code value for the tuple.
      * @see #hashCode(Tuple)
      * @see Object#hashCode()
      */
+    @Override
     int hashCode();
 
     /**
      * Compares tuples for equality.
      *
-     * <p>Returns {@code true} if both tuples represent the same column name to column value mappings.
+     * <p>Returns {@code true} if both tuples represent the same column name-to-value mapping.
      *
-     * <p>This implementation first checks if both tuples is of same size; if not, it returns {@code false}; If so, it iterates over
-     * columns of first tuple and checks that the second tuple contains each mapping that the first one contains.  If the second tuple
-     * fails to contain such a mapping, {@code false} is returned; If the iteration completes, {@code true} is returned.
+     * <p>This implementation first checks if both tuples is of same size. If not, it returns {@code false}. If yes, 
+     * it iterates over columns of the first tuple and checks that the second tuple contains each mapping that the first 
+     * one contains.  If the second tuple fails to contain such a mapping, {@code false} is returned.
+     * If the iteration completes, {@code true} is returned.
      *
      * @param firstTuple  First tuple to compare.
      * @param secondTuple Second tuple to compare.
@@ -147,7 +163,10 @@ public interface Tuple extends Iterable<Object> {
                 return false;
             }
 
-            if (!Objects.deepEquals(firstTuple.value(idx), secondTuple.value(idx2))) {
+            Object firstVal = firstTuple.value(idx);
+            Object secondVal = secondTuple.value(idx2);
+
+            if (!Objects.deepEquals(firstVal, secondVal)) {
                 return false;
             }
         }
@@ -156,356 +175,390 @@ public interface Tuple extends Iterable<Object> {
     }
 
     /**
-     * Indicates whether some other object is "equal to" this one.
+     * Indicates whether another object is "equal to" the specified one.
      *
-     * @return {@code true} if this object is the same as the obj argument; {@code false} otherwise.
+     * @return {@code true} if this object is the same as the specified one; {@code false} otherwise.
      * @see Tuple#equals(Tuple, Tuple)
      * @see Object#equals(Object)
      */
+    @Override
     boolean equals(Object obj);
 
     /**
-     * Gets the number of columns in this tuple.
+     * Gets a number of columns in the tuple.
      *
      * @return Number of columns.
      */
     int columnCount();
 
     /**
-     * Gets the name of the column with the specified index.
+     * Gets a name of the column with the specified index.
      *
      * @param columnIndex Column index.
-     * @return Column name.
-     * @throws IndexOutOfBoundsException If a value for a column with given index doesn't exists.
+     * @return Normalized column name in SQL-parser style notation; e.g., <br>
+     *         "\"MyColumn\"" - quoted value for a name of the column with respect to case sensitivity,
+     *         "MYCOLUMN" - column name in uppercase, otherwise.
+     * @throws IndexOutOfBoundsException If a value for a column with the given index doesn't exists.
      */
     String columnName(int columnIndex);
 
     /**
-     * Gets the index of the column with the specified name.
+     * Gets an index of the column with the specified name.
      *
-     * @param columnName Column name.
-     * @return Column index, or {@code -1} when a column with given name is not present.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
+     * @return Column index, or {@code -1} if the column with the given name is not present.
      */
-    int columnIndex(@NotNull String columnName);
+    int columnIndex(String columnName);
 
     /**
-     * Gets column value when a column with specified name is present in this tuple; returns default value otherwise.
+     * Gets a column value if the column with the specified name is present in the tuple; returns a default value otherwise.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @param defaultValue Default value.
-     * @param <T>          Column default value type.
-     * @return Column value if this tuple contains a column with the specified name. Otherwise returns {@code defaultValue}.
+     * @param <T>          Default value type.
+     * @return Column value if the tuple contains a column with the specified name. Otherwise, {@code defaultValue}.
      */
-    <T> T valueOrDefault(@NotNull String columnName, T defaultValue);
+    @Nullable <T> T valueOrDefault(String columnName, @Nullable T defaultValue);
 
     /**
-     * Sets column value.
+     * Sets a column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - sets the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @param value      Value to set.
      * @return {@code this} for chaining.
      */
-    Tuple set(@NotNull String columnName, Object value);
+    Tuple set(String columnName, @Nullable Object value);
 
     /**
-     * Gets column value for given column name.
+     * Gets a column value for the given column name.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @param <T>        Value type.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
-    <T> T value(@NotNull String columnName) throws IllegalArgumentException;
+    @Nullable <T> T value(String columnName) throws IllegalArgumentException;
 
     /**
-     * Gets column value for given column index.
+     * Gets a column value for the given column index.
      *
      * @param columnIndex Column index.
      * @param <T>         Value type.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
-    <T> T value(int columnIndex);
+    @Nullable <T> T value(int columnIndex);
 
     /**
-     * Gets binary object column.
+     * Gets a {@code boolean} column value.
      *
-     * @param columnName Column name.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with given name exists.
      */
-    BinaryObject binaryObjectValue(@NotNull String columnName);
+    boolean booleanValue(String columnName);
 
     /**
-     * Gets binary object column.
+     * Gets {@code boolean} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
-    BinaryObject binaryObjectValue(int columnIndex);
+    boolean booleanValue(int columnIndex);
+
+    /**
+     * Gets a {@code byte} column value.
+     *
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
+     * @return Column value.
+     * @throws IllegalArgumentException If no column with given name exists.
+     */
+    byte byteValue(String columnName);
 
     /**
      * Gets {@code byte} column value.
      *
-     * @param columnName Column name.
-     * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
-     */
-    byte byteValue(@NotNull String columnName);
-
-    /**
-     * Gets {@code byte} column value.
-     *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     byte byteValue(int columnIndex);
 
     /**
-     * Gets {@code short} column value.
+     * Gets a {@code short} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
-    short shortValue(@NotNull String columnName);
+    short shortValue(String columnName);
 
     /**
-     * Gets {@code short} column value.
+     * Gets a {@code short} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     short shortValue(int columnIndex);
 
     /**
-     * Gets {@code int} column value.
+     * Gets a {@code int} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
-    int intValue(@NotNull String columnName);
+    int intValue(String columnName);
 
     /**
-     * Gets {@code int} column value.
+     * Gets a {@code int} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     int intValue(int columnIndex);
 
     /**
-     * Gets {@code long} column value.
+     * Gets a {@code long} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
-    long longValue(@NotNull String columnName);
+    long longValue(String columnName);
 
     /**
-     * Gets {@code long} column value.
+     * Gets a {@code long} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     long longValue(int columnIndex);
 
     /**
-     * Gets {@code float} column value.
+     * Gets a {@code float} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
-    float floatValue(@NotNull String columnName);
+    float floatValue(String columnName);
 
     /**
-     * Gets {@code float} column value.
+     * Gets a {@code float} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     float floatValue(int columnIndex);
 
     /**
-     * Gets {@code double} column value.
+     * Gets a {@code double} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
-    double doubleValue(@NotNull String columnName);
+    double doubleValue(String columnName);
 
     /**
-     * Gets {@code double} column value.
+     * Gets a {@code double} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     double doubleValue(int columnIndex);
 
     /**
-     * Gets {@code String} column value.
+     * Gets a {@code String} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
-    String stringValue(@NotNull String columnName);
+    String stringValue(String columnName);
 
     /**
-     * Gets {@code String} column value.
+     * Gets a {@code String} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     String stringValue(int columnIndex);
 
     /**
-     * Gets {@code UUID} column value.
+     * Gets a {@code UUID} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
-    UUID uuidValue(@NotNull String columnName);
+    UUID uuidValue(String columnName);
 
     /**
-     * Gets {@code UUID} column value.
+     * Gets a {@code UUID} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     UUID uuidValue(int columnIndex);
 
     /**
-     * Gets {@code BitSet} column value.
+     * Gets a {@code BitSet} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
-    BitSet bitmaskValue(@NotNull String columnName);
+    BitSet bitmaskValue(String columnName);
 
     /**
-     * Gets {@code BitSet} column value.
+     * Gets a {@code BitSet} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     BitSet bitmaskValue(int columnIndex);
 
     /**
-     * Gets {@code LocalDate} column value.
+     * Gets a {@code LocalDate} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     LocalDate dateValue(String columnName);
 
     /**
-     * Gets {@code LocalDate} column value.
+     * Gets a {@code LocalDate} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     LocalDate dateValue(int columnIndex);
 
     /**
-     * Gets {@code LocalTime} column value.
+     * Gets a {@code LocalTime} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     LocalTime timeValue(String columnName);
 
     /**
-     * Gets {@code LocalTime} column value.
+     * Gets a {@code LocalTime} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     LocalTime timeValue(int columnIndex);
 
     /**
-     * Gets {@code LocalDateTime} column value.
+     * Gets a {@code LocalDateTime} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     LocalDateTime datetimeValue(String columnName);
 
     /**
-     * Gets {@code LocalDateTime} column value.
+     * Gets a {@code LocalDateTime} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the iven index exists.
      */
     LocalDateTime datetimeValue(int columnIndex);
 
     /**
-     * Gets {@code Instant} column value.
+     * Gets a {@code Instant} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
-     * @throws IllegalArgumentException If column with given name doesn't exists.
+     * @throws IllegalArgumentException If no column with the given name exists.
      */
     Instant timestampValue(String columnName);
 
     /**
-     * Gets {@code Instant} column value.
+     * Gets a {@code Instant} column value.
      *
      * @param columnIndex Column index.
      * @return Column value.
-     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     Instant timestampValue(int columnIndex);
+
+    /** {@inheritDoc} */
+    @Override
+    default Iterator<Object> iterator() {
+        return new Iterator<>() {
+            /** Current column index. */
+            private int cur;
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean hasNext() {
+                return cur < columnCount();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public Object next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+
+                return value(cur++);
+            }
+        };
+    }
 }

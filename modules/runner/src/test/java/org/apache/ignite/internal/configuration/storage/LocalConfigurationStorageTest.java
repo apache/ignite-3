@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
@@ -33,15 +37,15 @@ public class LocalConfigurationStorageTest extends ConfigurationStorageTest {
      */
     @BeforeEach
     void startVault() {
-        vaultManager.start();
+        assertThat(vaultManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
      * After each.
      */
     @AfterEach
-    void stopVault() throws Exception {
-        vaultManager.stop();
+    void stopVault() {
+        assertThat(vaultManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /** {@inheritDoc} */

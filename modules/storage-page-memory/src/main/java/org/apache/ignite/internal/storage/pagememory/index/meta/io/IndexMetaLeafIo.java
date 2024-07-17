@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,16 +21,15 @@ import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
+import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 
 /**
  * IO routines for {@link IndexMetaTree} leaf pages.
  */
-public class IndexMetaLeafIo extends BplusLeafIo<IndexMeta> implements IndexMetaIo {
-    /** Page IO type. */
-    public static final short T_INDEX_META_LEAF_IO = 14;
-
+public class IndexMetaLeafIo extends BplusLeafIo<IndexMetaKey> implements IndexMetaIo {
     /** I/O versions. */
     public static final IoVersions<IndexMetaLeafIo> VERSIONS = new IoVersions<>(new IndexMetaLeafIo(1));
 
@@ -40,24 +39,21 @@ public class IndexMetaLeafIo extends BplusLeafIo<IndexMeta> implements IndexMeta
      * @param ver Page format version.
      */
     private IndexMetaLeafIo(int ver) {
-        super(T_INDEX_META_LEAF_IO, ver, SIZE_IN_BYTES);
+        super(IndexPageTypes.T_INDEX_META_LEAF_IO, ver, SIZE_IN_BYTES);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void store(long dstPageAddr, int dstIdx, BplusIo<IndexMeta> srcIo, long srcPageAddr, int srcIdx) {
-        IndexMetaIo.super.store(dstPageAddr, dstIdx, srcPageAddr, srcIdx);
+    public void store(long dstPageAddr, int dstIdx, BplusIo<IndexMetaKey> srcIo, long srcPageAddr, int srcIdx) {
+        IndexMetaIo.super.store(dstPageAddr, dstIdx, srcIo, srcPageAddr, srcIdx);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void storeByOffset(long pageAddr, int off, IndexMeta row) {
+    public void storeByOffset(long pageAddr, int off, IndexMetaKey row) {
         IndexMetaIo.super.storeByOffset(pageAddr, off, row);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public IndexMeta getLookupRow(BplusTree<IndexMeta, ?> tree, long pageAddr, int idx) {
+    public IndexMeta getLookupRow(BplusTree<IndexMetaKey, ?> tree, long pageAddr, int idx) {
         return getRow(pageAddr, idx);
     }
 }

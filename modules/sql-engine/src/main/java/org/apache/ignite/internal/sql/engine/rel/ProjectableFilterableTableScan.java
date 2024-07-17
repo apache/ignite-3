@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -44,8 +44,8 @@ import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -88,13 +88,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     protected ProjectableFilterableTableScan(RelInput input) {
-        super(
-                input.getCluster(),
-                input.getTraitSet(),
-                List.of(),
-                ((RelInputEx) input).getTableById()
-        );
-
+        super(input);
         condition = input.getExpression("filters");
         projects = input.get("projects") == null ? null : input.getExpressionList("projects");
         requiredColumns = input.get("requiredColumns") == null ? null : input.getBitSet("requiredColumns");
@@ -134,17 +128,26 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     public RelWriter explainTerms(RelWriter pw) {
         return explainTerms0(pw
                 .item("table", table.getQualifiedName())
-                .itemIf("tableId", table.unwrap(IgniteTable.class).id().toString(),
-                        pw.getDetailLevel() == ALL_ATTRIBUTES)
-                .itemIf("tableVer", table.unwrap(IgniteTable.class).version(),
-                        pw.getDetailLevel() == ALL_ATTRIBUTES)
-        );
+                .itemIf("tableId", Integer.toString(table.unwrap(IgniteDataSource.class).id()),
+                pw.getDetailLevel() == ALL_ATTRIBUTES));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        shuttle.apply(condition);
+        shuttle.apply(projects);
+
+        return super.accept(shuttle);
     }
 
     protected RelWriter explainTerms0(RelWriter pw) {
-        return pw
-                .itemIf("filters", condition, condition != null)
-                .itemIf("projects", projects, projects != null)
+        if (condition != null) {
+            pw.item("filters", pw.nest() ? condition :
+                    RexUtil.expandSearch(getCluster().getRexBuilder(), null, condition));
+        }
+
+        return pw.itemIf("projects", projects, projects != null)
                 .itemIf("requiredColumns", requiredColumns, requiredColumns != null);
     }
 
@@ -173,7 +176,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         if (projects != null) {
             return RexUtil.createStructType(Commons.typeFactory(getCluster()), projects);
         } else {
-            return table.unwrap(IgniteTable.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
+            return table.unwrap(IgniteDataSource.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
         }
     }
 

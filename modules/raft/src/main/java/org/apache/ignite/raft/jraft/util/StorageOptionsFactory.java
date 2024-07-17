@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -113,10 +113,19 @@ public final class StorageOptionsFactory {
         // If true, missing column families will be automatically created.
         opts.setCreateMissingColumnFamilies(true);
 
-        // Number of open files that can be used by the DB.  You may need to increase
+        // Number of open files that can be used by the DB. You may need to increase
         // this if your database has a large working set. Value -1 means files opened
         // are always kept open.
         opts.setMaxOpenFiles(-1);
+
+        // To limit the num of LOG. Once LOG exceed this num, RocksDB will delete old LOG
+        // automatically.
+        opts.setKeepLogFileNum(100);
+
+        // To limit the size of WALs. Once WALs exceed this size, RocksDB will start
+        // forcing the flush of column families to allow deletion of some oldest WALs.
+        // We make it 1G as default.
+        opts.setMaxTotalWalSize(1 << 30);
 
         // The maximum number of concurrent background compactions. The default is 1,
         // but to fully utilize your CPU and storage you might want to increase this
@@ -321,8 +330,6 @@ public final class StorageOptionsFactory {
             .setMetadataBlockSize(cfg.metadataBlockSize()) //
             .setPinTopLevelIndexAndFilter(cfg.pinTopLevelIndexAndFilter()) //
             .setHashIndexAllowCollision(cfg.hashIndexAllowCollision()) //
-            .setBlockCacheCompressedSize(cfg.blockCacheCompressedSize()) //
-            .setBlockCacheCompressedNumShardBits(cfg.blockCacheCompressedNumShardBits()) //
             .setChecksumType(cfg.checksumType()) //
             .setIndexType(cfg.indexType()) //
             .setFormatVersion(cfg.formatVersion());

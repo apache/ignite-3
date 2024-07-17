@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.cluster.management;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Cluster tag that is used to uniquely identify a cluster.
@@ -27,47 +30,25 @@ import java.util.UUID;
  * <p>It consists of two parts: human-readable part (cluster name) that is provided by the init command and an auto-generated part
  * (cluster id).
  */
-public final class ClusterTag implements Serializable {
+@Transferable(CmgMessageGroup.Commands.CLUSTER_TAG)
+public interface ClusterTag extends NetworkMessage, Serializable {
     /** Auto-generated part. */
-    private final UUID clusterId = UUID.randomUUID();
+    UUID clusterId();
 
     /** Human-readable part. */
-    private final String clusterName;
+    String clusterName();
 
-    public ClusterTag(String clusterName) {
-        this.clusterName = clusterName;
-    }
-
-    public UUID clusterId() {
-        return clusterId;
-    }
-
-    public String clusterName() {
-        return clusterName;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ClusterTag that = (ClusterTag) o;
-        return clusterId.equals(that.clusterId) && clusterName.equals(that.clusterName);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(clusterId, clusterName);
-    }
-
-    @Override
-    public String toString() {
-        return "ClusterTag{"
-                + "clusterId=" + clusterId
-                + ", clusterName='" + clusterName + '\''
-                + '}';
+    /**
+     * Creates a new cluster tag instance with auto-generated {@link #clusterId()}. Acts like a constructor replacement.
+     *
+     * @param msgFactory Message factory to instantiate builder.
+     * @param name Cluster name.
+     * @return Cluster tag instance.
+     */
+    static ClusterTag clusterTag(CmgMessagesFactory msgFactory, String name) {
+        return msgFactory.clusterTag()
+                .clusterName(name)
+                .clusterId(UUID.randomUUID())
+                .build();
     }
 }

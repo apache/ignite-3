@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CheckStyle-IDEA" serialisationVersion="2">
+    <checkstyleVersion>9.3</checkstyleVersion>
+    <scanScope>JavaOnly</scanScope>
+    <option name="thirdPartyClasspath" />
+    <option name="activeLocationIds">
+      <option value="610eb513-51a7-4863-aaf8-feef91fd2055" />
+    </option>
+    <option name="locations">
+      <list>
+        <ConfigurationLocation id="bundled-sun-checks" type="BUNDLED" scope="All" description="Sun Checks">(bundled)</ConfigurationLocation>
+        <ConfigurationLocation id="bundled-google-checks" type="BUNDLED" scope="All" description="Google Checks">(bundled)</ConfigurationLocation>
+        <ConfigurationLocation id="610eb513-51a7-4863-aaf8-feef91fd2055" type="LOCAL_FILE" scope="All" description="Ignite3">
+          $PROJECT_DIR$/check-rules/checkstyle-rules.xml
+          <option name="properties">
+            <map>
+              <entry key="checkstyle.header.file" value="" />
+              <entry key="org.checkstyle.google.suppressionfilter.config" value="$PROJECT_DIR$/check-rules/checkstyle-suppressions.xml" />
+              <entry key="org.checkstyle.google.suppressionxpathfilter.config" value="" />
+            </map>
+          </option>
+        </ConfigurationLocation>
+      </list>
+    </option>
+  </component>
+</project>

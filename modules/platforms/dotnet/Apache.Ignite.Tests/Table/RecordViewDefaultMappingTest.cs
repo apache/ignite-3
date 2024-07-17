@@ -30,7 +30,7 @@ namespace Apache.Ignite.Tests.Table
     public class RecordViewDefaultMappingTest : IgniteTestsBase
     {
         [SetUp]
-        public async Task SetUp()
+        public async Task InsertData()
         {
             await Table.RecordBinaryView.UpsertAsync(null, GetTuple(1, "2"));
         }
@@ -75,10 +75,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         private T Get<T>(T key)
-            where T : class
-        {
-            return Table.GetRecordView<T>().GetAsync(null, key).GetAwaiter().GetResult()!;
-        }
+            where T : notnull => Table.GetRecordView<T>().GetAsync(null, key).GetAwaiter().GetResult().Value;
 
         private class FieldsTest
         {

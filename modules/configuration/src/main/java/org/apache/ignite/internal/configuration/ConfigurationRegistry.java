@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,217 +17,123 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
-import static org.apache.ignite.internal.util.CollectionUtils.difference;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.io.Serializable;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.validation.ExceptKeys;
-import org.apache.ignite.configuration.validation.Immutable;
-import org.apache.ignite.configuration.validation.OneOf;
-import org.apache.ignite.configuration.validation.PowerOfTwo;
-import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
+import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
-import org.apache.ignite.internal.configuration.validation.ExceptKeysValidator;
-import org.apache.ignite.internal.configuration.validation.ImmutableValidator;
-import org.apache.ignite.internal.configuration.validation.OneOfValidator;
-import org.apache.ignite.internal.configuration.validation.PowerOfTwoValidator;
-import org.apache.ignite.internal.configuration.validation.RangeValidator;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Configuration registry.
  */
-public class ConfigurationRegistry implements IgniteComponent, ConfigurationStorageRevisionListenerHolder {
+public class ConfigurationRegistry implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ConfigurationRegistry.class);
 
     /** Generated configuration implementations. Mapping: {@link RootKey#key} -> configuration implementation. */
     private final Map<String, DynamicConfiguration<?, ?>> configs = new HashMap<>();
 
-    /** Root keys. */
-    private final Collection<RootKey<?, ?>> rootKeys;
-
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
-
-    /** Configuration generator. */
-    private final ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
-
-    /** Configuration storage revision change listeners. */
-    private final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> storageRevisionListeners =
-            new ConfigurationListenerHolder<>();
 
     /**
      * Constructor.
      *
      * @param rootKeys                    Configuration root keys.
-     * @param validators                  Validators.
      * @param storage                     Configuration storage.
-     * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
-     *                                    ConfigurationRoot} and {@link Config}).
-     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
+     * @param generator                   Configuration tree generator.
+     * @param configurationValidator      Configuration validator.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
      *                                  extensions are not valid.
      */
     public ConfigurationRegistry(
             Collection<RootKey<?, ?>> rootKeys,
-            Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
             ConfigurationStorage storage,
-            Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator
     ) {
         checkConfigurationType(rootKeys, storage);
 
-        Set<Class<?>> allSchemas = collectAllSchemas(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions);
-
-        final Map<Class<?>, Set<Class<?>>> internalExtensions = internalExtensionsWithCheck(allSchemas, internalSchemaExtensions);
-
-        final Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicExtensionsWithCheck(allSchemas, polymorphicSchemaExtensions);
-
-        this.rootKeys = rootKeys;
-
-        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators0 = new HashMap<>(validators);
-
-        addDefaultValidator(validators0, Immutable.class, new ImmutableValidator());
-        addDefaultValidator(validators0, OneOf.class, new OneOfValidator());
-        addDefaultValidator(validators0, ExceptKeys.class, new ExceptKeysValidator());
-        addDefaultValidator(validators0, PowerOfTwo.class, new PowerOfTwoValidator());
-        addDefaultValidator(validators0, Range.class, new RangeValidator());
-
-        changer = new ConfigurationChanger(this::notificator, rootKeys, validators0, storage) {
-            /** {@inheritDoc} */
+        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
-                return cgen.instantiateNode(rootKey.schemaClass());
+                return generator.instantiateNode(rootKey.schemaClass());
             }
         };
 
         rootKeys.forEach(rootKey -> {
-            cgen.compileRootSchema(rootKey.schemaClass(), internalExtensions, polymorphicExtensions);
-
-            DynamicConfiguration<?, ?> cfg = cgen.instantiateCfg(rootKey, changer);
+            DynamicConfiguration<?, ?> cfg = generator.instantiateCfg(rootKey, changer);
 
             configs.put(rootKey.key(), cfg);
         });
     }
 
-    /**
-     * Collects all schemas and subschemas (recursively) from root keys, internal and polymorphic schema extensions.
-     *
-     * @param rootKeys                    root keys
-     * @param internalSchemaExtensions    internal schema extensions
-     * @param polymorphicSchemaExtensions polymorphic schema extensions
-     * @return set of all schema classes
-     */
-    private Set<Class<?>> collectAllSchemas(Collection<RootKey<?, ?>> rootKeys,
-                                            Collection<Class<?>> internalSchemaExtensions,
-                                            Collection<Class<?>> polymorphicSchemaExtensions) {
-        Set<Class<?>> allSchemas = new HashSet<>();
-
-        allSchemas.addAll(collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass)));
-        allSchemas.addAll(collectSchemas(internalSchemaExtensions));
-        allSchemas.addAll(collectSchemas(polymorphicSchemaExtensions));
-
-        return allSchemas;
-    }
-
-    /**
-     * Registers default validator implementation to the validators map.
-     *
-     * @param validators     Validators map.
-     * @param annotatopnType Annotation type instance for the validator.
-     * @param validator      Validator instance.
-     * @param <A>            Annotation type.
-     */
-    private static <A extends Annotation> void addDefaultValidator(
-            Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
-            Class<A> annotatopnType,
-            Validator<A, ?> validator
-    ) {
-        validators.computeIfAbsent(annotatopnType, a -> new HashSet<>(1)).add(validator);
-    }
-
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         changer.start();
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         changer.stop();
 
-        storageRevisionListeners.clear();
+        return nullCompletedFuture();
     }
 
     /**
-     * Initializes the configuration storage - reads data and sets default values for missing configuration properties.
+     * Returns a future that resolves after the defaults are persisted to the storage.
      */
-    public void initializeDefaults() {
-        changer.initializeDefaults();
+    public CompletableFuture<Void> onDefaultsPersisted() {
+        return changer.onDefaultsPersisted();
+    }
 
-        for (RootKey<?, ?> rootKey : rootKeys) {
-            DynamicConfiguration<?, ?> dynCfg = configs.get(rootKey.key());
-
-            touch(dynCfg);
-        }
+    /**
+     * Initializes the configuration with the given source. This method should be used only for the initial setup of the configuration. The
+     * configuration is initialized with the provided source only if the storage is empty, and it is saved along with the defaults. This
+     * method must be called before {@link #startAsync()}.
+     *
+     * @param configurationSource the configuration source to initialize with.
+     */
+    public void initializeConfigurationWith(ConfigurationSource configurationSource) {
+        changer.initializeConfigurationWith(configurationSource);
     }
 
     /**
      * Gets the public configuration tree.
      *
      * @param rootKey Root key.
-     * @param <V>     View type.
-     * @param <C>     Change type.
-     * @param <T>     Configuration tree type.
+     * @param <V> View type.
+     * @param <C> Change type.
+     * @param <T> Configuration tree type.
      * @return Public configuration tree.
      */
     public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
@@ -235,31 +141,12 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     }
 
     /**
-     * Convert configuration subtree into a user-defined representation.
+     * Returns a copy of the configuration root.
      *
-     * @param path    Path to configuration subtree. Can be empty, can't be {@code null}.
-     * @param visitor Visitor that will be applied to the subtree and build the representation.
-     * @param <T>     Type of the representation.
-     * @return User-defined representation constructed by {@code visitor}.
-     * @throws IllegalArgumentException If {@code path} is not found in current configuration.
+     * @return Copy of the configuration root.
      */
-    public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
-        SuperRoot superRoot = changer.superRoot();
-
-        Object node;
-        try {
-            node = ConfigurationUtil.find(path, superRoot, false);
-        } catch (KeyNotFoundException e) {
-            throw new IllegalArgumentException(e.getMessage());
-        }
-
-        if (node instanceof TraversableTreeNode) {
-            return ((TraversableTreeNode) node).accept(null, visitor);
-        }
-
-        assert node == null || node instanceof Serializable;
-
-        return visitor.visitLeafNode(null, (Serializable) node);
+    public SuperRoot superRoot() {
+        return changer.superRoot().copy();
     }
 
     /**
@@ -273,74 +160,75 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     }
 
     /**
-     * Configuration change notifier.
+     * Change configuration. Gives the possibility to atomically update several root trees.
      *
-     * @param oldSuperRoot Old roots values. All these roots always belong to a single storage.
-     * @param newSuperRoot New values for the same roots as in {@code oldRoot}.
-     * @param storageRevision Revision of the storage.
-     * @param notificationNumber Current configuration listener notification number.
-     * @return Future that must signify when processing is completed.
+     * @param change Closure that would consume a mutable super root instance.
+     * @return Future that is completed on change completion.
      */
-    private CompletableFuture<Void> notificator(
-            @Nullable SuperRoot oldSuperRoot,
-            SuperRoot newSuperRoot,
-            long storageRevision,
-            long notificationNumber
-    ) {
-        Collection<CompletableFuture<?>> futures = new ArrayList<>();
-
-        newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
-            /** {@inheritDoc} */
+    public CompletableFuture<Void> change(Consumer<SuperRootChange> change) {
+        return change(new ConfigurationSource() {
             @Override
-            public Void visitInnerNode(String key, InnerNode newRoot) {
-                DynamicConfiguration<InnerNode, ?> config = (DynamicConfiguration<InnerNode, ?>) configs.get(key);
+            public void descend(ConstructableTreeNode node) {
+                assert node instanceof SuperRoot : "Descending always starts with super root: " + node;
 
-                assert config != null : key;
+                SuperRoot superRoot = (SuperRoot) node;
 
-                InnerNode oldRoot;
-
-                if (oldSuperRoot != null) {
-                    oldRoot = oldSuperRoot.traverseChild(key, innerNodeVisitor(), true);
-
-                    assert oldRoot != null : key;
-                } else {
-                    oldRoot = null;
-                }
-
-                futures.addAll(notifyListeners(oldRoot, newRoot, config, storageRevision, notificationNumber));
-
-                return null;
-            }
-        }, true);
-
-        futures.addAll(notifyStorageRevisionListeners(storageRevision, notificationNumber));
-
-        if (futures.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        // Map futures is only for logging errors.
-        Function<CompletableFuture<?>, CompletableFuture<?>> mapping = fut -> fut.whenComplete((res, throwable) -> {
-            if (throwable != null) {
-                LOG.info("Failed to notify configuration listener", throwable);
+                change.accept(new SuperRootChangeImpl(superRoot));
             }
         });
-
-        CompletableFuture<?>[] resultFutures = futures.stream().map(mapping).toArray(CompletableFuture[]::new);
-
-        return CompletableFuture.allOf(resultFutures);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-        storageRevisionListeners.addListener(listener, changer.notificationCount());
-    }
+    private ConfigurationUpdateListener notificationUpdateListener() {
+        return new ConfigurationUpdateListener() {
+            @Override
+            public CompletableFuture<Void> onConfigurationUpdated(
+                    @Nullable SuperRoot oldSuperRoot, SuperRoot newSuperRoot, long storageRevision, long notificationNumber
+            ) {
+                var futures = new ArrayList<CompletableFuture<?>>();
 
-    /** {@inheritDoc} */
-    @Override
-    public void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-        storageRevisionListeners.removeListener(listener);
+                newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
+                    @Override
+                    public Void visitInnerNode(Field field, String key, InnerNode newRoot) {
+                        DynamicConfiguration<InnerNode, ?> config = (DynamicConfiguration<InnerNode, ?>) configs.get(key);
+
+                        assert config != null : key;
+
+                        InnerNode oldRoot;
+
+                        if (oldSuperRoot != null) {
+                            oldRoot = oldSuperRoot.traverseChild(key, innerNodeVisitor(), true);
+
+                            assert oldRoot != null : key;
+                        } else {
+                            oldRoot = null;
+                        }
+
+                        futures.addAll(notifyListeners(oldRoot, newRoot, config, storageRevision, notificationNumber));
+
+                        return null;
+                    }
+                }, true);
+
+                return combineFutures(futures);
+            }
+
+            private CompletableFuture<Void> combineFutures(Collection<CompletableFuture<?>> futures) {
+                if (futures.isEmpty()) {
+                    return nullCompletedFuture();
+                }
+
+                CompletableFuture<?>[] resultFutures = futures.stream()
+                        // Map futures is only for logging errors.
+                        .map(fut -> fut.whenComplete((res, throwable) -> {
+                            if (throwable != null) {
+                                LOG.info("Failed to notify configuration listener", throwable);
+                            }
+                        }))
+                        .toArray(CompletableFuture[]::new);
+
+                return CompletableFuture.allOf(resultFutures);
+            }
+        };
     }
 
     /**
@@ -353,141 +241,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      */
     public CompletableFuture<Void> notifyCurrentConfigurationListeners() {
         return changer.notifyCurrentConfigurationListeners();
-    }
-
-    /**
-     * Get configuration schemas and their validated internal extensions with checks.
-     *
-     * @param allSchemas               All configuration schemas.
-     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
-     *                                 ConfigurationRoot} and {@link Config}).
-     * @return Mapping: original of the schema -> internal schema extensions.
-     * @throws IllegalArgumentException If the schema extension is invalid.
-     */
-    private Map<Class<?>, Set<Class<?>>> internalExtensionsWithCheck(
-            Set<Class<?>> allSchemas,
-            Collection<Class<?>> internalSchemaExtensions
-    ) {
-        if (internalSchemaExtensions.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(internalSchemaExtensions);
-
-        Set<Class<?>> notInAllSchemas = difference(internalExtensions.keySet(), allSchemas);
-
-        if (!notInAllSchemas.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Internal extensions for which no parent configuration schemas were found: " + notInAllSchemas
-            );
-        }
-
-        return internalExtensions;
-    }
-
-    /**
-     * Get polymorphic extensions of configuration schemas with checks.
-     *
-     * @param allSchemas                  All configuration schemas.
-     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
-     * @return Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
-     * @throws IllegalArgumentException If the schema extension is invalid.
-     */
-    private Map<Class<?>, Set<Class<?>>> polymorphicExtensionsWithCheck(
-            Set<Class<?>> allSchemas,
-            Collection<Class<?>> polymorphicSchemaExtensions
-    ) {
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensionsByParent = polymorphicSchemaExtensions(polymorphicSchemaExtensions);
-
-        Set<Class<?>> notInAllSchemas = difference(polymorphicExtensionsByParent.keySet(), allSchemas);
-
-        if (!notInAllSchemas.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Polymorphic extensions for which no polymorphic configuration schemas were found: " + notInAllSchemas
-            );
-        }
-
-        Collection<Class<?>> noPolymorphicExtensionsSchemas = allSchemas.stream()
-                .filter(ConfigurationUtil::isPolymorphicConfig)
-                .filter(not(polymorphicExtensionsByParent::containsKey))
-                .collect(toList());
-
-        if (!noPolymorphicExtensionsSchemas.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Polymorphic configuration schemas for which no extensions were found: " + noPolymorphicExtensionsSchemas
-            );
-        }
-
-        checkPolymorphicConfigIds(polymorphicExtensionsByParent);
-
-        for (Map.Entry<Class<?>, Set<Class<?>>> e : polymorphicExtensionsByParent.entrySet()) {
-            Class<?> schemaClass = e.getKey();
-
-            Field typeIdField = schemaFields(schemaClass).get(0);
-
-            if (!isPolymorphicId(typeIdField)) {
-                throw new IllegalArgumentException(String.format(
-                        "First field in a polymorphic configuration schema must contain @%s: %s",
-                        PolymorphicId.class,
-                        schemaClass.getName()
-                ));
-            }
-        }
-
-        return polymorphicExtensionsByParent;
-    }
-
-    /**
-     * Checks that there are no conflicts between ids of a polymorphic configuration and its extensions (instances).
-     *
-     * @param polymorphicExtensions Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
-     * @throws IllegalArgumentException If a polymorphic configuration id conflict is found.
-     * @see PolymorphicConfigInstance#value
-     */
-    private void checkPolymorphicConfigIds(Map<Class<?>, Set<Class<?>>> polymorphicExtensions) {
-        // Mapping: id -> configuration schema.
-        Map<String, Class<?>> ids = new HashMap<>();
-
-        for (Map.Entry<Class<?>, Set<Class<?>>> e : polymorphicExtensions.entrySet()) {
-            for (Class<?> schemaClass : e.getValue()) {
-                String id = polymorphicInstanceId(schemaClass);
-                Class<?> prev = ids.put(id, schemaClass);
-
-                if (prev != null) {
-                    throw new IllegalArgumentException("Found an id conflict for a polymorphic configuration [id="
-                            + id + ", schemas=" + List.of(prev, schemaClass));
-                }
-            }
-
-            ids.clear();
-        }
-    }
-
-    private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long storageRevision, long notificationNumber) {
-        // Lazy init.
-        List<CompletableFuture<?>> futures = null;
-
-        for (Iterator<ConfigurationStorageRevisionListener> it = storageRevisionListeners.listeners(notificationNumber); it.hasNext(); ) {
-            if (futures == null) {
-                futures = new ArrayList<>();
-            }
-
-            ConfigurationStorageRevisionListener listener = it.next();
-
-            try {
-                CompletableFuture<?> future = listener.onUpdate(storageRevision);
-
-                assert future != null;
-
-                if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone()) {
-                    futures.add(future);
-                }
-            } catch (Throwable t) {
-                futures.add(CompletableFuture.failedFuture(t));
-            }
-        }
-
-        return futures == null ? List.of() : futures;
     }
 
     /**

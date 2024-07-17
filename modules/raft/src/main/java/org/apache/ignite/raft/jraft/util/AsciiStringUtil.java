@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,10 +16,20 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  *
  */
 public final class AsciiStringUtil {
+
+    public static byte[] unsafeEncode(final CharSequence in, byte[] out, int offset) {
+        final int len = in.length();
+        for (int i = 0; i < len; i++) {
+            out[i + offset] = (byte) in.charAt(i);
+        }
+        return out;
+    }
 
     public static byte[] unsafeEncode(final CharSequence in) {
         final int len = in.length();
@@ -31,24 +41,11 @@ public final class AsciiStringUtil {
     }
 
     public static String unsafeDecode(final byte[] in, final int offset, final int len) {
-        final char[] out = new char[len];
-        for (int i = 0; i < len; i++) {
-            out[i] = (char) (in[i + offset] & 0xFF);
-        }
-        return moveToString(out);
+        return new String(in, offset, len, StandardCharsets.ISO_8859_1);
     }
 
     public static String unsafeDecode(final byte[] in) {
         return unsafeDecode(in, 0, in.length);
-    }
-
-    public static String unsafeDecode(final ByteString in) {
-        final int len = in.size();
-        final char[] out = new char[len];
-        for (int i = 0; i < len; i++) {
-            out[i] = (char) (in.byteAt(i) & 0xFF);
-        }
-        return moveToString(out);
     }
 
     private AsciiStringUtil() {

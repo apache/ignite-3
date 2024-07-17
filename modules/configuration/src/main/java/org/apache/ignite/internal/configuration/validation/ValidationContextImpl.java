@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,16 +17,12 @@
 
 package org.apache.ignite.internal.configuration.validation;
 
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
-
 import java.util.List;
-import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.SuperRoot;
-import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,9 +35,6 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
 
     /** Updated values that need to be validated. */
     private final SuperRoot newRoots;
-
-    /** Provider for arbitrary roots that might not be accociated with the same storage. */
-    private final Function<RootKey<?, ?>, InnerNode> otherRoots;
 
     /**
      * Current node/configuration value.
@@ -64,7 +57,6 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
      *
      * @param oldRoots Old roots.
      * @param newRoots New roots.
-     * @param otherRoots Provider for arbitrary roots that might not be accociated with the same storage.
      * @param val New value of currently validated configuration.
      * @param currentKey Key corresponding to the value.
      * @param currentPath List representation of {@code currentKey}.
@@ -73,7 +65,6 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     ValidationContextImpl(
             SuperRoot oldRoots,
             SuperRoot newRoots,
-            Function<RootKey<?, ?>, InnerNode> otherRoots,
             VIEWT val,
             String currentKey,
             List<String> currentPath,
@@ -81,7 +72,6 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     ) {
         this.oldRoots = oldRoots;
         this.newRoots = newRoots;
-        this.otherRoots = otherRoots;
         this.val = val;
         this.currentKey = currentKey;
         this.currentPath = currentPath;
@@ -100,7 +90,7 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     @Override
     public VIEWT getOldValue() {
         try {
-            return find(currentPath, oldRoots, true);
+            return ConfigurationUtil.<VIEWT>find(currentPath, oldRoots, true).value();
         } catch (KeyNotFoundException ignore) {
             return null;
         }
@@ -115,17 +105,13 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     /** {@inheritDoc} */
     @Override
     public <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey) {
-        InnerNode root = oldRoots.getRoot(rootKey);
-
-        return (ROOT) (root == null ? otherRoots.apply(rootKey) : root);
+        return (ROOT) oldRoots.getRoot(rootKey);
     }
 
     /** {@inheritDoc} */
     @Override
     public <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey) {
-        TraversableTreeNode root = newRoots.getRoot(rootKey);
-
-        return (ROOT) (root == null ? otherRoots.apply(rootKey) : root);
+        return (ROOT) newRoots.getRoot(rootKey);
     }
 
     /** {@inheritDoc} */
@@ -148,7 +134,9 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
 
     private <T> @Nullable T findOwner(SuperRoot superRoot) {
         try {
-            return currentPath.size() <= 1 ? null : find(currentPath.subList(0, currentPath.size() - 1), superRoot, true);
+            return currentPath.size() <= 1
+                    ? null
+                    : ConfigurationUtil.<T>find(currentPath.subList(0, currentPath.size() - 1), superRoot, true).value();
         } catch (KeyNotFoundException ignore) {
             return null;
         }

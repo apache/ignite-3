@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,88 +17,106 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Storage test implementation for {@link RocksDbMvPartitionStorage}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
 public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     private RocksDbStorageEngine engine;
 
     private RocksDbTableStorage table;
 
     @BeforeEach
-    public void setUp(
+    void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
-            @InjectConfiguration(
-                    name = "table",
-                    polymorphicExtensions = {
-                            HashIndexConfigurationSchema.class,
-                            UnknownDataStorageConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class,
-                            ConstantValueDefaultConfigurationSchema.class,
-                            FunctionCallDefaultConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
-                            UnlimitedBudgetConfigurationSchema.class,
-                            EntryCountBudgetConfigurationSchema.class
-                    }
-            ) TableConfiguration tableCfg
-    ) throws Exception {
-        tableCfg.dataStorage().change(c -> c.convert(RocksDbDataStorageChange.class)).get(1, SECONDS);
-
-        assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
-
-        engineConfig.change(cfg -> cfg
-                .changeFlushDelayMillis(0)
-                .changeDefaultRegion(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024))
-        ).get(1, SECONDS);
-
-        engine = new RocksDbStorageEngine(engineConfig, workDir);
+            @InjectConfiguration("mock.flushDelayMillis = 0")
+            RocksDbStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = rocksdb, size = 16777216, writeBufferSize = 16777216}")
+            StorageConfiguration storageConfiguration
+    ) {
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
 
         engine.start();
 
-        table = (RocksDbTableStorage) engine.createMvTable(tableCfg);
+        table = engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, "default"),
+                mock(StorageIndexDescriptorSupplier.class)
+        );
 
-        table.start();
-
-        storage = table.getOrCreateMvPartition(0);
+        initialize(table);
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                storage,
-                table == null ? null : table::stop,
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+
+        IgniteUtils.closeAllManually(
+                table,
                 engine == null ? null : engine::stop
         );
+    }
+
+    @Override
+    public void addWriteCommittedThrowsIfUncommittedVersionExists() {
+        // Disable this test because RocksDbMvPartitionStorage does not throw. It does not throw because this
+        // exception is thrown only to ease debugging as the caller must make sure that no write intent exists
+        // before calling addWriteCommitted(). For RocksDbMvPartitionStorage, it is not that cheap to check whether
+        // there is a write intent in the storage, so we do not require it to throw this optional exception.
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeUsingWriteIntents() {
+        super.estimatedSizeUsingWriteIntents();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeUsingCommittedWrites() {
+        super.estimatedSizeUsingCommittedWrites();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeNeverFallsBelowZero() {
+        super.estimatedSizeNeverFallsBelowZero();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeShowsLatestRowsNumber() {
+        super.estimatedSizeShowsLatestRowsNumber();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeIsNotAffectedByGarbageTombstones() {
+        super.estimatedSizeIsNotAffectedByGarbageTombstones();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeHandlesTransactionAborts() {
+        super.estimatedSizeHandlesTransactionAborts();
     }
 }

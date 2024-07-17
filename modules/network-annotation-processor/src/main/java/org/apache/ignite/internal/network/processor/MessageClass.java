@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,13 +22,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * A wrapper around a {@link TypeElement} and the corresponding {@link ClassName} of an annotated Network Message.
@@ -81,16 +83,14 @@ public class MessageClass {
                 .filter(e -> !typeUtils.isSameType(e.asType(), NetworkMessage.class))
                 .flatMap(e -> e.getEnclosedElements().stream())
                 .filter(e -> e.getKind() == ElementKind.METHOD)
-                .filter(e -> !((ExecutableElement) e).isDefault())
+                .map(ExecutableElement.class::cast)
+                .filter(e -> !e.isDefault())
+                .filter(e -> !e.getModifiers().contains(Modifier.STATIC))
                 // use a tree map to sort getters by name and remove duplicates
                 .collect(Collectors.toMap(
                         e -> e.getSimpleName().toString(),
-                        ExecutableElement.class::cast,
-                        (e1, e2) -> {
-                            throw new ProcessingException(
-                                    String.format("Getter with name '%s' is already defined", e2.getSimpleName()), null, e2
-                            );
-                        },
+                        Function.identity(),
+                        (e1, e2) -> e1,
                         TreeMap::new
                 ));
 
@@ -167,6 +167,13 @@ public class MessageClass {
      */
     public ClassName builderClassName() {
         return ClassName.get(packageName(), simpleName() + "Builder");
+    }
+
+    /**
+     * Returns class name that the generated Serializer should have.
+     */
+    public ClassName serializerClassName() {
+        return ClassName.get(packageName(), simpleName() + "Serializer");
     }
 
     /**

@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.closure.JoinableClosure;
+import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
  * Basic message structure of jraft, contains:
@@ -39,7 +40,7 @@ public class Task implements Serializable {
     private static final long serialVersionUID = 2971309899898274575L;
 
     /** Associated  task data */
-    private ByteBuffer data;
+    private ByteBuffer data = LogEntry.EMPTY_DATA;
     /** task closure, called when the data is successfully committed to the raft group or failures happen. */
     private Closure done;
     /**
@@ -55,7 +56,7 @@ public class Task implements Serializable {
     /**
      * Creates a task with data/done.
      */
-    public Task(ByteBuffer data, Closure done) {
+    public Task(final ByteBuffer data, final Closure done) {
         super();
         this.data = data;
         this.done = done;
@@ -64,7 +65,7 @@ public class Task implements Serializable {
     /**
      * Creates a task with data/done/expectedTerm.
      */
-    public Task(ByteBuffer data, Closure done, long expectedTerm) {
+    public Task(final ByteBuffer data, final Closure done, final long expectedTerm) {
         super();
         this.data = data;
         this.done = done;
@@ -75,7 +76,8 @@ public class Task implements Serializable {
         return this.data;
     }
 
-    public void setData(ByteBuffer data) {
+    public void setData(final ByteBuffer data) {
+        Requires.requireNonNull(data, "data should not be null, you can use LogEntry.EMPTY_DATA instead.");
         this.data = data;
     }
 
@@ -83,7 +85,7 @@ public class Task implements Serializable {
         return this.done;
     }
 
-    public void setDone(Closure done) {
+    public void setDone(final Closure done) {
         this.done = done;
     }
 
@@ -91,7 +93,7 @@ public class Task implements Serializable {
         return this.expectedTerm;
     }
 
-    public void setExpectedTerm(long expectedTerm) {
+    public void setExpectedTerm(final long expectedTerm) {
         this.expectedTerm = expectedTerm;
     }
 

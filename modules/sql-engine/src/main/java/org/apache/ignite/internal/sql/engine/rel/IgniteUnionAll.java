@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,15 +28,12 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.SetOp;
 import org.apache.calcite.rel.core.Union;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -46,6 +43,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "UnionAll";
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -55,8 +54,9 @@ public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteUnionAll(RelInput input) {
         this(
@@ -90,23 +90,6 @@ public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
 
     /** {@inheritDoc} */
     @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
-        // Union node requires the same traits from all its inputs.
-
-        boolean rewindable = inputTraits.stream()
-                .map(TraitUtils::rewindability)
-                .allMatch(RewindabilityTrait::rewindable);
-
-        if (rewindable) {
-            return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE), inputTraits));
-        }
-
-        return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
-                Commons.transform(inputTraits, t -> t.replace(RewindabilityTrait.ONE_WAY))));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
         // Union node requires the same traits from all its inputs.
 
@@ -135,20 +118,6 @@ public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
 
     /** {@inheritDoc} */
     @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits) {
-
-        Set<CorrelationId> correlationIds = inTraits.stream()
-                .map(TraitUtils::correlation)
-                .flatMap(corrTr -> corrTr.correlationIds().stream())
-                .collect(Collectors.toSet());
-
-        return List.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(correlationIds)),
-                inTraits));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         double rows = mq.getRowCount(this);
 
@@ -159,5 +128,11 @@ public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteUnionAll(cluster, getTraitSet(), Commons.cast(inputs));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

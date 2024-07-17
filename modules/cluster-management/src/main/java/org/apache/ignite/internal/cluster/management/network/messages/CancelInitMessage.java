@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management.network.messages;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Message signaling that the init process has failed and needs to be aborted.
@@ -28,5 +29,6 @@ public interface CancelInitMessage extends NetworkMessage {
     /**
      * Textual representation of the cause of init failure.
      */
+    @Nullable
     String reason();
 }

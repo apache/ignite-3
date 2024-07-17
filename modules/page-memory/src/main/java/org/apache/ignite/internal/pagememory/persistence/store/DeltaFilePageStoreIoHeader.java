@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.ByteOrder.nativeOrder;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -49,7 +49,7 @@ public class DeltaFilePageStoreIoHeader {
 
     /** Size of the common delta file page store header for all versions, in bytes. */
     private static final int COMMON_HEADER_SIZE =
-            8/*SIGNATURE*/ + 4/*version*/ + 4/*index*/ + 4/*page size*/ + 4/*page index array length*/;
+            8/* SIGNATURE */ + 4/* version */ + 4/* index */ + 4/* page size */ + 4/* page index array length */;
 
     private final int version;
 

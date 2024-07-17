@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.notifications;
 
-import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -67,10 +66,20 @@ class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotifica
         return oldValue;
     }
 
+    @Override
+    public <T> @Nullable T oldValue(Class<T> viewClass) {
+        return tail.find(viewClass, true);
+    }
+
     /** {@inheritDoc} */
     @Override
     public @Nullable VIEWT newValue() {
         return newValue;
+    }
+
+    @Override
+    public <T> @Nullable T newValue(Class<T> viewClass) {
+        return tail.find(viewClass, false);
     }
 
     /** {@inheritDoc} */
@@ -79,33 +88,13 @@ class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotifica
         return storageRevision;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <T extends ConfigurationProperty> @Nullable T config(Class<T> configClass) {
-        ConfigurationContainer container = findContainer(configClass);
-
-        return container == null ? null : (T) container.specificConfig();
+    public @Nullable String oldName(Class<?> viewClass) {
+        return tail.name(viewClass, true);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @Nullable String name(Class<? extends ConfigurationProperty> configClass) {
-        ConfigurationContainer container = findContainer(configClass);
-
-        return container == null ? null : container.name;
-    }
-
-    private @Nullable ConfigurationContainer findContainer(Class<?> configClass) {
-        ConfigurationContainer curr = tail;
-
-        while (curr != null) {
-            if (configClass.isAssignableFrom(curr.configClass())) {
-                return curr;
-            } else {
-                curr = curr.prev;
-            }
-        }
-
-        return null;
+    public @Nullable String newName(Class<?> viewClass) {
+        return tail.name(viewClass, false);
     }
 }

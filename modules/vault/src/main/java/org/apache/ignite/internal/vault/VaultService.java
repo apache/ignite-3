@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.vault;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines interface for accessing to the Vault service.
  */
-public interface VaultService extends AutoCloseable {
+public interface VaultService extends ManuallyCloseable {
     /**
      * Starts the service.
      */
@@ -36,9 +36,9 @@ public interface VaultService extends AutoCloseable {
      * Retrieves an entry for the given key.
      *
      * @param key Key. Cannot be {@code null}.
-     * @return Future that resolves into an entry for the given key, or {@code null} no such mapping exists.
+     * @return Entry for the given key, or {@code null} no such mapping exists.
      */
-    CompletableFuture<VaultEntry> get(ByteArray key);
+    @Nullable VaultEntry get(ByteArray key);
 
     /**
      * Writes a given value to the Vault. If the value is {@code null}, then the previous value under the same key (if any) will
@@ -47,17 +47,15 @@ public interface VaultService extends AutoCloseable {
      * @param key Vault key. Cannot be {@code null}.
      * @param val Value. If value is equal to {@code null}, then the previous value under the same key (if any) will
      *      be deleted.
-     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    CompletableFuture<Void> put(ByteArray key, byte @Nullable [] val);
+    void put(ByteArray key, byte @Nullable [] val);
 
     /**
      * Removes a value from the vault.
      *
      * @param key Vault key. Cannot be {@code null}.
-     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    CompletableFuture<Void> remove(ByteArray key);
+    void remove(ByteArray key);
 
     /**
      * Returns a view of the portion of the vault whose keys range from {@code fromKey}, inclusive, to {@code toKey}, exclusive.
@@ -73,7 +71,12 @@ public interface VaultService extends AutoCloseable {
      * then the corresponding key will be deleted.
      *
      * @param vals The map of keys and corresponding values. Cannot be {@code null}.
-     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals);
+    void putAll(Map<ByteArray, byte[]> vals);
+
+    /**
+     * Closes the service.
+     */
+    @Override
+    void close();
 }

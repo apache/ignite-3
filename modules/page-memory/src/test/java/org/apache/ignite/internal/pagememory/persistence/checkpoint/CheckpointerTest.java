@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,9 +20,12 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FACTORY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -44,9 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -61,15 +62,16 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
@@ -77,7 +79,7 @@ import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -87,12 +89,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link Checkpointer} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class CheckpointerTest {
+public class CheckpointerTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
 
     private static PageIoRegistry ioRegistry;
-
-    private final IgniteLogger log = Loggers.forClass(CheckpointerTest.class);
 
     @InjectConfiguration("mock : {checkpointThreads=1, frequency=1000, frequencyDeviation=0}")
     private PageMemoryCheckpointConfiguration checkpointConfig;
@@ -112,15 +112,16 @@ public class CheckpointerTest {
     @Test
     void testStartAndStop() throws Exception {
         Checkpointer checkpointer = new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         assertNull(checkpointer.runner());
@@ -145,15 +146,16 @@ public class CheckpointerTest {
     @Test
     void testScheduleCheckpoint() {
         Checkpointer checkpointer = spy(new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         ));
 
         assertNull(checkpointer.lastCheckpointProgress());
@@ -249,15 +251,16 @@ public class CheckpointerTest {
         checkpointConfig.frequency().update(200L).get(100, MILLISECONDS);
 
         Checkpointer checkpointer = new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         CompletableFuture<?> waitCheckpointEventFuture = runAsync(checkpointer::waitCheckpointEvent);
@@ -278,15 +281,16 @@ public class CheckpointerTest {
         checkpointConfig.frequency().update(100L).get(100, MILLISECONDS);
 
         Checkpointer checkpointer = spy(new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         ));
 
         ((CheckpointProgressImpl) checkpointer.scheduledProgress())
@@ -352,11 +356,11 @@ public class CheckpointerTest {
                 fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
         ));
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY);
 
         partitionMetaManager.addMeta(
                 new GroupPartitionId(0, 0),
-                new PartitionMeta(null, 0, 0, 0, 3)
+                new FakePartitionMeta().init(null)
         );
 
         FilePageStore filePageStore = mock(FilePageStore.class);
@@ -365,23 +369,27 @@ public class CheckpointerTest {
 
         Compactor compactor = mock(Compactor.class);
 
+        LogSyncer mockLogSyncer = mock(LogSyncer.class);
+
         Checkpointer checkpointer = spy(new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(partitionMetaManager),
                 createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
                 compactor,
-                checkpointConfig
+                checkpointConfig,
+                mockLogSyncer
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
 
         verify(dirtyPages, times(1)).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
-        verify(compactor, times(1)).addDeltaFiles(eq(1));
+        verify(compactor, times(1)).triggerCompaction();
+        verify(mockLogSyncer, times(1)).sync();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
 
@@ -395,22 +403,23 @@ public class CheckpointerTest {
         Compactor compactor = mock(Compactor.class);
 
         Checkpointer checkpointer = spy(new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE)),
+                createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE, FACTORY)),
                 createFilePageStoreManager(Map.of()),
                 compactor,
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
 
         verify(dirtyPages, never()).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
-        verify(compactor, never()).addDeltaFiles(anyInt());
+        verify(compactor, never()).triggerCompaction();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 0);
 
@@ -420,15 +429,16 @@ public class CheckpointerTest {
     @Test
     void testNextCheckpointInterval() throws Exception {
         Checkpointer checkpointer = new Checkpointer(
-                log,
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         // Checks case 0 deviation.
@@ -456,6 +466,48 @@ public class CheckpointerTest {
                 checkpointer.nextCheckpointInterval(),
                 allOf(greaterThanOrEqualTo(1_800L), lessThanOrEqualTo(2_200L))
         );
+    }
+
+    @Test
+    void testPrepareToDestroyPartition() throws Exception {
+        Checkpointer checkpointer = new Checkpointer(
+                "test",
+                null,
+                null,
+                mock(FailureProcessor.class),
+                mock(CheckpointWorkflow.class),
+                mock(CheckpointPagesWriterFactory.class),
+                mock(FilePageStoreManager.class),
+                mock(Compactor.class),
+                checkpointConfig,
+                mock(LogSyncer.class)
+        );
+
+        GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
+
+        // Everything should be fine as there is no current running checkpoint.
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
+
+        CheckpointProgressImpl checkpointProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
+
+        checkpointer.startCheckpointProgress();
+
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
+
+        checkpointProgress.transitTo(LOCK_RELEASED);
+        assertTrue(checkpointProgress.inProgress());
+
+        // Everything should be fine so on a "working" checkpoint we don't process the partition anyhow.
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
+
+        // Let's emulate that we are processing a partition and check that everything will be fine after processing is completed.
+        checkpointProgress.onStartPartitionProcessing(groupPartitionId);
+
+        CompletableFuture<?> onPartitionDestructionFuture = checkpointer.prepareToDestroyPartition(groupPartitionId);
+
+        checkpointProgress.onFinishPartitionProcessing(groupPartitionId);
+
+        onPartitionDestructionFuture.get(1, SECONDS);
     }
 
     private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {
@@ -501,7 +553,6 @@ public class CheckpointerTest {
 
     private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(PartitionMetaManager partitionMetaManager) {
         return new CheckpointPagesWriterFactory(
-                log,
                 mock(WriteDirtyPage.class),
                 ioRegistry,
                 partitionMetaManager,
@@ -509,11 +560,10 @@ public class CheckpointerTest {
         );
     }
 
-    private static FilePageStoreManager createFilePageStoreManager(Map<GroupPartitionId, FilePageStore> pageStores) throws Exception {
+    private static FilePageStoreManager createFilePageStoreManager(Map<GroupPartitionId, FilePageStore> pageStores) {
         FilePageStoreManager manager = mock(FilePageStoreManager.class);
 
-        when(manager.getStore(anyInt(), anyInt()))
-                .then(answer -> pageStores.get(new GroupPartitionId(answer.getArgument(0), answer.getArgument(1))));
+        when(manager.getStore(any(GroupPartitionId.class))).then(answer -> pageStores.get(answer.getArgument(0)));
 
         return manager;
     }

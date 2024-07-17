@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -30,7 +30,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier;
@@ -46,9 +46,6 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
         implements ConfigurationTree<VIEWT, CHANGET> {
     /** Configuration members (leaves and nodes). */
     protected volatile Map<String, ConfigurationProperty<?>> members = new LinkedHashMap<>();
-
-    /** Removed from the named list. */
-    protected boolean removedFromNamedList;
 
     /**
      * Constructor.
@@ -187,13 +184,12 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
     public abstract Class<?> configType();
 
     /**
-     * Returns the interfaces of the {@link InternalConfiguration internal configuration extensions} for example
+     * Returns the interfaces of the {@link ConfigurationExtension configuration extensions} for example
      * {@code InternalTableConfiguration}, {@code null} if absent.
      *
      * @throws UnsupportedOperationException In the case of a named list.
      */
-    @Nullable
-    public Class<?>[] internalConfigTypes() {
+    public Class<?> @Nullable [] extensionConfigTypes() {
         return null;
     }
 
@@ -264,19 +260,5 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
             P member
     ) {
         members.remove(member.key());
-    }
-
-    /**
-     * Mark that the configuration has been removed from the named list.
-     */
-    public void removedFromNamedList() {
-        removedFromNamedList = true;
-    }
-
-    /**
-     * Return {@code true} if the configuration has been removed from the named list.
-     */
-    public boolean isRemovedFromNamedList() {
-        return removedFromNamedList;
     }
 }

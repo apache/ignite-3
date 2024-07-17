@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 
 /**
@@ -57,6 +57,11 @@ public interface IgniteRelVisitor<T> {
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
+    T visit(IgniteHashJoin rel);
+
+    /**
+     * See {@link IgniteRelVisitor#visit(IgniteRel)}.
+     */
     T visit(IgniteCorrelatedNestedLoopJoin rel);
 
     /**
@@ -77,6 +82,11 @@ public interface IgniteRelVisitor<T> {
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
+    T visit(IgniteSystemViewScan rel);
+
+    /**
+     * See {@link IgniteRelVisitor#visit(IgniteRel)}.
+     */
     T visit(IgniteReceiver rel);
 
     /**
@@ -87,7 +97,7 @@ public interface IgniteRelVisitor<T> {
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
-    T visit(IgniteSingleHashAggregate rel);
+    T visit(IgniteColocatedHashAggregate rel);
 
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
@@ -102,7 +112,7 @@ public interface IgniteRelVisitor<T> {
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
-    T visit(IgniteSingleSortAggregate rel);
+    T visit(IgniteColocatedSortAggregate rel);
 
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
@@ -163,6 +173,16 @@ public interface IgniteRelVisitor<T> {
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
     T visit(IgniteTableFunctionScan rel);
+
+    /**
+     * See {@link IgniteRelVisitor#visit(IgniteRel)}.
+     */
+    T visit(IgniteKeyValueGet rel);
+
+    /**
+     * See {@link IgniteRelVisitor#visit(IgniteRel)}.
+     */
+    T visit(IgniteKeyValueModify rel);
 
     /**
      * Visits a relational node and calculates a result on the basis of node meta information.

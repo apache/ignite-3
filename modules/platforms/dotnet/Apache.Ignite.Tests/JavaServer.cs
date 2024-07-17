@@ -31,20 +31,18 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public sealed class JavaServer : IDisposable
     {
+        private const string GradleOptsEnvVar = "IGNITE_DOTNET_GRADLE_OPTS";
+        private const string RequireExternalJavaServerEnvVar = "IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER";
+
         private const int DefaultClientPort = 10942;
 
-        private const int ConnectTimeoutSeconds = 20;
+        private const int ConnectTimeoutSeconds = 120;
 
-        /** Maven command to execute the main class. */
-        private const string MavenCommandExec = "exec:java@platform-test-node-runner";
+        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest"
+          + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava --parallel";
 
-        /** Maven arg to perform a dry run to ensure that code is compiled and all artifacts are downloaded. */
-        private const string MavenCommandDryRunArg = " -Dexec.args=dry-run";
-
-        /** Full path to Maven binary. */
-        private static readonly string MavenPath = GetMaven();
-
-        private static volatile bool _dryRunComplete;
+         /** Full path to Gradle binary. */
+        private static readonly string GradlePath = GetGradle();
 
         private readonly Process? _process;
 
@@ -70,9 +68,14 @@ namespace Apache.Ignite.Tests
                 return new JavaServer(DefaultClientPort, null);
             }
 
+            if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
+                && requireExternalServer)
+            {
+                throw new InvalidOperationException($"Java server is not started, but {RequireExternalJavaServerEnvVar} is set to true.");
+            }
+
             Log(">>> Java server is not detected, starting...");
 
-            EnsureBuild();
             var process = CreateProcess();
 
             var evt = new ManualResetEventSlim(false);
@@ -90,7 +93,7 @@ namespace Apache.Ignite.Tests
 
                 if (line.StartsWith("THIN_CLIENT_PORTS", StringComparison.Ordinal))
                 {
-                    ports = line.Split('=').Last().Split(',').Select(int.Parse).ToArray();
+                    ports = line.Split('=').Last().Split(',').Select(int.Parse).OrderBy(x => x).ToArray();
                     evt.Set();
                 }
             };
@@ -107,7 +110,7 @@ namespace Apache.Ignite.Tests
 
             if (!evt.Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds)) || !WaitForServer(port))
             {
-                process.Kill(true);
+                process.Kill(entireProcessTree: true);
 
                 throw new InvalidOperationException("Failed to wait for the server to start. Check logs for details.");
             }
@@ -119,61 +122,18 @@ namespace Apache.Ignite.Tests
 
         public void Dispose()
         {
-            _process?.Kill();
+            _process?.Kill(entireProcessTree: true);
             _process?.Dispose();
             Log(">>> Java server stopped.");
         }
 
-        /// <summary>
-        /// Performs a dry run of the Maven executable to ensure that code is compiled and all artifacts are downloaded.
-        /// Does not start the actual node.
-        /// </summary>
-        private static void EnsureBuild()
-        {
-            if (_dryRunComplete)
-            {
-                return;
-            }
-
-            using var process = CreateProcess(dryRun: true);
-
-            DataReceivedEventHandler handler = (_, eventArgs) =>
-            {
-                var line = eventArgs.Data;
-                if (line == null)
-                {
-                    return;
-                }
-
-                Log(line);
-            };
-
-            process.OutputDataReceived += handler;
-            process.ErrorDataReceived += handler;
-
-            process.Start();
-
-            process.BeginErrorReadLine();
-            process.BeginOutputReadLine();
-
-            // 5 min timeout for the build process (may take time to download artifacts on slow networks).
-            if (!process.WaitForExit(5 * 60_000))
-            {
-                process.Kill();
-                throw new Exception("Failed to wait for Maven exec dry run.");
-            }
-
-            if (process.ExitCode != 0)
-            {
-                throw new Exception($"Maven exec failed with code {process.ExitCode}, check log for details.");
-            }
-
-            _dryRunComplete = true;
-        }
-
-        private static Process CreateProcess(bool dryRun = false)
+        private static Process CreateProcess()
         {
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
+            var opts = Environment.GetEnvironmentVariable(GradleOptsEnvVar);
+            var command = $"{GradlePath} {GradleCommandExec} {opts}";
+
+            Log("Executing command: " + command);
 
             var process = new Process
             {
@@ -183,15 +143,16 @@ namespace Apache.Ignite.Tests
                     ArgumentList =
                     {
                         TestUtils.IsWindows ? "/c" : "-c",
-                        $"{MavenPath} {MavenCommandExec}" + (dryRun ? MavenCommandDryRunArg : string.Empty)
+                        command
                     },
                     CreateNoWindow = true,
                     UseShellExecute = false,
-                    WorkingDirectory = Path.Combine(TestUtils.RepoRootDir, "modules", "runner"),
+                    WorkingDirectory = TestUtils.RepoRootDir,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 }
             };
+
             return process;
         }
 
@@ -230,11 +191,14 @@ namespace Apache.Ignite.Tests
         {
             try
             {
-                var cfg = new IgniteClientConfiguration("127.0.0.1:" + port);
+                var cfg = new IgniteClientConfiguration("127.0.0.1:" + port)
+                {
+                    SocketTimeout = TimeSpan.FromSeconds(0.5)
+                };
+
                 using var client = await IgniteClient.StartAsync(cfg);
 
-                var tables = await client.Tables.GetTablesAsync();
-                return tables.Count > 0 ? null : new InvalidOperationException("No tables found on server");
+                return null;
             }
             catch (Exception e)
             {
@@ -244,22 +208,13 @@ namespace Apache.Ignite.Tests
             }
         }
 
-        /// <summary>
-        /// Gets maven path.
-        /// </summary>
-        private static string GetMaven()
+        private static string GetGradle()
         {
-            var extensions = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? new[] {".cmd", ".bat"}
-                : new[] {string.Empty};
+            var gradleWrapper = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? "gradlew.bat"
+                : "gradlew";
 
-            return new[] {"MAVEN_HOME", "M2_HOME", "M3_HOME", "MVN_HOME"}
-                .Select(Environment.GetEnvironmentVariable)
-                .Where(x => !string.IsNullOrEmpty(x))
-                .Select(x => Path.Combine(x!, "bin", "mvn"))
-                .SelectMany(x => extensions.Select(ext => x + ext))
-                .Where(File.Exists)
-                .FirstOrDefault() ?? "mvn";
+            return Path.Combine(TestUtils.RepoRootDir, gradleWrapper);
         }
     }
 }

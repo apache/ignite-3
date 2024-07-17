@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.network.ClusterNode;
@@ -40,6 +41,12 @@ public class ProtocolContext {
     /** Cluster node. */
     private final ClusterNode clusterNode;
 
+    /** Cluster id. */
+    private final UUID clusterId;
+
+    /** Cluster name. */
+    private final String clusterName;
+
     /**
      * Constructor.
      *
@@ -47,16 +54,23 @@ public class ProtocolContext {
      * @param features Supported features.
      * @param serverIdleTimeout Server idle timeout.
      * @param clusterNode Cluster node.
+     * @param clusterId Cluster id.
+     * @param clusterName Cluster name.
      */
     public ProtocolContext(
             ProtocolVersion ver,
             EnumSet<ProtocolBitmaskFeature> features,
             long serverIdleTimeout,
-            ClusterNode clusterNode) {
+            ClusterNode clusterNode,
+            UUID clusterId,
+            String clusterName
+    ) {
         this.ver = ver;
         this.features = Collections.unmodifiableSet(features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class));
         this.serverIdleTimeout = serverIdleTimeout;
         this.clusterNode = clusterNode;
+        this.clusterId = clusterId;
+        this.clusterName = clusterName;
     }
 
     /**
@@ -77,7 +91,7 @@ public class ProtocolContext {
      */
     public void checkFeatureSupported(ProtocolBitmaskFeature feature) throws IgniteClientFeatureNotSupportedByServerException {
         if (!isFeatureSupported(feature)) {
-            throw new IgniteClientFeatureNotSupportedByServerException(feature);
+            throw new IgniteClientFeatureNotSupportedByServerException(feature.name());
         }
     }
 
@@ -115,5 +129,23 @@ public class ProtocolContext {
      */
     public ClusterNode clusterNode() {
         return clusterNode;
+    }
+
+    /**
+     * Returns cluster id.
+     *
+     * @return Cluster id.
+     */
+    public UUID clusterId() {
+        return clusterId;
+    }
+
+    /**
+     * Returns cluster name.
+     *
+     * @return Cluster name.
+     */
+    public String clusterName() {
+        return clusterName;
     }
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,24 +17,27 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
+
 import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Index;
 
 /**
- * Exception is thrown when appropriate index is not found.
+ * Exception is thrown when the specified index is not found.
  */
 public class IndexNotFoundException extends IgniteException {
     /**
-     * Create a new exception with given index name.
+     * Creates an exception with the given index name.
      *
-     * @param indexName Index canonical name.
+     * @param schemaName Schema name.
+     * @param indexName Index name.
      */
-    public IndexNotFoundException(String indexName) {
-        super(Index.INDEX_NOT_FOUND_ERR, IgniteStringFormatter.format("Index '{}' does not exist.", indexName));
+    public IndexNotFoundException(String schemaName, String indexName) {
+        super(Index.INDEX_NOT_FOUND_ERR, "Index does not exist [name=" + canonicalName(schemaName, indexName) + ']');
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
      * @param traceId Unique identifier of this exception.
      * @param message Detail message.
@@ -42,5 +45,17 @@ public class IndexNotFoundException extends IgniteException {
      */
     public IndexNotFoundException(UUID traceId, String message, Throwable cause) {
         super(traceId, Index.INDEX_NOT_FOUND_ERR, message, cause);
+    }
+
+    /**
+     * Creates a new exception with the given trace ID, error code, detailed message, and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IndexNotFoundException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

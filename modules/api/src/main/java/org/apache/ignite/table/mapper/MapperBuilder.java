@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,55 +19,55 @@ package org.apache.ignite.table.mapper;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import org.apache.ignite.internal.util.IgniteObjectName;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.catalog.annotations.Column;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Mapper builder provides methods for mapping object fields to columns.
  *
- * <p>By default, the user must explicitly map required fields to columns
- * in one-to-one manner using {@link #map} and/or {@link #map(String, String, TypeConverter)} methods, all missed columns and/or fields
- * become unmapped, and will be ignored during further table operations.
+ * <p>By default, the user must explicitly map the required fields to columns
+ * in tge one-to-one way using {@link #map} and/or {@link #map(String, String, TypeConverter)} methods.
+ * All missed columns and/or fields become unmapped, and will be ignored during further table operations.
  *
- * <p>Calling {@link #automap()} method maps all matching fields to columns by name. Any fields that don't match a column by name are
- * ignored.
+ * <p>Calling {@link #automap()} method maps all matching fields to columns by name. 
+ * Any fields that don't match a column by name are ignored.
  *
- * <p>TBD: add some code examples.
+ * <p>Note: Teh builder cannot be reused after the {@link #build()} method is called.
  *
- * <p>Note: builder can't be reused after the {@link #build()} method is called.
- *
- * @param <T> Type of which objects the mapper will handle.
+ * @param <T> Type of objects the mapper handles.
  */
 public final class MapperBuilder<T> {
+
     /** Target type. */
-    private Class<T> targetType;
+    private final Class<T> targetType;
 
     /** Column-to-field name mapping. */
-    private Map<String, String> columnToFields;
+    private final Map<String, String> columnToFields;
 
     /** Column converters. */
-    private Map<String, TypeConverter<?, ?>> columnConverters = new HashMap<>();
+    private final Map<String, TypeConverter<?, ?>> columnConverters = new HashMap<>();
 
     /** Column name for one-column mapping. */
     private final String mappedToColumn;
 
-    /** Flag indicates, if all unmapped object fields should be mapped to the columns with same names automatically. */
+    /** Flag indicates whether all unmapped object fields must be mapped to the columns with same names automatically. */
     private boolean automapFlag = false;
 
     /** {@code True} if the {@link #build()} method was called, {@code false} otherwise. */
     private boolean isStale;
 
     /**
-     * Creates a mapper builder for a POJO type.
+     * Creates a mapper builder for the POJO type.
      *
      * @param targetType Target type.
      */
-    MapperBuilder(@NotNull Class<T> targetType) {
+    MapperBuilder(Class<T> targetType) {
         this.targetType = ensureValidPojo(targetType);
 
         mappedToColumn = null;
@@ -78,11 +78,11 @@ public final class MapperBuilder<T> {
      * Creates a mapper builder for a natively supported type.
      *
      * @param targetType   Target type.
-     * @param mappedColumn Column name to map to; column name must use SQL-parser style quotation, e.g.
-     *                     "myColumn" - means column name "MYCOLUMN",
+     * @param mappedColumn Column name to map to; the column name must use SQL-parser style notation, e.g.,
+     *                     "myColumn" - column named "MYCOLUMN",
      *                     "\"MyColumn\"" - "MyColumn", etc.
      */
-    MapperBuilder(@NotNull Class<T> targetType, String mappedColumn) {
+    MapperBuilder(Class<T> targetType, String mappedColumn) {
         this.targetType = Mapper.ensureNativelySupported(targetType);
 
         mappedToColumn = mappedColumn;
@@ -90,13 +90,13 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Ensures class is of the supported kind for POJO mapping.
+     * Ensures a class is of the kind supported for POJO mapping.
      *
      * @param type Class to validate.
-     * @return {@code type} if it is valid POJO.
-     * @throws IllegalArgumentException If {@code type} can't be used as POJO for mapping and/or of invalid kind.
+     * @return {@code type} if it is a valid POJO.
+     * @throws IllegalArgumentException If {@code type} cannot be used as POJO for mapping and/or is of invalid kind.
      */
-    public <O> Class<O> ensureValidPojo(@NotNull Class<O> type) {
+    public <O> Class<O> ensureValidPojo(Class<O> type) {
         if (Mapper.nativelySupported(type)) {
             throw new IllegalArgumentException("Unsupported class. Can't map fields of natively supported type: " + type.getName());
         } else if (type.isAnonymousClass() || type.isLocalClass() || type.isSynthetic()
@@ -123,9 +123,9 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Ensure this instance is valid.
+     * Ensures the instance is valid.
      *
-     * @throws IllegalStateException if tries to reuse the builder after a mapping has been built.
+     * @throws IllegalStateException if an attempt is made to reuse the builder after a mapping has been built.
      */
     private void ensureNotStale() {
         if (isStale) {
@@ -134,11 +134,11 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Ensure field name is valid and field with this name exists.
+     * Ensures a field name is valid and a field with the specified name exists.
      *
      * @param fieldName Field name.
-     * @return Field's name for chaining.
-     * @throws IllegalArgumentException If field is {@code null} or class has no declared field with given name.
+     * @return Field name for chaining.
+     * @throws IllegalArgumentException If a field is {@code null} or if the class has no declared field with the given name.
      */
     private String requireValidField(String fieldName) {
         try {
@@ -157,20 +157,20 @@ public final class MapperBuilder<T> {
      * Maps a field to a column.
      *
      * @param fieldName        Field name.
-     * @param columnName       Column name with SQL-parser style quotation, e.g.
-     *                         "myColumn" - means column name "MYCOLUMN",
+     * @param columnName       Column name in SQL-parser style notation, e.g.,
+     *                         "myColumn" - column named "MYCOLUMN",
      *                         "\"MyColumn\"" - "MyColumn", etc.
-     * @param fieldColumnPairs Vararg that accepts (fieldName, columnName) pairs, column's names should use SQL SQL-parser style
-     *                        quotation like {@code columnName} parameter.
+     * @param fieldColumnPairs Vararg that accepts (fieldName, columnName) pairs; column names must use SQL-parser style
+     *                        notation like {@code columnName} parameter.
      * @return {@code this} for chaining.
-     * @throws IllegalArgumentException If a field name has not paired column name in {@code fieldColumnPairs}, or a column was already
+     * @throws IllegalArgumentException If a field name has no matching column name in {@code fieldColumnPairs}, or if a column was already
      *                                  mapped to another field.
-     * @throws IllegalStateException    if tries to reuse the builder after a mapping has been built.
+     * @throws IllegalStateException    if an attempt is made to reuse the builder after a mapping has been built.
      */
-    public MapperBuilder<T> map(@NotNull String fieldName, @NotNull String columnName, String... fieldColumnPairs) {
+    public MapperBuilder<T> map(String fieldName, String columnName, String... fieldColumnPairs) {
         ensureNotStale();
 
-        String colName0 = IgniteObjectName.parse(columnName);
+        String colName0 = IgniteNameUtils.parseSimpleName(columnName);
 
         if (columnToFields == null) {
             throw new IllegalArgumentException("Natively supported types doesn't support field mapping.");
@@ -182,7 +182,7 @@ public final class MapperBuilder<T> {
 
         for (int i = 0; i < fieldColumnPairs.length; i += 2) {
             if (columnToFields.put(
-                    IgniteObjectName.parse(Objects.requireNonNull(fieldColumnPairs[i + 1])),
+                    IgniteNameUtils.parseSimpleName(Objects.requireNonNull(fieldColumnPairs[i + 1])),
                     requireValidField(fieldColumnPairs[i])) != null
             ) {
                 throw new IllegalArgumentException("Mapping for a column already exists: " + colName0);
@@ -193,21 +193,21 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Maps a field to a column with using type converter. The value will be converted before write to and after read from column using
-     * provided converter.
+     * Maps a field to a column using a type converter. The value is converted before "write to" and after "read from" column using
+     * the provided converter.
      *
      * @param <ObjectT>  Value type. Must match the object field type if the individual field is mapped to a given column.
      * @param <ColumnT>  Column type.
      * @param fieldName  Field name.
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - means column name "MYCOLUMN",
+     * @param columnName Column name in SQL-parser style notation, e.g.,
+     *                   "myColumn" - column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      */
     public <ObjectT, ColumnT> MapperBuilder<T> map(
-            @NotNull String fieldName,
-            @NotNull String columnName,
-            @NotNull TypeConverter<ObjectT, ColumnT> converter
+            String fieldName,
+            String columnName,
+            TypeConverter<ObjectT, ColumnT> converter
     ) {
         map(fieldName, columnName);
         convert(columnName, converter);
@@ -216,19 +216,20 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Sets a converter for a column, which value must be converted before write/after read.
+     * Sets a converter for a column whose value must be converted before "write to" and after "read from".
      *
-     * @param <ObjectT>  Value type. Must match either the object field type if a field mapped to given column, or the object type {@link T}
+     * @param <ObjectT>  Value type. Must match either the object field type if the field is mapped to a given column,
+     *                   or the object type {@link T}
      * @param <ColumnT>  Column type.
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - means column name "MYCOLUMN",
+     * @param columnName Column name in SQL-parser style notation, e.g.,
+     *                   "myColumn" - column named "MYCOLUMN",
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      */
-    public <ObjectT, ColumnT> MapperBuilder<T> convert(@NotNull String columnName, @NotNull TypeConverter<ObjectT, ColumnT> converter) {
+    public <ObjectT, ColumnT> MapperBuilder<T> convert(String columnName, TypeConverter<ObjectT, ColumnT> converter) {
         ensureNotStale();
 
-        if (columnConverters.put(IgniteObjectName.parse(columnName), converter) != null) {
+        if (columnConverters.put(IgniteNameUtils.parseSimpleName(columnName), converter) != null) {
             throw new IllegalArgumentException("Column converter already exists: " + columnName);
         }
 
@@ -236,7 +237,7 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Maps all matching fields to columns by name. Any fields that don't match a column by name are ignored.
+     * Maps all matching fields to columns by name. Fields that don't match a column by name are ignored.
      *
      * @return {@code this} for chaining.
      */
@@ -249,10 +250,10 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Builds mapper.
+     * Builds a mapper.
      *
      * @return Mapper.
-     * @throws IllegalStateException if nothing was mapped, or more than one column was mapped to the same field.
+     * @throws IllegalStateException if nothing was mapped or if more than one column was mapped to the same field.
      */
     public Mapper<T> build() {
         ensureNotStale();
@@ -274,12 +275,24 @@ public final class MapperBuilder<T> {
 
         if (automapFlag) {
             Arrays.stream(targetType.getDeclaredFields())
-                    .map(Field::getName)
-                    .filter(fldName -> !fields.contains(fldName))
+                    .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
+                    .map(MapperBuilder::getColumnToFieldMapping)
+                    .filter(entry -> !fields.contains(entry.getValue()))
                     // Ignore manually mapped fields/columns.
-                    .forEach(fldName -> mapping.putIfAbsent(fldName.toUpperCase(), fldName));
+                    .forEach(entry -> mapping.putIfAbsent(entry.getKey().toUpperCase(), entry.getValue()));
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);
+    }
+
+    private static SimpleEntry<String, String> getColumnToFieldMapping(Field fld) {
+        String fldName = fld.getName();
+        var column = fld.getAnnotation(Column.class);
+        if (column == null) {
+            return new SimpleEntry<>(fldName, fldName);
+        } else {
+            var columnName = column.value().isEmpty() ? fldName : column.value();
+            return new SimpleEntry<>(columnName, fldName);
+        }
     }
 }

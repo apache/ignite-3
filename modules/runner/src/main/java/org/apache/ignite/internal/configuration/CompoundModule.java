@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,19 +17,16 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.Collections.unmodifiableMap;
-import static java.util.stream.Collectors.flatMapping;
-import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 
-import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 
@@ -65,25 +62,26 @@ public class CompoundModule implements ConfigurationModule {
 
     /** {@inheritDoc} */
     @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> result = modules.stream()
-                .flatMap(module -> module.validators().entrySet().stream())
-                .collect(groupingBy(
-                        Map.Entry::getKey,
-                        flatMapping(e -> e.getValue().stream(), toUnmodifiableSet())
-                ));
-        return unmodifiableMap(result);
+    public Set<Validator<?, ?>> validators() {
+        return modules.stream()
+                .flatMap(module -> module.validators().stream())
+                .collect(toUnmodifiableSet());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Class<?>> internalSchemaExtensions() {
-        return unionFromModulesExtractedWith(ConfigurationModule::internalSchemaExtensions);
+    public Collection<Class<?>> schemaExtensions() {
+        return unionFromModulesExtractedWith(ConfigurationModule::schemaExtensions);
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return unionFromModulesExtractedWith(ConfigurationModule::polymorphicSchemaExtensions);
+    }
+
+    @Override
+    public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
+        modules.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
     }
 }

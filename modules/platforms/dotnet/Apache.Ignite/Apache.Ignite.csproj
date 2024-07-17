@@ -17,18 +17,27 @@
 
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <Sdk Name="Microsoft.DotNet.PackageValidation" Version="1.0.0-preview.7.21379.12" />
+
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
-    <CodeAnalysisRuleSet>..\Apache.Ignite.ruleset</CodeAnalysisRuleSet>
+    <TargetFramework>net6.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>Apache.Ignite.snk</AssemblyOriginatorKeyFile>
     <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
+
+    <PackageValidationBaselineVersion />
+    <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MessagePack" Version="[2.1.80,)" />
+    <PackageReference Include="JetBrains.Annotations" Version="2023.3.0" PrivateAssets="all" />
+    <PackageReference Include="NodaTime" Version="[3.*,)" />
+    <PackageReference Include="Remotion.Linq" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[6.*,)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,6 +47,17 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>$(AssemblyName).Benchmarks, PublicKey=00240000048000001401000006020000002400005253413100080000010001003f0927863ac8623a4cd6325c77a39572155d52c79bf748b099c9dcd08ed0e0c20987d659250c78217685082cf0cb2196dc8f934f1c9249ec586dc793bf3397daee9b308858d9a96215310f1fad77285d0bfe0bf9c9057ff9908bc6858a19559fa3482d02f31ff5e1cefa81e012baa95de641ee51e706f9e5c955b4635df20105f9c0bc484d590e7aed8ff8eeb608cbffa7eb3cd99e1b9868635e528c5fe49503ec2dda3b3f6cd9b9115d461240bdb6a6c77e79961b7f7d7008f0eb91409658994543122406b23a571fc23542ff0d8658815a989c4fb16a7e0c973fe2217a94891daa499c338bd37b81b1f4cd4de90865eca1ccdb9946011db314892aed32a9d9</_Parameter1>
     </AssemblyAttribute>
+    <AssemblyAttribute Include="System.CLSCompliantAttribute">
+      <_Parameter1>true</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Apache.Ignite.Internal.Generators\Apache.Ignite.Internal.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=netstandard2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

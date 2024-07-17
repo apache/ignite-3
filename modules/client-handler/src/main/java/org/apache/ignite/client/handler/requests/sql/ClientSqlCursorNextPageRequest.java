@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,13 +18,14 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 
 /**
  * Client SQL cursor next page request.
@@ -35,21 +36,24 @@ public class ClientSqlCursorNextPageRequest {
      *
      * @param in  Unpacker.
      * @param out Packer.
-     * @return Future.
+     * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
+     * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            ClientResourceRegistry resources)
-            throws IgniteInternalCheckedException {
+            ClientResourceRegistry resources,
+            IgniteTransactionsImpl transactions
+    ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
-        AsyncResultSet asyncResultSet = resources.get(resourceId).get(AsyncResultSet.class);
+        var resultSet = resources.get(resourceId).get(ClientSqlResultSet.class);
 
-        return asyncResultSet.fetchNextPage()
+        return resultSet.resultSet().fetchNextPage()
                 .thenCompose(r -> {
                     packCurrentPage(out, r);
                     out.packBoolean(r.hasMorePages());
+                    out.meta(transactions.observableTimestamp());
 
                     if (!r.hasMorePages()) {
                         try {
@@ -58,9 +62,9 @@ public class ClientSqlCursorNextPageRequest {
                             // Ignore: either resource already removed, or registry is closing.
                         }
 
-                        return r.closeAsync();
+                        return resultSet.closeAsync();
                     } else {
-                        return CompletableFuture.completedFuture(null);
+                        return nullCompletedFuture();
                     }
                 })
                 .toCompletableFuture();

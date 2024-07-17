@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,22 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
-import org.apache.ignite.internal.sql.engine.exec.rel.Mailbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * MailboxRegistryImpl.
@@ -41,9 +36,7 @@ import org.jetbrains.annotations.Nullable;
 public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandler {
     private static final IgniteLogger LOG = Loggers.forClass(MailboxRegistryImpl.class);
 
-    private static final Predicate<Mailbox<?>> ALWAYS_TRUE = o -> true;
-
-    private final Map<MailboxKey, Outbox<?>> locals;
+    private final Map<MailboxKey, CompletableFuture<Outbox<?>>> locals;
 
     private final Map<MailboxKey, Inbox<?>> remotes;
 
@@ -64,30 +57,29 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
 
     /** {@inheritDoc} */
     @Override
-    public <T> Inbox<T> register(Inbox<T> inbox) {
-        Inbox<T> old = (Inbox<T>) remotes.putIfAbsent(new MailboxKey(inbox.queryId(), inbox.exchangeId()), inbox);
+    public void register(Inbox<?> inbox) {
+        Inbox<?> res = remotes.putIfAbsent(new MailboxKey(inbox.queryId(), inbox.exchangeId()), inbox);
 
         if (LOG.isTraceEnabled()) {
-            if (old != null) {
-                LOG.trace("Inbox already registered [qryId={}, fragmentId={}]", inbox.queryId(), inbox.fragmentId());
-            } else {
-                LOG.trace("Inbox registered [qryId={}, fragmentId={}]", inbox.queryId(), inbox.fragmentId());
-            }
+            LOG.trace("Inbox registered [qryId={}, fragmentId={}]", inbox.queryId(), inbox.fragmentId());
         }
 
-        return old != null ? old : inbox;
+        assert res == null : res;
     }
 
     /** {@inheritDoc} */
     @Override
     public void register(Outbox<?> outbox) {
-        Outbox<?> res = locals.put(new MailboxKey(outbox.queryId(), outbox.exchangeId()), outbox);
+        CompletableFuture<Outbox<?>> res = locals.computeIfAbsent(new MailboxKey(outbox.queryId(), outbox.exchangeId()),
+                k -> new CompletableFuture<>());
+
+        assert !res.isDone();
+
+        res.complete(outbox);
 
         if (LOG.isTraceEnabled()) {
             LOG.trace("Outbox registered [qryId={}, fragmentId={}]", outbox.queryId(), outbox.fragmentId());
         }
-
-        assert res == null : res;
     }
 
     /** {@inheritDoc} */
@@ -104,7 +96,7 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
     /** {@inheritDoc} */
     @Override
     public void unregister(Outbox<?> outbox) {
-        boolean removed = locals.remove(new MailboxKey(outbox.queryId(), outbox.exchangeId()), outbox);
+        boolean removed = locals.remove(new MailboxKey(outbox.queryId(), outbox.exchangeId())) != null;
 
         if (LOG.isTraceEnabled()) {
             LOG.trace("Outbox {} unregistered [qryId={}, fragmentId={}]", removed ? "was" : "wasn't",
@@ -114,45 +106,14 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
 
     /** {@inheritDoc} */
     @Override
-    public Outbox<?> outbox(UUID qryId, long exchangeId) {
-        return locals.get(new MailboxKey(qryId, exchangeId));
+    public CompletableFuture<Outbox<?>> outbox(UUID qryId, long exchangeId) {
+        return locals.computeIfAbsent(new MailboxKey(qryId, exchangeId), k -> new CompletableFuture<>());
     }
 
     /** {@inheritDoc} */
     @Override
     public Inbox<?> inbox(UUID qryId, long exchangeId) {
         return remotes.get(new MailboxKey(qryId, exchangeId));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Inbox<?>> inboxes(@Nullable UUID qryId, long fragmentId, long exchangeId) {
-        return remotes.values().stream()
-                .filter(makeFilter(qryId, fragmentId, exchangeId))
-                .collect(Collectors.toList());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Outbox<?>> outboxes(@Nullable UUID qryId, long fragmentId, long exchangeId) {
-        return locals.values().stream()
-                .filter(makeFilter(qryId, fragmentId, exchangeId))
-                .collect(Collectors.toList());
-    }
-
-    private static Predicate<Mailbox<?>> makeFilter(@Nullable UUID qryId, long fragmentId, long exchangeId) {
-        Predicate<Mailbox<?>> filter = ALWAYS_TRUE;
-        if (qryId != null) {
-            filter = filter.and(mailbox -> Objects.equals(mailbox.queryId(), qryId));
-        }
-        if (fragmentId != -1) {
-            filter = filter.and(mailbox -> mailbox.fragmentId() == fragmentId);
-        }
-        if (exchangeId != -1) {
-            filter = filter.and(mailbox -> mailbox.exchangeId() == exchangeId);
-        }
-
-        return filter;
     }
 
     /** {@inheritDoc} */
@@ -177,8 +138,8 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
     /** {@inheritDoc} */
     @Override
     public void onDisappeared(ClusterNode member) {
-        locals.values().forEach(n -> n.onNodeLeft(member.id()));
-        remotes.values().forEach(n -> n.onNodeLeft(member.id()));
+        locals.values().forEach(fut -> fut.thenAccept(n -> n.onNodeLeft(member.name())));
+        remotes.values().forEach(n -> n.onNodeLeft(member.name()));
     }
 
     private static class MailboxKey {

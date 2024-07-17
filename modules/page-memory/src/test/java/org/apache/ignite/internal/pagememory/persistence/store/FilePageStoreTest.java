@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.pagememory.persistence.store.FilePageSt
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.arr;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createDataPageId;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -51,8 +53,10 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -60,7 +64,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link FilePageStore} testing.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class FilePageStoreTest {
+public class FilePageStoreTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
 
     @WorkDirectory
@@ -500,6 +504,19 @@ public class FilePageStoreTest {
 
             verify(deltaIo, times(2)).readWithMergedToFilePageStoreCheck(eq(pageId), anyLong(), eq(buffer), eq(true));
             verify(storeIo, times(1)).read(eq(pageId), anyLong(), eq(buffer), eq(true));
+        }
+    }
+
+    @RepeatedTest(100)
+    void testConcurrentAddNewAndCompactDeltaFile() throws Exception {
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"), mock(DeltaFilePageStoreIo.class))) {
+            DeltaFilePageStoreIo deltaFileToCompaction = filePageStore.getDeltaFileToCompaction();
+            Path newDeltaFilePath = workDir.resolve("test_2");
+
+            runRace(
+                    () -> filePageStore.getOrCreateNewDeltaFile(newDeltaFileIndex -> newDeltaFilePath, () -> INT_EMPTY_ARRAY),
+                    () -> filePageStore.removeDeltaFile(deltaFileToCompaction)
+            );
         }
     }
 

@@ -1,0 +1,184 @@
+# Pruning from a simple scan
+N1
+SELECT * FROM t1_n1n2n3 WHERE id = 0
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N2]}
+  tree:
+    Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N2]
+  tables: [T1_N1N2N3]
+  partitions: {N2=[1:3]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      TableScan(name=PUBLIC.T1_N1N2N3, source=2, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+---
+# Partition pruning of joined tables (relies on predicate push down)
+N1
+SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'HashJoinConverter', 'CorrelatedNestedLoopJoin') */ * FROM t1_n1n2n3 as t1, t2_n4n5 as t2 WHERE t1.c1 = t2.c1 and t1.id = 1 and t2.id = 42
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N2], 2=[N4]}
+  tree:
+    MergeJoin
+      Receiver(sourceFragment=1, exchange=1, distribution=single)
+      Receiver(sourceFragment=2, exchange=2, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N2]
+  tables: [T1_N1N2N3]
+  partitions: {N2=[1:3]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      Sort
+        TableScan(name=PUBLIC.T1_N1N2N3, source=4, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+
+Fragment#2
+  targetNodes: [N1]
+  executionNodes: [N4]
+  tables: [T2_N4N5]
+  partitions: {N4=[0:2]}
+  tree:
+    Sender(targetFragment=0, exchange=2, distribution=single)
+      Sort
+        TableScan(name=PUBLIC.T2_N4N5, source=3, partitions=2, distribution=affinity[table: T2_N4N5, columns: [ID]])
+---
+# Self join, different predicates that produce same set of partitions
+N1
+SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'HashJoinConverter', 'CorrelatedNestedLoopJoin') */ * FROM t1_n1n2n3 as t1, t1_n1n2n3 as t2 WHERE t1.c1 = t2.c1 and t1.id = 1 and t2.id = 17
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N2], 2=[N2]}
+  tree:
+    MergeJoin
+      Receiver(sourceFragment=1, exchange=1, distribution=single)
+      Receiver(sourceFragment=2, exchange=2, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N2]
+  tables: [T1_N1N2N3]
+  partitions: {N2=[1:3]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      Sort
+        TableScan(name=PUBLIC.T1_N1N2N3, source=4, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+
+Fragment#2
+  targetNodes: [N1]
+  executionNodes: [N2]
+  tables: [T1_N1N2N3]
+  partitions: {N2=[1:3]}
+  tree:
+    Sender(targetFragment=0, exchange=2, distribution=single)
+      Sort
+        TableScan(name=PUBLIC.T1_N1N2N3, source=3, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+---
+# Self join, different predicates that produce disjoint set of partitions
+N1
+SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'HashJoinConverter', 'CorrelatedNestedLoopJoin') */ * FROM t1_n1n2n3 as t1, t1_n1n2n3 as t2 WHERE t1.id = t2.id and t1.id = 1 and t2.id = 42
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N2, N3]}
+  tree:
+    Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N2, N3]
+  tables: [T1_N1N2N3, T1_N1N2N3]
+  partitions: {N2=[1:3], N3=[2:3]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      MergeJoin
+        Sort
+          TableScan(name=PUBLIC.T1_N1N2N3, source=2, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+        Sort
+          TableScan(name=PUBLIC.T1_N1N2N3, source=3, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+---
+# Correlated
+# Prune partitions from left arm statically, and pass meta to the right arm.
+# Same set of nodes.
+N0
+SELECT * FROM t1_n1n2n3 as cor WHERE cor.id = 42 and EXISTS (SELECT 1 FROM t3_n1n2n3 as t2 WHERE t2.id = cor.id)
+---
+Fragment#0 root
+  executionNodes: [N0]
+  remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N3], 2=[N1, N2, N3]}
+  tree:
+    Project
+      CorrelatedNestedLoopJoin
+        Receiver(sourceFragment=1, exchange=1, distribution=single)
+        ReduceHashAggregate
+          Receiver(sourceFragment=2, exchange=2, distribution=single)
+
+Fragment#1
+  targetNodes: [N0]
+  executionNodes: [N3]
+  tables: [T1_N1N2N3]
+  partitions: {N3=[2:3]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      TableScan(name=PUBLIC.T1_N1N2N3, source=4, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+
+Fragment#2 correlated
+  targetNodes: [N0]
+  executionNodes: [N1, N2, N3]
+  tables: [T3_N1N2N3]
+  partitions: {N1=[0:3], N2=[1:3], N3=[2:3]}
+  pruningMetadata: [3=[{0=$cor1.ID}]]
+  tree:
+    Sender(targetFragment=0, exchange=2, distribution=single)
+      MapHashAggregate
+        TableScan(name=PUBLIC.T3_N1N2N3, source=3, partitions=3, distribution=random)
+---
+# Correlated.
+# Prune partitions from left arm statically, and pass meta to the right arm.
+# Different sets of nodes.
+N0
+SELECT * FROM t1_n1n2n3 as cor WHERE cor.id = 42 and EXISTS (SELECT 1 FROM t2_n4n5 as t2 WHERE t2.id = cor.id)
+---
+Fragment#0 root
+  executionNodes: [N0]
+  remoteFragments: [1, 2]
+  exchangeSourceNodes: {1=[N3], 2=[N4, N5]}
+  tree:
+    Project
+      CorrelatedNestedLoopJoin
+        Receiver(sourceFragment=1, exchange=1, distribution=single)
+        ReduceHashAggregate
+          Receiver(sourceFragment=2, exchange=2, distribution=single)
+
+Fragment#1
+  targetNodes: [N0]
+  executionNodes: [N3]
+  tables: [T1_N1N2N3]
+  partitions: {N3=[2:3]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      TableScan(name=PUBLIC.T1_N1N2N3, source=4, partitions=3, distribution=affinity[table: T1_N1N2N3, columns: [ID]])
+
+Fragment#2 correlated
+  targetNodes: [N0]
+  executionNodes: [N4, N5]
+  tables: [T2_N4N5]
+  partitions: {N4=[0:2], N5=[1:2]}
+  pruningMetadata: [3=[{0=$cor1.ID}]]
+  tree:
+    Sender(targetFragment=0, exchange=2, distribution=single)
+      MapHashAggregate
+        TableScan(name=PUBLIC.T2_N4N5, source=3, partitions=2, distribution=random)
+---

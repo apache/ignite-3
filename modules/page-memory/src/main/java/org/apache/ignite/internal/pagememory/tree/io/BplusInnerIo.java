@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,27 +17,32 @@
 
 package org.apache.ignite.internal.pagememory.tree.io;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.copyMemory;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract IO routines for B+Tree inner pages.
  *
  * <p>The structure of the page is the following:
- * |ITEMS_OFF|w|A|x|B|y|C|z|
- * where capital letters are data items, lowercase letters are 8 byte page references.
+ * |ITEMS_OFF|w|A|x|B|y|C|z| where capital letters are data items, lowercase letters are page ID.
  * </p>
  */
 public abstract class BplusInnerIo<L> extends BplusIo<L> {
-    /** Offset of the left page ID of the item. */
+    /** Offset of the left page ID of the item - {@link PartitionlessLinks#PARTITIONLESS_LINK_SIZE_BYTES}. */
     private static final int SHIFT_LEFT = ITEMS_OFF;
 
     /** Offset of the link. */
-    private static final int SHIFT_LINK = SHIFT_LEFT + 8;
+    private static final int SHIFT_LINK = SHIFT_LEFT + PARTITIONLESS_LINK_SIZE_BYTES;
+
+    /** Number of bytes a child link takes in storage. */
+    public static final int CHILD_LINK_SIZE = PARTITIONLESS_LINK_SIZE_BYTES;
 
     /** Offset of the right page ID of the item. */
     private final int shiftRight = SHIFT_LINK + itemSize;
@@ -57,7 +62,7 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
     /** {@inheritDoc} */
     @Override
     public int getMaxCount(long pageAddr, int pageSize) {
-        return (pageSize - ITEMS_OFF - 8) / (getItemSize() + 8);
+        return (pageSize - SHIFT_LEFT - PARTITIONLESS_LINK_SIZE_BYTES) / (getItemSize() + PARTITIONLESS_LINK_SIZE_BYTES);
     }
 
     /**
@@ -65,10 +70,10 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
      *
      * @param pageAddr Page address.
      * @param idx Index of item.
-     * @return Page ID.
+     * @param partId Partition ID.
      */
-    public final long getLeft(long pageAddr, int idx) {
-        return getLong(pageAddr, (offset0(idx, SHIFT_LEFT)));
+    public final long getLeft(long pageAddr, int idx, int partId) {
+        return readPartitionless(partId, pageAddr, offset0(idx, SHIFT_LEFT));
     }
 
     /**
@@ -81,9 +86,9 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
     public final void setLeft(long pageAddr, int idx, long pageId) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, offset0(idx, SHIFT_LEFT), pageId);
+        writePartitionless(pageAddr + offset0(idx, SHIFT_LEFT), pageId);
 
-        assert pageId == getLeft(pageAddr, idx);
+        assert pageId == getLeft(pageAddr, idx, partitionId(pageId));
     }
 
     /**
@@ -91,13 +96,14 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
      *
      * @param pageAddr Page address.
      * @param idx Index of item.
+     * @param partId Partition ID.
      */
-    public final long getRight(long pageAddr, int idx) {
-        return getLong(pageAddr, offset0(idx, shiftRight));
+    public final long getRight(long pageAddr, int idx, int partId) {
+        return readPartitionless(partId, pageAddr, offset0(idx, shiftRight));
     }
 
     /**
-     * Returns right page id for item.
+     * Sets right page id for item.
      *
      * @param pageAddr Page address.
      * @param idx Index of item.
@@ -106,12 +112,11 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
     private void setRight(long pageAddr, int idx, long pageId) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, offset0(idx, shiftRight), pageId);
+        writePartitionless(pageAddr + offset0(idx, shiftRight), pageId);
 
-        assert pageId == getRight(pageAddr, idx);
+        assert pageId == getRight(pageAddr, idx, partitionId(pageId));
     }
 
-    /** {@inheritDoc} */
     @Override
     public final void copyItems(
             long srcPageAddr,
@@ -125,17 +130,23 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
 
         assert srcIdx != dstIdx || srcPageAddr != dstPageAddr;
 
-        cnt *= getItemSize() + 8; // From items to bytes.
+        cnt *= getItemSize() + PARTITIONLESS_LINK_SIZE_BYTES; // From items to bytes.
 
         if (dstIdx > srcIdx) {
             copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt);
 
             if (cpLeft) {
-                putLong(dstPageAddr, offset0(dstIdx, SHIFT_LEFT), getLong(srcPageAddr, (offset0(srcIdx, SHIFT_LEFT))));
+                // Partition -1 since it won't be saved.
+                long leftPageId = readPartitionless(-1, srcPageAddr, offset0(srcIdx, SHIFT_LEFT));
+
+                writePartitionless(dstPageAddr + offset0(dstIdx, SHIFT_LEFT), leftPageId);
             }
         } else {
             if (cpLeft) {
-                putLong(dstPageAddr, offset0(dstIdx, SHIFT_LEFT), getLong(srcPageAddr, (offset0(srcIdx, SHIFT_LEFT))));
+                // -1 since it won't be saved.
+                long leftPageId = readPartitionless(-1, srcPageAddr, offset0(srcIdx, SHIFT_LEFT));
+
+                writePartitionless(dstPageAddr + offset0(dstIdx, SHIFT_LEFT), leftPageId);
             }
 
             copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt);
@@ -149,10 +160,9 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
      * @param shift It can be either link itself or left or right page ID.
      */
     private int offset0(int idx, int shift) {
-        return shift + (8 + getItemSize()) * idx;
+        return shift + (PARTITIONLESS_LINK_SIZE_BYTES + getItemSize()) * idx;
     }
 
-    /** {@inheritDoc} */
     @Override
     public final int offset(int idx) {
         return offset0(idx, SHIFT_LINK);
@@ -160,7 +170,6 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
 
     // Methods for B+Tree logic.
 
-    /** {@inheritDoc} */
     @Override
     public @Nullable byte[] insert(
             long pageAddr,
@@ -194,12 +203,12 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
      * @return Row bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public @Nullable byte[] initNewRoot(
+    public byte @Nullable [] initNewRoot(
             long newRootPageAddr,
             long newRootId,
             long leftChildId,
             L row,
-            @Nullable byte[] rowBytes,
+            byte @Nullable [] rowBytes,
             long rightChildId,
             int pageSize,
             boolean needRowBytes

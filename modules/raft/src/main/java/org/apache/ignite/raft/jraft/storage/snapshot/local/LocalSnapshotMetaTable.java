@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,7 +32,7 @@ import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMet
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.io.MessageFile;
-import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 
 /**
  * Table to keep local snapshot metadata infos.
@@ -71,7 +71,7 @@ public class LocalSnapshotMetaTable {
 
         pbMetaBuilder.filesList(files);
 
-        return ByteBuffer.wrap(Marshaller.DEFAULT.marshall(pbMetaBuilder.build()));
+        return ByteBuffer.wrap(JDKMarshaller.INSTANCE.marshall(pbMetaBuilder.build()));
     }
 
     /**
@@ -83,7 +83,7 @@ public class LocalSnapshotMetaTable {
             return false;
         }
         try {
-            final LocalSnapshotPbMeta pbMeta = Marshaller.DEFAULT.unmarshall(buf.array());
+            final LocalSnapshotPbMeta pbMeta = JDKMarshaller.INSTANCE.unmarshall(buf);
             if (pbMeta == null) {
                 LOG.error("Fail to load meta from buffer.");
                 return false;

@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Result of validating a node by the {@link ValidationManager}.
  */
-class ValidationResult {
+public class ValidationResult {
     @Nullable
     private final String errorDescription;
 
@@ -33,14 +33,14 @@ class ValidationResult {
     /**
      * Creates a successful validation result.
      */
-    static ValidationResult successfulResult() {
+    public static ValidationResult successfulResult() {
         return new ValidationResult(null);
     }
 
     /**
      * Creates a failed validation result.
      */
-    static ValidationResult errorResult(String errorDescription) {
+    public static ValidationResult errorResult(String errorDescription) {
         return new ValidationResult(errorDescription);
     }
 

@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,25 +18,32 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class for performing cluster initialization.
@@ -44,13 +51,25 @@ import org.apache.ignite.network.NetworkMessage;
 public class ClusterInitializer {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterInitializer.class);
 
+    private static final int INIT_MESSAGE_SEND_TIMEOUT_MILLIS = 10_000;
+
     private final ClusterService clusterService;
+
+    private final ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher;
+
+    private final ConfigurationValidator clusterConfigurationValidator;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /** Constructor. */
-    public ClusterInitializer(ClusterService clusterService) {
+    public ClusterInitializer(
+            ClusterService clusterService,
+            ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher,
+            ConfigurationValidator clusterConfigurationValidator
+    ) {
         this.clusterService = clusterService;
+        this.configurationDynamicDefaultsPatcher = configurationDynamicDefaultsPatcher;
+        this.clusterConfigurationValidator = clusterConfigurationValidator;
     }
 
     /**
@@ -66,6 +85,25 @@ public class ClusterInitializer {
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName
+    ) {
+        return initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, null);
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage. Cannot be empty.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
+     * metaStorageNodeNames} will be used instead.
+     * @param clusterName Human-readable name of the cluster.
+     * @param clusterConfiguration Cluster configuration.
+     * @return Future that represents the state of the operation.
+     */
+    public CompletableFuture<Void> initCluster(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName,
+            @Nullable String clusterConfiguration
     ) {
         if (metaStorageNodeNames.isEmpty()) {
             throw new IllegalArgumentException("Meta Storage node names list must not be empty");
@@ -84,25 +122,29 @@ public class ClusterInitializer {
         }
 
         try {
-            metaStorageNodeNames = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableList());
+            Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
-            cmgNodeNames = cmgNodeNames.isEmpty()
-                    ? metaStorageNodeNames
-                    : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableList());
+            Set<String> cmgNodeNameSet = cmgNodeNames.isEmpty()
+                    ? msNodeNameSet
+                    : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
             // check that provided Meta Storage nodes are present in the topology
-            List<ClusterNode> msNodes = resolveNodes(clusterService, metaStorageNodeNames);
+            List<ClusterNode> msNodes = resolveNodes(clusterService, msNodeNameSet);
 
             LOG.info("Resolved MetaStorage nodes[nodes={}]", msNodes);
 
-            List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNames);
+            List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNameSet);
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
+            String initialClusterConfiguration = patchClusterConfigurationWithDynamicDefaults(clusterConfiguration);
+            validateConfiguration(initialClusterConfiguration);
+
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
-                    .metaStorageNodes(metaStorageNodeNames)
-                    .cmgNodes(cmgNodeNames)
+                    .metaStorageNodes(msNodeNameSet)
+                    .cmgNodes(cmgNodeNameSet)
                     .clusterName(clusterName)
+                    .initialClusterConfiguration(initialClusterConfiguration)
                     .build();
 
             return invokeMessage(cmgNodes, initMessage)
@@ -115,7 +157,7 @@ public class ClusterInitializer {
                                     initMessage.metaStorageNodes()
                             );
 
-                            return CompletableFuture.<Void>completedFuture(null);
+                            return CompletableFutures.<Void>nullCompletedFuture();
                         } else {
                             if (e instanceof CompletionException) {
                                 e = e.getCause();
@@ -164,7 +206,7 @@ public class ClusterInitializer {
     private CompletableFuture<Void> invokeMessage(Collection<ClusterNode> nodes, NetworkMessage message) {
         return allOf(nodes, node ->
                 clusterService.messagingService()
-                        .invoke(node, message, 10000)
+                        .invoke(node, message, INIT_MESSAGE_SEND_TIMEOUT_MILLIS)
                         .thenAccept(response -> {
                             if (response instanceof InitErrorMessage) {
                                 var errorResponse = (InitErrorMessage) response;
@@ -194,5 +236,35 @@ public class ClusterInitializer {
         CompletableFuture<?>[] futures = nodes.stream().map(futureProducer).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(futures);
+    }
+
+    private static List<ClusterNode> resolveNodes(ClusterService clusterService, Collection<String> consistentIds) {
+        return consistentIds.stream()
+                .map(consistentId -> {
+                    ClusterNode node = clusterService.topologyService().getByConsistentId(consistentId);
+
+                    if (node == null) {
+                        throw new IllegalArgumentException(String.format(
+                                "Node \"%s\" is not present in the physical topology", consistentId
+                        ));
+                    }
+
+                    return node;
+                })
+                .collect(Collectors.toList());
+    }
+
+
+    private String patchClusterConfigurationWithDynamicDefaults(@Nullable String hocon) {
+        return configurationDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon == null ? "" : hocon);
+    }
+
+    private void validateConfiguration(String hocon) {
+        if (hocon != null) {
+            List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(hocon);
+            if (!issues.isEmpty()) {
+                throw new ConfigurationValidationException(issues);
+            }
+        }
     }
 }

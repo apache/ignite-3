@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,44 +17,31 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Abstract node of execution tree.
  */
 public abstract class AbstractNode<RowT> implements Node<RowT> {
-    protected static final int MODIFY_BATCH_SIZE = 100; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_BATCH_SIZE", 100);
+    public static final int MODIFY_BATCH_SIZE = 100;
 
-    protected static final int IO_BATCH_SIZE = 256; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IO_BATCH_SIZE", 256);
+    protected static final int IO_BATCH_SIZE = Commons.IO_BATCH_SIZE;
 
-    protected static final int IO_BATCH_CNT = 4; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IO_BATCH_CNT", 4);
+    protected static final int IO_BATCH_CNT = Commons.IO_BATCH_COUNT;
 
-    protected final int inBufSize = Commons.IN_BUFFER_SIZE; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IN_BUFFER_SIZE", 2);
+    protected final int inBufSize = Commons.IN_BUFFER_SIZE;
+
+    private final ExecutionContext<RowT> ctx;
 
     /** For debug purpose. */
     private volatile Thread thread;
-
-    /**
-     * Execution context.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * {@link Inbox} node may not have proper context at creation time in case it creates on first message received from a remote source.
-     * This case the context sets in scope of {@link Inbox#init(ExecutionContext, RelDataType, Collection, Comparator)} method call.
-     */
-    private ExecutionContext<RowT> ctx;
-
-    private RelDataType rowType;
 
     private Downstream<RowT> downstream;
 
@@ -67,31 +54,15 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param ctx Execution context.
-     * @param rowType Rel data type.
      */
-    protected AbstractNode(ExecutionContext<RowT> ctx, RelDataType rowType) {
+    protected AbstractNode(ExecutionContext<RowT> ctx) {
         this.ctx = ctx;
-        this.rowType = rowType;
     }
 
     /** {@inheritDoc} */
     @Override
     public ExecutionContext<RowT> context() {
         return ctx;
-    }
-
-    protected void context(ExecutionContext<RowT> ctx) {
-        this.ctx = ctx;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType rowType() {
-        return rowType;
-    }
-
-    protected void rowType(RelDataType rowType) {
-        this.rowType = rowType;
     }
 
     /** {@inheritDoc} */
@@ -166,16 +137,13 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     /**
      * Get closed flag: {@code true} if the subtree is canceled.
      */
-    protected boolean isClosed() {
+    public boolean isClosed() {
         return closed;
     }
 
     protected void checkState() throws Exception {
-        if (context().isCancelled()) {
-            throw new ExecutionCancelledException();
-        }
-        if (Thread.interrupted()) {
-            throw new IgniteInternalCheckedException("Thread was interrupted.");
+        if (context().isCancelled() || Thread.interrupted()) {
+            throw new QueryCancelledException();
         }
         if (!IgniteUtils.assertionsEnabled()) {
             return;

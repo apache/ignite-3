@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import java.util.EnumSet;
+import java.util.Set;
 
 /**
  * Possible query types.
@@ -33,26 +34,16 @@ public enum SqlQueryType {
     DDL,
 
     /** Explain. */
-    EXPLAIN;
+    EXPLAIN,
 
-    /**
-     * Map query plan type to sql type.
-     *
-     * @param type QueryPlan.Type.
-     * @return Associated SqlQueryType.
-     */
-    public static SqlQueryType mapPlanTypeToSqlType(QueryPlan.Type type) {
-        switch (type) {
-            case QUERY:
-                return QUERY;
-            case DML:
-                return DML;
-            case DDL:
-                return DDL;
-            case EXPLAIN:
-                return EXPLAIN;
-            default:
-                throw new UnsupportedOperationException("Unexpected query plan type: " + type.name());
-        }
-    }
+    /** Transaction control statements such as {@code START TRANSACTION}, {@code COMMIT},  etc. */
+    TX_CONTROL,
+
+    ;
+
+    /** A set of statement types that can run only in single statement mode. **/
+    public static final Set<SqlQueryType> SINGLE_STMT_TYPES = EnumSet.complementOf(EnumSet.of(TX_CONTROL));
+
+    /** A set of all query types. **/
+    public static final Set<SqlQueryType> ALL = Set.of(values());
 }

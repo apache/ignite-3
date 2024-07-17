@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,14 +25,14 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.rel.InternalIgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * TraitsAwareIgniteRel interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface TraitsAwareIgniteRel extends InternalIgniteRel {
+public interface TraitsAwareIgniteRel extends IgniteRel {
     /** {@inheritDoc} */
     @Override
     public default List<RelNode> derive(List<List<RelTraitSet>> inTraits) {
@@ -70,19 +70,6 @@ public interface TraitsAwareIgniteRel extends InternalIgniteRel {
     }
 
     /**
-     * Propagates rewindability trait in up-to-bottom manner.
-     *
-     * @param nodeTraits Relational node output traits.
-     * @param inTraits   Relational node input traits.
-     * @return List of possible input-output traits combinations.
-     */
-    default Pair<RelTraitSet, List<RelTraitSet>> passThroughRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inTraits) {
-        RewindabilityTrait rewindability = TraitUtils.rewindability(nodeTraits);
-
-        return Pair.of(nodeTraits, Commons.transform(inTraits, t -> t.replace(rewindability)));
-    }
-
-    /**
      * Propagates distribution trait in up-to-bottom manner.
      *
      * @param nodeTraits Relational node output traits.
@@ -100,7 +87,7 @@ public interface TraitsAwareIgniteRel extends InternalIgniteRel {
      *
      * @param nodeTraits Relational node output traits.
      * @param inTraits   Relational node input traits.
-     * @return List of possible input-output traits combinations.
+     * @return Traits satisfied by this expression and traits that input nodes should satisfy.
      */
     default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits, List<RelTraitSet> inTraits) {
         if (inTraits.size() > 1) {
@@ -111,28 +98,6 @@ public interface TraitsAwareIgniteRel extends InternalIgniteRel {
 
         return Pair.of(nodeTraits, Commons.transform(inTraits, t -> t.replace(collation)));
     }
-
-    /**
-     * Propagates correlation trait in up-to-bottom manner.
-     *
-     * @param nodeTraits Relational node output traits.
-     * @param inTraits   Relational node input traits.
-     * @return List of possible input-output traits combinations.
-     */
-    default Pair<RelTraitSet, List<RelTraitSet>> passThroughCorrelation(RelTraitSet nodeTraits, List<RelTraitSet> inTraits) {
-        CorrelationTrait correlation = TraitUtils.correlation(nodeTraits);
-
-        return Pair.of(nodeTraits, Commons.transform(inTraits, t -> t.replace(correlation)));
-    }
-
-    /**
-     * Propagates rewindability trait in bottom-up manner.
-     *
-     * @param nodeTraits Relational node output traits.
-     * @param inTraits   Relational node input traits.
-     * @return List of possible input-output traits combinations.
-     */
-    List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inTraits);
 
     /**
      * Propagates distribution trait in bottom-up manner.
@@ -151,13 +116,4 @@ public interface TraitsAwareIgniteRel extends InternalIgniteRel {
      * @return List of possible input-output traits combinations.
      */
     List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCollation(RelTraitSet nodeTraits, List<RelTraitSet> inTraits);
-
-    /**
-     * Propagates correlation trait in bottom-up manner.
-     *
-     * @param nodeTraits Relational node output traits.
-     * @param inTraits   Relational node input traits.
-     * @return List of possible input-output traits combinations.
-     */
-    List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits, List<RelTraitSet> inTraits);
 }

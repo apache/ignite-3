@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,21 +17,21 @@
 
 package org.apache.ignite.internal.tostring;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.HASH;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.NONE;
 import static org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy.PLAIN;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Objects;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteSystemProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -135,6 +135,19 @@ public class SensitiveDataToStringTest extends IgniteAbstractTest {
         Person(int orgId, String name) {
             this.orgId = orgId;
             this.name = name;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            Person person = (Person) o;
+            return orgId == person.orgId && (name != null ? name.equals(person.name) : person.name == null);
         }
 
         /** {@inheritDoc} */

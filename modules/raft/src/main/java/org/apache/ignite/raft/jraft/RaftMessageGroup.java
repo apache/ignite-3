@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,13 @@
 
 package org.apache.ignite.raft.jraft;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
-import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests;
+import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 
 /**
  * Message group for the Raft module.
@@ -89,6 +90,15 @@ public class RaftMessageGroup {
 
         /** */
         public static final short CHANGE_PEERS_ASYNC_RESPONSE = 1018;
+
+        /** */
+        public static final short SUBSCRIPTION_LEADER_CHANGE_REQUEST = 1019;
+
+        /** */
+        public static final short SUBSCRIPTION_LEADER_CHANGE_REQUEST_ACKNOWLEDGE = 1020;
+
+        /** */
+        public static final short LEADER_CHANGE_NOTIFICATION = 1021;
     }
 
     /**
@@ -169,13 +179,18 @@ public class RaftMessageGroup {
      */
     public static final class RpcActionMessageGroup {
         /**
-         * Message type for {@link ActionRequest}.
+         * Message type for {@link ReadActionRequest}.
          */
-        public static final short ACTION_REQUEST = 4000;
+        public static final short READ_ACTION_REQUEST = 4000;
+
+        /**
+         * Message type for {@link WriteActionRequest}.
+         */
+        public static final short WRITE_ACTION_REQUEST = 4001;
 
         /**
          * Message type for {@link ActionResponse}.
          */
-        public static final short ACTION_RESPONSE = 4001;
+        public static final short ACTION_RESPONSE = 4002;
     }
 }

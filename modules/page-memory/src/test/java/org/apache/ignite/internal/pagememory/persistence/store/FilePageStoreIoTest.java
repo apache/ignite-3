@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.IOException;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
+import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -112,13 +113,12 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    protected FilePageStoreIo createFilePageStoreIo(Path filePath) {
-        return createFilePageStoreIo(filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
+    protected FilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
+        return new FilePageStoreIo(ioFactory, filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
     }
 
-    private FilePageStoreIo createFilePageStoreIo(Path filePath, FilePageStoreHeader header) {
+    private static FilePageStoreIo createFilePageStoreIo(Path filePath, FilePageStoreHeader header) {
         return new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
     }
 }

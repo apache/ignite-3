@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -31,6 +32,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -42,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @ExtendWith(MockitoExtension.class)
-public class BallotBoxTest {
+public class BallotBoxTest extends BaseIgniteAbstractTest {
     private BallotBox box;
     @Mock
     private FSMCaller waiter;
@@ -68,17 +71,19 @@ public class BallotBoxTest {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
     }
 
-    @Test
-    public void testResetPendingIndex() {
+    @ParameterizedTest
+    @ValueSource(shorts = {0, 1, 3})
+    public void testResetPendingIndex(int quorum) {
         assertEquals(0, closureQueue.getFirstIndex());
         assertEquals(0, box.getPendingIndex());
-        assertTrue(box.resetPendingIndex(1));
+        assertTrue(box.resetPendingIndex(1, quorum));
         assertEquals(1, closureQueue.getFirstIndex());
         assertEquals(1, box.getPendingIndex());
     }
 
-    @Test
-    public void testAppendPendingTask() {
+    @ParameterizedTest
+    @ValueSource(shorts = {0, 1, 3})
+    public void testAppendPendingTask(int quorum) {
         assertTrue(this.box.getPendingMetaQueue().isEmpty());
         assertTrue(this.closureQueue.getQueue().isEmpty());
         assertFalse(this.box.appendPendingTask(
@@ -90,7 +95,7 @@ public class BallotBoxTest {
 
                 }
             }));
-        assertTrue(box.resetPendingIndex(1));
+        assertTrue(box.resetPendingIndex(1, quorum));
         assertTrue(this.box.appendPendingTask(
             JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
             JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
@@ -105,19 +110,21 @@ public class BallotBoxTest {
         assertEquals(1, this.closureQueue.getQueue().size());
     }
 
-    @Test
-    public void testClearPendingTasks() {
-        testAppendPendingTask();
+    @ParameterizedTest
+    @ValueSource(shorts = {0, 1, 3})
+    public void testClearPendingTasks(int quorum) {
+        testAppendPendingTask(quorum);
         this.box.clearPendingTasks();
         assertTrue(this.box.getPendingMetaQueue().isEmpty());
         assertTrue(this.closureQueue.getQueue().isEmpty());
         assertEquals(0, closureQueue.getFirstIndex());
     }
 
-    @Test
-    public void testCommitAt() {
+    @ParameterizedTest
+    @ValueSource(shorts = {0, 1, 3})
+    public void testCommitAt(int quorum) {
         assertFalse(this.box.commitAt(1, 3, new PeerId("localhost", 8081)));
-        assertTrue(box.resetPendingIndex(1));
+        assertTrue(box.resetPendingIndex(1, quorum));
         assertTrue(this.box.appendPendingTask(
             JRaftUtils.getConfiguration("localhost:8081,localhost:8082,localhost:8083"),
             JRaftUtils.getConfiguration("localhost:8081"), new Closure() {
@@ -143,9 +150,10 @@ public class BallotBoxTest {
         Mockito.verify(this.waiter, Mockito.only()).onCommitted(1);
     }
 
-    @Test
-    public void testSetLastCommittedIndexHasPending() {
-        assertTrue(box.resetPendingIndex(1));
+    @ParameterizedTest
+    @ValueSource(shorts = {0, 1, 3})
+    public void testSetLastCommittedIndexHasPending(int quorum) {
+        assertTrue(box.resetPendingIndex(1, quorum));
         assertThrows(IllegalArgumentException.class, () -> this.box.setLastCommittedIndex(1));
     }
 

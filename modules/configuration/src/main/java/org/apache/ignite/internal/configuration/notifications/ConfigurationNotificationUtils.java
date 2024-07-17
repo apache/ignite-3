@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,11 +20,8 @@ package org.apache.ignite.internal.configuration.notifications;
 import static java.util.Collections.emptyIterator;
 
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.Iterator;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.NoSuchElementException;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.internal.configuration.ConfigurationNode;
@@ -121,12 +118,39 @@ class ConfigurationNotificationUtils {
      * @param anyConfig  New {@link NamedListConfiguration#any "any"} configuration.
      * @return Merged {@link NamedListConfiguration#any "any"} configurations.
      */
-    static Collection<DynamicConfiguration<InnerNode, ?>> mergeAnyConfigs(
-            Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
+    static Iterable<DynamicConfiguration<InnerNode, ?>> mergeAnyConfigs(
+            Iterable<DynamicConfiguration<InnerNode, ?>> anyConfigs,
             @Nullable DynamicConfiguration<InnerNode, ?> anyConfig
     ) {
-        return Stream.concat(anyConfigs.stream(), Stream.of(anyConfig))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        if (anyConfig == null) {
+            return anyConfigs;
+        }
+
+        return () -> {
+            Iterator<DynamicConfiguration<InnerNode, ?>> innerIterator = anyConfigs.iterator();
+
+            return new Iterator<>() {
+                boolean finished = false;
+                @Override
+                public boolean hasNext() {
+                    return innerIterator.hasNext() || !finished;
+                }
+
+                @Override
+                public DynamicConfiguration<InnerNode, ?> next() {
+                    if (finished) {
+                        throw new NoSuchElementException();
+                    }
+
+                    if (innerIterator.hasNext()) {
+                        return innerIterator.next();
+                    }
+
+                    finished = true;
+
+                    return anyConfig;
+                }
+            };
+        };
     }
 }

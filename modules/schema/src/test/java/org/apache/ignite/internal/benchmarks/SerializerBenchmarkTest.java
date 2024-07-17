@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.benchmarks;
 
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
 
 import com.facebook.presto.bytecode.Access;
 import com.facebook.presto.bytecode.BytecodeBlock;
@@ -33,7 +33,6 @@ import java.util.EnumSet;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.processing.Generated;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
@@ -145,10 +144,10 @@ public class SerializerBenchmarkTest {
         Long key = rnd.nextLong();
 
         Object val = objectFactory.create();
-        BinaryRow row = marshaller.marshal(key, val);
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
 
-        Object restoredKey = marshaller.unmarshalKey(new Row(schema, row));
-        Object restoredVal = marshaller.unmarshalValue(new Row(schema, row));
+        Object restoredKey = marshaller.unmarshalKey(row);
+        Object restoredVal = marshaller.unmarshalValue(row);
 
         bh.consume(restoredVal);
         bh.consume(restoredKey);

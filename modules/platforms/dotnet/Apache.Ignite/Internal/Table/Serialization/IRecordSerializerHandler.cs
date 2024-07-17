@@ -17,14 +17,15 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization
 {
-    using MessagePack;
+    using System;
+    using Proto.BinaryTuple;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Serializer handler.
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
     internal interface IRecordSerializerHandler<T>
-        where T : class
     {
         /// <summary>
         /// Reads a record.
@@ -33,16 +34,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="keyOnly">Key only mode.</param>
         /// <returns>Record.</returns>
-        T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false);
-
-        /// <summary>
-        /// Reads the value part and combines with the specified key part into a new object.
-        /// </summary>
-        /// <param name="reader">Reader.</param>
-        /// <param name="schema">Schema.</param>
-        /// <param name="key">Key part.</param>
-        /// <returns>Resulting record with key and value parts.</returns>
-        T? ReadValuePart(ref MessagePackReader reader, Schema schema, T key);
+        T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false);
 
         /// <summary>
         /// Writes a record.
@@ -51,6 +43,71 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="record">Record.</param>
         /// <param name="keyOnly">Key only mode.</param>
-        void Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false);
+        /// <param name="computeHash">Whether to compute key hash while writing the tuple.</param>
+        /// <returns>Key hash when <paramref name="computeHash"/> is <c>true</c>; 0 otherwise.</returns>
+        int Write(ref MsgPackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false)
+        {
+            var count = keyOnly ? schema.KeyColumns.Length : schema.Columns.Length;
+            var noValueSet = writer.WriteBitSet(count);
+
+            var hashedColumnsPredicate = computeHash
+                ? schema.GetHashedColumnIndexProviderFor(keyOnly)
+                : null;
+
+            var tupleBuilder = new BinaryTupleBuilder(count, hashedColumnsPredicate: hashedColumnsPredicate);
+
+            try
+            {
+                Write(ref tupleBuilder, record, schema, keyOnly, noValueSet);
+
+                var binaryTupleMemory = tupleBuilder.Build();
+                writer.Write(binaryTupleMemory.Span);
+
+                return tupleBuilder.GetHash();
+            }
+            finally
+            {
+                tupleBuilder.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Gets the colocation hash.
+        /// </summary>
+        /// <param name="schema">Schema.</param>
+        /// <param name="key">Key.</param>
+        /// <returns>Colocation hash.</returns>
+        int GetKeyColocationHash(Schema schema, T key)
+        {
+            var tupleBuilder = new BinaryTupleBuilder(
+                numElements: schema.KeyColumns.Length,
+                hashedColumnsPredicate: schema.KeyOnlyHashedColumnIndexProvider);
+
+            try
+            {
+                Write(ref tupleBuilder, key, schema, keyOnly: true, Span<byte>.Empty);
+
+                return tupleBuilder.GetHash();
+            }
+            finally
+            {
+                tupleBuilder.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Writes a record.
+        /// </summary>
+        /// <param name="tupleBuilder">Tuple builder.</param>
+        /// <param name="record">Record.</param>
+        /// <param name="schema">Schema.</param>
+        /// <param name="keyOnly">Key only part.</param>
+        /// <param name="noValueSet">No-value set.</param>
+        void Write(
+            ref BinaryTupleBuilder tupleBuilder,
+            T record,
+            Schema schema,
+            bool keyOnly,
+            Span<byte> noValueSet);
     }
 }

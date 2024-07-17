@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -69,13 +69,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     }
 
     /**
-     * An empty write context.
-     */
-    private static class EmptyWriteContext implements WriteContext {
-        static EmptyWriteContext INSTANCE = new EmptyWriteContext();
-    }
-
-    /**
      * VarHandle that gives the access to the elements of a {@code byte[]} array viewed as if it was a {@code long[]}
      * array.
      */
@@ -88,6 +81,9 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * First log index and last log index key in configuration column family.
      */
     private static final byte[] FIRST_LOG_IDX_KEY = Utils.getBytes("meta/firstLogIndex");
+
+    /** Log factory instance, that created current log storage. */
+    private final DefaultLogStorageFactory logStorageFactory;
 
     /** Shared db instance. */
     private final RocksDB db;
@@ -142,6 +138,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
     /** Constructor. */
     RocksDbSharedLogStorage(
+            DefaultLogStorageFactory logStorageFactory,
             RocksDB db,
             ColumnFamilyHandle confHandle,
             ColumnFamilyHandle dataHandle,
@@ -163,6 +160,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
                 "Raft group id " + groupId + " must not contain char(1)"
         );
 
+        this.logStorageFactory = logStorageFactory;
         this.db = db;
         this.confHandle = confHandle;
         this.dataHandle = dataHandle;
@@ -174,6 +172,13 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
         this.writeOptions = new WriteOptions();
         this.writeOptions.setSync(raftOptions.isSync());
+    }
+
+    /**
+     * Returns the log factory instance, that created current log storage.
+     */
+    DefaultLogStorageFactory getLogStorageFactory() {
+        return logStorageFactory;
     }
 
     /** {@inheritDoc} */
@@ -403,22 +408,16 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
                     return false;
                 }
 
-                WriteContext writeCtx = newWriteContext();
                 long logIndex = entry.getId().getIndex();
                 byte[] valueBytes = this.logEntryEncoder.encode(entry);
-                byte[] newValueBytes = onDataAppend(logIndex, valueBytes, writeCtx);
-                writeCtx.startJob();
+                byte[] newValueBytes = onDataAppend(logIndex, valueBytes);
                 this.db.put(this.dataHandle, this.writeOptions, createKey(logIndex), newValueBytes);
-                writeCtx.joinAll();
                 if (newValueBytes != valueBytes) {
                     doSync();
                 }
                 return true;
-            } catch (RocksDBException | IOException e) {
+            } catch (RocksDBException e) {
                 LOG.error("Fail to append entry.", e);
-                return false;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
                 return false;
             } finally {
                 this.useLock.unlock();
@@ -436,18 +435,14 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         int entriesCount = entries.size();
 
         boolean ret = executeBatch(batch -> {
-            WriteContext writeCtx = newWriteContext();
-
             for (LogEntry entry : entries) {
                 if (entry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
                     addConfBatch(entry, batch);
                 } else {
-                    writeCtx.startJob();
-                    addDataBatch(entry, batch, writeCtx);
+                    addDataBatch(entry, batch);
                 }
             }
 
-            writeCtx.joinAll();
             doSync();
         });
 
@@ -455,6 +450,60 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             return entriesCount;
         } else {
             return 0;
+        }
+    }
+
+    /**
+     * Appends log entries to the batch, received from {@link DefaultLogStorageFactory#getOrCreateThreadLocalWriteBatch()}. This batch is
+     * shared between all instances of log, that belong to the given factory.
+     */
+    boolean appendEntriesToBatch(List<LogEntry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return true;
+        }
+
+        useLock.lock();
+
+        try {
+            WriteBatch writeBatch = logStorageFactory.getOrCreateThreadLocalWriteBatch();
+
+            for (LogEntry entry : entries) {
+                if (entry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
+                    addConfBatch(entry, writeBatch);
+                } else {
+                    addDataBatch(entry, writeBatch);
+                }
+            }
+
+            return true;
+        } catch (RocksDBException e) {
+            LOG.error("Execute batch failed with rocksdb exception.", e);
+
+            return false;
+        } finally {
+            useLock.unlock();
+        }
+    }
+
+    /**
+     * Writes batch, previously filled by {@link #appendEntriesToBatch(List)} calls, into a rocksdb storage and clears the batch by calling
+     * {@link DefaultLogStorageFactory#clearThreadLocalWriteBatch}.
+     */
+    void commitWriteBatch() {
+        WriteBatch writeBatch = logStorageFactory.getThreadLocalWriteBatch();
+
+        if (writeBatch == null) {
+            return;
+        }
+
+        try {
+            if (writeBatch.count() > 0) {
+                db.write(this.writeOptions, writeBatch);
+            }
+        } catch (RocksDBException e) {
+            LOG.error("Execute batch failed with rocksdb exception.", e);
+        } finally {
+            logStorageFactory.clearThreadLocalWriteBatch(writeBatch);
         }
     }
 
@@ -488,8 +537,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         }
         this.manageLock.lock();
 
-        LogEntry entry = getEntry(nextLogIndex);
         try {
+            LogEntry entry = getEntry(nextLogIndex);
             db.deleteRange(dataHandle, groupStartPrefix, groupEndPrefix);
             db.deleteRange(confHandle, groupStartPrefix, groupEndPrefix);
 
@@ -573,11 +622,10 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         return true;
     }
 
-    private void addDataBatch(LogEntry entry, WriteBatch batch,
-            WriteContext ctx) throws RocksDBException, IOException, InterruptedException {
+    private void addDataBatch(LogEntry entry, WriteBatch batch) throws RocksDBException {
         long logIndex = entry.getId().getIndex();
         byte[] content = this.logEntryEncoder.encode(entry);
-        batch.put(this.dataHandle, createKey(logIndex), onDataAppend(logIndex, content, ctx));
+        batch.put(this.dataHandle, createKey(logIndex), onDataAppend(logIndex, content));
     }
 
     private void truncatePrefixInBackground(long startIndex, long firstIndexKept) {
@@ -628,12 +676,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         return ks;
     }
 
-    private void doSync() throws IOException, InterruptedException {
+    private void doSync() {
         onSync();
-    }
-
-    protected WriteContext newWriteContext() {
-        return EmptyWriteContext.INSTANCE;
     }
 
     /**
@@ -644,8 +688,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * @return the new value
      */
     @SuppressWarnings("unused")
-    protected byte[] onDataAppend(long logIndex, byte[] value, WriteContext ctx) throws IOException, InterruptedException {
-        ctx.finishJob();
+    protected byte[] onDataAppend(long logIndex, byte[] value) {
         return value;
     }
 
@@ -653,7 +696,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Called when sync data into file system.
      */
     @SuppressWarnings("RedundantThrows")
-    protected void onSync() throws IOException, InterruptedException {
+    protected void onSync() {
     }
 
     /**
@@ -698,45 +741,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     private interface WriteBatchTemplate {
 
         void execute(WriteBatch batch) throws RocksDBException, IOException, InterruptedException;
-    }
-
-    /**
-     * Write context.
-     */
-    public interface WriteContext {
-        /**
-         * Start a sub job.
-         */
-        default void startJob() {
-        }
-
-        /**
-         * Finish a sub job.
-         */
-        default void finishJob() {
-        }
-
-        /**
-         * Adds a callback that will be invoked after all sub jobs finish.
-         */
-        @SuppressWarnings("unused")
-        default void addFinishHook(@SuppressWarnings("unused") Runnable r) {
-
-        }
-
-        /**
-         * Set an exception to context.
-         *
-         * @param e exception
-         */
-        default void setError(@SuppressWarnings("unused") Exception e) {
-        }
-
-        /**
-         * Wait for all sub jobs finish.
-         */
-        default void joinAll() throws InterruptedException, IOException {
-        }
     }
 
     /** {@inheritDoc} */

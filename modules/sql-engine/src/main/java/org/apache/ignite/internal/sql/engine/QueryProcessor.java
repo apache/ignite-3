@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,75 +17,55 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryProcessor interface.
  */
 public interface QueryProcessor extends IgniteComponent {
-    /**
-     * Creates a session with given properties.
-     *
-     * @param queryProperties Properties to store within a new session.
-     * @return An identifier of a created session.
-     */
-    SessionId createSession(PropertiesHolder queryProperties);
 
     /**
-     * Closes the session with given id.
+     * Returns columns and parameters metadata for the given statement.
+     * This method uses optional array of parameters to assist with type inference.
      *
-     * <p>This method just return a completed future in case the session was already closed or never exists.
+     * @param properties User query properties. See {@link QueryProperty} for available properties.
+     * @param transaction A transaction to use to resolve a schema.
+     * @param qry Single statement SQL query.
+     * @param params Query parameters.
+     * @return Query metadata.
      *
-     * @param sessionId An identifier of a session to close.
-     * @return A future representing result of an operation.
+     * @throws IgniteException in case of an error.
+     * @see QueryProperty
      */
-    CompletableFuture<Void> closeSession(SessionId sessionId);
+    CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
+            @Nullable InternalTransaction transaction,
+            String qry, Object... params);
 
     /**
      * Execute the query with given schema name and parameters.
      *
-     * @param schemaName Schema name.
-     * @param qry Sql query.
-     * @param params Query parameters.
-     * @return List of sql cursors.
-     *
-     * @throws IgniteException in case of an error.
-     */
-    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params);
-
-    /**
-     * Execute the query with given schema name and parameters.
-     *
-     * @param context User query context.
-     * @param schemaName Schema name.
-     * @param qry Sql query.
-     * @param params Query parameters.
-     * @return List of sql cursors.
-     *
-     * @throws IgniteException in case of an error.
-     */
-    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName, String qry, Object... params);
-
-    /**
-     * Execute the single statement query with given schema name and parameters.
-     *
-     * <p>If the query string contains more than one statement the IgniteException will be thrown.
-     *
-     * @param context User query context.
-     * @param qry Single statement SQL query .
+     * @param properties Query properties. See {@link QueryProperty} for available properties.
+     * @param observableTime Tracker of the latest time observed by client.
+     * @param transaction A transaction to use for query execution. If null, an implicit transaction
+     *      will be started by provided transactions facade.
+     * @param qry SQL query.
      * @param params Query parameters.
      * @return Sql cursor.
      *
      * @throws IgniteException in case of an error.
+     * @see QueryProperty
      */
-    CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionId,
-            QueryContext context,
+    CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
+            SqlProperties properties,
+            HybridTimestampTracker observableTime,
+            @Nullable InternalTransaction transaction,
             String qry,
             Object... params
     );

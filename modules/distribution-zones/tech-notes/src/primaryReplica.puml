@@ -1,0 +1,34 @@
+@startuml primaryReplica
+title PrimaryReplica and Replication Group communication (diagram 1)
+
+skinparam maxMessageSize 400
+skinparam defaultFontSize 12
+
+participant PlacementDriver
+participant PrimaryReplica
+
+participant Replica1 [
+Replica1
+Leader for term 1
+]
+
+participant Replica2 [
+Replica2
+Leader for term 2
+]
+
+PrimaryReplica -> Replica1 : Send a changePeersAsync request (node is the leader at the moment)
+Replica1 -> Replica1 : Leader was stepped down and new leader election will start.
+Replica2 -> Replica2 : Current node elected as a leader.
+Replica2 -> PrimaryReplica : Send a message about the new leader elected. [see 3.1 details]
+PrimaryReplica -> PrimaryReplica : Check local state for ongoing rebalance for the replica group.
+note left
+we can use local state here,
+because if the PrimaryReplica fails,
+PlacementDriver will choose another one
+and start rebalance again by himself
+end note
+PrimaryReplica -> Replica2 : Send changePeers to the new leader again
+Replica2 -> PrimaryReplica : Rebalance done message
+PrimaryReplica -> PlacementDriver : Rebalance done message. PD than do other operations from the general rebalance diagram.
+@enduml

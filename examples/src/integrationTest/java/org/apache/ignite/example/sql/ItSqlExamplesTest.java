@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,7 +21,6 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 
 import org.apache.ignite.example.AbstractExamplesTest;
 import org.apache.ignite.example.sql.jdbc.SqlJdbcExample;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -58,7 +57,6 @@ public class ItSqlExamplesTest extends AbstractExamplesTest {
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17059")
     @Test
     public void testSqlApiExample() throws Exception {
         assertConsoleOutputContains(SqlApiExample::main, EMPTY_ARGS,

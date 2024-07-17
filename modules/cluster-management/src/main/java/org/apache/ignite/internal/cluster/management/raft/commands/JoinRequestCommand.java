@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,57 +18,35 @@
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
  * Command sent by a node that intends to join a cluster. This command will trigger node validation.
  */
-public class JoinRequestCommand implements WriteCommand {
-    private final ClusterNode node;
-
-    private final IgniteProductVersion igniteVersion;
-
-    private final ClusterTag clusterTag;
-
-    /**
-     * Creates a new command.
-     *
-     * @param node Node that wants to enter the logical topology.
-     * @param igniteVersion Version of the Ignite node.
-     * @param clusterTag Cluster tag.
-     */
-    public JoinRequestCommand(ClusterNode node, IgniteProductVersion igniteVersion, ClusterTag clusterTag) {
-        this.node = node;
-        this.igniteVersion = igniteVersion;
-        this.clusterTag = clusterTag;
-    }
-
+@Transferable(CmgMessageGroup.Commands.JOIN_REQUEST)
+public interface JoinRequestCommand extends WriteCommand {
     /**
      * Returns the node that wants to join a cluster.
-     *
-     * @return Node that wants to join a cluster.
      */
-    public ClusterNode node() {
-        return node;
-    }
+    ClusterNodeMessage node();
 
     /**
      * Returns the version of the Ignite node.
-     *
-     * @return Version of the Ignite node.
      */
-    public IgniteProductVersion igniteVersion() {
-        return igniteVersion;
-    }
+    String version();
 
     /**
      * Returns the cluster tag.
-     *
-     * @return Cluster tag.
      */
-    public ClusterTag clusterTag() {
-        return clusterTag;
+    ClusterTag clusterTag();
+
+    /**
+     * Returns the version of the Ignite node.
+     */
+    default IgniteProductVersion igniteVersion() {
+        return IgniteProductVersion.fromString(version());
     }
 }

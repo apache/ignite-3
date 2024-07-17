@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,20 +22,21 @@ import static org.apache.ignite.internal.configuration.validation.TestValidation
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.configuration.validation.PowerOfTwo;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link PowerOfTwoValidator} testing.
  */
-public class PowerOfTwoValidatorTest {
+public class PowerOfTwoValidatorTest extends BaseIgniteAbstractTest {
     @Test
     void testValidationSuccess() {
         PowerOfTwo powerOfTwo = mock(PowerOfTwo.class);
 
         PowerOfTwoValidator validator = new PowerOfTwoValidator();
 
-        validate(validator, powerOfTwo, mockValidationContext(null, 1), null);
-        validate(validator, powerOfTwo, mockValidationContext(null, 1L), null);
+        validate(validator, powerOfTwo, mockValidationContext(null, 1));
+        validate(validator, powerOfTwo, mockValidationContext(null, 1L));
     }
 
     @Test

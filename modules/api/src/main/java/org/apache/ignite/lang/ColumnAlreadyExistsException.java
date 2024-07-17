@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,28 +18,29 @@
 package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 
 import java.util.UUID;
 
 /**
- * This exception is thrown when a new column failed to be created, because another column with the same name already exists.
+ * This exception is thrown when a column creation has failed because a column with the specified name already existed.
  */
 public class ColumnAlreadyExistsException extends IgniteException {
     /**
-     * Create a new exception with given column name.
+     * Creates a new exception with a given column name.
      *
      * @param name Column name.
      */
     public ColumnAlreadyExistsException(String name) {
-        super(COLUMN_ALREADY_EXISTS_ERR, "Column already exists [name=" + name + ']');
+        super(COLUMN_ALREADY_EXISTS_ERR, "Column already exists [name=" + quote(name) + ']');
     }
 
     /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
+     * Creates a new exception with the given trace ID, error code, detailed message, and cause.
      *
-     * @param traceId Unique identifier of this exception.
+     * @param traceId Unique identifier of the exception.
      * @param code Full error code.
-     * @param message Detail message.
+     * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
     public ColumnAlreadyExistsException(UUID traceId, int code, String message, Throwable cause) {

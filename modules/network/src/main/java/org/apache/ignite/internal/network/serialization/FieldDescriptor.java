@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -45,7 +45,7 @@ public class FieldDescriptor implements DeclaredType {
     private final boolean unshared;
 
     private final boolean isPrimitive;
-    private final boolean isRuntimeTypeKnownUpfront;
+    private final boolean isSerializationTypeKnownUpfront;
 
     /**
      * Accessor for accessing this field.
@@ -57,14 +57,14 @@ public class FieldDescriptor implements DeclaredType {
      */
     public static FieldDescriptor local(Field field, int typeDescriptorId) {
         return new FieldDescriptor(
-                        field.getName(),
-                        field.getType(),
-                        typeDescriptorId,
-                        false,
-                        field.getType().isPrimitive(),
-                        Classes.isRuntimeTypeKnownUpfront(field.getType()),
-                        FieldAccessor.forField(field)
-                );
+                field.getName(),
+                field.getType(),
+                typeDescriptorId,
+                false,
+                field.getType().isPrimitive(),
+                Classes.isSerializationTypeKnownUpfront(field.getType()),
+                FieldAccessor.forField(field)
+        );
     }
 
     /**
@@ -82,7 +82,7 @@ public class FieldDescriptor implements DeclaredType {
                 typeDescriptorId,
                 unshared,
                 fieldClazz.isPrimitive(),
-                Classes.isRuntimeTypeKnownUpfront(fieldClazz),
+                Classes.isSerializationTypeKnownUpfront(fieldClazz),
                 declaringClass
         );
     }
@@ -96,7 +96,7 @@ public class FieldDescriptor implements DeclaredType {
             int typeDescriptorId,
             boolean unshared,
             boolean isPrimitive,
-            boolean isRuntimeTypeKnownUpfront,
+            boolean isSerializationTypeKnownUpfront,
             Class<?> declaringClass) {
         return new FieldDescriptor(
                 fieldName,
@@ -104,7 +104,7 @@ public class FieldDescriptor implements DeclaredType {
                 typeDescriptorId,
                 unshared,
                 isPrimitive,
-                isRuntimeTypeKnownUpfront,
+                isSerializationTypeKnownUpfront,
                 declaringClass
         );
     }
@@ -120,7 +120,7 @@ public class FieldDescriptor implements DeclaredType {
             int typeDescriptorId,
             boolean unshared,
             boolean isPrimitive,
-            boolean isRuntimeTypeKnownUpfront,
+            boolean isSerializationTypeKnownUpfront,
             String declaringClassName) {
         return new FieldDescriptor(
                 fieldName,
@@ -128,7 +128,7 @@ public class FieldDescriptor implements DeclaredType {
                 typeDescriptorId,
                 unshared,
                 isPrimitive,
-                isRuntimeTypeKnownUpfront,
+                isSerializationTypeKnownUpfront,
                 new BrokenFieldAccessor(fieldName, declaringClassName)
         );
     }
@@ -142,7 +142,7 @@ public class FieldDescriptor implements DeclaredType {
             int typeDescriptorId,
             boolean unshared,
             boolean isPrimitive,
-            boolean isRuntimeTypeKnownUpfront,
+            boolean isSerializationTypeKnownUpfront,
             Class<?> declaringClass) {
         this(
                 fieldName,
@@ -150,7 +150,7 @@ public class FieldDescriptor implements DeclaredType {
                 typeDescriptorId,
                 unshared,
                 isPrimitive,
-                isRuntimeTypeKnownUpfront,
+                isSerializationTypeKnownUpfront,
                 FieldAccessor.forFieldName(fieldName, declaringClass)
         );
     }
@@ -161,7 +161,7 @@ public class FieldDescriptor implements DeclaredType {
             int typeDescriptorId,
             boolean unshared,
             boolean isPrimitive,
-            boolean isRuntimeTypeKnownUpfront,
+            boolean isSerializationTypeKnownUpfront,
             FieldAccessor accessor
     ) {
         this.name = fieldName;
@@ -169,7 +169,7 @@ public class FieldDescriptor implements DeclaredType {
         this.typeDescriptorId = typeDescriptorId;
         this.unshared = unshared;
         this.isPrimitive = isPrimitive;
-        this.isRuntimeTypeKnownUpfront = isRuntimeTypeKnownUpfront;
+        this.isSerializationTypeKnownUpfront = isSerializationTypeKnownUpfront;
         this.accessor = accessor;
     }
 
@@ -238,8 +238,8 @@ public class FieldDescriptor implements DeclaredType {
 
     /** {@inheritDoc} */
     @Override
-    public boolean isRuntimeTypeKnownUpfront() {
-        return isRuntimeTypeKnownUpfront;
+    public boolean isSerializationTypeKnownUpfront() {
+        return isSerializationTypeKnownUpfront;
     }
 
     /**

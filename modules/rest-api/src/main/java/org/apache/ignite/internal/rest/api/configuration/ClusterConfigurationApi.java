@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,8 +25,10 @@ import io.micronaut.http.annotation.Patch;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Produces;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.concurrent.CompletableFuture;
@@ -39,25 +41,22 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 @Controller("/management/v1/configuration/cluster/")
 @Tag(name = "clusterConfiguration")
 public interface ClusterConfigurationApi {
-
     /**
      * Returns cluster configuration in HOCON format. This is represented as a plain text.
      *
      * @return the whole cluster configuration in HOCON format.
      */
-    @Operation(operationId = "getClusterConfiguration")
+    @Operation(operationId = "getClusterConfiguration", description = "Gets the current configuration of the cluster.")
     @ApiResponse(
-            responseCode = "200",
-            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
-            description = "Get cluster configuration")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+            responseCode = "200", description = "Received cluster configuration.",
+            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces({
-            MediaType.TEXT_PLAIN,
-            MediaType.PROBLEM_JSON
-    })
+    @ApiResponse(responseCode = "404", description = "Configuration not found. Most likely, the cluster is not initialized.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Produces(MediaType.PROBLEM_JSON)
     @Get
     String getConfiguration();
 
@@ -66,16 +65,21 @@ public interface ClusterConfigurationApi {
      *
      * @param updatedConfiguration the cluster configuration to update.
      */
-    @Operation(operationId = "updateClusterConfiguration")
-    @ApiResponse(responseCode = "200", description = "Configuration updated")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "updateClusterConfiguration", description = "Updates cluster configuration. "
+            + "New configuration should be provided in HOCON format.")
+    @ApiResponse(responseCode = "200", description = "Configuration updated.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "404", description = "Configuration not found. Most likely, the cluster is not initialized.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)
     @Patch
-    CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration);
+    CompletableFuture<Void> updateConfiguration(
+            @Body @RequestBody(description = "The cluster configuration to update.") String updatedConfiguration
+    );
 
     /**
      * Returns configuration in HOCON format represented by path. This is represented as a plain text.
@@ -83,18 +87,18 @@ public interface ClusterConfigurationApi {
      * @param path to represent a cluster configuration.
      * @return system configuration in HOCON format represented by given path.
      */
-    @Operation(operationId = "getClusterConfigurationByPath")
-    @ApiResponse(responseCode = "200",
-            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
-            description = "Configuration represented by path")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "getClusterConfigurationByPath",
+            description = "Gets the configuration on the specific path. Configuration is in HOCON format")
+    @ApiResponse(responseCode = "200", description = "Configuration of the cluster on the specified path.",
+            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")))
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces({
-            MediaType.TEXT_PLAIN,
-            MediaType.PROBLEM_JSON
-    })
+    @ApiResponse(responseCode = "404", description = "Configuration not found. Most likely, the cluster is not initialized.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Produces(MediaType.PROBLEM_JSON)
     @Get("/{path}")
-    String getConfigurationByPath(@PathVariable("path") String path);
+    String getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
+            description = "Configuration tree address. For example: `element.subelement`.") String path);
 }

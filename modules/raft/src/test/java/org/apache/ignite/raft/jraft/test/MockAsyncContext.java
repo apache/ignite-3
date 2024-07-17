@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.test;
 
+import java.util.UUID;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -27,6 +31,11 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 public class MockAsyncContext implements RpcContext {
     private Object responseObject;
     private NodeManager nodeManager = new NodeManager();
+
+    private ClusterNode sender = new ClusterNodeImpl(
+            UUID.randomUUID().toString(),
+            "node0",
+            new NetworkAddress("localhost", 12345));
 
     public Object getResponseObject() {
         return this.responseObject;
@@ -48,11 +57,21 @@ public class MockAsyncContext implements RpcContext {
         this.responseObject = responseObject;
     }
 
-    @Override public NetworkAddress getRemoteAddress() {
-        return new NetworkAddress("localhost", 12345);
+    @Override
+    public void sendResponseAsync(Object responseObj) {
+        IgniteTestUtils.runAsync(() -> sendResponse(responseObject));
     }
 
-    @Override public NetworkAddress getLocalAddress() {
-        return new NetworkAddress("localhost", 8081);
+    @Override public NetworkAddress getRemoteAddress() {
+        return sender.address();
+    }
+
+    @Override
+    public ClusterNode getSender() {
+        return sender;
+    }
+
+    @Override public String getLocalConsistentId() {
+        return "localhost-8081";
     }
 }

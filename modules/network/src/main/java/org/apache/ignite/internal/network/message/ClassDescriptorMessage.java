@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.network.message;
 
 import java.util.Collection;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.SerializationType;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /** Message for the {@link ClassDescriptor}. */
@@ -31,7 +31,7 @@ public interface ClassDescriptorMessage extends NetworkMessage {
     int IS_PRIMITIVE_MASK = 1;
     int IS_ARRAY_MASK = 1 << 1;
     int IS_RUNTIME_ENUM_MASK = 1 << 2;
-    int IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK = 1 << 3;
+    int IS_SERIALIZATION_TYPE_KNOWN_UPFRONT_MASK = 1 << 3;
 
     int HAS_WRITE_OBJECT_MASK = 1;
     int HAS_READ_OBJECT_MASK = 1 << 1;
@@ -62,7 +62,7 @@ public interface ClassDescriptorMessage extends NetworkMessage {
     String superClassName();
 
     /**
-     * Super-class descriptor ID. {@link Integer#MIN_VALUE} if super-class is missing.
+     * Super-class descriptor ID. {@code -1} if super-class is missing.
      *
      * @see ClassDescriptor#superClassDescriptor()
      */
@@ -77,7 +77,7 @@ public interface ClassDescriptorMessage extends NetworkMessage {
     String componentTypeName();
 
     /**
-     * Component type descriptor ID. {@link Integer#MIN_VALUE} if the described class is not an array class.
+     * Component type descriptor ID. {@code -1} if the described class is not an array class.
      *
      * @see ClassDescriptor#componentTypeDescriptorId()
      */

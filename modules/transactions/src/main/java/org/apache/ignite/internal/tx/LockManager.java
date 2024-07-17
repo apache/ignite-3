@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,49 +18,58 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.event.EventProducer;
+import org.apache.ignite.internal.tx.event.LockEvent;
+import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.jetbrains.annotations.TestOnly;
 
-/** Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by transaction id ordering. */
-public interface LockManager {
+/** Lock manager allows to acquire locks and release locks and supports deadlock prevention by transaction id ordering. */
+public interface LockManager extends EventProducer<LockEvent, LockEventParameters> {
     /**
-     * Attempts to acquire a lock for the specified {@code key} in exclusive mode.
+     * Attempts to acquire a lock for the specified {@code lockKey} in specified {@code lockMode}.
      *
-     * @param key The key.
      * @param txId Transaction id.
-     * @return The future that will be completed when a lock is successfully acquired.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
+     * @param lockKey The key.
+     * @param lockMode Lock mode, for example shared, exclusive, intention-shared etc.
+     * @return The future with gained lock that will be completed when a lock is successfully acquired.
      */
-    public CompletableFuture<Void> tryAcquire(Object key, UUID txId);
+    CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode);
 
     /**
-     * Attempts to release a lock for the specified {@code key} in exclusive mode.
+     * Attempts to release the specified lock.
      *
-     * @param key The key.
-     * @param txId Transaction id.
-     * @throws LockException If the unlock operation is invalid.
+     * @param lock Lock to release.
      */
-    public void tryRelease(Object key, UUID txId) throws LockException;
+    @TestOnly
+    void release(Lock lock);
 
     /**
-     * Attempts to acquire a lock for the specified {@code key} in shared mode.
+     * Release a lock that is held on the specific mode on the specific key.
      *
-     * @param key The key.
      * @param txId Transaction id.
-     * @return The future that will be completed when a lock is successfully acquired.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
+     * @param lockKey The key.
+     * @param lockMode Lock mode, for example shared, exclusive, intention-shared etc.
      */
-    public CompletableFuture<Void> tryAcquireShared(Object key, UUID txId);
+    void release(UUID txId, LockKey lockKey, LockMode lockMode);
 
     /**
-     * Attempts to release a lock for the specified {@code key} in shared mode.
+     * Retrieves all locks for the specified transaction id.
      *
-     * @param key The key.
-     * @param txId Transaction id.
-     * @throws LockException If the unlock operation is invalid.
+     * @param txId Transaction Id.
+     * @return An iterator over a collection of locks.
      */
-    public void tryReleaseShared(Object key, UUID txId) throws LockException;
+    @TestOnly
+    Iterator<Lock> locks(UUID txId);
+
+    /**
+     * Release all locks associated with a transaction.
+     *
+     * @param txId Tx id.
+     */
+    void releaseAll(UUID txId);
 
     /**
      * Returns a collection of transaction ids that is associated with the specified {@code key}.
@@ -69,7 +78,7 @@ public interface LockManager {
      * @return The waiters queue.
      */
     @TestOnly
-    public Collection<UUID> queue(Object key);
+    Collection<UUID> queue(LockKey key);
 
     /**
      * Returns a waiter associated with the specified {@code key}.
@@ -79,7 +88,7 @@ public interface LockManager {
      * @return The waiter.
      */
     @TestOnly
-    public Waiter waiter(Object key, UUID txId);
+    Waiter waiter(LockKey key, UUID txId);
 
     /**
      * Returns {@code true} if no locks have been held.
@@ -87,5 +96,5 @@ public interface LockManager {
      * @return {@code true} if no locks have been held.
      */
     @TestOnly
-    public boolean isEmpty();
+    boolean isEmpty();
 }

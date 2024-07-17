@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,27 +27,7 @@ import org.apache.ignite.table.Tuple;
 /**
  * This example demonstrates the usage of the {@link RecordView} API.
  *
- * <p>To run the example, do the following:
- * <ol>
- *     <li>Import the examples project into your IDE.</li>
- *     <li>
- *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
- *         {@code ignite bootstrap}
- *     </li>
- *     <li>
- *         Start an Ignite node using the CLI tool:<br>
- *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.conf my-first-node}
- *     </li>
- *     <li>
- *         Cluster initialization using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
- *     </li>
- *     <li>Run the example in the IDE.</li>
- *     <li>
- *         Stop the Ignite node using the CLI tool:<br>
- *         {@code ignite node stop my-first-node}
- *     </li>
- * </ol>
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class RecordViewExample {
     /**
@@ -94,7 +74,7 @@ public class RecordViewExample {
             //
             //--------------------------------------------------------------------------------------
 
-            RecordView<Tuple> accounts = client.tables().table("PUBLIC.accounts").recordView();
+            RecordView<Tuple> accounts = client.tables().table("accounts").recordView();
 
             //--------------------------------------------------------------------------------------
             //

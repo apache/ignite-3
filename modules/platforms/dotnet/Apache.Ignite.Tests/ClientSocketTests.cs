@@ -19,12 +19,10 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Net;
-    using System.Text;
     using System.Threading.Tasks;
     using Internal;
     using Internal.Buffers;
     using Internal.Proto;
-    using MessagePack;
     using NUnit.Framework;
 
     /// <summary>
@@ -32,34 +30,29 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class ClientSocketTests : IgniteTestsBase
     {
+        private static readonly IClientSocketEventListener Listener = new NoOpListener();
+
         [Test]
         public async Task TestConnectAndSendRequestReturnsResponse()
         {
-            using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new());
+            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), Listener);
 
-            using var requestWriter = new PooledArrayBufferWriter();
-
-            WriteString(requestWriter.GetMessageWriter(), "non-existent-table");
+            using var requestWriter = ProtoCommon.GetMessageWriter();
+            requestWriter.MessageWriter.Write("non-existent-table");
 
             using var response = await socket.DoOutInOpAsync(ClientOp.TableGet, requestWriter);
-            Assert.IsTrue(response.GetReader().IsNil);
-
-            void WriteString(MessagePackWriter writer, string str)
-            {
-                writer.WriteString(Encoding.UTF8.GetBytes(str));
-                writer.Flush();
-            }
+            Assert.IsTrue(response.GetReader().TryReadNil());
         }
 
         [Test]
         public async Task TestConnectAndSendRequestWithInvalidOpCodeThrowsError()
         {
-            using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new());
+            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), Listener);
 
-            using var requestWriter = new PooledArrayBufferWriter();
-            requestWriter.GetMessageWriter().Write(123);
+            using var requestWriter = ProtoCommon.GetMessageWriter();
+            requestWriter.MessageWriter.Write(123);
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(
+            var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await socket.DoOutInOpAsync((ClientOp)1234567, requestWriter));
 
             StringAssert.Contains("Unexpected operation code: 1234567", ex!.Message);
@@ -68,15 +61,17 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestDisposedSocketThrowsExceptionOnSend()
         {
-            var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new());
+            var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), Listener);
 
             socket.Dispose();
 
-            using var requestWriter = new PooledArrayBufferWriter();
-            requestWriter.GetMessageWriter().Write(123);
+            using var requestWriter = new PooledArrayBuffer();
+            requestWriter.MessageWriter.Write(123);
 
-            Assert.ThrowsAsync<ObjectDisposedException>(
+            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
                 async () => await socket.DoOutInOpAsync(ClientOp.SchemasGet, requestWriter));
+
+            Assert.IsInstanceOf<ObjectDisposedException>(ex!.InnerException);
 
             // Multiple dispose is allowed.
             socket.Dispose();
@@ -85,7 +80,23 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestConnectWithoutServerThrowsException()
         {
-            Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 569), new()));
+            Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(GetEndPoint(569), new(), Listener));
+        }
+
+        private static SocketEndpoint GetEndPoint(int? serverPort = null) =>
+            new(new(IPAddress.Loopback, serverPort ?? ServerPort), string.Empty, string.Empty);
+
+        private class NoOpListener : IClientSocketEventListener
+        {
+            public void OnAssignmentChanged(long timestamp)
+            {
+                // No-op.
+            }
+
+            public void OnObservableTimestampChanged(long timestamp)
+            {
+                // No-op.
+            }
         }
     }
 }

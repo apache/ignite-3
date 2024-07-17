@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.rule.logical;
 
 import java.util.Arrays;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptPredicateList;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelRule;
@@ -29,9 +30,11 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexSimplify;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.immutables.value.Value;
@@ -48,6 +51,10 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
     public static final RelOptRule TABLE_SCAN = Config.TABLE_SCAN.toRule();
 
     public static final RelOptRule TABLE_SCAN_SKIP_CORRELATED = Config.TABLE_SCAN_SKIP_CORRELATED.toRule();
+
+    public static final RelOptRule SYSTEM_VIEW_SCAN = Config.SYSTEM_VIEW_SCAN.toRule();
+
+    public static final RelOptRule SYSTEM_VIEW_SCAN_SKIP_CORRELATED = Config.SYSTEM_VIEW_SCAN_SKIP_CORRELATED.toRule();
 
     /**
      * Constructor.
@@ -84,9 +91,13 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
             condition = RexUtil.composeConjunction(builder, Arrays.asList(scan.condition(), condition));
         }
 
+        // We need to replace RexLocalRef with RexInputRef because "simplify" doesn't understand local refs.
+        condition = RexUtils.replaceLocalRefs(condition);
+        condition = new RexSimplify(builder, RelOptPredicateList.EMPTY, call.getPlanner().getExecutor())
+                .simplifyUnknownAsFalse(condition);
+
         // We need to replace RexInputRef with RexLocalRef because TableScan doesn't have inputs.
-        // TODO SEARCH support
-        condition = RexUtils.replaceInputRefs(RexUtil.expandSearch(builder, null, condition));
+        condition = RexUtils.replaceInputRefs(condition);
 
         // Set default traits, real traits will be calculated for physical node.
         RelTraitSet trait = cluster.traitSet();
@@ -104,7 +115,8 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
         }
 
         /** {@inheritDoc} */
-        @Override protected IgniteLogicalIndexScan createNode(
+        @Override
+        protected IgniteLogicalIndexScan createNode(
                 RelOptCluster cluster,
                 IgniteLogicalIndexScan scan,
                 RelTraitSet traits,
@@ -121,13 +133,32 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
         }
 
         /** {@inheritDoc} */
-        @Override protected IgniteLogicalTableScan createNode(
+        @Override
+        protected IgniteLogicalTableScan createNode(
                 RelOptCluster cluster,
                 IgniteLogicalTableScan scan,
                 RelTraitSet traits,
                 RexNode cond
         ) {
-            return IgniteLogicalTableScan.create(cluster, traits, scan.getTable(), scan.projects(),
+            return IgniteLogicalTableScan.create(cluster, traits, scan.getHints(), scan.getTable(), scan.projects(),
+                    cond, scan.requiredColumns());
+        }
+    }
+
+    private static class FilterSystemViewScanMergeRule extends FilterScanMergeRule<IgniteLogicalSystemViewScan> {
+        private FilterSystemViewScanMergeRule(FilterScanMergeRule.Config cfg) {
+            super(cfg);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected IgniteLogicalSystemViewScan createNode(
+                RelOptCluster cluster,
+                IgniteLogicalSystemViewScan scan,
+                RelTraitSet traits,
+                RexNode cond
+        ) {
+            return IgniteLogicalSystemViewScan.create(cluster, traits, scan.getHints(), scan.getTable(), scan.projects(),
                     cond, scan.requiredColumns());
         }
     }
@@ -152,6 +183,14 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
                 .withRuleFactory(FilterIndexScanMergeRule::new)
                 .withScanRuleConfig(IgniteLogicalIndexScan.class, "FilterIndexScanMergeRule", false);
 
+        Config SYSTEM_VIEW_SCAN = DEFAULT
+                .withRuleFactory(FilterSystemViewScanMergeRule::new)
+                .withScanRuleConfig(IgniteLogicalSystemViewScan.class, "FilterSystemViewScanMergeRule", false);
+
+        Config SYSTEM_VIEW_SCAN_SKIP_CORRELATED = DEFAULT
+                .withRuleFactory(FilterSystemViewScanMergeRule::new)
+                .withScanRuleConfig(IgniteLogicalSystemViewScan.class, "FilterSystemViewScanMergeSkipCorrelatedRule", true);
+
         /**
          * Create configuration for specified scan.
          */
@@ -164,7 +203,7 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
                     .withOperandSupplier(b -> b.operand(LogicalFilter.class)
                             .predicate(p -> !skipCorrelated || !RexUtils.hasCorrelation(p.getCondition()))
                             .oneInput(b1 -> b1.operand(scanCls).noInputs()))
-                .as(Config.class);
+                    .as(Config.class);
         }
     }
 }

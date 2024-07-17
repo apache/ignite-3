@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,77 +19,33 @@ package org.apache.ignite.internal.table;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
-import org.mockito.Mockito;
 
 /**
  * Checks if data compliant with the schema, otherwise the correct exception is thrown.
  */
-public class SchemaValidationTest {
-    /** Table ID test value. */
-    public final java.util.UUID tableId = java.util.UUID.randomUUID();
-
-    private ClusterService clusterService;
-
-    /**
-     * Creates a table for tests.
-     *
-     * @return The test table.
-     */
-    private InternalTable createTable() {
-        clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
-
-        TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
-
-        AtomicLong raftIndex = new AtomicLong();
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager),
-                txManager,
-                raftIndex
-        );
-
-        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
-
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
-        return table;
-    }
+public class SchemaValidationTest extends TableKvOperationsTestBase {
 
     @Test
     public void columnNotExist() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
-                new Column[]{new Column("val", NativeTypes.INT64, true)}
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
+                new Column[]{new Column("VAL", NativeTypes.INT64, true)}
         );
 
-        RecordView<Tuple> recView = createTableImpl(schema).recordView();
+        RecordView<Tuple> recView = createTable(schema).recordView();
 
         assertThrowsWithCause(SchemaMismatchException.class,
                 () -> recView.insert(null, Tuple.create().set("id", 0L).set("invalidCol", 0)));
@@ -100,13 +56,13 @@ public class SchemaValidationTest {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 new Column[]{
-                        new Column("id", NativeTypes.INT64, false),
-                        new Column("affId", NativeTypes.INT64, false)
+                        new Column("ID", NativeTypes.INT64, false),
+                        new Column("AFFID", NativeTypes.INT64, false)
                 },
-                new Column[]{new Column("val", NativeTypes.INT64, true)}
+                new Column[]{new Column("VAL", NativeTypes.INT64, true)}
         );
 
-        Table tbl = createTableImpl(schema);
+        Table tbl = createTable(schema);
 
         assertThrowsWithCause(SchemaMismatchException.class,
                 () -> tbl.recordView().get(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
@@ -134,17 +90,17 @@ public class SchemaValidationTest {
     public void typeMismatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("valString", NativeTypes.stringOf(3), true),
-                        new Column("valBytes", NativeTypes.blobOf(3), true)
+                        new Column("VALSTRING", NativeTypes.stringOf(3), true),
+                        new Column("VALBYTES", NativeTypes.blobOf(3), true)
                 }
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         // Check not-nullable column.
-        assertThrowsWithCause(IllegalArgumentException.class, () -> tbl.insert(null, Tuple.create().set("id", null)));
+        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.insert(null, Tuple.create().set("id", null)));
 
         // Check length of the string column
         assertThrowsWithCause(InvalidTypeException.class,
@@ -159,13 +115,13 @@ public class SchemaValidationTest {
     public void stringTypeMatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("valString", NativeTypes.stringOf(3), true)
+                        new Column("VALSTRING", NativeTypes.stringOf(3), true)
                 }
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple tuple = Tuple.create().set("id", 1L);
 
@@ -183,13 +139,13 @@ public class SchemaValidationTest {
     public void bytesTypeMatch() {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                new Column[]{new Column("id", NativeTypes.INT64, false)},
+                new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("valUnlimited", NativeTypes.BYTES, true),
-                        new Column("valLimited", NativeTypes.blobOf(2), true)
+                        new Column("VALUNLIMITED", NativeTypes.BYTES, true),
+                        new Column("VALLIMITED", NativeTypes.blobOf(2), true)
                 });
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple tuple = Tuple.create().set("id", 1L);
 
@@ -201,10 +157,6 @@ public class SchemaValidationTest {
 
         assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple.set("valLimited", new byte[3])));
 
-    }
-
-    private TableImpl createTableImpl(SchemaDescriptor schema) {
-        return new TableImpl(createTable(), new DummySchemaManagerImpl(schema));
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

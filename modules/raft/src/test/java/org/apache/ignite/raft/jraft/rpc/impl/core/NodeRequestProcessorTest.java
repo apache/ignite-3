@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
@@ -39,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.withSettings;
 
-public class NodeRequestProcessorTest {
+public class NodeRequestProcessorTest extends BaseIgniteAbstractTest {
     private static class MockRequestProcessor extends NodeRequestProcessor<PingRequest> {
         private String peerId;
         private String groupId;
@@ -79,7 +80,7 @@ public class NodeRequestProcessorTest {
     @BeforeEach
     public void setup() {
         this.asyncContext = new MockAsyncContext();
-        this.processor = new MockRequestProcessor("localhost:8081", "test");
+        this.processor = new MockRequestProcessor("localhost-8081", "test");
     }
 
     @AfterEach
@@ -92,7 +93,7 @@ public class NodeRequestProcessorTest {
         Node node = Mockito.mock(Node.class, withSettings().extraInterfaces(RaftServerService.class));
 
         Mockito.when(node.getGroupId()).thenReturn("test");
-        PeerId peerId = new PeerId("localhost", 8081);
+        PeerId peerId = new PeerId("localhost-8081");
         Mockito.when(node.getNodeId()).thenReturn(new NodeId("test", peerId));
 
         asyncContext.getNodeManager().add(node);
@@ -105,12 +106,12 @@ public class NodeRequestProcessorTest {
 
     @Test
     public void testInvalidPeerId() {
-        this.processor = new MockRequestProcessor("localhost", "test");
+        this.processor = new MockRequestProcessor("localhost:asd", "test");
         this.processor.handleRequest(asyncContext, TestUtils.createPingRequest());
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
         assertEquals(RaftError.EINVAL.getNumber(), resp.errorCode());
-        assertEquals("Fail to parse peerId: localhost", resp.errorMsg());
+        assertEquals("Fail to parse peerId: localhost:asd", resp.errorMsg());
     }
 
     @Test
@@ -119,6 +120,6 @@ public class NodeRequestProcessorTest {
         ErrorResponse resp = (ErrorResponse) asyncContext.getResponseObject();
         assertNotNull(resp);
         assertEquals(RaftError.ENOENT.getNumber(), resp.errorCode());
-        assertEquals("Peer id not found: localhost:8081, group: test", resp.errorMsg());
+        assertEquals("Peer id not found: localhost-8081, group: test", resp.errorMsg());
     }
 }

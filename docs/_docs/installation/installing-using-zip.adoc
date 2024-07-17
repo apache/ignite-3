@@ -1,0 +1,66 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Installing Using ZIP Archive
+
+== Prerequisites
+
+Ignite was tested on:
+
+include::includes/prereqs.adoc[]
+
+
+== Installing Using ZIP Archive
+
+. Unpack the archive:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+unzip ignite-3.0.0-beta2.zip && cd ignite-db-3.0.0-beta2
+----
+
+
+tab:Windows (PowerShell)[]
+[source,shell]
+----
+Expand-Archive ignite-3.0.0-beta2.zip -DestinationPath . ; cd ignite-db-3.0.0-beta2
+----
+
+tab:Windows (CMD)[]
+[source,shell]
+----
+tar -xf ignite-3.0.0-beta2.zip & cd ignite-db-3.0.0-beta2
+----
+--
+
+. Add the database directory to the PATH environment variable:
++
+[tabs]
+--
+tab:Unix[]
+[source,shell]
+----
+cd ignite-db-3.0.0
+export IGNITE_HOME=$(pwd)
+----
+--
+
+On Windows, create the `IGNITE_HOME` environment variable with the path to the folder.
+
+== Next Steps
+
+With the Ignite installed, you can proceed with the link:quick-start/getting-started-guide[Getting Started] or link:developers-guide/table-api[use the available APIs] immediately.

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,36 +23,37 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link RangeValidator} testing.
  */
-public class RangeValidatorTest {
+public class RangeValidatorTest extends BaseIgniteAbstractTest {
     @Test
     void testValidationSuccess() {
         Range range0 = createRange(0L, 100L);
 
         RangeValidator validator = new RangeValidator();
 
-        validate(validator, range0, mockValidationContext(null, 0), null);
-        validate(validator, range0, mockValidationContext(null, 50), null);
-        validate(validator, range0, mockValidationContext(null, 100), null);
+        validate(validator, range0, mockValidationContext(null, 0));
+        validate(validator, range0, mockValidationContext(null, 50));
+        validate(validator, range0, mockValidationContext(null, 100));
 
         Range range1 = createRange(0L, null);
 
-        validate(validator, range1, mockValidationContext(null, 0), null);
-        validate(validator, range1, mockValidationContext(null, 50), null);
-        validate(validator, range1, mockValidationContext(null, 100), null);
-        validate(validator, range1, mockValidationContext(null, Long.MAX_VALUE), null);
+        validate(validator, range1, mockValidationContext(null, 0));
+        validate(validator, range1, mockValidationContext(null, 50));
+        validate(validator, range1, mockValidationContext(null, 100));
+        validate(validator, range1, mockValidationContext(null, Long.MAX_VALUE));
 
         Range range2 = createRange(null, 100L);
 
-        validate(validator, range2, mockValidationContext(null, 0), null);
-        validate(validator, range2, mockValidationContext(null, 50), null);
-        validate(validator, range2, mockValidationContext(null, 100), null);
-        validate(validator, range2, mockValidationContext(null, Long.MIN_VALUE), null);
+        validate(validator, range2, mockValidationContext(null, 0));
+        validate(validator, range2, mockValidationContext(null, 50));
+        validate(validator, range2, mockValidationContext(null, 100));
+        validate(validator, range2, mockValidationContext(null, Long.MIN_VALUE));
     }
 
     @Test

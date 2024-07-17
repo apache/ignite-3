@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.storage;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.raft.jraft.util.BytesUtil.toByteArray;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,8 +27,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -44,9 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 
 @ExtendWith(WorkDirectoryExtension.class)
-public class FileServiceTest {
-    private static final IgniteLogger LOG = Loggers.forClass(FileServiceTest.class);
-
+public class FileServiceTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path path;
 
@@ -126,7 +124,7 @@ public class FileServiceTest {
         assertTrue(msg instanceof RpcRequests.GetFileResponse);
         RpcRequests.GetFileResponse response = (RpcRequests.GetFileResponse) msg;
         assertTrue(response.eof());
-        assertEquals("jraft is great!", new String(response.data().toByteArray(), UTF_8));
+        assertEquals("jraft is great!", new String(toByteArray(response.data()), UTF_8));
         assertEquals(-1, response.readSize());
     }
 
@@ -158,7 +156,7 @@ public class FileServiceTest {
             assertTrue(msg instanceof RpcRequests.GetFileResponse);
             final RpcRequests.GetFileResponse response = (RpcRequests.GetFileResponse) msg;
             final byte[] sourceArray = data.getBytes(UTF_8);
-            final byte[] respData = response.data().toByteArray();
+            final byte[] respData = toByteArray(response.data());
 
             final int length = sourceArray.length;
             int offset = 0;
@@ -169,7 +167,7 @@ public class FileServiceTest {
                     assertArrayEquals(sourceArray, respArray, "Offset: " + fileOffset);
                 }
                 catch (AssertionError e) {
-                    LOG.error("arrayComparisonFailure", e);
+                    log.error("arrayComparisonFailure", e);
                 }
                 offset += length;
             }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,19 +17,24 @@
 
 package org.apache.ignite.internal.network.direct;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.direct.state.DirectMessageState;
 import org.apache.ignite.internal.network.direct.state.DirectMessageStateItem;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
-import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,14 +51,14 @@ public class DirectMessageReader implements MessageReader {
     /**
      * Constructor.
      *
-     * @param serializationService  Serialization service.
-     * @param protoVer              Protocol version.
+     * @param serializationRegistry Serialization registry.
+     * @param protoVer Protocol version.
      */
     public DirectMessageReader(
-            PerSessionSerializationService serializationService,
+            MessageSerializationRegistry serializationRegistry,
             byte protoVer
     ) {
-        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(serializationService, protoVer));
+        state = new DirectMessageState<>(StateItem.class, () -> new StateItem(createStream(serializationRegistry, protoVer)));
     }
 
     /** {@inheritDoc} */
@@ -92,12 +97,34 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public @Nullable Byte readBoxedByte(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Byte val = stream.readBoxedByte();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public short readShort(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
         short val = stream.readShort();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
+    @Override
+    public @Nullable Short readBoxedShort(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Short val = stream.readBoxedShort();
 
         lastRead = stream.lastFinished();
 
@@ -122,12 +149,34 @@ public class DirectMessageReader implements MessageReader {
         return readInt(name);
     }
 
+    @Override
+    public @Nullable Integer readBoxedInt(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Integer val = stream.readBoxedInt();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public long readLong(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
         long val = stream.readLong();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
+    @Override
+    public @Nullable Long readBoxedLong(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Long val = stream.readBoxedLong();
 
         lastRead = stream.lastFinished();
 
@@ -146,12 +195,34 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public @Nullable Float readBoxedFloat(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Float val = stream.readBoxedFloat();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public double readDouble(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
         double val = stream.readDouble();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
+    @Override
+    public @Nullable Double readBoxedDouble(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Double val = stream.readBoxedDouble();
 
         lastRead = stream.lastFinished();
 
@@ -170,12 +241,34 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public @Nullable Character readBoxedChar(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Character val = stream.readBoxedChar();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean readBoolean(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
         boolean val = stream.readBoolean();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
+    @Override
+    public @Nullable Boolean readBoxedBoolean(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Boolean val = stream.readBoxedBoolean();
 
         lastRead = stream.lastFinished();
 
@@ -310,6 +403,17 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public ByteBuffer readByteBuffer(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        ByteBuffer val = stream.readByteBuffer();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public UUID readUuid(String name) {
@@ -328,6 +432,32 @@ public class DirectMessageReader implements MessageReader {
         DirectByteBufferStream stream = state.item().stream;
 
         IgniteUuid val = stream.readIgniteUuid();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
+    @Override
+    public @Nullable HybridTimestamp readHybridTimestamp(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        long val = stream.readLong();
+
+        lastRead = stream.lastFinished();
+
+        if (!lastRead) {
+            return null;
+        }
+
+        return nullableHybridTimestamp(val);
+    }
+
+    @Override
+    public short readHeaderShort() {
+        DirectByteBufferStream stream = state.item().stream;
+
+        short val = stream.readShort();
 
         lastRead = stream.lastFinished();
 
@@ -365,6 +495,32 @@ public class DirectMessageReader implements MessageReader {
         DirectByteBufferStream stream = state.item().stream;
 
         C col = stream.readCollection(itemType, this);
+
+        lastRead = stream.lastFinished();
+
+        return col;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <C extends List<?>> C readList(String name, MessageCollectionItemType itemType) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Collection<?> col = stream.readCollection(itemType, this);
+
+        lastRead = stream.lastFinished();
+
+        assert col == null || col instanceof List : col;
+
+        return (C) col;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <C extends Set<?>> C readSet(String name, MessageCollectionItemType itemType) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        C col = stream.readSet(itemType, this);
 
         lastRead = stream.lastFinished();
 
@@ -421,6 +577,22 @@ public class DirectMessageReader implements MessageReader {
     }
 
     /**
+     * Returns a stream to read message fields recursively.
+     *
+     * @param serializationRegistry Serialization registry.
+     * @param protoVer Protocol version.
+     */
+    protected DirectByteBufferStream createStream(MessageSerializationRegistry serializationRegistry, byte protoVer) {
+        switch (protoVer) {
+            case 1:
+                return new DirectByteBufferStreamImplV1(serializationRegistry);
+
+            default:
+                throw new IllegalStateException("Invalid protocol version: " + protoVer);
+        }
+    }
+
+    /**
      * State item.
      */
     private static class StateItem implements DirectMessageStateItem {
@@ -433,19 +605,10 @@ public class DirectMessageReader implements MessageReader {
         /**
          * Constructor.
          *
-         * @param serializationService Serialization service.
-         * @param protoVer              Protocol version.
+         * @param stream Direct byte buffer stream.
          */
-        StateItem(PerSessionSerializationService serializationService, byte protoVer) {
-            switch (protoVer) {
-                case 1:
-                    stream = new DirectByteBufferStreamImplV1(serializationService);
-
-                    break;
-
-                default:
-                    throw new IllegalStateException("Invalid protocol version: " + protoVer);
-            }
+        StateItem(DirectByteBufferStream stream) {
+            this.stream = stream;
         }
 
         /** {@inheritDoc} */

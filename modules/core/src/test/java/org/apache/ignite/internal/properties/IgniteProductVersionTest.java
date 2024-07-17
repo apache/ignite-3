@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.properties;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
@@ -31,32 +31,59 @@ import org.junit.jupiter.api.Test;
 public class IgniteProductVersionTest {
     @Test
     void testValidVersions() {
-        IgniteProductVersion version = IgniteProductVersion.fromString("3.0.0-SNAPSHOT");
+        IgniteProductVersion version = IgniteProductVersion.fromString("3.2.4-SNAPSHOT");
 
         assertThat(version.major(), is((byte) 3));
-        assertThat(version.minor(), is((byte) 0));
-        assertThat(version.maintenance(), is((byte) 0));
-        assertThat(version.snapshot(), is(true));
-        assertThat(version.alphaVersion(), is(emptyString()));
-        assertThat(version.toString(), is(equalTo("3.0.0-SNAPSHOT")));
+        assertThat(version.minor(), is((byte) 2));
+        assertThat(version.maintenance(), is((byte) 4));
+        assertThat(version.patch(), is(nullValue()));
+        assertThat(version.preRelease(), is(equalTo("SNAPSHOT")));
+        assertThat(version.toString(), is(equalTo("3.2.4-SNAPSHOT")));
+
+        version = IgniteProductVersion.fromString("3.2.4.5-SNAPSHOT");
+
+        assertThat(version.major(), is((byte) 3));
+        assertThat(version.minor(), is((byte) 2));
+        assertThat(version.maintenance(), is((byte) 4));
+        assertThat(version.patch(), is((byte) 5));
+        assertThat(version.preRelease(), is(equalTo("SNAPSHOT")));
+        assertThat(version.toString(), is(equalTo("3.2.4.5-SNAPSHOT")));
 
         version = IgniteProductVersion.fromString("1.2.3");
 
         assertThat(version.major(), is((byte) 1));
         assertThat(version.minor(), is((byte) 2));
         assertThat(version.maintenance(), is((byte) 3));
-        assertThat(version.snapshot(), is(false));
-        assertThat(version.alphaVersion(), is(emptyString()));
+        assertThat(version.patch(), is(nullValue()));
+        assertThat(version.preRelease(), is(nullValue()));
         assertThat(version.toString(), is(equalTo("1.2.3")));
 
-        version = IgniteProductVersion.fromString("3.0.0-alpha22");
+        version = IgniteProductVersion.fromString("1.2.3.4");
+
+        assertThat(version.major(), is((byte) 1));
+        assertThat(version.minor(), is((byte) 2));
+        assertThat(version.maintenance(), is((byte) 3));
+        assertThat(version.patch(), is((byte) 4));
+        assertThat(version.preRelease(), is(nullValue()));
+        assertThat(version.toString(), is(equalTo("1.2.3.4")));
+
+        version = IgniteProductVersion.fromString("3.1.2-alpha22");
 
         assertThat(version.major(), is((byte) 3));
-        assertThat(version.minor(), is((byte) 0));
-        assertThat(version.maintenance(), is((byte) 0));
-        assertThat(version.snapshot(), is(false));
-        assertThat(version.alphaVersion(), is("alpha22"));
-        assertThat(version.toString(), is(equalTo("3.0.0-alpha22")));
+        assertThat(version.minor(), is((byte) 1));
+        assertThat(version.maintenance(), is((byte) 2));
+        assertThat(version.patch(), is(nullValue()));
+        assertThat(version.preRelease(), is(equalTo("alpha22")));
+        assertThat(version.toString(), is(equalTo("3.1.2-alpha22")));
+
+        version = IgniteProductVersion.fromString("3.1.2.3-beta23");
+
+        assertThat(version.major(), is((byte) 3));
+        assertThat(version.minor(), is((byte) 1));
+        assertThat(version.maintenance(), is((byte) 2));
+        assertThat(version.patch(), is((byte) 3));
+        assertThat(version.preRelease(), is(equalTo("beta23")));
+        assertThat(version.toString(), is(equalTo("3.1.2.3-beta23")));
     }
 
     @Test
@@ -64,8 +91,8 @@ public class IgniteProductVersionTest {
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("  "));
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2"));
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("a.b.c"));
+        assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("a.b.c.d"));
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-"));
-        assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-SSDAD"));
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-SNAPSHOT-alpha123"));
     }
 }

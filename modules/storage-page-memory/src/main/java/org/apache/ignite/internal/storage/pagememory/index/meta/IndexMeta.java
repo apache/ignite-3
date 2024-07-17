@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,46 +18,87 @@
 package org.apache.ignite.internal.storage.pagememory.index.meta;
 
 import java.util.UUID;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.StringUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Index tree meta information.
+ * Index meta information.
  */
-public class IndexMeta {
-    @IgniteToStringInclude
-    private final UUID id;
+public class IndexMeta extends IndexMetaKey {
+    /** Index type. */
+    public enum IndexType {
+        HASH((byte) 0),
 
-    private final long rootPageId;
+        SORTED((byte) 1);
+
+        private final byte serializationValue;
+
+        IndexType(byte serializationValue) {
+            this.serializationValue = serializationValue;
+        }
+
+        /** Converts an index type to its serialized representation. */
+        public byte serialize() {
+            return serializationValue;
+        }
+
+        /** Restores an index type from its serialized representation. */
+        public static IndexType deserialize(byte serializationValue) {
+            if (HASH.serializationValue == serializationValue) {
+                return HASH;
+            } else if (SORTED.serializationValue == serializationValue) {
+                return SORTED;
+            } else {
+                throw new AssertionError("Unknown serialization value: " + serializationValue);
+            }
+        }
+    }
+
+    private final IndexType indexType;
+
+    @IgniteToStringExclude
+    private final long metaPageId;
+
+    private final @Nullable UUID nextRowIdUuidToBuild;
 
     /**
      * Constructor.
      *
      * @param id Index ID.
-     * @param rootPageId Index root page ID.
+     * @param metaPageId Index tree meta page ID.
+     * @param nextRowIdUuidToBuild Row ID uuid for which the index needs to be built, {@code null} means that the index building has
+     *      completed.
      */
-    public IndexMeta(UUID id, long rootPageId) {
-        this.id = id;
-        this.rootPageId = rootPageId;
+    public IndexMeta(int id, IndexType indexType, long metaPageId, @Nullable UUID nextRowIdUuidToBuild) {
+        super(id);
+
+        this.indexType = indexType;
+        this.metaPageId = metaPageId;
+        this.nextRowIdUuidToBuild = nextRowIdUuidToBuild;
+    }
+
+    public IndexType indexType() {
+        return indexType;
     }
 
     /**
-     * Returns the index ID.
+     * Returns page ID of the index tree meta page.
      */
-    public UUID id() {
-        return id;
+    public long metaPageId() {
+        return metaPageId;
     }
 
     /**
-     * Returns the index root page ID.
+     * Returns row ID uuid for which the index needs to be built, {@code null} means that the index building has completed.
      */
-    public long rootPageId() {
-        return rootPageId;
+    public @Nullable UUID nextRowIdUuidToBuild() {
+        return nextRowIdUuidToBuild;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(IndexMeta.class, this);
+        return S.toString(IndexMeta.class, this, "indexId=", indexId(), "metaPageId", StringUtils.hexLong(metaPageId));
     }
 }

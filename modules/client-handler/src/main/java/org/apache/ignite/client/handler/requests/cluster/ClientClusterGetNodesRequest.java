@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,8 +20,9 @@ package org.apache.ignite.client.handler.requests.cluster;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 
 /**
  * Cluster nodes request.
@@ -39,16 +40,30 @@ public class ClientClusterGetNodesRequest {
             ClusterService clusterService) {
         Collection<ClusterNode> nodes = clusterService.topologyService().allMembers();
 
-        out.packArrayHeader(nodes.size());
+        out.packInt(nodes.size());
 
         for (ClusterNode node : nodes) {
-            out.packString(node.id());
-            out.packString(node.name());
-            out.packString(node.address().host());
-            out.packInt(node.address().port());
+            packClusterNode(node, out);
         }
 
         // Null future indicates synchronous completion.
         return null;
+    }
+
+    /**
+     * Pack {@link ClusterNode} instance to client message.
+     *
+     * @param clusterNode Cluster node.
+     * @param out Client message packer.
+     */
+    public static void packClusterNode(ClusterNode clusterNode, ClientMessagePacker out) {
+        out.packInt(4);
+
+        out.packString(clusterNode.id());
+        out.packString(clusterNode.name());
+
+        NetworkAddress address = clusterNode.address();
+        out.packString(address.host());
+        out.packInt(address.port());
     }
 }

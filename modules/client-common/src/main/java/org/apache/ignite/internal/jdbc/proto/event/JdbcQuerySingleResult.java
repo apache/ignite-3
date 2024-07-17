@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,38 +18,48 @@
 package org.apache.ignite.internal.jdbc.proto.event;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * JDBC query execute result.
  */
 public class JdbcQuerySingleResult extends Response {
-    /** Cursor ID. */
-    private Long cursorId;
+    // === Common attributes ===
 
-    /** Query result rows. */
-    private List<List<Object>> items;
+    /** Id of the cursor in case it was registered on server. */
+    private @Nullable Long cursorId;
 
-    /** Flag indicating the query has no unfetched results. */
-    private boolean last;
+    private boolean hasResultSet;
 
-    /** Flag indicating the query is SELECT query. {@code false} for DML/DDL queries. */
-    private boolean isQuery;
+    /** Result is part of multi-statement query, there is at least one more result. */
+    private boolean hasNextResult;
 
-    /** Update count. */
-    private long updateCnt;
+    // === Attributes of response with result set ===
+
+    /** Serialized query result rows. Null only when result has no resultSet. */
+    private @Nullable List<BinaryTupleReader> rowTuples;
+
+    /** Flag indicating the query has un-fetched results. */
+    private boolean hasMoreData;
+
+    /** Ordered list of types of columns in serialized rows. Null only when result has no resultSet. */
+    private @Nullable List<JdbcColumnMeta> meta;
+
+    // === Attributes of response without result set ===
+
+    private long updateCnt = -1;
+
 
     /**
-     * Constructor. For deserialization purposes only.
+     * Constructor.
      */
-    public JdbcQuerySingleResult() {
-    }
+    public JdbcQuerySingleResult() { }
 
     /**
      * Constructor.
@@ -64,73 +74,73 @@ public class JdbcQuerySingleResult extends Response {
     /**
      * Constructor.
      *
-     * @param cursorId Cursor ID.
-     * @param items    Query result rows.
-     * @param last     Flag indicates the query has no unfetched results.
+     * @param cursorId Id of the cursor in case it was registered on server.
+     * @param rowTuples Serialized SQL result rows.
+     * @param meta List of columns-related metadata.
+     * @param hasMoreData Flag indicates the query has un-fetched results.
+     * @param hasNextResult Flag indicates that current result is part of multi-statement query, there is at least one more result.
      */
-    public JdbcQuerySingleResult(long cursorId, List<List<Object>> items, boolean last) {
-        super();
-
-        Objects.requireNonNull(items);
+    @SuppressWarnings("NullableProblems")
+    public JdbcQuerySingleResult(
+            @Nullable Long cursorId,
+            List<BinaryTupleReader> rowTuples,
+            List<JdbcColumnMeta> meta,
+            boolean hasMoreData,
+            boolean hasNextResult
+    ) {
+        Objects.requireNonNull(rowTuples);
 
         this.cursorId = cursorId;
-        this.items = items;
-        this.last = last;
-        this.isQuery = true;
+        this.rowTuples = rowTuples;
+        this.meta = meta;
 
-        hasResults = true;
+        this.hasMoreData = hasMoreData;
+        this.hasNextResult = hasNextResult;
+
+        hasResultSet = true;
     }
 
     /**
      * Constructor.
      *
+     * @param cursorId Id of the cursor in case it was registered on server.
      * @param updateCnt Update count for DML queries.
+     * @param hasNextResult Flag indicates that current result is part of multi-statement query, there is at least one more result.
      */
-    public JdbcQuerySingleResult(long updateCnt) {
-        super();
-
-        this.last = true;
-        this.isQuery = false;
+    public JdbcQuerySingleResult(@Nullable Long cursorId, long updateCnt, boolean hasNextResult) {
         this.updateCnt = updateCnt;
-        this.items = Collections.emptyList();
-
-        hasResults = true;
+        this.cursorId = cursorId;
+        this.hasNextResult = hasNextResult;
     }
 
-    /**
-     * Get the cursor id.
-     *
-     * @return Cursor ID.
-     */
-    public Long cursorId() {
+    /** Return id of the cursor in case it was registered on server, returns null otherwise. */
+    public @Nullable Long cursorId() {
         return cursorId;
     }
 
-    /**
-     * Get the items.
-     *
-     * @return Query result rows.
-     */
-    public List<List<Object>> items() {
-        return items;
+    /** Return result rows in serialized form, return null if result has no result set. */
+    public @Nullable List<BinaryTupleReader> items() {
+        return rowTuples;
     }
 
-    /**
-     * Get the last flag.
-     *
-     * @return Flag indicating the query has no unfetched results.
-     */
-    public boolean last() {
-        return last;
+    public @Nullable List<JdbcColumnMeta> meta() {
+        return meta;
     }
 
-    /**
-     * Get the isQuery flag.
-     *
-     * @return Flag indicating the query is SELECT query. {@code false} for DML/DDL queries.
-     */
-    public boolean isQuery() {
-        return isQuery;
+    /** Returns {@code true} if there is more data available in current result set. */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    public boolean hasMoreData() {
+        return hasMoreData;
+    }
+
+    /** Returns {@code true} if result contains rows. */
+    public boolean hasResultSet() {
+        return hasResultSet;
+    }
+
+    /** Returns {@code true} if result is part of multi-statement query and there is at least one more result. */
+    public boolean hasNextResult() {
+        return hasNextResult;
     }
 
     /**
@@ -147,24 +157,34 @@ public class JdbcQuerySingleResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
-        if (cursorId != null) {
-            packer.packLong(cursorId);
-        } else {
-            packer.packNil();
+        packer.packLongNullable(cursorId);
+        packer.packBoolean(hasResultSet);
+        packer.packBoolean(hasNextResult);
+
+        if (!hasResultSet) {
+            packer.packLong(updateCnt);
+
+            return;
         }
 
-        packer.packBoolean(isQuery);
-        packer.packLong(updateCnt);
-        packer.packBoolean(last);
+        assert rowTuples != null;
+        assert meta != null;
 
-        packer.packArrayHeader(items.size());
+        packer.packBoolean(hasMoreData);
 
-        for (List<Object> item : items) {
-            packer.packObjectArray(item.toArray());
+        packer.packInt(meta.size());
+        for (JdbcColumnMeta columnMeta : meta) {
+            columnMeta.writeBinary(packer);
+        }
+
+        packer.packInt(rowTuples.size());
+
+        for (BinaryTupleReader item : rowTuples) {
+            packer.packByteBuffer(item.byteBuffer());
         }
     }
 
@@ -173,7 +193,7 @@ public class JdbcQuerySingleResult extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
@@ -182,17 +202,36 @@ public class JdbcQuerySingleResult extends Response {
         } else {
             cursorId = unpacker.unpackLong();
         }
-        isQuery = unpacker.unpackBoolean();
-        updateCnt = unpacker.unpackLong();
-        last = unpacker.unpackBoolean();
 
-        int size = unpacker.unpackArrayHeader();
+        hasResultSet = unpacker.unpackBoolean();
+        hasNextResult = unpacker.unpackBoolean();
 
-        items = new ArrayList<>(size);
+        if (!hasResultSet) {
+            updateCnt = unpacker.unpackLong();
 
-        for (int i = 0; i < size; i++) {
-            items.add(Arrays.asList(unpacker.unpackObjectArray()));
+            return;
         }
+
+        hasMoreData = unpacker.unpackBoolean();
+
+        int count = unpacker.unpackInt();
+        meta = new ArrayList<>(count);
+
+        for (int i = 0; i < count; i++) {
+            var columnMeta = new JdbcColumnMeta();
+
+            columnMeta.readBinary(unpacker);
+
+            meta.add(columnMeta);
+        }
+
+        int size = unpacker.unpackInt();
+
+        rowTuples = new ArrayList<>(size);
+        for (int rowIdx = 0; rowIdx < size; rowIdx++) {
+            rowTuples.add(new BinaryTupleReader(count, unpacker.readBinary()));
+        }
+
     }
 
     /** {@inheritDoc} */

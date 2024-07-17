@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
@@ -25,17 +27,23 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
+import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -45,14 +53,16 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.Env;
 import org.rocksdb.Priority;
 import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.WriteBatch;
 import org.rocksdb.util.SizeUnit;
 
 /** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
 public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
 
-    /** Database path. */
-    private final Path path;
+    /** Function to get path to the log storage. */
+    private final Supplier<Path> logPathSupplier;
 
     /** Executor for shared storages. */
     private final ExecutorService executorService;
@@ -69,35 +79,67 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Data column family handle. */
     private ColumnFamilyHandle dataHandle;
 
+    private ColumnFamilyOptions cfOption;
+
+    protected List<AbstractNativeReference> additionalDbClosables = new ArrayList<>();
+
+    /**
+     * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
+     * {@link RocksDbSharedLogStorage#commitWriteBatch()}.
+     * <br>
+     * Shared between instances to provide more efficient way of executing batch updates.
+     */
+    @SuppressWarnings("ThreadLocalNotStaticFinal")
+    private final ThreadLocal<WriteBatch> threadLocalWriteBatch = new ThreadLocal<>();
+
     /**
      * Constructor.
      *
      * @param path Path to the storage.
      */
+    @TestOnly
     public DefaultLogStorageFactory(Path path) {
-        this.path = path;
+        this("test", () -> path);
+    }
 
-        executorService = Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors() * 2,
-                new NamedThreadFactory("raft-shared-log-storage-pool", LOG)
+    /**
+     * Constructor.
+     *
+     * @param logPathSupplier Function to get path to the log storage.
+     */
+    public DefaultLogStorageFactory(String nodeName, Supplier<Path> logPathSupplier) {
+        this.logPathSupplier = logPathSupplier;
+
+        executorService = Executors.newSingleThreadExecutor(
+                NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
         );
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        // This is effectively a sync implementation.
         try {
-            Files.createDirectories(path);
+            start();
+            return nullCompletedFuture();
+        } catch (RuntimeException ex) {
+            return failedFuture(ex);
+        }
+    }
+
+    private void start() {
+        Path logPath = logPathSupplier.get();
+
+        try {
+            Files.createDirectories(logPath);
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to create directory: " + this.path, e);
+            throw new IllegalStateException("Failed to create directory: " + logPath, e);
         }
 
         List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
 
         this.dbOptions = createDbOptions();
 
-        ColumnFamilyOptions cfOption = createColumnFamilyOptions();
-
+        this.cfOption = createColumnFamilyOptions();
 
         List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -107,7 +149,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         );
 
         try {
-            this.db = RocksDB.open(this.dbOptions, this.path.toString(), columnFamilyDescriptors, columnFamilyHandles);
+            this.db = RocksDB.open(this.dbOptions, logPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
             // all the raft groups
@@ -121,22 +163,82 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             this.confHandle = columnFamilyHandles.get(0);
             this.dataHandle = columnFamilyHandles.get(1);
         } catch (Exception e) {
+            closeRocksResources();
             throw new RuntimeException(e);
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
-        IgniteUtils.closeAll(confHandle, dataHandle, db, dbOptions);
+        try {
+            closeRocksResources();
+        } catch (RuntimeException ex) {
+            return failedFuture(ex);
+        }
+
+        return nullCompletedFuture();
+    }
+
+    private void closeRocksResources() {
+        // RocksUtils will handle nulls so we are good.
+        List<AbstractNativeReference> closables = new ArrayList<>();
+        closables.add(confHandle);
+        closables.add(dataHandle);
+        closables.add(db);
+        closables.add(dbOptions);
+        closables.addAll(additionalDbClosables);
+        closables.add(cfOption);
+
+        RocksUtils.closeAll(closables);
     }
 
     /** {@inheritDoc} */
     @Override
     public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions, executorService);
+        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, raftOptions, executorService);
+    }
+
+    @Override
+    public void sync() throws RocksDBException {
+        db.syncWal();
+    }
+
+    /**
+     * Returns or creates a thread-local {@link WriteBatch} instance, attached to current factory, for appending data
+     * from multiple storages at the same time.
+     */
+    WriteBatch getOrCreateThreadLocalWriteBatch() {
+        WriteBatch writeBatch = threadLocalWriteBatch.get();
+
+        if (writeBatch == null) {
+            writeBatch = new WriteBatch();
+
+            threadLocalWriteBatch.set(writeBatch);
+        }
+
+        return writeBatch;
+    }
+
+    /**
+     * Returns a thread-local {@link WriteBatch} instance, attached to current factory, for appending append data from multiple storages
+     * at the same time.
+     *
+     * @return {@link WriteBatch} instance or {@code null} if it was never created.
+     */
+    @Nullable
+    WriteBatch getThreadLocalWriteBatch() {
+        return threadLocalWriteBatch.get();
+    }
+
+    /**
+     * Clears {@link WriteBatch} returned by {@link #getOrCreateThreadLocalWriteBatch()}.
+     */
+    void clearThreadLocalWriteBatch(WriteBatch writeBatch) {
+        writeBatch.close();
+
+        threadLocalWriteBatch.remove();
     }
 
     /**
@@ -144,7 +246,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      *
      * @return Default database options.
      */
-    private static DBOptions createDbOptions() {
+    protected DBOptions createDbOptions() {
         return new DBOptions()
             .setMaxBackgroundJobs(Runtime.getRuntime().availableProcessors() * 2)
             .setCreateIfMissing(true)

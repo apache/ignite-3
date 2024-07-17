@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,83 +17,128 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake internal table.
  */
 public class FakeInternalTable implements InternalTable {
+    public static final int PARTITIONS = 4;
+
     /** Table name. */
     private final String tableName;
 
     /** Table ID. */
-    private final UUID tableId;
+    private final int tableId;
+
+    private final ColumnsExtractor keyExtractor;
 
     /** Table data. */
     private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
+
+    /** Data access listener. */
+    private BiConsumer<String, Object> dataAccessListener;
 
     /**
      * The constructor.
      *
      * @param tableName Name.
-     * @param tableId   Id.
+     * @param tableId Id.
+     * @param keyExtractor Function which converts given binary row to an index key.
      */
-    public FakeInternalTable(String tableName, UUID tableId) {
+    public FakeInternalTable(String tableName, int tableId, ColumnsExtractor keyExtractor) {
         this.tableName = tableName;
         this.tableId = tableId;
+        this.keyExtractor = keyExtractor;
     }
 
-    /** {@inheritDoc} */
     @Override
     public MvTableStorage storage() {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    /** {@inheritDoc} */
     @Override
     public int partitions() {
-        return 1;
+        return PARTITIONS;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return tableName;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
-        return CompletableFuture.completedFuture(data.get(keyRow.keySlice()));
+    public void name(String newName) {
+        throw new UnsupportedOperationException("Should not be called");
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows,
-            @Nullable InternalTransaction tx) {
+    public int partitionId(BinaryRowEx row) {
+        return 0;
+    }
+
+    @Override
+    public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
+        return completedFuture(getImpl(keyRow.tupleSlice(), keyRow));
+    }
+
+    @Override
+    public CompletableFuture<BinaryRow> get(
+            BinaryRowEx keyRow,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode) {
+        return null;
+    }
+
+    private BinaryRow getImpl(ByteBuffer key, BinaryRow keyRow) {
+        onDataAccess("get", keyRow);
+
+        return data.get(key);
+    }
+
+    @Override
+    public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx) {
         var res = new ArrayList<BinaryRow>();
 
         for (var key : keyRows) {
@@ -101,58 +146,96 @@ public class FakeInternalTable implements InternalTable {
 
             if (val != null) {
                 res.add(val.getNow(null));
+            } else {
+                res.add(null);
             }
         }
 
-        return CompletableFuture.completedFuture(res);
+        onDataAccess("getAll", keyRows);
+        return completedFuture(res);
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<List<BinaryRow>> getAll(
+            Collection<BinaryRowEx> keyRows,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode
+    ) {
+        return null;
+    }
+
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
-        data.put(row.keySlice(), row);
+        upsertImpl(keyExtractor.extractColumns(row), row);
 
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
-    /** {@inheritDoc} */
+    private void upsertImpl(BinaryTuple key, BinaryRow row) {
+        onDataAccess("upsert", row);
+
+        data.put(key.byteBuffer(), row);
+    }
+
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
         for (var row : rows) {
             upsert(row, tx);
         }
 
-        return CompletableFuture.completedFuture(null);
+        onDataAccess("upsertAll", rows);
+        return nullCompletedFuture();
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable BitSet deleted, int partition) {
+        int i = 0;
+
+        for (var row : rows) {
+            if (deleted != null && deleted.get(i)) {
+                delete(row, null);
+            } else {
+                upsert(row, null);
+            }
+
+            i++;
+        }
+
+        onDataAccess("updateAll", rows);
+        return nullCompletedFuture();
+    }
+
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row,
             @Nullable InternalTransaction tx) {
-        var res = get(row, tx);
+        BinaryTuple key = keyExtractor.extractColumns(row);
 
-        upsert(row, tx);
+        BinaryRow res = getImpl(key.byteBuffer(), row);
 
-        return CompletableFuture.completedFuture(res.getNow(null));
+        upsertImpl(key, row);
+
+        onDataAccess("getAndUpsert", row);
+
+        return completedFuture(res);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, @Nullable InternalTransaction tx) {
-        var old = get(row, tx).getNow(null);
+        BinaryTuple key = keyExtractor.extractColumns(row);
+
+        BinaryRow old = getImpl(key.byteBuffer(), row);
 
         if (old == null) {
-            upsert(row, tx);
-
-            return CompletableFuture.completedFuture(true);
+            upsertImpl(key, row);
         }
 
-        return CompletableFuture.completedFuture(false);
+        onDataAccess("insert", row);
+
+        return booleanCompletedFuture(old == null);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
         var skipped = new ArrayList<BinaryRow>();
 
         for (var row : rows) {
@@ -161,83 +244,104 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
-        return CompletableFuture.completedFuture(skipped);
+        onDataAccess("insertAll", rows);
+        return completedFuture(skipped);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx row, @Nullable InternalTransaction tx) {
-        var old = get(row, tx).getNow(null);
+        BinaryTuple key = keyExtractor.extractColumns(row);
 
-        if (old == null) {
-            return CompletableFuture.completedFuture(false);
-        }
-
-        return upsert(row, tx).thenApply(f -> true);
+        return booleanCompletedFuture(replaceImpl(key, row, tx) != null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, @Nullable InternalTransaction tx) {
-        var old = get(oldRow, tx).getNow(null);
+        BinaryTuple key = keyExtractor.extractColumns(oldRow);
 
-        if (old == null || !old.valueSlice().equals(oldRow.valueSlice())) {
-            return CompletableFuture.completedFuture(false);
+        BinaryRow old = getImpl(key.byteBuffer(), oldRow);
+
+        if (old == null || !old.tupleSlice().equals(oldRow.tupleSlice())) {
+            onDataAccess("replace", oldRow);
+            return falseCompletedFuture();
         }
 
-        return upsert(newRow, tx).thenApply(f -> true);
+        upsertImpl(key, newRow);
+
+        onDataAccess("replace", oldRow);
+        return trueCompletedFuture();
     }
 
-    /** {@inheritDoc} */
+    private @Nullable BinaryRow replaceImpl(BinaryTuple key, BinaryRow row, @Nullable InternalTransaction tx) {
+        BinaryRow old = getImpl(key.byteBuffer(), row);
+
+        if (old == null) {
+            onDataAccess("replace", row);
+
+            return null;
+        }
+
+        upsertImpl(key, row);
+
+        onDataAccess("replace", row);
+
+        return old;
+    }
+
     @Override
-    public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row,
-            @Nullable InternalTransaction tx) {
-        var old = get(row, tx);
+    public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, @Nullable InternalTransaction tx) {
+        BinaryTuple key = keyExtractor.extractColumns(row);
 
-        return replace(row, tx).thenCompose(f -> old);
+        BinaryRow replace = replaceImpl(key, row, tx);
+
+        onDataAccess("getAndReplace", row);
+
+        return completedFuture(replace);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
-        var old = get(keyRow, tx).getNow(null);
+        BinaryRow old = getImpl(keyRow.tupleSlice(), keyRow);
 
         if (old != null) {
-            data.remove(keyRow.keySlice());
+            data.remove(keyRow.tupleSlice());
         }
 
-        return CompletableFuture.completedFuture(old != null);
+        onDataAccess("delete", keyRow);
+        return booleanCompletedFuture(old != null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, @Nullable InternalTransaction tx) {
-        var old = get(oldRow, tx).getNow(null);
+        var res = false;
 
-        if (old != null && old.valueSlice().equals(oldRow.valueSlice())) {
-            data.remove(oldRow.keySlice());
-            return CompletableFuture.completedFuture(true);
+        BinaryTuple key = keyExtractor.extractColumns(oldRow);
+
+        BinaryRow old = getImpl(key.byteBuffer(), oldRow);
+
+        if (old != null && old.tupleSlice().equals(oldRow.tupleSlice())) {
+            data.remove(key.byteBuffer());
+            res = true;
         }
 
-        return CompletableFuture.completedFuture(false);
+        onDataAccess("deleteExact", oldRow);
+        return booleanCompletedFuture(res);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row,
-            @Nullable InternalTransaction tx) {
-        var old = get(row, tx).getNow(null);
+    public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, @Nullable InternalTransaction tx) {
+        BinaryRow old = getImpl(row.tupleSlice(), row);
 
         if (old != null) {
-            data.remove(row.keySlice());
+            data.remove(row.tupleSlice());
         }
 
-        return CompletableFuture.completedFuture(old);
+        onDataAccess("getAndDelete", row);
+        return completedFuture(old);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
         var skipped = new ArrayList<BinaryRow>();
 
         for (var row : rows) {
@@ -246,12 +350,12 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
-        return CompletableFuture.completedFuture(skipped);
+        onDataAccess("deleteAll", rows);
+        return completedFuture(skipped);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
         var skipped = new ArrayList<BinaryRow>();
 
         for (var row : rows) {
@@ -260,42 +364,151 @@ public class FakeInternalTable implements InternalTable {
             }
         }
 
-        return CompletableFuture.completedFuture(skipped);
+        onDataAccess("deleteAllExact", rows);
+        return completedFuture(skipped);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+    public Publisher<BinaryRow> scan(
+            int partId,
+            @Nullable InternalTransaction tx,
+            @Nullable Integer indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            BitSet columnsToInclude
+    ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    /** {@inheritDoc} */
     @Override
-    public List<String> assignments() {
+    public Publisher<BinaryRow> scan(
+            int partId,
+            UUID txId,
+            TablePartitionId commitPartition,
+            String txCoordinatorId,
+            PrimaryReplica recipient,
+            @Nullable Integer indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    /** {@inheritDoc} */
     @Override
-    public ClusterNode leaderAssignment(int partition) {
+    public Publisher<BinaryRow> scan(
+            int partId,
+            UUID txId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            @Nullable Integer indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    /** {@inheritDoc} */
     @Override
-    public RaftGroupService partitionRaftGroupService(int partition) {
+    public Publisher<BinaryRow> scan(
+            int partId,
+            UUID txId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            String txCoordinatorId
+    ) {
         return null;
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            UUID txId,
+            TablePartitionId commitPartition,
+            String txCoordinatorId,
+            PrimaryReplica recipient,
+            int indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    ) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    @Override
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            UUID txId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            int indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
+    ) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    @Override
+    public TableRaftService tableRaftService() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+
+    @Override public TxStateTableStorage txStateStorage() {
+        return null;
+    }
+
     @Override
     public int partition(BinaryRowEx keyRow) {
         return 0;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         // No-op.
+    }
+
+    /**
+     * Sets the data access operation listener.
+     *
+     * @param dataAccessListener Data access operation listener.
+     */
+    public void setDataAccessListener(BiConsumer<String, Object> dataAccessListener) {
+        this.dataAccessListener = dataAccessListener;
+    }
+
+    private void onDataAccess(String operation, Object arg) {
+        if (dataAccessListener != null) {
+            dataAccessListener.accept(operation, arg);
+        }
+    }
+
+    @Override
+    public @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId) {
+        return null;
+    }
+
+    @Override
+    public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
+        return null;
+    }
+
+    @Override
+    public ScheduledExecutorService streamerFlushExecutor() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partitionId) {
+        return completedFuture(
+                new ClusterNodeImpl("server-1", "server-1", new NetworkAddress("localhost", 10800)));
+    }
+
+    @Override
+    public CompletableFuture<Long> estimatedSize() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 }

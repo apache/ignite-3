@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,13 +19,11 @@ package org.apache.ignite.network;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * A representation of a network address including a host name and a port.
+ * Representation of a network address that includes a host name and a port.
  */
 public class NetworkAddress implements Serializable {
     /** Regexp for parsing strings in the "host:port" format. */
@@ -37,10 +35,6 @@ public class NetworkAddress implements Serializable {
     /** Port. */
     private final int port;
 
-    /** Consistent id. TODO: IGNITE-16373 Temporary until ticket is not resolved. */
-    @Nullable
-    private final String consistentId;
-
     /**
      * Constructor.
      *
@@ -50,20 +44,6 @@ public class NetworkAddress implements Serializable {
     public NetworkAddress(String host, int port) {
         this.host = host;
         this.port = port;
-        this.consistentId = null;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param host Host.
-     * @param port Port.
-     * @param consistentId Consistent id.
-     */
-    public NetworkAddress(String host, int port, String consistentId) {
-        this.host = host;
-        this.port = port;
-        this.consistentId = consistentId;
     }
 
     /**
@@ -123,16 +103,6 @@ public class NetworkAddress implements Serializable {
         return port;
     }
 
-    /**
-     * Returns the consistent id.
-     *
-     * @return Consistent id.
-     */
-    @Nullable
-    public String consistentId() {
-        return consistentId;
-    }
-
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
@@ -143,13 +113,15 @@ public class NetworkAddress implements Serializable {
             return false;
         }
         NetworkAddress address = (NetworkAddress) o;
-        return port == address.port && host.equals(address.host) && Objects.equals(consistentId, address.consistentId);
+        return port == address.port && host.equals(address.host);
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(host, port, consistentId);
+        int result = host.hashCode();
+        result = 31 * result + port;
+        return result;
     }
 
     /** {@inheritDoc} */

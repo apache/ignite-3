@@ -1,0 +1,215 @@
+# name: test/sql/filter/test_in_list_of_single_element.test
+# description: Test IN predicate with list of single element.
+# feature: T631
+# group: [filter]
+
+statement ok
+CREATE TABLE test(i INTEGER, s VARCHAR, d TIMESTAMP);
+
+statement ok
+INSERT INTO test VALUES (1, 'hello', TIMESTAMP '2022-02-01 10:30:28'), (2, 'world', TIMESTAMP '2022-02-01 10:32:26'), (NULL, NULL, NULL);
+
+# IN in project
+query T
+SELECT 1 IN (1);
+----
+true
+
+query T
+SELECT 'hello' IN ('hello');
+----
+true
+
+query T
+SELECT TIMESTAMP '2022-02-01 10:30:28' IN (TIMESTAMP '2022-02-01 10:30:28');
+----
+true
+
+
+query T
+SELECT 1 IN (NULL)
+----
+NULL
+
+query T
+SELECT NULL IN (1)
+----
+NULL
+
+query T
+SELECT NULL IN (NULL)
+----
+NULL
+
+query T
+SELECT 1 NOT IN (1);
+----
+false
+
+query T
+SELECT 1 NOT IN (NULL)
+----
+NULL
+
+query T
+SELECT NULL NOT IN (1)
+----
+NULL
+
+query T
+SELECT NULL NOT IN (NULL)
+----
+NULL
+
+# Column reference in IN
+query T rowsort
+SELECT i IN (i + 1) FROM test
+----
+false
+false
+NULL
+
+query T rowsort
+SELECT i NOT IN (i + 1) FROM test
+----
+true
+true
+NULL
+
+query T rowsort
+SELECT s IN (CONCAT(s, 'world')) FROM test
+----
+false
+false
+NULL
+
+query T rowsort
+SELECT d IN (d + INTERVAL 1 DAYS) FROM test
+----
+false
+false
+NULL
+
+# Case clause with IN
+query T rowsort
+SELECT CASE WHEN i IN (1) THEN 'a' ELSE 'b' END FROM test
+----
+a
+b
+b
+
+query T rowsort
+SELECT CASE WHEN s IN ('hello') THEN 'a' ELSE 'b' END FROM test
+----
+a
+b
+b
+
+query T rowsort
+SELECT CASE WHEN d IN (TIMESTAMP '2022-02-01 10:30:28') THEN 'a' ELSE 'b' END FROM test
+----
+a
+b
+b
+
+# When clause with IN
+query I rowsort
+SELECT i FROM test WHERE 1 IN (1)
+----
+1
+2
+NULL
+
+query I rowsort
+SELECT i FROM test WHERE 'hello' IN ('hello')
+----
+1
+2
+NULL
+
+query I rowsort
+SELECT i FROM test WHERE TIMESTAMP '2022-02-01 10:30:28' IN (TIMESTAMP '2022-02-01 10:30:28')
+----
+1
+2
+NULL
+
+query I
+SELECT i FROM test WHERE i IN (1)
+----
+1
+
+query I
+SELECT i FROM test WHERE i NOT IN (1)
+----
+2
+
+query I rowsort
+SELECT i FROM test WHERE s IN ('hello')
+----
+1
+
+query I rowsort
+SELECT i FROM test WHERE d IN (TIMESTAMP '2022-02-01 10:30:28')
+----
+1
+
+query T
+SELECT * FROM test WHERE i IN (NULL)
+----
+
+query T rowsort
+SELECT * FROM test WHERE i NOT IN (NULL)
+----
+
+# Scalar subquery
+query T rowsort
+SELECT 1 IN (SELECT 1)
+----
+true
+
+query T
+SELECT 1 NOT IN (SELECT 1)
+----
+false
+
+query T
+SELECT NULL IN (SELECT 1)
+----
+null
+
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+# Row value constructions
+skipif ignite3
+query T
+SELECT (1, 'hello', TIMESTAMP '2022-02-01 10:30:28') IN ((1, 'hello', TIMESTAMP '2022-02-01 10:30:28'));
+----
+true
+
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+skipif ignite3
+query T
+SELECT (1, 'hello') IN ((1, 'world'));
+----
+false
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+query T
+SELECT (1, 'hello') IN ((1, NULL));
+----
+NULL
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+query T
+SELECT (1, 'hello') NOT IN ((1, 'hello'));
+----
+false
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+query T
+SELECT (1, NULL) IN ((1, NULL));
+----
+null

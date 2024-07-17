@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -52,7 +52,7 @@ public class LocalSnapshotMetaTableTest {
     public void testAddRemove() {
         LocalFileMetaOutter.LocalFileMeta meta = msgFactory.localFileMeta()
             .checksum("test")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertEquals(0, table.listFiles().size());
         assertTrue(this.table.addFile("data", meta));
@@ -70,12 +70,12 @@ public class LocalSnapshotMetaTableTest {
     public void testSaveLoadFile(@WorkDirectory Path workDir) throws IOException {
         LocalFileMetaOutter.LocalFileMeta meta1 = msgFactory.localFileMeta()
             .checksum("data1")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.table.addFile("data1", meta1));
         LocalFileMetaOutter.LocalFileMeta meta2 = msgFactory.localFileMeta()
             .checksum("data2")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.table.addFile("data2", meta2));
 
@@ -105,12 +105,12 @@ public class LocalSnapshotMetaTableTest {
     public void testSaveLoadIoBuffer() throws Exception {
         LocalFileMetaOutter.LocalFileMeta meta1 = msgFactory.localFileMeta()
             .checksum("data1")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.table.addFile("data1", meta1));
         LocalFileMetaOutter.LocalFileMeta meta2 = msgFactory.localFileMeta()
             .checksum("data2")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.table.addFile("data2", meta2));
 

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,12 +26,13 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotificationUtils.namedDynamicConfig;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mapIterable;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.namedListNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -43,6 +44,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
+import org.apache.ignite.internal.configuration.DynamicProperty;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -80,26 +82,26 @@ public class ConfigurationNotifier {
             return List.of();
         }
 
-        ConfigurationNotificationContext notificationCtx = new ConfigurationNotificationContext(storageRevision, notificationNumber);
+        ConfigurationNotificationContext ctx = new ConfigurationNotificationContext(storageRevision, notificationNumber);
 
-        notificationCtx.addContainer(config, null);
+        ctx.addContainer(oldInnerNode, newInnerNode, null, null);
 
         if (oldInnerNode == null) {
-            notifyListeners(newInnerNode, config, List.of(), notificationCtx);
+            notifyListeners(newInnerNode, config, List.of(), ctx);
         } else {
-            notifyListeners(oldInnerNode, newInnerNode, config, List.of(), notificationCtx);
+            notifyListeners(oldInnerNode, newInnerNode, config, List.of(), ctx);
         }
 
-        notificationCtx.removeContainer(config);
+        ctx.removeContainer();
 
-        return notificationCtx.futures;
+        return ctx.futures;
     }
 
     private static void notifyListeners(
             @Nullable InnerNode oldInnerNode,
             InnerNode newInnerNode,
             DynamicConfiguration<InnerNode, ?> config,
-            Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
+            Iterable<DynamicConfiguration<InnerNode, ?>> anyConfigs,
             ConfigurationNotificationContext ctx
     ) {
         assert !(config instanceof NamedListConfiguration);
@@ -110,7 +112,7 @@ public class ConfigurationNotifier {
 
         notifyPublicListeners(
                 listeners(config, ctx.notificationNum),
-                concat(viewReadOnly(anyConfigs, anyCfg -> listeners(anyCfg, ctx.notificationNum))),
+                concat(mapIterable(anyConfigs, anyCfg -> listeners(anyCfg, ctx.notificationNum))),
                 oldInnerNode.specificNode(),
                 newInnerNode.specificNode(),
                 ctx,
@@ -128,13 +130,15 @@ public class ConfigurationNotifier {
         oldInnerNode.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
             @Override
-            public Void visitLeafNode(String key, Serializable oldLeaf) {
+            public Void visitLeafNode(Field field, String key, Serializable oldLeaf) {
                 Serializable newLeaf = newInnerNode.traverseChild(key, leafNodeVisitor(), true);
 
                 if (newLeaf != oldLeaf) {
+                    // TODO: Remove null check after https://issues.apache.org/jira/browse/IGNITE-21101
+                    DynamicProperty<Serializable> node = config != null ? dynamicProperty(config, key) : null;
                     notifyPublicListeners(
-                            listeners(dynamicProperty(config, key), ctx.notificationNum),
-                            concat(viewReadOnly(anyConfigs, anyCfg -> listeners(dynamicProperty(anyCfg, key), ctx.notificationNum))),
+                            listeners(node, ctx.notificationNum),
+                            concat(mapIterable(anyConfigs, anyCfg -> listeners(dynamicProperty(anyCfg, key), ctx.notificationNum))),
                             oldLeaf,
                             newLeaf,
                             ctx,
@@ -147,36 +151,36 @@ public class ConfigurationNotifier {
 
             /** {@inheritDoc} */
             @Override
-            public Void visitInnerNode(String key, InnerNode oldNode) {
+            public Void visitInnerNode(Field field, String key, InnerNode oldNode) {
                 InnerNode newNode = newInnerNode.traverseChild(key, innerNodeVisitor(), true);
 
                 DynamicConfiguration<InnerNode, ?> newConfig = dynamicConfig(config, key);
 
-                ctx.addContainer(newConfig, null);
+                ctx.addContainer(oldNode, newNode, null, null);
 
                 notifyListeners(
                         oldNode,
                         newNode,
                         newConfig,
-                        viewReadOnly(anyConfigs, anyCfg -> dynamicConfig(anyCfg, key)),
+                        mapIterable(anyConfigs, anyCfg -> dynamicConfig(anyCfg, key)),
                         ctx
                 );
 
-                ctx.removeContainer(newConfig);
+                ctx.removeContainer();
 
                 return null;
             }
 
             /** {@inheritDoc} */
             @Override
-            public Void visitNamedListNode(String key, NamedListNode<?> oldNamedList) {
+            public Void visitNamedListNode(Field field, String key, NamedListNode<?> oldNamedList) {
                 NamedListNode<InnerNode> newNamedList =
                         (NamedListNode<InnerNode>) newInnerNode.traverseChild(key, namedListNodeVisitor(), true);
 
                 if (newNamedList != oldNamedList) {
                     notifyPublicListeners(
                             listeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                            concat(viewReadOnly(anyConfigs, anyCfg -> listeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum))),
+                            concat(mapIterable(anyConfigs, anyCfg -> listeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum))),
                             oldNamedList,
                             newNamedList,
                             ctx,
@@ -190,7 +194,7 @@ public class ConfigurationNotifier {
                     Map<String, ConfigurationProperty<?>> namedListCfgMembers = namedListCfg.touchMembers();
 
                     // Lazy initialization.
-                    Collection<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
+                    Iterable<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
 
                     for (String name : namedListChanges.created) {
                         DynamicConfiguration<InnerNode, ?> newNodeCfg =
@@ -198,13 +202,13 @@ public class ConfigurationNotifier {
 
                         touch(newNodeCfg);
 
-                        ctx.addContainer(newNodeCfg, name);
-
                         InnerNode newVal = newNamedList.getInnerNode(name);
+
+                        ctx.addContainer(null, newVal, null, name);
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                                 )),
@@ -216,7 +220,7 @@ public class ConfigurationNotifier {
 
                         if (newAnyConfigs == null) {
                             newAnyConfigs = mergeAnyConfigs(
-                                    viewReadOnly(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
+                                    mapIterable(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
                                     any(namedListCfg)
                             );
                         }
@@ -228,22 +232,20 @@ public class ConfigurationNotifier {
                                 ctx
                         );
 
-                        ctx.removeContainer(newNodeCfg);
+                        ctx.removeContainer();
                     }
 
                     for (String name : namedListChanges.deleted) {
                         DynamicConfiguration<InnerNode, ?> delNodeCfg =
                                 (DynamicConfiguration<InnerNode, ?>) namedListCfgMembers.get(name);
 
-                        delNodeCfg.removedFromNamedList();
-
-                        ctx.addContainer(delNodeCfg, name);
-
                         InnerNode oldVal = oldNamedList.getInnerNode(name);
+
+                        ctx.addContainer(oldVal, null, name, null);
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                                 )),
@@ -257,7 +259,7 @@ public class ConfigurationNotifier {
 
                         notifyPublicListeners(
                                 listeners(delNodeCfg, ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> listeners(any(namedDynamicConfig(anyCfg, key)), ctx.notificationNum)
                                 )),
@@ -267,31 +269,28 @@ public class ConfigurationNotifier {
                                 ConfigurationListener::onUpdate
                         );
 
-                        ctx.removeContainer(delNodeCfg);
+                        ctx.removeContainer();
                     }
 
                     for (Map.Entry<String, String> entry : namedListChanges.renamed.entrySet()) {
-                        DynamicConfiguration<InnerNode, ?> renNodeCfg =
-                                (DynamicConfiguration<InnerNode, ?>) namedListCfg.members().get(entry.getValue());
-
-                        ctx.addContainer(renNodeCfg, entry.getValue());
-
                         InnerNode oldVal = oldNamedList.getInnerNode(entry.getKey());
                         InnerNode newVal = newNamedList.getInnerNode(entry.getValue());
 
+                        ctx.addContainer(oldVal, newVal, entry.getKey(), entry.getValue());
+
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                                 )),
                                 oldVal.specificNode(),
                                 newVal.specificNode(),
                                 ctx,
-                                (listener, event) -> listener.onRename(entry.getKey(), entry.getValue(), event)
+                                (listener, event) -> listener.onRename(event)
                         );
 
-                        ctx.removeContainer(renNodeCfg);
+                        ctx.removeContainer();
                     }
 
                     for (String name : namedListChanges.updated) {
@@ -305,11 +304,11 @@ public class ConfigurationNotifier {
                         DynamicConfiguration<InnerNode, ?> updNodeCfg =
                                 (DynamicConfiguration<InnerNode, ?>) namedListCfgMembers.get(name);
 
-                        ctx.addContainer(updNodeCfg, name);
+                        ctx.addContainer(oldVal, newVal, name, name);
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                                 )),
@@ -321,7 +320,7 @@ public class ConfigurationNotifier {
 
                         if (newAnyConfigs == null) {
                             newAnyConfigs = mergeAnyConfigs(
-                                    viewReadOnly(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
+                                    mapIterable(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
                                     any(namedListCfg)
                             );
                         }
@@ -334,7 +333,7 @@ public class ConfigurationNotifier {
                                 ctx
                         );
 
-                        ctx.removeContainer(updNodeCfg);
+                        ctx.removeContainer();
                     }
                 }
 
@@ -353,14 +352,14 @@ public class ConfigurationNotifier {
     private static void notifyListeners(
             InnerNode innerNode,
             DynamicConfiguration<InnerNode, ?> config,
-            Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
+            Iterable<DynamicConfiguration<InnerNode, ?>> anyConfigs,
             ConfigurationNotificationContext ctx
     ) {
         assert !(config instanceof NamedListConfiguration);
 
         notifyPublicListeners(
                 listeners(config, ctx.notificationNum),
-                concat(viewReadOnly(anyConfigs, anyCfg -> listeners(anyCfg, ctx.notificationNum))),
+                concat(mapIterable(anyConfigs, anyCfg -> listeners(anyCfg, ctx.notificationNum))),
                 null,
                 innerNode.specificNode(),
                 ctx,
@@ -370,10 +369,10 @@ public class ConfigurationNotifier {
         innerNode.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
             @Override
-            public Void visitLeafNode(String key, Serializable leaf) {
+            public Void visitLeafNode(Field field, String key, Serializable leaf) {
                 notifyPublicListeners(
                         listeners(dynamicProperty(config, key), ctx.notificationNum),
-                        concat(viewReadOnly(
+                        concat(mapIterable(
                                 anyConfigs,
                                 anyCfg -> listeners(dynamicProperty(anyCfg, key), ctx.notificationNum)
                         )),
@@ -388,29 +387,29 @@ public class ConfigurationNotifier {
 
             /** {@inheritDoc} */
             @Override
-            public Void visitInnerNode(String key, InnerNode nestedInnerNode) {
+            public Void visitInnerNode(Field field, String key, InnerNode nestedInnerNode) {
                 DynamicConfiguration<InnerNode, ?> nestedNodeConfig = dynamicConfig(config, key);
 
-                ctx.addContainer(nestedNodeConfig, null);
+                ctx.addContainer(null, nestedInnerNode, null, null);
 
                 notifyListeners(
                         nestedInnerNode,
                         nestedNodeConfig,
-                        viewReadOnly(anyConfigs, anyCfg -> dynamicConfig(anyCfg, key)),
+                        mapIterable(anyConfigs, anyCfg -> dynamicConfig(anyCfg, key)),
                         ctx
                 );
 
-                ctx.removeContainer(nestedNodeConfig);
+                ctx.removeContainer();
 
                 return null;
             }
 
             /** {@inheritDoc} */
             @Override
-            public Void visitNamedListNode(String key, NamedListNode<?> newNamedList) {
+            public Void visitNamedListNode(Field field, String key, NamedListNode<?> newNamedList) {
                 notifyPublicListeners(
                         listeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                        concat(viewReadOnly(
+                        concat(mapIterable(
                                 anyConfigs,
                                 anyCfg -> listeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                         )),
@@ -423,19 +422,24 @@ public class ConfigurationNotifier {
                 // Created only.
 
                 // Lazy initialization.
-                Collection<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
+                Iterable<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
+
+                NamedListConfiguration<?, InnerNode, ?> namedListCfg = namedDynamicConfig(config, key);
+
+                // Initialize named list configuration.
+                namedListCfg.touchMembers();
 
                 for (String name : newNamedList.namedListKeys()) {
                     DynamicConfiguration<InnerNode, ?> namedNodeConfig =
-                            (DynamicConfiguration<InnerNode, ?>) namedDynamicConfig(config, key).getConfig(name);
-
-                    ctx.addContainer(namedNodeConfig, name);
+                            (DynamicConfiguration<InnerNode, ?>) namedListCfg.getConfig(name);
 
                     InnerNode namedInnerNode = newNamedList.getInnerNode(name);
 
+                    ctx.addContainer(null, namedInnerNode, null, name);
+
                     notifyPublicListeners(
                             extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                            concat(viewReadOnly(
+                            concat(mapIterable(
                                     anyConfigs,
                                     anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                             )),
@@ -447,7 +451,7 @@ public class ConfigurationNotifier {
 
                     if (newAnyConfigs == null) {
                         newAnyConfigs = mergeAnyConfigs(
-                                viewReadOnly(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
+                                mapIterable(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
                                 any(namedDynamicConfig(config, key))
                         );
                     }
@@ -459,7 +463,7 @@ public class ConfigurationNotifier {
                             ctx
                     );
 
-                    ctx.removeContainer(namedNodeConfig);
+                    ctx.removeContainer();
                 }
 
                 return null;

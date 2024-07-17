@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.message;
 
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
  * Message types for the sql query processing module.
@@ -36,9 +36,8 @@ public final class SqlQueryMessageGroup {
 
     public static final short QUERY_BATCH_MESSAGE = 3;
 
-    public static final short QUERY_BATCH_ACK = 4;
+    /** See {@link QueryBatchRequestMessage} for details. */
+    public static final short QUERY_BATCH_REQUEST = 4;
 
-    public static final short INBOX_CLOSE_MESSAGE = 5;
-
-    public static final short QUERY_CLOSE_MESSAGE = 6;
+    public static final short QUERY_CLOSE_MESSAGE = 5;
 }

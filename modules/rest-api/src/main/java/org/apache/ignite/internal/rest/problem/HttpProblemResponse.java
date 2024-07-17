@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,29 +17,35 @@
 
 package org.apache.ignite.internal.rest.problem;
 
-import io.micronaut.http.HttpResponse;
+import static org.apache.ignite.internal.rest.problem.ProblemJsonMediaType.APPLICATION_JSON_PROBLEM_TYPE;
+
+import io.micronaut.http.HttpResponseFactory;
 import io.micronaut.http.HttpStatus;
+import io.micronaut.http.MutableHttpResponse;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
 
 /**
- * Creates {@link HttpResponse} from {@link Problem}.
+ * Creates {@link MutableHttpResponse} from {@link Problem}.
  */
 public final class HttpProblemResponse {
     private HttpProblemResponse() {
     }
 
     /**
-     * Create {@link HttpResponse} from {@link Problem}.
+     * Create {@link MutableHttpResponse} from {@link Problem}.
      */
-    public static HttpResponse<Problem> from(Problem problem) {
-        return HttpResponse.status(HttpStatus.valueOf(problem.status())).body(problem);
+    public static MutableHttpResponse<Problem> from(Problem problem) {
+        return HttpResponseFactory.INSTANCE
+                .status(HttpStatus.valueOf(problem.status()))
+                .contentType(APPLICATION_JSON_PROBLEM_TYPE)
+                .body(problem);
     }
 
     /**
-     * Create {@link HttpResponse} from {@link ProblemBuilder}.
+     * Create {@link MutableHttpResponse} from {@link ProblemBuilder}.
      */
-    public static HttpResponse<? extends Problem> from(ProblemBuilder problemBuilder) {
+    public static MutableHttpResponse<? extends Problem> from(ProblemBuilder problemBuilder) {
         return from(problemBuilder.build());
     }
 }

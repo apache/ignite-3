@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,89 +17,85 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration tests for {@link ClusterManagementGroupManager}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItClusterManagerTest {
-    private static final int PORT_BASE = 10000;
-
+public class ItClusterManagerTest extends BaseItClusterManagementTest {
     private final List<MockNode> cluster = new ArrayList<>();
 
-    @WorkDirectory
-    private Path workDir;
-
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         stopCluster();
     }
 
-    private void startCluster(int numNodes, TestInfo testInfo) throws IOException {
-        List<NetworkAddress> addrs = IntStream.range(0, numNodes)
-                .mapToObj(i -> new NetworkAddress("localhost", PORT_BASE + i))
-                .collect(toList());
+    private void startCluster(int numNodes) {
+        cluster.addAll(createNodes(numNodes));
 
-        StaticNodeFinder nodeFinder = new StaticNodeFinder(addrs);
-
-        for (int i = 0; i < numNodes; ++i) {
-            var node = new MockNode(testInfo, addrs.get(i), nodeFinder, workDir.resolve("node" + i));
-
-            cluster.add(node);
-        }
-
-        for (MockNode node : cluster) {
-            node.start();
-        }
+        cluster.parallelStream().forEach(MockNode::startAndJoin);
     }
 
-    private void stopCluster() {
-        for (MockNode node : cluster) {
-            node.beforeNodeStop();
-        }
+    private void stopCluster() throws Exception {
+        stopNodes(cluster);
 
-        for (MockNode node : cluster) {
-            node.stop();
-        }
+        cluster.clear();
+    }
+
+    private void stopNode(int idx) {
+        MockNode node = cluster.get(idx);
+
+        node.beforeNodeStop();
+        node.stop();
+
+        cluster.remove(idx);
+    }
+
+    private MockNode restartNode(int idx) {
+        stopNode(idx);
+
+        MockNode node = createNode(idx, cluster.size() + 1);
+
+        cluster.add(idx, node);
+
+        node.startAndJoin();
+
+        return node;
     }
 
     /**
      * Tests initial cluster setup.
      */
     @Test
-    void testInit(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testInit() throws Exception {
+        startCluster(2);
 
         String[] cmgNodes = { cluster.get(0).name() };
 
@@ -110,25 +106,42 @@ public class ItClusterManagerTest {
         assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
         assertThat(cluster.get(1).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
-        ClusterNode[] expectedTopology = currentPhysicalTopology();
+        LogicalNode[] expectedTopology = toLogicalNodes(currentPhysicalTopology());
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
-        assertThat(cluster.get(1).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(expectedTopology)));
+        assertThat(cluster.get(1).logicalTopologyNodes(), will(containsInAnyOrder(expectedTopology)));
+    }
+
+    /**
+     * Tests initial cluster setup with provided configuration.
+     */
+    @Test
+    void testInitWithProvidedConfiguration() throws Exception {
+        startCluster(3);
+
+        String[] cmgNodes = { cluster.get(0).name() };
+
+        String[] metaStorageNodes = { cluster.get(1).name() };
+
+        String configuration = "{security: {enabled: true}}";
+
+        initCluster(metaStorageNodes, cmgNodes, configuration);
+
+        for (MockNode node : cluster) {
+            assertThat(node.clusterManager().initialClusterConfigurationFuture(), willBe(configuration));
+        }
     }
 
     /**
      * Tests that init fails in case some nodes cannot be found.
      */
     @Test
-    void testInitDeadNodes(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testInitDeadNodes() {
+        startCluster(2);
 
         String[] allNodes = clusterNodeNames();
 
-        MockNode nodeToStop = cluster.remove(0);
-
-        nodeToStop.beforeNodeStop();
-        nodeToStop.stop();
+        stopNode(0);
 
         assertThrows(InitException.class, () -> initCluster(allNodes, allNodes));
     }
@@ -137,17 +150,13 @@ public class ItClusterManagerTest {
      * Tests that re-running init after a failed init attempt can succeed.
      */
     @Test
-    void testInitCancel(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testInitCancel() throws Exception {
+        startCluster(2);
 
         String[] allNodes = clusterNodeNames();
 
         // stop a CMG node to make the init fail
-
-        MockNode nodeToStop = cluster.remove(0);
-
-        nodeToStop.beforeNodeStop();
-        nodeToStop.stop();
+        stopNode(0);
 
         assertThrows(InitException.class, () -> initCluster(allNodes, allNodes));
 
@@ -159,15 +168,15 @@ public class ItClusterManagerTest {
 
         assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(aliveNodes)));
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
     }
 
     /**
      * Tests a scenario when a node is restarted.
      */
     @Test
-    void testNodeRestart(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testNodeRestart() throws Exception {
+        startCluster(2);
 
         String[] cmgNodes = {cluster.get(0).name()};
 
@@ -178,24 +187,26 @@ public class ItClusterManagerTest {
         assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
         assertThat(cluster.get(1).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
-        cluster.get(0).restart();
+        MockNode restartedNode = restartNode(0);
 
-        assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
+        assertThat(restartedNode.startFuture(), willCompleteSuccessfully());
 
-        assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
+        assertThat(restartedNode.clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
-        ClusterNode[] expectedTopology = currentPhysicalTopology();
+        waitForLogicalTopology();
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
-        assertThat(cluster.get(1).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
+        LogicalNode[] expectedTopology = toLogicalNodes(currentPhysicalTopology());
+
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(expectedTopology)));
+        assertThat(cluster.get(1).logicalTopologyNodes(), will(containsInAnyOrder(expectedTopology)));
     }
 
     /**
      * Tests executing the init command with incorrect node names.
      */
     @Test
-    void testInitInvalidNodes(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testInitInvalidNodes() throws Exception {
+        startCluster(2);
 
         ClusterManagementGroupManager clusterManager = cluster.get(0).clusterManager();
 
@@ -209,6 +220,10 @@ public class ItClusterManagerTest {
         // successful init
         clusterManager.initCluster(List.of(cluster.get(0).name()), List.of(), "cluster");
 
+        for (MockNode node : cluster) {
+            assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+        }
+
         // different node
         assertThrowsWithCause(
                 () -> clusterManager.initCluster(List.of(cluster.get(1).name()), List.of(), "cluster"),
@@ -218,11 +233,43 @@ public class ItClusterManagerTest {
     }
 
     /**
+     * Tests executing the init command with incorrect node names.
+     */
+    @Test
+    void testInitInvalidNodesAsync() throws Exception {
+        startCluster(2);
+
+        ClusterManagementGroupManager clusterManager = cluster.get(0).clusterManager();
+
+        // non-existent node
+        assertThat(
+                clusterManager.initClusterAsync(List.of("wrong"), List.of(), "cluster"),
+                willThrow(InitException.class, "Node \"wrong\" is not present in the physical topology")
+        );
+
+        // successful init
+        assertThat(
+                clusterManager.initClusterAsync(List.of(cluster.get(0).name()), List.of(), "cluster"),
+                willCompleteSuccessfully()
+        );
+
+        for (MockNode node : cluster) {
+            assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+        }
+
+        // different node
+        assertThat(
+                clusterManager.initClusterAsync(List.of(cluster.get(1).name()), List.of(), "cluster"),
+                willThrow(InitException.class, "Init CMG request denied, reason: CMG node names do not match.")
+        );
+    }
+
+    /**
      * Tests a scenario, when every node in a cluster gets restarted.
      */
     @Test
-    void testClusterRestart(TestInfo testInfo) throws Exception {
-        startCluster(3, testInfo);
+    void testClusterRestart() throws Exception {
+        startCluster(3);
 
         String[] cmgNodes = {
                 cluster.get(0).name(),
@@ -231,82 +278,76 @@ public class ItClusterManagerTest {
 
         String[] metaStorageNodes = { cluster.get(2).name() };
 
-        initCluster(cmgNodes, metaStorageNodes);
+        initCluster(metaStorageNodes, cmgNodes);
 
         for (MockNode node : cluster) {
             assertThat(node.startFuture(), willCompleteSuccessfully());
         }
 
-        for (MockNode node : cluster) {
-            node.restart();
-        }
+        stopCluster();
+        startCluster(3);
 
         for (MockNode node : cluster) {
             assertThat(node.startFuture(), willCompleteSuccessfully());
         }
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
     }
 
     /**
      * Tests a scenario when a new node joins a cluster.
      */
     @Test
-    void testNodeJoin(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testNodeJoin() throws Exception {
+        startCluster(2);
 
         String[] cmgNodes = clusterNodeNames();
 
         initCluster(cmgNodes, cmgNodes);
 
         // create and start a new node
-        var addr = new NetworkAddress("localhost", PORT_BASE + cluster.size());
+        MockNode node = addNodeToCluster(cluster);
 
-        var nodeFinder = new StaticNodeFinder(Arrays.asList(clusterNodeAddresses()));
-
-        var node = new MockNode(testInfo, addr, nodeFinder, workDir.resolve("node" + cluster.size()));
-
-        cluster.add(node);
-
-        node.start();
+        node.startAndJoin();
 
         assertThat(node.startFuture(), willCompleteSuccessfully());
 
-        assertThat(node.clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(node.logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
+        assertThat(node.validatedNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
     }
 
     /**
      * Tests a scenario when a node leaves a cluster.
      */
     @Test
-    void testNodeLeave(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testNodeLeave() throws Exception {
+        startCluster(2);
 
         String[] cmgNodes = { cluster.get(0).name() };
 
         initCluster(cmgNodes, cmgNodes);
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
 
-        MockNode nodeToStop = cluster.remove(1);
-
-        nodeToStop.beforeNodeStop();
-        nodeToStop.stop();
+        stopNode(1);
 
         waitForLogicalTopology();
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
+        assertThat(cluster.get(0).validatedNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
     }
 
     /**
      * Tests a scenario when a node, that participated in a cluster, tries to join a new one.
      */
     @Test
-    void testJoinInvalidTag(TestInfo testInfo) throws Exception {
+    void testJoinInvalidTag() throws Exception {
         // Start a cluster and initialize it
-        startCluster(2, testInfo);
+        startCluster(2);
 
-        String[] cmgNodes = { cluster.get(0).name() };
+        MockNode firstNode = cluster.get(0);
+
+        String[] cmgNodes = { firstNode.name() };
 
         initCluster(cmgNodes, cmgNodes);
 
@@ -314,12 +355,10 @@ public class ItClusterManagerTest {
         stopCluster();
 
         // Remove all persistent state from the first node
-        IgniteUtils.deleteIfExists(workDir.resolve("node0"));
+        IgniteUtils.deleteIfExists(firstNode.workDir());
 
         // Start the nodes again
-        for (MockNode node : cluster) {
-            node.restart();
-        }
+        startCluster(1);
 
         // Initialize the cluster again, but with a different name. It is expected that the second node will try to join the CMG
         // and will be rejected.
@@ -329,10 +368,15 @@ public class ItClusterManagerTest {
                 "cluster2"
         );
 
-        assertThrowsWithCause(
-                () -> cluster.get(1).clusterManager().joinFuture().get(10, TimeUnit.SECONDS),
-                IgniteInternalException.class,
-                "Join request denied, reason: Cluster tags do not match"
+        assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
+
+        MockNode secondNode = addNodeToCluster(cluster);
+
+        secondNode.startAndJoin();
+
+        assertThat(
+                secondNode.startFuture(),
+                willThrow(JoinDeniedException.class, "Join request denied, reason: Cluster tags do not match")
         );
     }
 
@@ -340,9 +384,9 @@ public class ItClusterManagerTest {
      * Tests a scenario when a node starts joining a cluster having a CMG leader, but finishes the join after the CMG leader changed.
      */
     @Test
-    void testJoinLeaderChange(TestInfo testInfo) throws Exception {
+    void testLeaderChangeDuringJoin() throws Exception {
         // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
-        startCluster(3, testInfo);
+        startCluster(3);
 
         String[] cmgNodes = clusterNodeNames();
 
@@ -350,20 +394,88 @@ public class ItClusterManagerTest {
         initCluster(cmgNodes, cmgNodes);
 
         // Start a new node, but do not send the JoinReadyCommand.
-        var addr = new NetworkAddress("localhost", PORT_BASE + cluster.size());
+        MockNode node = addNodeToCluster(cluster);
 
-        var nodeFinder = new StaticNodeFinder(Arrays.asList(clusterNodeAddresses()));
-
-        var node = new MockNode(testInfo, addr, nodeFinder, workDir.resolve("node" + cluster.size()));
-
-        node.startComponents();
+        assertThat(node.startAsync(), willCompleteSuccessfully());
 
         assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
 
-        cluster.add(node);
+        // Find the CMG leader and stop it
+        MockNode leaderNode = findLeaderNode();
+
+        stopNode(cluster.indexOf(leaderNode));
+
+        // Issue the JoinReadyCommand on the joining node. It is expected that the joining node is still treated as validated.
+        assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
+    }
+
+    @Test
+    void testLeaderChangeBeforeJoin() throws Exception {
+        // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
+        startCluster(3);
+
+        String[] cmgNodes = clusterNodeNames();
+
+        // Start the CMG on all 3 nodes.
+        initCluster(cmgNodes, cmgNodes);
 
         // Find the CMG leader and stop it
-        MockNode leaderNode = cluster.stream()
+        MockNode leaderNode = findLeaderNode();
+
+        MockNode node = restartNode(cluster.indexOf(leaderNode));
+
+        assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+    }
+
+    @Test
+    void nonCmgMemberOfInitialTopologyGetsLogicalTopologyChanges() throws Exception {
+        startCluster(2);
+
+        String[] cmgNodes = { cluster.get(0).name() };
+
+        initCluster(cmgNodes, cmgNodes);
+
+        MockNode nonCmgNode = cluster.get(1);
+        LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
+
+        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
+    }
+
+    @Test
+    void nonCmgNodeAddedLaterGetsLogicalTopologyChanges() throws Exception {
+        startCluster(1);
+
+        String[] cmgNodes = { cluster.get(0).name() };
+
+        initCluster(cmgNodes, cmgNodes);
+
+        MockNode nonCmgNode = addNodeToCluster(cluster);
+        nonCmgNode.startAndJoin();
+        assertThat(nonCmgNode.startFuture(), willCompleteSuccessfully());
+
+        LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
+
+        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
+    }
+
+    @Test
+    void majority() throws NodeStoppingException {
+        startCluster(5);
+
+        String[] allNodes = clusterNodeNames();
+
+        initCluster(allNodes, allNodes);
+
+        MockNode leaderNode = findLeaderNode();
+
+        Set<String> majority = cluster.get(0).clusterManager().majority().join();
+
+        assertThat(majority, hasSize(3));
+        assertThat(majority, hasItem(leaderNode.name()));
+    }
+
+    private MockNode findLeaderNode() {
+        return cluster.stream()
                 .filter(n -> {
                     CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
 
@@ -373,17 +485,16 @@ public class ItClusterManagerTest {
                 })
                 .findAny()
                 .orElseThrow();
-
-        leaderNode.stop();
-
-        // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
-        assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 
-    private ClusterNode[] currentPhysicalTopology() {
+    private List<ClusterNode> currentPhysicalTopology() {
         return cluster.stream()
                 .map(MockNode::localMember)
-                .toArray(ClusterNode[]::new);
+                .collect(Collectors.toList());
+    }
+
+    private static LogicalNode[] toLogicalNodes(List<ClusterNode> clusterNodes) {
+        return clusterNodes.stream().map(LogicalNode::new).toArray(LogicalNode[]::new);
     }
 
     private String[] clusterNodeNames() {
@@ -392,16 +503,9 @@ public class ItClusterManagerTest {
                 .toArray(String[]::new);
     }
 
-    private NetworkAddress[] clusterNodeAddresses() {
-        return cluster.stream()
-                .map(MockNode::localMember)
-                .map(ClusterNode::address)
-                .toArray(NetworkAddress[]::new);
-    }
-
     private void waitForLogicalTopology() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Collection<ClusterNode>> logicalTopology = cluster.get(0).clusterManager().logicalTopology();
+            CompletableFuture<Set<LogicalNode>> logicalTopology = cluster.get(0).logicalTopologyNodes();
 
             assertThat(logicalTopology, willCompleteSuccessfully());
 
@@ -409,11 +513,21 @@ public class ItClusterManagerTest {
         }, 10000));
     }
 
+
     private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException {
+        initCluster(metaStorageNodes, cmgNodes, null);
+    }
+
+    private void initCluster(
+            String[] metaStorageNodes,
+            String[] cmgNodes,
+            @Nullable String clusterConfiguration
+    ) throws NodeStoppingException {
         cluster.get(0).clusterManager().initCluster(
                 Arrays.asList(metaStorageNodes),
                 Arrays.asList(cmgNodes),
-                "cluster"
+                "cluster",
+                clusterConfiguration
         );
 
         for (MockNode node : cluster) {

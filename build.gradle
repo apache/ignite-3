@@ -1,0 +1,157 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+//This need for resolving plugins in buildscripts
+plugins {
+    id('idea')
+    alias(libs.plugins.ideaext)
+    alias(libs.plugins.javacc) apply false
+    alias(libs.plugins.aggregateJavadoc)
+    alias(libs.plugins.spotbugs) apply false
+}
+
+apply from: "$rootDir/buildscripts/javadoc.gradle"
+
+repositories {
+    mavenLocal()
+    maven {
+        url = uri('https://repository.apache.org/snapshots')
+    }
+
+    maven {
+        url = uri('https://repo.maven.apache.org/maven2/')
+    }
+}
+
+ext {
+    repos = [
+            'apache-release' : "https://repo.maven.apache.org/maven2/",
+            'apache-snapshot': "https://repository.apache.org/snapshots",
+            'apache-staging' : 'https://repository.apache.org/service/local/staging/deploy/maven2'
+    ]
+
+    addOpens = [
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+            "--add-opens=java.base/java.io=ALL-UNNAMED",
+            "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--add-opens=java.base/java.math=ALL-UNNAMED",
+            "--add-opens=java.base/java.util=ALL-UNNAMED",
+            "--add-opens=java.base/java.time=ALL-UNNAMED",
+            "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+            "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+            "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
+    ]
+
+    defaultJvmArgs = addOpens + [
+            "-Dio.netty.tryReflectionSetAccessible=true",
+            "-XX:+HeapDumpOnOutOfMemoryError",
+            "-ea"
+    ]
+
+    compilerArgs = [
+            "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
+    ]
+}
+
+allprojects {
+    group 'org.apache.ignite'
+    version = "3.0.0-SNAPSHOT"
+
+    tasks.withType(Jar) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+    tasks.withType(Test).configureEach {
+        defaultCharacterEncoding = 'UTF-8'
+
+        jvmArgs += defaultJvmArgs
+
+        systemProperty 'jraft.available_processors', 1
+
+        if (project.hasProperty('excludeTest')) {
+            exclude project.property('excludeTest')
+        }
+    }
+
+    tasks.withType(Sign) {
+        enabled = project.hasProperty('signing.keyId')
+                && project.hasProperty('signing.password')
+                && project.hasProperty('signing.secretKeyRingFile')
+    }
+
+    tasks.withType(Javadoc) {
+        options.tags = ["apiNote"]
+        options.addStringOption('bottom', javadocFooter())
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+        options.compilerArgs += compilerArgs
+    }
+
+    //Temporary hack to disable caching of Test tasks.
+    //https://github.com/gradle/gradle/issues/9210
+    tasks.withType(Test).configureEach {
+        outputs.upToDateWhen { false }
+    }
+}
+
+subprojects {
+    apply plugin: 'base'
+
+    repositories {
+        mavenLocal()
+        maven {
+            url = uri('https://repository.apache.org/snapshots')
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
+
+        maven {
+            url = uri('https://repo.maven.apache.org/maven2/')
+            mavenContent {
+                releasesOnly()
+            }
+        }
+
+        maven {
+            url = uri(' https://repository.apache.org/service/local/staging/deploy/maven2')
+            mavenContent {
+                releasesOnly()
+            }
+        }
+    }
+
+    tasks.register('printSubDependencies', DependencyReportTask)
+}
+
+idea.project.settings {
+    compiler.javac {
+        // Workaround on https://youtrack.jetbrains.com/issue/IDEA-154038.
+        javacAdditionalOptions = compilerArgs.join(' ')
+    }
+    runConfigurations {
+        defaults(org.jetbrains.gradle.ext.JUnit) {
+            vmParameters = defaultJvmArgs.join(' ')
+        }
+    }
+}

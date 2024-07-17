@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -61,6 +61,8 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
     }
 
     private long readFullyOrStartReadingFragmented(long pageAddr, DataPagePayload payload) {
+        assert PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET) == dataType();
+
         valueSize = readValueSize(pageAddr, payload);
 
         if (!payload.hasMoreFragments()) {
@@ -74,6 +76,9 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
             return payload.nextLink();
         }
     }
+
+    /** Returns type of the data row. */
+    protected abstract byte dataType();
 
     private int readValueSize(long pageAddr, DataPagePayload payload) {
         return PageUtils.getInt(pageAddr, payload.offset() + valueSizeOffsetInFirstSlot());

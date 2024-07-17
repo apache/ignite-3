@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,10 +19,11 @@ package org.apache.ignite.internal.network.message;
 
 import io.scalecube.cluster.transport.api.Message;
 import java.util.Map;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper for ScaleCube's {@link Message}. {@link Message#data} is stored in {@link #data} or {@link #message} depending on the type of the
@@ -30,9 +31,11 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(NetworkMessageTypes.SCALE_CUBE_MESSAGE)
 public interface ScaleCubeMessage extends NetworkMessage {
+    @Nullable
     @Marshallable
     Object data();
 
+    @Nullable
     NetworkMessage message();
 
     Map<String, String> headers();

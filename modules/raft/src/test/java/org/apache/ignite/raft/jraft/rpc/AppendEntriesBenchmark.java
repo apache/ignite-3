@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,8 +22,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.util.AdaptiveBufAllocator;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.ByteString;
-import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.jraft.util.RecyclableByteBufferList;
 import org.apache.ignite.raft.jraft.util.RecycleUtil;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -170,8 +169,8 @@ public class AppendEntriesBenchmark {
         }
         final ByteBuffer buf = dataBuffer.getBuffer();
         buf.flip();
-        rb.data(new ByteString(buf));
-        return Marshaller.DEFAULT.marshall(rb.build());
+        rb.data(buf);
+        return JDKMarshaller.INSTANCE.marshall(rb.build());
     }
 
     private byte[] sendEntries2() {
@@ -187,8 +186,8 @@ public class AppendEntriesBenchmark {
             }
             final ByteBuffer buf = dataBuffer.getBuffer();
             buf.flip();
-            rb.data(new ByteString(buf));
-            return Marshaller.DEFAULT.marshall(rb.build());
+            rb.data(buf);
+            return JDKMarshaller.INSTANCE.marshall(rb.build());
         }
         finally {
             RecycleUtil.recycle(dataBuffer);
@@ -210,8 +209,8 @@ public class AppendEntriesBenchmark {
             buf.flip();
             final int remaining = buf.remaining();
             handleThreadLocal.get().record(remaining);
-            rb.data(new ByteString(buf));
-            return Marshaller.DEFAULT.marshall(rb.build());
+            rb.data(buf);
+            return JDKMarshaller.INSTANCE.marshall(rb.build());
         }
         finally {
             RecycleUtil.recycle(dataBuffer);
@@ -231,7 +230,7 @@ public class AppendEntriesBenchmark {
                 dataBuffer.add(buf.slice());
             }
             rb.data(RecyclableByteBufferList.concatenate(dataBuffer));
-            return Marshaller.DEFAULT.marshall(rb.build());
+            return JDKMarshaller.INSTANCE.marshall(rb.build());
         }
         finally {
             RecycleUtil.recycle(dataBuffer);

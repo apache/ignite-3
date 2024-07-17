@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,88 +17,77 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Optional;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.TableChange;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
+import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
-import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
  * Stateless schema utils that produces helper methods for schema preparation.
  */
 public class SchemaUtils {
     /**
-     * Creates schema descriptor for the table with specified configuration.
+     * Creates schema descriptor for the table with specified descriptor.
      *
-     * @param schemaVer Schema version.
-     * @param tblCfg    Table configuration.
+     * @param tableDescriptor Table descriptor.
      * @return Schema descriptor.
      */
-    public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tblCfg) {
-        TableDefinition tableDef = SchemaConfigurationConverter.convert(tblCfg);
-
-        return SchemaDescriptorConverter.convert(schemaVer, tableDef);
+    public static SchemaDescriptor prepareSchemaDescriptor(CatalogTableDescriptor tableDescriptor) {
+        return CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.tableVersion());
     }
 
     /**
      * Prepares column mapper.
      *
      * @param oldDesc Old schema descriptor.
-     * @param oldTbl  Old table configuration.
      * @param newDesc New schema descriptor.
-     * @param newTbl  New table configuration.
      * @return Column mapper.
      */
     public static ColumnMapper columnMapper(
             SchemaDescriptor oldDesc,
-            TableView oldTbl,
-            SchemaDescriptor newDesc,
-            TableChange newTbl
+            SchemaDescriptor newDesc
     ) {
+        List<Column> oldCols = oldDesc.columns();
+        List<Column> newCols = newDesc.columns();
+
         ColumnMapper mapper = null;
 
-        NamedListView<? extends ColumnView> newTblColumns = newTbl.columns();
-        NamedListView<? extends ColumnView> oldTblColumns = oldTbl.columns();
+        for (int i = 0; i < newCols.size(); ++i) {
+            Column newCol = newCols.get(i);
 
-        // since newTblColumns comes from a Change class, it can only be of the same size or larger than the previous configuration,
-        // because removed keys are simply replaced with nulls
-        assert newTblColumns.size() >= oldTblColumns.size();
+            if (i < oldCols.size()) {
+                Column oldCol = oldCols.get(i);
 
-        for (int i = 0; i < newTblColumns.size(); ++i) {
-            ColumnView newColView = newTblColumns.get(i);
+                if (newCol.positionInRow() == oldCol.positionInRow()) {
+                    if (!newCol.name().equals(oldCol.name())) {
+                        if (mapper == null) {
+                            mapper = ColumnMapping.createMapper(newDesc);
+                        }
 
-            // new value can be null if a column has been deleted
-            if (newColView == null) {
-                continue;
-            }
+                        Column oldIdx = oldDesc.column(newCol.name());
 
-            if (i < oldTblColumns.size()) {
-                ColumnView oldColView = oldTblColumns.get(i);
+                        // rename
+                        if (oldIdx != null) {
+                            mapper.add(newCol.positionInRow(), oldIdx.positionInRow());
+                        }
+                    }
+                } else {
+                    if (mapper == null) {
+                        mapper = ColumnMapping.createMapper(newDesc);
+                    }
 
-                Column newCol = newDesc.column(newColView.name());
-                Column oldCol = oldDesc.column(oldColView.name());
+                    if (newCol.name().equals(oldCol.name())) {
+                        mapper.add(newCol.positionInRow(), oldCol.positionInRow());
+                    } else {
+                        Column oldIdx = oldDesc.column(newCol.name());
 
-                if (newCol.schemaIndex() == oldCol.schemaIndex()) {
-                    continue;
+                        assert oldIdx != null : newCol.name();
+
+                        mapper.add(newCol.positionInRow(), oldIdx.positionInRow());
+                    }
                 }
-
-                if (mapper == null) {
-                    mapper = ColumnMapping.createMapper(newDesc);
-                }
-
-                mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
             } else {
-                // if the new Named List is larger than the old one, it can only mean that a new column has been added
-                Column newCol = newDesc.column(newColView.name());
-
-                assert !newDesc.isKeyColumn(newCol.schemaIndex());
-
                 if (mapper == null) {
                     mapper = ColumnMapping.createMapper(newDesc);
                 }
@@ -106,22 +95,6 @@ public class SchemaUtils {
                 mapper.add(newCol);
             }
         }
-
-        // since newTblColumns comes from a TableChange, it will contain nulls for removed columns
-        Optional<Column> droppedKeyCol = newTblColumns.namedListKeys().stream()
-                .filter(k -> newTblColumns.get(k) == null)
-                .map(oldDesc::column)
-                .filter(c -> oldDesc.isKeyColumn(c.schemaIndex()))
-                .findAny();
-
-        // TODO: IGNITE-15774 Assertion just in case, proper validation should be implemented with the help of
-        // TODO: configuration validators.
-        assert droppedKeyCol.isEmpty() :
-                IgniteStringFormatter.format(
-                        "Dropping of key column is forbidden: [schemaVer={}, col={}]",
-                        newDesc.version(),
-                        droppedKeyCol.get()
-                );
 
         return mapper == null ? ColumnMapping.identityMapping() : mapper;
     }
@@ -134,8 +107,7 @@ public class SchemaUtils {
      * @return {@code True} if schemas are equal, {@code false} otherwise.
      */
     public static boolean equalSchemas(SchemaDescriptor exp, SchemaDescriptor actual) {
-        if (exp.keyColumns().length() != actual.keyColumns().length()
-                || exp.valueColumns().length() != actual.valueColumns().length()) {
+        if (exp.columns().size() != actual.columns().size()) {
             return false;
         }
 

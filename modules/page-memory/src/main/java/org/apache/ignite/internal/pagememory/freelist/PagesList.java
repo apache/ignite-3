@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,22 +20,22 @@ package org.apache.ignite.internal.pagememory.freelist;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.util.concurrent.atomic.AtomicIntegerFieldUpdater.newUpdater;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getInteger;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo.T_PAGE_LIST_NODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEMID_NUM;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.changeType;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEM_ID_NUM;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.changeFlag;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ArrayUtils.remove;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
-import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.Arrays;
@@ -44,14 +44,14 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
@@ -61,7 +61,6 @@ import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -160,7 +159,7 @@ public abstract class PagesList extends DataStructure {
             decrementBucketSize(oldBucket);
 
             // Recalculate bucket because page free space can be changed concurrently.
-            int freeSpace = ((AbstractDataPageIo<Storable>) iox).getFreeSpace(pageAddr);
+            int freeSpace = ((DataPageIo) iox).getFreeSpace(pageAddr);
 
             int newBucket = getBucketIndex(freeSpace);
 
@@ -919,7 +918,7 @@ public abstract class PagesList extends DataStructure {
         } else {
             incrementBucketSize(bucket);
 
-            AbstractDataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
+            DataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
             dataIo.setFreeListPageId(dataAddr, pageId);
         }
 
@@ -945,7 +944,7 @@ public abstract class PagesList extends DataStructure {
         if (pagesCache.add(dataId)) {
             incrementBucketSize(bucket);
 
-            AbstractDataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
+            DataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
 
             if (dataIo.getFreeListPageId(dataAddr) != 0L) {
                 dataIo.setFreeListPageId(dataAddr, 0L);
@@ -980,7 +979,7 @@ public abstract class PagesList extends DataStructure {
             int bucket,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
-        AbstractDataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
+        DataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
 
         // Attempt to add page failed: the node page is full.
         if (isReuseBucket(bucket)) {
@@ -988,7 +987,7 @@ public abstract class PagesList extends DataStructure {
             assert dataIo.isEmpty(dataAddr); // We can put only empty data pages to reuse bucket.
 
             // Change page type to index and add it as next node page to this list.
-            long newDataId = changeType(dataId, FLAG_AUX);
+            long newDataId = changeFlag(dataId, FLAG_AUX);
 
             setupNextPage(io, pageId, pageAddr, newDataId, dataAddr);
 
@@ -1065,7 +1064,7 @@ public abstract class PagesList extends DataStructure {
 
         try {
             while ((nextId = bag.pollFreePage()) != 0L) {
-                assert itemId(nextId) > 0 && itemId(nextId) <= MAX_ITEMID_NUM : hexLong(nextId);
+                assert itemId(nextId) > 0 && itemId(nextId) <= MAX_ITEM_ID_NUM : hexLong(nextId);
 
                 int idx = io.addPage(prevAddr, nextId, pageSize());
 
@@ -1266,7 +1265,7 @@ public abstract class PagesList extends DataStructure {
 
                         dirty = true;
 
-                        if (isReuseBucket(bucket) && !(itemId(pageId) > 0 && itemId(pageId) <= MAX_ITEMID_NUM)) {
+                        if (isReuseBucket(bucket) && !(itemId(pageId) > 0 && itemId(pageId) <= MAX_ITEM_ID_NUM)) {
                             throw corruptedFreeListException("Incorrectly recycled pageId in reuse bucket: " + hexLong(pageId), pageId);
                         }
 
@@ -1378,6 +1377,8 @@ public abstract class PagesList extends DataStructure {
         try {
             long pageAddr = pageMem.writeLock(grpId, pageId, page);
 
+            assert pageAddr != 0;
+
             try {
                 return initReusedPage(pageId, pageAddr, partitionId(pageId), flag, initIo);
             } finally {
@@ -1445,7 +1446,7 @@ public abstract class PagesList extends DataStructure {
     protected final boolean removeDataPage(
             final long dataId,
             final long dataAddr,
-            AbstractDataPageIo dataIo,
+            DataPageIo dataIo,
             int bucket,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
@@ -2133,4 +2134,3 @@ public abstract class PagesList extends DataStructure {
         }
     }
 }
-

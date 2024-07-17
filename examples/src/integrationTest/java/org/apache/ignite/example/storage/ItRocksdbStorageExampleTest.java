@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,9 +19,7 @@ package org.apache.ignite.example.storage;
 
 import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputContains;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,8 +28,6 @@ import org.junit.jupiter.api.Test;
 public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testExample() throws Exception {
-        addDataRegionConfig("rocksdb-example");
-
         assertConsoleOutputContains(RocksDbStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
                         + "    1, John, Doe, 1000.0\n"
@@ -39,12 +35,5 @@ public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
                         + "    3, Mary, Major, 1500.0\n"
                         + "    4, Richard, Miles, 1450.0\n"
         );
-    }
-
-    private void addDataRegionConfig(String name) throws Exception {
-        ignite.clusterConfiguration().getConfiguration(RocksDbStorageEngineConfiguration.KEY)
-                .regions()
-                .change(regionsChange -> regionsChange.create(name, regionChange -> {}))
-                .get(1, TimeUnit.SECONDS);
     }
 }

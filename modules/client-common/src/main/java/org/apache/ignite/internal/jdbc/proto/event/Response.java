@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -65,7 +65,6 @@ public abstract class Response implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        packer.packBoolean(hasResults);
         packer.packInt(status);
 
         if (StringUtil.isNullOrEmpty(err)) {
@@ -78,7 +77,6 @@ public abstract class Response implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        hasResults = unpacker.unpackBoolean();
         status = unpacker.unpackInt();
 
         if (!unpacker.tryUnpackNil()) {
@@ -127,8 +125,8 @@ public abstract class Response implements ClientMessage {
      *
      * @return Has results.
      */
-    public boolean hasResults() {
-        return hasResults;
+    public boolean success() {
+        return status == STATUS_SUCCESS;
     }
 
     /** {@inheritDoc} */

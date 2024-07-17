@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.util.function.UnaryOperator;
 import org.apache.calcite.rel.core.Join;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -45,18 +45,10 @@ public class TableFunctionPlannerTest extends AbstractPlannerTest {
      */
     @BeforeAll
     public void setup() {
-        publicSchema = new IgniteSchema("PUBLIC");
-
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        RelDataType type = new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("NAME", f.createJavaType(String.class))
-                .add("SALARY", f.createJavaType(Double.class))
-                .build();
-
-        createTable(publicSchema, "RANDOM_TBL", type, IgniteDistributions.random());
-        createTable(publicSchema, "BROADCAST_TBL", type, IgniteDistributions.broadcast());
+        publicSchema = createSchemaFrom(
+                createTestTable("RANDOM_TBL", IgniteDistributions.random()),
+                createTestTable("BROADCAST_TBL", IgniteDistributions.broadcast())
+        );
     }
 
     /**
@@ -120,5 +112,14 @@ public class TableFunctionPlannerTest extends AbstractPlannerTest {
                 .and(input(0, nodeOrAnyChild(isTableScan("random_tbl"))))
                 .and(input(1, nodeOrAnyChild(isInstanceOf(IgniteTableFunctionScan.class))))
         ));
+    }
+
+    private static UnaryOperator<TableBuilder> createTestTable(String tableName, IgniteDistribution distribution) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .distribution(distribution)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("NAME", NativeTypes.STRING)
+                .addColumn("SALARY", NativeTypes.DOUBLE);
     }
 }

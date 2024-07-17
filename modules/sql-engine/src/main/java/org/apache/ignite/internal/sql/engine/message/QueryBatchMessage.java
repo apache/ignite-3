@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,15 +18,16 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import java.util.List;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 
 /**
  * QueryBatchMessage interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 @Transferable(value = SqlQueryMessageGroup.QUERY_BATCH_MESSAGE)
-public interface QueryBatchMessage extends ExecutionContextAwareMessage {
+public interface QueryBatchMessage extends TimestampAware, ExecutionContextAwareMessage {
     /**
      * Get exchange ID.
      */
@@ -45,6 +46,5 @@ public interface QueryBatchMessage extends ExecutionContextAwareMessage {
     /**
      * Get rows.
      */
-    @Marshallable
-    List<Object> rows();
+    List<BinaryTupleMessage> rows();
 }

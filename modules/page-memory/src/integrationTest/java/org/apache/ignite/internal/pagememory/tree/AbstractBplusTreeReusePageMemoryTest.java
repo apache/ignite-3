@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,12 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
+import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
-import org.apache.ignite.internal.pagememory.reuse.ReuseListImpl;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * An abstract class for testing {@link BplusTree} with {@link ReuseList} using different implementations of {@link PageMemory}.
@@ -64,9 +64,9 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
     }
 
     /**
-     * Test extension {@link ReuseListImpl}.
+     * Test extension of {@link FreeListImpl}.
      */
-    private static class TestReuseList extends ReuseListImpl {
+    private static class TestReuseList extends FreeListImpl {
         /**
          * Constructor.
          *
@@ -88,7 +88,7 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
                 long metaPageId,
                 boolean initNew
         ) throws IgniteInternalCheckedException {
-            super(name, grpId, partId, pageMem, lockLsnr, BaseIgniteAbstractTest.log, metaPageId, initNew, null);
+            super(grpId, partId, name, pageMem, lockLsnr, metaPageId, initNew, null, IoStatisticsHolderNoOp.INSTANCE);
         }
 
         static boolean checkNoLocks() {

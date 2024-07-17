@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,19 +28,15 @@ import java.sql.Statement;
  * Class for executing examples that demonstrate working with different storage engines.
  */
 class StorageEngineExample {
-    private final String engineName;
-
-    private final String dataRegionName;
+    private final String storageProfileName;
 
     /**
      * Creates an instance of the example runner.
      *
-     * @param engineName Name of the storage engine, that created SQL tables will use.
-     * @param dataRegionName Name of the data region, that created SQL tables will use.
+     * @param storageProfileName Name of the storage profile, that created SQL tables will use.
      */
-    StorageEngineExample(String engineName, String dataRegionName) {
-        this.engineName = engineName;
-        this.dataRegionName = dataRegionName;
+    StorageEngineExample(String storageProfileName) {
+        this.storageProfileName = storageProfileName;
     }
 
     /**
@@ -66,13 +62,16 @@ class StorageEngineExample {
 
             try (Statement stmt = conn.createStatement()) {
                 stmt.executeUpdate(
+                        "CREATE ZONE ACCOUNTS_ZONE "
+                                + " WITH STORAGE_PROFILES='" + storageProfileName + "'"
+                );
+                stmt.executeUpdate(
                         "CREATE TABLE ACCOUNTS ( "
                                 + "ACCOUNT_ID INT PRIMARY KEY,"
                                 + "FIRST_NAME VARCHAR, "
                                 + "LAST_NAME  VARCHAR, "
                                 + "BALANCE    DOUBLE) "
-                                + " ENGINE " + engineName
-                                + " WITH dataRegion='" + dataRegionName + "'"
+                                + "WITH PRIMARY_ZONE = 'ACCOUNTS_ZONE'"
                 );
             }
 
@@ -141,6 +140,7 @@ class StorageEngineExample {
                     Statement stmt = conn.createStatement()
             ) {
                 stmt.executeUpdate("DROP TABLE ACCOUNTS");
+                stmt.executeUpdate("DROP ZONE ACCOUNTS_ZONE");
             }
         }
     }

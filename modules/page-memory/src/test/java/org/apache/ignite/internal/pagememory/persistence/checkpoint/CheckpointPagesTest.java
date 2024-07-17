@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -31,8 +31,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -43,7 +43,7 @@ public class CheckpointPagesTest {
     void testContains() {
         CheckpointPages checkpointPages = new CheckpointPages(
                 Set.of(new FullPageId(0, 0), new FullPageId(1, 0)),
-                completedFuture(null)
+                nullCompletedFuture()
         );
 
         assertTrue(checkpointPages.contains(new FullPageId(0, 0)));
@@ -57,7 +57,7 @@ public class CheckpointPagesTest {
     void testSize() {
         CheckpointPages checkpointPages = new CheckpointPages(
                 Set.of(new FullPageId(0, 0), new FullPageId(1, 0)),
-                completedFuture(null)
+                nullCompletedFuture()
         );
 
         assertEquals(2, checkpointPages.size());
@@ -67,7 +67,7 @@ public class CheckpointPagesTest {
     void testMarkAsSaved() {
         CheckpointPages checkpointPages = new CheckpointPages(
                 new HashSet<>(Set.of(new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0))),
-                completedFuture(null)
+                nullCompletedFuture()
         );
 
         assertTrue(checkpointPages.markAsSaved(new FullPageId(0, 0)));
@@ -87,7 +87,7 @@ public class CheckpointPagesTest {
     void testAllowToSave() throws Exception {
         Set<FullPageId> pages = Set.of(new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0));
 
-        CheckpointPages checkpointPages = new CheckpointPages(pages, completedFuture(null));
+        CheckpointPages checkpointPages = new CheckpointPages(pages, nullCompletedFuture());
 
         assertTrue(checkpointPages.allowToSave(new FullPageId(0, 0)));
         assertTrue(checkpointPages.allowToSave(new FullPageId(1, 0)));

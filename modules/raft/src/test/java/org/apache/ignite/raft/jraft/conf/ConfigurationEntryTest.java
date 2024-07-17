@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.conf;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.Test;
@@ -26,18 +27,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ConfigurationEntryTest {
+public class ConfigurationEntryTest extends BaseIgniteAbstractTest {
     @Test
     public void testStuffMethods() {
-        ConfigurationEntry entry = TestUtils.getConfEntry("localhost:8081,localhost:8082,localhost:8083", null);
+        ConfigurationEntry entry = TestUtils.getConfEntry("localhost-8081,localhost-8082,localhost-8083", null);
         assertTrue(entry.isStable());
         assertFalse(entry.isEmpty());
-        assertTrue(entry.contains(new PeerId("localhost", 8081)));
-        assertTrue(entry.contains(new PeerId("localhost", 8082)));
-        assertTrue(entry.contains(new PeerId("localhost", 8083)));
+        assertTrue(entry.contains(new PeerId("localhost-8081")));
+        assertTrue(entry.contains(new PeerId("localhost-8082")));
+        assertTrue(entry.contains(new PeerId("localhost-8083")));
         assertEquals(
-            new HashSet<>(Arrays.asList(new PeerId("localhost", 8081), new PeerId("localhost", 8082), new PeerId(
-                "localhost", 8083))),
+            new HashSet<>(Arrays.asList(new PeerId("localhost-8081"), new PeerId("localhost-8082"), new PeerId(
+                "localhost-8083"))),
             entry.listPeers());
 
     }
@@ -45,43 +46,43 @@ public class ConfigurationEntryTest {
     @Test
     public void testStuffMethodsWithPriority() {
         ConfigurationEntry entry = TestUtils.getConfEntry(
-            "localhost:8081::100,localhost:8082::100,localhost:8083::100", null);
+            "localhost-8081::100,localhost-8082::100,localhost-8083::100", null);
         assertTrue(entry.isStable());
         assertFalse(entry.isEmpty());
-        assertTrue(entry.contains(new PeerId("localhost", 8081, 0, 100)));
-        assertTrue(entry.contains(new PeerId("localhost", 8082, 0, 100)));
-        assertTrue(entry.contains(new PeerId("localhost", 8083, 0, 100)));
+        assertTrue(entry.contains(new PeerId("localhost-8081", 0, 100)));
+        assertTrue(entry.contains(new PeerId("localhost-8082", 0, 100)));
+        assertTrue(entry.contains(new PeerId("localhost-8083", 0, 100)));
         assertEquals(
-            new HashSet<>(Arrays.asList(new PeerId("localhost", 8081, 0, 100), new PeerId("localhost", 8082, 0, 100),
-                new PeerId("localhost", 8083, 0, 100))),
+            new HashSet<>(Arrays.asList(new PeerId("localhost-8081", 0, 100), new PeerId("localhost-8082", 0, 100),
+                new PeerId("localhost-8083", 0, 100))),
             entry.listPeers());
 
     }
 
     @Test
     public void testIsValid() {
-        ConfigurationEntry entry = TestUtils.getConfEntry("localhost:8081,localhost:8082,localhost:8083", null);
+        ConfigurationEntry entry = TestUtils.getConfEntry("localhost-8081,localhost-8082,localhost-8083", null);
         assertTrue(entry.isValid());
 
-        entry = TestUtils.getConfEntry("localhost:8081,localhost:8082,localhost:8083",
-            "localhost:8081,localhost:8082,localhost:8084");
+        entry = TestUtils.getConfEntry("localhost-8081,localhost-8082,localhost-8083",
+            "localhost-8081,localhost-8082,localhost-8084");
         assertTrue(entry.isValid());
 
-        entry.getConf().addLearner(new PeerId("localhost", 8084));
+        entry.getConf().addLearner(new PeerId("localhost-8084"));
         assertFalse(entry.isValid());
-        entry.getConf().addLearner(new PeerId("localhost", 8081));
+        entry.getConf().addLearner(new PeerId("localhost-8081"));
         assertFalse(entry.isValid());
     }
 
     @Test
     public void testIsStable() {
-        ConfigurationEntry entry = TestUtils.getConfEntry("localhost:8081,localhost:8082,localhost:8083",
-            "localhost:8080,localhost:8081,localhost:8082");
+        ConfigurationEntry entry = TestUtils.getConfEntry("localhost-8081,localhost-8082,localhost-8083",
+            "localhost-8080,localhost-8081,localhost-8082");
         assertFalse(entry.isStable());
         assertEquals(4, entry.listPeers().size());
-        assertTrue(entry.contains(new PeerId("localhost", 8080)));
-        assertTrue(entry.contains(new PeerId("localhost", 8081)));
-        assertTrue(entry.contains(new PeerId("localhost", 8082)));
-        assertTrue(entry.contains(new PeerId("localhost", 8083)));
+        assertTrue(entry.contains(new PeerId("localhost-8080")));
+        assertTrue(entry.contains(new PeerId("localhost-8081")));
+        assertTrue(entry.contains(new PeerId("localhost-8082")));
+        assertTrue(entry.contains(new PeerId("localhost-8083")));
     }
 }

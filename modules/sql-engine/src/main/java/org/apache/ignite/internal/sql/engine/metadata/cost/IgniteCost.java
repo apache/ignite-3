@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -36,11 +36,26 @@ public class IgniteCost implements RelOptCost {
     /** Cost of a comparison of one row. */
     public static final double ROW_COMPARISON_COST = 3;
 
+    /**
+     * According to benchmark, deriving a single row from index approximately 5 times slower that deriving
+     * a single row from table, so we have to reflect this in cost estimation. But in case of multiplier=5
+     * indexes won't be chosen by optimiser for range scan with only bound. Thus, multiplier=4 looks like
+     * good compromise between reflecting the real state of things and not breaking up usage of index for
+     * range scans.
+     */
+    public static final double INDEX_ROW_SCAN_MULTIPLIER = 4;
+
     /** Memory cost of a aggregate call. */
     public static final double AGG_CALL_MEM_COST = 5;
 
     /** Cost of a lookup at the hash. */
     public static final double HASH_LOOKUP_COST = 10;
+
+    /** In case the fetch value is a DYNAMIC_PARAM. */
+    public static final double FETCH_IS_PARAM_FACTOR = 0.01;
+
+    /** In case the offset value is a DYNAMIC_PARAM. */
+    public static final double OFFSET_IS_PARAM_FACTOR = 0.5;
 
     /**
      * With broadcast distribution each row will be sent to the each distination node, thus the total bytes amount will
@@ -145,12 +160,13 @@ public class IgniteCost implements RelOptCost {
 
     /** {@inheritDoc} */
     @Override
+    @SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
     public int hashCode() {
         return Objects.hash(rowCount, cpu, io, memory, network);
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("FloatingPointEquality")
+    @SuppressWarnings({"FloatingPointEquality", "PMD.SuspiciousEqualsMethodName"})
     @Override
     public boolean equals(RelOptCost cost) {
         return this == cost

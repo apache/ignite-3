@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -37,9 +37,9 @@ import org.junit.jupiter.api.Test;
  */
 public class MetricEntitiesTest {
     private static final String SOURCE_NAME = "testSource";
-    private static final String SCALAR_METRIC_NAME = "testScalarMetric";
-    private static final String COMPOSITE_METRIC_NAME = "testCompositeMetric";
-    private static final long[] DISTRIBUTION_BOUNDS = new long[] { 10, 100, 1000 };
+    private static final String SCALAR_METRIC_NAME = "TestScalarMetric";
+    private static final String COMPOSITE_METRIC_NAME = "TestCompositeMetric";
+    private static final long[] DISTRIBUTION_BOUNDS = { 10, 100, 1000 };
 
     @Test
     public void testMetricLifecycle() {
@@ -153,27 +153,27 @@ public class MetricEntitiesTest {
     }
 
     private static class TestMetricSource extends AbstractMetricSource<TestMetricSource.Holder> {
-        protected TestMetricSource() {
+        TestMetricSource() {
             super(SOURCE_NAME);
         }
 
-
-        protected TestMetricSource(String name) {
+        TestMetricSource(String name) {
             super(name);
         }
 
-        @Override protected Holder createHolder() {
+        @Override
+        protected Holder createHolder() {
             return new Holder();
-        }
-
-        @Override protected void init(MetricSetBuilder bldr, Holder holder) {
-            bldr.register(holder.atomicIntMetric);
-            bldr.register(holder.distributionMetric);
         }
 
         private static class Holder implements AbstractMetricSource.Holder<Holder> {
             final AtomicIntMetric atomicIntMetric = new AtomicIntMetric(SCALAR_METRIC_NAME, null);
             final DistributionMetric distributionMetric = new DistributionMetric(COMPOSITE_METRIC_NAME, null, DISTRIBUTION_BOUNDS);
+
+            @Override
+            public Iterable<Metric> metrics() {
+                return List.of(atomicIntMetric, distributionMetric);
+            }
         }
     }
 }

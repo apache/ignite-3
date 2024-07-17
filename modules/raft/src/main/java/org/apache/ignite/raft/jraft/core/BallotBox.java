@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -159,9 +159,10 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
      * |newPendingIndex| should be |last_log_index| + 1.
      *
      * @param newPendingIndex pending index of new leader
+     * @param quorum quorum size
      * @return returns true if reset success
      */
-    public boolean resetPendingIndex(final long newPendingIndex) {
+    public boolean resetPendingIndex(final long newPendingIndex, final int quorum) {
         final long stamp = this.stampedLock.writeLock();
         try {
             if (!(this.pendingIndex == 0 && this.pendingMetaQueue.isEmpty())) {
@@ -175,8 +176,12 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
                 return false;
             }
             this.pendingIndex = newPendingIndex;
-            //TODO Fix it properly: https://issues.apache.org/jira/browse/IGNITE-17445
-            this.lastCommittedIndex = newPendingIndex - 1;
+            if (quorum == 1) {
+                // It is safe to initiate lastCommittedIndex as last log one because in case of single peer no one will discard
+                // log records on leader election. It's not an optimisation, but a matter of correctness because otherwise there will be
+                // a race between readIndex evaluation and asynchronous log records application on node restart.
+                this.lastCommittedIndex = newPendingIndex - 1;
+            }
             this.closureQueue.resetFirstIndex(newPendingIndex);
             return true;
         }

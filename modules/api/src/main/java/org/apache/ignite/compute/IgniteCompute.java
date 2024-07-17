@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,116 +17,189 @@
 
 package org.apache.ignite.compute;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
+
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Provides access to the Compute functionality: the ability to execute compute jobs.
+ * Provides the ability to execute Compute jobs.
  *
  * @see ComputeJob
- * @see ComputeJob#execute(JobExecutionContext, Object...)
+ * @see ComputeJob#executeAsync(JobExecutionContext, Object)
  */
 public interface IgniteCompute {
     /**
-     * Executes a {@link ComputeJob} represented by the given class on one node from the nodes set.
+     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
      *
-     * @param nodes    nodes on which to execute the job
-     * @param jobClass class of the job to execute
-     * @param args     arguments of the job
-     * @param <R>      job result type
-     * @return future job result
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
+     * @return Job execution object.
      */
-    <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args);
+    <T, R> JobExecution<R> submit(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    );
 
     /**
-     * Executes a {@link ComputeJob} represented by the given class on one node from the nodes set.
+     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
+     * {@code submit(...).resultAsync()}.
      *
-     * @param nodes    candidate nodes; the job will be executed on one of them
-     * @param jobClassName name of the job class to execute
-     * @param args     arguments of the job
-     * @param <R>      job result type
-     * @return future job result
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
+     * @return Job result future.
      */
-    <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args);
+    default <T, R> CompletableFuture<R> executeAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return submit(target, descriptor, arg).resultAsync();
+    }
 
     /**
-     * Executes a job represented by the given class on one node where the given key is located. The node is the leader
-     * of the corresponding Raft group.
+     * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
      *
-     * @param tableName name of the table which key is used to determine the node on which the job will be executed
-     * @param key key which will be used to determine the node on which the job will be executed
-     * @param jobClass class of the job to execute
-     * @param args arguments of the job
-     * @param <R> job result type
-     * @return future job result
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
+     * @return Job result.
+     * @throws ComputeException If there is any problem executing the job.
      */
-    <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args);
+    <T, R> R execute(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    );
 
     /**
-     * Executes a job represented by the given class on one node where the given key is located. The node is the leader
-     * of the corresponding Raft group.
+     * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
      *
-     * @param tableName name of the table which key is used to determine the node on which the job will be executed
-     * @param key key which will be used to determine the node on which the job will be executed
-     * @param keyMapper mapper that will be used to map the key to a binary representation
-     * @param jobClass class of the job to execute
-     * @param args arguments of the job
-     * @param <R> job result type
-     * @return future job result
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param nodes Nodes to execute the job on.
+     * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
+     * @return Map from node to job execution object.
      */
-    <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper,
-                                                 Class<? extends ComputeJob<R>> jobClass, Object... args);
+    <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    );
 
     /**
-     * Executes a job represented by the given class on one node where the given key is located. The node is the leader
-     * of the corresponding Raft group.
+     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
-     * @param tableName name of the table which key is used to determine the node on which the job will be executed
-     * @param key key which will be used to determine the node on which the job will be executed
-     * @param jobClassName name of the job class to execute
-     * @param args arguments of the job
-     * @param <R> job result type
-     * @return future job result
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param nodes Nodes to execute the job on.
+     * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
+     * @return Map from node to job result.
      */
-    <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, String jobClassName, Object... args);
+    default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
+                .collect(toMap(identity(), node -> executeAsync(JobTarget.node(node), descriptor, arg)));
+
+        return allOf(futures.values().toArray(CompletableFuture[]::new))
+                .thenApply(ignored -> {
+                            Map<ClusterNode, R> map = new HashMap<>();
+
+                            for (Entry<ClusterNode, CompletableFuture<R>> entry : futures.entrySet()) {
+                                map.put(entry.getKey(), entry.getValue().join());
+                            }
+
+                            return map;
+                        }
+                );
+    }
 
     /**
-     * Executes a job represented by the given class on one node where the given key is located. The node is the leader
-     * of the corresponding Raft group.
+     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
-     * @param tableName name of the table which key is used to determine the node on which the job will be executed
-     * @param key key which will be used to determine the node on which the job will be executed
-     * @param keyMapper mapper that will be used to map the key to a binary representation
-     * @param jobClassName name of the job class to execute
-     * @param args arguments of the job
-     * @param <R> job result type
-     * @return future job result
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param nodes Nodes to execute the job on.
+     * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
+     * @return Map from node to job result.
+     * @throws ComputeException If there is any problem executing the job.
      */
-    <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, String jobClassName, Object... args);
+    default <T, R> Map<ClusterNode, R> executeBroadcast(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        Map<ClusterNode, R> map = new HashMap<>();
+
+        for (ClusterNode node : nodes) {
+            map.put(node, execute(JobTarget.node(node), descriptor, arg));
+        }
+
+        return map;
+    }
 
     /**
-     * Executes a {@link ComputeJob} represented by the given class on all nodes from the given nodes set.
+     * Submits a {@link MapReduceTask} of the given class for an execution.
      *
-     * @param nodes nodes on each of which the job will be executed
-     * @param jobClass class of the job to execute
-     * @param args     arguments of the job
-     * @param <R>      job result type
-     * @return future job results
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param units Deployment units.
+     * @param taskClassName Map reduce task class name.
+     * @param arg Task argument.
+     * @return Task execution interface.
      */
-    <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args);
+    <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg);
 
     /**
-     * Executes a {@link ComputeJob} represented by the given class on all nodes from the given nodes set.
+     * Submits a {@link MapReduceTask} of the given class for an execution. A shortcut for {@code submitMapReduce(...).resultAsync()}.
      *
-     * @param nodes nodes on each of which the job will be executed
-     * @param jobClassName name of the job class to execute
-     * @param args     arguments of the job
-     * @param <R>      job result type
-     * @return future job results
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param units Deployment units.
+     * @param taskClassName Map reduce task class name.
+     * @param arg Task argument.
+     * @return Task result future.
      */
-    <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args);
+    default <T, R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, @Nullable T arg) {
+        return this.<T, R>submitMapReduce(units, taskClassName, arg).resultAsync();
+    }
+
+    /**
+     * Executes a {@link MapReduceTask} of the given class.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param units Deployment units.
+     * @param taskClassName Map reduce task class name.
+     * @param arg Task argument.
+     * @return Task result.
+     * @throws ComputeException If there is any problem executing the task.
+     */
+    <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg);
 }

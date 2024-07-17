@@ -1,0 +1,173 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'java'
+    id 'distribution'
+    id 'signing'
+    alias(libs.plugins.nebula)
+    alias(libs.plugins.checksum)
+    alias(libs.plugins.setupbuilder)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+configurations {
+    odbc
+}
+
+dependencies {
+    odbc(project(path: ":platforms", configuration: "odbc"))
+}
+
+def tokens = [
+        VERSION : version,
+        LIB_DIR : "/usr/lib",
+        TMP_DIR : "/tmp/ignite3-odbc"
+]
+
+File odbcDll = configurations.odbc.files.find { it.name == "ignite3-odbc.dll" }
+def tokensWin = [
+        DLL_SRC : odbcDll != null ? odbcDll.path : ''
+]
+
+tasks.register('replacePackageScriptVars', Copy) {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+
+    from 'ignite3-odbc.ini'
+
+    from 'scripts'
+
+    filter(ReplaceTokens, tokens: tokens)
+    into "$buildDir/scripts/"
+}
+
+tasks.register('replacePackageScriptVarsWin', Copy) {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+
+    from 'template.wxs'
+
+    filter(ReplaceTokens, tokens: tokensWin)
+    into "$buildDir/scripts/"
+}
+
+distributions {
+    main {
+        distributionBaseName = 'ignite3-odbc'
+        contents {
+            into('') {
+                from configurations.odbc
+            }
+
+            into('tmp') {
+                from "$buildDir/scripts/ignite3-odbc.ini"
+            }
+        }
+    }
+}
+
+distZip {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+
+    dependsOn replacePackageScriptVars
+}
+
+distTar {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+
+    dependsOn replacePackageScriptVars
+}
+
+buildRpm {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+    dependsOn replacePackageScriptVars
+    requires("unixODBC")
+
+    preInstall file("$buildDir/scripts/preInstall.sh")
+    postInstall file("$buildDir/scripts/postInstall.sh")
+    preUninstall file("$buildDir/scripts/preUninstall.sh")
+    postUninstall file("$buildDir/scripts/postUninstall.sh")
+}
+
+buildDeb {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+    dependsOn replacePackageScriptVars
+    requires("unixodbc")
+    requires("odbcinst")
+
+    preInstall file("$buildDir/scripts/preInstall.sh")
+    postInstall file("$buildDir/scripts/postInstall.sh")
+    preUninstall file("$buildDir/scripts/preUninstall.sh")
+    postUninstall file("$buildDir/scripts/postUninstall.sh")
+}
+
+ospackage {
+    license "ASL 2.0"
+    packageName "ignite3-odbc"
+    packageGroup "Library"
+    url "https://ignite.apache.org"
+    packageDescription "This package will install Apache Ignite 3 ODBC driver"
+    os LINUX
+
+    into(tokens.LIB_DIR) {
+        from configurations.odbc
+    }
+
+    into("${tokens.TMP_DIR}/${project.version}") {
+        from "$buildDir/scripts/ignite3-odbc.ini"
+    }
+}
+
+setupBuilder {
+    vendor = "Apache Software Foundation"
+    application = "Apache Ignite ODBC driver"
+    description = "Apache Ignite is a distributed database for high-performance computing with in-memory speed"
+    appIdentifier = "ignite3-odbc"
+
+    // '-SNAPSHOT' is not valid in Windows versions
+    version = project.version.toString().replace("-SNAPSHOT", "")
+
+    licenseFile = "$rootDir/LICENSE"
+
+    msi {
+        dependsOn replacePackageScriptVarsWin
+
+        languages = ["en-US"]
+        wxsTemplate = "$buildDir/scripts/template.wxs"
+    }
+
+    into('bin') {
+        from configurations.odbc
+    }
+}

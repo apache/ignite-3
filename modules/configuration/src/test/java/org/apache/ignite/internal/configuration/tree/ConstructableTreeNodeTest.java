@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -26,7 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -212,5 +214,25 @@ public class ConstructableTreeNodeTest {
         ((InnerNode) child).constructDefault("intCfg");
 
         assertEquals(99, child.intCfg());
+    }
+
+    @Test
+    public void makeImmutable() {
+        // Inner node with no leaves.
+        var parentNode = newParentInstance();
+
+        parentNode.makeImmutable();
+
+        assertThrows(AssertionError.class, () -> parentNode.construct("child", ConfigurationUtil.EMPTY_CFG_SRC, true));
+        assertThrows(AssertionError.class, () -> parentNode.constructDefault("child"));
+
+        assertThrows(AssertionError.class, () -> parentNode.changeChild());
+        assertThrows(AssertionError.class, () -> parentNode.changeChild(child -> {}));
+
+        assertThrows(AssertionError.class, () -> parentNode.internalId(UUID.randomUUID()));
+        assertThrows(AssertionError.class, () -> parentNode.setInjectedNameFieldValue("foo"));
+
+        // Copy is always mutable.
+        parentNode.copy().assertMutability();
     }
 }

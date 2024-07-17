@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft;
 
+import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
+
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -23,8 +25,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.Scheduler;
@@ -33,12 +35,12 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.DefaultFixedThreadsExecutorGroupFactory;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
+import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroupFactory;
 import org.apache.ignite.raft.jraft.util.timer.DefaultTimer;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
 
@@ -59,7 +61,10 @@ public final class JRaftUtils {
 
         NodeOptions nodeOpts = opts.getNodeOptions();
 
-        nodeOpts.setStripes(1);
+        if (nodeOpts != null) {
+            nodeOpts.setStripes(1);
+            nodeOpts.setLogStripesCount(1);
+        }
 
         final boolean ret = node.bootstrap(opts);
         node.shutdown();
@@ -77,17 +82,21 @@ public final class JRaftUtils {
      * @throws IllegalArgumentException If a number of threads is incorrect.
      */
     public static ExecutorService createExecutor(final String prefix, final int number) {
+        return createExecutor(prefix, number, createThreadFactory(prefix));
+    }
+
+    private static ExecutorService createExecutor(String name, int number, ThreadFactory threadFactory) {
         if (number <= 0) {
             throw new IllegalArgumentException();
         }
         return ThreadPoolUtil.newBuilder() //
-            .poolName(prefix) //
+            .poolName(name) //
             .enableMetric(true) //
             .coreThreads(number) //
             .maximumThreads(number) //
             .keepAliveSeconds(60L) //
             .workQueue(new LinkedBlockingQueue<>()) //
-            .threadFactory(createThreadFactory(prefix)) //
+            .threadFactory(threadFactory) //
             .build();
     }
 
@@ -96,9 +105,12 @@ public final class JRaftUtils {
      * @return The executor.
      */
     public static ExecutorService createCommonExecutor(NodeOptions opts) {
+        String poolName = "JRaft-Common-Executor";
+
         return createExecutor(
-            NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-Common-Executor"),
-            opts.getCommonThreadPollSize()
+            NamedThreadFactory.threadPrefix(opts.getServerName(), poolName),
+            opts.getCommonThreadPollSize(),
+            IgniteThreadFactory.create(opts.getServerName(), poolName, true, LOG, TX_STATE_STORAGE_ACCESS)
         );
     }
 
@@ -107,9 +119,18 @@ public final class JRaftUtils {
      * @return The executor.
      */
     public static FixedThreadsExecutorGroup createAppendEntriesExecutor(NodeOptions opts) {
+        String poolName = "JRaft-AppendEntries-Processor";
+
         return createStripedExecutor(
-            NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-AppendEntries-Processor"),
-            Utils.APPEND_ENTRIES_THREADS_POOL_SIZE, Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD
+                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-AppendEntries-Processor"),
+                Utils.APPEND_ENTRIES_THREADS_POOL_SIZE,
+                Utils.MAX_APPEND_ENTRIES_TASKS_PER_THREAD,
+                new DefaultFixedThreadsExecutorGroupFactory() {
+                    @Override
+                    protected ThreadFactory newDaemonThreadFactory(String fullPoolName) {
+                        return IgniteThreadFactory.create(opts.getServerName(), poolName, true, LOG, TX_STATE_STORAGE_ACCESS);
+                    }
+                }
         );
     }
 
@@ -176,7 +197,20 @@ public final class JRaftUtils {
      */
     public static FixedThreadsExecutorGroup createStripedExecutor(final String prefix, final int number,
         final int tasksPerThread) {
-        return DefaultFixedThreadsExecutorGroupFactory.INSTANCE
+        return createStripedExecutor(prefix, number, tasksPerThread, DefaultFixedThreadsExecutorGroupFactory.INSTANCE);
+    }
+
+    /**
+     * Creates a striped executor.
+     *
+     * @param prefix Thread name prefix.
+     * @param number Thread number.
+     * @param tasksPerThread Max tasks per thread.
+     * @return The executor.
+     */
+    private static FixedThreadsExecutorGroup createStripedExecutor(final String prefix, final int number,
+        final int tasksPerThread, FixedThreadsExecutorGroupFactory executorGroupFactory) {
+        return executorGroupFactory
             .newExecutorGroup(
                 number,
                 prefix,
@@ -221,16 +255,6 @@ public final class JRaftUtils {
             return peer;
         }
         throw new IllegalArgumentException("Invalid peer str:" + s);
-    }
-
-    /**
-     * Creates a {@link NetworkAddress} from an {@link Endpoint}.
-     *
-     * @param endpoint Endpoint.
-     * @return Network address.
-     */
-    public static NetworkAddress addressFromEndpoint(Endpoint endpoint) {
-        return new NetworkAddress(endpoint.getIp(), endpoint.getPort());
     }
 
     private JRaftUtils() {

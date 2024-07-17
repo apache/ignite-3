@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,63 +17,70 @@
 
 package org.apache.ignite.internal.metrics;
 
+import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
+import org.apache.ignite.internal.metrics.exporters.MetricExporter;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
- * Metric manager.
+ * The component services of the metrics. It has functions to switch on / off and register them.
  */
-public class MetricManager implements IgniteComponent {
+public interface MetricManager extends IgniteComponent {
     /**
-     * Metric registry.
+     * Method to configure {@link MetricManager} with distributed configuration.
+     *
+     * @param metricConfiguration Distributed metric configuration.
      */
-    private final MetricRegistry registry;
+    // TODO: IGNITE-17718 when we design the system to configure metrics itself
+    // TODO: this method should be revisited, but now it is supposed to use only to set distributed configuration for exporters.
+    void configure(MetricConfiguration metricConfiguration);
+
+    @Override
+    CompletableFuture<Void> startAsync(ComponentContext componentContext);
 
     /**
-     * Constructor.
+     * Start component.
+     *
+     * @param availableExporters Map of (name, exporter) with available exporters.
      */
-    public MetricManager() {
-        this.registry = new MetricRegistry();
-    }
+    @VisibleForTesting
+    void start(Map<String, MetricExporter> availableExporters);
 
-    /** {@inheritDoc} */
-    @Override public void start() {
-        // No-op.
-    }
+    /**
+     * Starts component with default configuration.
+     *
+     * @param exporters Exporters.
+     */
+    void start(Iterable<MetricExporter<?>> exporters);
 
-    /** {@inheritDoc} */
-    @Override public void stop() throws Exception {
-        // No-op.
-    }
+    @Override
+    CompletableFuture<Void> stopAsync(ComponentContext componentContext);
 
     /**
      * Register metric source. See {@link MetricRegistry#registerSource(MetricSource)}.
      *
      * @param src Metric source.
      */
-    public void registerSource(MetricSource src) {
-        registry.registerSource(src);
-    }
+    void registerSource(MetricSource src);
 
     /**
      * Unregister metric source. See {@link MetricRegistry#unregisterSource(MetricSource)}.
      *
      * @param src Metric source.
      */
-    public void unregisterSource(MetricSource src) {
-        registry.unregisterSource(src);
-    }
+    void unregisterSource(MetricSource src);
 
     /**
      * Unregister metric source by name. See {@link MetricRegistry#unregisterSource(String)}.
      *
      * @param srcName Metric source name.
      */
-    public void unregisterSource(String srcName) {
-        registry.unregisterSource(srcName);
-    }
+    void unregisterSource(String srcName);
 
     /**
      * Enable metric source. See {@link MetricRegistry#enable(MetricSource)}.
@@ -81,9 +88,7 @@ public class MetricManager implements IgniteComponent {
      * @param src Metric source.
      * @return Metric set, or {@code null} if already enabled.
      */
-    public MetricSet enable(MetricSource src) {
-        return registry.enable(src);
-    }
+    MetricSet enable(MetricSource src);
 
     /**
      * Enable metric source by name. See {@link MetricRegistry#enable(String)}.
@@ -91,27 +96,21 @@ public class MetricManager implements IgniteComponent {
      * @param srcName Source name.
      * @return Metric set, or {@code null} if already enabled.
      */
-    public MetricSet enable(final String srcName) {
-        return registry.enable(srcName);
-    }
+    MetricSet enable(String srcName);
 
     /**
      * Disable metric source. See {@link MetricRegistry#disable(MetricSource)}.
      *
      * @param src Metric source.
      */
-    public void disable(MetricSource src) {
-        registry.disable(src);
-    }
+    void disable(MetricSource src);
 
     /**
      * Disable metric source by name. See {@link MetricRegistry#disable(String)}.
      *
-     * @param srcName Source name.
+     * @param srcName Metric source name.
      */
-    public void disable(final String srcName) {
-        registry.disable(srcName);
-    }
+    void disable(String srcName);
 
     /**
      * Metrics snapshot. This is a snapshot of metric sets with corresponding version, the values of the metrics in the
@@ -119,8 +118,12 @@ public class MetricManager implements IgniteComponent {
      *
      * @return Metrics snapshot.
      */
-    @NotNull
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
-        return registry.metricSnapshot();
-    }
+    IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot();
+
+    /**
+     * Gets a collection of metric sources.
+     *
+     * @return collection of metric sources
+     */
+    Collection<MetricSource> metricSources();
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,30 +24,41 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface Transaction {
     /**
-     * Synchronously commits a transaction.
+     * Synchronously commits a transaction. A commit of a completed or ending transaction has no effect
+     * and always succeeds when the transaction is completed.
      *
      * @throws TransactionException If a transaction can't be committed.
      */
     void commit() throws TransactionException;
 
     /**
-     * Asynchronously commits a transaction.
+     * Asynchronously commits a transaction. A commit of a completed or ending transaction has no effect
+     * and always succeeds when the transaction is completed.
      *
      * @return The future.
      */
     CompletableFuture<Void> commitAsync();
 
     /**
-     * Synchronously rolls back a transaction.
+     * Synchronously rolls back a transaction. A rollback of a completed or ending transaction has no effect
+     * and always succeeds when the transaction is completed.
      *
      * @throws TransactionException If a transaction can't be rolled back.
      */
     void rollback() throws TransactionException;
 
     /**
-     * Asynchronously rolls back a transaction.
+     * Asynchronously rolls back a transaction. A rollback of a completed or ending transaction has no effect
+     * and always succeeds when the transaction is completed.
      *
      * @return The future.
      */
     CompletableFuture<Void> rollbackAsync();
+
+    /**
+     * Returns {code true} if given transaction is a read-only, {@code false} otherwise.
+     *
+     * @return {code true} if given transaction is a read-only, {@code false} otherwise.
+     */
+    boolean isReadOnly();
 }

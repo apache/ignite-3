@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,8 +27,8 @@ import java.util.UUID;
  * (i.e. could be specified as a default in column definition).
  */
 public enum DefaultValueGenerator {
-    /** Generator that generates random UUID string. */
-    GEN_RANDOM_UUID("genRandomUuid", String.class);
+    /** Generator that generates random UUID. */
+    RAND_UUID("randUuid", UUID.class);
 
     private final MethodHandle methodHandle;
 
@@ -51,8 +51,9 @@ public enum DefaultValueGenerator {
         }
     }
 
-    /** Returns random UUID string. */
-    public static String genRandomUuid() {
-        return UUID.randomUUID().toString();
+    /** Returns random UUID. */
+    @SuppressWarnings("unused") // actually method is called via reflection
+    public static UUID randUuid() {
+        return UUID.randomUUID();
     }
 }

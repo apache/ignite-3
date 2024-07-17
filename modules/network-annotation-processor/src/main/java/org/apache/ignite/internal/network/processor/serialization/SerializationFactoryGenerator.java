@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,9 +27,9 @@ import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageSerializationFactory;
-import org.apache.ignite.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageSerializationFactory;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
 
 /**
  * Class for generating {@link MessageSerializationFactory} classes.
@@ -62,7 +62,7 @@ public class SerializationFactoryGenerator {
      */
     public TypeSpec generateFactory(MessageClass message, TypeSpec serializer, TypeSpec deserializer) {
         processingEnv.getMessager()
-                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializationFactory", message.element());
+                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializationFactory for " + message.className());
 
         ClassName messageFactoryClassName = messageGroup.messageFactoryClassName();
 
@@ -96,7 +96,7 @@ public class SerializationFactoryGenerator {
                                 .addAnnotation(Override.class)
                                 .addModifiers(Modifier.PUBLIC)
                                 .returns(ParameterizedTypeName.get(ClassName.get(MessageSerializer.class), message.className()))
-                                .addStatement("return new $N()", serializer)
+                                .addStatement("return $N.INSTANCE", serializer)
                                 .build()
                 )
                 .addOriginatingElement(message.element())

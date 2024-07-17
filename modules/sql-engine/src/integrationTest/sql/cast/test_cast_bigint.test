@@ -1,0 +1,145 @@
+# name: test/sql/cast/test_cast_bigint.test
+# description: CAST BIGINT
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+statement ok
+SELECT CAST('100' AS BIGINT);
+
+# https://issues.apache.org/jira/browse/IGNITE-20889
+skipif ignite3
+statement error
+SELECT CAST('100.1' AS BIGINT);
+
+query T
+SELECT CAST(1e1 AS BIGINT);
+----
+10
+
+# https://issues.apache.org/jira/browse/IGNITE-20889
+skipif ignite3
+statement error: For input string: "1e2"
+SELECT CAST('1e2' AS BIGINT);
+
+# overflow
+statement error
+SELECT CAST(1e40 AS BIGINT);
+
+# overflow
+statement error
+SELECT CAST(-1e40 AS BIGINT);
+
+query T
+SELECT CAST(100::TINYINT AS BIGINT);
+----
+100
+
+query T
+SELECT CAST(100::SMALLINT AS BIGINT);
+----
+100
+
+query T
+SELECT CAST(100::INT AS BIGINT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL AS BIGINT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL(3) AS BIGINT);
+----
+100
+
+query T
+SELECT CAST(100.1::DECIMAL(4, 1) AS BIGINT);
+----
+100
+
+query T
+SELECT CAST(100.1::REAL AS BIGINT);
+----
+100
+
+query T
+SELECT CAST(100.1::FLOAT AS BIGINT);
+----
+100
+
+query T
+SELECT CAST(100.1::DOUBLE AS BIGINT);
+----
+100
+
+statement error: Invalid input syntax for type BIGINT: "100x"
+SELECT CAST('100x' AS BIGINT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type BIGINT
+SELECT CAST(x'00' AS BIGINT);
+
+statement error: Cast function cannot convert value of type DATE to type BIGINT
+SELECT CAST('2000-01-01'::DATE AS BIGINT);
+
+statement error: Cast function cannot convert value of type TIME(0) to type BIGINT
+SELECT CAST('00:00:00'::TIME AS BIGINT);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type BIGINT
+SELECT CAST('2000-01-01 00:00:00'::TIMESTAMP AS BIGINT);
+
+statement error: Cast function cannot convert value of type UUID to type BIGINT
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS BIGINT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type BIGINT
+SELECT CAST(x'00'::BINARY AS BIGINT);
+
+statement error: Cast function cannot convert value of type VARBINARY to type BIGINT
+SELECT CAST(x'00'::VARBINARY AS BIGINT);
+
+query T
+SELECT CAST(INTERVAL 11 YEAR AS BIGINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MONTH AS BIGINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 DAYS AS BIGINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 HOURS AS BIGINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MINUTES AS BIGINT);
+----
+11
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type BIGINT
+SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS BIGINT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type BIGINT
+SELECT CAST(INTERVAL '0 01:02' DAYS TO MINUTES AS BIGINT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type BIGINT
+SELECT CAST(INTERVAL '0 01:02:03' DAYS TO SECONDS AS BIGINT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type BIGINT
+SELECT CAST(INTERVAL '00:01' HOURS TO MINUTES AS BIGINT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type BIGINT
+SELECT CAST(INTERVAL '00:01:02' HOURS TO SECONDS AS BIGINT);
+
+statement error: Cast function cannot convert value of type INTERVAL MINUTE TO SECOND to type BIGINT
+SELECT CAST(INTERVAL '00:01' MINUTES TO SECONDS AS BIGINT);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type BIGINT
+SELECT CAST(INTERVAL '1-1' YEARS TO MONTHS AS BIGINT);

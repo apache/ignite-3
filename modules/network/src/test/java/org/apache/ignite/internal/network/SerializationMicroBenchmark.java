@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,6 +27,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.network.messages.AllTypesMessage;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
@@ -135,7 +136,7 @@ public class SerializationMicroBenchmark {
      */
     public static void main(String[] args) throws Exception {
         Options build = new OptionsBuilder()
-                //.addProfiler("gc")
+                // .addProfiler("gc")
                 .include(SerializationMicroBenchmark.class.getName() + ".*").build();
 
         new Runner(build).run();

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,14 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 
 /**
  * Client tuple upsert all request.
@@ -34,19 +35,23 @@ public class ClientTupleUpsertAllRequest {
      * Processes the request.
      *
      * @param in        Unpacker.
+     * @param out       Packer.
      * @param tables    Ignite tables.
      * @param resources Resource registry.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
+            ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources
     ) {
-        var table = readTable(in, tables);
-        var tx = readTx(in, resources);
-        var tuples = readTuples(in, table, false);
-
-        return table.recordView().upsertAllAsync(tx, tuples);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var tx = readTx(in, out, resources);
+            return readTuples(in, table, false).thenCompose(tuples -> {
+                return table.recordView().upsertAllAsync(tx, tuples)
+                        .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+            });
+        });
     }
 }

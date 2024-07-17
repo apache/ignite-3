@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Linq;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -44,6 +45,22 @@ namespace Apache.Ignite.Tests
             var tables = await client.Tables.GetTablesAsync();
 
             Assert.Greater(tables.Count, 0);
+        }
+
+        [Test]
+        public async Task TestToString()
+        {
+            var address = "127.0.0.1:" + ServerPort;
+            var cfg = new IgniteClientConfiguration { Endpoints = { address } };
+            using var client = await IgniteClient.StartAsync(cfg);
+            var id = client.GetConnections().Single().Node.Id;
+
+            var expected = $"IgniteClientInternal {{ Connections = [ ClusterNode {{ " +
+                           $"Id = {id}, " +
+                           $"Name = org.apache.ignite.internal.runner.app.PlatformTestNodeRunner, " +
+                           $"Address = {address} }} ] }}";
+
+            Assert.AreEqual(expected, client.ToString());
         }
     }
 }

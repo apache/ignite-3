@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,6 +16,8 @@
  */
 
 package org.apache.ignite.internal.marshaller;
+
+import static org.apache.ignite.internal.marshaller.ValidationUtils.validateColumnType;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -29,29 +31,24 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.table.mapper.TypeConverter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Field accessor to speedup access.
  */
 abstract class FieldAccessor {
-    /** VarHandle. */
-    protected final VarHandle varHandle;
-
     /** Mode. */
-    protected final BinaryMode mode;
+    private final BinaryMode mode;
 
     /**
      * Mapped column position in the schema.
      */
-    protected final int colIdx;
+    private final int colIdx;
 
-    public Object get(Object obj) {
-        return varHandle.get(obj);
-    }
-
-    public void set(Object obj, Object val) {
-        varHandle.set(obj, val);
-    }
+    /** Scale. */
+    private final int scale;
 
     static FieldAccessor noopAccessor(MarshallerColumn col) {
         return new UnmappedFieldAccessor(col);
@@ -60,24 +57,37 @@ abstract class FieldAccessor {
     /**
      * Create accessor for the field.
      *
-     * @param type    Object class.
+     * @param type Object class.
      * @param fldName Object field name.
-     * @param col     A column the field is mapped to.
-     * @param colIdx  Column index in the schema.
+     * @param col A column the field is mapped to.
+     * @param colIdx Column index in the schema.
      * @return Accessor.
      */
-    static FieldAccessor create(Class<?> type, String fldName, MarshallerColumn col, int colIdx) {
+    static FieldAccessor create(
+            Class<?> type,
+            String fldName,
+            MarshallerColumn col,
+            int colIdx,
+            @Nullable TypeConverter<?, ?> typeConverter
+    ) {
         try {
-            final Field field = type.getDeclaredField(fldName);
+            Field field = type.getDeclaredField(fldName);
 
-            BinaryMode mode = MarshallerUtil.mode(field.getType());
-            final MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
+            if (typeConverter == null) {
+                validateColumnType(col, field.getType());
+            }
+
+            BinaryMode fieldAccessMode = BinaryMode.forClass(field.getType());
+            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
 
             VarHandle varHandle = lookup.unreflectVarHandle(field);
 
-            assert mode != null : "Invalid mode for type: " + field.getType();
+            assert fieldAccessMode != null : "Invalid fieldAccessMode for type: " + field.getType();
 
-            switch (mode) {
+            switch (fieldAccessMode) {
+                case P_BOOLEAN:
+                    return new BooleanPrimitiveAccessor(varHandle, colIdx);
+
                 case P_BYTE:
                     return new BytePrimitiveAccessor(varHandle, colIdx);
 
@@ -96,6 +106,7 @@ abstract class FieldAccessor {
                 case P_DOUBLE:
                     return new DoublePrimitiveAccessor(varHandle, colIdx);
 
+                case BOOLEAN:
                 case BYTE:
                 case SHORT:
                 case INT:
@@ -112,10 +123,11 @@ abstract class FieldAccessor {
                 case DATE:
                 case DATETIME:
                 case TIMESTAMP:
-                    return new ReferenceFieldAccessor(varHandle, colIdx, mode);
+                case POJO:
+                    return new ReferenceFieldAccessor(varHandle, colIdx, col.type(), col.scale(), typeConverter);
 
                 default:
-                    assert false : "Invalid mode " + mode;
+                    assert false : "Invalid field access mode " + fieldAccessMode;
             }
 
             throw new IllegalArgumentException("Failed to create accessor for field [name=" + field.getName() + ']');
@@ -127,14 +139,14 @@ abstract class FieldAccessor {
     /**
      * Create accessor for the field.
      *
-     * @param col    Column.
+     * @param col Column.
      * @param colIdx Column index.
-     * @param mode   Read/write mode.
      * @return Accessor.
      */
-    static FieldAccessor createIdentityAccessor(String col, int colIdx, BinaryMode mode) {
-        switch (mode) {
+    static IdentityAccessor createIdentityAccessor(MarshallerColumn col, int colIdx, @Nullable TypeConverter<?, ?> converter) {
+        switch (col.type()) {
             //  Marshaller read/write object contract methods allowed boxed types only.
+            case P_BOOLEAN:
             case P_BYTE:
             case P_SHORT:
             case P_INT:
@@ -143,6 +155,7 @@ abstract class FieldAccessor {
             case P_DOUBLE:
                 throw new IllegalArgumentException("Primitive key/value types are not possible by API contract.");
 
+            case BOOLEAN:
             case BYTE:
             case SHORT:
             case INT:
@@ -159,125 +172,118 @@ abstract class FieldAccessor {
             case DATE:
             case DATETIME:
             case TIMESTAMP:
-                return new IdentityAccessor(colIdx, mode);
+            case POJO:
+                return new IdentityAccessor(colIdx, col.type(), col.scale(), converter);
 
             default:
-                assert false : "Invalid mode " + mode;
+                assert false : "Invalid mode " + col.type();
         }
 
-        throw new IllegalArgumentException("Failed to create accessor for column [name=" + col + ']');
+        throw new IllegalArgumentException("Failed to create accessor for column [name=" + col.name() + ']');
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param colIdx Column index.
+     * @param mode Read/write mode.
+     * @param scale Scale.
+     */
+    FieldAccessor(int colIdx, BinaryMode mode, int scale) {
+        assert colIdx >= 0;
+
+        this.colIdx = colIdx;
+        this.mode = mode;
+        this.scale = scale;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param colIdx Column index.
+     * @param mode Read/write mode.
+     */
+    FieldAccessor(int colIdx, BinaryMode mode) {
+        this(colIdx, mode, 0);
     }
 
     /**
      * Reads value object from row.
      *
      * @param reader Reader.
-     * @param colIdx Column index.
-     * @param mode   Binary read mode.
      * @return Read value object.
      */
-    private static Object readRefValue(MarshallerReader reader, int colIdx, BinaryMode mode) {
+    Object readRefValue(MarshallerReader reader) {
         assert reader != null;
         assert colIdx >= 0;
 
-        Object val = null;
-
         switch (mode) {
-            case BYTE:
-                val = reader.readByteBoxed();
+            case BOOLEAN:
+                return reader.readBooleanBoxed();
 
-                break;
+            case BYTE:
+                return reader.readByteBoxed();
 
             case SHORT:
-                val = reader.readShortBoxed();
-
-                break;
+                return reader.readShortBoxed();
 
             case INT:
-                val = reader.readIntBoxed();
-
-                break;
+                return reader.readIntBoxed();
 
             case LONG:
-                val = reader.readLongBoxed();
-
-                break;
+                return reader.readLongBoxed();
 
             case FLOAT:
-                val = reader.readFloatBoxed();
-
-                break;
+                return reader.readFloatBoxed();
 
             case DOUBLE:
-                val = reader.readDoubleBoxed();
-
-                break;
+                return reader.readDoubleBoxed();
 
             case STRING:
-                val = reader.readString();
-
-                break;
+                return reader.readString();
 
             case UUID:
-                val = reader.readUuid();
-
-                break;
+                return reader.readUuid();
 
             case BYTE_ARR:
-                val = reader.readBytes();
-
-                break;
+                return reader.readBytes();
 
             case BITSET:
-                val = reader.readBitSet();
-
-                break;
+                return reader.readBitSet();
 
             case NUMBER:
-                val = reader.readBigInt();
-
-                break;
+                return reader.readBigInt();
 
             case DECIMAL:
-                val = reader.readBigDecimal();
-
-                break;
+                return reader.readBigDecimal(scale);
 
             case DATE:
-                val = reader.readDate();
-
-                break;
+                return reader.readDate();
 
             case TIME:
-                val = reader.readTime();
-
-                break;
+                return reader.readTime();
 
             case TIMESTAMP:
-                val = reader.readTimestamp();
-
-                break;
+                return reader.readTimestamp();
 
             case DATETIME:
-                val = reader.readDateTime();
+                return reader.readDateTime();
 
-                break;
+            case POJO:
+                return reader.readBytes();
 
             default:
-                assert false : "Invalid mode: " + mode;
+                throw new IllegalArgumentException("Invalid mode: " + mode);
         }
-
-        return val;
     }
 
     /**
      * Writes reference value to row.
      *
-     * @param val    Value object.
+     * @param val Value object.
      * @param writer Writer.
-     * @param mode   Write binary mode.
      */
-    private static void writeRefObject(Object val, MarshallerWriter writer, BinaryMode mode) {
+    void writeRefObject(Object val, MarshallerWriter writer) {
         assert writer != null;
 
         if (val == null) {
@@ -287,6 +293,11 @@ abstract class FieldAccessor {
         }
 
         switch (mode) {
+            case BOOLEAN:
+                writer.writeBoolean((Boolean) val);
+
+                break;
+
             case BYTE:
                 writer.writeByte((Byte) val);
 
@@ -343,7 +354,7 @@ abstract class FieldAccessor {
                 break;
 
             case DECIMAL:
-                writer.writeBigDecimal((BigDecimal) val);
+                writer.writeBigDecimal((BigDecimal) val, scale);
 
                 break;
 
@@ -367,52 +378,28 @@ abstract class FieldAccessor {
 
                 break;
 
+            case POJO:
+                writer.writeBytes((byte[]) val);
+
+                break;
+
             default:
-                assert false : "Invalid mode: " + mode;
+                throw new IllegalArgumentException("Invalid mode: " + mode);
         }
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param varHandle Field var-handle.
-     * @param colIdx    Column index.
-     * @param mode      Read/write mode.
-     */
-    protected FieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode) {
-        assert colIdx >= 0;
-
-        this.colIdx = colIdx;
-        this.mode = Objects.requireNonNull(mode);
-        this.varHandle = Objects.requireNonNull(varHandle);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param colIdx Column index.
-     * @param mode   Read/write mode.
-     */
-    private FieldAccessor(int colIdx, BinaryMode mode) {
-        assert colIdx >= 0;
-
-        this.colIdx = colIdx;
-        this.mode = mode;
-        varHandle = null;
     }
 
     /**
      * Write object field value to row.
      *
      * @param writer Row writer.
-     * @param obj    Source object.
+     * @param obj Source object.
      * @throws MarshallerException If failed.
      */
-    public void write(MarshallerWriter writer, Object obj) throws MarshallerException {
+    final void write(MarshallerWriter writer, @Nullable Object obj) throws MarshallerException {
         try {
             write0(writer, obj);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to write field [id=" + colIdx + ']', ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
@@ -420,44 +407,34 @@ abstract class FieldAccessor {
      * Write object field value to row.
      *
      * @param writer Row writer.
-     * @param obj    Source object.
+     * @param obj Source object.
      * @throws Exception If write failed.
      */
-    protected abstract void write0(MarshallerWriter writer, Object obj) throws Exception;
+    abstract void write0(MarshallerWriter writer, @Nullable Object obj) throws Exception;
 
     /**
      * Reads value fom row to object field.
      *
      * @param reader MarshallerReader reader.
-     * @param obj    Target object.
+     * @param obj Target object.
      * @throws MarshallerException If failed.
      */
-    public void read(MarshallerReader reader, Object obj) throws MarshallerException {
+    final void read(MarshallerReader reader, Object obj) throws MarshallerException {
         try {
             read0(reader, obj);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to read field [id=" + colIdx + ']', ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
     /**
-     * Read an object from a row.
-     *
-     * @param reader MarshallerReader reader.
-     * @return Object.
-     */
-    public Object read(MarshallerReader reader) {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
      * Reads value fom row to object field.
      *
      * @param reader MarshallerReader reader.
-     * @param obj    Target object.
+     * @param obj Target object.
      * @throws Exception If failed.
      */
-    protected abstract void read0(MarshallerReader reader, Object obj) throws Exception;
+    abstract void read0(MarshallerReader reader, Object obj) throws Exception;
 
     /**
      * Reads object field value.
@@ -465,9 +442,7 @@ abstract class FieldAccessor {
      * @param obj Object.
      * @return Field value of given object.
      */
-    Object value(Object obj) {
-        return varHandle.get(Objects.requireNonNull(obj));
-    }
+    abstract Object value(Object obj);
 
     /**
      * Stubbed accessor for unused columns writes default column value, and ignore value on read access.
@@ -486,19 +461,16 @@ abstract class FieldAccessor {
             this.col = col;
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void read0(MarshallerReader reader, Object obj) {
+        void read0(MarshallerReader reader, Object obj) {
             reader.skipValue();
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void write0(MarshallerWriter writer, Object obj) {
+        void write0(MarshallerWriter writer, Object obj) {
             writer.writeAbsentValue();
         }
 
-        /** {@inheritDoc} */
         @Override
         Object value(Object obj) {
             return col.defaultValue();
@@ -508,250 +480,323 @@ abstract class FieldAccessor {
     /**
      * Accessor for a field of primitive {@code byte} type.
      */
-    private static class IdentityAccessor extends FieldAccessor {
+    public static class IdentityAccessor extends FieldAccessor {
+        @Nullable
+        private final TypeConverter<Object, Object> converter;
+
         /**
          * Constructor.
          *
          * @param colIdx Column index.
-         * @param mode   Read/write mode.
+         * @param mode Read/write mode.
          */
-        IdentityAccessor(int colIdx, BinaryMode mode) {
-            super(colIdx, mode);
+        IdentityAccessor(int colIdx, BinaryMode mode, int scale, @Nullable TypeConverter<?, ?> converter) {
+            super(colIdx, mode, scale);
+
+            this.converter = (TypeConverter<Object, Object>) converter;
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void write0(MarshallerWriter writer, Object obj) {
-            writeRefObject(obj, writer, mode);
+        void write0(MarshallerWriter writer, Object obj) {
+            try {
+                obj = converter == null ? obj : converter.toColumnType(obj);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
+
+            writeRefObject(obj, writer);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void read0(MarshallerReader reader, Object obj) {
+        void read0(MarshallerReader reader, Object obj) {
             throw new UnsupportedOperationException("Called identity accessor for object field.");
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public Object read(MarshallerReader reader) {
-            return readRefValue(reader, colIdx, mode);
+        /**
+         * Read an object from a row.
+         *
+         * @param reader MarshallerReader reader.
+         * @return Object.
+         */
+        Object read(MarshallerReader reader) {
+            Object obj = readRefValue(reader);
+
+            try {
+                return converter == null ? obj : converter.toObjectType(obj);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
         }
 
-        /** {@inheritDoc} */
         @Override
         Object value(Object obj) {
             return obj;
         }
     }
 
+    private abstract static class VarHandleAccessor extends FieldAccessor {
+        private final VarHandle varHandle;
+
+        VarHandleAccessor(int colIdx, BinaryMode mode, VarHandle varHandle) {
+            super(colIdx, mode);
+
+            this.varHandle = varHandle;
+        }
+
+        VarHandleAccessor(int colIdx, BinaryMode mode, int scale, VarHandle varHandle) {
+            super(colIdx, mode, scale);
+
+            this.varHandle = varHandle;
+        }
+
+        <T> T get(Object obj) {
+            return (T) varHandle.get(obj);
+        }
+
+        void set(Object obj, Object val) {
+            varHandle.set(obj, val);
+        }
+
+        @Override
+        Object value(Object obj) {
+            return get(Objects.requireNonNull(obj));
+        }
+    }
+
     /**
-     * Accessor for a field of primitive {@code byte} type.
+     * Accessor for a field of primitive {@code boolean} type.
      */
-    private static class BytePrimitiveAccessor extends FieldAccessor {
+    private static class BooleanPrimitiveAccessor extends VarHandleAccessor {
         /**
          * Constructor.
          *
          * @param varHandle VarHandle.
-         * @param colIdx    Column index.
+         * @param colIdx Column index.
          */
-        BytePrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_BYTE);
+        BooleanPrimitiveAccessor(VarHandle varHandle, int colIdx) {
+            super(colIdx, BinaryMode.P_BOOLEAN, varHandle);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void write0(MarshallerWriter writer, Object obj) {
-            final byte val = (byte) varHandle.get(obj);
+        void write0(MarshallerWriter writer, Object obj) {
+            boolean val = get(obj);
+
+            writer.writeBoolean(val);
+        }
+
+        @Override
+        void read0(MarshallerReader reader, Object obj) {
+            boolean val = reader.readBoolean();
+
+            set(obj, val);
+        }
+    }
+
+    /**
+     * Accessor for a field of primitive {@code byte} type.
+     */
+    private static class BytePrimitiveAccessor extends VarHandleAccessor {
+        /**
+         * Constructor.
+         *
+         * @param varHandle VarHandle.
+         * @param colIdx Column index.
+         */
+        BytePrimitiveAccessor(VarHandle varHandle, int colIdx) {
+            super(colIdx, BinaryMode.P_BYTE, varHandle);
+        }
+
+        @Override
+        void write0(MarshallerWriter writer, Object obj) {
+            byte val = get(obj);
 
             writer.writeByte(val);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void read0(MarshallerReader reader, Object obj) {
-            final byte val = reader.readByte();
+        void read0(MarshallerReader reader, Object obj) {
+            byte val = reader.readByte();
 
-            varHandle.set(obj, val);
+            set(obj, val);
         }
     }
 
     /**
      * Accessor for a field of primitive {@code short} type.
      */
-    private static class ShortPrimitiveAccessor extends FieldAccessor {
+    private static class ShortPrimitiveAccessor extends VarHandleAccessor {
         /**
          * Constructor.
          *
          * @param varHandle VarHandle.
-         * @param colIdx    Column index.
+         * @param colIdx Column index.
          */
         ShortPrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_SHORT);
+            super(colIdx, BinaryMode.P_SHORT, varHandle);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void write0(MarshallerWriter writer, Object obj) {
-            final short val = (short) varHandle.get(obj);
+        void write0(MarshallerWriter writer, Object obj) {
+            short val = get(obj);
 
             writer.writeShort(val);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void read0(MarshallerReader reader, Object obj) {
-            final short val = reader.readShort();
+        void read0(MarshallerReader reader, Object obj) {
+            short val = reader.readShort();
 
-            varHandle.set(obj, val);
+            set(obj, val);
         }
     }
 
     /**
      * Accessor for a field of primitive {@code int} type.
      */
-    private static class IntPrimitiveAccessor extends FieldAccessor {
+    private static class IntPrimitiveAccessor extends VarHandleAccessor {
         /**
          * Constructor.
          *
          * @param varHandle VarHandle.
-         * @param colIdx    Column index.
+         * @param colIdx Column index.
          */
         IntPrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_INT);
+            super(colIdx, BinaryMode.P_INT, varHandle);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void write0(MarshallerWriter writer, Object obj) {
-            final int val = (int) varHandle.get(obj);
+        void write0(MarshallerWriter writer, Object obj) {
+            int val = get(obj);
 
             writer.writeInt(val);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void read0(MarshallerReader reader, Object obj) {
-            final int val = reader.readInt();
+        void read0(MarshallerReader reader, Object obj) {
+            int val = reader.readInt();
 
-            varHandle.set(obj, val);
+            set(obj, val);
         }
     }
 
     /**
      * Accessor for a field of primitive {@code long} type.
      */
-    private static class LongPrimitiveAccessor extends FieldAccessor {
+    private static class LongPrimitiveAccessor extends VarHandleAccessor {
         /**
          * Constructor.
          *
          * @param varHandle VarHandle.
-         * @param colIdx    Column index.
+         * @param colIdx Column index.
          */
         LongPrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_LONG);
+            super(colIdx, BinaryMode.P_LONG, varHandle);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void write0(MarshallerWriter writer, Object obj) {
-            final long val = (long) varHandle.get(obj);
+        void write0(MarshallerWriter writer, Object obj) {
+            long val = get(obj);
 
             writer.writeLong(val);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void read0(MarshallerReader reader, Object obj) {
-            final long val = reader.readLong();
+        void read0(MarshallerReader reader, Object obj) {
+            long val = reader.readLong();
 
-            varHandle.set(obj, val);
+            set(obj, val);
         }
     }
 
     /**
      * Accessor for a field of primitive {@code float} type.
      */
-    private static class FloatPrimitiveAccessor extends FieldAccessor {
+    private static class FloatPrimitiveAccessor extends VarHandleAccessor {
         /**
          * Constructor.
          *
          * @param varHandle VarHandle.
-         * @param colIdx    Column index.
+         * @param colIdx Column index.
          */
         FloatPrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_FLOAT);
+            super(colIdx, BinaryMode.P_FLOAT, varHandle);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void write0(MarshallerWriter writer, Object obj) {
-            final float val = (float) varHandle.get(obj);
+        void write0(MarshallerWriter writer, Object obj) {
+            float val = get(obj);
 
             writer.writeFloat(val);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void read0(MarshallerReader reader, Object obj) {
-            final float val = reader.readFloat();
+        void read0(MarshallerReader reader, Object obj) {
+            float val = reader.readFloat();
 
-            varHandle.set(obj, val);
+            set(obj, val);
         }
     }
 
     /**
      * Accessor for a field of primitive {@code double} type.
      */
-    private static class DoublePrimitiveAccessor extends FieldAccessor {
+    private static class DoublePrimitiveAccessor extends VarHandleAccessor {
         /**
          * Constructor.
          *
          * @param varHandle VarHandle.
-         * @param colIdx    Column index.
+         * @param colIdx Column index.
          */
         DoublePrimitiveAccessor(VarHandle varHandle, int colIdx) {
-            super(Objects.requireNonNull(varHandle), colIdx, BinaryMode.P_DOUBLE);
+            super(colIdx, BinaryMode.P_DOUBLE, varHandle);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void write0(MarshallerWriter writer, Object obj) {
-            final double val = (double) varHandle.get(obj);
+        void write0(MarshallerWriter writer, Object obj) {
+            double val = get(obj);
 
             writer.writeDouble(val);
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void read0(MarshallerReader reader, Object obj) {
-            final double val = reader.readDouble();
+        void read0(MarshallerReader reader, Object obj) {
+            double val = reader.readDouble();
 
-            varHandle.set(obj, val);
+            set(obj, val);
         }
     }
 
     /**
      * Accessor for a field of reference type.
      */
-    private static class ReferenceFieldAccessor extends FieldAccessor {
+    private static class ReferenceFieldAccessor extends VarHandleAccessor {
+        @Nullable
+        private final TypeConverter<Object, Object> typeConverter;
+
         /**
          * Constructor.
          *
          * @param varHandle VarHandle.
-         * @param colIdx    Column index.
-         * @param mode      Read/write mode.
+         * @param colIdx Column index.
+         * @param mode Read/write mode.
          */
-        ReferenceFieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode) {
-            super(Objects.requireNonNull(varHandle), colIdx, mode);
+        ReferenceFieldAccessor(VarHandle varHandle, int colIdx, BinaryMode mode, int scale, @Nullable TypeConverter<?, ?> typeConverter) {
+            super(colIdx, mode, scale, varHandle);
+
+            this.typeConverter = (TypeConverter<Object, Object>) typeConverter;
         }
 
-        /** {@inheritDoc} */
         @Override
-        protected void write0(MarshallerWriter writer, Object obj) {
-            assert obj != null;
+        void write0(MarshallerWriter writer, @Nullable Object obj) {
             assert writer != null;
 
-            Object val = varHandle.get(obj);
+            if (obj == null) {
+                writer.writeNull();
+
+                return;
+            }
+
+            Object val = get(obj);
 
             if (val == null) {
                 writer.writeNull();
@@ -759,15 +804,33 @@ abstract class FieldAccessor {
                 return;
             }
 
-            writeRefObject(val, writer, mode);
+            try {
+                writeRefObject(typeConverter == null ? val : typeConverter.toColumnType(val), writer);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
         }
 
-        /** {@inheritDoc} */
         @Override
-        public void read0(MarshallerReader reader, Object obj) {
-            Object val = readRefValue(reader, colIdx, mode);
+        void read0(MarshallerReader reader, Object obj) {
+            Object val = readRefValue(reader);
 
-            varHandle.set(obj, val);
+            try {
+                set(obj, typeConverter == null ? val : typeConverter.toObjectType(val));
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
+        }
+
+        @Override
+        Object value(Object obj) {
+            Object value = get(Objects.requireNonNull(obj));
+
+            try {
+                return typeConverter == null ? value : typeConverter.toColumnType(value);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
         }
     }
 }

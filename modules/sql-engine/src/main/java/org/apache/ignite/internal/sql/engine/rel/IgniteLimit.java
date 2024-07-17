@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,10 @@
  */
 
 package org.apache.ignite.internal.sql.engine.rel;
+
+import static org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost.FETCH_IS_PARAM_FACTOR;
+import static org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost.OFFSET_IS_PARAM_FACTOR;
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.doubleFromRex;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
@@ -28,24 +32,17 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * IgniteLimit.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
- */
-public class IgniteLimit extends SingleRel implements InternalIgniteRel {
-    /** In case the fetch value is a DYNAMIC_PARAM. */
-    private static final double FETCH_IS_PARAM_FACTOR = 0.01;
-
-    /** In case the offset value is a DYNAMIC_PARAM. */
-    private static final double OFFSET_IS_PARAM_FACTOR = 0.5;
+/** Relational expression that applies a limit and/or offset to its input. */
+public class IgniteLimit extends SingleRel implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Limit";
 
     /** Offset. */
     private final RexNode offset;
@@ -66,8 +63,8 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
             RelOptCluster cluster,
             RelTraitSet traits,
             RelNode child,
-            RexNode offset,
-            RexNode fetch
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
     ) {
         super(cluster, traits, child);
         this.offset = offset;
@@ -75,8 +72,9 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor, used for deserialization purpose.
+     *
+     * @param input Input relational expression.
      */
     public IgniteLimit(RelInput input) {
         super(
@@ -112,12 +110,21 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
 
     /** {@inheritDoc} */
     @Override
+    public RelNode accept(RexShuttle shuttle) {
+        shuttle.apply(offset);
+        shuttle.apply(fetch);
+
+        return super.accept(shuttle);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Pair<RelTraitSet, List<RelTraitSet>> passThroughTraits(RelTraitSet required) {
         if (required.getConvention() != IgniteConvention.INSTANCE) {
             return null;
         }
 
-        if (TraitUtils.distribution(required) != IgniteDistributions.single()) {
+        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(required) != IgniteDistributions.single()) {
             return null;
         }
 
@@ -142,7 +149,7 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
             return null;
         }
 
-        if (TraitUtils.distribution(childTraits) != IgniteDistributions.single()) {
+        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(childTraits) != IgniteDistributions.single()) {
             return null;
         }
 
@@ -156,12 +163,7 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
     /** {@inheritDoc} */
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
-        double inputRowCount = mq.getRowCount(getInput());
-
-        double lim = fetch != null ? doubleFromRex(fetch, inputRowCount * FETCH_IS_PARAM_FACTOR) : inputRowCount;
-        double off = offset != null ? doubleFromRex(offset, inputRowCount * OFFSET_IS_PARAM_FACTOR) : 0;
-
-        double rows = Math.min(lim + off, inputRowCount);
+        double rows = estimateRowCount(mq);
 
         return planner.getCostFactory().makeCost(rows, rows * IgniteCost.ROW_PASS_THROUGH_COST, 0);
     }
@@ -174,27 +176,7 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
         double lim = fetch != null ? doubleFromRex(fetch, inputRowCount * FETCH_IS_PARAM_FACTOR) : inputRowCount;
         double off = offset != null ? doubleFromRex(offset, inputRowCount * OFFSET_IS_PARAM_FACTOR) : 0;
 
-        return Math.min(lim, inputRowCount - off);
-    }
-
-    /**
-     * DoubleFromRex.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @return Integer value of the literal expression.
-     */
-    private double doubleFromRex(RexNode n, double def) {
-        try {
-            if (n.isA(SqlKind.LITERAL)) {
-                return ((RexLiteral) n).getValueAs(Integer.class);
-            } else {
-                return def;
-            }
-        } catch (Exception e) {
-            assert false : "Unable to extract value: " + e.getMessage();
-
-            return def;
-        }
+        return Math.max(0, Math.min(lim, inputRowCount - off));
     }
 
     /**
@@ -215,5 +197,11 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteLimit(cluster, getTraitSet(), sole(inputs), offset, fetch);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

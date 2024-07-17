@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,32 +17,30 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
-import java.io.Serializable;
 import java.math.BigDecimal;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.schema.definition.ColumnType.TemporalColumnType;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 
 /**
  * Ignite type system.
  */
-public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializable {
-    public static final RelDataTypeSystem INSTANCE = new IgniteTypeSystem();
+public class IgniteTypeSystem extends RelDataTypeSystemImpl {
+    public static final IgniteTypeSystem INSTANCE = new IgniteTypeSystem();
 
     /** {@inheritDoc} */
     @Override
     public int getMaxNumericScale() {
-        return Short.MAX_VALUE;
+        return CatalogUtils.MAX_DECIMAL_SCALE;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getMaxNumericPrecision() {
-        return Short.MAX_VALUE;
+        return CatalogUtils.MAX_DECIMAL_PRECISION;
     }
 
     /** {@inheritDoc} */
@@ -53,7 +51,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
             case TIME_WITH_LOCAL_TIME_ZONE:
             case TIMESTAMP:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return TemporalColumnType.MAX_TIME_PRECISION;
+                return CatalogUtils.MAX_TIME_PRECISION;
             default:
                 return super.getMaxPrecision(typeName);
         }
@@ -65,7 +63,17 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         switch (typeName) {
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
-                return TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION;
+                // SQL`16 part 2 section 6.1 syntax rule 36
+                return 6;
+            case FLOAT:
+                // Although FLOAT is an alias for REAL, we cannot use the same precision for them, w/o making
+                // results of TypeFactory::LeastRestrictiveType() non-deterministic. 
+                // We need to change the FLOAT precision, because by default calcite uses the same precision for FLOAT and DOUBLE.
+                // Assigning FLOAT a precision that is less than DOUBLE's works because:
+                // - LeastRestrictiveType between REAL and FLOAT is FLOAT - OK, but both types are the same type.
+                // - LeastRestrictiveType between FLOAT and DOUBLE is DOUBLE - OK, since FLOAT is an alias for REAL, and DOUBLE
+                // represents a wider range of values.
+                return super.getDefaultPrecision(typeName) - 1;
             default:
                 return super.getDefaultPrecision(typeName);
         }

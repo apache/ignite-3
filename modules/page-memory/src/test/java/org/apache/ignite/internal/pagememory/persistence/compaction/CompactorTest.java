@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -39,29 +39,37 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap;
+import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link Compactor} testing.
  */
-public class CompactorTest {
+public class CompactorTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
-
-    private final IgniteLogger log = Loggers.forClass(CompactorTest.class);
 
     @Test
     void testStartAndStop() throws Exception {
-        Compactor compactor = new Compactor(log, "test", null, threadsConfig(1), mock(FilePageStoreManager.class), PAGE_SIZE);
+        Compactor compactor = new Compactor(
+                log,
+                "test",
+                null,
+                threadsConfig(1),
+                mock(FilePageStoreManager.class),
+                PAGE_SIZE,
+                mock(FailureProcessor.class));
 
         compactor.start();
 
@@ -86,7 +94,14 @@ public class CompactorTest {
 
     @Test
     void testMergeDeltaFileToMainFile() throws Throwable {
-        Compactor compactor = new Compactor(log, "test", null, threadsConfig(1), mock(FilePageStoreManager.class), PAGE_SIZE);
+        Compactor compactor = new Compactor(
+                log,
+                "test",
+                null,
+                threadsConfig(1),
+                mock(FilePageStoreManager.class),
+                PAGE_SIZE,
+                mock(FailureProcessor.class));
 
         FilePageStore filePageStore = mock(FilePageStore.class);
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
@@ -120,19 +135,32 @@ public class CompactorTest {
     void testDoCompaction() throws Throwable {
         FilePageStore filePageStore = mock(FilePageStore.class);
 
-        DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
+        AtomicReference<DeltaFilePageStoreIo> deltaFilePageStoreIoRef = new AtomicReference<>(mock(DeltaFilePageStoreIo.class));
 
-        when(filePageStore.getDeltaFileToCompaction()).thenReturn(deltaFilePageStoreIo);
+        when(filePageStore.getDeltaFileToCompaction()).then(answer -> deltaFilePageStoreIoRef.get());
 
         FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
 
-        when(filePageStoreManager.allPageStores()).thenReturn(List.of(List.of(filePageStore)));
+        GroupPageStoresMap<FilePageStore> groupPageStoresMap = new GroupPageStoresMap<>(new LongOperationAsyncExecutor("test", log));
 
-        Compactor compactor = spy(new Compactor(log, "test", null, threadsConfig(1), filePageStoreManager, PAGE_SIZE));
+        groupPageStoresMap.put(new GroupPartitionId(0, 0), filePageStore);
+
+        when(filePageStoreManager.allPageStores()).then(answer -> groupPageStoresMap.getAll());
+
+        Compactor compactor = spy(new Compactor(
+                log,
+                "test",
+                null,
+                threadsConfig(1),
+                filePageStoreManager,
+                PAGE_SIZE,
+                mock(FailureProcessor.class)));
 
         doAnswer(answer -> {
             assertSame(filePageStore, answer.getArgument(0));
-            assertSame(deltaFilePageStoreIo, answer.getArgument(1));
+            assertSame(deltaFilePageStoreIoRef.get(), answer.getArgument(1));
+
+            deltaFilePageStoreIoRef.set(null);
 
             return null;
         })
@@ -141,14 +169,21 @@ public class CompactorTest {
 
         compactor.doCompaction();
 
-        verify(filePageStore, times(1)).getDeltaFileToCompaction();
+        verify(filePageStore, times(2)).getDeltaFileToCompaction();
 
         verify(compactor, times(1)).mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
     }
 
     @Test
     void testBody() throws Exception {
-        Compactor compactor = spy(new Compactor(log, "test", null, threadsConfig(1), mock(FilePageStoreManager.class), PAGE_SIZE));
+        Compactor compactor = spy(new Compactor(
+                log,
+                "test",
+                null,
+                threadsConfig(1),
+                mock(FilePageStoreManager.class),
+                PAGE_SIZE,
+                mock(FailureProcessor.class)));
 
         doNothing().when(compactor).waitDeltaFiles();
 
@@ -167,20 +202,34 @@ public class CompactorTest {
 
     @Test
     void testWaitDeltaFiles() throws Exception {
-        Compactor compactor = spy(new Compactor(log, "test", null, threadsConfig(1), mock(FilePageStoreManager.class), PAGE_SIZE));
+        Compactor compactor = spy(new Compactor(
+                log,
+                "test",
+                null,
+                threadsConfig(1),
+                mock(FilePageStoreManager.class),
+                PAGE_SIZE,
+                mock(FailureProcessor.class)));
 
         CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
 
         assertThrows(TimeoutException.class, () -> waitDeltaFilesFuture.get(100, MILLISECONDS));
 
-        compactor.addDeltaFiles(1);
+        compactor.triggerCompaction();
 
         waitDeltaFilesFuture.get(100, MILLISECONDS);
     }
 
     @Test
     void testCancel() throws Exception {
-        Compactor compactor = spy(new Compactor(log, "test", null, threadsConfig(1), mock(FilePageStoreManager.class), PAGE_SIZE));
+        Compactor compactor = spy(new Compactor(
+                log,
+                "test",
+                null,
+                threadsConfig(1),
+                mock(FilePageStoreManager.class),
+                PAGE_SIZE,
+                mock(FailureProcessor.class)));
 
         assertFalse(compactor.isCancelled());
 

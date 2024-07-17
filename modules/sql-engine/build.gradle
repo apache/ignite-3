@@ -1,0 +1,155 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/sql-parser-generator.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+
+description = 'ignite-sql-engine'
+
+pmdMain {
+    excludes = [
+            'org/apache/ignite/internal/generated/**'
+    ]
+}
+
+dependencies {
+    implementation project(':ignite-core')
+    implementation project(':ignite-api')
+    implementation project(':ignite-configuration-api')
+    implementation project(':ignite-network')
+    implementation project(':ignite-index')
+    implementation project(':ignite-table')
+    implementation project(':ignite-storage-api')
+    implementation project(':ignite-schema')
+    implementation project(':ignite-transactions')
+    implementation project(':ignite-replicator')
+    implementation project(':ignite-distribution-zones')
+    implementation project(':ignite-catalog')
+    implementation project(':ignite-metrics')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-system-view-api')
+    implementation project(':ignite-system-view')
+    implementation project(':ignite-failure-handler')
+    implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-partition-replicator')
+    implementation project(':ignite-affinity')
+    implementation libs.jetbrains.annotations
+    implementation libs.fastutil.core
+    implementation libs.caffeine
+    api libs.calcite.core
+    implementation libs.calcite.linq4j
+    implementation libs.value.annotations
+    implementation libs.janino.compiler
+    implementation libs.janino.core
+    implementation libs.jackson.core
+    implementation libs.jackson.databind
+    implementation libs.jackson.annotations
+    implementation(libs.jsonpath.core) {
+        //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
+    implementation libs.javassist
+    implementation libs.auto.service.annotations
+    implementation libs.jsr305
+    implementation libs.guava
+
+    annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.value.annotation.processor
+    annotationProcessor libs.auto.service
+
+    testAnnotationProcessor project(':ignite-network-annotation-processor')
+    testAnnotationProcessor libs.jmh.annotation.processor
+    testAnnotationProcessor libs.value.annotation.processor
+    testImplementation project(':ignite-core')
+    testImplementation project(':ignite-metastorage-api')
+    testImplementation project(':ignite-network-api')
+    testImplementation project(':ignite-raft-api')
+    testImplementation project(':ignite-raft')
+    testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-storage-api')
+    testImplementation project(':ignite-storage-rocksdb')
+    testImplementation project(':ignite-cluster-management')
+    testImplementation project(':ignite-vault')
+    testImplementation project(':ignite-placement-driver')
+    testImplementation libs.jmh.core
+    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-schema')))
+    testImplementation(testFixtures(project(':ignite-network-api')))
+    testImplementation(testFixtures(project(':ignite-storage-api')))
+    testImplementation(testFixtures(project(':ignite-sql-engine')))
+    testImplementation(testFixtures(project(':ignite-distribution-zones')))
+    testImplementation(testFixtures(project(':ignite-placement-driver-api')))
+    testImplementation(testFixtures(project(':ignite-vault')))
+    testImplementation(testFixtures(project(':ignite-metastorage')))
+    testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-transactions')))
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
+
+    testImplementation libs.mockito.junit
+    testImplementation libs.mockito.core
+    testImplementation libs.hamcrest.core
+    testImplementation libs.archunit.core
+    testImplementation libs.archunit.junit5
+
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-schema')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-system-view')
+    integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-failure-handler')
+    integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-schema'))
+    integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
+    integrationTestImplementation testFixtures(project(':ignite-table'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation libs.jetbrains.annotations
+
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-api')
+    testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation project(':ignite-transactions')
+    testFixturesImplementation project(':ignite-system-view-api')
+    testFixturesImplementation project(':ignite-system-view')
+    testFixturesImplementation project(':ignite-failure-handler')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-runner'))
+    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.hamcrest.core
+}
+
+integrationTest {
+    useJUnitPlatform {
+        if (System.getProperty("sqlTest") != null) {
+            it.includeTags "sqllogic"
+        } else {
+            it.excludeTags "sqllogic"
+        }
+    }
+}

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,9 +20,11 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
+import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Network message handler that delegates handling to {@link #messageListener}.
@@ -34,8 +36,9 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     /** Message listener. */
     private final Consumer<InNetworkObject> messageListener;
 
-    /** Consistent id of the remote node. */
-    private final String consistentId;
+    private final ClusterNode remoteNode;
+
+    private final short connectionIndex;
 
     private final PerSessionSerializationService serializationService;
 
@@ -43,13 +46,19 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
      * Constructor.
      *
      * @param messageListener Message listener.
-     * @param consistentId Consistent id of the remote node.
+     * @param remoteNode Remote node (from which the messages are coming).
+     * @param connectionIndex Connection index (aka channel ID).
      * @param serializationService Serialization service.
      */
-    public MessageHandler(Consumer<InNetworkObject> messageListener, String consistentId,
-            PerSessionSerializationService serializationService) {
+    public MessageHandler(
+            Consumer<InNetworkObject> messageListener,
+            ClusterNode remoteNode,
+            short connectionIndex,
+            PerSessionSerializationService serializationService
+    ) {
         this.messageListener = messageListener;
-        this.consistentId = consistentId;
+        this.remoteNode = remoteNode;
+        this.connectionIndex = connectionIndex;
         this.serializationService = serializationService;
     }
 
@@ -58,10 +67,16 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         NetworkMessage message = (NetworkMessage) msg;
 
-        if (message instanceof AcknowledgementMessage) {
+        if (notPayloadMessage(message)) {
             return;
         }
 
-        messageListener.accept(new InNetworkObject(message, consistentId, serializationService.compositeDescriptorRegistry()));
+        messageListener.accept(
+                new InNetworkObject(message, remoteNode, connectionIndex, serializationService.compositeDescriptorRegistry())
+        );
+    }
+
+    private static boolean notPayloadMessage(NetworkMessage message) {
+        return message instanceof AcknowledgementMessage || message instanceof ProbeMessage;
     }
 }

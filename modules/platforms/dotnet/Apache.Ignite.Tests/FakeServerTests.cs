@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -41,8 +42,11 @@ namespace Apache.Ignite.Tests
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("t"));
-            Assert.AreEqual("ErrCls: : Err! (65537, 00000000-0000-0000-0000-000000000000)", ex!.Message);
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("t"));
+            Assert.AreEqual("Err!", ex!.Message);
+            Assert.AreEqual("org.foo.bar.BazException", ex.InnerException!.Message);
+            Assert.AreEqual(Guid.Empty, ex.TraceId);
+            Assert.AreEqual(ErrorGroups.Sql.StmtValidation, ex.Code);
         }
 
         [Test]
@@ -64,7 +68,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = RetryNonePolicy.Instance
             };
 
-            using var server = new FakeServer(reqId => reqId % 3 == 0);
+            using var server = new FakeServer(ctx => ctx.RequestCount % 3 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             // 2 requests succeed, 3rd fails.

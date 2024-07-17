@@ -28,7 +28,7 @@ namespace Apache.Ignite
         /// <inheritdoc />
         public override bool ShouldRetry(IRetryPolicyContext context)
         {
-            IgniteArgumentCheck.NotNull(context, nameof(context));
+            IgniteArgumentCheck.NotNull(context);
 
             if (!base.ShouldRetry(context))
             {
@@ -54,8 +54,16 @@ namespace Apache.Ignite
                 ClientOperationType.TupleDeleteExact => false,
                 ClientOperationType.TupleDeleteAllExact => false,
                 ClientOperationType.TupleGetAndDelete => false,
+                ClientOperationType.TupleContainsKey => false,
                 ClientOperationType.ComputeExecute => false,
                 ClientOperationType.SqlExecute => false,
+                ClientOperationType.SqlExecuteScript => false,
+                ClientOperationType.ComputeCancel => false,
+                ClientOperationType.ComputeChangePriority => false,
+                ClientOperationType.ComputeGetStatus => true,
+                ClientOperationType.StreamerBatchSend => false,
+                ClientOperationType.StreamerWithReceiverBatchSend => false,
+                ClientOperationType.PrimaryReplicasGet => true,
                 var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)
             };
         }

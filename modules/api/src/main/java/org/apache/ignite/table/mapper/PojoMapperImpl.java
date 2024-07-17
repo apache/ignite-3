@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,12 +17,12 @@
 
 package org.apache.ignite.table.mapper;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
-import org.jetbrains.annotations.NotNull;
 
 /**
- * Mapper implementation which maps object fields to the columns by their names.
+ * Maps object fields to columns by name.
  *
  * @param <T> Target type.
  */
@@ -36,13 +36,13 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
     private final Map<String, TypeConverter<?, ?>> converters;
 
     /**
-     * Creates a mapper for given type.
+     * Creates a mapper for a given type.
      *
      * @param targetType Target type.
      * @param mapping    Column-to-field name mapping.
      * @param converters Column converters.
      */
-    PojoMapperImpl(@NotNull Class<T> targetType, @NotNull Map<String, String> mapping, Map<String, TypeConverter<?, ?>> converters) {
+    PojoMapperImpl(Class<T> targetType, Map<String, String> mapping, Map<String, TypeConverter<?, ?>> converters) {
         this.converters = converters;
         if (Objects.requireNonNull(mapping).isEmpty()) {
             throw new IllegalArgumentException("Empty mapping isn't allowed.");
@@ -60,13 +60,19 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
 
     /** {@inheritDoc} */
     @Override
-    public String fieldForColumn(@NotNull String columnName) {
+    public String fieldForColumn(String columnName) {
         return mapping.get(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <FieldT, ColumnT> TypeConverter<FieldT, ColumnT> converterForColumn(@NotNull String columnName) {
+    public Collection<String> fields() {
+        return mapping.values();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <FieldT, ColumnT> TypeConverter<FieldT, ColumnT> converterForColumn(String columnName) {
         return (TypeConverter<FieldT, ColumnT>) converters.get(columnName);
     }
 }

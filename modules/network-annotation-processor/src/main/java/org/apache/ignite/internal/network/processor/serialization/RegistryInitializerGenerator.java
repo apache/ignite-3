@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,9 +27,9 @@ import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
-import org.apache.ignite.network.serialization.MessageSerializationFactory;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializationRegistryInitializer;
+import org.apache.ignite.internal.network.serialization.MessageSerializationFactory;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
 
 /**
  * Class for generating classes for registering all generated {@link MessageSerializationFactory} implementations in a {@link
@@ -66,12 +66,12 @@ public class RegistryInitializerGenerator {
 
         processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Generating " + initializerName);
 
-        TypeSpec.Builder registryInitializer = TypeSpec.classBuilder(initializerName);
-
-        registryInitializer.addSuperinterface(MessageSerializationRegistryInitializer.class);
+        TypeSpec.Builder registryInitializer = TypeSpec.classBuilder(initializerName)
+                .addSuperinterface(MessageSerializationRegistryInitializer.class);
 
         MethodSpec.Builder initializeMethod = MethodSpec.methodBuilder("registerFactories")
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC)
                 .addParameter(TypeName.get(MessageSerializationRegistry.class), "registry")
                 .addStatement("var messageFactory = new $T()", messageGroup.messageFactoryClassName())
                 .addCode("\n");

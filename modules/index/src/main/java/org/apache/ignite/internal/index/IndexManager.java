@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,59 +17,73 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.internal.schema.definition.TableDefinitionImpl.canonicalName;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
+import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
+import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.schemas.table.HashIndexView;
-import org.apache.ignite.configuration.schemas.table.IndexColumnView;
-import org.apache.ignite.configuration.schemas.table.SortedIndexView;
-import org.apache.ignite.configuration.schemas.table.TableIndexChange;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
-import org.apache.ignite.internal.index.event.IndexEvent;
-import org.apache.ignite.internal.index.event.IndexEventParameters;
+import java.util.function.Function;
+import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
+import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.LongPriorityQueue;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.ErrorGroups.Table;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.lang.TableNotFoundException;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
- * as well as managing indexes lifecycle.
+ * as well as managing indexes' lifecycle.
+ *
+ * <p>To avoid errors when using indexes while applying replication log during node recovery, the registration of indexes was moved to the
+ * start of the tables.</p>
  */
-public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
+public class IndexManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
+    /** Schema manager. */
+    private final SchemaManager schemaManager;
+
+    /** Table manager. */
     private final TableManager tableManager;
 
-    private final Consumer<ConfigurationNamedListListener<TableIndexView>> indicesConfigurationChangeSubscription;
+    /** Catalog service. */
+    private final CatalogService catalogService;
 
-    private final Map<UUID, Index<?>> indexById = new ConcurrentHashMap<>();
-    private final Map<String, Index<?>> indexByName = new ConcurrentHashMap<>();
+    /** Separate executor for IO operations like storage initialization. */
+    private final ExecutorService ioExecutor;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -77,372 +91,248 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Versioned value to prevent races when registering/unregistering indexes when processing metastore or catalog events. */
+    private final IncrementalVersionedValue<Void> handleMetastoreEventVv;
+
+    /** Low watermark. */
+    private final LowWatermark lowWatermark;
+
+    /** A queue for deferred index destruction events. */
+    private final LongPriorityQueue<DestroyIndexEvent> destructionEventsQueue =
+            new LongPriorityQueue<>(DestroyIndexEvent::catalogVersion);
+
     /**
      * Constructor.
      *
+     * @param schemaManager Schema manager.
      * @param tableManager Table manager.
+     * @param catalogService Catalog service.
+     * @param ioExecutor Separate executor for IO operations like storage initialization.
      */
     public IndexManager(
+            SchemaManager schemaManager,
             TableManager tableManager,
-            Consumer<ConfigurationNamedListListener<TableIndexView>> indicesConfigurationChangeSubscription
+            CatalogService catalogService,
+            ExecutorService ioExecutor,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
+            LowWatermark lowWatermark
     ) {
-        this.tableManager = Objects.requireNonNull(tableManager, "tableManager");
-        this.indicesConfigurationChangeSubscription = Objects.requireNonNull(indicesConfigurationChangeSubscription, "tablesConfiguration");
+        this.schemaManager = schemaManager;
+        this.tableManager = tableManager;
+        this.catalogService = catalogService;
+        this.ioExecutor = ioExecutor;
+        this.lowWatermark = lowWatermark;
+
+        handleMetastoreEventVv = new IncrementalVersionedValue<>(registry);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         LOG.debug("Index manager is about to start");
 
-        indicesConfigurationChangeSubscription.accept(new ConfigurationListener());
+        recoverDestructionQueue();
+
+        catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
+        catalogService.listen(INDEX_REMOVED, fromConsumer(this::onIndexRemoved));
+        lowWatermark.listen(LOW_WATERMARK_CHANGED, parameters -> onLwmChanged((ChangeLowWatermarkEventParameters) parameters));
 
         LOG.info("Index manager started");
+
+        return nullCompletedFuture();
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         LOG.debug("Index manager is about to stop");
 
         if (!stopGuard.compareAndSet(false, true)) {
             LOG.debug("Index manager already stopped");
 
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
-        indexById.clear();
-        indexByName.clear();
-
         LOG.info("Index manager stopped");
+
+        return nullCompletedFuture();
     }
 
     /**
-     * Creates index from provided configuration changer.
+     * Returns a multi-version table storage with created index storages by passed parameters.
      *
-     * @param schemaName A name of the schema to create index in.
-     * @param indexName A name of the index to create.
-     * @param tableName A name of the table to create index for.
-     * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
-     * @return A future represented the result of creation.
-     */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
-    // Validation of the index name uniqueness is not implemented, because with given
-    // configuration hierarchy this is a bit tricky exercise. Given that this hierarchy
-    // is subject to change in the future, seems to be more rational just to omit this
-    // part for now
-    public CompletableFuture<Index<?>> createIndexAsync(
-            String schemaName,
-            String indexName,
-            String tableName,
-            Consumer<TableIndexChange> indexChange
-    ) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        LOG.debug("Going to create index [schema={}, table={}, index={}]", schemaName, tableName, indexName);
-
-        try {
-            validateName(indexName);
-
-            CompletableFuture<Index<?>> future = new CompletableFuture<>();
-
-            var canonicalName = canonicalName(schemaName, tableName);
-
-            tableManager.tableAsyncInternal(canonicalName).thenAccept((table) -> {
-                if (table == null) {
-                    var exception = new TableNotFoundException(canonicalName);
-
-                    LOG.info("Unable to create index [schema={}, table={}, index={}]",
-                            exception, schemaName, tableName, indexName);
-
-                    future.completeExceptionally(exception);
-
-                    return;
-                }
-
-                tableManager.alterTableAsync(table.name(), tableChange -> tableChange.changeIndices(indexListChange -> {
-                    if (indexListChange.get(indexName) != null) {
-                        var exception = new IndexAlreadyExistsException(indexName);
-
-                        LOG.info("Unable to create index [schema={}, table={}, index={}]",
-                                exception, schemaName, tableName, indexName);
-
-                        future.completeExceptionally(exception);
-
-                        return;
-                    }
-
-                    indexListChange.create(indexName, indexChange);
-
-                    TableIndexView indexView = indexListChange.get(indexName);
-
-                    Set<String> columnNames = Set.copyOf(tableChange.columns().namedListKeys());
-
-                    validateColumns(indexView, columnNames);
-                })).whenComplete((index, th) -> {
-                    if (th != null) {
-                        LOG.info("Unable to create index [schema={}, table={}, index={}]",
-                                th, schemaName, tableName, indexName);
-
-                        future.completeExceptionally(th);
-                    } else if (!future.isDone()) {
-                        String canonicalIndexName = canonicalName(schemaName, indexName);
-
-                        Index<?> createdIndex = indexByName.get(canonicalIndexName);
-
-                        if (createdIndex != null) {
-                            LOG.info("Index created [schema={}, table={}, index={}, indexId={}]",
-                                    schemaName, tableName, indexName, createdIndex.id());
-
-                            future.complete(createdIndex);
-                        } else {
-                            var exception = new IgniteInternalException(
-                                    Common.UNEXPECTED_ERR, "Looks like the index was concurrently deleted");
-
-                            LOG.info("Unable to create index [schema={}, table={}, index={}]",
-                                    exception, schemaName, tableName, indexName);
-
-                            future.completeExceptionally(exception);
-                        }
-                    }
-                });
-            });
-
-            return future;
-        } catch (Exception ex) {
-            return CompletableFuture.failedFuture(ex);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Drops the index with a given name.
+     * <p>Example: when we start building an index, we will need {@link IndexStorage} (as well as storage {@link MvPartitionStorage}) to
+     * build it and we can get them in {@link CatalogEvent#INDEX_CREATE} using this method.</p>
      *
-     * @param schemaName A name of the schema the index belong to.
-     * @param indexName A name of the index to drop.
-     * @return A future representing the result of the operation.
+     * <p>During recovery, it is important to wait until the local node becomes a primary replica so that all index building commands are
+     * applied from the replication log.</p>
+     *
+     * @param causalityToken Causality token.
+     * @param tableId Table ID.
+     * @return Future with multi-version table storage, completes with {@code null} if the table does not exist according to the passed
+     *      parameters.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
-    // For now it is impossible to locate the index neither by id nor name.
-    public CompletableFuture<Void> dropIndexAsync(
-            String schemaName,
-            String indexName
-    ) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        LOG.debug("Going to drop index [schema={}, index={}]", schemaName, indexName);
-
-        try {
-            CompletableFuture<Void> future = new CompletableFuture<>();
-
-            String canonicalName = canonicalName(schemaName, indexName);
-
-            Index<?> index = indexByName.get(canonicalName);
-
-            if (index == null) {
-                return CompletableFuture.failedFuture(new IndexNotFoundException(canonicalName));
-            }
-
-            tableManager.tableAsyncInternal(index.tableId(), false).thenAccept((table) -> {
-                if (table == null) {
-                    var exception = new IndexNotFoundException(canonicalName);
-
-                    LOG.info("Unable to drop index [schema={}, index={}]",
-                            exception, schemaName, indexName);
-
-                    future.completeExceptionally(exception);
-
-                    return;
-                }
-
-                tableManager.alterTableAsync(table.name(), tableChange -> tableChange.changeIndices(indexListChange -> {
-                    if (indexListChange.get(indexName) == null) {
-                        var exception = new IndexNotFoundException(canonicalName);
-
-                        LOG.info("Unable to drop index [schema={}, index={}]",
-                                exception, schemaName, indexName);
-
-                        future.completeExceptionally(exception);
-
-                        return;
-                    }
-
-                    indexListChange.delete(indexName);
-                })).whenComplete((ignored, th) -> {
-                    if (th != null) {
-                        LOG.info("Unable to drop index [schema={}, index={}]",
-                                th, schemaName, indexName);
-
-                        future.completeExceptionally(th);
-                    } else if (!future.isDone()) {
-                        LOG.info("Index dropped [schema={}, index={}]", schemaName, indexName);
-
-                        future.complete(null);
-                    }
-                });
-            });
-
-            return future;
-        } finally {
-            busyLock.leaveBusy();
-        }
+    CompletableFuture<@Nullable MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
+        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table == null ? null : table.internalTable().storage());
     }
 
-    private void validateName(String indexName) {
-        if (StringUtils.nullOrEmpty(indexName)) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "Index name should be at least 1 character long"
-            );
-        }
-    }
+    private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            CatalogIndexDescriptor index = parameters.indexDescriptor();
 
-    private void validateColumns(TableIndexView indexView, Set<String> tableColumns) {
-        if (indexView instanceof SortedIndexView) {
-            var sortedIndexView = (SortedIndexView) indexView;
+            int indexId = index.id();
+            int tableId = index.tableId();
 
-            validateColumns(sortedIndexView.columns().namedListKeys(), tableColumns);
-        } else if (indexView instanceof HashIndexView) {
-            validateColumns(Arrays.asList(((HashIndexView) indexView).columnNames()), tableColumns);
-        } else {
-            throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
-        }
-    }
+            long causalityToken = parameters.causalityToken();
+            int catalogVersion = parameters.catalogVersion();
 
-    private void validateColumns(Iterable<String> indexedColumns, Set<String> tableColumns) {
-        if (CollectionUtils.nullOrEmpty(indexedColumns)) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "At least one column should be specified by index definition"
-            );
-        }
+            CatalogTableDescriptor table = catalogService.table(tableId, catalogVersion);
 
-        for (var columnName : indexedColumns) {
-            if (!tableColumns.contains(columnName)) {
-                throw new IgniteInternalException(
-                        Table.COLUMN_NOT_FOUND_ERR,
-                        "Column not found [name=" + columnName + ']'
+            assert table != null : "tableId=" + tableId + ", indexId=" + indexId;
+
+            if (LOG.isInfoEnabled()) {
+                LOG.info(
+                        "Creating local index: name={}, id={}, tableId={}, token={}",
+                        index.name(), indexId, tableId, causalityToken
                 );
             }
-        }
+
+            return startIndexAsync(table, index, causalityToken).thenApply(unused -> false);
+        });
     }
 
-    private void onIndexDrop(ConfigurationNotificationEvent<TableIndexView> ctx) {
-        Index<?> index = indexById.remove(ctx.oldValue().id());
-        indexByName.remove(index.name(), index);
+    private void onIndexRemoved(RemoveIndexEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            int indexId = parameters.indexId();
+            int catalogVersion = parameters.catalogVersion();
+            int previousCatalogVersion = catalogVersion - 1;
 
-        fireEvent(IndexEvent.DROP, new IndexEventParameters(ctx.storageRevision(), index.id()), null);
-    }
+            // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, previousCatalogVersion);
+            assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + previousCatalogVersion;
 
-    private void onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
-        Index<?> index = createIndex(
-                ctx.config(ExtendedTableConfiguration.class).id().value(),
-                ctx.newValue()
-        );
+            int tableId = indexDescriptor.tableId();
 
-        Index<?> prev = indexById.putIfAbsent(index.id(), index);
-
-        assert prev == null;
-
-        prev = indexByName.putIfAbsent(index.name(), index);
-
-        assert prev == null;
-
-        fireEvent(IndexEvent.CREATE, new IndexEventParameters(ctx.storageRevision(), index), null);
-    }
-
-    private Index<?> createIndex(UUID tableId, TableIndexView indexView) {
-        if (indexView instanceof SortedIndexView) {
-            return new SortedIndexImpl(
-                    indexView.id(),
-                    tableId,
-                    convert((SortedIndexView) indexView)
-            );
-        } else if (indexView instanceof HashIndexView) {
-            return new HashIndex(
-                    indexView.id(),
-                    tableId,
-                    convert((HashIndexView) indexView)
-            );
-        }
-
-        throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
-    }
-
-    private IndexDescriptor convert(HashIndexView indexView) {
-        return new IndexDescriptor(
-                canonicalName("PUBLIC", indexView.name()),
-                Arrays.asList(indexView.columnNames())
-        );
-    }
-
-    private SortedIndexDescriptor convert(SortedIndexView indexView) {
-        var indexedColumns = new ArrayList<String>();
-        var collations = new ArrayList<ColumnCollation>();
-
-        for (var columnName : indexView.columns().namedListKeys()) {
-            IndexColumnView columnView = indexView.columns().get(columnName);
-
-            indexedColumns.add(columnName);
-            collations.add(ColumnCollation.get(columnView.asc(), false));
-        }
-
-        return new SortedIndexDescriptor(
-                canonicalName("PUBLIC", indexView.name()),
-                indexedColumns,
-                collations
-        );
-    }
-
-    private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {
-        /** {@inheritDoc} */
-        @Override
-        public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            try {
-                onIndexCreate(ctx);
-            } catch (Exception e) {
-                return CompletableFuture.completedFuture(e);
+            if (catalogService.table(tableId, catalogVersion) == null) {
+                // Nothing to do. Index will be destroyed along with the table.
+                return;
             }
 
-            return CompletableFuture.completedFuture(null);
-        }
+            destructionEventsQueue.enqueue(new DestroyIndexEvent(catalogVersion, indexId, tableId));
+        });
+    }
 
-        /** {@inheritDoc} */
-        @Override
-        public @NotNull CompletableFuture<?> onRename(
-                String oldName,
-                String newName,
-                ConfigurationNotificationEvent<TableIndexView> ctx
-        ) {
-            return CompletableFuture.failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
-        }
+    private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
-        /** {@inheritDoc} */
-        @Override
-        public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            if (!busyLock.enterBusy()) {
-                return CompletableFuture.completedFuture(new NodeStoppingException());
+            List<DestroyIndexEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
+
+            return runAsync(
+                    () -> events.forEach(event -> destroyIndex(event.indexId(), event.tableId())),
+                    ioExecutor
+            ).thenApply(unused -> false);
+        });
+    }
+
+    private void destroyIndex(int indexId, int tableId) {
+        TableViewInternal table = tableManager.cachedTable(tableId);
+
+        if (table != null) {
+            // In case of DROP TABLE the table will be removed with all its indexes.
+            table.unregisterIndex(indexId);
+        }
+    }
+
+    private CompletableFuture<?> startIndexAsync(
+            CatalogTableDescriptor table,
+            CatalogIndexDescriptor index,
+            long causalityToken
+    ) {
+        int tableId = index.tableId();
+
+        CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, tableId);
+
+        CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
+
+        return handleMetastoreEventVv.update(
+                causalityToken,
+                updater(mvTableStorageById -> tablePartitionFuture.thenCombineAsync(schemaRegistryFuture,
+                        (partitionSet, schemaRegistry) -> inBusyLock(busyLock, () -> {
+                            registerIndex(table, index, partitionSet, schemaRegistry);
+
+                            return null;
+                        }), ioExecutor))
+        );
+    }
+
+    private void registerIndex(
+            CatalogTableDescriptor table,
+            CatalogIndexDescriptor index,
+            PartitionSet partitionSet,
+            SchemaRegistry schemaRegistry
+    ) {
+        TableViewInternal tableView = getTableViewStrict(table.id());
+
+        registerIndexToTable(tableView, table, index, partitionSet, schemaRegistry);
+    }
+
+    private TableViewInternal getTableViewStrict(int tableId) {
+        TableViewInternal table = tableManager.cachedTable(tableId);
+
+        assert table != null : tableId;
+
+        return table;
+    }
+
+    private static <T> BiFunction<T, Throwable, CompletableFuture<T>> updater(Function<T, CompletableFuture<T>> updateFunction) {
+        return (t, throwable) -> {
+            if (throwable != null) {
+                return failedFuture(throwable);
             }
-            try {
-                onIndexDrop(ctx);
-            } finally {
-                busyLock.leaveBusy();
-            }
 
-            return CompletableFuture.completedFuture(null);
+            return updateFunction.apply(t);
+        };
+    }
+
+    /** Recover deferred destroy events. */
+    private void recoverDestructionQueue() {
+        // LWM starts updating only after the node is restored.
+        HybridTimestamp lwm = lowWatermark.getLowWatermark();
+
+        int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
+
+        for (int catalogVersion = latestCatalogVersion - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
+            int nextVersion = catalogVersion + 1;
+            catalogService.indexes(catalogVersion).stream()
+                    .filter(idx -> catalogService.index(idx.id(), nextVersion) == null)
+                    .forEach(idx -> destructionEventsQueue.enqueue(new DestroyIndexEvent(nextVersion, idx.id(), idx.tableId())));
+        }
+    }
+
+    /** Internal event. */
+    private static class DestroyIndexEvent {
+        final int catalogVersion;
+        final int indexId;
+        final int tableId;
+
+        DestroyIndexEvent(int catalogVersion, int indexId, int tableId) {
+            this.catalogVersion = catalogVersion;
+            this.indexId = indexId;
+            this.tableId = tableId;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return CompletableFuture.failedFuture(new IllegalStateException("Should not be called"));
+        public int catalogVersion() {
+            return catalogVersion;
+        }
+
+        public int indexId() {
+            return indexId;
+        }
+
+        public int tableId() {
+            return tableId;
         }
     }
 }

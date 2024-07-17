@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.tree;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
 
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +30,11 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
+import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
+import org.apache.ignite.configuration.ConfigurationNodeRemovedException;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
@@ -50,7 +56,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     /** Name of a synthetic configuration property that's used to store "key" of the named list element in the storage. */
     public static final String NAME = "<name>";
 
-    /** Name of a synthetic configuration property that's used to store mapping fron names to internal identifiers in the storage. */
+    /** Name of a synthetic configuration property that's used to store mapping from names to internal identifiers in the storage. */
     public static final String IDS = "<ids>";
 
     /** Configuration name for the synthetic key. */
@@ -68,6 +74,9 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     /** Field name with {@link PolymorphicId}. */
     @Nullable
     private final String typeIdFieldName;
+
+    /** Immutability flag. */
+    private boolean immutable = false;
 
     /**
      * Default constructor.
@@ -104,8 +113,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
     /** {@inheritDoc} */
     @Override
-    public <T> T accept(String key, ConfigurationVisitor<T> visitor) {
-        return visitor.visitNamedListNode(key, this);
+    public <T> T accept(Field field, String key, ConfigurationVisitor<T> visitor) {
+        return visitor.visitNamedListNode(field, key, this);
     }
 
     /** {@inheritDoc} */
@@ -118,6 +127,11 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public N get(String key) {
         return specificNode(map.get(key));
+    }
+
+    @Override
+    public @Nullable N get(UUID internalId) {
+        return get(keyByInternalId(internalId));
     }
 
     /** {@inheritDoc} */
@@ -145,11 +159,18 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         return map.size();
     }
 
+    @Override
+    public Stream<N> stream() {
+        return IntStream.range(0, map.size()).mapToObj(map::get).map(this::specificNode);
+    }
+
     /** {@inheritDoc} */
     @Override
     public NamedListChange<N, N> create(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+
+        assertMutability();
 
         checkNewKey(key);
 
@@ -169,6 +190,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> create(int index, String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+
+        assertMutability();
 
         if (index < 0 || index > map.size()) {
             throw new IndexOutOfBoundsException(index);
@@ -193,6 +216,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         Objects.requireNonNull(precedingKey, "precedingKey");
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+
+        assertMutability();
 
         ElementDescriptor precedingElement = map.get(precedingKey);
 
@@ -221,6 +246,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 
+        assertMutability();
+
         ElementDescriptor element = map.get(key);
 
         if (element != null && element.value == null) {
@@ -248,6 +275,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
 
+        assertMutability();
+
         ElementDescriptor element = map.get(key);
 
         if (element == null) {
@@ -270,6 +299,12 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> rename(String oldKey, String newKey) {
         Objects.requireNonNull(oldKey, "oldKey");
         Objects.requireNonNull(newKey, "newKey");
+
+        assertMutability();
+
+        if (oldKey.equals(newKey)) {
+            return this;
+        }
 
         ElementDescriptor element = map.get(oldKey);
 
@@ -298,7 +333,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * Checks that this new key can be inserted into the map.
      *
      * @param key New key.
-     * @throws IllegalArgumentException If key already exists.
+     * @throws ConfigurationNodeAlreadyExistException If key already exists.
      */
     private void checkNewKey(String key) {
         ElementDescriptor element = map.get(key);
@@ -316,6 +351,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public NamedListChange<N, N> delete(String key) {
         Objects.requireNonNull(key, "key");
+
+        assertMutability();
 
         ElementDescriptor element = map.get(key);
 
@@ -338,12 +375,14 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
     /**
      * Sets an internal id for the value associated with the passed key. Should not be used in arbitrary code. Refer to {@link
-     * ConfigurationUtil#fillFromPrefixMap} for further details on the usage.
+     * ConfigurationUtil#fillFromPrefixMap(InnerNode, Map)} for further details on the usage.
      *
      * @param key        Key to update. Should be present in the named list. Nothing will happen if the key is missing.
      * @param internalId New id to associate with the key.
      */
     public void setInternalId(String key, UUID internalId) {
+        assertMutability();
+
         ElementDescriptor element = map.get(key);
 
         if (element != null) {
@@ -361,7 +400,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      *
      * @param key Key.
      * @return Internal id.
-     * @throws IllegalArgumentException If {@code key} is not found in the named list.
+     * @throws ConfigurationNodeDoesNotExistException If {@code key} is not found in the named list.
      */
     public UUID internalId(String key) {
         ElementDescriptor element = map.get(key);
@@ -398,6 +437,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * @param key Element's key.
      */
     public void forceDelete(String key) {
+        assertMutability();
+
         ElementDescriptor removed = map.remove(key);
 
         if (removed != null) {
@@ -411,6 +452,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * @param orderedKeys List of keys in new order. Must have the same set of keys in it.
      */
     public void reorderKeys(List<String> orderedKeys) {
+        assertMutability();
+
         map.reorderKeys(orderedKeys);
     }
 
@@ -418,6 +461,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public void construct(String key, ConfigurationSource src, boolean includeInternal) {
         Objects.requireNonNull(key, "key");
+
+        assertMutability();
 
         if (src == null) {
             delete(key);
@@ -478,6 +523,27 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public NamedListNode<N> copy() {
         return new NamedListNode<>(this);
+    }
+
+    /**
+     * Checks that current instance is mutable.
+     *
+     * @throws AssertionError If the object is immutable.
+     * @see ConstructableTreeNode#makeImmutable()
+     */
+    private void assertMutability() {
+        if (immutable) {
+            throw new AssertionError("Mutating immutable configuration");
+        }
+    }
+
+    @Override
+    public boolean makeImmutable() {
+        boolean updated = !immutable;
+
+        immutable = true;
+
+        return updated;
     }
 
     /**
@@ -583,15 +649,15 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         return value == null ? null : value.specificNode();
     }
 
-    private static IllegalArgumentException elementMissingException(String key) {
-        return new IllegalArgumentException("Named List element with key \"" + key + "\" does not exist");
+    private static ConfigurationNodeDoesNotExistException elementMissingException(String key) {
+        return new ConfigurationNodeDoesNotExistException(key);
     }
 
-    private static IllegalArgumentException elementExistsException(String key) {
-        return new IllegalArgumentException("Named List element with key \"" + key + "\" already exists");
+    private static ConfigurationNodeAlreadyExistException elementExistsException(String key) {
+        return new ConfigurationNodeAlreadyExistException(key);
     }
 
-    private static IllegalArgumentException elementRemovedException(String key) {
-        return new IllegalArgumentException("Named List element with key \"" + key + "\" has been removed");
+    private static ConfigurationNodeRemovedException elementRemovedException(String key) {
+        return new ConfigurationNodeRemovedException(key);
     }
 }

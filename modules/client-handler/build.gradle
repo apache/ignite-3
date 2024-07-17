@@ -1,0 +1,97 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+
+dependencies {
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
+
+    implementation project(':ignite-client-common')
+    implementation project(':ignite-configuration')
+    implementation project(':ignite-api')
+    implementation project(':ignite-table')
+    implementation project(':ignite-sql-engine')
+    implementation project(':ignite-network')
+    implementation project(':ignite-core')
+    implementation project(':ignite-schema')
+    implementation project(':ignite-security')
+    implementation project(':ignite-metrics')
+    implementation project(':ignite-transactions')
+    implementation project(':ignite-catalog')
+    implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-compute')
+    implementation project(':ignite-low-watermark')
+    implementation libs.jetbrains.annotations
+    implementation libs.fastutil.core
+    implementation libs.netty.common
+    implementation libs.netty.buffer
+    implementation libs.netty.codec
+    implementation libs.netty.handler
+    implementation libs.msgpack.core
+    implementation libs.auto.service.annotations
+
+    testAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-security')
+    testImplementation project(':ignite-catalog')
+    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
+    testImplementation libs.mockito.junit
+    testImplementation libs.hamcrest.core
+    testImplementation libs.awaitility
+
+    integrationTestImplementation project(':ignite-core')
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation project(':ignite-security')
+    integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-compute')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-eventlog')
+    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
+    integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-table')))
+    integrationTestImplementation(testFixtures(project(':ignite-client-handler')))
+    integrationTestImplementation(testFixtures(project(':ignite-low-watermark')))
+    integrationTestImplementation libs.msgpack.core
+    integrationTestImplementation libs.netty.handler
+    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.bouncycastle.bcpkix.jdk18on;
+
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-placement-driver-api')
+    testFixturesImplementation project(':ignite-catalog')
+    testFixturesImplementation project(':ignite-security-api')
+    testFixturesImplementation project(':ignite-affinity')
+    testFixturesImplementation libs.mockito.junit
+}
+
+description = 'ignite-client-handler'

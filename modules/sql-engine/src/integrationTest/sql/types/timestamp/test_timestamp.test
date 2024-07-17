@@ -1,0 +1,122 @@
+# name: test/sql/types/timestamp/test_timestamp.test
+# description: Test TIMESTAMP type
+# group: [timestamp]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE IF NOT EXISTS timestamp_t (t TIMESTAMP);
+
+statement ok
+INSERT INTO timestamp_t VALUES ('2008-01-01 00:00:01'), ('2007-01-01 00:00:01'), ('2008-02-01 00:00:01'), ('2008-01-02 00:00:01'), ('2008-01-01 10:00:00'), ('2008-01-01 00:10:00'), ('2008-01-01 00:00:10')
+
+query T
+SELECT timestamp '2017-07-23 13:10:11';
+----
+2017-07-23T13:10:11
+
+# other trailing, preceding, or middle gunk is not accepted
+statement error
+SELECT timestamp '    2017-07-23     13:10:11    AA';
+
+statement error
+SELECT timestamp 'AA2017-07-23 13:10:11';
+
+statement error
+SELECT timestamp '2017-07-23A13:10:11';
+
+query T
+SELECT t FROM timestamp_t ORDER BY t LIMIT 1;
+----
+2007-01-01T00:00:01
+
+query T
+SELECT MIN(t) FROM timestamp_t;
+----
+2007-01-01T00:00:01
+
+query T
+SELECT MAX(t) FROM timestamp_t;
+----
+2008-02-01T00:00:01
+
+statement error
+SELECT SUM(t) FROM timestamp_t
+
+statement error
+SELECT AVG(t) FROM timestamp_t
+
+statement error
+SELECT t+t FROM timestamp_t
+
+statement error
+SELECT t*t FROM timestamp_t
+
+statement error
+SELECT t/t FROM timestamp_t
+
+statement error
+SELECT t%t FROM timestamp_t
+
+query I
+SELECT YEAR(TIMESTAMP '1992-01-01 01:01:01');
+----
+1992
+
+query I
+SELECT YEAR(TIMESTAMP '1992-01-01 01:01:01'::DATE);
+----
+1992
+
+query T
+SELECT (TIMESTAMP '1992-01-01 01:01:01')::DATE;
+----
+1992-01-01
+
+query T
+SELECT (TIMESTAMP '1992-01-01 01:01:01')::TIME;
+----
+01:01:01
+
+query T
+SELECT t::DATE FROM timestamp_t WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
+----
+2007-01-01
+
+query T
+SELECT t::TIME FROM timestamp_t WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
+----
+00:00:01
+
+query T
+SELECT (DATE '1992-01-01')::TIMESTAMP;
+----
+1992-01-01T00:00
+
+query T
+SELECT TIMESTAMP '2008-01-01 00:00:01.5'::VARCHAR
+----
+2008-01-01 00:00:01.5
+
+query T
+SELECT TIMESTAMP '2008-01-01 00:00:01.999'::VARCHAR
+----
+2008-01-01 00:00:01.999
+
+query T
+SELECT '2008-01-01 00:00:01.999'::TIMESTAMP::VARCHAR
+----
+2008-01-01 00:00:01.999
+
+# Value must be rounded up.
+query T
+SELECT '2008-01-01 00:00:01.9995'::TIMESTAMP(3)::VARCHAR
+----
+2008-01-01 00:00:02
+
+# Value must be rounded down.
+query T
+SELECT '2008-01-01 00:00:01.9994'::TIMESTAMP(3)::VARCHAR
+----
+2008-01-01 00:00:01.999

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,6 +22,8 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides {@link ConfigurationModule}s using {@link ServiceLoader} mechanism.
@@ -36,7 +38,7 @@ public class ServiceLoaderModulesProvider {
      * @param classLoader the class loader to use
      * @return modules
      */
-    public List<ConfigurationModule> modules(ClassLoader classLoader) {
+    public List<ConfigurationModule> modules(@Nullable ClassLoader classLoader) {
         return ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
                 .map(Provider::get)
                 .collect(toUnmodifiableList());

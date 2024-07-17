@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.joining;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -27,14 +26,13 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -43,11 +41,8 @@ import org.junit.jupiter.api.TestInfo;
  * The test checks that no threads left after one node stopped.
  */
 public class ItNoThreadsLeftTest extends IgniteAbstractTest {
-    /** Schema name. */
-    private static final String SCHEMA = "PUBLIC";
-
     /** Short table name. */
-    private static final String SHORT_TABLE_NAME = "tbl1";
+    private static final String TABLE_NAME = "TBL1";
 
     private static final List<String> THREAD_NAMES_BLACKLIST = List.of(
             "nioEventLoopGroup",
@@ -76,14 +71,13 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
     public void test(TestInfo testInfo) throws Exception {
         Set<Thread> threadsBefore = getCurrentThreads();
 
+        IgniteServer node = startNode(testInfo);
         try {
-            Ignite ignite = startNode(testInfo);
-
-            Table tbl = createTable(ignite, SCHEMA, SHORT_TABLE_NAME);
+            Table tbl = createTable(node.api(), TABLE_NAME);
 
             assertNotNull(tbl);
         } finally {
-            stopNode(testInfo);
+            node.shutdown();
         }
 
         boolean threadsKilled = waitForCondition(() -> getCurrentThreads().size() <= threadsBefore.size(), 10, 3_000);
@@ -98,40 +92,33 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
         }
     }
 
-    private Ignite startNode(TestInfo testInfo) {
+    private IgniteServer startNode(TestInfo testInfo) {
         String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
+        IgniteServer node = TestIgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodes(node)
+                .clusterName("cluster")
+                .build();
+        node.initCluster(initParameters);
 
-        assertThat(future, willCompleteSuccessfully());
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-        return future.join();
-    }
-
-    private static void stopNode(TestInfo testInfo) {
-        String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
-
-        IgnitionManager.stop(nodeName);
+        return node;
     }
 
     /**
      * Creates a table.
      *
      * @param node Cluster node.
-     * @param schemaName Schema name.
-     * @param shortTableName Table name.
+     * @param tableName Table name.
      */
-    private static Table createTable(Ignite node, String schemaName, String shortTableName) {
-        return node.tables().createTable(
-                schemaName + "." + shortTableName, tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
-                                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                                SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
-                                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
-                        ).withPrimaryKey("key").build(),
-                        tblCh).changeReplicas(2).changePartitions(10)
-        );
+    private static Table createTable(Ignite node, String tableName) {
+        node.sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, valint INT,"
+                + " valstr VARCHAR NOT NULL DEFAULT 'default')");
+
+        return node.tables().table(tableName);
     }
 
     /**

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,20 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 
 /**
  * QueryStartRequest interface.
  */
 @Transferable(value = SqlQueryMessageGroup.QUERY_START_REQUEST)
-public interface QueryStartRequest extends ExecutionContextAwareMessage {
-    /**
-     * Get schema name.
-     */
-    String schema();
-
+public interface QueryStartRequest extends TimestampAware, ExecutionContextAwareMessage {
     /**
      * Get fragment description.
      */
@@ -47,4 +45,24 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
      */
     @Marshallable
     Object[] parameters();
+
+    /**
+     * Transaction id.
+     */
+    @Marshallable
+    TxAttributes txAttributes();
+
+    /**
+     * Returns the version of the catalog the enclosed fragment was prepared on. Must be used to resolve schema objects
+     * (like tables or system views) during deserialization.
+     */
+    int catalogVersion();
+
+    /**
+     * Session time-zone ID.
+     */
+    String timeZoneId();
+
+    /** Time of the operation. */
+    HybridTimestamp operationTime();
 }

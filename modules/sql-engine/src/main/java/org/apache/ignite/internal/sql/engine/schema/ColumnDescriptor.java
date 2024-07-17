@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,6 +30,9 @@ public interface ColumnDescriptor {
     /** Returns {@code true} if this column is part of the primary key. */
     boolean key();
 
+    /** Returns {@code true} if this column should not be expanded in query until user explicitly specify it as part of the statement. */
+    boolean hidden();
+
     /** Returns the strategy to follow when generating value for column not specified in the INSERT statement. */
     DefaultValueStrategy defaultStrategy();
 
@@ -38,9 +41,6 @@ public interface ColumnDescriptor {
 
     /** Returns 0-based index of the column according to a schema defined by a user. */
     int logicalIndex();
-
-    /** Returns 0-based index of the column according to an actual row layout defined by a storage. */
-    int physicalIndex();
 
     /** Returns the type of this column in a storage. */
     NativeType physicalType();

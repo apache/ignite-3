@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.direct.stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.network.NetworkMessage.NULL_GROUP_TYPE;
 import static org.apache.ignite.internal.util.ArrayUtils.BOOLEAN_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.CHAR_ARRAY;
@@ -26,35 +27,45 @@ import static org.apache.ignite.internal.util.ArrayUtils.FLOAT_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.INT_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.SHORT_ARRAY;
-import static org.apache.ignite.internal.util.GridUnsafe.BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.CHAR_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.DOUBLE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.FLOAT_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.INT_ARR_OFF;
+import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.RandomAccess;
+import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
+import java.util.function.IntFunction;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageSerializer;
-import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,14 +76,57 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** Poison object. */
     private static final Object NULL = new Object();
 
+    /** Flag that indicates that byte buffer is not null. */
+    protected static final byte BYTE_BUFFER_NOT_NULL_FLAG = 1;
+
+    /** Flag that indicates that byte buffer has Big Endinan order. */
+    protected static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
+
+    /** {@code Short.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_SHORT_BYTES = 3;
+
+    /** {@code Integer.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_INT_BYTES = 5;
+
+    /** {@code Long.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_LONG_BYTES = 10;
+
+    /**
+     * Offset to the {@code position} field of {@link Buffer}.
+     *
+     * @see #setPosition(int)
+     */
+    private static final long POSITION_OFF;
+
+    static {
+        try {
+            Field position = Buffer.class.getDeclaredField("position");
+
+            AccessController.doPrivileged((PrivilegedAction<?>) () -> {
+                position.setAccessible(true);
+                return null;
+            });
+
+            POSITION_OFF = GridUnsafe.objectFieldOffset(position);
+        } catch (Exception e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     /** Message serialization registry. */
-    private final PerSessionSerializationService serializationService;
+    private final MessageSerializationRegistry serializationRegistry;
 
-    private ByteBuffer buf;
+    protected ByteBuffer buf;
 
-    private byte[] heapArr;
+    /**
+     * Buffer limit is cached in a field because of frequent use of {@link #remainingInternal()}.
+     * {@link Buffer#remaining()} uses conditional branching, which is expensive in our case, so we re-implemented it manually.
+     */
+    private int bufLimit;
 
-    private long baseOff;
+    protected byte @Nullable [] heapArr;
+
+    protected long baseOff;
 
     private int arrOff = -1;
 
@@ -98,6 +152,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * message type.
      */
     private short msgGroupType;
+
+    /**
+     * Flag needed for reading boxed primitives.
+     *
+     * <p>Boxed primitives are encoded as a boolean flag ({@code false} meaning that the boxed value is {@code null}), followed by the
+     * unboxed value (if not null). Therefore, this flag value must be cached between two unsuccessful read calls in case the received boxed
+     * primitive was not {@code null}.
+     */
+    private boolean boxedTypeNotNull;
 
     @Nullable
     private MessageDeserializer<NetworkMessage> msgDeserializer;
@@ -141,6 +204,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     private long uuidLocId;
 
+    private int byteBufferState;
+
+    private byte byteBufferFlag;
+
     protected boolean lastFinished;
 
     /** byte-array representation of string. */
@@ -149,10 +216,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /**
      * Constructor.
      *
-     * @param serializationService Serialization service.       .
+     * @param serializationRegistry Serialization service.       .
      */
-    public DirectByteBufferStreamImplV1(PerSessionSerializationService serializationService) {
-        this.serializationService = serializationService;
+    public DirectByteBufferStreamImplV1(MessageSerializationRegistry serializationRegistry) {
+        this.serializationRegistry = Objects.requireNonNull(serializationRegistry, "serializationRegistry");
     }
 
     /** {@inheritDoc} */
@@ -162,16 +229,22 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         if (this.buf != buf) {
             this.buf = buf;
+            this.bufLimit = buf.limit();
 
-            heapArr = buf.isDirect() ? null : buf.array();
-            baseOff = buf.isDirect() ? GridUnsafe.bufferAddress(buf) : BYTE_ARR_OFF;
+            boolean isDirect = buf.isDirect();
+            heapArr = isDirect ? null : buf.array();
+            baseOff = isDirect ? GridUnsafe.bufferAddress(buf) : BYTE_ARR_OFF + buf.arrayOffset();
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public int remaining() {
-        return buf.remaining();
+        return remainingInternal();
+    }
+
+    private int remainingInternal() {
+        return bufLimit - buf.position();
     }
 
     /** {@inheritDoc} */
@@ -183,164 +256,283 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeByte(byte val) {
-        lastFinished = buf.remaining() >= 1;
+        lastFinished = remainingInternal() >= 1;
 
         if (lastFinished) {
             int pos = buf.position();
 
             GridUnsafe.putByte(heapArr, baseOff + pos, val);
 
-            buf.position(pos + 1);
+            setPosition(pos + 1);
+        }
+    }
+
+    @Override
+    public void writeBoxedByte(@Nullable Byte val) {
+        if (val != null) {
+            lastFinished = remainingInternal() >= 1 + 1;
+
+            if (lastFinished) {
+                writeBooleanUnchecked(true);
+
+                writeByte(val);
+            }
+        } else {
+            writeBoolean(false);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        lastFinished = buf.remaining() >= 2;
+        lastFinished = remainingInternal() >= MAX_VAR_SHORT_BYTES;
 
-        if (lastFinished) {
-            int pos = buf.position();
+        writeVarInt(Short.toUnsignedInt((short) (val + 1)));
+    }
 
-            long off = baseOff + pos;
+    @Override
+    public void writeBoxedShort(@Nullable Short val) {
+        if (val != null) {
+            lastFinished = remainingInternal() >= 1 + MAX_VAR_SHORT_BYTES;
 
-            if (BIG_ENDIAN) {
-                GridUnsafe.putShortLittleEndian(heapArr, off, val);
-            } else {
-                GridUnsafe.putShort(heapArr, off, val);
+            if (lastFinished) {
+                writeBooleanUnchecked(true);
+
+                writeShort(val);
             }
-
-            buf.position(pos + 2);
+        } else {
+            writeBoolean(false);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeInt(int val) {
-        lastFinished = buf.remaining() >= 5;
+        lastFinished = remainingInternal() >= MAX_VAR_INT_BYTES;
 
-        if (lastFinished) {
-            if (val == Integer.MAX_VALUE) {
-                val = Integer.MIN_VALUE;
-            } else {
-                val++;
+        writeVarInt(val + 1);
+    }
+
+    @Override
+    public void writeBoxedInt(@Nullable Integer val) {
+        if (val != null) {
+            lastFinished = remainingInternal() >= 1 + MAX_VAR_INT_BYTES;
+
+            if (lastFinished) {
+                writeBooleanUnchecked(true);
+
+                writeInt(val);
             }
-
-            int pos = buf.position();
-
-            while ((val & 0xFFFF_FF80) != 0) {
-                byte b = (byte) (val | 0x80);
-
-                GridUnsafe.putByte(heapArr, baseOff + pos++, b);
-
-                val >>>= 7;
-            }
-
-            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
-
-            buf.position(pos);
+        } else {
+            writeBoolean(false);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeLong(long val) {
-        lastFinished = buf.remaining() >= 10;
+        lastFinished = remainingInternal() >= MAX_VAR_LONG_BYTES;
 
-        if (lastFinished) {
-            if (val == Long.MAX_VALUE) {
-                val = Long.MIN_VALUE;
-            } else {
-                val++;
+        writeVarLong(val + 1);
+    }
+
+    @Override
+    public void writeBoxedLong(@Nullable Long val) {
+        if (val != null) {
+            lastFinished = remainingInternal() >= 1 + MAX_VAR_LONG_BYTES;
+
+            if (lastFinished) {
+                writeBooleanUnchecked(true);
+
+                writeVarLong(val + 1);
             }
+        } else {
+            writeBoolean(false);
+        }
+    }
 
+    private void writeVarLong(long val) {
+        if (lastFinished) {
             int pos = buf.position();
 
-            while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
-                byte b = (byte) (val | 0x80);
+            // Please check benchmarks if you're going to change this code.
+            long shift;
+            //noinspection NestedAssignment
+            while ((shift = (val >>> 7)) != 0L) {
+                byte b = (byte) (((int) val) | 0x80);
 
                 GridUnsafe.putByte(heapArr, baseOff + pos++, b);
 
-                val >>>= 7;
+                val = shift;
             }
 
             GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
 
-            buf.position(pos);
+            setPosition(pos);
+        }
+    }
+
+    private void writeVarInt(int val) {
+        if (lastFinished) {
+            int pos = buf.position();
+
+            // Please check benchmarks if you're going to change this code.
+            int shift;
+            //noinspection NestedAssignment
+            while ((shift = (val >>> 7)) != 0) {
+                byte b = (byte) (val | 0x80);
+
+                GridUnsafe.putByte(heapArr, baseOff + pos++, b);
+
+                val = shift;
+            }
+
+            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
+
+            setPosition(pos);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeFloat(float val) {
-        lastFinished = buf.remaining() >= 4;
+        lastFinished = remainingInternal() >= 4;
 
         if (lastFinished) {
             int pos = buf.position();
 
             long off = baseOff + pos;
 
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 GridUnsafe.putFloatLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putFloat(heapArr, off, val);
             }
 
-            buf.position(pos + 4);
+            setPosition(pos + 4);
+        }
+    }
+
+    @Override
+    public void writeBoxedFloat(@Nullable Float val) {
+        if (val != null) {
+            lastFinished = remainingInternal() >= 1 + 4;
+
+            if (lastFinished) {
+                writeBooleanUnchecked(true);
+
+                writeFloat(val);
+            }
+        } else {
+            writeBoolean(false);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeDouble(double val) {
-        lastFinished = buf.remaining() >= 8;
+        lastFinished = remainingInternal() >= 8;
 
         if (lastFinished) {
             int pos = buf.position();
 
             long off = baseOff + pos;
 
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 GridUnsafe.putDoubleLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putDouble(heapArr, off, val);
             }
 
-            buf.position(pos + 8);
+            setPosition(pos + 8);
+        }
+    }
+
+    @Override
+    public void writeBoxedDouble(@Nullable Double val) {
+        if (val != null) {
+            lastFinished = remainingInternal() >= 1 + 8;
+
+            if (lastFinished) {
+                writeBooleanUnchecked(true);
+
+                writeDouble(val);
+            }
+        } else {
+            writeBoolean(false);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeChar(char val) {
-        lastFinished = buf.remaining() >= 2;
+        lastFinished = remainingInternal() >= 2;
 
         if (lastFinished) {
             int pos = buf.position();
 
             long off = baseOff + pos;
 
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 GridUnsafe.putCharLittleEndian(heapArr, off, val);
             } else {
                 GridUnsafe.putChar(heapArr, off, val);
             }
 
-            buf.position(pos + 2);
+            setPosition(pos + 2);
+        }
+    }
+
+    @Override
+    public void writeBoxedChar(@Nullable Character val) {
+        if (val != null) {
+            lastFinished = remainingInternal() >= 1 + 2;
+
+            if (lastFinished) {
+                writeBooleanUnchecked(true);
+
+                writeChar(val);
+            }
+        } else {
+            writeBoolean(false);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeBoolean(boolean val) {
-        lastFinished = buf.remaining() >= 1;
+        lastFinished = remainingInternal() >= 1;
 
         if (lastFinished) {
-            int pos = buf.position();
+            writeBooleanUnchecked(val);
+        }
+    }
 
-            GridUnsafe.putBoolean(heapArr, baseOff + pos, val);
+    private void writeBooleanUnchecked(boolean val) {
+        int pos = buf.position();
 
-            buf.position(pos + 1);
+        GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (val ? 1 : 0));
+
+        setPosition(pos + 1);
+    }
+
+    protected void setPosition(int pos) {
+        // "buf.position(pos)" uses conditional branching, which is expensive for such a frequent operation.
+        GridUnsafe.putIntField(buf, POSITION_OFF, pos);
+    }
+
+    @Override
+    public void writeBoxedBoolean(@Nullable Boolean val) {
+        if (val != null) {
+            lastFinished = remainingInternal() >= 1 + 1;
+
+            if (lastFinished) {
+                writeBooleanUnchecked(true);
+
+                writeBoolean(val);
+            }
+        } else {
+            writeBoolean(false);
         }
     }
 
@@ -368,7 +560,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeShortArray(short[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, SHORT_ARR_OFF, val.length, 2, 1);
             } else {
                 lastFinished = writeArray(val, SHORT_ARR_OFF, val.length, val.length << 1);
@@ -382,7 +574,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeIntArray(int[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, INT_ARR_OFF, val.length, 4, 2);
             } else {
                 lastFinished = writeArray(val, INT_ARR_OFF, val.length, val.length << 2);
@@ -396,7 +588,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeLongArray(long[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, LONG_ARR_OFF, val.length, 8, 3);
             } else {
                 lastFinished = writeArray(val, LONG_ARR_OFF, val.length, val.length << 3);
@@ -410,7 +602,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeLongArray(long[] val, int len) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, LONG_ARR_OFF, len, 8, 3);
             } else {
                 lastFinished = writeArray(val, LONG_ARR_OFF, len, len << 3);
@@ -424,7 +616,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeFloatArray(float[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, FLOAT_ARR_OFF, val.length, 4, 2);
             } else {
                 lastFinished = writeArray(val, FLOAT_ARR_OFF, val.length, val.length << 2);
@@ -438,7 +630,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeDoubleArray(double[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, DOUBLE_ARR_OFF, val.length, 8, 3);
             } else {
                 lastFinished = writeArray(val, DOUBLE_ARR_OFF, val.length, val.length << 3);
@@ -452,7 +644,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeCharArray(char[] val) {
         if (val != null) {
-            if (BIG_ENDIAN) {
+            if (IS_BIG_ENDIAN) {
                 lastFinished = writeArrayLittleEndian(val, CHAR_ARR_OFF, val.length, 2, 1);
             } else {
                 lastFinished = writeArray(val, CHAR_ARR_OFF, val.length, val.length << 1);
@@ -498,40 +690,69 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     /** {@inheritDoc} */
     @Override
-    public void writeUuid(UUID val) {
-        switch (uuidState) {
+    public void writeByteBuffer(ByteBuffer val) {
+        switch (byteBufferState) {
             case 0:
-                writeBoolean(val == null);
+                byte flag = 0;
+
+                if (val != null) {
+                    flag |= BYTE_BUFFER_NOT_NULL_FLAG;
+
+                    if (val.order() == ByteOrder.BIG_ENDIAN) {
+                        flag |= BYTE_BUFFER_BIG_ENDIAN_FLAG;
+                    }
+                }
+
+                writeByte(flag);
 
                 if (!lastFinished || val == null) {
                     return;
                 }
 
-                uuidState++;
+                byteBufferState++;
 
                 //noinspection fallthrough
             case 1:
-                writeLong(val.getMostSignificantBits());
+                assert !val.isReadOnly();
+
+                int position = val.position();
+                int length = val.limit() - position;
+
+                if (val.isDirect()) {
+                    lastFinished = writeArray(null, GridUnsafe.bufferAddress(val) + position, length, length);
+                } else {
+                    lastFinished = writeArray(val.array(), BYTE_ARR_OFF + val.arrayOffset() + position, length, length);
+                }
 
                 if (!lastFinished) {
                     return;
                 }
 
-                uuidState++;
-
-                //noinspection fallthrough
-            case 2:
-                writeLong(val.getLeastSignificantBits());
-
-                if (!lastFinished) {
-                    return;
-                }
-
-                uuidState = 0;
+                byteBufferState = 0;
                 break;
 
             default:
-                throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
+                throw new IllegalArgumentException("Unknown byteBufferState: " + byteBufferState);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeUuid(UUID val) {
+        if (val == null) {
+            writeBoolean(true);
+        } else {
+            lastFinished = remainingInternal() >= 1 + 2 * Long.BYTES;
+
+            if (lastFinished) {
+                int pos = buf.position();
+
+                GridUnsafe.putBoolean(heapArr, baseOff + pos, false);
+                GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos + 1, val.getMostSignificantBits());
+                GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos + 9, val.getLeastSignificantBits());
+
+                setPosition(pos + 1 + 2 * Long.BYTES);
+            }
         }
     }
 
@@ -595,7 +816,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     writer.setCurrentWriteClass(msg.getClass());
 
                     if (msgSerializer == null) {
-                        msgSerializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
+                        msgSerializer = msg.serializer();
                     }
 
                     writer.setBuffer(buf);
@@ -612,7 +833,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 lastFinished = false;
             }
         } else {
-            writeShort(Short.MIN_VALUE);
+            writeShort(NULL_GROUP_TYPE);
         }
     }
 
@@ -690,6 +911,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         } else {
             writeInt(-1);
         }
+    }
+
+    @Override
+    public <T> void writeSet(Set<T> set, MessageCollectionItemType itemType, MessageWriter writer) {
+        writeCollection(set, itemType, writer);
     }
 
     /**
@@ -782,12 +1008,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public byte readByte() {
-        lastFinished = buf.remaining() >= 1;
+        lastFinished = remainingInternal() >= 1;
 
         if (lastFinished) {
             int pos = buf.position();
 
-            buf.position(pos + 1);
+            setPosition(pos + 1);
 
             return GridUnsafe.getByte(heapArr, baseOff + pos);
         } else {
@@ -795,22 +1021,69 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    @Override
+    public @Nullable Byte readBoxedByte() {
+        return readBoxedValue(this::readByte);
+    }
+
+    private <T> @Nullable T readBoxedValue(Supplier<T> valueReader) {
+        // First, check if we have read the null flag in a previous call.
+        if (boxedTypeNotNull || readBoolean()) {
+            boxedTypeNotNull = true;
+
+            T result = valueReader.get();
+
+            // If the whole value has been read successfully, reset the state.
+            if (lastFinished) {
+                boxedTypeNotNull = false;
+            }
+
+            return result;
+        } else {
+            return null;
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public short readShort() {
-        lastFinished = buf.remaining() >= 2;
+        lastFinished = false;
 
-        if (lastFinished) {
-            int pos = buf.position();
+        short val = 0;
 
-            buf.position(pos + 2);
+        int pos = buf.position();
 
-            long off = baseOff + pos;
+        int limit = buf.limit();
 
-            return BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(heapArr, off) : GridUnsafe.getShort(heapArr, off);
-        } else {
-            return 0;
+        while (pos < limit) {
+            byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
+
+            pos++;
+
+            prim |= ((long) b & 0x7F) << (7 * primShift);
+
+            if ((b & 0x80) == 0) {
+                lastFinished = true;
+
+                val = (short) (prim - 1);
+
+                prim = 0;
+                primShift = 0;
+
+                break;
+            } else {
+                primShift++;
+            }
         }
+
+        setPosition(pos);
+
+        return val;
+    }
+
+    @Override
+    public @Nullable Short readBoxedShort() {
+        return readBoxedValue(this::readShort);
     }
 
     /** {@inheritDoc} */
@@ -820,25 +1093,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         int val = 0;
 
-        while (buf.hasRemaining()) {
-            int pos = buf.position();
+        int pos = buf.position();
 
+        int limit = buf.limit();
+
+        while (pos < limit) {
             byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
 
-            buf.position(pos + 1);
+            pos++;
 
             prim |= ((long) b & 0x7F) << (7 * primShift);
 
             if ((b & 0x80) == 0) {
                 lastFinished = true;
 
-                val = (int) prim;
-
-                if (val == Integer.MIN_VALUE) {
-                    val = Integer.MAX_VALUE;
-                } else {
-                    val--;
-                }
+                val = (int) prim - 1;
 
                 prim = 0;
                 primShift = 0;
@@ -849,7 +1118,14 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             }
         }
 
+        setPosition(pos);
+
         return val;
+    }
+
+    @Override
+    public @Nullable Integer readBoxedInt() {
+        return readBoxedValue(this::readInt);
     }
 
     /** {@inheritDoc} */
@@ -859,25 +1135,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         long val = 0;
 
-        while (buf.hasRemaining()) {
-            int pos = buf.position();
+        int pos = buf.position();
 
+        int limit = buf.limit();
+
+        while (pos < limit) {
             byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
 
-            buf.position(pos + 1);
+            pos++;
 
             prim |= ((long) b & 0x7F) << (7 * primShift);
 
             if ((b & 0x80) == 0) {
                 lastFinished = true;
 
-                val = prim;
-
-                if (val == Long.MIN_VALUE) {
-                    val = Long.MAX_VALUE;
-                } else {
-                    val--;
-                }
+                val = prim - 1;
 
                 prim = 0;
                 primShift = 0;
@@ -888,61 +1160,83 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             }
         }
 
+        setPosition(pos);
+
         return val;
+    }
+
+    @Override
+    public @Nullable Long readBoxedLong() {
+        return readBoxedValue(this::readLong);
     }
 
     /** {@inheritDoc} */
     @Override
     public float readFloat() {
-        lastFinished = buf.remaining() >= 4;
+        lastFinished = remainingInternal() >= 4;
 
         if (lastFinished) {
             int pos = buf.position();
 
-            buf.position(pos + 4);
+            setPosition(pos + 4);
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getFloatLittleEndian(heapArr, off) : GridUnsafe.getFloat(heapArr, off);
+            return IS_BIG_ENDIAN ? GridUnsafe.getFloatLittleEndian(heapArr, off) : GridUnsafe.getFloat(heapArr, off);
         } else {
             return 0;
         }
+    }
+
+    @Override
+    public @Nullable Float readBoxedFloat() {
+        return readBoxedValue(this::readFloat);
     }
 
     /** {@inheritDoc} */
     @Override
     public double readDouble() {
-        lastFinished = buf.remaining() >= 8;
+        lastFinished = remainingInternal() >= 8;
 
         if (lastFinished) {
             int pos = buf.position();
 
-            buf.position(pos + 8);
+            setPosition(pos + 8);
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getDoubleLittleEndian(heapArr, off) : GridUnsafe.getDouble(heapArr, off);
+            return IS_BIG_ENDIAN ? GridUnsafe.getDoubleLittleEndian(heapArr, off) : GridUnsafe.getDouble(heapArr, off);
         } else {
             return 0;
         }
     }
 
+    @Override
+    public @Nullable Double readBoxedDouble() {
+        return readBoxedValue(this::readDouble);
+    }
+
     /** {@inheritDoc} */
     @Override
     public char readChar() {
-        lastFinished = buf.remaining() >= 2;
+        lastFinished = remainingInternal() >= 2;
 
         if (lastFinished) {
             int pos = buf.position();
 
-            buf.position(pos + 2);
+            setPosition(pos + 2);
 
             long off = baseOff + pos;
 
-            return BIG_ENDIAN ? GridUnsafe.getCharLittleEndian(heapArr, off) : GridUnsafe.getChar(heapArr, off);
+            return IS_BIG_ENDIAN ? GridUnsafe.getCharLittleEndian(heapArr, off) : GridUnsafe.getChar(heapArr, off);
         } else {
             return 0;
         }
+    }
+
+    @Override
+    public @Nullable Character readBoxedChar() {
+        return readBoxedValue(this::readChar);
     }
 
     /** {@inheritDoc} */
@@ -953,12 +1247,17 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
-            buf.position(pos + 1);
+            setPosition(pos + 1);
 
             return GridUnsafe.getBoolean(heapArr, baseOff + pos);
         } else {
             return false;
         }
+    }
+
+    @Override
+    public @Nullable Boolean readBoxedBoolean() {
+        return readBoxedValue(this::readBoolean);
     }
 
     /** {@inheritDoc} */
@@ -970,7 +1269,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public short[] readShortArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(SHORT_ARRAY, 2, 1, SHORT_ARR_OFF);
         } else {
             return readArray(SHORT_ARRAY, 1, SHORT_ARR_OFF);
@@ -980,7 +1279,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public int[] readIntArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(INT_ARRAY, 4, 2, INT_ARR_OFF);
         } else {
             return readArray(INT_ARRAY, 2, INT_ARR_OFF);
@@ -990,7 +1289,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public long[] readLongArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(LONG_ARRAY, 8, 3, LONG_ARR_OFF);
         } else {
             return readArray(LONG_ARRAY, 3, LONG_ARR_OFF);
@@ -1000,7 +1299,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public float[] readFloatArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(FLOAT_ARRAY, 4, 2, FLOAT_ARR_OFF);
         } else {
             return readArray(FLOAT_ARRAY, 2, FLOAT_ARR_OFF);
@@ -1010,7 +1309,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public double[] readDoubleArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(DOUBLE_ARRAY, 8, 3, DOUBLE_ARR_OFF);
         } else {
             return readArray(DOUBLE_ARRAY, 3, DOUBLE_ARR_OFF);
@@ -1020,7 +1319,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public char[] readCharArray() {
-        if (BIG_ENDIAN) {
+        if (IS_BIG_ENDIAN) {
             return readArrayLittleEndian(CHAR_ARRAY, 2, 1, CHAR_ARR_OFF);
         } else {
             return readArray(CHAR_ARRAY, 1, CHAR_ARR_OFF);
@@ -1049,6 +1348,48 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         return arr != null ? BitSet.valueOf(arr) : null;
     }
 
+    @Override
+    public ByteBuffer readByteBuffer() {
+        byte[] bytes;
+
+        switch (byteBufferState) {
+            case 0:
+                byteBufferFlag = readByte();
+
+                boolean isNull = (byteBufferFlag & BYTE_BUFFER_NOT_NULL_FLAG) == 0;
+
+                if (!lastFinished || isNull) {
+                    return null;
+                }
+
+                byteBufferState++;
+
+                //noinspection fallthrough
+            case 1:
+                bytes = readByteArray();
+
+                if (!lastFinished) {
+                    return null;
+                }
+
+                byteBufferState = 0;
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown byteBufferState: " + byteBufferState);
+        }
+
+        ByteBuffer val = ByteBuffer.wrap(bytes);
+
+        if ((byteBufferFlag & BYTE_BUFFER_BIG_ENDIAN_FLAG) == 0) {
+            val.order(ByteOrder.LITTLE_ENDIAN);
+        } else {
+            val.order(ByteOrder.BIG_ENDIAN);
+        }
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public UUID readUuid() {
@@ -1064,35 +1405,27 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 //noinspection fallthrough
             case 1:
-                uuidMost = readLong();
+                lastFinished = remainingInternal() >= 2 * Long.BYTES;
 
-                if (!lastFinished) {
-                    return null;
+                if (lastFinished) {
+                    int pos = buf.position();
+
+                    long msb = GridUnsafe.getLongLittleEndian(heapArr, baseOff + pos);
+                    long lsb = GridUnsafe.getLongLittleEndian(heapArr, baseOff + pos + Long.BYTES);
+
+                    setPosition(pos + 2 * Long.BYTES);
+
+                    uuidState = 0;
+
+                    return new UUID(msb, lsb);
                 }
-
-                uuidState++;
-
-                //noinspection fallthrough
-            case 2:
-                uuidLeast = readLong();
-
-                if (!lastFinished) {
-                    return null;
-                }
-
-                uuidState = 0;
                 break;
 
             default:
                 throw new IllegalArgumentException("Unknown uuidState: " + uuidState);
         }
 
-        UUID val = new UUID(uuidMost, uuidLeast);
-
-        uuidMost = 0;
-        uuidLeast = 0;
-
-        return val;
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -1156,9 +1489,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     @Nullable
     public <T extends NetworkMessage> T readMessage(MessageReader reader) {
-        // if the deserialzer is null then we haven't finished reading the message header
+        // If the deserializer is null then we haven't finished reading the message header.
         if (msgDeserializer == null) {
-            // read the message group type
+            // Read the message group type.
             if (!msgGroupTypeRead) {
                 msgGroupType = readShort();
 
@@ -1166,27 +1499,27 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     return null;
                 }
 
-                // message group type will be equal to Short.MIN_VALUE if a nested message is null
-                if (msgGroupType == Short.MIN_VALUE) { // lastFinished is "true" here, so no further parsing will be required
+                // Message group type will be equal to NetworkMessage.NULL_GROUP_TYPE if a nested message is null.
+                if (msgGroupType == NULL_GROUP_TYPE) { // "lastFinished" is "true" here, so no further parsing will be required.
                     return null;
                 }
 
-                // save current progress, because we can read the header in two chunks
+                // Save current progress, because we can read the header in two chunks.
                 msgGroupTypeRead = true;
             }
 
-            // read the message type
+            // Read the message type.
             short msgType = readShort();
 
             if (!lastFinished) {
                 return null;
             }
 
-            msgDeserializer = serializationService.createMessageDeserializer(msgGroupType, msgType);
+            msgDeserializer = serializationRegistry.createDeserializer(msgGroupType, msgType);
         }
 
-        // if the deserializer is not null then we have definitely finished parsing the header and can read the message
-        // body
+        // If the deserializer is not null then we have definitely finished parsing the header and can read the message
+        // body.
         reader.beforeInnerMessageRead();
 
         try {
@@ -1258,6 +1591,30 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public <C extends Collection<?>> C readCollection(MessageCollectionItemType itemType,
             MessageReader reader) {
+        return (C) readCollection0(itemType, reader, ArrayList::new);
+    }
+
+    @Override
+    public <C extends Set<?>> C readSet(MessageCollectionItemType itemType, MessageReader reader) {
+        return (C) readCollection0(itemType, reader, HashSet::new);
+    }
+
+    /**
+     * Common implementation for {@link #readCollection(MessageCollectionItemType, MessageReader)} and
+     * {@link #readSet(MessageCollectionItemType, MessageReader)}. Reads a sequence of objects and puts it into a collection, created by
+     * {@code ctor}.
+     *
+     * @param itemType Collection item type.
+     * @param reader Message reader instance.
+     * @param ctor Factory for creating a collection using its length.
+     *
+     * @return Collection, read from the reader, or {@code null} if reading has not completed yet.
+     */
+    private @Nullable Collection<?> readCollection0(
+            MessageCollectionItemType itemType,
+            MessageReader reader,
+            IntFunction<Collection<Object>> ctor
+    ) {
         if (readSize == -1) {
             int size = readInt();
 
@@ -1270,7 +1627,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         if (readSize >= 0) {
             if (col == null) {
-                col = new ArrayList<>(readSize);
+                col = ctor.apply(readSize);
             }
 
             for (int i = readItems; i < readSize; i++) {
@@ -1290,7 +1647,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         readItems = 0;
         cur = null;
 
-        C col0 = (C) col;
+        Collection<?> col0 = col;
 
         col = null;
 
@@ -1362,9 +1719,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @param bytes Length in bytes.
      * @return Whether array was fully written.
      */
-    boolean writeArray(Object arr, long off, int len, int bytes) {
-        assert arr != null;
-        assert arr.getClass().isArray() && arr.getClass().getComponentType().isPrimitive();
+    boolean writeArray(@Nullable Object arr, long off, int len, int bytes) {
+        assert arr == null || arr.getClass().isArray() && arr.getClass().getComponentType().isPrimitive();
         assert off > 0;
         assert len >= 0;
         assert bytes >= 0;
@@ -1376,13 +1732,13 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         int toWrite = bytes - arrOff;
         int pos = buf.position();
-        int remaining = buf.remaining();
+        int remaining = remainingInternal();
 
         if (toWrite <= remaining) {
             if (toWrite > 0) {
                 GridUnsafe.copyMemory(arr, off + arrOff, heapArr, baseOff + pos, toWrite);
 
-                buf.position(pos + toWrite);
+                setPosition(pos + toWrite);
             }
 
             arrOff = -1;
@@ -1392,7 +1748,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             if (remaining > 0) {
                 GridUnsafe.copyMemory(arr, off + arrOff, heapArr, baseOff + pos, remaining);
 
-                buf.position(pos + remaining);
+                setPosition(pos + remaining);
 
                 arrOff += remaining;
             }
@@ -1426,7 +1782,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
 
         int toWrite = (bytes - arrOff) >> shiftCnt;
-        int remaining = buf.remaining() >> shiftCnt;
+        int remaining = remainingInternal() >> shiftCnt;
 
         if (toWrite <= remaining) {
             writeArrayLittleEndian(arr, off, toWrite, typeSize);
@@ -1461,7 +1817,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 GridUnsafe.putByte(heapArr, baseOff + pos++, b);
             }
 
-            buf.position(pos);
+            setPosition(pos);
             arrOff += typeSize;
         }
     }
@@ -1521,7 +1877,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
 
         int toRead = tmpArrBytes - tmpArrOff;
-        int remaining = buf.remaining();
+        int remaining = remainingInternal();
         int pos = buf.position();
 
         lastFinished = toRead <= remaining;
@@ -1529,7 +1885,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             GridUnsafe.copyMemory(heapArr, baseOff + pos, tmpArr, off + tmpArrOff, toRead);
 
-            buf.position(pos + toRead);
+            setPosition(pos + toRead);
 
             final T arr = (T) tmpArr;
 
@@ -1541,7 +1897,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         } else {
             GridUnsafe.copyMemory(heapArr, baseOff + pos, tmpArr, off + tmpArrOff, remaining);
 
-            buf.position(pos + remaining);
+            setPosition(pos + remaining);
 
             tmpArrOff += remaining;
 
@@ -1587,7 +1943,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
 
         int toRead = tmpArrBytes - tmpArrOff - valReadBytes;
-        int remaining = buf.remaining();
+        int remaining = remainingInternal();
 
         lastFinished = toRead <= remaining;
 
@@ -1608,7 +1964,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             }
         }
 
-        buf.position(pos + toRead);
+        setPosition(pos + toRead);
 
         if (lastFinished) {
             final T arr = (T) tmpArr;
@@ -1722,6 +2078,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 break;
 
+            case BYTE_BUFFER:
+                writeByteBuffer((ByteBuffer) val);
+
+                break;
+
             case UUID:
                 writeUuid((UUID) val);
 
@@ -1733,17 +2094,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 break;
 
             case MSG:
-                try {
-                    if (val != null) {
-                        writer.beforeInnerMessageWrite();
-                    }
-
-                    writeMessage((NetworkMessage) val, writer);
-                } finally {
-                    if (val != null) {
-                        writer.afterInnerMessageWrite(lastFinished);
-                    }
-                }
+                writeMessage((NetworkMessage) val, writer);
 
                 break;
 
@@ -1814,6 +2165,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             case BIT_SET:
                 return readBitSet();
+
+            case BYTE_BUFFER:
+                return readByteBuffer();
 
             case UUID:
                 return readUuid();

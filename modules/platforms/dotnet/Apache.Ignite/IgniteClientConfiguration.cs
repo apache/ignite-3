@@ -21,8 +21,10 @@ namespace Apache.Ignite
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Linq;
+    using System.Threading;
     using Internal.Common;
-    using Log;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
 
     /// <summary>
     /// Ignite client driver configuration.
@@ -37,12 +39,17 @@ namespace Apache.Ignite
         /// <summary>
         /// Default socket timeout.
         /// </summary>
-        public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(5);
+        public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// Default heartbeat interval.
         /// </summary>
         public static readonly TimeSpan DefaultHeartbeatInterval = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// Default reconnect interval.
+        /// </summary>
+        public static readonly TimeSpan DefaultReconnectInterval = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientConfiguration"/> class.
@@ -59,7 +66,7 @@ namespace Apache.Ignite
         public IgniteClientConfiguration(params string[] endpoints)
             : this()
         {
-            IgniteArgumentCheck.NotNull(endpoints, nameof(endpoints));
+            IgniteArgumentCheck.NotNull(endpoints);
 
             foreach (var endpoint in endpoints)
             {
@@ -73,28 +80,52 @@ namespace Apache.Ignite
         /// <param name="other">Other configuration.</param>
         public IgniteClientConfiguration(IgniteClientConfiguration other)
         {
-            IgniteArgumentCheck.NotNull(other, nameof(other));
+            IgniteArgumentCheck.NotNull(other);
 
-            Logger = other.Logger;
+            LoggerFactory = other.LoggerFactory;
             SocketTimeout = other.SocketTimeout;
+            OperationTimeout = other.OperationTimeout;
             Endpoints = other.Endpoints.ToList();
             RetryPolicy = other.RetryPolicy;
             HeartbeatInterval = other.HeartbeatInterval;
+            ReconnectInterval = other.ReconnectInterval;
+            SslStreamFactory = other.SslStreamFactory;
+            Authenticator = other.Authenticator;
         }
 
         /// <summary>
-        /// Gets or sets the logger.
+        /// Gets or sets the logger factory. Default is <see cref="NullLoggerFactory.Instance"/>.
         /// </summary>
-        public IIgniteLogger? Logger { get; set; }
+        public ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
 
         /// <summary>
-        /// Gets or sets the socket operation timeout. Zero or negative means infinite timeout.
+        /// Gets or sets the socket timeout.
+        /// <para />
+        /// The timeout applies to the initial handshake procedure and heartbeats (see <see cref="HeartbeatInterval"/>).
+        /// If the server does not respond to the initial handshake message or a periodic heartbeat in the specified time,
+        /// the connection is closed with a <see cref="TimeoutException"/>.
+        /// <para />
+        /// Use <see cref="Timeout.InfiniteTimeSpan"/> for infinite timeout.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:05")]
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
 
         /// <summary>
+        /// Gets or sets the operation timeout. Default is <see cref="Timeout.InfiniteTimeSpan"/> (no timeout).
+        /// <para />
+        /// The timeout applies to all operations except handshake and heartbeats.
+        /// The time is measured from the moment the request is written to the socket to the moment the response is received.
+        /// </summary>
+        [DefaultValue(typeof(TimeSpan), "-00:00:00.001")]
+        public TimeSpan OperationTimeout { get; set; } = Timeout.InfiniteTimeSpan;
+
+        /// <summary>
         /// Gets endpoints to connect to.
+        /// <para />
+        /// Providing addresses of multiple nodes in the cluster will improve performance:
+        /// Ignite will balance requests across all connections, and use partition awareness to send key-based requests
+        /// directly to the primary node.
+        /// <para />
         /// Examples of supported formats:
         ///  * 192.168.1.25 (default port is used, see <see cref="DefaultPort"/>).
         ///  * 192.168.1.25:780 (custom port)
@@ -124,10 +155,39 @@ namespace Apache.Ignite
         /// When server-side idle timeout is not zero, effective heartbeat
         /// interval is set to <c>Min(HeartbeatInterval, IdleTimeout / 3)</c>.
         /// <para />
-        /// When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+        /// When client connection is idle (no operations are performed), heartbeat messages are sent periodically
         /// to keep the connection alive and detect potential half-open state.
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan HeartbeatInterval { get; set; } = DefaultHeartbeatInterval;
+
+        /// <summary>
+        /// Gets or sets the background reconnect interval.
+        /// <para />
+        /// Default is <see cref="DefaultReconnectInterval"/>. Set to <see cref="TimeSpan.Zero"/> to disable periodic reconnect.
+        /// <para />
+        /// Ignite balances requests across all healthy connections (when multiple endpoints are configured).
+        /// Ignite also repairs connections on demand (when a request is made).
+        /// However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
+        /// client will check all configured endpoints and try to reconnect them in case of failure.
+        /// </summary>
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
+        public TimeSpan ReconnectInterval { get; set; } = DefaultReconnectInterval;
+
+        /// <summary>
+        /// Gets or sets the SSL stream factory.
+        /// <para />
+        /// When not null, secure socket connection will be established.
+        /// <para />
+        /// See <see cref="SslStreamFactory"/>.
+        /// </summary>
+        public ISslStreamFactory? SslStreamFactory { get; set; }
+
+        /// <summary>
+        /// Gets or sets the authenticator. When null, no authentication is performed.
+        /// <para />
+        /// See <see cref="BasicAuthenticator"/>.
+        /// </summary>
+        public IAuthenticator? Authenticator { get; set; }
     }
 }

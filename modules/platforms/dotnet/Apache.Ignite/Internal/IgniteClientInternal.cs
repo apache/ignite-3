@@ -18,9 +18,11 @@
 namespace Apache.Ignite.Internal
 {
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Net;
     using System.Threading.Tasks;
+    using Common;
     using Ignite.Compute;
     using Ignite.Network;
     using Ignite.Sql;
@@ -46,14 +48,13 @@ namespace Apache.Ignite.Internal
         {
             _socket = socket;
 
-            var tables = new Tables(socket);
+            var sql = new Sql.Sql(socket);
+            var tables = new Tables(socket, sql);
+
             Tables = tables;
-
-            Transactions = new Transactions.Transactions(socket);
-
+            Transactions = new Transactions.Transactions();
             Compute = new Compute.Compute(socket, tables);
-
-            Sql = new Sql.Sql(socket);
+            Sql = sql;
         }
 
         /// <inheritdoc/>
@@ -82,15 +83,12 @@ namespace Apache.Ignite.Internal
             IList<IClusterNode> Read()
             {
                 var r = resBuf.GetReader();
-                var count = r.ReadArrayHeader();
+                var count = r.ReadInt32();
                 var res = new List<IClusterNode>(count);
 
                 for (var i = 0; i < count; i++)
                 {
-                    res.Add(new ClusterNode(
-                        Id: r.ReadString(),
-                        Name: r.ReadString(),
-                        Address: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
+                    res.Add(ClusterNode.Read(ref r));
                 }
 
                 return res;
@@ -98,13 +96,18 @@ namespace Apache.Ignite.Internal
         }
 
         /// <inheritdoc/>
-        public IList<IClusterNode> GetConnections() =>
-            _socket.GetConnections().Select(ctx => ctx.ClusterNode).ToList();
+        public IList<IConnectionInfo> GetConnections() => _socket.GetConnections();
 
         /// <inheritdoc/>
         public void Dispose()
         {
             _socket.Dispose();
         }
+
+        /// <inheritdoc/>
+        public override string ToString() =>
+            new IgniteToStringBuilder(GetType())
+                .AppendList(GetConnections().Select(c => c.Node), "Connections")
+                .Build();
     }
 }

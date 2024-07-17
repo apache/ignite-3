@@ -108,7 +108,7 @@ namespace Apache.Ignite.Tests
             writer.Write(2); // Client type: general purpose.
 
             writer.WriteBinHeader(0); // Features.
-            writer.WriteMapHeader(0); // Extensions.
+            writer.Write(0); // Extensions.
 
             writer.Flush();
 

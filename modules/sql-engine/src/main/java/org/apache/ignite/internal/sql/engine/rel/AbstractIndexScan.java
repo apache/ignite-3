@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,21 +18,31 @@
 package org.apache.ignite.internal.sql.engine.rel;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
-import org.apache.ignite.internal.sql.engine.util.IndexConditions;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,17 +51,20 @@ import org.jetbrains.annotations.Nullable;
 public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     protected final String idxName;
 
-    protected final IndexConditions idxCond;
+    protected final @Nullable List<SearchBounds> searchBounds;
+
+    protected final IgniteIndex.Type type;
 
     /**
      * Constructor used for deserialization.
      *
      * @param input Serialized representation.
      */
-    protected AbstractIndexScan(RelInput input) {
+    AbstractIndexScan(RelInput input) {
         super(input);
         idxName = input.getString("index");
-        idxCond = new IndexConditions(input);
+        type = input.getEnum("type", IgniteIndex.Type.class);
+        searchBounds = ((RelInputEx) input).getSearchBounds("searchBounds");
     }
 
     /**
@@ -64,62 +77,46 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
             List<RelHint> hints,
             RelOptTable table,
             String idxName,
+            IgniteIndex.Type type,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable IndexConditions idxCond,
+            @Nullable List<SearchBounds> searchBounds,
             @Nullable ImmutableBitSet reqColumns
     ) {
         super(cluster, traitSet, hints, table, proj, cond, reqColumns);
 
         this.idxName = idxName;
-        this.idxCond = idxCond;
+        this.type = type;
+        this.searchBounds = searchBounds;
     }
 
     /** {@inheritDoc} */
     @Override
     protected RelWriter explainTerms0(RelWriter pw) {
-        pw = pw.item("index", idxName);
-        pw = super.explainTerms0(pw);
-
-        return idxCond.explainTerms(pw);
+        pw = pw.item("index", idxName)
+                .item("type", type.name())
+                .itemIf("searchBounds", searchBounds, searchBounds != null);
+        return super.explainTerms0(pw);
     }
 
-    /**
-     * Get index name.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
+    /** {@inheritDoc} */
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        if (searchBounds != null) {
+            List<RexNode> expressions = searchBounds.stream()
+                    .filter(Objects::nonNull)
+                    .map(SearchBounds::condition)
+                    .collect(Collectors.toList());
+
+            shuttle.apply(expressions);
+        }
+
+        return super.accept(shuttle);
+    }
+
+    /** Return index name. */
     public String indexName() {
         return idxName;
-    }
-
-    /**
-     * Get lower index condition.
-     */
-    public List<RexNode> lowerCondition() {
-        return idxCond == null ? null : idxCond.lowerCondition();
-    }
-
-    /**
-     * Get lower index condition.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public List<RexNode> lowerBound() {
-        return idxCond == null ? null : idxCond.lowerBound();
-    }
-
-    /**
-     * Get upper index condition.
-     */
-    public List<RexNode> upperCondition() {
-        return idxCond == null ? null : idxCond.upperCondition();
-    }
-
-    /**
-     * Get upper index condition.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public List<RexNode> upperBound() {
-        return idxCond == null ? null : idxCond.upperBound();
     }
 
     /** {@inheritDoc} */
@@ -127,27 +124,39 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         double rows = table.getRowCount();
 
-        double cost = rows * IgniteCost.ROW_PASS_THROUGH_COST;
+        double cost = 0;
 
-        if (condition != null) {
-            RexBuilder builder = getCluster().getRexBuilder();
+        if (type == Type.HASH) {
+            boolean notExact = (searchBounds() == null)
+                    || searchBounds().stream().anyMatch(bound -> bound.type() == SearchBounds.Type.RANGE);
 
-            double selectivity = 1;
-
-            cost = 0;
-
-            if (lowerCondition() != null) {
-                double selectivity0 = mq.getSelectivity(this, RexUtil.composeConjunction(builder, lowerCondition()));
-
-                selectivity -= 1 - selectivity0;
-
-                cost += Math.log(rows);
+            if (!notExact) {
+                notExact = searchBounds().stream().flatMap(bound -> bound instanceof MultiBounds
+                                ? ((MultiBounds) bound).bounds().stream() : Stream.of(bound))
+                        .anyMatch(bound -> bound.type() != SearchBounds.Type.EXACT);
             }
 
-            if (upperCondition() != null && lowerCondition() != null && !lowerCondition().equals(upperCondition())) {
-                double selectivity0 = mq.getSelectivity(this, RexUtil.composeConjunction(builder, upperCondition()));
+            if (notExact) {
+                // now bounds index scan is only available for sorted index, check:
+                // PartitionReplicaListener#processReadOnlyScanRetrieveBatchAction
+                return planner.getCostFactory().makeInfiniteCost();
+            }
+        }
 
-                selectivity -= 1 - selectivity0;
+        double indexRowPassThroughCost = IgniteCost.ROW_PASS_THROUGH_COST * IgniteCost.INDEX_ROW_SCAN_MULTIPLIER;
+
+        if (condition == null) {
+            cost = rows * indexRowPassThroughCost;
+        } else {
+            double selectivity = 1;
+
+            RexBuilder builder = getCluster().getRexBuilder();
+
+            if (searchBounds() != null) {
+                selectivity = mq.getSelectivity(this, RexUtil.composeConjunction(builder,
+                        Commons.transform(searchBounds(), b -> b == null ? null : b.condition())));
+
+                cost = Math.log(rows) * IgniteCost.ROW_COMPARISON_COST;
             }
 
             rows *= selectivity;
@@ -156,18 +165,17 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
                 rows = 1;
             }
 
-            cost += rows * (IgniteCost.ROW_COMPARISON_COST + IgniteCost.ROW_PASS_THROUGH_COST);
+            cost += rows * (IgniteCost.ROW_COMPARISON_COST + indexRowPassThroughCost);
         }
 
-        // additional tiny cost for preventing equality with table scan.
-        return planner.getCostFactory().makeCost(rows, cost, 0).plus(planner.getCostFactory().makeTinyCost());
+        return planner.getCostFactory().makeCost(rows, cost, 0);
     }
 
     /**
      * Get index conditions.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public IndexConditions indexConditions() {
-        return idxCond;
+    public List<SearchBounds> searchBounds() {
+        return searchBounds;
     }
 }

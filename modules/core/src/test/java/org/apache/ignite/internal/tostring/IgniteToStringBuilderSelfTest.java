@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.tostring;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.identity;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,10 +44,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteSystemProperties;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -567,13 +567,13 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         String strRep = wr.toString();
 
-        //field before faulty field was written successfully to string representation
+        // field before faulty field was written successfully to string representation
         assertTrue(strRep.contains("id=12345"));
 
-        //message from RuntimeException was written to string representation
+        // message from RuntimeException was written to string representation
         assertTrue(strRep.contains("toString failed"));
 
-        //field after faulty field was written successfully to string representation
+        // field after faulty field was written successfully to string representation
         assertTrue(strRep.contains("str=str"));
     }
 
@@ -708,24 +708,22 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
          * @return Manual string.
          */
         String toStringManual() {
-            StringBuilder buf = new StringBuilder();
+            StringBuilder buf = new StringBuilder()
+                    .append(getClass().getSimpleName()).append(" [")
+                    .append("id=").append(id).append(", ")
+                    .append("uuidVar=").append(uuidVar).append(", ")
+                    .append("intVar=").append(intVar).append(", ");
 
-            buf.append(getClass().getSimpleName()).append(" [");
-
-            buf.append("id=").append(id).append(", ");
-            buf.append("uuidVar=").append(uuidVar).append(", ");
-            buf.append("intVar=").append(intVar).append(", ");
             if (S.includeSensitive()) {
                 buf.append("longVar=").append(longVar).append(", ");
             }
-            buf.append("boolVar=").append(boolVar).append(", ");
-            buf.append("byteVar=").append(byteVar).append(", ");
-            buf.append("name=").append(name).append(", ");
-            buf.append("finalInt=").append(finalInt).append(", ");
-            buf.append("strMap=").append(strMap).append(", ");
-            buf.append("strListIncl=").append(strListIncl);
-
-            buf.append("]");
+            buf.append("boolVar=").append(boolVar).append(", ")
+                    .append("byteVar=").append(byteVar).append(", ")
+                    .append("name=").append(name).append(", ")
+                    .append("finalInt=").append(finalInt).append(", ")
+                    .append("strMap=").append(strMap).append(", ")
+                    .append("strListIncl=").append(strListIncl)
+                    .append(']');
 
             return buf.toString();
         }
@@ -807,7 +805,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
      * Class sleeps a short quanta of time to increase chances of data race between {@link IgniteToStringBuilder} iterating over collection
      * user thread concurrently modifying it.
      */
-    private static class SlowToStringObject {
+    private class SlowToStringObject {
         /** {@inheritDoc} */
         @Override
         public String toString() {

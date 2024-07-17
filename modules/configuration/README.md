@@ -95,6 +95,18 @@ public static class AbstractConfigurationSchema {
   @Value(hasDefault = true)
   public int intVal = 0;
 }
+
+@ConfigurationExtension
+public static class ExtendedChildConfigurationSchema extends ChildConfigurationSchema {
+  @Value(hasDefault = true)
+  public int intVal = 0;
+}
+
+@ConfigurationExtension(internal = true)
+public static class InternalConfigurationSchema extends ChildConfigurationSchema {
+  @Value(hasDefault = true)
+  public String strVal = "foo";
+}
 ```
 
 * `@ConfigurationRoot` marks the root schema. It contains the following properties:
@@ -109,6 +121,7 @@ public static class AbstractConfigurationSchema {
    a unique identifier among the inheritors of one polymorphic configuration, used to define the type (schema) of the polymorphic configuration we are dealing with now;
 * `@AbstractConfiguration` is similar to `@PolymorphicConfig` but its type cannot be changed and its inheritors must be annotated with
   either `@Config` or `@ConfigurationRoot`. Configuration schemas with this annotation cannot be used as a nested (sub)configuration;
+* `@ConfigurationExtension` allows to extend existing `@Config` or `@ConfigurationRoot` configurations.
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
 * `@NamedConfigValue` is similar to `@ConfigValue`, but such fields represent a collection of properties, not a single
   instance. Every element of the collection will have a `String` name, similar to a `Map`.
@@ -118,7 +131,7 @@ public static class AbstractConfigurationSchema {
   has been provided explicitly. This annotation can only be present on fields of the Java primitive or `String` type.
     
   All _leaves_ must be public and corresponding configuration values **must not be null**;
-* `@PolymorphicId` is similar to the `@Value`, but is used to store the type of polymorphic configuration (`@PolymorphicConfigInstance#value`), must be a `String` and placed as the first field in a schema;
+* `@PolymorphicId` is similar to the `@Value`, but is used to store the type of polymorphic configuration (`@PolymorphicConfigInstance#value`) and must be a `String`.
 * `@Immutable` annotation can only be present on fields marked with the `@Value` annotation. Annotated fields cannot be 
   changed after they have been initialized (either manually or by assigning a default value).
 
@@ -194,6 +207,69 @@ public static class DatetimeColumnConfigurationSchema extends ColumnConfiguratio
 
 Thus, a column can only be one of these (varchar, decimal and datetime) types and will contain the
 type, name and fields specific to it.
+
+### Configuration extension
+
+Sometimes it is necessary to extend a configuration with a new field, 
+but it is not desirable (or possible) to modify the original configuration. 
+
+Suppose we have a `security` module and want to add one more authentication component that is located 
+in a different module that depends on `security`.
+
+```java
+@ConfigurationRoot(rootName = "security", type = ConfigurationType.DISTRIBUTED)
+public class SecurityConfigurationSchema {
+    @ConfigValue
+    public AuthenticationConfigurationSchema authentication;
+}
+
+@Config
+public class AuthenticationConfigurationSchema {
+  @Value(hasDefault = true)
+  public final boolean enabled = false;
+}
+```
+
+What we need to do is to subclass the configuration we want to extend.
+
+```java
+@ConfigurationExtension
+public class UserSecurityConfigurationSchema extends SecurityConfigurationSchema {
+  @Value
+  public final String user;
+}
+```
+And the resulting configuration will look as if the field `user` was declared directly in `SecurityConfigurationSchema`:
+
+```json
+{
+  "security": {
+    "authentication": {
+      "enabled": false
+    },
+    "user": "admin"
+  }
+}
+```
+
+### Internal extensions
+
+Sometimes it's necessary to have configuration values that are hidden form user:
+- these configuration values are available from internal code only
+- they are not accessible in JSON or any other configuration view representation
+- they can't be updated via CLI's HOCON update requests or any other public API calls
+
+To achieve this, one can use `@ConfigurationExtension(internal = true)` annotation on a configuration schema.
+
+Following the previous example with `security` module, let's add an extension to `SecurityConfigurationSchema`:
+
+```java
+@ConfigurationExtension(internal = true)
+public class SecurityUpgradeConfigurationSchema extends SecurityConfigurationSchema {
+  @Value
+  public final String version;
+}
+```
 
 ### Additional annotations
 
@@ -275,6 +351,43 @@ public interface FirstPolymorphicInstanceView extends PolymorphicView {
 
 `ParentView#polymorphicChild()` will return a view of a specific type of polymorphic configuration, for example `FirstPolymorphicInstanceView`.
 
+### Dynamic configuration defaults
+
+Configuration defaults are defined in the configuration schema. However, it is not possible define them there in the following cases:
+
+* the value is a list (`NamedListConfiguration`).
+* the default value is not known at compile time and it depends on some external factors.
+
+In such cases, one can override `ConfigurationModule.patchConfigurationWithDynamicDefaults` method to provide the defaults. The method will
+be called on cluster initialization with the user-provided configuration tree as an argument.
+
+Note, that dynamic defaults are not supported for node local configuration.
+
+```java
+public class MyConfigurationModule extends AbstractConfigurationModule {
+  @Override
+  protected void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
+    rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
+      if (authenticationChange.changeProviders().size() == 0) {
+        authenticationChange.changeProviders().create(DEFAULT_PROVIDER_NAME, change -> {
+          change.convert(BasicAuthenticationProviderChange.class)
+                  .changeUsername(DEFAULT_USERNAME)
+                  .changePassword(DEFAULT_PASSWORD)
+                  .changeRoles(AuthorizationConfigurationSchema.DEFAULT_ROLE);
+        });
+      }
+    });
+  }
+}
+```
+
+### Configuration initialization
+
+Custom configuration initialization can be done by calling `ConfigurationRegistry#initializeConfigurationWith` method. The method accepts
+initial configuration that will be used as a base for the configuration tree. If the configuration is not provided, the default
+configuration will be used. The method should be called before `ConfigurationRegistry#start` method. If the method is called after the
+start, the provided configuration will be ignored.
+
 ### Changing the configuration
 
 To modify the configuration tree, one should use the `change` method, which executes the update requests 
@@ -284,10 +397,13 @@ For the example above, the following interfaces would be generated:
 ```java
 public interface ParentChange extends ParentView { 
     ParentChange changeElements(Consumer<NamedListChange<NamedElementChange>> elements);
+    NamedListChange<NamedElementChange> changeElements();
 
     ParentChange changeChild(Consumer<ChildChange> child);
+    ChildChange changeChild();
 
     ParentChange changePolymorphicChild(Consumer<PolymorphicChange> polymorphicChild);
+    PolymorphicChange changePolymorphicChild();
 }
 
 public interface ChildChange extends ChildView {
@@ -314,9 +430,13 @@ parentCfg.change(parent ->
     )
 ).get();
 
+parentCfg.change(parent ->
+    parent.changeChild().changeStr("newStr2")
+).get();
+
 ChildConfiguration childCfg = parentCfg.child();
 
-childCfg.changeStr("newStr2").get();
+childCfg.changeStr("newStr3").get();
 ```
 
 Example of changing the type of a polymorphic configuration:

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -27,7 +27,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -35,8 +34,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -51,32 +48,32 @@ public class RendezvousAffinityFunctionTest {
 
     @Test
     public void testPartitionDistribution() {
-        int nodes = 50;
+        int nodeCount = 50;
 
         int parts = 10_000;
 
         int replicas = 4;
 
-        List<ClusterNode> clusterNodes = prepareNetworkTopology(nodes);
+        List<String> nodes = prepareNetworkTopology(nodeCount);
 
-        assertTrue(parts > nodes, "Partitions should be more that nodes");
+        assertTrue(parts > nodeCount, "Partitions should be more than nodes");
 
-        int ideal = (parts * replicas) / nodes;
+        int ideal = (parts * replicas) / nodeCount;
 
-        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
-                clusterNodes,
+        List<List<String>> assignment = RendezvousAffinityFunction.assignPartitions(
+                nodes,
                 parts,
                 replicas,
                 false,
                 null
         );
 
-        HashMap<ClusterNode, ArrayList<Integer>> assignmentByNode = new HashMap<>(nodes);
+        HashMap<String, ArrayList<Integer>> assignmentByNode = new HashMap<>(nodeCount);
 
         int part = 0;
 
-        for (List<ClusterNode> partNodes : assignment) {
-            for (ClusterNode node : partNodes) {
+        for (List<String> partNodes : assignment) {
+            for (String node : partNodes) {
                 ArrayList<Integer> nodeParts = assignmentByNode.get(node);
 
                 if (nodeParts == null) {
@@ -89,7 +86,7 @@ public class RendezvousAffinityFunctionTest {
             part++;
         }
 
-        for (ClusterNode node : clusterNodes) {
+        for (String node : nodes) {
             ArrayList<Integer> nodeParts = assignmentByNode.get(node);
 
             assertNotNull(nodeParts);
@@ -103,30 +100,26 @@ public class RendezvousAffinityFunctionTest {
         }
     }
 
-    @NotNull
-    private List<ClusterNode> prepareNetworkTopology(int nodes) {
-        var addr = new NetworkAddress("127.0.0.1", 121212);
-
+    private List<String> prepareNetworkTopology(int nodes) {
         return IntStream.range(0, nodes)
                 .mapToObj(i -> "Node " + i)
-                .map(name -> new ClusterNode(UUID.randomUUID().toString(), name, addr))
                 .collect(Collectors.toUnmodifiableList());
     }
 
     @Test
     public void serializeAssignment() {
-        int nodes = 50;
+        int nodeCount = 50;
 
         int parts = 10_000;
 
         int replicas = 4;
 
-        List<ClusterNode> clusterNodes = prepareNetworkTopology(nodes);
+        List<String> nodes = prepareNetworkTopology(nodeCount);
 
-        assertTrue(parts > nodes, "Partitions should be more that nodes");
+        assertTrue(parts > nodeCount, "Partitions should be more than nodes");
 
-        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
-                clusterNodes,
+        List<List<String>> assignment = RendezvousAffinityFunction.assignPartitions(
+                nodes,
                 parts,
                 replicas,
                 false,

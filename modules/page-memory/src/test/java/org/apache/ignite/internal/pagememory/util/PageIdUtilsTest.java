@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Random;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -121,18 +121,18 @@ public class PageIdUtilsTest {
     }
 
     @Test
-    public void testRandomIds() throws Exception {
+    public void testRandomIds() {
         Random rnd = new Random();
 
         for (int i = 0; i < 50_000; i++) {
-            int off = rnd.nextInt(PageIdUtils.MAX_ITEMID_NUM + 1);
+            int off = rnd.nextInt(PageIdUtils.MAX_ITEM_ID_NUM + 1);
             int partId = rnd.nextInt(PageIdUtils.MAX_PART_ID + 1);
             int pageNum = rnd.nextInt();
 
             long pageId = PageIdUtils.pageId(partId, PageIdAllocator.FLAG_DATA, pageNum);
 
-            String msg = "For values [offset=" + IgniteUtils.hexLong(off) + ", fileId=" + IgniteUtils.hexLong(partId)
-                    + ", pageNum=" + IgniteUtils.hexLong(pageNum) + ']';
+            String msg = "For values [offset=" + StringUtils.hexLong(off) + ", fileId=" + StringUtils.hexLong(partId)
+                    + ", pageNum=" + StringUtils.hexLong(pageNum) + ']';
 
             assertEquals(pageId, PageIdUtils.pageId(pageId), msg);
             assertEquals(0, PageIdUtils.itemId(pageId), msg);

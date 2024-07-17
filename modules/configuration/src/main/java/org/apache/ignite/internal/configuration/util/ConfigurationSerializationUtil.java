@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
+import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * Utility class to help serializing  deserializing configuration values - primitives, strings, or arrays of primitives or strings.
@@ -48,6 +50,8 @@ public class ConfigurationSerializationUtil {
 
     private static final byte STRING = 9;
 
+    private static final byte UUID = 10;
+
     private static final byte ARRAY = (byte) 0x80;
 
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
@@ -65,7 +69,7 @@ public class ConfigurationSerializationUtil {
 
         switch (header) {
             case BOOLEAN:
-                return new byte[]{header, (byte) ((boolean) value ? 1 : 0)};
+                return new byte[]{header, ByteUtils.booleanToByte((boolean) value)};
 
             case BYTE:
                 return new byte[]{header, (byte) value};
@@ -92,6 +96,16 @@ public class ConfigurationSerializationUtil {
                 byte[] strBytes = ((String) value).getBytes(StandardCharsets.UTF_8);
 
                 return allocateBuffer(1 + strBytes.length).put(header).put(strBytes).array();
+            }
+
+            case UUID: {
+                UUID uuid = (UUID) value;
+
+                return allocateBuffer(Long.BYTES * 2 + 1)
+                        .put(header)
+                        .putLong(uuid.getMostSignificantBits())
+                        .putLong(uuid.getLeastSignificantBits())
+                        .array();
             }
 
             case BOOLEAN | ARRAY: {
@@ -208,6 +222,20 @@ public class ConfigurationSerializationUtil {
                 return buf.array();
             }
 
+            case UUID | ARRAY: {
+                UUID[] uuids = (UUID[]) value;
+
+                ByteBuffer buf = allocateBuffer(1 + Long.BYTES * 2 * uuids.length);
+
+                buf.put(header);
+
+                for (UUID uuid : uuids) {
+                    buf.putLong(uuid.getMostSignificantBits()).putLong(uuid.getLeastSignificantBits());
+                }
+
+                return buf.array();
+            }
+
             default:
                 throw new IllegalArgumentException(value.getClass().getName());
         }
@@ -228,7 +256,7 @@ public class ConfigurationSerializationUtil {
 
         switch (header) {
             case BOOLEAN:
-                return buf.get() == 1;
+                return ByteUtils.byteToBoolean(buf.get());
 
             case BYTE:
                 return buf.get();
@@ -253,6 +281,9 @@ public class ConfigurationSerializationUtil {
 
             case STRING:
                 return new String(bytes, 1, bytes.length - 1, StandardCharsets.UTF_8);
+
+            case UUID:
+                return new UUID(buf.getLong(), buf.getLong());
 
             case BOOLEAN | ARRAY: {
                 return decompressBooleanArray(bytes);
@@ -337,6 +368,16 @@ public class ConfigurationSerializationUtil {
                 return res.toArray(EMPTY_STRING_ARRAY);
             }
 
+            case UUID | ARRAY: {
+                UUID[] uuids = new UUID[bytes.length / (Long.BYTES * 2)];
+
+                for (int i = 0; i < uuids.length; i++) {
+                    uuids[i] = new UUID(buf.getLong(), buf.getLong());
+                }
+
+                return uuids;
+            }
+
             default:
                 throw new IllegalArgumentException(Arrays.toString(bytes));
         }
@@ -365,6 +406,8 @@ public class ConfigurationSerializationUtil {
             return DOUBLE;
         } else if (clazz == String.class) {
             return STRING;
+        } else if (clazz == UUID.class) {
+            return UUID;
         } else if (clazz == boolean[].class) {
             return BOOLEAN | ARRAY;
         } else if (clazz == byte[].class) {
@@ -383,6 +426,8 @@ public class ConfigurationSerializationUtil {
             return DOUBLE | ARRAY;
         } else if (clazz == String[].class) {
             return STRING | ARRAY;
+        } else if (clazz == UUID[].class) {
+            return UUID | ARRAY;
         } else {
             throw new IllegalArgumentException(clazz.getName());
         }

@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.raft.jraft.util.CrcUtil;
 
@@ -25,6 +24,8 @@ import org.apache.ignite.raft.jraft.util.CrcUtil;
  * A replica log entry.
  */
 public class LogEntry implements Checksum {
+    public static final ByteBuffer EMPTY_DATA = ByteBuffer.wrap(new byte[0]);
+
     /** entry type */
     private EnumOutter.EntryType type;
     /** log id with index/term */
@@ -38,7 +39,7 @@ public class LogEntry implements Checksum {
     /** log entry old learners */
     private List<PeerId> oldLearners;
     /** entry data */
-    private ByteBuffer data;
+    private ByteBuffer data = EMPTY_DATA;
     /** checksum for log entry */
     private long checksum;
     /** true when the log has checksum **/
@@ -77,21 +78,12 @@ public class LogEntry implements Checksum {
     @Override
     public long checksum() {
         long c = checksum(this.type.getNumber(), this.id.checksum());
-        c = checksumPeers(this.peers, c);
-        c = checksumPeers(this.oldPeers, c);
-        c = checksumPeers(this.learners, c);
-        c = checksumPeers(this.oldLearners, c);
+        c = checksum(this.peers, c);
+        c = checksum(this.oldPeers, c);
+        c = checksum(this.learners, c);
+        c = checksum(this.oldLearners, c);
         if (this.data != null && this.data.hasRemaining()) {
             c = checksum(c, CrcUtil.crc64(this.data));
-        }
-        return c;
-    }
-
-    private long checksumPeers(final Collection<PeerId> peers, long c) {
-        if (peers != null && !peers.isEmpty()) {
-            for (final PeerId peer : peers) {
-                c = checksum(c, peer.checksum());
-            }
         }
         return c;
     }
@@ -160,8 +152,33 @@ public class LogEntry implements Checksum {
         this.oldPeers = oldPeers;
     }
 
+    /**
+     * Returns the log data, it's not read-only, you SHOULD take care it's modification and
+     * thread-safety by yourself.
+     *
+     * @return the log data
+     */
     public ByteBuffer getData() {
         return this.data;
+    }
+
+    /**
+     * Creates a new byte buffer whose content is a shared subsequence of this log entry's data
+     * buffer's content.
+     *
+     * @return The new byte buffer
+     */
+    public ByteBuffer sliceData() {
+        return this.data != null ? this.data.slice() : null;
+    }
+
+    /**
+     * Creates a new, read-only byte buffer that shares this log entry's data buffer's content.
+     *
+     * @return the new, read-only byte buffer
+     */
+    public ByteBuffer getReadOnlyData() {
+        return this.data != null ? this.data.asReadOnlyBuffer() : null;
     }
 
     public void setData(final ByteBuffer data) {

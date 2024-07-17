@@ -1,23 +1,25 @@
-# Ignite transactions
-This module provides transactions support for cross partition operations. Using the transactions, such operations are
-executed in atomic way (either all changes all applied, or nothing at all) with a strong isolation.
+The most recent version of the transaction protocol is described in the
+[IEP-91: Transaction protocol](https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol)
 
-Transactions support is supposed to be icremental. In the first approach, we are trying to put existing ideas from
+# Ignite transactions
+This module provides transactions support. Multiple tables and partitions can be enlisted into a transaction. Using the transactions, such 
+operations are executed in atomic way (either all changes all applied, or nothing at all) with a strong isolation.
+
+Transactions support is supposed to be incremental. In the first approach, we are trying to put existing ideas from
 ignite 2 to the new consensus based replication infrastructure. 
 In the next phases, MVCC support should be added to avoid blocking reads and possibly some other optimization, 
 like parallel commits from <sup id="a1">[1](#f1)</sup>
 
 # Transaction protocol design (first iteration)
-At a high level, we utilize 2 phase locking (2PL) for concurrency control, 2 phase commit (2PC) as an atomic commitment 
-protocol, in conjunction with WAIT_DIE deadlock prevention, described in <sup id="a2">[2](#f2)</sup>. 
-This implementation is similar to Ignite 2 optimistic serializable mode. 
+At a high level, we utilize 2 phase locking (2PL) for concurrency control, an atomic commitment 
+protocol, in conjunction with deadlock prevention, described in <sup id="a2">[2](#f2)</sup>.
 Additional goals are: 
 1) retain only strong isolation 
 2) support for SQL 
 3) utilize new replication infrastructure based on RAFT.
 
-# Two phase commit
-This protocol is responsible for atomic commitment (all or nothing) tx guraranties.
+# Atomic commitment
+Transactional protocol is responsible for atomic commitment (all or nothing) tx guraranties.
 Each update is **pre-written** to a replication groups on first phase (and replicated to a majority).
 As soon as all updates are pre-written, it's safe to commit.
 This slightly differs from ignite 2, because there is no PREPARED state.
@@ -45,7 +47,7 @@ or discovered on demand by asking raft group nodes.
 The simplest implementation of a leaseholder is using raft leader leases, as described if RAFT paper. 
 In this approach a leaseholder is a same node as a raft leader.
 
-The lockmanager should keep locks in the offheap to reduce GC pressure, but can be heap based in the first iteration.
+The lockmanager should keep locks in the offheap to reduce GC pressure, but can be heap based in the first iteration. See `org.apache.ignite.internal.tx.impl.HeapLockManager`.
 
 # Locking precausion
 LockManager has a volatile state, so some precausions must be taken before locking the keys due to possible node restarts.
@@ -60,18 +62,21 @@ TX coordination can be done from any grid node. Coordinators can be dedicated no
 Coordinators are responsible for id assignment, tx mapping and failover handling if some nodes from tx topology have failed. 
 Knows full tx topology just before committing.
 
+# Transaction id and timestamp
+Transaction is identified by UUID and incorporates timestamp. See `org.apache.ignite.internal.tx.impl.TxManagerImpl#begin(boolean)`.
+
 # Deadlock prevention
-Deadlock prevention in WAIT_DIE mode (described in details in <sup id="a2">[2](#f2)</sup>)- uses tx priorities to decide which tx should be restarted.
+Deadlock detection, in comparison to deadlock prevention, doesn't require huge computation resources requirement and has real-time guaranties.
+This functionality is provided by LockManager and implementations of DeadlockPreventionPolicy.
+Default implementation is WAIT_DIE policy, but other policies are possible, for example NO_WAIT, TIMEOUT_WAIT, WOUND_WAIT. Deadlock prevention in WAIT_DIE mode (described in details in <sup id="a2">[2](#f2)</sup>)- uses tx priorities to decide which tx should be restarted.
 Each transaction is assigned a unique globally comparable timestamp (for example UUID), which defines tx priority.
-If T1 has lower priority when T2 (T1 is younger) it can wait for lock, otherwise it's restarted keeping it's timestamp.
+If T1 has higher priority when T2 (T1 is older) it can wait for lock, otherwise it's restarted keeping it's timestamp.
 committing transaction can't be restarted.
-Deadlock detection is not an option due to huge computation resources requirement and no real-time guaranties.
-This functionality should be implemented by LockManager.
 
 # Tx metadata
 Each node maintains a persistent tx map:
 
-txid -> txstate(PENDING|ABORTED|COMMITED)
+txid -> txstate(ABORTED|COMMITTED)
 
 This map is used for a failover and for reading. Oldest entries in txid map must be cleaned to avoid unlimited grow.
 
@@ -141,7 +146,6 @@ Tx client               TxCoordinator                                           
 tx.start
             --------->  
                         assign timestamp = ts
-                        txstate = PENDING
             <---------		   	               
 table.put(k,v)   
             --------->   
@@ -149,7 +153,6 @@ table.put(k,v)
                         lh = getLeaseholder(partition(k))
                         send UpsertCommand(k,ts) to lh
 				                                                      ------------>
-                                                                                     replicate txstate = PENDING
                                                                                      lockManager.tryAcquire(k,ts);
                                                                                      wait for completion async
                                                                                      prewrite(k,v,oldV,ts) -- replicate to all replicas
@@ -163,7 +166,7 @@ tx.finish - commit or rollback
                         txState = COMMITTED/ABORTED                                  lockManager.tryRelease(k,ts)
                                                                       <------------ 
                         		
-                        when all leasholders are replied,
+                        when all leaseholders replied,
                         reply to initiator
             <--------
 ```
@@ -176,7 +179,7 @@ Key -> Tuple (newVal, oldVal, ts) will change after resetting to Key -> Tuple (n
 
 # One phase commit
 
-Implicit tx can be fast committed if all keys belongs to the same partition. TODO IGNITE-15927
+Implicit tx is committed in 1RTT if all keys belongs to the same partition.
 
 # SQL and indexes.
 
@@ -187,21 +190,19 @@ The locking rules are same as for get/put operations.
 Then values are removed from indexes on step 2, they are written as tombstones to avoid read inconsistency and should be 
 cleaned up after tx finish.
 
-TODO IGNITE-15087: tx example flow with enabled index(es)
-
 # Failover handling
 Failover protocol is similar to Ignite 2 with a main difference: until tx is sure it can commit or rollback, it holds
 its locks. This means in the case of split-brain, some keys will be locked until split-brain situation is resolved and
 tx recovery protocol will converge. Consult a 2PC paper for details when it's possible, for example <sup id="a3">[3](#f3)</sup>
 
-## Leaserholder fail
+## Leaseholder fail
 If a tx is not started to COMMIT, the coordinator reverts a transaction on remaining leaseholders.
-Then a new leasholder is elected, it check for its pending transactions and asks a coordinator if it's possible to commit.
+Then a new leaseholder is elected, it checks for its pending transactions and asks a coordinator if it's possible to commit.
 
 ## Coordinator fail
 Broadcast recovery (various strategies are possible: via gossip or dedicated node) is necessary (because we don't have 
 full tx topology on each enlisted node - because it's unknown until commit). All nodes are requested about local txs state. 
-If at least one is commiting, it's safe to commit.
+If at least one is committing, it's safe to commit.
 
 **Note: a failover handling is still work in progress.**
 

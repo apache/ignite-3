@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,18 +18,21 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.lang.MarshallerException;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -66,7 +69,7 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -92,7 +95,7 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -121,7 +124,7 @@ public class RecordMarshallerValidationsTest {
 
         RecordMarshaller<TruncatedRecClass> marshaller = factory.create(schema, TruncatedRecClass.class);
 
-        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertEquals(rec.id, restoredRec.id);
         assertEquals(rec.fbyte1, restoredRec.fbyte1);
@@ -143,11 +146,14 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshallerFull.marshal(fullRec);
 
-        Object restoredRec = marshallerFull.unmarshal(new Row(schema, row));
+        Object restoredRec = marshallerFull.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(fullRec.getClass().isInstance(restoredRec));
 
-        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestK2V1.class), "No field found for column k1");
+        assertThrowsWithCause(
+                () -> factory.create(schema, TestK2V1.class),
+                IllegalArgumentException.class,
+                "No mapped object field found for column 'K1'");
     }
 
     /**
@@ -175,6 +181,11 @@ public class RecordMarshallerValidationsTest {
             }
             TruncatedRecClass truncatedRecClass = (TruncatedRecClass) o;
             return id == truncatedRecClass.id && fbyte1 == truncatedRecClass.fbyte1;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, fbyte1);
         }
     }
 
@@ -206,6 +217,11 @@ public class RecordMarshallerValidationsTest {
             }
             FullRecClass that = (FullRecClass) o;
             return id == that.id && fbyte1 == that.fbyte1 && fbyte2 == that.fbyte2;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, fbyte1, fbyte2);
         }
     }
 
@@ -239,4 +255,3 @@ public class RecordMarshallerValidationsTest {
         }
     }
 }
-

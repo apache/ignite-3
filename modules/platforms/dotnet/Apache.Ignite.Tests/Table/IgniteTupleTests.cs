@@ -27,10 +27,16 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     public class IgniteTupleTests
     {
+        [TearDown]
+        public void TearDown()
+        {
+            TestUtils.CheckByteArrayPoolLeak();
+        }
+
         [Test]
         public void TestCreateUpdateRead()
         {
-            IIgniteTuple tuple = new IgniteTuple();
+            IIgniteTuple tuple = CreateTuple(new IgniteTuple());
             Assert.AreEqual(0, tuple.FieldCount);
 
             tuple["foo"] = 1;
@@ -68,21 +74,21 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestGetNullOrEmptyNameThrowsException()
         {
-            var tuple = new IgniteTuple { ["Foo"] = 1 };
+            var tuple = CreateTuple(new IgniteTuple { ["Foo"] = 1 });
 
-            var ex = Assert.Throws<IgniteClientException>(() => tuple.GetOrdinal(string.Empty));
+            var ex = Assert.Throws<ArgumentException>(() => tuple.GetOrdinal(string.Empty));
             Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
 
-            ex = Assert.Throws<IgniteClientException>(() => tuple.GetOrdinal(null!));
+            ex = Assert.Throws<ArgumentException>(() => tuple.GetOrdinal(null!));
             Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
 
-            ex = Assert.Throws<IgniteClientException>(() =>
+            ex = Assert.Throws<ArgumentException>(() =>
             {
                 var unused = tuple[string.Empty];
             });
             Assert.AreEqual("Column name can not be null or empty.", ex!.Message);
 
-            ex = Assert.Throws<IgniteClientException>(() =>
+            ex = Assert.Throws<ArgumentException>(() =>
             {
                 var unused = tuple[null!];
             });
@@ -92,46 +98,44 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestGetNonExistingNameThrowsException()
         {
-            var tuple = new IgniteTuple { ["Foo"] = 1 };
+            var tuple = CreateTuple(new IgniteTuple { ["Foo"] = 1 });
 
-            var ex = Assert.Throws<KeyNotFoundException>(() =>
-            {
-                var unused = tuple["bar"];
-            });
+            var ex = Assert.Throws<KeyNotFoundException>(() => { _ = tuple["bar"]; });
             Assert.AreEqual("The given key 'BAR' was not present in the dictionary.", ex!.Message);
         }
 
         [Test]
         public void TestToStringEmpty()
         {
-            Assert.AreEqual("IgniteTuple { }", new IgniteTuple().ToString());
+            var tuple = CreateTuple(new IgniteTuple());
+            Assert.AreEqual(GetShortClassName() + " { }", tuple.ToString());
         }
 
         [Test]
         public void TestToStringOneField()
         {
-            var tuple = new IgniteTuple { ["foo"] = 1 };
-            Assert.AreEqual("IgniteTuple { FOO = 1 }", tuple.ToString());
+            var tuple = CreateTuple(new IgniteTuple { ["foo"] = 1 });
+            Assert.AreEqual(GetShortClassName() + " { FOO = 1 }", tuple.ToString());
         }
 
         [Test]
         public void TestToStringTwoFields()
         {
-            var tuple = new IgniteTuple
+            var tuple = CreateTuple(new IgniteTuple
             {
                 ["foo"] = 1,
                 ["b"] = "abcd"
-            };
+            });
 
-            Assert.AreEqual("IgniteTuple { FOO = 1, B = abcd }", tuple.ToString());
+            Assert.AreEqual(GetShortClassName() + " { FOO = 1, B = abcd }", tuple.ToString());
         }
 
         [Test]
         public void TestEquality()
         {
-            var t1 = new IgniteTuple(2) { ["k"] = 1, ["v"] = "2" };
-            var t2 = new IgniteTuple(3) { ["k"] = 1, ["v"] = "2" };
-            var t3 = new IgniteTuple(4) { ["k"] = 1, ["v"] = null };
+            var t1 = CreateTuple(new IgniteTuple(2) { ["k"] = 1, ["v"] = "2" });
+            var t2 = CreateTuple(new IgniteTuple(3) { ["k"] = 1, ["v"] = "2" });
+            var t3 = CreateTuple(new IgniteTuple(4) { ["k"] = 1, ["v"] = null });
 
             Assert.AreEqual(t1, t2);
             Assert.AreEqual(t2, t1);
@@ -147,11 +151,15 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestCustomTupleEquality()
         {
-            var tuple = new IgniteTuple { ["key"] = 42, ["val"] = "Val1" };
+            var tuple = CreateTuple(new IgniteTuple { ["key"] = 42L, ["val"] = "Val1" });
             var customTuple = new CustomTestIgniteTuple();
 
             Assert.IsTrue(IIgniteTuple.Equals(tuple, customTuple));
             Assert.AreEqual(IIgniteTuple.GetHashCode(tuple), IIgniteTuple.GetHashCode(customTuple));
         }
+
+        protected virtual string GetShortClassName() => nameof(IgniteTuple);
+
+        protected virtual IIgniteTuple CreateTuple(IIgniteTuple source) => source;
     }
 }

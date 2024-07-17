@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,11 +19,11 @@ package org.apache.ignite.client.handler;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
  * Per-connection resource registry.
@@ -42,12 +42,9 @@ public class ClientResourceRegistry {
     /**
      * RW lock.
      */
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /**
-     * Closed flag.
-     */
-    private volatile boolean closed;
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * Stores the resource and returns the generated id.
@@ -116,31 +113,30 @@ public class ClientResourceRegistry {
      * Closes the registry and releases all resources.
      */
     public void close() {
-        rwLock.writeLock().lock();
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
 
-        try {
-            closed = true;
-            IgniteInternalException ex = null;
+        busyLock.block();
 
-            for (ClientResource r : res.values()) {
-                try {
-                    r.release();
-                } catch (Exception e) {
-                    if (ex == null) {
-                        ex = new IgniteInternalException(e);
-                    } else {
-                        ex.addSuppressed(e);
-                    }
+        IgniteInternalException ex = null;
+
+        for (ClientResource r : res.values()) {
+            try {
+                r.release();
+            } catch (Exception e) {
+                if (ex == null) {
+                    ex = new IgniteInternalException(e);
+                } else {
+                    ex.addSuppressed(e);
                 }
             }
+        }
 
-            res.clear();
+        res.clear();
 
-            if (ex != null) {
-                throw ex;
-            }
-        } finally {
-            rwLock.writeLock().unlock();
+        if (ex != null) {
+            throw ex;
         }
     }
 
@@ -148,7 +144,7 @@ public class ClientResourceRegistry {
      * Enters the lock.
      */
     private void enter() throws IgniteInternalCheckedException {
-        if (!rwLock.readLock().tryLock() || closed) {
+        if (!busyLock.enterBusy()) {
             throw new IgniteInternalCheckedException("Resource registry is closed.");
         }
     }
@@ -157,6 +153,6 @@ public class ClientResourceRegistry {
      * Leaves the lock.
      */
     private void leave() {
-        rwLock.readLock().unlock();
+        busyLock.leaveBusy();
     }
 }

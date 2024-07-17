@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,31 +17,36 @@
 
 package org.apache.ignite.internal.client.sql;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.time.Duration;
-import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.sql.CursorClosedException;
+import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.table.ClientColumn;
+import org.apache.ignite.internal.client.table.ClientSchema;
+import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.lang.CursorClosedException;
+import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Client async result set.
  */
-class ClientAsyncResultSet implements AsyncResultSet {
+class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     /** Channel. */
     private final ClientChannel ch;
 
@@ -60,8 +65,16 @@ class ClientAsyncResultSet implements AsyncResultSet {
     /** Metadata. */
     private final ResultSetMetadata metadata;
 
+    /** Marshaller. Not null when object mapping is used. */
+    @Nullable
+    private final Marshaller marshaller;
+
+    /** Mapper. */
+    @Nullable
+    private final Mapper<T> mapper;
+
     /** Rows. */
-    private volatile List<SqlRow> rows;
+    private volatile List<T> rows;
 
     /** More pages flag. */
     private volatile boolean hasMorePages;
@@ -74,8 +87,9 @@ class ClientAsyncResultSet implements AsyncResultSet {
      *
      * @param ch Channel.
      * @param in Unpacker.
+     * @param mapper Mapper.
      */
-    public ClientAsyncResultSet(ClientChannel ch, ClientMessageUnpacker in) {
+    ClientAsyncResultSet(ClientChannel ch, MarshallersProvider marshallers, ClientMessageUnpacker in, @Nullable Mapper<T> mapper) {
         this.ch = ch;
 
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
@@ -83,7 +97,12 @@ class ClientAsyncResultSet implements AsyncResultSet {
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-        metadata = hasRowSet ? new ClientResultSetMetadata(in) : null;
+        metadata = hasRowSet ? ClientResultSetMetadata.read(in) : null;
+
+        this.mapper = mapper;
+        marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class
+                ? marshaller(metadata, marshallers, mapper)
+                : null;
 
         if (hasRowSet) {
             readRows(in);
@@ -117,7 +136,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     @Override
-    public Iterable<SqlRow> currentPage() {
+    public Iterable<T> currentPage() {
         requireResultSet();
 
         return rows;
@@ -133,16 +152,11 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
+    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
-        if (closed) {
+        if (closed || !hasMorePages()) {
             return CompletableFuture.failedFuture(new CursorClosedException());
-        }
-
-        if (!hasMorePages()) {
-            return CompletableFuture.failedFuture(
-                    new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
         }
 
         return ch.serviceAsync(
@@ -169,9 +183,9 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<Void> closeAsync() {
+    public CompletableFuture<Void> closeAsync() {
         if (resourceId == null || closed) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         closed = true;
@@ -186,90 +200,126 @@ class ClientAsyncResultSet implements AsyncResultSet {
     }
 
     private void readRows(ClientMessageUnpacker in) {
-        int size = in.unpackArrayHeader();
+        int size = in.unpackInt();
         int rowSize = metadata.columns().size();
 
-        var res = new ArrayList<SqlRow>(size);
+        var res = new ArrayList<T>(size);
 
-        for (int i = 0; i < size; i++) {
-            var row = new ArrayList<>(rowSize);
+        if (marshaller == null) {
+            for (int i = 0; i < size; i++) {
+                var tupleReader = new BinaryTupleReader(rowSize, in.readBinary());
 
-            for (int j = 0; j < rowSize; j++) {
-                var col = metadata.columns().get(j);
-                row.add(readValue(in, col.type()));
+                res.add((T) new ClientSqlRow(tupleReader, metadata));
             }
+        } else {
+            try {
+                for (int i = 0; i < size; i++) {
+                    var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
+                    var reader = new ClientMarshallerReader(tupleReader, null, TuplePart.KEY_AND_VAL);
 
-            res.add(new ClientSqlRow(row, metadata));
+                    res.add((T) marshaller.readObject(reader, null));
+                }
+            } catch (MarshallerException e) {
+                assert mapper != null;
+                throw new MarshallerException(
+                        "Failed to map SQL result set to type '" + mapper.targetType() + "': " + e.getMessage(),
+                        e);
+            }
         }
 
         rows = Collections.unmodifiableList(res);
     }
 
-    private static Object readValue(ClientMessageUnpacker in, SqlColumnType colType) {
-        if (in.tryUnpackNil()) {
+    private static Object readValue(BinaryTupleReader in, int idx, ColumnMetadata col) {
+        if (in.hasNullValue(idx)) {
             return null;
         }
 
-        switch (colType) {
+        switch (col.type()) {
             case BOOLEAN:
-                return in.unpackBoolean();
+                return in.byteValue(idx) != 0;
 
             case INT8:
-                return in.unpackByte();
+                return in.byteValue(idx);
 
             case INT16:
-                return in.unpackShort();
+                return in.shortValue(idx);
 
             case INT32:
-                return in.unpackInt();
+                return in.intValue(idx);
 
             case INT64:
-                return in.unpackLong();
+                return in.longValue(idx);
 
             case FLOAT:
-                return in.unpackFloat();
+                return in.floatValue(idx);
 
             case DOUBLE:
-                return in.unpackDouble();
+                return in.doubleValue(idx);
 
             case DECIMAL:
-                return in.unpackDecimal();
+                return in.decimalValue(idx, col.scale());
 
             case DATE:
-                return in.unpackDate();
+                return in.dateValue(idx);
 
             case TIME:
-                return in.unpackTime();
+                return in.timeValue(idx);
 
             case DATETIME:
-                return in.unpackDateTime();
+                return in.dateTimeValue(idx);
 
             case TIMESTAMP:
-                return in.unpackTimestamp();
+                return in.timestampValue(idx);
 
             case UUID:
-                return in.unpackUuid();
+                return in.uuidValue(idx);
 
             case BITMASK:
-                return in.unpackBitSet();
+                return in.bitmaskValue(idx);
 
             case STRING:
-                return in.unpackString();
+                return in.stringValue(idx);
 
             case BYTE_ARRAY:
-                return in.readPayload(in.unpackBinaryHeader());
+                return in.bytesValue(idx);
 
             case PERIOD:
-                return Period.of(in.unpackInt(), in.unpackInt(), in.unpackInt());
+                return in.periodValue(idx);
 
             case DURATION:
-                return Duration.ofSeconds(in.unpackLong(), in.unpackInt());
+                return in.durationValue(idx);
 
             case NUMBER:
-                return in.unpackBigInteger();
+                return in.numberValue(idx);
 
             default:
-                throw new UnsupportedOperationException("Unsupported column type: " + colType);
+                throw new UnsupportedOperationException("Unsupported column type: " + col.type());
         }
+    }
+
+    private static <T> Marshaller marshaller(ResultSetMetadata metadata, MarshallersProvider marshallers, Mapper<T> mapper) {
+        var schemaColumns = new ClientColumn[metadata.columns().size()];
+        List<ColumnMetadata> columns = metadata.columns();
+
+        for (int i = 0; i < columns.size(); i++) {
+            ColumnMetadata metaColumn = columns.get(i);
+
+            var schemaColumn = new ClientColumn(
+                    metaColumn.name(),
+                    metaColumn.type(),
+                    metaColumn.nullable(),
+                    i,
+                    -1,
+                    -1,
+                    i,
+                    metaColumn.scale(),
+                    metaColumn.precision());
+
+            schemaColumns[i] = schemaColumn;
+        }
+
+        var schema = new ClientSchema(0, schemaColumns, marshallers);
+        return schema.getMarshaller(mapper);
     }
 }

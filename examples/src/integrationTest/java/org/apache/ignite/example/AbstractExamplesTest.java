@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,46 +20,49 @@ package org.apache.ignite.example;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.IgniteServer;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for creating tests for examples.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public abstract class AbstractExamplesTest extends IgniteAbstractTest {
     private static final String TEST_NODE_NAME = "ignite-node";
 
     /** Empty argument to invoke an example. */
     protected static final String[] EMPTY_ARGS = new String[0];
 
-    /** Started ignite instance. */
-    protected IgniteImpl ignite;
+    /** Started embedded node. */
+    private IgniteServer node;
 
     /**
      * Starts a node.
      */
     @BeforeEach
     public void startNode() throws Exception {
-        CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
+        node = IgniteServer.start(
                 TEST_NODE_NAME,
-                Path.of("config", "ignite-config.conf"),
-                workDir,
-                null
+                configFile(),
+                workDir
         );
 
-        IgnitionManager.init(TEST_NODE_NAME, List.of(TEST_NODE_NAME), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(TEST_NODE_NAME)
+                .clusterName("cluster")
+                .build();
 
-        assertThat(igniteFuture, willCompleteSuccessfully());
-
-        // We can call without a timeout, since the future is guaranteed to be completed above.
-        ignite = (IgniteImpl) igniteFuture.join();
+        CompletableFuture<Void> initFuture = node.initClusterAsync(initParameters);
+        assertThat(initFuture, willCompleteSuccessfully());
     }
 
     /**
@@ -67,6 +70,22 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
      */
     @AfterEach
     public void stopNode() {
-        IgnitionManager.stop(TEST_NODE_NAME);
+        node.shutdown();
+    }
+
+    /**
+     * Copy the original node configuration file to the temporary directory.
+     * It needs for the safety reasons: some tests can mutate local configurations (for example storage tests)
+     * and mutate this file as a result. So, further tests will run with inappropriate configuration.
+     *
+     * @return The path of the copied configuration file.
+     * @throws IOException If an I/O error occurs during the file copying process.
+     */
+    private Path configFile() throws IOException {
+        var configFileName = "ignite-config.conf";
+
+        return Files.copy(
+                Path.of("config", configFileName),
+                workDir.resolve(configFileName));
     }
 }

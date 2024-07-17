@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -52,6 +52,8 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
+    private final CleanSlateUnmarshaller unmarshaller = new CleanSlateUnmarshaller(marshaller, descriptorRegistry);
+
     private static final int WRITE_REPLACE_INCREMENT = 1_000_000;
     private static final int READ_RESOLVE_INCREMENT = 1_000;
 
@@ -74,15 +76,7 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
 
     private <T> T marshalAndUnmarshalNonNull(Object object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
-        return unmarshalNonNull(marshalled);
-    }
-
-    private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
-
-        assertThat(unmarshalled, is(notNullValue()));
-
-        return unmarshalled;
+        return unmarshaller.unmarshalNonNull(marshalled);
     }
 
     @Test

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -38,23 +38,18 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 @Controller("/management/v1/cluster")
 @Tag(name = "clusterManagement")
 public interface ClusterManagementApi {
-
     /**
      * Returns cluster state.
      */
     @Get("state")
-    @Operation(operationId = "clusterState")
-    @ApiResponse(responseCode = "200", description = "Return cluster state",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON,
-                    schema = @Schema(implementation = ClusterStateDto.class)))
-    @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "clusterState", description = "Returns current cluster status.")
+    @ApiResponse(responseCode = "200", description = "Cluster status returned.",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterState.class)))
+    @ApiResponse(responseCode = "404", description = "Cluster status not found. Most likely, the cluster is not initialized.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces({
-            MediaType.APPLICATION_JSON,
-            MediaType.PROBLEM_JSON
-    })
-    CompletableFuture<ClusterStateDto> clusterState();
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    CompletableFuture<ClusterState> clusterState();
 
     /**
      * Initializes cluster.
@@ -62,12 +57,13 @@ public interface ClusterManagementApi {
      * @return Completable future that will be completed when cluster is initialized.
      */
     @Post("init")
-    @Operation(operationId = "init")
-    @ApiResponse(responseCode = "200", description = "Cluster initialized")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "init", description = "Initializes a new cluster.")
+    @ApiResponse(responseCode = "200", description = "Cluster initialized.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> init(@Body InitCommand initCommand);
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,12 +21,14 @@ import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageWriter;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Direct marshalling I/O stream.
@@ -61,11 +63,25 @@ public interface DirectByteBufferStream {
     void writeByte(byte val);
 
     /**
+     * Writes {@code Byte}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedByte(@Nullable Byte val);
+
+    /**
      * Writes {@code short}.
      *
      * @param val Value.
      */
     void writeShort(short val);
+
+    /**
+     * Writes {@code Short}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedShort(@Nullable Short val);
 
     /**
      * Writes {@code int}.
@@ -75,11 +91,25 @@ public interface DirectByteBufferStream {
     void writeInt(int val);
 
     /**
+     * Writes {@code Integer}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedInt(@Nullable Integer val);
+
+    /**
      * Writes {@code long}.
      *
      * @param val Value.
      */
     void writeLong(long val);
+
+    /**
+     * Writes {@code Long}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedLong(@Nullable Long val);
 
     /**
      * Writes {@code float}.
@@ -89,11 +119,25 @@ public interface DirectByteBufferStream {
     void writeFloat(float val);
 
     /**
+     * Writes {@code Float}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedFloat(@Nullable Float val);
+
+    /**
      * Writes {@code double}.
      *
      * @param val Value.
      */
     void writeDouble(double val);
+
+    /**
+     * Writes {@code Double}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedDouble(@Nullable Double val);
 
     /**
      * Writes {@code char}.
@@ -103,11 +147,25 @@ public interface DirectByteBufferStream {
     void writeChar(char val);
 
     /**
+     * Writes {@code Character}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedChar(@Nullable Character val);
+
+    /**
      * Writes {@code boolean}.
      *
      * @param val Value.
      */
     void writeBoolean(boolean val);
+
+    /**
+     * Writes {@code Boolean}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedBoolean(@Nullable Boolean val);
 
     /**
      * Writes {@code byte} array.
@@ -197,6 +255,13 @@ public interface DirectByteBufferStream {
     void writeBitSet(BitSet val);
 
     /**
+     * Writes {@link ByteBuffer}.
+     *
+     * @param val Value.
+     */
+    void writeByteBuffer(ByteBuffer val);
+
+    /**
      * Writes {@link UUID}.
      *
      * @param val Value.
@@ -239,6 +304,16 @@ public interface DirectByteBufferStream {
     <T> void writeCollection(Collection<T> col, MessageCollectionItemType itemType, MessageWriter writer);
 
     /**
+     * Writes {@link Set}.
+     *
+     * @param <T>      Type of the set.
+     * @param set      Set.
+     * @param itemType Component type.
+     * @param writer   Writer.
+     */
+    <T> void writeSet(Set<T> set, MessageCollectionItemType itemType, MessageWriter writer);
+
+    /**
      * Writes {@link Map}.
      *
      * @param <K>     Type of the map's keys.
@@ -259,11 +334,25 @@ public interface DirectByteBufferStream {
     byte readByte();
 
     /**
+     * Reads {@code Byte}.
+     *
+     * @return Value.
+     */
+    @Nullable Byte readBoxedByte();
+
+    /**
      * Reads {@code short}.
      *
      * @return Value.
      */
     short readShort();
+
+    /**
+     * Reads {@code Short}.
+     *
+     * @return Value.
+     */
+    @Nullable Short readBoxedShort();
 
     /**
      * Reads {@code int}.
@@ -273,11 +362,25 @@ public interface DirectByteBufferStream {
     int readInt();
 
     /**
+     * Reads {@code Integer}.
+     *
+     * @return Value.
+     */
+    @Nullable Integer readBoxedInt();
+
+    /**
      * Reads {@code long}.
      *
      * @return Value.
      */
     long readLong();
+
+    /**
+     * Reads {@code Long}.
+     *
+     * @return Value.
+     */
+    @Nullable Long readBoxedLong();
 
     /**
      * Reads {@code float}.
@@ -287,11 +390,25 @@ public interface DirectByteBufferStream {
     float readFloat();
 
     /**
+     * Reads {@code Float}.
+     *
+     * @return Value.
+     */
+    @Nullable Float readBoxedFloat();
+
+    /**
      * Reads {@code double}.
      *
      * @return Value.
      */
     double readDouble();
+
+    /**
+     * Reads {@code Double}.
+     *
+     * @return Value.
+     */
+    @Nullable Double readBoxedDouble();
 
     /**
      * Reads {@code char}.
@@ -301,11 +418,25 @@ public interface DirectByteBufferStream {
     char readChar();
 
     /**
+     * Reads {@code Character}.
+     *
+     * @return Value.
+     */
+    @Nullable Character readBoxedChar();
+
+    /**
      * Reads {@code boolean}.
      *
      * @return Value.
      */
     boolean readBoolean();
+
+    /**
+     * Reads {@code Boolean}.
+     *
+     * @return Value.
+     */
+    @Nullable Boolean readBoxedBoolean();
 
     /**
      * Reads {@code byte} array.
@@ -378,6 +509,13 @@ public interface DirectByteBufferStream {
     BitSet readBitSet();
 
     /**
+     * Reads {@link ByteBuffer}.
+     *
+     * @return Value.
+     */
+    ByteBuffer readByteBuffer();
+
+    /**
      * Reads {@link UUID}.
      *
      * @return Value.
@@ -420,6 +558,16 @@ public interface DirectByteBufferStream {
      * @return Collection.
      */
     <C extends Collection<?>> C readCollection(MessageCollectionItemType itemType, MessageReader reader);
+
+    /**
+     * Reads {@link Set}.
+     *
+     * @param <C>      Type of set.
+     * @param itemType Item type.
+     * @param reader   Reader.
+     * @return Set.
+     */
+    <C extends Set<?>> C readSet(MessageCollectionItemType itemType, MessageReader reader);
 
     /**
      * Reads {@link Map}.

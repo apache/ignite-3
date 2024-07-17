@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -66,14 +66,14 @@ public class LocalSnapshotWriterTest extends BaseStorageTest {
         LocalFileMetaOutter.LocalFileMeta meta = opts.getRaftMessagesFactory()
             .localFileMeta()
             .checksum("test")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.writer.addFile("data1", meta));
         assertTrue(this.writer.addFile("data2"));
 
         assertEquals(meta, this.writer.getFileMeta("data1"));
         assertNull(((LocalFileMetaOutter.LocalFileMeta) this.writer.getFileMeta("data2")).checksum());
-        assertFalse(((LocalFileMetaOutter.LocalFileMeta) this.writer.getFileMeta("data2")).hasUserMeta());
+        assertNull(((LocalFileMetaOutter.LocalFileMeta) this.writer.getFileMeta("data2")).userMeta());
 
         this.writer.sync();
         //create a new writer
@@ -82,7 +82,7 @@ public class LocalSnapshotWriterTest extends BaseStorageTest {
         assertNotSame(writer, newWriter);
         assertEquals(meta, newWriter.getFileMeta("data1"));
         assertNull(((LocalFileMetaOutter.LocalFileMeta) newWriter.getFileMeta("data2")).checksum());
-        assertFalse(((LocalFileMetaOutter.LocalFileMeta) newWriter.getFileMeta("data2")).hasUserMeta());
+        assertNull(((LocalFileMetaOutter.LocalFileMeta) newWriter.getFileMeta("data2")).userMeta());
     }
 
     @Test

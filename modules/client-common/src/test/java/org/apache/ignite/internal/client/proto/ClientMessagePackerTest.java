@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,13 +19,12 @@ package org.apache.ignite.internal.client.proto;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
@@ -107,21 +106,6 @@ public class ClientMessagePackerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(longs = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
-            Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE})
-    public void testPackBigInteger(long l) {
-        var bi = BigInteger.valueOf(l);
-        testPacker(p -> p.packBigInteger(bi), p -> p.packBigInteger(bi));
-    }
-
-    @Test
-    public void testPackBigIntegerThrowsOnTooLargeValues() {
-        var bi = BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.TEN);
-
-        assertThrows(IllegalArgumentException.class, () -> packIgnite(p -> p.packBigInteger(bi)));
-    }
-
-    @ParameterizedTest
     @ValueSource(floats = {0, 1, -1, Byte.MAX_VALUE, Byte.MIN_VALUE, Short.MIN_VALUE, Short.MAX_VALUE, Integer.MIN_VALUE,
             Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE, Float.MIN_VALUE, Float.MAX_VALUE})
     public void testPackFloat(float f) {
@@ -157,16 +141,15 @@ public class ClientMessagePackerTest {
         }
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testPackArrayHeader(int i) {
-        testPacker(p -> p.packArrayHeader(i), p -> p.packArrayHeader(i));
-    }
+    @Test
+    public void testWriteStringCapacityGrow() {
+        // This number is important! Exactly this number showed nasty bug before it was fixed. Do not change.
+        int magicBytes = 249;
 
-    @ParameterizedTest
-    @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testPackMapHeader(int i) {
-        testPacker(p -> p.packMapHeader(i), p -> p.packMapHeader(i));
+        byte[] ignored = packIgnite(p -> {
+            p.packByteBuffer(ByteBuffer.allocate(magicBytes));
+            p.packString("Lorem Ipsum");
+        });
     }
 
     @ParameterizedTest

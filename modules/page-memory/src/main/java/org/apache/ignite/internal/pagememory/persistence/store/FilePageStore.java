@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static java.util.Collections.unmodifiableList;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 
 import java.io.IOException;
@@ -24,15 +25,14 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,6 +53,8 @@ public class FilePageStore implements PageStore {
 
     private static final VarHandle NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE;
 
+    private static final VarHandle DELTA_FILE_PAGE_STORE_IOS;
+
     static {
         try {
             PAGE_COUNT = MethodHandles.lookup().findVarHandle(FilePageStore.class, "pageCount", int.class);
@@ -62,6 +64,8 @@ public class FilePageStore implements PageStore {
                     "newDeltaFilePageStoreIoFuture",
                     CompletableFuture.class
             );
+
+            DELTA_FILE_PAGE_STORE_IOS = MethodHandles.lookup().findVarHandle(FilePageStore.class, "deltaFilePageStoreIos", List.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -88,11 +92,14 @@ public class FilePageStore implements PageStore {
     /** New page allocation listener. */
     private volatile @Nullable PageAllocationListener pageAllocationListener;
 
-    /** Delta file page store IOs. */
-    private final List<DeltaFilePageStoreIo> deltaFilePageStoreIos;
+    /** Delta file page store IOs. Copy-on-write list. */
+    private volatile List<DeltaFilePageStoreIo> deltaFilePageStoreIos;
 
     /** Future with a new delta file page store. */
     private volatile @Nullable CompletableFuture<DeltaFilePageStoreIo> newDeltaFilePageStoreIoFuture;
+
+    /** Flag that the file and its delta files will be destroyed. */
+    private volatile boolean toDestroy;
 
     /**
      * Constructor.
@@ -109,10 +116,9 @@ public class FilePageStore implements PageStore {
         }
 
         this.filePageStoreIo = filePageStoreIo;
-        this.deltaFilePageStoreIos = new CopyOnWriteArrayList<>(Arrays.asList(deltaFilePageStoreIos));
+        this.deltaFilePageStoreIos = Arrays.asList(deltaFilePageStoreIos);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop(boolean clean) throws IgniteInternalCheckedException {
         filePageStoreIo.stop(clean);
@@ -122,7 +128,6 @@ public class FilePageStore implements PageStore {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public int allocatePage() throws IgniteInternalCheckedException {
         ensure();
@@ -138,7 +143,6 @@ public class FilePageStore implements PageStore {
         return pageIdx;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int pages() {
         return pageCount;
@@ -178,7 +182,6 @@ public class FilePageStore implements PageStore {
         filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
@@ -186,7 +189,6 @@ public class FilePageStore implements PageStore {
         readWithoutPageIdCheck(pageId, pageBuf, keepCrc);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
         assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
@@ -194,25 +196,21 @@ public class FilePageStore implements PageStore {
         filePageStoreIo.write(pageId, pageBuf, calculateCrc);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void sync() throws IgniteInternalCheckedException {
         filePageStoreIo.sync();
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean exists() {
         return filePageStoreIo.exists();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void ensure() throws IgniteInternalCheckedException {
         filePageStoreIo.ensure();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() throws IOException {
         filePageStoreIo.close();
@@ -263,12 +261,12 @@ public class FilePageStore implements PageStore {
      *
      * <p>Thread safe.
      *
-     * @param deltaFilPathFunction Function to get the path to the delta file page store, the argument is the index of the delta file.
+     * @param deltaFilePathFunction Function to get the path to the delta file page store, the argument is the index of the delta file.
      * @param pageIndexesSupplier Page indexes supplier that will only be called if the current thread creates a delta file page store.
      * @return Future that will be completed when the new delta file page store is created.
      */
     public CompletableFuture<DeltaFilePageStoreIo> getOrCreateNewDeltaFile(
-            IntFunction<Path> deltaFilPathFunction,
+            IntFunction<Path> deltaFilePathFunction,
             Supplier<int[]> pageIndexesSupplier
     ) {
         CompletableFuture<DeltaFilePageStoreIo> future = this.newDeltaFilePageStoreIoFuture;
@@ -282,27 +280,47 @@ public class FilePageStore implements PageStore {
             return newDeltaFilePageStoreIoFuture;
         }
 
-        int nextIndex = deltaFilePageStoreIos.isEmpty() ? 0 : deltaFilePageStoreIos.get(0).fileIndex() + 1;
+        DeltaFilePageStoreIo newDeltaFilePageStoreIo = addNewDeltaFilePageStoreIoToHead(pageIndexesSupplier.get(), deltaFilePathFunction);
 
-        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(
-                LATEST_DELTA_FILE_PAGE_STORE_VERSION,
-                nextIndex,
-                filePageStoreIo.pageSize(),
-                pageIndexesSupplier.get()
-        );
-
-        DeltaFilePageStoreIo deltaFilePageStoreIo = new DeltaFilePageStoreIo(
-                filePageStoreIo.ioFactory,
-                deltaFilPathFunction.apply(nextIndex),
-                header
-        );
-
-        // Should add to the head, since read operations should always start from the most recent.
-        deltaFilePageStoreIos.add(0, deltaFilePageStoreIo);
-
-        future.complete(deltaFilePageStoreIo);
+        future.complete(newDeltaFilePageStoreIo);
 
         return future;
+    }
+
+    private DeltaFilePageStoreIo addNewDeltaFilePageStoreIoToHead(int[] pageIndexes, IntFunction<Path> deltaFilePathFunction) {
+        List<DeltaFilePageStoreIo> previousValue;
+        List<DeltaFilePageStoreIo> newValue;
+
+        DeltaFilePageStoreIo newDeltaFilePageStoreIo;
+
+        do {
+            previousValue = deltaFilePageStoreIos;
+
+            int nextIndex = previousValue.isEmpty() ? 0 : previousValue.get(0).fileIndex() + 1;
+
+            var header = new DeltaFilePageStoreIoHeader(
+                    LATEST_DELTA_FILE_PAGE_STORE_VERSION,
+                    nextIndex,
+                    filePageStoreIo.pageSize(),
+                    pageIndexes
+            );
+
+            newDeltaFilePageStoreIo = new DeltaFilePageStoreIo(
+                    filePageStoreIo.ioFactory,
+                    deltaFilePathFunction.apply(nextIndex),
+                    header
+            );
+
+            newValue = new ArrayList<>(previousValue.size() + 1);
+
+            // Should add to the head, since read operations should always start from the most recent.
+            newValue.add(newDeltaFilePageStoreIo);
+            newValue.addAll(previousValue);
+
+            newValue = unmodifiableList(newValue);
+        } while (!DELTA_FILE_PAGE_STORE_IOS.compareAndSet(this, previousValue, newValue));
+
+        return newDeltaFilePageStoreIo;
     }
 
     /**
@@ -337,42 +355,60 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Returns the delta file to compaction (oldest).
+     * Returns the delta file to compaction (oldest), {@code null} if there is nothing to compact.
      *
      * <p>Thread safe.
      */
     public @Nullable DeltaFilePageStoreIo getDeltaFileToCompaction() {
         // Snapshot of delta files.
-        Iterator<DeltaFilePageStoreIo> iterator = deltaFilePageStoreIos.iterator();
+        List<DeltaFilePageStoreIo> deltaFilePageStoreIos = this.deltaFilePageStoreIos;
 
-        // Last one is the oldest.
-        DeltaFilePageStoreIo last = null;
-
-        int count = 0;
-
-        while (iterator.hasNext()) {
-            last = iterator.next();
-
-            count++;
+        // If there are no delta files or if last is just created, then it cannot be compacted yet.
+        if (deltaFilePageStoreIos.isEmpty() || (deltaFilePageStoreIos.size() == 1 && newDeltaFilePageStoreIoFuture != null)) {
+            return null;
         }
 
-        // If last is just created, then it cannot be compacted yet.
-        if (count == 1 && newDeltaFilePageStoreIoFuture != null) {
-            last = null;
-        }
-
-        return last;
+        return deltaFilePageStoreIos.get(deltaFilePageStoreIos.size() - 1);
     }
 
     /**
      * Deletes delta file.
      *
-     * <p>Thread safe.
+     * <p>Thread safe.</p>
      *
      * @param deltaFilePageStoreIo Delta file to be deleted.
      * @return {@code True} if the delta file being removed was present.
      */
     public boolean removeDeltaFile(DeltaFilePageStoreIo deltaFilePageStoreIo) {
-        return deltaFilePageStoreIos.remove(deltaFilePageStoreIo);
+        List<DeltaFilePageStoreIo> previousValue;
+        List<DeltaFilePageStoreIo> newValue;
+
+        boolean removed;
+
+        do {
+            previousValue = deltaFilePageStoreIos;
+
+            newValue = new ArrayList<>(previousValue);
+
+            removed = newValue.remove(deltaFilePageStoreIo);
+
+            newValue = unmodifiableList(newValue);
+        } while (!DELTA_FILE_PAGE_STORE_IOS.compareAndSet(this, previousValue, newValue));
+
+        return removed;
+    }
+
+    /**
+     * Marks that the file page store and its delta files will be destroyed.
+     */
+    public void markToDestroy() {
+        toDestroy = true;
+    }
+
+    /**
+     * Checks if the file page store and its delta files are marked for destruction.
+     */
+    public boolean isMarkedToDestroy() {
+        return toDestroy;
     }
 }

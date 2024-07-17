@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -41,8 +41,6 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 
 /**
  * CorrelatedNestedLoopJoinRule.
@@ -122,12 +120,7 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
 
         RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
         RelTraitSet leftInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-
-        CorrelationTrait corrTrait = CorrelationTrait.correlations(correlationIds);
-
-        RelTraitSet rightInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                .replace(RewindabilityTrait.REWINDABLE)
-                .replace(corrTrait);
+        RelTraitSet rightInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
 
         RelNode left = convert(rel.getLeft(), leftInTraits);
         right = convert(right, rightInTraits);

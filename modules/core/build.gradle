@@ -1,0 +1,58 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+
+description = 'ignite-core'
+
+dependencies {
+    implementation libs.jetbrains.annotations
+    implementation libs.fastutil.core
+    implementation project(':ignite-api')
+
+    testAnnotationProcessor libs.auto.service
+
+    testImplementation libs.auto.service.annotations
+    testImplementation libs.hamcrest.core
+    testImplementation libs.junit.testkit
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
+    testImplementation libs.archunit.core
+    testImplementation libs.archunit.junit5
+
+    testFixturesAnnotationProcessor libs.auto.service
+    testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
+
+    testFixturesImplementation project(":ignite-api")
+    testFixturesImplementation libs.auto.service.annotations
+    testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.junit.testkit
+    testFixturesImplementation libs.junit5.params
+    testFixturesImplementation libs.mockito.core
+}
+
+test {
+    filter {
+        //Don't run parametrized tests from inner static classes which should not run.
+        excludeTestsMatching "*VariableSourceTest\$*"
+        excludeTestsMatching "*WorkDirectoryExtensionTest\$*"
+    }
+}

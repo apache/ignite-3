@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,35 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.network.NetworkMessage;
 
 /**
  * MessageService interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+// TODO: Documentation https://issues.apache.org/jira/browse/IGNITE-15859
 public interface MessageService extends LifecycleAware {
     /**
      * Sends a message to given node.
      *
-     * @param nodeId Node ID.
-     * @param msg    Message.
+     * @param nodeName Node consistent ID.
+     * @param msg Message.
      */
-    void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException;
-
-    /**
-     * Checks whether a node with given ID is alive.
-     *
-     * @param nodeId Node ID.
-     * @return {@code True} if node is alive.
-     */
-    boolean alive(String nodeId);
+    CompletableFuture<Void> send(String nodeName, NetworkMessage msg);
 
     /**
      * Registers a listener for messages of a given type.
      *
-     * @param lsnr  Listener.
+     * @param lsnr Listener.
      * @param msgId Message id.
      */
     void register(MessageListener lsnr, short msgId);

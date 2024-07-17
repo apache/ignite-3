@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,43 +17,43 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
- *
- * <p>TODO: IGNITE-14487 Add bulk operations tests. Check non-key fields in Tuple is ignored for keys. Check key fields in Tuple is
- * ignored for value or exception is thrown?
  */
-public class KeyValueBinaryViewOperationsTest {
+public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void put() {
         SchemaDescriptor schema = schemaDescriptor();
@@ -232,6 +232,46 @@ public class KeyValueBinaryViewOperationsTest {
         assertFalse(tbl.contains(null, Tuple.create().set("id", 2L)));
         tbl.remove(null, Tuple.create().set("id", 2L));
         assertFalse(tbl.contains(null, Tuple.create().set("id", 2L)));
+    }
+
+
+    @Test
+    public void testContainsAll() {
+        SchemaDescriptor schema = schemaDescriptor();
+
+        KeyValueView<Tuple, Tuple> kvView = createTable(schema).keyValueView();
+
+        long firstKey = 101L;
+        Tuple firstKeyTuple = Tuple.create().set("id", firstKey);
+        Tuple firstValTuple = Tuple.create().set("val", 201L);
+
+        long secondKey = 102L;
+        Tuple secondKeyTuple = Tuple.create().set("id", secondKey);
+        Tuple secondValTuple = Tuple.create().set("val", 202L);
+
+        long thirdKey = 103L;
+        Tuple thirdKeyTuple = Tuple.create().set("id", thirdKey);
+        Tuple thirdValTuple = Tuple.create().set("val", 203L);
+
+        Map<Tuple, Tuple> kvs = Map.of(
+                firstKeyTuple, firstValTuple,
+                secondKeyTuple, secondValTuple,
+                thirdKeyTuple, thirdValTuple
+        );
+
+        kvView.putAll(null, kvs);
+
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> kvView.containsAll(null, List.of(firstKeyTuple, null, thirdKeyTuple)));
+
+        assertTrue(kvView.containsAll(null, List.of()));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple)));
+        assertTrue(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, thirdKeyTuple)));
+
+        Tuple missedKeyTuple = Tuple.create().set("id", 0L);
+
+        assertFalse(kvView.containsAll(null, List.of(missedKeyTuple)));
+        assertFalse(kvView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, missedKeyTuple)));
     }
 
     @Test
@@ -448,36 +488,39 @@ public class KeyValueBinaryViewOperationsTest {
         assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
     }
 
+    @Test
+    void retriesOnInternalSchemaVersionMismatchException() throws Exception {
+        SchemaDescriptor schema = schemaDescriptor();
+        InternalTable internalTable = spy(createInternalTable(schema));
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
+        KeyValueView<Tuple, Tuple> view = new KeyValueBinaryViewImpl(
+                internalTable,
+                new DummySchemaManagerImpl(schema),
+                schemaVersions,
+                mock(IgniteSql.class),
+                marshallers
+        );
+
+        BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));
+
+        doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
+                .doReturn(completedFuture(resultRow))
+                .when(internalTable).get(any(), any());
+
+        Tuple result = view.get(null, Tuple.create().set("ID", 1L));
+
+        assertThat(result.longValue("VAL"), is(2L));
+
+        verify(internalTable, times(2)).get(any(), isNull());
+    }
+
     private SchemaDescriptor schemaDescriptor() {
         return new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{new Column("VAL", NativeTypes.INT64, false)}
         );
-    }
-
-    private TableImpl createTable(SchemaDescriptor schema) {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
-
-        LockManager lockManager = new HeapLockManager();
-
-        TxManager txManager = new TxManagerImpl(clusterService, lockManager);
-
-        AtomicLong raftIndex = new AtomicLong();
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager),
-                txManager,
-                raftIndex
-        );
-
-        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
-
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
-        return new TableImpl(table, new DummySchemaManagerImpl(schema));
     }
 
     /**
@@ -488,13 +531,13 @@ public class KeyValueBinaryViewOperationsTest {
      * @param actual Actual tuple.
      */
     void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
-        for (int i = 0; i < schema.valueColumns().length(); i++) {
-            final Column col = schema.valueColumns().column(i);
+        for (int i = 0; i < schema.valueColumns().size(); i++) {
+            final Column col = schema.valueColumns().get(i);
 
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
-            assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.schemaIndex());
+            assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.positionInRow());
         }
     }
 }

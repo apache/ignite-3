@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,56 +18,78 @@
 package org.apache.ignite.internal.client.sql;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Result set metadata.
  */
-class ClientResultSetMetadata implements ResultSetMetadata {
-    /** Columns. */
-    private final List<ColumnMetadata> columns;
-
-    /** Column name to index map. */
-    private final Map<String, Integer> columnIndices;
-
-    /**
-     * Constructor.
-     *
-     * @param unpacker Unpacker.
-     */
-    public ClientResultSetMetadata(ClientMessageUnpacker unpacker) {
-        var size = unpacker.unpackArrayHeader();
+final class ClientResultSetMetadata {
+    static ResultSetMetadata read(ClientMessageUnpacker unpacker) {
+        var size = unpacker.unpackInt();
         assert size > 0 : "ResultSetMetadata should not be empty.";
 
         var columns = new ArrayList<ColumnMetadata>(size);
-        columnIndices =  new HashMap<>(size);
 
         for (int i = 0; i < size; i++) {
-            ClientColumnMetadata column = new ClientColumnMetadata(unpacker, columns);
-            columns.add(column);
-            columnIndices.put(column.name(), i);
+            columns.add(readColumn(unpacker, columns));
         }
 
-        this.columns = Collections.unmodifiableList(columns);
+        return new ResultSetMetadataImpl(columns);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public List<ColumnMetadata> columns() {
-        return columns;
+    private static ColumnMetadata readColumn(ClientMessageUnpacker unpacker, ArrayList<ColumnMetadata> prevColumns) {
+        var propCnt = unpacker.unpackInt();
+
+        assert propCnt >= 6;
+
+        String name = unpacker.unpackString();
+        boolean nullable = unpacker.unpackBoolean();
+        ColumnType type = ColumnTypeConverter.fromIdOrThrow(unpacker.unpackInt());
+        int scale = unpacker.unpackInt();
+        int precision = unpacker.unpackInt();
+
+        ColumnOrigin origin;
+
+        if (unpacker.unpackBoolean()) {
+            assert propCnt >= 9;
+
+            origin = readOrigin(unpacker, name, prevColumns);
+        } else {
+            origin = null;
+        }
+
+        return new ColumnMetadataImpl(name, type, precision, scale, nullable, origin);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public int indexOf(String columnName) {
-        Integer index = columnIndices.get(columnName);
+    private static ColumnOrigin readOrigin(
+            ClientMessageUnpacker unpacker,
+            String cursorColumnName,
+            List<ColumnMetadata> prevColumns) {
+        String columnName = unpacker.tryUnpackNil() ? cursorColumnName : unpacker.unpackString();
 
-        return index == null ? -1 : index;
+        int schemaNameIdx = unpacker.tryUnpackInt(-1);
+
+        //noinspection ConstantConditions
+        String schemaName = schemaNameIdx == -1
+                ? unpacker.unpackString()
+                : prevColumns.get(schemaNameIdx).origin().schemaName();
+
+        int tableNameIdx = unpacker.tryUnpackInt(-1);
+
+        //noinspection ConstantConditions
+        String tableName = tableNameIdx == -1
+                ? unpacker.unpackString()
+                : prevColumns.get(tableNameIdx).origin().tableName();
+
+        return new ColumnOriginImpl(schemaName, tableName, columnName);
     }
 }

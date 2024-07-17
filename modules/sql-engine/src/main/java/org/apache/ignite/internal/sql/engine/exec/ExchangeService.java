@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,74 +19,61 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
+import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
+import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * ExchangeService interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * The interface describes a minimal but sufficient set of methods to make
+ * the exchange of information between mailboxes work.
+ *
+ * @see MailboxRegistry
+ * @see Outbox
+ * @see Inbox
  */
 public interface ExchangeService extends LifecycleAware {
     /**
-     * Sends a batch of data to remote node.
+     * Asynchronously sends a batch of data to the specified node.
      *
-     * @param nodeId     Target node ID.
-     * @param qryId      Query ID.
-     * @param fragmentId Target fragment ID.
-     * @param exchangeId Exchange ID.
-     * @param batchId    Batch ID.
-     * @param last       Last batch flag.
-     * @param rows       Data rows.
+     * @param nodeName The name of the node to which the data will be sent.
+     * @param queryId The ID of the query to which the data belongs.
+     * @param fragmentId The ID of the fragment to which the data will be sent.
+     * @param exchangeId The ID of the exchange through which the data will be sent.
+     * @param batchId The ID of the batch to which the data belongs.
+     * @param last Indicates whether this is the last batch of data to be sent.
+     * @param rows The data to be sent.
+     * @return A {@link CompletableFuture future} representing the result of operation,
+     *      which completes when the data has been sent.
      */
-    <RowT> void sendBatch(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId, boolean last,
-            List<RowT> rows) throws IgniteInternalCheckedException;
+    CompletableFuture<Void> sendBatch(String nodeName, UUID queryId, long fragmentId, long exchangeId, int batchId, boolean last,
+            List<BinaryTupleMessage> rows);
 
     /**
-     * Acknowledges a batch with given ID is processed.
+     * Asynchronously requests data from the specified node.
      *
-     * @param nodeId     Node ID to notify.
-     * @param qryId      Query ID.
-     * @param fragmentId Target fragment ID.
-     * @param exchangeId Exchange ID.
-     * @param batchId    Batch ID.
+     * @param nodeName The name of the node from which the data will be requested.
+     * @param queryId The ID of the query for which the data is being requested.
+     * @param fragmentId The ID of the fragment from which the data will be requested.
+     * @param exchangeId The ID of the exchange through which the data will be requested.
+     * @param amountOfBatches The number of batches of data to request.
+     * @param state The state to propagate to the remote node, or null if state is not changed or not required.
+     * @return A {@link CompletableFuture future} representing the result of operation,
+     *      which completes when the request message has been sent.
      */
-    void acknowledge(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId) throws IgniteInternalCheckedException;
+    CompletableFuture<Void> request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches,
+            @Nullable SharedState state);
 
     /**
-     * Sends cancel request.
+     * Asynchronously sends an error message to the specified node.
      *
-     * @param nodeId     Target node ID.
-     * @param qryId      Query ID.
-     * @param fragmentId Target fragment ID.
-     * @param exchangeId Exchange ID.
+     * @param nodeName The name of the node to which the error will be sent.
+     * @param queryId The ID of the query to which the error belongs.
+     * @param fragmentId The ID of the fragment to which the error belongs.
+     * @param error The error to send.
+     * @return A {@link CompletableFuture future} representing the result of operation,
+     *      which completes when the error message has been sent.
      */
-    void closeInbox(String nodeId, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException;
-
-    /**
-     * Sends cancel request.
-     *
-     * @param nodeId     Target node ID.
-     * @param qryId      Query ID.
-     */
-    void closeQuery(String nodeId, UUID qryId) throws IgniteInternalCheckedException;
-
-    /**
-     * Send error.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param nodeId     Target node ID.
-     * @param qryId      Query ID.
-     * @param fragmentId Source fragment ID.
-     * @param err        Exception to send.
-     * @throws IgniteInternalCheckedException On error marshaling or send ErrorMessage.
-     */
-    void sendError(String nodeId, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException;
-
-    /**
-     * Alive.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param nodeId Node ID.
-     * @return {@code true} if node is alive, {@code false} otherwise.
-     */
-    boolean alive(String nodeId);
+    CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error);
 }

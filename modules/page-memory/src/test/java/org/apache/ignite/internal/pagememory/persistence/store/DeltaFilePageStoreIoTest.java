@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -41,6 +41,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.fileio.FileIo;
+import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.junit.jupiter.api.Test;
@@ -194,16 +195,16 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    DeltaFilePageStoreIo createFilePageStoreIo(Path filePath) {
-        return createFilePageStoreIo(
+    DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
+        return new DeltaFilePageStoreIo(
+                ioFactory,
                 filePath,
                 new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2, 3, 5, 6, 7, 8, 9))
         );
     }
 
-    private DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, DeltaFilePageStoreIoHeader header) {
+    private static DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, DeltaFilePageStoreIoHeader header) {
         return new DeltaFilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
     }
 }

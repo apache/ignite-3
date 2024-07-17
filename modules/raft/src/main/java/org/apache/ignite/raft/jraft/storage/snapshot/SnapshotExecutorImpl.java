@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -230,8 +230,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         if (snapshotStorage instanceof LocalSnapshotStorage) {
             final LocalSnapshotStorage tmp = (LocalSnapshotStorage) this.snapshotStorage;
-            if (tmp != null && !tmp.hasServerAddr()) {
-                tmp.setServerAddr(opts.getAddr());
+            if (!tmp.hasServerPeerId()) {
+                tmp.setServerPeerId(opts.getPeerId());
             }
         }
         final SnapshotReader reader = this.snapshotStorage.open();
@@ -605,7 +605,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 // this RPC.
                 saved = m;
                 this.downloadingSnapshot.set(ds);
-                result = false;
+                result = true;
             }
             else if (m.request.meta().lastIncludedIndex() > ds.request.meta().lastIncludedIndex()) {
                 // |is| is older
@@ -642,7 +642,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         if (saved != null) {
             // Respond replaced session
-            LOG.warn("Register DownloadingSnapshot failed: interrupted by retry installling request.");
+            LOG.warn("Register DownloadingSnapshot failed: interrupted by retry installing request.");
             saved.done.sendResponse(RaftRpcFactory.DEFAULT //
                 .newResponse(msgFactory, RaftError.EINTR,
                     "Interrupted by the retry InstallSnapshotRequest"));

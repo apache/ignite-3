@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,17 +17,36 @@
 
 package org.apache.ignite.internal.compute.message;
 
+import java.util.List;
 import java.util.Set;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.compute.ExecutionOptions;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, Class, Object...)}.
+ * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, JobDescriptor, Object...)}.
  */
 @Transferable(value = ComputeMessageTypes.EXECUTE_REQUEST)
 public interface ExecuteRequest extends NetworkMessage {
+    /**
+     * Returns job execution options.
+     *
+     * @return Job execution options.
+     */
+    @Marshallable
+    ExecutionOptions executeOptions();
+
+    /**
+     * Returns list of deployment units.
+     *
+     * @return list of deployment units
+     */
+    List<DeploymentUnitMsg> deploymentUnits();
+
     /**
      * Returns job class name.
      *
@@ -41,5 +60,6 @@ public interface ExecuteRequest extends NetworkMessage {
      * @return arguments
      */
     @Marshallable
-    Object[] args();
+    @Nullable
+    Object input();
 }

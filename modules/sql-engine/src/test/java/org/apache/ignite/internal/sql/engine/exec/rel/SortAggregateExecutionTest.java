@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -32,8 +32,12 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * SortAggregateExecutionTest.
@@ -42,32 +46,29 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 public class SortAggregateExecutionTest extends BaseAggregateTest {
     /** {@inheritDoc} */
     @Override
-    protected SingleNode<Object[]> createSingleAggregateNodesChain(
+    protected SingleNode<Object[]> createColocatedAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     ) {
         assert grpSets.size() == 1;
 
         ImmutableBitSet grpSet = first(grpSets);
 
-        assert !grpSet.isEmpty() : "Not applicable for sort aggregate";
-
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
-        SortNode<Object[]> sort = new SortNode<>(ctx, inRowType, cmp);
-
-        sort.register(scan);
+        if (grpSet.isEmpty() && cmp == null) {
+            cmp = (k1, k2) -> 0;
+        }
 
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
                 ctx,
-                aggRowType,
                 SINGLE,
                 grpSet,
                 accFactory(ctx, call, SINGLE, inRowType),
@@ -75,7 +76,15 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 cmp
         );
 
-        agg.register(sort);
+        if (group) {
+            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+
+            sort.register(scan);
+
+            agg.register(sort);
+        } else {
+            agg.register(scan);
+        }
 
         return agg;
     }
@@ -89,25 +98,23 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             RelDataType inRowType,
             RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     ) {
         assert grpSets.size() == 1;
 
         ImmutableBitSet grpSet = first(grpSets);
 
-        assert !grpSet.isEmpty() : "Not applicable for sort aggregate";
-
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
-        SortNode<Object[]> sort = new SortNode<>(ctx, inRowType, cmp);
-
-        sort.register(scan);
+        if (grpSet.isEmpty() && cmp == null) {
+            cmp = (k1, k2) -> 0;
+        }
 
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
-                aggRowType,
                 MAP,
                 grpSet,
                 accFactory(ctx, call, MAP, inRowType),
@@ -115,11 +122,18 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 cmp
         );
 
-        aggMap.register(sort);
+        if (group) {
+            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+
+            sort.register(scan);
+
+            aggMap.register(sort);
+        } else {
+            aggMap.register(scan);
+        }
 
         // The group's fields placed on the begin of the output row (planner
         // does this by Projection node for aggregate input).
-        // Hash aggregate doesn't use groups set on reducer because send GroupKey as object.
         ImmutableIntList reduceGrpFields = ImmutableIntList.copyOf(
                 IntStream.range(0, grpSet.cardinality()).boxed().collect(Collectors.toList())
         );
@@ -128,12 +142,24 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         Comparator<Object[]> rdcCmp = ctx.expressionFactory().comparator(rdcCollation);
 
+        if (grpSet.isEmpty() && rdcCmp == null) {
+            rdcCmp = (k1, k2) -> 0;
+        }
+
+        Mapping mapping = Commons.trimmingMapping(grpSet.length(), grpSet);
+        MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(
+                Commons.cluster(),
+                call,
+                mapping.getTargetCount(),
+                inRowType,
+                true
+        );
+
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,
-                aggRowType,
                 REDUCE,
                 ImmutableBitSet.of(reduceGrpFields),
-                accFactory(ctx, call, REDUCE, aggRowType),
+                accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, aggRowType),
                 rowFactory,
                 rdcCmp
         );

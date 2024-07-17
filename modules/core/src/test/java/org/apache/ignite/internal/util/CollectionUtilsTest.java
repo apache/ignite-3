@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,15 +22,22 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
+import static org.apache.ignite.internal.util.CollectionUtils.intersect;
+import static org.apache.ignite.internal.util.CollectionUtils.last;
+import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 import static org.apache.ignite.internal.util.CollectionUtils.setOf;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
+import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -77,87 +84,6 @@ public class CollectionUtilsTest {
         assertEquals(Set.of(1), union(Set.of(), 1));
 
         assertEquals(Set.of(1, 2), union(Set.of(1), 2));
-    }
-
-    @Test
-    void testViewReadOnly() {
-        assertTrue(viewReadOnly(null, null).isEmpty());
-        assertTrue(viewReadOnly(List.of(), null).isEmpty());
-
-        assertEquals(List.of(1), collect(viewReadOnly(List.of(1), null)));
-        assertEquals(List.of(1), collect(viewReadOnly(List.of(1), identity())));
-
-        assertEquals(List.of("1", "2", "3"), collect(viewReadOnly(List.of(1, 2, 3), String::valueOf)));
-
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).add(1));
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).addAll(List.of()));
-
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).remove(1));
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).removeAll(List.of()));
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).removeIf(o -> true));
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).clear());
-
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).retainAll(List.of()));
-
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null).iterator().remove());
-    }
-
-    @Test
-    void testViewReadOnlyWithPredicate() {
-        assertTrue(viewReadOnly(null, null, null).isEmpty());
-        assertTrue(viewReadOnly(List.of(), null, null).isEmpty());
-
-        assertEquals(List.of(1), collect(viewReadOnly(List.of(1), null, null)));
-        assertEquals(List.of(1), collect(viewReadOnly(List.of(1), identity(), null)));
-        assertEquals(List.of(1), collect(viewReadOnly(List.of(1), null, integer -> true)));
-        assertEquals(List.of(1), collect(viewReadOnly(List.of(1), identity(), integer -> true)));
-        assertEquals(List.of(), collect(viewReadOnly(List.of(1), null, integer -> false)));
-        assertEquals(List.of(), collect(viewReadOnly(List.of(1), identity(), integer -> false)));
-
-        assertEquals(List.of("1", "2", "3"), collect(viewReadOnly(List.of(1, 2, 3), String::valueOf, null)));
-        assertEquals(List.of("3"), collect(viewReadOnly(List.of(1, 2, 3), String::valueOf, integer -> integer > 2)));
-
-        assertEquals(4, viewReadOnly(List.of(1, 2, 3, 4), String::valueOf, integer -> true).size());
-        assertEquals(4, viewReadOnly(List.of(1, 2, 3, 4), String::valueOf, null).size());
-        assertEquals(2, viewReadOnly(List.of(1, 2, 3, 4), identity(), integer -> integer < 3).size());
-        assertEquals(0, viewReadOnly(List.of(1, 2, 3, 4), identity(), integer -> false).size());
-
-        assertFalse(viewReadOnly(List.of(1, 2, 3, 4), String::valueOf, integer -> true).isEmpty());
-        assertFalse(viewReadOnly(List.of(1, 2, 3, 4), String::valueOf, null).isEmpty());
-        assertFalse(viewReadOnly(List.of(1, 2, 3, 4), identity(), integer -> integer > 3).isEmpty());
-        assertTrue(viewReadOnly(List.of(1, 2, 3, 4), identity(), integer -> integer > 4).isEmpty());
-        assertTrue(viewReadOnly(List.of(1, 2, 3, 4), identity(), integer -> false).isEmpty());
-
-        assertDoesNotThrow(() -> viewReadOnly(Arrays.asList(new Integer[]{null}), null, null).iterator().next());
-        assertDoesNotThrow(() -> viewReadOnly(Arrays.asList(new Integer[]{null}), null, integer -> true).iterator().next());
-        assertDoesNotThrow(() -> viewReadOnly(Arrays.asList(null, 1), null, null).iterator().next());
-        assertDoesNotThrow(() -> viewReadOnly(Arrays.asList(null, 1), null, integer -> true).iterator().next());
-
-        assertThrows(
-                NoSuchElementException.class,
-                () -> viewReadOnly(Arrays.asList(new Integer[]{null}), null, integer -> false).iterator().next()
-        );
-
-        assertThrows(
-                NoSuchElementException.class,
-                () -> {
-                    Iterator<Object> iterator = viewReadOnly(Arrays.asList(null, 1), null, Objects::nonNull).iterator();
-                    iterator.next();
-                    iterator.next();
-                }
-        );
-
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null, null).add(1));
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null, null).addAll(List.of()));
-
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null, null).remove(1));
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null, null).removeAll(List.of()));
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null, null).removeIf(o -> true));
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null, null).clear());
-
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null, null).retainAll(List.of()));
-
-        assertThrows(UnsupportedOperationException.class, () -> viewReadOnly(List.of(1), null, null).iterator().remove());
     }
 
     @Test
@@ -259,7 +185,7 @@ public class CollectionUtilsTest {
     }
 
     @Test
-    void testConcatCollectionOfIterators() {
+    void testConcatIteratorOfIterators() {
         assertTrue(collect(concat((Collection<Iterator<?>>) null)).isEmpty());
         assertTrue(collect(concat(List.of())).isEmpty());
         assertTrue(collect(concat(List.of(emptyIterator(), emptyIterator()))).isEmpty());
@@ -358,5 +284,94 @@ public class CollectionUtilsTest {
 
         assertThrows(UnsupportedOperationException.class, () -> copy.add(42));
         assertThrows(UnsupportedOperationException.class, () -> copy.remove(3));
+    }
+
+    @Test
+    void testIntersect() {
+        assertThat(intersect(Set.of(1, 2), Set.of(2, 3)), is(Set.of(2)));
+        assertThat(intersect(Set.of(1, 2), Set.of(3, 4)), is(Set.of()));
+    }
+
+    @Test
+    void testLast() {
+        assertNull(last(List.of()));
+
+        assertEquals(1, last(List.of(1)));
+        assertEquals(2, last(List.of(1, 2)));
+    }
+
+    @Test
+    void testMapIterableWithPredicate() {
+        assertFalse(mapIterable(null, null, null).iterator().hasNext());
+        assertFalse(mapIterable(Collections.emptyList(), null, null).iterator().hasNext());
+
+        assertEquals(List.of(1), collect(mapIterable(List.of(1), null, null)));
+        assertEquals(List.of(1), collect(mapIterable(List.of(1), identity(), null)));
+        assertEquals(List.of(1), collect(mapIterable(List.of(1), null, integer -> true)));
+        assertEquals(List.of(1), collect(mapIterable(List.of(1), identity(), integer -> true)));
+        assertEquals(List.of(), collect(mapIterable(List.of(1), null, integer -> false)));
+        assertEquals(List.of(), collect(mapIterable(List.of(1), identity(), integer -> false)));
+
+        assertEquals(List.of("1", "2", "3"), collect(mapIterable(List.of(1, 2, 3), String::valueOf, null)));
+        assertEquals(List.of("3"), collect(mapIterable(List.of(1, 2, 3), String::valueOf, integer -> integer > 2)));
+
+        Iterator<String> iterator1 = mapIterable(List.of(1, 2, 3, 4), String::valueOf, integer -> true).iterator();
+        assertEquals("1", iterator1.next());
+        assertEquals("2", iterator1.next());
+        assertEquals("3", iterator1.next());
+        assertEquals("4", iterator1.next());
+
+        Iterator<String> iterator2 = mapIterable(List.of(1, 2, 3, 4), String::valueOf, null).iterator();
+        assertEquals("1", iterator2.next());
+        assertEquals("2", iterator2.next());
+        assertEquals("3", iterator2.next());
+        assertEquals("4", iterator2.next());
+
+        Iterator<Integer> iterator3 = mapIterable(List.of(1, 2, 3, 4), identity(), integer -> integer < 3).iterator();
+        assertEquals(1, iterator3.next());
+        assertEquals(2, iterator3.next());
+
+        Iterator<Integer> iterator4 = mapIterable(List.of(1, 2, 3, 4), identity(), integer -> false).iterator();
+        assertFalse(iterator4.hasNext());
+
+        assertDoesNotThrow(() -> mapIterable(Arrays.asList(new Integer[]{null}), null, null).iterator().next());
+        assertDoesNotThrow(() -> mapIterable(Arrays.asList(new Integer[]{null}), null, integer -> true).iterator().next());
+        assertDoesNotThrow(() -> mapIterable(Arrays.asList(null, 1), null, null).iterator().next());
+        assertDoesNotThrow(() -> mapIterable(Arrays.asList(null, 1), null, integer -> true).iterator().next());
+
+        assertThrows(
+                NoSuchElementException.class,
+                () -> mapIterable(Arrays.asList(new Integer[]{null}), null, integer -> false).iterator().next()
+        );
+
+        assertThrows(
+                NoSuchElementException.class,
+                () -> {
+                    Iterator<Object> iterator = mapIterable(Arrays.asList(null, 1), null, Objects::nonNull).iterator();
+                    iterator.next();
+                    iterator.next();
+                }
+        );
+
+        assertThrows(UnsupportedOperationException.class, () -> mapIterable(List.of(1), null, null).iterator().remove());
+    }
+
+    @Test
+    void testViewList() {
+        assertThat(view(List.of(), identity()), empty());
+        assertThat(view(List.of(), Object::toString), empty());
+
+        assertThat(view(List.of(1, 2, 3), identity()), equalTo(List.of(1, 2, 3)));
+        assertThat(view(List.of(1, 2, 3), Integer::longValue), equalTo(List.of(1L, 2L, 3L)));
+
+        List<Integer> list = new ArrayList<>(List.of(1));
+        List<Integer> view = view(list, identity());
+
+        assertThrows(UnsupportedOperationException.class, () -> view.add(0));
+        assertThrows(UnsupportedOperationException.class, () -> view.set(0, 0));
+        assertThrows(UnsupportedOperationException.class, () -> view.remove(0));
+
+        list.add(2);
+        assertThat(view, equalTo(List.of(1, 2)));
     }
 }

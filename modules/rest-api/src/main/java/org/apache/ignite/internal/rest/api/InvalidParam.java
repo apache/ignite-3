@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,17 +20,24 @@ package org.apache.ignite.internal.rest.api;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Objects;
 
 /**
  * Parameter validation result.
  */
+@Schema(description = "Information about invalid request parameter.")
 public class InvalidParam {
+    @Schema(description = "Parameter name.")
     private final String name;
+    @Schema(description = "The issue with the parameter.")
     private final String reason;
 
     @JsonCreator
-    public InvalidParam(@JsonProperty("name") String name, @JsonProperty("reason") String reason) {
+    public InvalidParam(
+            @JsonProperty("name") String name,
+            @JsonProperty("reason") String reason
+    ) {
         this.name = name;
         this.reason = reason;
     }

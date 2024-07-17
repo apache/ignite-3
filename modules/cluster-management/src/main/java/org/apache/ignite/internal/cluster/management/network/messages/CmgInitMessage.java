@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management.network.messages;
 
-import java.util.Collection;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.Set;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Message for initializing the Cluster Management Group.
@@ -29,15 +29,20 @@ public interface CmgInitMessage extends NetworkMessage {
     /**
      * Consistent IDs of nodes that host the CMG.
      */
-    Collection<String> cmgNodes();
+    Set<String> cmgNodes();
 
     /**
      * Consistent IDs of nodes that host the Meta Storage.
      */
-    Collection<String> metaStorageNodes();
+    Set<String> metaStorageNodes();
 
     /**
      * Name of the cluster that will be a part of the generated cluster tag.
      */
     String clusterName();
+
+    /**
+     * Cluster configuration that should be applied after init.
+     */
+    String initialClusterConfiguration();
 }

@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
-import static org.apache.calcite.rel.RelCollations.EMPTY;
 import static org.apache.calcite.rel.RelCollations.containsOrderless;
 import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
@@ -54,6 +53,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteMergeJoin extends AbstractIgniteJoin {
+    private static final String REL_TYPE_NAME = "MergeJoin";
+
     /**
      * Collation of a left child. Keep it here to restore after deserialization.
      */
@@ -82,8 +83,9 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteMergeJoin(RelInput input) {
         this(
@@ -297,6 +299,12 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
                 .item("rightCollation", rightCollation);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
+    }
+
     /**
      * Get collation of a left child.
      */
@@ -319,7 +327,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             RelTraitSet rightInputTraits
     ) {
         return Pair.of(
-                nodeTraits.replace(EMPTY),
+                nodeTraits.replace(RelCollations.EMPTY),
                 List.of(
                         leftInputTraits.replace(RelCollations.of(joinInfo.leftKeys)),
                         rightInputTraits.replace(RelCollations.of(joinInfo.rightKeys))

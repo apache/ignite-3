@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,70 +17,62 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Ignite schema.
+ * Schema implementation for sql engine.
  */
 public class IgniteSchema extends AbstractSchema {
-    private final String schemaName;
 
-    private final Map<String, Table> tblMap;
+    private final String name;
 
-    /**
-     * Creates a Schema.
-     *
-     * @param schemaName Schema name.
-     */
-    public IgniteSchema(String schemaName, Map<String, Table> tblMap) {
-        this.schemaName = schemaName;
-        this.tblMap = tblMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tblMap);
+    private final int catalogVersion;
+
+    private final Map<String, IgniteDataSource> tableByName;
+
+    private final Int2ObjectMap<IgniteDataSource> tableById;
+
+    /** Constructor. */
+    public IgniteSchema(String name, int catalogVersion, Collection<? extends IgniteDataSource> tables) {
+        this.name = name;
+        this.catalogVersion = catalogVersion;
+        this.tableByName = tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Function.identity()));
+        this.tableById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteDataSource::id, Function.identity()));
     }
 
-    /**
-     * Creates a Schema.
-     *
-     * @param schemaName Schema name.
-     */
-    public IgniteSchema(String schemaName) {
-        this(schemaName, null);
-    }
-
-    /**
-     * Get schema name.
-     *
-     * @return Schema name.
-     */
+    /** Schema name. */
     public String getName() {
-        return schemaName;
+        return name;
+    }
+
+    /** Version of the catalog to which this schema correspond. */
+    public int catalogVersion() {
+        return catalogVersion;
     }
 
     /** {@inheritDoc} */
     @Override
     protected Map<String, Table> getTableMap() {
-        return Collections.unmodifiableMap(tblMap);
+        return Collections.unmodifiableMap(tableByName);
     }
 
-    /**
-     * Add table.
-     *
-     * @param tblName Table name.
-     * @param tbl Table.
-     */
-    public void addTable(String tblName, InternalIgniteTable tbl) {
-        tblMap.put(tblName, tbl);
-    }
+    /** Returns table by given id. */
+    @Nullable IgniteTable tableByIdOpt(int tableId) {
+        IgniteDataSource dataSource = tableById.get(tableId);
 
-    /**
-     * Remove table.
-     *
-     * @param tblName Table name.
-     */
-    public void removeTable(String tblName) {
-        tblMap.remove(tblName);
+        if (!(dataSource instanceof IgniteTable)) {
+            return null;
+        }
+
+        return (IgniteTable) dataSource;
     }
 }

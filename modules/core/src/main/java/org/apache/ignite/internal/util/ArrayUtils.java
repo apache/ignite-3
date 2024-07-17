@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.util;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,6 +56,12 @@ public final class ArrayUtils {
 
     /** Empty object array. */
     public static final Object[] OBJECT_EMPTY_ARRAY = new Object[0];
+
+    /** Empty string array. */
+    public static final String[] STRING_EMPTY_ARRAY = new String[0];
+
+    /** Empty array-based byte buffer. Not read-only. */
+    public static final ByteBuffer EMPTY_BYTE_BUFFER = ByteBuffer.wrap(BYTE_EMPTY_ARRAY);
 
     /** {@code byte} array factory. */
     public static final ArrayFactory<byte[]> BYTE_ARRAY = len -> {
@@ -183,7 +190,7 @@ public final class ArrayUtils {
      * @param <T> Array element type.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
-    public static <T> boolean nullOrEmpty(T[] arr) {
+    public static <T> boolean nullOrEmpty(T @Nullable[] arr) {
         return arr == null || arr.length == 0;
     }
 
@@ -330,6 +337,25 @@ public final class ArrayUtils {
         long[] newArr = Arrays.copyOf(arr, arr.length + longs.length);
 
         System.arraycopy(longs, 0, newArr, arr.length, longs.length);
+
+        return newArr;
+    }
+
+    /**
+     * Concatenates elements to an array.
+     *
+     * @param arr Array.
+     * @param bytes One or more elements.
+     * @return Concatenated array.
+     */
+    public static byte[] concat(@Nullable byte[] arr, byte... bytes) {
+        if (nullOrEmpty(arr)) {
+            return bytes;
+        }
+
+        byte[] newArr = Arrays.copyOf(arr, arr.length + bytes.length);
+
+        System.arraycopy(bytes, 0, newArr, arr.length, bytes.length);
 
         return newArr;
     }

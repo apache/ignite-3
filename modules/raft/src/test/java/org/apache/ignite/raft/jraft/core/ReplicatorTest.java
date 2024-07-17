@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,16 @@
  * limitations under the License.
  */
 package org.apache.ignite.raft.jraft.core;
+
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -25,6 +35,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
@@ -47,7 +58,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -64,18 +74,9 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.same;
-
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class ReplicatorTest {
+public class ReplicatorTest extends BaseIgniteAbstractTest {
 
     private ThreadId id;
     private final RaftOptions raftOptions = new RaftOptions();
@@ -117,7 +118,7 @@ public class ReplicatorTest {
 
         Mockito.when(this.logManager.getLastLogIndex()).thenReturn(10L);
         Mockito.when(this.logManager.getTerm(10)).thenReturn(1L);
-        Mockito.when(this.rpcService.connect(this.peerId.getEndpoint())).thenReturn(true);
+        Mockito.when(this.rpcService.connect(this.peerId)).thenReturn(true);
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(true));
         Mockito.when(this.node.getOptions()).thenReturn(options);
         // mock send empty entries
@@ -132,7 +133,7 @@ public class ReplicatorTest {
 
     private void mockSendEmptyEntries(final boolean isHeartbeat) {
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest(isHeartbeat);
-        Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request), eq(-1), Mockito.any()))
+        Mockito.when(this.rpcService.appendEntries(eq(this.peerId), eq(request), eq(-1), Mockito.any()))
             .thenReturn(new CompletableFuture<>());
     }
 
@@ -150,7 +151,7 @@ public class ReplicatorTest {
             .prevLogTerm(1)
             .committedIndex(0);
         if (!isHeartbeat) {
-            rb.data(ByteString.EMPTY);
+            rb.data(EMPTY_BYTE_BUFFER);
         }
         return rb.build();
     }
@@ -184,10 +185,10 @@ public class ReplicatorTest {
         assertNotNull(r);
         assertSame(r.getOpts(), this.opts);
         Set<String> metrics = this.opts.getNode().getNodeMetrics().getMetricRegistry().getNames();
-        assertEquals(6, metrics.size());
+        assertEquals(7, metrics.size());
         r.destroy();
         metrics = this.opts.getNode().getNodeMetrics().getMetricRegistry().getNames();
-        assertEquals(1, metrics.size());
+        assertEquals(0, metrics.size());
     }
 
     private Replicator getReplicator() {
@@ -293,11 +294,11 @@ public class ReplicatorTest {
             .peerId(this.peerId.toString())
             .term(1)
             .prevLogIndex(9)
-            .data(ByteString.EMPTY)
+            .data(EMPTY_BYTE_BUFFER)
             .prevLogTerm(1)
             .committedIndex(0)
             .build();
-        Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(newReq), eq(-1), Mockito.any()))
+        Mockito.when(this.rpcService.appendEntries(eq(this.peerId), eq(newReq), eq(-1), Mockito.any()))
             .thenReturn(new CompletableFuture<>());
 
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
@@ -335,10 +336,10 @@ public class ReplicatorTest {
             .term(1)
             .prevLogIndex(8)
             .prevLogTerm(1)
-            .data(ByteString.EMPTY)
+            .data(EMPTY_BYTE_BUFFER)
             .committedIndex(0)
             .build();
-        Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(newReq), eq(-1), Mockito.any()))
+        Mockito.when(this.rpcService.appendEntries(eq(this.peerId), eq(newReq), eq(-1), Mockito.any()))
             .thenReturn(new CompletableFuture<>());
 
         Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
@@ -463,10 +464,10 @@ public class ReplicatorTest {
 
         rb.entriesList(entries);
 
-        rb.data(new ByteString(new byte[totalDataLen]));
+        rb.data(ByteBuffer.wrap(new byte[totalDataLen]));
 
         final RpcRequests.AppendEntriesRequest request = rb.build();
-        Mockito.when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request), eq(-1), Mockito.any()))
+        Mockito.when(this.rpcService.appendEntries(eq(this.peerId), eq(request), eq(-1), Mockito.any()))
             .thenAnswer(new Answer<Future>() {
                 @Override public Future answer(InvocationOnMock invocation) throws Throwable {
                     return new CompletableFuture<>();
@@ -492,7 +493,7 @@ public class ReplicatorTest {
         assertNull(r.getHeartbeatInFly());
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest(true);
         Mockito.when(
-            this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request),
+            this.rpcService.appendEntries(eq(this.peerId), eq(request),
                 eq(this.opts.getElectionTimeoutMs() / 2), Mockito.any())).thenReturn(new CompletableFuture<>());
         this.id.setError(RaftError.ETIMEDOUT.getNumber());
         Thread.sleep(this.opts.getElectionTimeoutMs() + 1000);
@@ -579,7 +580,7 @@ public class ReplicatorTest {
 
         final RpcRequests.TimeoutNowRequest request = createTimeoutnowRequest();
         Mockito.when(
-            this.rpcService.timeoutNow(eq(this.opts.getPeerId().getEndpoint()), eq(request), eq(-1),
+            this.rpcService.timeoutNow(eq(this.opts.getPeerId()), eq(request), eq(-1),
                 Mockito.any())).thenReturn(new CompletableFuture<>());
 
         assertTrue(Replicator.transferLeadership(this.id, 10));
@@ -595,7 +596,7 @@ public class ReplicatorTest {
         assertNull(r.getHeartbeatInFly());
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest(true);
         Mockito.when(
-            this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request),
+            this.rpcService.appendEntries(eq(this.peerId), eq(request),
                 eq(this.opts.getElectionTimeoutMs() / 2), Mockito.any())).thenAnswer(new Answer<Future>() {
             @Override public Future answer(InvocationOnMock invocation) throws Throwable {
                 return new CompletableFuture<>();
@@ -625,7 +626,7 @@ public class ReplicatorTest {
         assertEquals(0, r.getTimeoutNowIndex());
         assertNull(r.getTimeoutNowInFly());
         final RpcRequests.TimeoutNowRequest request = createTimeoutnowRequest();
-        Mockito.verify(this.rpcService).timeoutNow(eq(this.opts.getPeerId().getEndpoint()), eq(request),
+        Mockito.verify(this.rpcService).timeoutNow(eq(this.opts.getPeerId()), eq(request),
             eq(10), Mockito.any());
     }
 
@@ -694,7 +695,7 @@ public class ReplicatorTest {
             .build();
 
         Mockito.when(
-            this.rpcService.installSnapshot(eq(this.opts.getPeerId().getEndpoint()), eq(req),
+            this.rpcService.installSnapshot(eq(this.opts.getPeerId()), eq(req),
                 Mockito.any())).thenReturn(new CompletableFuture<>());
 
         r.installSnapshot();
@@ -812,7 +813,7 @@ public class ReplicatorTest {
 
     private void mockSendEntries(@SuppressWarnings("SameParameterValue") final int n) {
         final RpcRequests.AppendEntriesRequest request = createEntriesRequest(n);
-        Mockito.lenient().when(this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request), eq(-1), Mockito.any()))
+        Mockito.lenient().when(this.rpcService.appendEntries(eq(this.peerId), eq(request), eq(-1), Mockito.any()))
             .thenReturn(new CompletableFuture<>());
     }
 

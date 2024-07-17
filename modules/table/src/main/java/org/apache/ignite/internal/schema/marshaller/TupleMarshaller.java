@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,13 +27,18 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface TupleMarshaller {
     /**
+     * Returns marshaller schema version.
+     */
+    int schemaVersion();
+
+    /**
      * Marshals tuple.
      *
      * @param tuple Record tuple.
      * @return Table row with columns set from given tuples.
-     * @throws TupleMarshallerException If failed to marshal tuple.
+     * @throws MarshallerException If failed to marshal tuple.
      */
-    Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException;
+    Row marshal(Tuple tuple) throws MarshallerException;
 
     /**
      * Marshals KV pair.
@@ -41,16 +46,16 @@ public interface TupleMarshaller {
      * @param keyTuple Key tuple.
      * @param valTuple Value tuple.
      * @return Table row with columns set from given tuples.
-     * @throws TupleMarshallerException If failed to marshal tuple.
+     * @throws MarshallerException If failed to marshal tuple.
      */
-    Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException;
+    Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws MarshallerException;
 
     /**
      * Marshal tuple key part only.
      *
      * @param tuple Record tuple with key columns only.
      * @return Table row with columns set from given tuples.
-     * @throws TupleMarshallerException If failed to marshal tuple.
+     * @throws MarshallerException If failed to marshal tuple.
      */
-    Row marshalKey(@NotNull Tuple tuple) throws TupleMarshallerException;
+    Row marshalKey(Tuple tuple) throws MarshallerException;
 }

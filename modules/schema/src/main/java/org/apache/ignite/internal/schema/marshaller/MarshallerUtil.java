@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,17 +19,15 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.BitSet;
-import java.util.UUID;
+import java.util.List;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.marshaller.BinaryMode;
+import org.apache.ignite.internal.marshaller.MarshallerColumn;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Marshaller utility class.
@@ -46,78 +44,29 @@ public final class MarshallerUtil {
     public static int getValueSize(Object val, NativeType type) throws InvalidTypeException {
         switch (type.spec()) {
             case BYTES:
+                if (val instanceof byte[]) {
+                    byte[] bytes = (byte[]) val;
+                    if (bytes.length == 0 || bytes[0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+                        return bytes.length + 1;
+                    }
+                    return bytes.length;
+                }
                 // Return zero for pojo as they are not serialized yet.
-                return (val instanceof byte[]) ? ((byte[]) val).length : 0;
+                return 0;
+
             case STRING:
-                // Overestimating size here prevents from later unwanted row buffer expanding.
-                return ((CharSequence) val).length() << 1;
+                CharSequence chars = (CharSequence) val;
+                return chars.length() == 0 ? 1 : utf8EncodedLength(chars);
 
             case NUMBER:
-                return RowAssembler.sizeInBytes((BigInteger) val);
+                return sizeInBytes((BigInteger) val);
 
             case DECIMAL:
-                return RowAssembler.sizeInBytes((BigDecimal) val);
+                return sizeInBytes((BigDecimal) val);
 
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);
         }
-    }
-
-    /**
-     * Gets binary read/write mode for given class.
-     *
-     * @param cls Type.
-     * @return Binary mode.
-     */
-    public static @NotNull BinaryMode mode(@NotNull Class<?> cls) {
-        // Primitives.
-        if (cls == byte.class) {
-            return BinaryMode.P_BYTE;
-        } else if (cls == short.class) {
-            return BinaryMode.P_SHORT;
-        } else if (cls == int.class) {
-            return BinaryMode.P_INT;
-        } else if (cls == long.class) {
-            return BinaryMode.P_LONG;
-        } else if (cls == float.class) {
-            return BinaryMode.P_FLOAT;
-        } else if (cls == double.class) {
-            return BinaryMode.P_DOUBLE;
-        } else if (cls == Byte.class) { // Boxed primitives.
-            return BinaryMode.BYTE;
-        } else if (cls == Short.class) {
-            return BinaryMode.SHORT;
-        } else if (cls == Integer.class) {
-            return BinaryMode.INT;
-        } else if (cls == Long.class) {
-            return BinaryMode.LONG;
-        } else if (cls == Float.class) {
-            return BinaryMode.FLOAT;
-        } else if (cls == Double.class) {
-            return BinaryMode.DOUBLE;
-        } else if (cls == LocalDate.class) { // Temporal types
-            return BinaryMode.DATE;
-        } else if (cls == LocalTime.class) {
-            return BinaryMode.TIME;
-        } else if (cls == LocalDateTime.class) {
-            return BinaryMode.DATETIME;
-        } else if (cls == Instant.class) {
-            return BinaryMode.TIMESTAMP;
-        } else if (cls == byte[].class) { // Other types
-            return BinaryMode.BYTE_ARR;
-        } else if (cls == String.class) {
-            return BinaryMode.STRING;
-        } else if (cls == UUID.class) {
-            return BinaryMode.UUID;
-        } else if (cls == BitSet.class) {
-            return BinaryMode.BITSET;
-        } else if (cls == BigInteger.class) {
-            return BinaryMode.NUMBER;
-        } else if (cls == BigDecimal.class) {
-            return BinaryMode.DECIMAL;
-        }
-
-        return BinaryMode.POJO;
     }
 
     /**
@@ -128,7 +77,7 @@ public final class MarshallerUtil {
      * @return Object factory.
      */
     public static <T> ObjectFactory<T> factoryForClass(Class<T> targetCls) {
-        if (mode(targetCls) == BinaryMode.POJO) {
+        if (BinaryMode.forClass(targetCls) == BinaryMode.POJO) {
             return new ObjectFactory<>(targetCls);
         } else {
             return null;
@@ -139,5 +88,119 @@ public final class MarshallerUtil {
      * Stub.
      */
     private MarshallerUtil() {
+    }
+
+    /**
+     * Calculates encoded string length.
+     *
+     * @param seq Char sequence.
+     * @return Encoded string length.
+     * @implNote This implementation is not tolerant to malformed char sequences.
+     */
+    public static int utf8EncodedLength(CharSequence seq) {
+        int cnt = 0;
+
+        for (int i = 0, len = seq.length(); i < len; i++) {
+            char ch = seq.charAt(i);
+
+            if (ch <= 0x7F) {
+                cnt++;
+            } else if (ch <= 0x7FF) {
+                cnt += 2;
+            } else if (Character.isHighSurrogate(ch)) {
+                cnt += 4;
+                ++i;
+            } else {
+                cnt += 3;
+            }
+        }
+
+        return cnt;
+    }
+
+    /**
+     * Calculates byte size for BigInteger value.
+     */
+    public static int sizeInBytes(BigInteger val) {
+        return val.bitLength() / 8 + 1;
+    }
+
+    /**
+     * Calculates byte size for BigDecimal value.
+     */
+    public static int sizeInBytes(BigDecimal val) {
+        return sizeInBytes(val.unscaledValue()) + Short.BYTES /* Size of scale */;
+    }
+
+    /**
+     * Converts a given {@link Column} into a {@link MarshallerColumn}.
+     */
+    public static MarshallerColumn toMarshallerColumn(Column column) {
+        NativeType columnType = column.type();
+
+        return new MarshallerColumn(
+                column.positionInRow(),
+                column.name(),
+                mode(columnType),
+                column.defaultValueProvider()::get,
+                columnType instanceof DecimalNativeType ? ((DecimalNativeType) columnType).scale() : 0
+        );
+    }
+
+    /**
+     * Converts an array of {@link Column}s into an array of {@link MarshallerColumn}s.
+     */
+    public static MarshallerColumn[] toMarshallerColumns(List<Column> columns) {
+        var result = new MarshallerColumn[columns.size()];
+
+        for (int i = 0; i < columns.size(); i++) {
+            result[i] = toMarshallerColumn(columns.get(i));
+        }
+
+        return result;
+    }
+
+    /**
+     * Converts a given {@link NativeType} into a {@link BinaryMode}.
+     */
+    private static BinaryMode mode(NativeType type) {
+        switch (type.spec()) {
+            case INT8:
+                return BinaryMode.BYTE;
+            case INT16:
+                return BinaryMode.SHORT;
+            case INT32:
+                return BinaryMode.INT;
+            case INT64:
+                return BinaryMode.LONG;
+            case FLOAT:
+                return BinaryMode.FLOAT;
+            case DOUBLE:
+                return BinaryMode.DOUBLE;
+            case DECIMAL:
+                return BinaryMode.DECIMAL;
+            case UUID:
+                return BinaryMode.UUID;
+            case STRING:
+                return BinaryMode.STRING;
+            case BYTES:
+                return BinaryMode.BYTE_ARR;
+            case BITMASK:
+                return BinaryMode.BITSET;
+            case NUMBER:
+                return BinaryMode.NUMBER;
+            case DATE:
+                return BinaryMode.DATE;
+            case TIME:
+                return BinaryMode.TIME;
+            case DATETIME:
+                return BinaryMode.DATETIME;
+            case TIMESTAMP:
+                return BinaryMode.TIMESTAMP;
+            case BOOLEAN:
+                return BinaryMode.BOOLEAN;
+            default:
+                throw new IllegalArgumentException("No matching mode for type " + type);
+        }
     }
 }

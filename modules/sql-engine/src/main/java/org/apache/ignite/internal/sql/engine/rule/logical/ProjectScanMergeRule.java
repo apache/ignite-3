@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,16 +32,17 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.immutables.value.Value;
 
 /**
- * ProjectScanMergeRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Rule that pushes filters and projections into a scan operation. This rule also prunes unused columns from a scan operator.
+ * This rule operates on operators that support such options (see {@link ProjectableFilterableTableScan} and its subclasses).
  */
 @Value.Enclosing
 public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableScan>
@@ -53,6 +54,9 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
 
     public static final RelOptRule TABLE_SCAN_SKIP_CORRELATED = Config.TABLE_SCAN_SKIP_CORRELATED.toRule();
 
+    public static final RelOptRule SYSTEM_VIEW_SCAN = Config.SYSTEM_VIEW_SCAN.toRule();
+
+    public static final RelOptRule SYSTEM_VIEW_SCAN_SKIP_CORRELATED = Config.SYSTEM_VIEW_SCAN_SKIP_CORRELATED.toRule();
 
     protected abstract T createNode(
             RelOptCluster cluster,
@@ -86,7 +90,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         // Set default traits, real traits will be calculated for physical node.
         RelTraitSet traits = cluster.traitSet();
 
-        IgniteTable tbl = scan.getTable().unwrap(IgniteTable.class);
+        IgniteDataSource tbl = scan.getTable().unwrap(IgniteDataSource.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
 
         if (requiredColumns == null) {
@@ -110,8 +114,8 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
 
             requiredColumns = builder.build();
 
-            Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns,
-                    tbl.getRowType(typeFactory).getFieldCount());
+            Mappings.TargetMapping targetMapping = Commons.trimmingMapping(
+                    tbl.getRowType(typeFactory).getFieldCount(), requiredColumns);
 
             projects = new RexShuttle() {
                 @Override public RexNode visitInputRef(RexInputRef ref) {
@@ -170,6 +174,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
             return IgniteLogicalTableScan.create(
                     cluster,
                     traits,
+                    scan.getHints(),
                     scan.getTable(),
                     projections,
                     cond,
@@ -208,6 +213,37 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         }
     }
 
+    private static class ProjectSystemViewScanMergeRule extends ProjectScanMergeRule<IgniteLogicalSystemViewScan> {
+        /**
+         * Constructor.
+         *
+         * @param config Project scan merge rule config,
+         */
+        private ProjectSystemViewScanMergeRule(ProjectScanMergeRule.Config config) {
+            super(config);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected IgniteLogicalSystemViewScan createNode(
+                RelOptCluster cluster,
+                IgniteLogicalSystemViewScan scan,
+                RelTraitSet traits,
+                List<RexNode> projections,
+                RexNode cond,
+                ImmutableBitSet requiredColumns
+        ) {
+            return IgniteLogicalSystemViewScan.create(
+                    cluster,
+                    traits,
+                    scan.getHints(),
+                    scan.getTable(),
+                    projections,
+                    cond,
+                    requiredColumns
+            );
+        }
+    }
+
     /**
      * Rule's configuration.
      */
@@ -227,6 +263,15 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         Config INDEX_SCAN = DEFAULT
                 .withRuleFactory(ProjectIndexScanMergeRule::new)
                 .withScanRuleConfig(IgniteLogicalIndexScan.class, "ProjectIndexScanMergeRule", false);
+
+        Config SYSTEM_VIEW_SCAN = DEFAULT
+                .withRuleFactory(ProjectSystemViewScanMergeRule::new)
+                .withScanRuleConfig(IgniteLogicalSystemViewScan.class, "ProjectSystemViewScanMergeRule", false);
+
+        Config SYSTEM_VIEW_SCAN_SKIP_CORRELATED = DEFAULT
+                .withRuleFactory(ProjectSystemViewScanMergeRule::new)
+                .withScanRuleConfig(IgniteLogicalSystemViewScan.class, "ProjectSystemViewScanMergeSkipCorrelatedRule", true);
+
 
         /**
          * Create rule's configuration.

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#if DEBUG
 namespace Apache.Ignite.Tests.Buffers
 {
     using System;
@@ -37,3 +38,4 @@ namespace Apache.Ignite.Tests.Buffers
         }
     }
 }
+#endif

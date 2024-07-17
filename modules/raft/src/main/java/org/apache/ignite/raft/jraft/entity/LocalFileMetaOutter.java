@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,10 +19,10 @@
 
 package org.apache.ignite.raft.jraft.entity;
 
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.rpc.Message;
+import org.jetbrains.annotations.Nullable;
 
 public final class LocalFileMetaOutter {
     /**
@@ -30,38 +30,28 @@ public final class LocalFileMetaOutter {
      */
     public enum FileSource {
         /**
-         * <code>FILE_SOURCE_LOCAL = 0;</code>
+         * <code>FILE_SOURCE_LOCAL = 1;</code>
          */
-        FILE_SOURCE_LOCAL(0),
+        FILE_SOURCE_LOCAL(1),
         /**
-         * <code>FILE_SOURCE_REFERENCE = 1;</code>
+         * <code>FILE_SOURCE_REFERENCE = 2;</code>
          */
-        FILE_SOURCE_REFERENCE(1);
+        FILE_SOURCE_REFERENCE(2);
 
         public final int getNumber() {
             return value;
         }
 
-        /**
-         * @deprecated Use {@link #forNumber(int)} instead.
-         */
-        @Deprecated
-        public static FileSource valueOf(int value) {
-            return forNumber(value);
-        }
-
         public static FileSource forNumber(int value) {
             switch (value) {
-                case 0:
-                    return FILE_SOURCE_LOCAL;
                 case 1:
+                    return FILE_SOURCE_LOCAL;
+                case 2:
                     return FILE_SOURCE_REFERENCE;
                 default:
                     return null;
             }
         }
-
-        private static final FileSource[] VALUES = values();
 
         private final int value;
 
@@ -72,11 +62,16 @@ public final class LocalFileMetaOutter {
 
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.LOCAL_FILE_META)
     public interface LocalFileMeta extends Message {
-        @Marshallable
-        FileSource source();
+        int sourceNumber();
 
+        @Nullable
+        default FileSource source() {
+            return FileSource.forNumber(sourceNumber());
+        }
+
+        @Nullable
         String checksum();
 
-        boolean hasUserMeta();
+        byte @Nullable[] userMeta();
     }
 }

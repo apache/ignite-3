@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.core.Replicator;
+import org.apache.ignite.raft.jraft.core.State;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
@@ -76,13 +77,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @param blocking if true, will be blocked until the node finish it's state change
      */
     boolean isLeader(final boolean blocking);
-
-    /**
-     * Shutdown local replica node.
-     *
-     * @param done callback
-     */
-    void shutdown(final Closure done);
 
     /**
      * Block the thread until the node is successfully stopped.
@@ -194,11 +188,11 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * then it is guaranteed that state of {@link org.apache.ignite.raft.jraft.core.NodeImpl.ConfigurationCtx} was switched to
      * {@code STAGE_CATCHING_UP}
      *
-     * @param newPeers new peers to change
+     * @param newConf new peers and learners configuration to apply.
      * @param term term on which this method was called.
      * @param done callback
      */
-    void changePeersAsync(final Configuration newPeers, long term, final Closure done);
+    void changePeersAsync(final Configuration newConf, long term, final Closure done);
 
     /**
      * Reset the configuration of this node individually, without any replication to other peers before this node
@@ -311,9 +305,26 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     int getNodeTargetPriority();
 
     /**
+     * Get the node's state.
+     *
+     * @return node's state.
+     */
+    State getNodeState();
+
+    /**
      * Get the node's current term.
      *
      * @return node's current term.
      */
     long getCurrentTerm();
+
+    /**
+     * Returns {@code true} if node is currently in the process of installing a snapshot.
+     */
+    boolean isInstallingSnapshot();
+
+    /**
+     * Returns the value of last replicated log index. Corresponding log entry might not yet be written to the log storage (no flush).
+     */
+    long lastLogIndex();
 }

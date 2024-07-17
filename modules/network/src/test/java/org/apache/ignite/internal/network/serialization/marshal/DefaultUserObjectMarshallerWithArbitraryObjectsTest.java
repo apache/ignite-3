@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -51,18 +51,21 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for how {@link DefaultUserObjectMarshaller} handles arbitrary objects.
  * An arbitrary object is an object of a class that is not built-in, not a {@link Serializable} and not an {@link java.io.Externalizable}.
  */
+@SuppressWarnings("serial")
 class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     private final ClassDescriptorRegistry descriptorRegistry = new ClassDescriptorRegistry();
     private final ClassDescriptorFactory descriptorFactory = new ClassDescriptorFactory(descriptorRegistry);
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
+
+    private final CleanSlateUnmarshaller unmarshaller = new CleanSlateUnmarshaller(marshaller, descriptorRegistry);
 
     private static boolean constructorCalled;
     private static boolean proxyRunCalled;
@@ -76,19 +79,9 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         assertThat(unmarshalled.value, is(42));
     }
 
-    @NotNull
     private <T> T marshalAndUnmarshalNonNull(Object object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
-        return unmarshalNonNull(marshalled);
-    }
-
-    @NotNull
-    private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
-
-        assertThat(unmarshalled, is(notNullValue()));
-
-        return unmarshalled;
+        return unmarshaller.unmarshalNonNull(marshalled);
     }
 
     @Test
@@ -288,7 +281,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     }
 
     private Runnable capturingNonSerializableLambda() {
-        return () -> System.out.println(DefaultUserObjectMarshallerWithArbitraryObjectsTest.this);
+        return () -> System.out.println(this);
     }
 
     @Test
@@ -299,7 +292,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     }
 
     private Runnable capturingSerializableLambda() {
-        return (Runnable & Serializable) () -> System.out.println(DefaultUserObjectMarshallerWithArbitraryObjectsTest.this);
+        return (Runnable & Serializable) () -> System.out.println(this);
     }
 
     @Test
@@ -561,6 +554,15 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         assertThat(result, is(BigInteger.TEN));
     }
 
+    @Test
+    void objectWithFieldOfFinalSerializableTypeIsSupported() throws Exception {
+        WithFinalSerializableWithWriteReplace result = marshalAndUnmarshalNonNull(
+                new WithFinalSerializableWithWriteReplace(new FinalSerializableWithWriteReplace("ok"))
+        );
+
+        assertThat(result.child.value, is("ok"));
+    }
+
     private static boolean noArgs(Method method) {
         return method.getParameterTypes().length == 0;
     }
@@ -705,6 +707,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         private List<Object> contents;
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     private static class WithSideEffectInConstructor {
         public WithSideEffectInConstructor() {
             constructorCalled = true;
@@ -727,6 +730,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         }
     }
 
+    @SuppressWarnings("FieldMayBeStatic")
     private static class WithPrimitives {
         private final byte byteVal = 1;
         private final short shortVal = 2;
@@ -738,6 +742,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         private final boolean booleanVal = true;
     }
 
+    @SuppressWarnings("FieldMayBeStatic")
     private static class WithPrimitiveWrappers {
         private final Byte byteVal = 1;
         private final Short shortVal = 2;
@@ -749,10 +754,11 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         private final Boolean booleanVal = true;
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     private static class TestInvocationHandler implements InvocationHandler {
         /** {@inheritDoc} */
         @Override
-        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        public @Nullable Object invoke(Object proxy, Method method, Object[] args) {
             if ("run".equals(method.getName()) && noArgs(method)) {
                 proxyRunCalled = true;
                 return null;
@@ -772,7 +778,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         private Object ref;
 
         @Override
-        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        public Object invoke(Object proxy, Method method, Object[] args) {
             if ("equals".equals(method.getName()) && method.getParameterTypes().length == 1
                     && method.getParameterTypes()[0] == Object.class) {
                 return proxy == args[0];
@@ -793,6 +799,38 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
 
         private WithStringField(String value) {
             this.value = value;
+        }
+    }
+
+    private static final class FinalSerializableWithWriteReplace implements Serializable {
+        private final String value;
+
+        private FinalSerializableWithWriteReplace(String value) {
+            this.value = value;
+        }
+
+        private Object writeReplace() {
+            return new ReplacementForFinalSerializable(value);
+        }
+    }
+
+    private static class ReplacementForFinalSerializable implements Serializable {
+        private final String value;
+
+        private ReplacementForFinalSerializable(String value) {
+            this.value = value;
+        }
+
+        protected Object readResolve() {
+            return new FinalSerializableWithWriteReplace(value);
+        }
+    }
+
+    private static class WithFinalSerializableWithWriteReplace {
+        private final FinalSerializableWithWriteReplace child;
+
+        private WithFinalSerializableWithWriteReplace(FinalSerializableWithWriteReplace child) {
+            this.child = child;
         }
     }
 }

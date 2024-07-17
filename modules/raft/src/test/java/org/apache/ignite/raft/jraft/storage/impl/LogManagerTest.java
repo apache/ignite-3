@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,13 @@
  * limitations under the License.
  */
 package org.apache.ignite.raft.jraft.storage.impl;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +38,8 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.NodeId;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.LogManagerOptions;
@@ -49,13 +58,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
 public class LogManagerTest extends BaseStorageTest {
@@ -90,6 +92,7 @@ public class LogManagerTest extends BaseStorageTest {
         executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
         nodeOptions.setCommonExecutor(executor);
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);
+        Mockito.when(node.getNodeId()).thenReturn(new NodeId("foo", new PeerId("bar")));
 
         opts.setConfigurationManager(this.confManager);
         opts.setLogEntryCodecFactory(LogEntryV1CodecFactory.getInstance());
@@ -98,11 +101,13 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setNodeMetrics(new NodeMetrics(false));
         opts.setLogStorage(this.logStorage);
         opts.setRaftOptions(raftOptions);
-        opts.setGroupId("TestSrv");
-        opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("TestLogManagerDisruptor",
-            1024,
-            () -> new LogManagerImpl.StableClosureEvent(),
-            1));
+        opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("test", "TestLogManagerDisruptor",
+                1024,
+                () -> new LogManagerImpl.StableClosureEvent(),
+                1,
+                false,
+                false,
+                null));
         assertTrue(this.logManager.init(opts));
     }
 
@@ -128,6 +133,13 @@ public class LogManagerTest extends BaseStorageTest {
         lastLogId = this.logManager.getLastLogId(false);
         assertEquals(0, lastLogId.getIndex());
         assertTrue(this.logManager.checkConsistency().isOk());
+    }
+
+    @Test
+    public void testHasAvailableCapacityToAppendEntries() {
+        assertTrue(this.logManager.hasAvailableCapacityToAppendEntries(1));
+        assertTrue(this.logManager.hasAvailableCapacityToAppendEntries(10));
+        assertFalse(this.logManager.hasAvailableCapacityToAppendEntries(1000000));
     }
 
     @Test

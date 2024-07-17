@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,11 +20,13 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
@@ -35,7 +37,7 @@ import org.apache.ignite.internal.util.worker.IgniteWorker;
  *
  * <p>Uses {@link ReadWriteLock} to provide such synchronization scenario.
  */
-class LongOperationAsyncExecutor {
+public class LongOperationAsyncExecutor {
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     private final String igniteInstanceName;
@@ -66,17 +68,22 @@ class LongOperationAsyncExecutor {
      * @param operation Long operation.
      * @param name name of the operation, used as part of the thread name.
      */
-    public void async(Runnable operation, String name) {
+    public CompletableFuture<Void> async(RunnableX operation, String name) {
         String workerName = "async-" + name + "-task-" + WORKER_COUNTER.getAndIncrement();
 
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
         IgniteWorker worker = new IgniteWorker(log, igniteInstanceName, workerName, null) {
-            /** {@inheritDoc} */
             @Override
             protected void body() {
                 readWriteLock.writeLock().lock();
 
                 try {
                     operation.run();
+
+                    future.complete(null);
+                } catch (Throwable throwable) {
+                    future.completeExceptionally(throwable);
                 } finally {
                     readWriteLock.writeLock().unlock();
 
@@ -87,7 +94,22 @@ class LongOperationAsyncExecutor {
 
         workers.add(worker);
 
+        // TODO: IGNITE-18269 replace with thread pool
         new IgniteThread(worker).start();
+
+        return future;
+    }
+
+    /**
+     * Executes long operation in dedicated thread.
+     *
+     * <p>Uses write lock as such operations can't run simultaneously.
+     *
+     * @param operation Long operation.
+     * @param name name of the operation, used as part of the thread name.
+     */
+    public CompletableFuture<Void> async(Runnable operation, String name) {
+        return async((RunnableX) operation::run, name);
     }
 
     /**

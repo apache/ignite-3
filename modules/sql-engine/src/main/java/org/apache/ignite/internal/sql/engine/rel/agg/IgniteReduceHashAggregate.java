@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,7 +21,6 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelInput;
@@ -35,13 +34,14 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * IgniteReduceHashAggregate.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase implements IgniteHashAggregateBase {
+    private static final String REL_TYPE_NAME = "ReduceHashAggregate";
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -56,14 +56,12 @@ public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase impleme
             RelDataType rowType
     ) {
         super(cluster, traits, input, groupSet, groupSets, aggCalls, rowType);
-
-        assert RelOptUtil.areRowTypesEqual(input.getRowType(),
-                IgniteMapHashAggregate.rowType(Commons.typeFactory(cluster), !aggCalls.isEmpty()), true);
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteReduceHashAggregate(RelInput input) {
         super(input);
@@ -123,5 +121,11 @@ public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase impleme
             List<RelTraitSet> inTraits) {
         return List.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
                 List.of(inTraits.get(0).replace(RelCollations.EMPTY))));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

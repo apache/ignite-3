@@ -24,7 +24,7 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     public class CustomTestIgniteTuple : IIgniteTuple
     {
-        public const int Key = 42;
+        public const long Key = 42;
 
         public const string Value = "Val1";
 

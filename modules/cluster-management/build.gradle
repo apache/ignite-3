@@ -1,0 +1,86 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+
+description = 'ignite-cluster-management'
+
+dependencies {
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor libs.micronaut.inject.annotation.processor
+    annotationProcessor libs.auto.service
+
+    implementation project(':ignite-core')
+    implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-presentation')
+    implementation project(':ignite-failure-handler')
+    implementation project(':ignite-network')
+    implementation project(':ignite-raft-api')
+    implementation project(':ignite-vault')
+    implementation project(':ignite-rocksdb-common')
+    implementation project(':ignite-storage-api')
+    implementation project(':ignite-security')
+    implementation libs.jetbrains.annotations
+    implementation libs.fastutil.core
+    implementation libs.auto.service.annotations
+
+    testImplementation project(':ignite-configuration')
+    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation project(':ignite-core')
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation project(':ignite-network')
+    testImplementation libs.hamcrest.core
+    testImplementation libs.mockito.junit
+
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-failure-handler')
+    testFixturesImplementation project(':ignite-raft')
+    testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-storage-api')
+    testFixturesImplementation project(':ignite-vault')
+    testFixturesImplementation project(':ignite-security')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-configuration'))
+    testFixturesImplementation testFixtures(project(':ignite-network'))
+    testFixturesImplementation testFixtures(project(':ignite-metrics'))
+    testFixturesImplementation testFixtures(project(':ignite-raft'))
+    testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
+    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.hamcrest.core
+
+    integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
+    integrationTestImplementation project(':ignite-rest')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation testFixtures(project)
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-network'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-raft'))
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.jetbrains.annotations
+}

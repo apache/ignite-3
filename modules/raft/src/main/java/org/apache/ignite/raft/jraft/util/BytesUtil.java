@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 import java.util.Comparator;
 
 /**
@@ -172,6 +177,31 @@ public final class BytesUtil {
             bytes[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i + 1), 16));
         }
         return bytes;
+    }
+
+    /**
+     * Converts a byte buffer to a byte array.
+     *
+     * @param buf Byte buffer from which we copy bytes.
+     */
+    public static byte[] toByteArray(ByteBuffer buf) {
+        byte[] arr = new byte[buf.remaining()];
+        buf.get(arr);
+        buf.flip();
+        return arr;
+    }
+
+    /**
+     * Writes a byte buffer to the output stream.
+     *
+     * @param outputStream Output stream to write bytes into.
+     * @param buf Byte buffer to retrieve bytes from.
+     * @throws IOException If writing to the output stream failed.
+     */
+    public static void writeTo(OutputStream outputStream, ByteBuffer buf) throws IOException {
+        WritableByteChannel channel = Channels.newChannel(outputStream);
+
+        channel.write(buf);
     }
 
     private BytesUtil() {

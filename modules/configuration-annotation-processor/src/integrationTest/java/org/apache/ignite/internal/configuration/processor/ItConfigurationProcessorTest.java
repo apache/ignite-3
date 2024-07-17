@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -546,6 +546,14 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ConfigMustNotContainInternalIdWithAbstractConfigConfigurationSchema"),
                 "Field with @InternalId is already present in the superclass"
+        );
+
+        // Let's check @Secret must be String.
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "SecretMustBeStringConfigurationSchema"),
+                "must be String. Only String field can be annotated with @Secret"
         );
     }
 

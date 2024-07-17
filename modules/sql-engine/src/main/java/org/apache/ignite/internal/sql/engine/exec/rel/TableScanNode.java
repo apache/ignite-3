@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,258 +17,74 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
-
+import java.util.BitSet;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.Flow;
-import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
+import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Scan node.
+ * Execution node for table scan. Provide result of table scan by given table and partitions.
  */
-public class TableScanNode<RowT> extends AbstractNode<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    private static final int NOT_WAITING = -1;
+public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     /** Table that provides access to underlying data. */
-    private final InternalTable physTable;
+    private final ScannableTable table;
 
-    /** Table that is an object in SQL schema. */
-    private final InternalIgniteTable schemaTable;
+    /** Returns partitions to be used by this scan. */
+    private final PartitionProvider<RowT> partitionProvider;
 
-    private final RowHandler.RowFactory<RowT> factory;
+    private final RowFactory<RowT> rowFactory;
 
-    private final int[] parts;
-
-    private final Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
-
-    private final @Nullable Predicate<RowT> filters;
-
-    private final @Nullable Function<RowT, RowT> rowTransformer;
-
-    /** Participating columns. */
-    private final @Nullable ImmutableBitSet requiredColumns;
-
-    private int requested;
-
-    private int waiting;
-
-    private boolean inLoop;
-
-    private Subscription activeSubscription;
-
-    private int curPartIdx;
+    private final @Nullable BitSet requiredColumns;
 
     /**
      * Constructor.
      *
-     * @param ctx             Execution context.
-     * @param rowType         Output type of the current node.
-     * @param schemaTable     The table this node should scan.
-     * @param parts           Partition numbers to scan.
-     * @param filters         Optional filter to filter out rows.
-     * @param rowTransformer  Optional projection function.
+     * @param ctx Execution context.
+     * @param rowFactory Row factory.
+     * @param table Internal table.
+     * @param partitionProvider List of pairs containing the partition number to scan with the corresponding enlistment
+     *         consistency token.
+     * @param filters Optional filter to filter out rows.
+     * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
      */
     public TableScanNode(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
-            InternalIgniteTable schemaTable,
-            int[] parts,
+            RowHandler.RowFactory<RowT> rowFactory,
+            ScannableTable table,
+            PartitionProvider<RowT> partitionProvider,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowType);
+        super(ctx, filters, rowTransformer);
 
-        assert !nullOrEmpty(parts);
-
-        this.physTable = schemaTable.table();
-        this.schemaTable = schemaTable;
-        this.parts = parts;
-        this.filters = filters;
-        this.rowTransformer = rowTransformer;
+        this.table = table;
+        this.partitionProvider = partitionProvider;
+        this.rowFactory = rowFactory;
         this.requiredColumns = requiredColumns;
-
-        factory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void request(int rowsCnt) throws Exception {
-        assert rowsCnt > 0 && requested == 0 : "rowsCnt=" + rowsCnt + ", requested=" + requested;
+    protected Publisher<RowT> scan() {
+        List<PartitionWithConsistencyToken> partitions = partitionProvider.getPartitions(context());
 
-        checkState();
+        Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
+                partitions.iterator(), p -> table.scan(context(), p, rowFactory, requiredColumns));
 
-        requested = rowsCnt;
-
-        if (!inLoop) {
-            context().execute(this::push, this::onError);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void closeInternal() {
-        super.closeInternal();
-
-        if (activeSubscription != null) {
-            activeSubscription.cancel();
-
-            activeSubscription = null;
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected void rewindInternal() {
-        if (activeSubscription != null) {
-            activeSubscription.cancel();
-
-            activeSubscription = null;
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void register(List<Node<RowT>> sources) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected Downstream<RowT> requestDownstream(int idx) {
-        throw new UnsupportedOperationException();
-    }
-
-    private void push() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        checkState();
-
-        assert waiting >= 0;
-
-        if (requested > 0 && !inBuff.isEmpty()) {
-            inLoop = true;
-            try {
-                while (requested > 0 && !inBuff.isEmpty()) {
-                    checkState();
-
-                    RowT row = inBuff.poll();
-
-                    if (filters != null && !filters.test(row)) {
-                        continue;
-                    }
-
-                    if (rowTransformer != null) {
-                        row = rowTransformer.apply(row);
-                    }
-
-                    requested--;
-                    downstream().push(row);
-                }
-            } finally {
-                inLoop = false;
-            }
-        }
-
-        if (waiting == 0 || activeSubscription == null) {
-            requestNextBatch();
-        }
-
-        if (waiting == NOT_WAITING && !inBuff.isEmpty()) {
-            context().execute(this::push, this::onError);
-        }
-
-        if (requested > 0 && waiting == NOT_WAITING && inBuff.isEmpty()) {
-            requested = 0;
-            downstream().end();
-        }
-    }
-
-    private void requestNextBatch() {
-        if (waiting == NOT_WAITING) {
-            return;
-        }
-
-        if (waiting == 0) {
-            waiting = inBufSize;
-        }
-
-        Subscription subscription = this.activeSubscription;
-        if (subscription != null) {
-            subscription.request(waiting);
-        } else if (curPartIdx < parts.length) {
-            physTable.scan(parts[curPartIdx++], null).subscribe(new SubscriberImpl());
-        } else {
-            waiting = NOT_WAITING;
-        }
-    }
-
-    private class SubscriberImpl implements Flow.Subscriber<BinaryRow> {
-        private int received = 0; // HB guarded here.
-
-        /** {@inheritDoc} */
-        @Override
-        public void onSubscribe(Subscription subscription) {
-            assert TableScanNode.this.activeSubscription == null;
-
-            TableScanNode.this.activeSubscription = subscription;
-            subscription.request(inBufSize);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onNext(BinaryRow binRow) {
-            RowT row = convert(binRow);
-
-            inBuff.add(row);
-
-            if (++received == inBufSize) {
-                received = 0;
-
-                context().execute(() -> {
-                    waiting = 0;
-                    push();
-                }, TableScanNode.this::onError);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onError(Throwable throwable) {
-            context().execute(() -> {
-                throw throwable;
-            }, TableScanNode.this::onError);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onComplete() {
-            context().execute(() -> {
-                activeSubscription = null;
-                waiting = 0;
-
-                push();
-            }, TableScanNode.this::onError);
-        }
-    }
-
-    private RowT convert(BinaryRow binRow) {
-        return schemaTable.toRow(context(), binRow, factory, requiredColumns);
+        return SubscriptionUtils.concat(it);
     }
 }

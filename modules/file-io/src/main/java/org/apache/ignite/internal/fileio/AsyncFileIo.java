@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -74,13 +74,7 @@ public class AsyncFileIo extends AbstractFileIo {
 
         ch.read(destBuf, position, this, future);
 
-        try {
-            return getUninterruptibly(future);
-        } catch (ExecutionException e) {
-            throw new IOException(e.getCause());
-        } catch (CancellationException e) {
-            throw new IOException(e);
-        }
+        return future.waitUninterruptibly();
     }
 
     /** {@inheritDoc} */
@@ -91,11 +85,7 @@ public class AsyncFileIo extends AbstractFileIo {
         ch.read(destBuf, position, null, future);
 
         try {
-            return getUninterruptibly(future);
-        } catch (ExecutionException e) {
-            throw new IOException(e.getCause());
-        } catch (CancellationException e) {
-            throw new IOException(e);
+            return future.waitUninterruptibly();
         } finally {
             asyncFutures.remove(future);
         }
@@ -108,13 +98,7 @@ public class AsyncFileIo extends AbstractFileIo {
 
         ch.read(ByteBuffer.wrap(buf, off, length), position, this, future);
 
-        try {
-            return getUninterruptibly(future);
-        } catch (ExecutionException e) {
-            throw new IOException(e.getCause());
-        } catch (CancellationException e) {
-            throw new IOException(e);
-        }
+        return future.waitUninterruptibly();
     }
 
     /** {@inheritDoc} */
@@ -124,13 +108,7 @@ public class AsyncFileIo extends AbstractFileIo {
 
         ch.write(srcBuf, position, this, future);
 
-        try {
-            return getUninterruptibly(future);
-        } catch (ExecutionException e) {
-            throw new IOException(e.getCause());
-        } catch (CancellationException e) {
-            throw new IOException(e);
-        }
+        return future.waitUninterruptibly();
     }
 
     /** {@inheritDoc} */
@@ -143,11 +121,7 @@ public class AsyncFileIo extends AbstractFileIo {
         ch.write(srcBuf, position, null, future);
 
         try {
-            return getUninterruptibly(future);
-        } catch (ExecutionException e) {
-            throw new IOException(e.getCause());
-        } catch (CancellationException e) {
-            throw new IOException(e);
+            return future.waitUninterruptibly();
         } finally {
             asyncFutures.remove(future);
         }
@@ -160,13 +134,7 @@ public class AsyncFileIo extends AbstractFileIo {
 
         ch.write(ByteBuffer.wrap(buf, off, len), position, this, future);
 
-        try {
-            return getUninterruptibly(future);
-        } catch (ExecutionException e) {
-            throw new IOException(e.getCause());
-        } catch (CancellationException e) {
-            throw new IOException(e);
-        }
+        return future.waitUninterruptibly();
     }
 
     /** {@inheritDoc} */
@@ -205,13 +173,7 @@ public class AsyncFileIo extends AbstractFileIo {
     @Override
     public void close() throws IOException {
         for (ChannelOpFuture future : asyncFutures) {
-            try {
-                getUninterruptibly(future);
-            } catch (ExecutionException e) {
-                throw new IOException(e.getCause());
-            } catch (CancellationException e) {
-                throw new IOException(e);
-            }
+            future.waitUninterruptibly();
         }
 
         ch.close();
@@ -238,6 +200,22 @@ public class AsyncFileIo extends AbstractFileIo {
         @Override
         public void failed(Throwable exc, AsyncFileIo attach) {
             super.completeExceptionally(exc);
+        }
+
+        int waitUninterruptibly() throws IOException {
+            try {
+                return getUninterruptibly(this);
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+
+                if (cause instanceof IOException) {
+                    throw (IOException) cause;
+                }
+
+                throw new IOException(cause);
+            } catch (CancellationException e) {
+                throw new IOException(e);
+            }
         }
     }
 }

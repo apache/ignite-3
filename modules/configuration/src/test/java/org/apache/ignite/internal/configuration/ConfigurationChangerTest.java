@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,17 +22,18 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.FirstConfiguration.KEY;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.emptyString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.typesafe.config.ConfigFactory;
 import java.io.Serializable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -58,13 +59,15 @@ import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
+import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -96,12 +99,12 @@ public class ConfigurationChangerTest {
      */
     @Config
     public static class SecondConfigurationSchema {
-        @Value
+        @Value(hasDefault = true)
         @Immutable
-        public int intCfg;
+        public int intCfg = 0;
 
-        @Value
-        public String strCfg;
+        @Value(hasDefault = true)
+        public String strCfg = "";
     }
 
     /**
@@ -113,13 +116,13 @@ public class ConfigurationChangerTest {
         public String strCfg;
     }
 
-    private static ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
+    private static ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(KEY, DefaultsConfiguration.KEY);
 
     private final TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
 
     @AfterAll
     public static void afterAll() {
-        cgen = null;
+        generator.close();
     }
 
     /**
@@ -134,6 +137,26 @@ public class ConfigurationChangerTest {
                 .changeChild(change -> change.changeIntCfg(1).changeStrCfg("1"))
                 .changeElements(change -> change.create("a", element -> element.changeStrCfg("1")))
         )).get(1, SECONDS);
+
+        FirstView newRoot = (FirstView) changer.getRootNode(KEY);
+
+        assertEquals(1, newRoot.child().intCfg());
+        assertEquals("1", newRoot.child().strCfg());
+        assertEquals("1", newRoot.elements().get("a").strCfg());
+    }
+
+    /**
+     * Test simple change of configuration.
+     */
+    @Test
+    public void testSimpleConfigurationChangeWithoutExtraLambdas() throws Exception {
+        ConfigurationChanger changer = createChanger(KEY);
+        changer.start();
+
+        changer.change(source(KEY, (FirstChange parent) -> {
+            parent.changeChild().changeIntCfg(1).changeStrCfg("1");
+            parent.changeElements().create("a", element -> element.changeStrCfg("1"));
+        })).get(1, SECONDS);
 
         FirstView newRoot = (FirstView) changer.getRootNode(KEY);
 
@@ -193,17 +216,17 @@ public class ConfigurationChangerTest {
             /** {@inheritDoc} */
             @Override
             public void validate(MaybeInvalid annotation, ValidationContext<Object> ctx) {
-                ctx.addIssue(new ValidationIssue("key", "foo"));
+                if (ctx.getNewValue().equals("2")) {
+                    ctx.addIssue(new ValidationIssue("key", "foo"));
+                }
             }
         };
 
         ConfigurationChanger changer2 = new TestConfigurationChanger(
-                cgen,
                 List.of(KEY),
-                Map.of(MaybeInvalid.class, Set.of(validator)),
                 storage,
-                List.of(),
-                List.of()
+                generator,
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
         changer2.start();
@@ -251,13 +274,13 @@ public class ConfigurationChangerTest {
 
         storage.fail(false);
 
-        CompletableFuture<Map<String, ? extends Serializable>> dataFuture = storage.readAll().thenApply(Data::values);
+        CompletableFuture<Map<String, ? extends Serializable>> dataFuture = storage.readDataOnRecovery().thenApply(Data::values);
 
-        assertThat(dataFuture, willBe(anEmptyMap()));
+        assertThat(dataFuture, willCompleteSuccessfully());
 
         FirstView newRoot = (FirstView) changer.getRootNode(KEY);
         assertNotNull(newRoot.child());
-        assertNull(newRoot.child().strCfg());
+        assertThat(newRoot.child().strCfg(), is(emptyString()));
     }
 
     /**
@@ -293,8 +316,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
-
         DefaultsView root = (DefaultsView) changer.getRootNode(DefaultsConfiguration.KEY);
 
         assertEquals("foo", root.defStr());
@@ -322,8 +343,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
-
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
                 (DefaultsChange change) -> change.changeChildrenList(children -> children.create("name", child -> {
@@ -349,8 +368,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
-
         DefaultsChildView childView = changer.getLatest(List.of(node("def"), node("child")));
 
         assertEquals("bar", childView.defStr());
@@ -373,8 +390,6 @@ public class ConfigurationChangerTest {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
 
         changer.start();
-
-        changer.initializeDefaults();
 
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
@@ -424,8 +439,6 @@ public class ConfigurationChangerTest {
         ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
 
         changer.start();
-
-        changer.initializeDefaults();
 
         ConfigurationSource source = source(
                 DefaultsConfiguration.KEY,
@@ -491,8 +504,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
-
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test0"))).get(1, SECONDS);
@@ -544,8 +555,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        changer.initializeDefaults();
-
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> {})).get(1, SECONDS);
@@ -553,6 +562,26 @@ public class ConfigurationChangerTest {
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("foo"))).get(1, SECONDS);
         assertEquals(3, storage.lastRevision().get(1, SECONDS));
+    }
+
+    @Test
+    public void initializeWith() throws Exception {
+        // When we initialize the configuration with a source, the configuration should be updated with the values from the source.
+        String initialConfiguration = "def:{child:{defStr:initialStr,arr:[bar]}}";
+        com.typesafe.config.Config config = ConfigFactory.parseString(initialConfiguration);
+        ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
+
+        ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
+
+        changer.initializeConfigurationWith(hoconSource);
+
+        changer.start();
+
+        DefaultsView root = (DefaultsView) changer.getRootNode(DefaultsConfiguration.KEY);
+
+        assertEquals("foo", root.defStr());
+        assertEquals("initialStr", root.child().defStr());
+        assertArrayEquals(new String[]{"bar"}, root.child().arr());
     }
 
     private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {
@@ -572,7 +601,13 @@ public class ConfigurationChangerTest {
     }
 
     private ConfigurationChanger createChanger(RootKey<?, ?> rootKey) {
-        return new TestConfigurationChanger(cgen, List.of(rootKey), Map.of(), storage, List.of(), List.of());
+
+        return new TestConfigurationChanger(
+                List.of(rootKey),
+                storage,
+                generator,
+                new TestConfigurationValidator()
+        );
     }
 
     private static KeyPathNode node(String key) {

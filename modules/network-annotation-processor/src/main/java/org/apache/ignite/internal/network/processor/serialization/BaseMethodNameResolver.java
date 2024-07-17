@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -17,19 +17,24 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Class for resolving a "base" part of a (de-)serialization method based on the message type. This part is then used by concrete method
@@ -112,22 +117,34 @@ class BaseMethodNameResolver {
     private String resolveReferenceMethodName(DeclaredType parameterType) {
         var typeUtils = new TypeUtils(processingEnvironment);
 
-        if (typeUtils.isSameType(parameterType, String.class)) {
+        PrimitiveType unboxedType = typeUtils.unboxedType(parameterType);
+
+        if (unboxedType != null) {
+            return "Boxed" + resolvePrimitiveMethodName(unboxedType);
+        } else if (typeUtils.isSameType(parameterType, String.class)) {
             return "String";
         } else if (typeUtils.isSameType(parameterType, UUID.class)) {
             return "Uuid";
         } else if (typeUtils.isSameType(parameterType, IgniteUuid.class)) {
             return "IgniteUuid";
-        } else if (typeUtils.isSameType(parameterType, NetworkMessage.class)) {
+        } else if (typeUtils.isSubType(parameterType, NetworkMessage.class)) {
             return "Message";
         } else if (typeUtils.isSameType(parameterType, BitSet.class)) {
             return "BitSet";
         } else if (typeUtils.isSameType(parameterType, Collection.class)) {
             return "Collection";
+        } else if (typeUtils.isSameType(parameterType, List.class)) {
+            return "List";
+        } else if (typeUtils.isSameType(parameterType, Set.class)) {
+            return "Set";
         } else if (typeUtils.isSameType(parameterType, Map.class)) {
             return "Map";
-        } else {
-            throw new ProcessingException("Unsupported reference type for message (de-)serialization: " + parameterType);
+        } else if (typeUtils.isSameType(parameterType, ByteBuffer.class)) {
+            return "ByteBuffer";
+        } else if (typeUtils.isSameType(parameterType, HybridTimestamp.class)) {
+            return "HybridTimestamp";
         }
+
+        throw new ProcessingException("Unsupported reference type for message (de-)serialization: " + parameterType);
     }
 }

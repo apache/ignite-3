@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,37 +21,38 @@ import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VAL
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientDataType;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NumberNativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.msgpack.core.MessageTypeException;
 
 /**
  * Common table functionality.
@@ -64,7 +65,7 @@ public class ClientTableCommon {
      * @param schemaVer Schema version.
      * @param schema    Schema.
      */
-    public static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) {
+    static void writeSchema(ClientMessagePacker packer, int schemaVer, SchemaDescriptor schema) {
         packer.packInt(schemaVer);
 
         if (schema == null) {
@@ -73,17 +74,20 @@ public class ClientTableCommon {
             return;
         }
 
-        var colCnt = schema.columnNames().size();
-        packer.packArrayHeader(colCnt);
+        var colCnt = schema.columns().size();
+        packer.packInt(colCnt);
 
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
             var col = schema.column(colIdx);
 
-            packer.packArrayHeader(4);
+            packer.packInt(7);
             packer.packString(col.name());
-            packer.packInt(getClientDataType(col.type().spec()));
-            packer.packBoolean(schema.isKeyColumn(colIdx));
+            packer.packInt(getColumnType(col.type().spec()).ordinal());
+            packer.packInt(col.positionInKey());
             packer.packBoolean(col.nullable());
+            packer.packInt(col.positionInColocation());
+            packer.packInt(getDecimalScale(col.type()));
+            packer.packInt(getPrecision(col.type()));
         }
     }
 
@@ -93,50 +97,15 @@ public class ClientTableCommon {
      * @param packer Packer.
      * @param tuple  Tuple.
      */
-    public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple) {
+    public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part, SchemaRegistry schemaRegistry) {
         if (tuple == null) {
+            packer.packInt(schemaRegistry.lastKnownSchemaVersion());
             packer.packNil();
 
             return;
         }
 
-        var schema = ((SchemaAware) tuple).schema();
-
-        writeTuple(packer, tuple, schema);
-    }
-
-    /**
-     * Writes a tuple.
-     *
-     * @param packer Packer.
-     * @param tuple  Tuple.
-     */
-    public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part) {
-        if (tuple == null) {
-            packer.packNil();
-
-            return;
-        }
-
-        var schema = ((SchemaAware) tuple).schema();
-
-        writeTuple(packer, tuple, schema, false, part);
-    }
-
-    /**
-     * Writes a tuple.
-     *
-     * @param packer Packer.
-     * @param tuple  Tuple.
-     * @param schema Tuple schema.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuple(
-            ClientMessagePacker packer,
-            Tuple tuple,
-            SchemaDescriptor schema
-    ) {
-        writeTuple(packer, tuple, schema, false, TuplePart.KEY_AND_VAL);
+        writeTuple(packer, tuple, false, part);
     }
 
     /**
@@ -144,52 +113,50 @@ public class ClientTableCommon {
      *
      * @param packer     Packer.
      * @param tuple      Tuple.
-     * @param schema     Tuple schema.
-     * @param skipHeader Whether to skip the tuple header.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuple(
-            ClientMessagePacker packer,
-            Tuple tuple,
-            SchemaDescriptor schema,
-            boolean skipHeader
-    ) {
-        writeTuple(packer, tuple, schema, skipHeader, TuplePart.KEY_AND_VAL);
-    }
-
-    /**
-     * Writes a tuple.
-     *
-     * @param packer     Packer.
-     * @param tuple      Tuple.
-     * @param schema     Tuple schema.
      * @param skipHeader Whether to skip the tuple header.
      * @param part       Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
-    public static void writeTuple(
+    private static void writeTuple(
             ClientMessagePacker packer,
             Tuple tuple,
-            SchemaDescriptor schema,
             boolean skipHeader,
             TuplePart part
     ) {
         assert tuple != null;
+        assert tuple instanceof SchemaAware : "Tuple must be a SchemaAware: " + tuple.getClass();
+        assert part != TuplePart.VAL : "TuplePart.VAL is not supported";
+
+        var schema = ((SchemaAware) tuple).schema();
+
+        assert schema != null : "Schema must not be null: " + tuple.getClass();
 
         if (!skipHeader) {
             packer.packInt(schema.version());
         }
 
-        if (part != TuplePart.VAL) {
-            for (var col : schema.keyColumns().columns()) {
-                writeColumnValue(packer, tuple, col);
-            }
-        }
+        assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
+        BinaryTupleReader binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
 
-        if (part != TuplePart.KEY) {
-            for (var col : schema.valueColumns().columns()) {
-                writeColumnValue(packer, tuple, col);
+        int elementCount = part == TuplePart.KEY ? schema.keyColumns().size() : schema.length();
+
+        if (binaryTuple != null) {
+            assert elementCount == binaryTuple.elementCount() :
+                    "Tuple element count mismatch: " + elementCount + " != " + binaryTuple.elementCount() + " (" + tuple.getClass() + ")";
+
+            packer.packBinaryTuple(binaryTuple);
+        } else {
+            // Underlying binary tuple is not available or can't be used as is, pack columns one by one.
+            var builder = new BinaryTupleBuilder(elementCount);
+
+            for (var i = 0; i < elementCount; i++) {
+                var col = schema.column(i);
+                Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
+
+                ClientBinaryTupleUtils.appendValue(builder, getColumnType(col.type().spec()), col.name(), getDecimalScale(col.type()), v);
             }
+
+            packer.packBinaryTuple(builder);
         }
     }
 
@@ -199,15 +166,13 @@ public class ClientTableCommon {
      * @param packer         Packer.
      * @param tuples         Tuples.
      * @param schemaRegistry The registry.
-     * @param skipHeader     Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
-            SchemaRegistry schemaRegistry,
-            boolean skipHeader) {
-        writeTuples(packer, tuples, TuplePart.KEY_AND_VAL, schemaRegistry, skipHeader);
+            SchemaRegistry schemaRegistry) {
+        writeTuples(packer, tuples, TuplePart.KEY_AND_VAL, schemaRegistry);
     }
 
     /**
@@ -217,32 +182,37 @@ public class ClientTableCommon {
      * @param tuples         Tuples.
      * @param part           Which part of tuple to write.
      * @param schemaRegistry The registry.
-     * @param skipHeader     Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             TuplePart part,
-            SchemaRegistry schemaRegistry,
-            boolean skipHeader
+            SchemaRegistry schemaRegistry
     ) {
         if (tuples == null || tuples.isEmpty()) {
-            packer.packNil();
+            packer.packInt(schemaRegistry.lastKnownSchemaVersion());
+            packer.packInt(0);
 
             return;
         }
 
-        SchemaDescriptor schema = schemaRegistry.schema();
-
-        packer.packInt(schema.version());
-        packer.packInt(tuples.size());
+        Integer schemaVer = null;
 
         for (Tuple tuple : tuples) {
             assert tuple != null;
-            assert schema.version() == ((SchemaAware) tuple).schema().version();
 
-            writeTuple(packer, tuple, schema, skipHeader, part);
+            var tupleSchemaVer = ((SchemaAware) tuple).schema().version();
+
+            if (schemaVer == null) {
+                schemaVer = tupleSchemaVer;
+                packer.packInt(tupleSchemaVer);
+                packer.packInt(tuples.size());
+            } else {
+                assert schemaVer.equals(tupleSchemaVer) : "All tuples must have the same schema version";
+            }
+
+            writeTuple(packer, tuple, true, part);
         }
     }
 
@@ -253,25 +223,31 @@ public class ClientTableCommon {
      * @param tuples         Tuples.
      * @param part           Which part of tuple to write.
      * @param schemaRegistry The registry.
-     * @param skipHeader     Whether to skip the tuple header.
      * @throws IgniteException on failed serialization.
      */
     public static void writeTuplesNullable(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             TuplePart part,
-            SchemaRegistry schemaRegistry,
-            boolean skipHeader
+            SchemaRegistry schemaRegistry
     ) {
         if (tuples == null || tuples.isEmpty()) {
-            packer.packNil();
+            packer.packInt(schemaRegistry.lastKnownSchemaVersion());
+            packer.packInt(0);
 
             return;
         }
 
-        SchemaDescriptor schema = schemaRegistry.schema();
+        Integer schemaVer = null;
 
-        packer.packInt(schema.version());
+        for (Tuple tuple : tuples) {
+            if (tuple != null) {
+                schemaVer = ((SchemaAware) tuple).schema().version();
+                break;
+            }
+        }
+
+        packer.packInt(schemaVer == null ? schemaRegistry.lastKnownSchemaVersion() : schemaVer);
         packer.packInt(tuples.size());
 
         for (Tuple tuple : tuples) {
@@ -280,10 +256,10 @@ public class ClientTableCommon {
                 continue;
             }
 
-            assert schema.version() == ((SchemaAware) tuple).schema().version();
+            assert schemaVer.equals(((SchemaAware) tuple).schema().version()) : "All tuples must have the same schema version";
 
             packer.packBoolean(true);
-            writeTuple(packer, tuple, schema, skipHeader, part);
+            writeTuple(packer, tuple, true, part);
         }
     }
 
@@ -291,14 +267,12 @@ public class ClientTableCommon {
      * Reads a tuple.
      *
      * @param unpacker Unpacker.
-     * @param table    Table.
-     * @param keyOnly  Whether only key fields are expected.
-     * @return Tuple.
+     * @param table Table.
+     * @param keyOnly Whether only key fields are expected.
+     * @return Future that will be completed with a tuple.
      */
-    public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
-        SchemaDescriptor schema = readSchema(unpacker, table);
-
-        return readTuple(unpacker, keyOnly, schema);
+    public static CompletableFuture<Tuple> readTuple(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
+        return readSchema(unpacker, table).thenApply(schema -> readTuple(unpacker, keyOnly, schema));
     }
 
     /**
@@ -314,54 +288,51 @@ public class ClientTableCommon {
             boolean keyOnly,
             SchemaDescriptor schema
     ) {
-        var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
+        var cnt = keyOnly ? schema.keyColumns().size() : schema.length();
 
-        var tuple = Tuple.create(cnt);
+        // NOTE: noValueSet is only present for client -> server communication.
+        // It helps disambiguate two cases: 1 - column value is not set, 2 - column value is set to null explicitly.
+        // If the column has a default value, it should be applied only in case 1.
+        // https://cwiki.apache.org/confluence/display/IGNITE/IEP-76+Thin+Client+Protocol+for+Ignite+3.0#IEP76ThinClientProtocolforIgnite3.0-NullvsNoValue
+        var noValueSet = unpacker.unpackBitSet();
+        var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinary());
 
-        for (int i = 0; i < cnt; i++) {
-            if (unpacker.tryUnpackNoValue()) {
-                continue;
-            }
-
-            readAndSetColumnValue(unpacker, tuple, schema.column(i));
-        }
-
-        return tuple;
+        return new ClientHandlerTuple(schema, noValueSet, binaryTupleReader, keyOnly);
     }
 
     /**
      * Reads multiple tuples.
      *
      * @param unpacker Unpacker.
-     * @param table    Table.
-     * @param keyOnly  Whether only key fields are expected.
-     * @return Tuples.
+     * @param table Table.
+     * @param keyOnly Whether only key fields are expected.
+     * @return Future that will be completed with tuples.
      */
-    public static ArrayList<Tuple> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
-        SchemaDescriptor schema = readSchema(unpacker, table);
+    public static CompletableFuture<List<Tuple>> readTuples(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
+        return readSchema(unpacker, table).thenApply(schema -> {
+            var rowCnt = unpacker.unpackInt();
+            var res = new ArrayList<Tuple>(rowCnt);
 
-        var rowCnt = unpacker.unpackInt();
-        var res = new ArrayList<Tuple>(rowCnt);
+            for (int i = 0; i < rowCnt; i++) {
+                res.add(readTuple(unpacker, keyOnly, schema));
+            }
 
-        for (int i = 0; i < rowCnt; i++) {
-            res.add(readTuple(unpacker, keyOnly, schema));
-        }
-
-        return res;
+            return res;
+        });
     }
 
     /**
      * Reads schema.
      *
      * @param unpacker Unpacker.
-     * @param table    Table.
-     * @return Schema descriptor.
+     * @param table Table.
+     * @return Schema descriptor future.
      */
-    @NotNull
-    public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
+    public static CompletableFuture<SchemaDescriptor> readSchema(ClientMessageUnpacker unpacker, TableViewInternal table) {
         var schemaId = unpacker.unpackInt();
 
-        return table.schemaView().schema(schemaId);
+        // Use schemaAsync() as the schema version is coming from outside and we have no guarantees that this version is ready.
+        return table.schemaView().schemaAsync(schemaId);
     }
 
     /**
@@ -375,188 +346,116 @@ public class ClientTableCommon {
      *                             <li>the node is stopping.</li>
      *                         </ul>
      */
-    public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
-        UUID tableId = unpacker.unpackUuid();
+    public static CompletableFuture<TableViewInternal> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
+        int tableId = unpacker.unpackInt();
 
         try {
-            TableImpl table = ((IgniteTablesInternal) tables).table(tableId);
+            IgniteTablesInternal tablesInternal = (IgniteTablesInternal) tables;
 
-            if (table == null) {
-                throw new IgniteException(TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId);
+            // Fast path - in most cases, the table is already in the startedTables cache.
+            // This method can return a table that is being stopped, but it's not a problem - any operation on such table will fail.
+            TableViewInternal cachedTable = tablesInternal.cachedTable(tableId);
+            if (cachedTable != null) {
+                return CompletableFuture.completedFuture(cachedTable);
             }
 
-            return table;
+            return tablesInternal.tableAsync(tableId)
+                    .thenApply(t -> {
+                        if (t == null) {
+                            throw tableIdNotFoundException(tableId);
+                        }
+
+                        return t;
+                    });
         } catch (NodeStoppingException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
     }
 
     /**
+     * Returns a new table id not found exception.
+     *
+     * @param tableId Table id.
+     * @return Exception.
+     */
+    public static TableNotFoundException tableIdNotFoundException(Integer tableId) {
+        return new TableNotFoundException(UUID.randomUUID(), TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId, null);
+    }
+
+    /**
      * Reads transaction.
      *
      * @param in Unpacker.
+     * @param out Packer.
      * @param resources Resource registry.
      * @return Transaction, if present, or null.
      */
-    public static @Nullable Transaction readTx(ClientMessageUnpacker in, ClientResourceRegistry resources) {
+    public static @Nullable InternalTransaction readTx(
+            ClientMessageUnpacker in, ClientMessagePacker out, ClientResourceRegistry resources) {
         if (in.tryUnpackNil()) {
             return null;
         }
 
         try {
-            return resources.get(in.unpackLong()).get(Transaction.class);
+            var tx = resources.get(in.unpackLong()).get(InternalTransaction.class);
+
+            if (tx != null && tx.isReadOnly()) {
+                // For read-only tx, override observable timestamp that we send to the client:
+                // use readTimestamp() instead of now().
+                out.meta(tx.readTimestamp());
+            }
+
+            return tx;
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
     }
 
-    private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {
-        try {
-            int type = getClientDataType(col.type().spec());
-            Object val = unpacker.unpackObject(type);
-            tuple.set(col.name(), val);
-        } catch (MessageTypeException e) {
-            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
+    /**
+     * Gets client type by server type.
+     *
+     * @param spec Type spec.
+     * @return Client type code.
+     */
+    public static ColumnType getColumnType(NativeTypeSpec spec) {
+        ColumnType columnType = spec.asColumnTypeOrNull();
+
+        if (columnType == null) {
+            throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
         }
+
+        return columnType;
     }
 
-    private static int getClientDataType(NativeTypeSpec spec) {
-        switch (spec) {
-            case INT8:
-                return ClientDataType.INT8;
-
-            case INT16:
-                return ClientDataType.INT16;
-
-            case INT32:
-                return ClientDataType.INT32;
-
-            case INT64:
-                return ClientDataType.INT64;
-
-            case FLOAT:
-                return ClientDataType.FLOAT;
-
-            case DOUBLE:
-                return ClientDataType.DOUBLE;
-
-            case DECIMAL:
-                return ClientDataType.DECIMAL;
-
-            case NUMBER:
-                return ClientDataType.NUMBER;
-
-            case UUID:
-                return ClientDataType.UUID;
-
-            case STRING:
-                return ClientDataType.STRING;
-
-            case BYTES:
-                return ClientDataType.BYTES;
-
-            case BITMASK:
-                return ClientDataType.BITMASK;
-
-            case DATE:
-                return ClientDataType.DATE;
-
-            case TIME:
-                return ClientDataType.TIME;
-
-            case DATETIME:
-                return ClientDataType.DATETIME;
-
-            case TIMESTAMP:
-                return ClientDataType.TIMESTAMP;
-
-            default:
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
-        }
+    /**
+     * Gets type scale.
+     *
+     * @param type Type.
+     * @return Scale.
+     */
+    public static int getDecimalScale(NativeType type) {
+        return type instanceof DecimalNativeType ? ((DecimalNativeType) type).scale() : 0;
     }
 
-    private static void writeColumnValue(ClientMessagePacker packer, Tuple tuple, Column col) {
-        var val = tuple.valueOrDefault(col.name(), NO_VALUE);
-
-        if (val == null) {
-            packer.packNil();
-            return;
+    /**
+     * Gets type precision.
+     *
+     * @param type Type.
+     * @return Precision.
+     */
+    public static int getPrecision(NativeType type) {
+        if (type instanceof NumberNativeType) {
+            return ((NumberNativeType) type).precision();
         }
 
-        if (val == NO_VALUE) {
-            packer.packNoValue();
-            return;
+        if (type instanceof TemporalNativeType) {
+            return ((TemporalNativeType) type).precision();
         }
 
-        switch (col.type().spec()) {
-            case INT8:
-                packer.packByte((byte) val);
-                break;
-
-            case INT16:
-                packer.packShort((short) val);
-                break;
-
-            case INT32:
-                packer.packInt((int) val);
-                break;
-
-            case INT64:
-                packer.packLong((long) val);
-                break;
-
-            case FLOAT:
-                packer.packFloat((float) val);
-                break;
-
-            case DOUBLE:
-                packer.packDouble((double) val);
-                break;
-
-            case DECIMAL:
-                packer.packDecimal((BigDecimal) val);
-                break;
-
-            case NUMBER:
-                packer.packNumber((BigInteger) val);
-                break;
-
-            case UUID:
-                packer.packUuid((UUID) val);
-                break;
-
-            case STRING:
-                packer.packString((String) val);
-                break;
-
-            case BYTES:
-                byte[] bytes = (byte[]) val;
-                packer.packBinaryHeader(bytes.length);
-                packer.writePayload(bytes);
-                break;
-
-            case BITMASK:
-                packer.packBitSet((BitSet) val);
-                break;
-
-            case DATE:
-                packer.packDate((LocalDate) val);
-                break;
-
-            case TIME:
-                packer.packTime((LocalTime) val);
-                break;
-
-            case DATETIME:
-                packer.packDateTime((LocalDateTime) val);
-                break;
-
-            case TIMESTAMP:
-                packer.packTimestamp((Instant) val);
-                break;
-
-            default:
-                throw new IgniteException(PROTOCOL_ERR, "Data type not supported: " + col.type());
+        if (type instanceof DecimalNativeType) {
+            return ((DecimalNativeType) type).precision();
         }
+
+        return 0;
     }
 }

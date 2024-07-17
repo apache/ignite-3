@@ -1,0 +1,5 @@
+org.apache.ignite.internal.schema.BinaryRow
+org.apache.ignite.internal.schema.BinaryTuple
+org.apache.ignite.internal.schema.BinaryTuplePrefix
+org.apache.ignite.internal.hlc.HybridTimestamp
+org.apache.ignite.internal.replicator.TablePartitionId

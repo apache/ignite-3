@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -32,7 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Map;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.internal.lang.IgniteUuid;
 
 /**
  * Built-in types.
@@ -95,6 +95,7 @@ public enum BuiltInType {
     private final Class<?> clazz;
 
     private static final Int2ObjectMap<BuiltInType> descriptorIdToValues;
+
     static {
         Int2ObjectMap<BuiltInType> map = new Int2ObjectOpenHashMap<>();
         for (BuiltInType type : BuiltInType.values()) {
@@ -104,6 +105,7 @@ public enum BuiltInType {
     }
 
     private static final Map<Class<?>, BuiltInType> classToValues;
+
     static {
         Map<Class<?>, BuiltInType> map = new HashMap<>();
         for (BuiltInType type : BuiltInType.values()) {

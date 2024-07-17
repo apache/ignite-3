@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.calcite.linq4j.tree.Primitive;
 
 /**
  * Primitives.
@@ -105,5 +106,31 @@ public final class Primitives {
         Class<T> unwrapped = (Class<T>) WRAPPER_TO_PRIMITIVE_TYPE.get(type);
 
         return (unwrapped == null) ? type : unwrapped;
+    }
+
+    /**
+     * Converts the given numeric value into the given primitive type with overflow checks.
+     *
+     * @param primitive Primitive type.
+     * @param value Numeric value.
+     * @return Number converted to the given primitive.
+     */
+    public static Number convertPrimitiveExact(Primitive primitive, Number value) {
+        switch (primitive) {
+            case BYTE:
+                return IgniteMath.convertToByteExact(value);
+            case SHORT:
+                return IgniteMath.convertToShortExact(value);
+            case INT:
+                return IgniteMath.convertToIntExact(value);
+            case LONG:
+                return IgniteMath.convertToLongExact(value);
+            case FLOAT:
+                return IgniteMath.convertToFloatExact(value);
+            case DOUBLE:
+                return IgniteMath.convertToDoubleExact(value);
+            default:
+                throw new IllegalArgumentException("Unexpected primitive type: " + primitive);
+        }
     }
 }

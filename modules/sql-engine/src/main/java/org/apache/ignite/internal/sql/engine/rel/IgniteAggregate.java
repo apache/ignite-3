@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
  * IgniteAggregate.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public abstract class IgniteAggregate extends Aggregate implements InternalIgniteRel {
+public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
     /** {@inheritDoc} */
     protected IgniteAggregate(
             RelOptCluster cluster,
@@ -64,9 +64,7 @@ public abstract class IgniteAggregate extends Aggregate implements InternalIgnit
             return groupsCnt;
         }
 
-        // Estimation of the groups count is not available.
-        // Use heuristic estimation for result rows count.
-        return super.estimateRowCount(mq);
+        return guessDistinctRows(mq, groupSet.cardinality());
     }
 
     /**
@@ -78,11 +76,14 @@ public abstract class IgniteAggregate extends Aggregate implements InternalIgnit
 
         if (!aggCalls.isEmpty()) {
             double grps = estimateRowCount(mq);
-            double rows = input.estimateRowCount(mq);
 
             for (AggregateCall aggCall : aggCalls) {
                 if (aggCall.isDistinct()) {
-                    mem += IgniteCost.AGG_CALL_MEM_COST * rows / grps;
+                    ImmutableBitSet aggGroup = ImmutableBitSet.of(aggCall.getArgList());
+
+                    double distinctRows = guessDistinctRows(mq, aggGroup.cardinality());
+
+                    mem += IgniteCost.AGG_CALL_MEM_COST * distinctRows / grps;
                 } else {
                     mem += IgniteCost.AGG_CALL_MEM_COST;
                 }
@@ -90,6 +91,17 @@ public abstract class IgniteAggregate extends Aggregate implements InternalIgnit
         }
 
         return mem;
+    }
+
+    /** Implements heuristics estimation for distinct row count. */
+    private double guessDistinctRows(RelMetadataQuery mq, int groupSize) {
+        if (groupSize == 0) {
+            return 1;
+        } else {
+            double rowCount = mq.getRowCount(getInput());
+            rowCount *= (1.0 - Math.pow(.8, groupSize));
+            return rowCount;
+        }
     }
 
     /**

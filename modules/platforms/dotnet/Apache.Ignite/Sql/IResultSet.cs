@@ -19,6 +19,7 @@ namespace Apache.Ignite.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading.Tasks;
 
     /// <summary>
@@ -33,7 +34,6 @@ namespace Apache.Ignite.Sql
     /// </summary>
     /// <typeparam name="T">Row type.</typeparam>
     public interface IResultSet<T> : IAsyncEnumerable<T>, IAsyncDisposable, IDisposable
-        where T : class // TODO: Remove class constraint (IGNITE-16355)
     {
         /// <summary>
         /// Gets result set metadata when <see cref="HasRowSet"/> is <c>true</c>, otherwise <c>null</c>.
@@ -43,6 +43,7 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Gets a value indicating whether this result set contains a collection of rows.
         /// </summary>
+        [MemberNotNullWhen(true, nameof(Metadata))]
         bool HasRowSet { get; }
 
         /// <summary>
@@ -64,5 +65,33 @@ namespace Apache.Ignite.Sql
         /// </summary>
         /// <returns>All result set rows as list.</returns>
         ValueTask<List<T>> ToListAsync();
+
+        /// <summary>
+        /// Gets all result set rows as dictionary.
+        /// <para />
+        /// Can not be called multiple times - the underlying server-side result set is closed as soon
+        /// as the last page of data is retrieved, and client-side buffer is also released to reduce memory usage.
+        /// </summary>
+        /// <param name="keySelector">Key selector.</param>
+        /// <param name="valSelector">Value selector.</param>
+        /// <param name="comparer">Optional comparer.</param>
+        /// <typeparam name="TK">Dictionary key type.</typeparam>
+        /// <typeparam name="TV">Dictionary value type.</typeparam>
+        /// <returns>All result set rows as list.</returns>
+        ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(
+            Func<T, TK> keySelector,
+            Func<T, TV> valSelector,
+            IEqualityComparer<TK>? comparer = null)
+            where TK : notnull;
+
+        /// <summary>
+        /// Collects all result set rows into a container of the specified type.
+        /// </summary>
+        /// <param name="constructor">Container constructor, accepts estimated capacity.
+        /// Actual result set size may exceed specified capacity.</param>
+        /// <param name="accumulator">Accumulator, adds rows to the container.</param>
+        /// <typeparam name="TResult">Resulting container type.</typeparam>
+        /// <returns>resulting container.</returns>
+        ValueTask<TResult> CollectAsync<TResult>(Func<int, TResult> constructor, Action<TResult, T> accumulator);
     }
 }

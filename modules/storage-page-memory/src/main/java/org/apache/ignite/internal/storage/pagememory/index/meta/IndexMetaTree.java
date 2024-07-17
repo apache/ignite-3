@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index.meta;
 
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -27,13 +28,12 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaInne
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaTreeMetaIo;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Tree for storing index meta-information, such as the root of an index tree.
+ * {@link BplusTree} implementation for storing {@link IndexMeta}.
  */
-public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
+public class IndexMetaTree extends BplusTree<IndexMetaKey, IndexMeta> {
     /**
      * Constructor.
      *
@@ -59,34 +59,22 @@ public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
             @Nullable ReuseList reuseList,
             boolean initNew
     ) throws IgniteInternalCheckedException {
-        super(
-                "IndexMetaTree_" + grpId,
-                grpId,
-                grpName,
-                partId,
-                pageMem,
-                lockLsnr,
-                globalRmvId,
-                metaPageId,
-                reuseList
-        );
+        super("IndexMetaTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         setIos(IndexMetaInnerIo.VERSIONS, IndexMetaLeafIo.VERSIONS, IndexMetaTreeMetaIo.VERSIONS);
 
         initTree(initNew);
     }
 
-    /** {@inheritDoc} */
     @Override
-    protected int compare(BplusIo<IndexMeta> io, long pageAddr, int idx, IndexMeta row) {
+    protected int compare(BplusIo<IndexMetaKey> io, long pageAddr, int idx, IndexMetaKey row) {
         IndexMetaIo indexMetaIo = (IndexMetaIo) io;
 
         return indexMetaIo.compare(pageAddr, idx, row);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public IndexMeta getRow(BplusIo<IndexMeta> io, long pageAddr, int idx, Object x) {
+    public IndexMeta getRow(BplusIo<IndexMetaKey> io, long pageAddr, int idx, @Nullable Object x) {
         IndexMetaIo indexMetaIo = (IndexMetaIo) io;
 
         return indexMetaIo.getRow(pageAddr, idx);

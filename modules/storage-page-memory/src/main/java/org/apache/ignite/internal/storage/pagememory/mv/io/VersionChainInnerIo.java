@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,6 +16,8 @@
  */
 
 package org.apache.ignite.internal.storage.pagememory.mv.io;
+
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_VERSION_CHAIN_INNER_IO;
 
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -30,9 +32,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
  * <p>Structure: link(long).
  */
 public final class VersionChainInnerIo extends BplusInnerIo<VersionChainKey> implements VersionChainIo {
-    /** Page IO type. */
-    public static final short T_VERSION_CHAIN_INNER_IO = 10;
-
     /** I/O versions. */
     public static final IoVersions<VersionChainInnerIo> VERSIONS = new IoVersions<>(new VersionChainInnerIo(1));
 

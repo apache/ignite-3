@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,35 +18,29 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
-import java.nio.file.Path;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.internal.util.Cursor;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base test for MV partition storages based on PageMemory.
  */
-@ExtendWith(ConfigurationExtension.class)
-@ExtendWith(WorkDirectoryExtension.class)
 abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     protected final PageIoRegistry ioRegistry = new PageIoRegistry();
 
     {
         ioRegistry.loadFromServiceLoader();
     }
-
-    @WorkDirectory
-    protected Path workDir;
 
     /**
      * Returns page size in bytes.
@@ -59,9 +53,9 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         RowId rowId = insert(longRow, txId);
 
-        BinaryRow foundRow = read(rowId, txId);
+        BinaryRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
 
-        assertRowMatches(foundRow, longRow);
+        assertThat(foundRow, is(equalToRow(longRow)));
     }
 
     private BinaryRow rowStoredInFragments() {
@@ -83,38 +77,74 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         RowId rowId = insert(longRow, txId);
 
-        commitWrite(rowId, Timestamp.nextVersion());
+        commitWrite(rowId, clock.now());
 
-        BinaryRow foundRow = read(rowId, Timestamp.nextVersion());
+        BinaryRow foundRow = read(rowId, clock.now());
 
-        assertRowMatches(foundRow, longRow);
+        assertThat(foundRow, is(equalToRow(longRow)));
     }
 
     @Test
-    void uncommittedMultiPageValuesWorkWithScans() throws Exception {
+    void uncommittedMultiPageValuesWorkWithScans() {
         BinaryRow longRow = rowStoredInFragments();
 
         insert(longRow, txId);
 
-        try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
-            BinaryRow foundRow = cursor.next();
+        try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
+            BinaryRow foundRow = cursor.next().binaryRow();
 
-            assertRowMatches(foundRow, longRow);
+            assertThat(foundRow, is(equalToRow(longRow)));
         }
     }
 
     @Test
-    void committedMultiPageValuesWorkWithScans() throws Exception {
+    void committedMultiPageValuesWorkWithScans() {
         BinaryRow longRow = rowStoredInFragments();
 
         RowId rowId = insert(longRow, txId);
 
-        commitWrite(rowId, Timestamp.nextVersion());
+        commitWrite(rowId, clock.now());
 
-        try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
-            BinaryRow foundRow = cursor.next();
+        try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
+            BinaryRow foundRow = cursor.next().binaryRow();
 
-            assertRowMatches(foundRow, longRow);
+            assertThat(foundRow, is(equalToRow(longRow)));
         }
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
+    @Override
+    public void estimatedSizeUsingWriteIntents() {
+        super.estimatedSizeUsingWriteIntents();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
+    @Override
+    public void estimatedSizeUsingCommittedWrites() {
+        super.estimatedSizeUsingCommittedWrites();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
+    @Override
+    public void estimatedSizeNeverFallsBelowZero() {
+        super.estimatedSizeNeverFallsBelowZero();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
+    @Override
+    public void estimatedSizeShowsLatestRowsNumber() {
+        super.estimatedSizeShowsLatestRowsNumber();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
+    @Override
+    public void estimatedSizeIsNotAffectedByGarbageTombstones() {
+        super.estimatedSizeIsNotAffectedByGarbageTombstones();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
+    @Override
+    public void estimatedSizeHandlesTransactionAborts() {
+        super.estimatedSizeHandlesTransactionAborts();
     }
 }

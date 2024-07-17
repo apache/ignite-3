@@ -4,7 +4,7 @@
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.equalTo;
@@ -32,7 +33,7 @@ import org.junit.jupiter.api.Test;
  * Base class for testing {@link ConfigurationStorage} implementations.
  */
 public abstract class ConfigurationStorageTest {
-    private ConfigurationStorage storage;
+    protected ConfigurationStorage storage;
 
     /**
      * Returns the storage being tested.
@@ -46,7 +47,7 @@ public abstract class ConfigurationStorageTest {
     void setUp() {
         storage = getStorage();
 
-        storage.registerConfigurationListener(data -> CompletableFuture.completedFuture(null));
+        storage.registerConfigurationListener(changedEntries -> nullCompletedFuture());
     }
 
     /**

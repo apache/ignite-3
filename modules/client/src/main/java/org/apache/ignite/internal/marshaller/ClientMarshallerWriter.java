@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 
 /**
@@ -32,123 +33,133 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
  */
 public class ClientMarshallerWriter implements MarshallerWriter {
     /** Packer. */
-    private final ClientMessagePacker packer;
+    private final BinaryTupleBuilder packer;
+
+    /** No-value bit set. */
+    private final BitSet noValueSet;
 
     /**
      * Constructor.
      *
      * @param packer Packer.
      */
-    public ClientMarshallerWriter(ClientMessagePacker packer) {
+    public ClientMarshallerWriter(BinaryTupleBuilder packer, BitSet noValueSet) {
         this.packer = packer;
+        this.noValueSet = noValueSet;
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeNull() {
-        packer.packNil();
+        packer.appendNull();
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeAbsentValue() {
-        packer.packNoValue();
+        noValueSet.set(packer.elementIndex());
+        packer.appendNull();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeBoolean(boolean val) {
+        packer.appendBoolean(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeByte(byte val) {
-        packer.packByte(val);
+        packer.appendByte(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        packer.packShort(val);
+        packer.appendShort(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeInt(int val) {
-        packer.packInt(val);
+        packer.appendInt(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeLong(long val) {
-        packer.packLong(val);
+        packer.appendLong(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeFloat(float val) {
-        packer.packFloat(val);
+        packer.appendFloat(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeDouble(double val) {
-        packer.packDouble(val);
+        packer.appendDouble(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeString(String val) {
-        packer.packString(val);
+        packer.appendString(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeUuid(UUID val) {
-        packer.packUuid(val);
+        packer.appendUuid(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeBytes(byte[] val) {
-        packer.packBinaryHeader(val.length);
-        packer.writePayload(val);
+        packer.appendBytes(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeBitSet(BitSet val) {
-        packer.packBitSet(val);
+        packer.appendBitmask(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeBigInt(BigInteger val) {
-        packer.packNumber(val);
+        packer.appendNumber(val);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void writeBigDecimal(BigDecimal val) {
-        packer.packDecimal(val);
+    public void writeBigDecimal(BigDecimal val, int scale) {
+        packer.appendDecimal(val, scale);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeDate(LocalDate val) {
-        packer.packDate(val);
+        packer.appendDate(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeTime(LocalTime val) {
-        packer.packTime(val);
+        packer.appendTime(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeTimestamp(Instant val) {
-        packer.packTimestamp(val);
+        packer.appendTimestamp(val);
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeDateTime(LocalDateTime val) {
-        packer.packDateTime(val);
+        packer.appendDateTime(val);
     }
 }

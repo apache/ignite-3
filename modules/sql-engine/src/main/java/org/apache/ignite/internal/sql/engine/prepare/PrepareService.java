@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,16 +18,22 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.calcite.sql.SqlNode;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 
 /**
  * Preparation service that accepts an AST of the query and returns a prepared query plan.
  */
 public interface PrepareService extends LifecycleAware {
+
     /**
      * Prepare query plan.
+     *
+     * @param parsedResult Represent of parsed query as AST, which need to be planned.
+     * @param ctx Query context.
+     *
+     * @return Future that contains prepared query plan when completes.
      */
-    CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx);
+    CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, SqlOperationContext ctx);
 }

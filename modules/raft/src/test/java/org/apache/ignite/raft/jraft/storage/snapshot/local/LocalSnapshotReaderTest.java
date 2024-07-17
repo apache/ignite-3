@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,11 +17,11 @@
 package org.apache.ignite.raft.jraft.storage.snapshot.local;
 
 import java.io.File;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.FileService;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ public class LocalSnapshotReaderTest extends BaseStorageTest {
         this.table = new LocalSnapshotMetaTable(opts);
         this.table.addFile("testFile", opts.getRaftMessagesFactory().localFileMeta().checksum("test").build());
         table.saveToFile(snapPath + File.separator + Snapshot.JRAFT_SNAPSHOT_META_FILE);
-        this.reader = new LocalSnapshotReader(snapshotStorage, null, new Endpoint("localhost", 8081),
+        this.reader = new LocalSnapshotReader(snapshotStorage, null, new PeerId("localhost-8081"),
             opts, snapPath);
         assertTrue(this.reader.init(null));
     }
@@ -71,8 +71,8 @@ public class LocalSnapshotReaderTest extends BaseStorageTest {
     public void testGenerateUriForCopy() throws Exception {
         final String uri = this.reader.generateURIForCopy();
         assertNotNull(uri);
-        assertTrue(uri.startsWith("remote://localhost:8081/"));
-        final long readerId = Long.valueOf(uri.substring("remote://localhost:8081/".length()));
+        assertTrue(uri.startsWith("remote://localhost-8081/"));
+        final long readerId = Long.valueOf(uri.substring("remote://localhost-8081/".length()));
         assertTrue(FileService.getInstance().removeReader(readerId));
     }
 }

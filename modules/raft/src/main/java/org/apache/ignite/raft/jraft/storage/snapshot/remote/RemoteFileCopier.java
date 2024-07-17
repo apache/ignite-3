@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.core.Scheduler;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.CopyOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -33,7 +34,6 @@ import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Utils;
 
@@ -46,7 +46,7 @@ public class RemoteFileCopier {
 
     private long readId;
     private RaftClientService rpcService;
-    private Endpoint endpoint;
+    private PeerId peerId;
     private RaftOptions raftOptions;
     private NodeOptions nodeOptions;
     private Scheduler timerManager;
@@ -58,8 +58,8 @@ public class RemoteFileCopier {
     }
 
     @OnlyForTest
-    Endpoint getEndpoint() {
-        return this.endpoint;
+    PeerId getPeerId() {
+        return this.peerId;
     }
 
     public boolean init(String uri, final SnapshotThrottle snapshotThrottle, final SnapshotCopierOptions opts) {
@@ -76,20 +76,19 @@ public class RemoteFileCopier {
         }
         uri = uri.substring(prefixSize);
         final int slasPos = uri.indexOf('/');
-        final String ipAndPort = uri.substring(0, slasPos);
+        final String peerId = uri.substring(0, slasPos);
         uri = uri.substring(slasPos + 1);
 
         try {
             this.readId = Long.parseLong(uri);
-            final String[] ipAndPortStrs = ipAndPort.split(":");
-            this.endpoint = new Endpoint(ipAndPortStrs[0], Integer.parseInt(ipAndPortStrs[1]));
+            this.peerId = PeerId.parsePeer(peerId);
         }
         catch (final Exception e) {
             LOG.error("Fail to parse readerId or endpoint.", e);
             return false;
         }
-        if (!this.rpcService.connect(this.endpoint)) {
-            LOG.error("Fail to init channel to {}.", this.endpoint);
+        if (!this.rpcService.connect(this.peerId)) {
+            LOG.error("Fail to init channel to {}.", this.peerId);
             return false;
         }
 
@@ -156,7 +155,7 @@ public class RemoteFileCopier {
             .filename(source)
             .readerId(this.readId);
         return new CopySession(this.rpcService, this.timerManager, this.snapshotThrottle, this.raftOptions, this.nodeOptions, reqBuilder,
-            this.endpoint);
+            this.peerId);
     }
 
     /**

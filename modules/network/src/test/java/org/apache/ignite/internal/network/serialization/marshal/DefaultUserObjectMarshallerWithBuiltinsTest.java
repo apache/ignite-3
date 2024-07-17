@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -50,13 +50,13 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
-import org.apache.ignite.lang.IgniteUuid;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -71,21 +71,15 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
+    private final CleanSlateUnmarshaller unmarshaller = new CleanSlateUnmarshaller(marshaller, descriptorRegistry);
+
     @Test
     void marshalsAndUnmarshalsBareObject() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new Object());
 
-        Object unmarshalled = unmarshalNonNull(marshalled);
+        Object unmarshalled = unmarshaller.unmarshalNonNull(marshalled);
 
         assertThat(unmarshalled.getClass(), is(Object.class));
-    }
-
-    private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
-
-        assertThat(unmarshalled, is(notNullValue()));
-
-        return unmarshalled;
     }
 
     @Test
@@ -257,7 +251,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsAndUnmarshalsBuiltInCollectionTypes(BuiltInTypeValue typeValue) throws Exception {
         MarshalledObject marshalled = marshaller.marshal(typeValue.value);
 
-        Object unmarshalled = unmarshalNonNull(marshalled);
+        Object unmarshalled = unmarshaller.unmarshalNonNull(marshalled);
 
         assertThat(unmarshalled, is(equalTo(typeValue.value)));
     }
@@ -267,7 +261,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
     void marshalsAndUnmarshalsBuiltInCollectionTypesToCollectionsOfOriginalTypes(BuiltInTypeValue typeValue) throws Exception {
         MarshalledObject marshalled = marshaller.marshal(typeValue.value);
 
-        Object unmarshalled = unmarshalNonNull(marshalled);
+        Object unmarshalled = unmarshaller.unmarshalNonNull(marshalled);
 
         assertThat(unmarshalled.getClass(), is(equalTo(typeValue.value.getClass())));
     }
@@ -371,7 +365,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
 
     private <T> T marshalAndUnmarshal(T object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
-        return unmarshalNonNull(marshalled);
+        return unmarshaller.unmarshalNonNull(marshalled);
     }
 
     @Test
