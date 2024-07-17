@@ -53,6 +53,7 @@ import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
@@ -70,6 +71,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
@@ -368,7 +370,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public @Nullable CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+    public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(ReceiverDescriptor<A> receiver, A receiverArg, Collection<I> items,
+            ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+        var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(receiver, receiverArg, items);
+
+        return runReceiverAsync(payload, node, deploymentUnits)
+                .thenApply(StreamerReceiverSerializer::deserializeReceiverJobResults);
+    }
+
+    @Override
+    public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
         JobExecution<byte[]> jobExecution = executeAsyncWithFailover(
                 Set.of(node),

@@ -142,6 +142,19 @@ public class StreamerReceiverSerializer {
         return resBytes;
     }
 
+    public static <R> List<R> deserializeReceiverJobResults(byte[] results) {
+        if (results == null || results.length == 0) {
+            return List.of();
+        }
+
+        ByteBuffer buf = ByteBuffer.wrap(results).order(ByteOrder.LITTLE_ENDIAN);
+        int numElements = buf.getInt();
+
+        var reader = new BinaryTupleReader(numElements, buf);
+
+        return ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, 0);
+    }
+
     /**
      * Serializes receiver results.
      *
