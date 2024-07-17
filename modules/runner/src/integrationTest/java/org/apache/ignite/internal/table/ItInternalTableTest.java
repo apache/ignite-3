@@ -21,12 +21,12 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -185,7 +185,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertThat(res, is(equalToRow(keyValueRow)));
+        assertThat(res, isRow(keyValueRow));
     }
 
     @Test
@@ -217,7 +217,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertThat(res, is(equalToRow(keyValueRow2)));
+        assertThat(res, isRow(keyValueRow2));
     }
 
     @Test
@@ -278,13 +278,13 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertThat(res, is(equalToRow(keyValueRow)));
+        assertThat(res, isRow(keyValueRow));
 
         tx2.commit();
 
         res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertThat(res, is(equalToRow(keyValueRow2)));
+        assertThat(res, isRow(keyValueRow2));
     }
 
     @Test

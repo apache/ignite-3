@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.stream.Collectors.joining;
-import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -55,7 +54,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         BinaryRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
 
-        assertThat(foundRow, is(equalToRow(longRow)));
+        assertThat(foundRow, isRow(longRow));
     }
 
     private BinaryRow rowStoredInFragments() {
@@ -81,7 +80,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         BinaryRow foundRow = read(rowId, clock.now());
 
-        assertThat(foundRow, is(equalToRow(longRow)));
+        assertThat(foundRow, isRow(longRow));
     }
 
     @Test
@@ -93,7 +92,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
         try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
             BinaryRow foundRow = cursor.next().binaryRow();
 
-            assertThat(foundRow, is(equalToRow(longRow)));
+            assertThat(foundRow, isRow(longRow));
         }
     }
 
@@ -108,7 +107,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
         try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
             BinaryRow foundRow = cursor.next().binaryRow();
 
-            assertThat(foundRow, is(equalToRow(longRow)));
+            assertThat(foundRow, isRow(longRow));
         }
     }
 
