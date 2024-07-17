@@ -150,7 +150,7 @@ public class StreamerReceiverSerializer {
         ByteBuffer buf = ByteBuffer.wrap(results).order(ByteOrder.LITTLE_ENDIAN);
         int numElements = buf.getInt();
 
-        var reader = new BinaryTupleReader(numElements, buf);
+        var reader = new BinaryTupleReader(numElements, buf.slice().order(ByteOrder.LITTLE_ENDIAN));
 
         return ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, 0);
     }
