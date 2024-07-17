@@ -37,7 +37,6 @@ import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
@@ -536,11 +535,9 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
 
     @Override
     public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
-        JobExecution<byte[]> jobExecution = compute.submit(
+        return compute.executeAsync(
                 JobTarget.node(node),
                 JobDescriptor.builder(StreamerReceiverJob.class).units(deploymentUnits).build(),
                 payload);
-
-        return jobExecution.resultAsync();
     }
 }
