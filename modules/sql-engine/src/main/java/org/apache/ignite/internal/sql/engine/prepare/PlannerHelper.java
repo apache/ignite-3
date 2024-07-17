@@ -19,13 +19,17 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
+import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
@@ -36,17 +40,30 @@ import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlInsert;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.hint.Hints;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class that encapsulates the query optimization pipeline.
@@ -83,6 +100,12 @@ public final class PlannerHelper {
      */
     public static IgniteRel optimize(SqlNode sqlNode, IgnitePlanner planner) {
         try {
+            IgniteRel result = tryOptimizeFast(sqlNode, planner);
+
+            if (result != null) {
+                return result;
+            }
+
             // Convert to Relational operators graph
             RelRoot root = planner.rel(sqlNode);
 
@@ -137,20 +160,20 @@ public final class PlannerHelper {
                     .replace(root.collation == null ? RelCollations.EMPTY : root.collation)
                     .simplify();
 
-            IgniteRel igniteRel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
+            result = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
             if (!root.isRefTrivial()) {
                 List<RexNode> projects = new ArrayList<>();
-                RexBuilder rexBuilder = igniteRel.getCluster().getRexBuilder();
+                RexBuilder rexBuilder = result.getCluster().getRexBuilder();
 
                 for (int field : Pair.left(root.fields)) {
-                    projects.add(rexBuilder.makeInputRef(igniteRel, field));
+                    projects.add(rexBuilder.makeInputRef(result, field));
                 }
 
-                igniteRel = new IgniteProject(igniteRel.getCluster(), desired, igniteRel, projects, root.validatedRowType);
+                result = new IgniteProject(result.getCluster(), desired, result, projects, root.validatedRowType);
             }
 
-            return igniteRel;
+            return result;
         } catch (Throwable ex) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Unexpected error at query optimizer", ex);
@@ -166,6 +189,84 @@ public final class PlannerHelper {
                 throw new SqlException(Common.INTERNAL_ERR, "Unable to optimize plan due to internal error", ex);
             }
         }
+    }
+
+    private static @Nullable IgniteRel tryOptimizeFast(SqlNode sqlNode, IgnitePlanner planner) {
+        if (!fastQueryOptimizationEnabled()) {
+            return null;
+        }
+
+        if (sqlNode instanceof SqlInsert) {
+            return tryOptimizeInsert((SqlInsert) sqlNode, planner);
+        }
+
+        return null;
+    }
+
+    private static @Nullable IgniteRel tryOptimizeInsert(SqlInsert insertNode, IgnitePlanner planner) {
+        SqlNode sourceNode = insertNode.getSource();
+
+        if (!(sourceNode instanceof SqlBasicCall && sourceNode.getKind() == SqlKind.VALUES)) {
+            // only simple `INSERT INTO ... VALUES (...)` statement is supported at the moment
+            return null;
+        }
+
+        List<SqlNode> rowConstructors = ((SqlBasicCall) sourceNode).getOperandList();
+
+        if (rowConstructors.size() != 1) {
+            // multirow insert currently are not supported by IgniteKeyValueModify 
+            return null;
+        }
+
+        IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
+        RelOptTable targetTable = converter.getTargetTable(insertNode);
+        IgniteTable igniteTable = targetTable.unwrap(IgniteTable.class);
+
+        assert igniteTable != null;
+
+        TableDescriptor descriptor = igniteTable.descriptor();
+        SqlBasicCall rowConstructor = (SqlBasicCall) rowConstructors.get(0);
+
+        Map<String, RexNode> columnToExpression = new HashMap<>();
+        for (int i = 0; i < rowConstructor.getOperandList().size(); i++) {
+            String columnName = ((SqlIdentifier) insertNode.getTargetColumnList().get(i)).getSimple();
+            SqlNode operand = rowConstructor.operand(i);
+
+            if (operand.getKind() == SqlKind.DEFAULT) {
+                // We don't need special processing for explicit default.
+                // Let's just skip it, default value will be resolved in the
+                // next for-loop
+                continue;
+            }
+
+            if (SuqQueryChecker.hasSubQuery(operand)) {
+                // can't deal with sub-query
+                return null;
+            }
+
+            RexNode expression = converter.convertExpression(operand);
+
+            columnToExpression.put(columnName, expression);
+        }
+
+        List<RexNode> expressions = new ArrayList<>();
+        for (ColumnDescriptor column : descriptor) {
+            RexNode expression = columnToExpression.get(column.name());
+
+            if (expression == null) {
+                expression = descriptor.newColumnDefaultValue(targetTable, column.logicalIndex(), converter);
+            }
+
+            expressions.add(expression);
+        }
+
+        return new IgniteKeyValueModify(
+                planner.cluster(),
+                planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
+                targetTable,
+                Operation.PUT,
+                expressions
+        );
     }
 
     private static boolean hasTooMuchJoins(RelNode rel) {
@@ -218,6 +319,28 @@ public final class PlannerHelper {
 
         int sizeOfBiggestJoin() {
             return Math.max(countOfSources, maxCountOfSourcesInSubQuery);
+        }
+    }
+
+    private static class SuqQueryChecker extends SqlShuttle {
+        private static final SuqQueryChecker INSTANCE = new SuqQueryChecker();
+
+        static boolean hasSubQuery(SqlNode node) {
+            try {
+                node.accept(INSTANCE);
+            } catch (ControlFlowException e) {
+                return true;
+            }
+
+            return false;
+        }
+
+        @Override public @Nullable SqlNode visit(SqlCall call) {
+            if (call.getKind() == SqlKind.SCALAR_QUERY) {
+                throw new ControlFlowException();
+            }
+
+            return super.visit(call);
         }
     }
 }

@@ -729,6 +729,18 @@ public final class Commons {
     }
 
     /**
+     * Checks whether a fast path optimizations are enabled or not.
+     *
+     * <p>Note: for test purpose only.
+     *
+     * @return A {@code true} if fast path optimizations are enabled, {@code false} otherwise.
+     */
+    public static boolean fastQueryOptimizationEnabled() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+        return IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
+    }
+
+    /**
      * Returns a short version of a rule description.
      *
      * <p>Short description is used to match the rule to disable in DISABLE_RULE hint processor.
