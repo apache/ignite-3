@@ -36,7 +36,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -532,6 +536,11 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
 
     @Override
     public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
-        return completedFuture(null);
+        JobExecution<byte[]> jobExecution = compute.submit(
+                JobTarget.node(node),
+                JobDescriptor.builder(StreamerReceiverJob.class).units(deploymentUnits).build(),
+                payload);
+
+        return jobExecution.resultAsync();
     }
 }
