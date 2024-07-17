@@ -107,7 +107,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                         indexMetaTree,
                         gcQueue
                 ),
-                destructionExecutor
+                destructionExecutor,
+                meta.estimatedSize()
         );
 
         checkpointManager = tableStorage.engine().checkpointManager();
@@ -450,5 +451,23 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Failed to save free list metadata: [{}]", e, createStorageInfo());
         }
+    }
+
+    @Override
+    public long incrementEstimatedSize() {
+        long newSize = super.incrementEstimatedSize();
+
+        updateMeta((lastCheckpointId, meta) -> meta.estimatedSize(lastCheckpointId, newSize));
+
+        return newSize;
+    }
+
+    @Override
+    public long decrementEstimatedSize() {
+        long newSize = super.decrementEstimatedSize();
+
+        updateMeta((lastCheckpointId, meta) -> meta.estimatedSize(lastCheckpointId, newSize));
+
+        return newSize;
     }
 }

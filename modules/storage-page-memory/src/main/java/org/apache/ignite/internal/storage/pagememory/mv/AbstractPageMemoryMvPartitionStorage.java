@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -93,6 +94,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** Preserved {@link LocalLocker} instance to allow nested calls of {@link #runConsistently(WriteClosure)}. */
     static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
+    private static final AtomicLongFieldUpdater<AbstractPageMemoryMvPartitionStorage> ESTIMATED_SIZE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(AbstractPageMemoryMvPartitionStorage.class, "estimatedSize");
+
     protected final int partitionId;
 
     protected final AbstractPageMemoryTableStorage tableStorage;
@@ -118,6 +122,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     private final UpdateTimestampHandler updateTimestampHandler;
 
+    private volatile long estimatedSize;
+
     /**
      * Constructor.
      *
@@ -128,13 +134,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             int partitionId,
             AbstractPageMemoryTableStorage tableStorage,
             RenewablePartitionStorageState renewableState,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            long estimatedSize
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
         this.renewableState = renewableState;
         this.destructionExecutor = createGradualTaskExecutor(destructionExecutor);
         this.indexes = new PageMemoryIndexes(this.destructionExecutor, this::runConsistently);
+        this.estimatedSize = estimatedSize;
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -211,6 +219,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         this.renewableState = newState;
 
         indexes.updateDataStructures(newState.indexStorageFactory());
+
+        this.estimatedSize = 0;
     }
 
     /**
@@ -246,10 +256,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         });
     }
 
-    // TODO: Implement, see https://issues.apache.org/jira/browse/IGNITE-22616
     @Override
     public long estimatedSize() {
-        throw new UnsupportedOperationException();
+        return estimatedSize;
     }
 
     private static boolean lookingForLatestVersion(HybridTimestamp timestamp) {
@@ -901,5 +910,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     public CompletableFuture<Void> destroyIndex(int indexId) {
         return busy(() -> indexes.destroyIndex(indexId, renewableState.indexMetaTree()));
+    }
+
+    public long incrementEstimatedSize() {
+        return ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
+    }
+
+    public long decrementEstimatedSize() {
+        return ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
     }
 }

@@ -96,7 +96,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                         indexMetaTree,
                         gcQueue
                 ),
-                destructionExecutor
+                destructionExecutor,
+                0
         );
     }
 
