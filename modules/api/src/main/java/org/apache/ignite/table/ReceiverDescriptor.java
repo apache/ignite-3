@@ -31,19 +31,19 @@ public class ReceiverDescriptor<A> {
 
     private final List<DeploymentUnit> units;
 
-    private final @Nullable Marshaler<A, byte[]> argumentsMarshaler;
+    private final @Nullable Marshaler<A, byte[]> argumentMarshaller;
 
     private ReceiverDescriptor(
             String receiverClassName,
             List<DeploymentUnit> units,
-            @Nullable Marshaler<A, byte[]> argumentsMarshaler
+            @Nullable Marshaler<A, byte[]> argumentMarshaller
     ) {
         Objects.requireNonNull(receiverClassName);
         Objects.requireNonNull(units);
 
         this.receiverClassName = receiverClassName;
         this.units = units;
-        this.argumentsMarshaler = argumentsMarshaler;
+        this.argumentMarshaller = argumentMarshaller;
     }
 
     /**
@@ -86,8 +86,8 @@ public class ReceiverDescriptor<A> {
         return new Builder<>(receiverClass.getName());
     }
 
-    public @Nullable Marshaler<A, byte[]> argumentsMarshaler() {
-        return argumentsMarshaler;
+    public @Nullable Marshaler<A, byte[]> argumentMarshaller() {
+        return argumentMarshaller;
     }
 
     /**
@@ -96,7 +96,7 @@ public class ReceiverDescriptor<A> {
     public static class Builder<A> {
         private final String receiverClassName;
         private List<DeploymentUnit> units;
-        private @Nullable Marshaler<A, byte[]> argumentsMarshaller;
+        private @Nullable Marshaler<A, byte[]> argumentMarshaller;
 
 
         private Builder(String receiverClassName) {
@@ -127,8 +127,8 @@ public class ReceiverDescriptor<A> {
             return this;
         }
 
-        public Builder<A> argumentsMarshaller(@Nullable Marshaler<A, byte[]> argumentsMarshaller) {
-            this.argumentsMarshaller = argumentsMarshaller;
+        public Builder<A> argumentMarshaller(@Nullable Marshaler<A, byte[]> argumentsMarshaller) {
+            this.argumentMarshaller = argumentsMarshaller;
             return this;
         }
 
@@ -141,7 +141,7 @@ public class ReceiverDescriptor<A> {
             return new ReceiverDescriptor<>(
                     receiverClassName,
                     units == null ? List.of() : units,
-                    argumentsMarshaller
+                    argumentMarshaller
             );
         }
     }

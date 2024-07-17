@@ -73,7 +73,7 @@ public class StreamerReceiverSerializer {
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiver.receiverClassName());
 
-        ClientBinaryTupleUtils.appendObject(builder, receiverArgs, receiver.argumentsMarshaler());
+        ClientBinaryTupleUtils.appendObject(builder, receiverArgs, receiver.argumentMarshaller());
 
         ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
 
