@@ -32,7 +32,6 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -64,7 +63,7 @@ public class ClientComputeExecuteRequest {
         Object arg = unpackPayload(in);
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, arg);
-        sendResultAndState(execution, notificationSender, null);
+        sendResultAndState(execution, notificationSender);
 
         //noinspection DataFlowIssue
         return execution.idAsync().thenAccept(out::packUuid);
@@ -98,13 +97,12 @@ public class ClientComputeExecuteRequest {
 
     static CompletableFuture<Object> sendResultAndState(
             JobExecution<Object> execution,
-            NotificationSender notificationSender,
-            Marshaler<Object, byte[]> marshaler
+            NotificationSender notificationSender
     ) {
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            w.packObjectAsBinaryTuple(val, marshaler);
+                            w.packObjectAsBinaryTuple(val, null);
                             packJobState(w, state);
                         }, err)));
     }

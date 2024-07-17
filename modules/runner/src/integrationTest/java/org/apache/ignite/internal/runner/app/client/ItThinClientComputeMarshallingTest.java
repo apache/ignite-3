@@ -312,10 +312,10 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         String strValue;
         int intValue;
 
-        PojoArg() {
+        public PojoArg() {
         }
 
-        String getStrValue() {
+        public String getStrValue() {
             return strValue;
         }
 
@@ -324,11 +324,11 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
             return this;
         }
 
-        int getIntValue() {
+        public int getIntValue() {
             return intValue;
         }
 
-        PojoArg setIntValue(int intValue) {
+        public PojoArg setIntValue(int intValue) {
             this.intValue = intValue;
             return this;
         }
