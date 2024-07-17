@@ -38,6 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -74,6 +76,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -101,6 +104,10 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
     private LogicalTopologyService logicalTopologyService;
 
+    private MessagingService messagingService;
+
+    private PlacementDriver placementDriver;
+
     private final ClockService clockService = new TestClockService(new HybridClockImpl());
 
     @BeforeEach
@@ -120,7 +127,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         assertNotNull(catalog1);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion() - 1);
+        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion());
         assertNotNull(catalog2);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
@@ -143,6 +150,9 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
         assertEquals(expectedEarliestCatalogVersion, catalogManager.earliestCatalogVersion());
 
+        int expectedMessageCalls = logicalNodes.size() - 1;
+        verify(messagingService, times(expectedMessageCalls)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
+
         // Nothing should be changed if catalog already compacted for previous timestamp.
         assertThat(compactionRunner.triggerCompaction(clockService.now()), willBe(false));
 
@@ -150,6 +160,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         Catalog earliestCatalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.earliestCatalogVersion()));
         compactionRunner = createRunner(NODE1, NODE1, (n) -> earliestCatalog.time());
         assertThat(compactionRunner.triggerCompaction(clockService.now()), willBe(false));
+        verify(messagingService, times(0)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
     }
 
     @Test
@@ -303,9 +314,9 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
             List<LogicalNode> topology,
             List<LogicalNode> assignmentNodes
     ) {
-        MessagingService messagingService = mock(MessagingService.class);
+        messagingService = mock(MessagingService.class);
         logicalTopologyService = mock(LogicalTopologyService.class);
-        PlacementDriver placementDriver = mock(PlacementDriver.class);
+        placementDriver = mock(PlacementDriver.class);
         TopologyService topologyService = mock(TopologyService.class);
 
         when(topologyService.localMember()).thenReturn(localNode);

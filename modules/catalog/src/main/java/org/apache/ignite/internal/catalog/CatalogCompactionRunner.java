@@ -348,6 +348,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
                     .whenComplete((tokenizedAssignments, ex) -> {
+                        // Compaction will be performed even if placement driver doesn't provide table assignments.
                         if (tokenizedAssignments != null) {
                             List<String> assignments = tokenizedAssignments.nodes().stream()
                                     .map(Assignment::consistentId)
