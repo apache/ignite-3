@@ -929,55 +929,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Tag(CUSTOM_CLUSTER_SETUP_TAG)
-    public void timeoutFiredOnInitialization() throws Throwable {
-        CountDownLatch mappingsCacheAccessBlock = new CountDownLatch(1);
-        AtomicReference<Throwable> exHolder = new AtomicReference<>();
-
-        setupCluster(
-                new BlockingCacheFactory(mappingsCacheAccessBlock),
-                nodeName -> new TestSingleThreadQueryExecutor(nodeName, exHolder)
-        );
-
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", operationContext(null).build());
-
-        QueryCancel queryCancel = new QueryCancel();
-        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 50);
-
-        SqlOperationContext ctx = operationContext(null)
-                .cancel(queryCancel)
-                .build();
-
-        CompletableFuture<AsyncDataCursor<InternalSqlRow>> execPlanFut =
-                runAsync(() -> executionServices.get(0).executePlan(plan, ctx));
-
-        // Wait until timeout is fired and unblock mapping service.
-        assertThat(timeoutFut, willCompleteSuccessfully());
-
-        mappingsCacheAccessBlock.countDown();
-
-        AsyncDataCursor<InternalSqlRow> cursor = await(execPlanFut);
-        IgniteTestUtils.assertThrowsWithCause(
-                () -> await(cursor.requestNextAsync(9)),
-                SqlException.class,
-                "Query timeout"
-        );
-
-        // Wait until all tasks are processed.
-        for (QueryTaskExecutor exec : executers) {
-            TestSingleThreadQueryExecutor executor = (TestSingleThreadQueryExecutor) exec;
-
-            assertTrue(waitForCondition(executor.queue::isEmpty, 5_000));
-        }
-
-        // Check for errors.
-        Throwable err = exHolder.get();
-        if (err != null) {
-            throw err;
-        }
-    }
-
-    @Test
     public void testTimeoutEarly() {
         ExecutionService execService = executionServices.get(0);
 
@@ -1062,6 +1013,61 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         // DDL handler does convert exceptions to SqlException, so we get QueryCancelledException here.
         awaitExecutionTimeout(execService, plan, 500, QueryCancelledException.class);
+    }
+
+    /**
+     * Test ensures that there are no unexpected errors when a timeout occurs during the mapping phase.
+     *
+     * @throws Throwable If failed.
+     */
+    @Test
+    @Tag(CUSTOM_CLUSTER_SETUP_TAG)
+    public void timeoutFiredOnInitialization() throws Throwable {
+        CountDownLatch mappingsCacheAccessBlock = new CountDownLatch(1);
+        AtomicReference<Throwable> exHolder = new AtomicReference<>();
+
+        setupCluster(
+                new BlockingCacheFactory(mappingsCacheAccessBlock),
+                nodeName -> new TestSingleThreadQueryExecutor(nodeName, exHolder)
+        );
+
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", operationContext(null).build());
+
+        QueryCancel queryCancel = new QueryCancel();
+        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 50);
+
+        SqlOperationContext ctx = operationContext(null)
+                .cancel(queryCancel)
+                .build();
+
+        CompletableFuture<AsyncDataCursor<InternalSqlRow>> execPlanFut =
+                runAsync(() -> executionServices.get(0).executePlan(plan, ctx));
+
+        // Wait until timeout is fired and unblock mapping service.
+        assertThat(timeoutFut, willCompleteSuccessfully());
+
+        mappingsCacheAccessBlock.countDown();
+
+        AsyncDataCursor<InternalSqlRow> cursor = await(execPlanFut);
+        //noinspection ThrowableNotThrown
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> await(cursor.requestNextAsync(9)),
+                SqlException.class,
+                "Query timeout"
+        );
+
+        // Wait until all tasks are processed.
+        for (QueryTaskExecutor exec : executers) {
+            TestSingleThreadQueryExecutor executor = (TestSingleThreadQueryExecutor) exec;
+
+            assertTrue(waitForCondition(executor.queue::isEmpty, 5_000));
+        }
+
+        // Check for errors.
+        Throwable err = exHolder.get();
+        if (err != null) {
+            throw err;
+        }
     }
 
     /** Creates an execution service instance for the node with given consistent id. */
@@ -1519,7 +1525,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }
     }
 
-    /** Test query tasks executor with a single thread and the ability to monitor the task queue. */
+    /** Query tasks executor with a single thread and the ability to monitor the task queue. */
     private static class TestSingleThreadQueryExecutor implements QueryTaskExecutor {
         private final LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
         private final AtomicInteger threadCounter = new AtomicInteger();

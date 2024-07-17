@@ -1049,8 +1049,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             synchronized (initMux) {
                 QueryCancel queryCancel = ctx.cancel();
 
-                // Skip initialization if cancel has already been triggered.
-                if (queryCancel != null && queryCancel.cancelled()) {
+                // skipping initialization if cancel has already been triggered
+                if (queryCancel != null && queryCancel.isCancelled()) {
                     return;
                 }
 

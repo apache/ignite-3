@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cancellable;
 import org.jetbrains.annotations.Nullable;
@@ -36,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 public class QueryCancel {
     private final List<Cancellable> cancelActions = new ArrayList<>(3);
 
-    private final AtomicReference<Reason> reasonHolder = new AtomicReference<>();
+    private Reason reason;
 
     private volatile CompletableFuture<Void> timeoutFut;
 
@@ -50,8 +49,6 @@ public class QueryCancel {
      */
     public synchronized void add(Cancellable clo) throws QueryCancelledException {
         assert clo != null;
-
-        Reason reason = reasonHolder.get();
 
         if (reason != null) {
             boolean timeout = reason == Reason.TIMEOUT;
@@ -91,7 +88,7 @@ public class QueryCancel {
      * @return Future that will be completed when the timeout is reached.
      */
     public synchronized CompletableFuture<Void> setTimeout(ScheduledExecutorService scheduler, long timeoutMillis) {
-        assert reasonHolder.get() == null : "Cannot set a timeout when cancelled";
+        assert reason == null : "Cannot set a timeout when cancelled";
         assert timeoutFut == null : "Timeout has already been set";
 
         CompletableFuture<Void> fut = new CompletableFuture<>();
@@ -129,16 +126,18 @@ public class QueryCancel {
         doCancel(Reason.CANCEL);
     }
 
-    public boolean cancelled() {
-        return reasonHolder.get() != null;
+    /** Returns {@code true} if the cancellation procedure has already been started. */
+    public synchronized boolean isCancelled() {
+        return reason != null;
     }
 
     private void doCancel(Reason reason) {
-        if (!reasonHolder.compareAndSet(null, reason)) {
+        if (this.reason != null) {
             return;
         }
 
         boolean timeout = reason == Reason.TIMEOUT;
+        this.reason = reason;
 
         IgniteInternalException ex = null;
 
