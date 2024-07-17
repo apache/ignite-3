@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
@@ -168,6 +169,10 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     @Override
     public @Nullable TableViewInternal cachedTable(int tableId) {
         return table(tableId);
+    }
+
+    @Override
+    public void setStreamerReceiverRunner(StreamerReceiverRunner runner) {
     }
 
     private TableViewInternal getNewTable(String name, int id) {

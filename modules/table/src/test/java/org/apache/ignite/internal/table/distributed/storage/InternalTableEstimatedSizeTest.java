@@ -205,7 +205,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService),
                 0,
                 0,
-                () -> null
+                () -> null,
+                null
         );
 
         List<PartitionReplicaListener> partitionReplicaListeners = IntStream.range(0, PARTITIONS_NUM)

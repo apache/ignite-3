@@ -261,6 +261,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(TransactionInflights.class),
                     3_000,
                     0,
+                    null,
                     null
             );
             this.dataAmount = dataAmount;

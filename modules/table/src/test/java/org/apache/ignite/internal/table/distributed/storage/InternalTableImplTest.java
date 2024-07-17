@@ -75,6 +75,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TransactionInflights.class),
                 3_000,
                 0,
+                null,
                 null
         );
 
@@ -125,6 +126,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TransactionInflights.class),
                 3_000,
                 0,
+                null,
                 null
         );
 
