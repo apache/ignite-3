@@ -330,6 +330,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public CompletableFuture<Void> catalogInitializationFuture() {
+        LOG.info("Self await in logical topology finished.");
         return catalogInitializationFuture;
     }
 
