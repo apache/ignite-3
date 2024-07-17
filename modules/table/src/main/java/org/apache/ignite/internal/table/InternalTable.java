@@ -45,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  * Internal table facade provides low-level methods for table operations. The facade hides TX/replication protocol over table storage
  * abstractions.
  */
-public interface InternalTable extends ManuallyCloseable, StreamerReceiverRunner {
+public interface InternalTable extends ManuallyCloseable {
     /**
      * Gets a storage for the table.
      *
@@ -503,4 +503,11 @@ public interface InternalTable extends ManuallyCloseable, StreamerReceiverRunner
      * @see MvPartitionStorage#estimatedSize
      */
     CompletableFuture<Long> estimatedSize();
+
+    /**
+     * Returns the streamer receiver runner.
+     *
+     * @return Streamer receiver runner.
+     */
+    StreamerReceiverRunner streamerReceiverRunner();
 }

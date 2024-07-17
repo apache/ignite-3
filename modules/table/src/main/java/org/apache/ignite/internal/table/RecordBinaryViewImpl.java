@@ -567,7 +567,8 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, rows, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() ->
                         tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
-                                .thenCompose(node -> tbl.runReceiverAsync(receiver, receiverArg, rows, node, receiver.units())));
+                                .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
+                                        receiver, receiverArg, rows, node, receiver.units())));
 
         CompletableFuture<Void> future = DataStreamer.streamData(
                 publisher,

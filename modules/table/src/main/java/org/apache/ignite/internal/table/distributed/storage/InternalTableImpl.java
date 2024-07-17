@@ -81,7 +81,6 @@ import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -1959,11 +1958,6 @@ public class InternalTableImpl implements InternalTable {
         return node;
     }
 
-    @Override
-    public @Nullable CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
-        return streamerReceiverRunner.runReceiverAsync(payload, node, deploymentUnits);
-    }
-
     /**
      * Partition scan publisher.
      */
@@ -2256,6 +2250,11 @@ public class InternalTableImpl implements InternalTable {
 
         return allOf(invokeFutures)
                 .thenApply(v -> Arrays.stream(invokeFutures).mapToLong(f -> (Long) f.join()).sum());
+    }
+
+    @Override
+    public StreamerReceiverRunner streamerReceiverRunner() {
+        return streamerReceiverRunner;
     }
 
     private <T> CompletableFuture<T> sendToPrimaryWithRetry(
