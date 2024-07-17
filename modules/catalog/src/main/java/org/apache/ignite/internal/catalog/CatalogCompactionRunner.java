@@ -99,9 +99,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    private volatile CompletableFuture<Boolean> lastRunFuture = CompletableFutures.nullCompletedFuture();
-
-    private volatile String localMemberName;
+    private final MinimumRequiredTimeProvider localMinTimeProvider;
 
     /**
      * Node that is considered to be a coordinator of compaction process.
@@ -110,7 +108,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
      */
     private volatile @Nullable String compactionCoordinatorNodeName;
 
+    private volatile CompletableFuture<Boolean> lastRunFuture = CompletableFutures.nullCompletedFuture();
+
     private volatile HybridTimestamp lowWatermark;
+
+    private volatile String localMemberName;
 
     /**
      * Constructs catalog compaction runner.
@@ -124,6 +126,22 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ClockService clockService,
             Executor executor
     ) {
+        this(catalogManager, messagingService, topologyService, logicalTopologyService, placementDriver, clockService, executor, null);
+    }
+
+    /**
+     * Constructs catalog compaction runner with custom minimum required time provider.
+     */
+    CatalogCompactionRunner(
+            CatalogManagerImpl catalogManager,
+            MessagingService messagingService,
+            TopologyService topologyService,
+            LogicalTopologyService logicalTopologyService,
+            PlacementDriver placementDriver,
+            ClockService clockService,
+            Executor executor,
+            @Nullable CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
+    ) {
         this.messagingService = messagingService;
         this.topologyService = topologyService;
         this.logicalTopologyService = logicalTopologyService;
@@ -131,6 +149,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.executor = executor;
+        this.localMinTimeProvider = localMinTimeProvider == null ? this::determineLocalMinimumRequiredTime : localMinTimeProvider;
     }
 
     @Override
@@ -140,10 +159,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
             assert message.messageType() == CatalogMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST : message.messageType();
             assert correlationId != null;
 
-            long minimumRequiredTime = determineLocalMinimumRequiredTime();
-
             CatalogMinimumRequiredTimeResponse response = MESSAGES_FACTORY.catalogMinimumRequiredTimeResponse()
-                    .timestamp(minimumRequiredTime)
+                    .timestamp(localMinTimeProvider.time())
                     .build();
 
             messagingService.respond(sender, response, correlationId);
@@ -223,7 +240,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> startCompaction(LogicalTopologySnapshot topologySnapshot) {
-        long localMinimum = determineLocalMinimumRequiredTime();
+        long localMinimum = localMinTimeProvider.time();
 
         if (catalogByTsNullable(localMinimum) == null) {
             return CompletableFutures.falseCompletedFuture();
@@ -354,5 +371,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .collect(Collectors.toSet());
 
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
+    }
+
+    /** Minimum required time supplier. */
+    @FunctionalInterface
+    interface MinimumRequiredTimeProvider {
+        /** Returns minimum required timestamp. */
+        long time();
     }
 }

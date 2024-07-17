@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -341,8 +342,11 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 logicalTopologyService,
                 placementDriver,
                 clockService,
-                ForkJoinPool.commonPool()
+                ForkJoinPool.commonPool(),
+                () -> (Long) timeSupplier.apply(coordinator.name())
         );
+
+        await(runner.startAsync(mock(ComponentContext.class)));
 
         runner.updateCoordinator(coordinator);
 
