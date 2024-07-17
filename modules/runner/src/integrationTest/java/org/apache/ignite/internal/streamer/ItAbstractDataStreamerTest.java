@@ -368,7 +368,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testWithReceiver(boolean returnResults) {
+    public void testWithReceiverRecordBinaryView(boolean returnResults) {
         CompletableFuture<Void> streamerFut;
 
         var resultSubscriber = returnResults ? new TestSubscriber<String>() : null;
@@ -377,6 +377,38 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
                     t -> t,
+                    t -> t.stringValue(1),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    resultSubscriber,
+                    DataStreamerOptions.builder().retryLimit(0).build(),
+                    "arg1"
+            );
+
+            // Same ID goes to the same partition.
+            publisher.submit(tuple(1, "val1"));
+            publisher.submit(tuple(1, "val2"));
+            publisher.submit(tuple(1, "val3"));
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+
+        if (returnResults) {
+            assertEquals(1, resultSubscriber.items.size());
+            assertEquals("Received: 3 items, arg1 arg", resultSubscriber.items.iterator().next());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverKvBinaryView(boolean returnResults) {
+        CompletableFuture<Void> streamerFut;
+
+        var resultSubscriber = returnResults ? new TestSubscriber<String>() : null;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = defaultTable().keyValueView().streamData(
+                    publisher,
+                    t -> Map.entry(t, null),
                     t -> t.stringValue(1),
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
