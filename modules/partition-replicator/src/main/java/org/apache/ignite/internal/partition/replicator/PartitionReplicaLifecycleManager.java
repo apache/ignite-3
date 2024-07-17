@@ -778,7 +778,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             }
 
             assert replicaMgr.isReplicaStarted(zonePartitionId)
-                    : "The local node is outside of the replication group [inStable=" + isLocalInStable
+                    : "The local node is outside of the replication group [stable=" + stableAssignments
                     + ", isLeaseholder=" + isLeaseholder + "].";
 
             // Update raft client peers and learners according to the actual assignments.
