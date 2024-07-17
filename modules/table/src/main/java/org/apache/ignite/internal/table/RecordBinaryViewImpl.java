@@ -565,18 +565,11 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
 
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, rows, deleted) ->
-                PublicApiThreading.execUserAsyncOperation(() -> {
-                    return this.tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
-                            .thenCompose(node ->
-                                    // TODO: Serialize receiver info. Another overload for runReceiverAsync?
-                                    // StreamerReceiverSerializer.serializeReceiverInfo
-                                    this.tbl.runReceiverAsync(null, node, receiver.units()).thenApply(receiverRes -> {
-                                        // TODO: Deserialize receiver results.
-                                        return new ArrayList<>();
-                                    }));
-                });
+                PublicApiThreading.execUserAsyncOperation(() ->
+                        tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
+                                .thenCompose(node -> tbl.runReceiverAsync(receiver, receiverArg, rows, node, receiver.units())));
 
-        CompletableFuture<Void> future = DataStreamer.<Tuple, E, V, R>streamData(
+        CompletableFuture<Void> future = DataStreamer.streamData(
                 publisher,
                 keyFunc,
                 payloadFunc,
