@@ -310,7 +310,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         Throwable cause = ExceptionUtils.unwrapCause(transactionException.getCause());
 
-        assertInstanceOf(MismatchingTransactionOutcomeException.class, cause);
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, cause.getCause());
     }
 
     private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx, Table publicTable) {

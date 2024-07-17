@@ -50,6 +50,8 @@ import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql.validate.SqlValidatorImpl;
+import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
@@ -322,4 +324,45 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
                 relBuilder.build(), LogicalTableModify.Operation.MERGE,
                 targetColumnNameList, null, false);
     }
+
+    // =========================================================
+    // =                  BEGIN OF COPY-PASTE                  =
+    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22755 remove this section
+
+    // Section below is copy-pasted from original SqlToRelConverter.
+    // The only difference is that invocations of requireNonNull()
+    // replaced with similar one but accepting lamda instead of
+    // plain string.
+    @Override
+    protected RelOptTable getTargetTable(SqlNode call) {
+        final SqlValidatorNamespace targetNs = getNamespace(call);
+        SqlValidatorNamespace namespace;
+        if (targetNs.isWrapperFor(SqlValidatorImpl.DmlNamespace.class)) {
+            namespace = targetNs.unwrap(SqlValidatorImpl.DmlNamespace.class);
+        } else {
+            namespace = targetNs.resolve();
+        }
+        RelOptTable table = SqlValidatorUtil.getRelOptTable(namespace, catalogReader, null, null);
+        return requireNonNull(table, () -> "no table found for " + call);
+    }
+
+    private <T extends SqlValidatorNamespace> T getNamespace(SqlNode node) {
+        //noinspection unchecked
+        return (T) requireNonNull(
+                getNamespaceOrNull(node),
+                () -> "Namespace is not found for " + node);
+    }
+
+    private <T extends SqlValidatorNamespace> @Nullable T getNamespaceOrNull(SqlNode node) {
+        return (@Nullable T) validator().getNamespace(node);
+    }
+
+    private SqlValidator validator() {
+        return requireNonNull(validator, "validator");
+    }
+
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    // =                  END OF COPY-PASTE                    =
+    // =========================================================
 }

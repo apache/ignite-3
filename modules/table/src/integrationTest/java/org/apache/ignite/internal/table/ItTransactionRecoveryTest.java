@@ -23,12 +23,14 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -789,7 +791,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         cancelLease(commitPartNode, tblReplicationGrp);
 
-        assertThat(commitFut, willThrow(MismatchingTransactionOutcomeException.class, 30, SECONDS));
+        TransactionException txEx = assertWillThrow(commitFut, TransactionException.class, 30, SECONDS);
+        assertThat(txEx.getCause(), instanceOf(MismatchingTransactionOutcomeException.class));
 
         RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
 
