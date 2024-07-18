@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -174,6 +173,4 @@ public interface RaftManager extends IgniteComponent {
             @Nullable Marshaller commandsMarshaller
     ) throws NodeStoppingException;
 
-    /** Returns write-ahead log syncer. */
-    LogSyncer getLogSyncer();
 }
