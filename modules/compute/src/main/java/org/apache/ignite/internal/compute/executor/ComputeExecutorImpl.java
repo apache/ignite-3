@@ -19,11 +19,9 @@ package org.apache.ignite.internal.compute.executor;
 
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
-import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.task.MapReduceTask;
@@ -42,7 +40,6 @@ import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
@@ -92,20 +89,29 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaler<T, byte[]> inputMarshaller = jobInstance.inputMarshaler();
         Marshaler<R, byte[]> resultMarshaller = jobInstance.resultMarshaler();
 
-        QueueExecution<Object> execution = executorService.submit(
-                () -> {
-                    try {
-                        var fut = jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
-                        if (fut != null) {
-                            return ComputeUtils.convertToComputeFuture(fut.thenApply(res -> marshallOrNull(res, resultMarshaller)));
-                        }
-                        return null;
-                    } catch (IgniteException e) {
-                        throw e;
-                    } catch (Throwable e) {
-                        throw new ComputeException(COMPUTE_JOB_FAILED_ERR, "Job execution failed: " + e, e);
-                    }
-                },
+//        QueueExecution<Object> execution = executorService.submit(
+//                () -> {
+//                    try {
+//                        var fut = jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
+//                        if (fut != null) {
+//                            return ComputeUtils.convertToComputeFuture(fut.thenApply(res -> marshallOrNull(res, resultMarshaller)));
+//                        }
+//                        return null;
+//                    } catch (IgniteException e) {
+//                        throw e;
+//                    } catch (Throwable e) {
+//                        if (e instanceof IgniteCheckedException) {
+//                            throw e;
+//                        }
+//                        throw new ComputeException(COMPUTE_JOB_FAILED_ERR, "Job execution failed: " + e, e);
+//                    }
+//                },
+//                options.priority(),
+//                options.maxRetries()
+//        );
+
+        QueueExecution<Object> execution = (QueueExecution<Object>) executorService.submit(
+                () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input)),
                 options.priority(),
                 options.maxRetries()
         );

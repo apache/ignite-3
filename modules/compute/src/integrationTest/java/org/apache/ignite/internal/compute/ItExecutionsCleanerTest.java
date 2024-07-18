@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.not;
 
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.wrapper.Wrappers;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -124,12 +126,12 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         // Second task is queued, cancel it
         queuedExecution.assertQueued();
         queuedExecution.cancelAsync();
-        queuedExecution.assertCancelled();
+        queuedExecution.assertCancelled(CancellationException.class);
 
         // First task is executing, cancel it
         runningExecution.assertExecuting();
         runningExecution.cancelAsync();
-        runningExecution.assertCancelled();
+        runningExecution.assertCancelled(IgniteException.class);
 
         // All executions are retained
         assertThat(localExecutionManager.executions(), hasItem(runningJobId));
@@ -181,12 +183,12 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         // Second task is queued, cancel it
         queuedExecution.assertQueued();
         queuedExecution.cancelAsync();
-        queuedExecution.assertCancelled();
+        queuedExecution.assertCancelled(CancellationException.class);
 
         // First task is executing, cancel it
         runningExecution.assertExecuting();
         runningExecution.cancelAsync();
-        runningExecution.assertCancelled();
+        runningExecution.assertCancelled(IgniteException.class);
 
         // All executions are retained
         assertThat(localExecutionManager.executions(), hasItem(runningJobId));

@@ -49,6 +49,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
@@ -278,7 +279,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         execution.cancelSync();
 
         // Then it is cancelled.
-        execution.assertCancelled();
+        execution.assertCancelled(IgniteException.class);
     }
 
     @Test
