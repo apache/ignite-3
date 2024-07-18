@@ -191,6 +191,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock
     private ReplicaManager replicaMgr;
 
+    /** Raft log syncer. */
+    @Mock
+    private LogSyncer logSyncer;
+
     /** TX manager. */
     @Mock
     private TxManager tm;
@@ -826,7 +830,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
                 mock(TransactionInflights.class),
-                indexMetaStorage
+                indexMetaStorage,
+                logSyncer
         ) {
 
             @Override

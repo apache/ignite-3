@@ -28,7 +28,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -530,11 +529,6 @@ public class Loza implements RaftManager {
     @TestOnly
     public RaftServer server() {
         return raftServer;
-    }
-
-    @Override
-    public LogSyncer getLogSyncer() {
-        return raftServer.getLogSyncer();
     }
 
     /**
