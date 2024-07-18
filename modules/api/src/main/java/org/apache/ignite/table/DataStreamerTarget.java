@@ -63,5 +63,5 @@ public interface DataStreamerTarget<T> {
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArg);
+            @Nullable A receiverArg);
 }

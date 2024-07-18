@@ -84,6 +84,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -252,7 +253,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionInflights,
                 3_000,
                 0,
-                null
+                null,
+                mock(StreamerReceiverRunner.class)
         );
 
         RaftGroupService svc = mock(RaftGroupService.class);

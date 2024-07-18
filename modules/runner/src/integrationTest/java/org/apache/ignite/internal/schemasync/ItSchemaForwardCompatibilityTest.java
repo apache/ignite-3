@@ -114,7 +114,8 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
                 ))
         );
 
-        assertThat(ex.code(), is(Transactions.TX_UNEXPECTED_STATE_ERR));
+        // TODO: IGNITE-20415 - assert that the failure is because of a changed schema.
+        assertThat(ex.code(), is(Transactions.TX_COMMIT_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }

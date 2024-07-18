@@ -680,7 +680,7 @@ public class IgniteImpl implements Ignite {
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
-        LogSyncer logSyncer = raftMgr.getLogSyncer();
+        LogSyncer logSyncer = logStorageFactory;
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
@@ -830,7 +830,8 @@ public class IgniteImpl implements Ignite {
                 resourcesRegistry,
                 lowWatermark,
                 transactionInflights,
-                indexMetaStorage
+                indexMetaStorage,
+                logSyncer
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
@@ -1254,7 +1255,7 @@ public class IgniteImpl implements Ignite {
     private RuntimeException handleStartException(Throwable e) {
         String errMsg = "Unable to start [node=" + name + "]";
 
-        LOG.debug(errMsg, e);
+        LOG.error(errMsg, e);
 
         IgniteException igniteException = new IgniteException(errMsg, e);
 

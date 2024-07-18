@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
@@ -43,12 +44,21 @@ import org.apache.ignite.internal.type.NativeType;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.params.provider.Arguments;
 
 abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
 
     static Stream<Arguments> allNumericPairs() {
         return Arrays.stream(NumericPair.values()).map(Arguments::of);
+    }
+
+    static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
+        EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
+
+        args.map(Arguments::get).map(arg -> (NumericPair) arg[0]).forEach(remainingPairs::remove);
+
+        assertThat(remainingPairs, Matchers.empty());
     }
 
     static IgniteSchema createSchemaWithTwoColumnTable(NativeType c1, NativeType c2) {
@@ -175,6 +185,12 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
 
         private TestCaseBuilder(TypePair pair) {
             this.pair = pair;
+        }
+
+        Arguments opMatches(Matcher<?> operandMatcher) {
+            firstOpMatcher = operandMatcher;
+
+            return Arguments.of(pair, firstOpMatcher);
         }
 
         TestCaseBuilder firstOpMatches(Matcher<?> operandMatcher) {

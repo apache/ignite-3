@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreem
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -66,11 +65,11 @@ public class LeaseNegotiator {
      * @param force If the flag is true, the process tries to insist of apply the lease.
      */
     public void negotiate(Lease lease, boolean force) {
-        var fut = new CompletableFuture<LeaseGrantedMessageResponse>();
-
         ReplicationGroupId groupId = lease.replicationGroupId();
 
-        leaseToNegotiate.put(groupId, new LeaseAgreement(lease, fut));
+        LeaseAgreement agreement = leaseToNegotiate.get(groupId);
+
+        assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + groupId + "].";
 
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
 
@@ -90,13 +89,13 @@ public class LeaseNegotiator {
 
                         LeaseGrantedMessageResponse response = (LeaseGrantedMessageResponse) msg;
 
-                        fut.complete(response);
+                        agreement.onResponse(response);
                     } else {
                         if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
                             LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                         }
 
-                        fut.complete(null);
+                        agreement.cancel();
                     }
                 });
     }
@@ -121,11 +120,25 @@ public class LeaseNegotiator {
     }
 
     /**
+     * Creates an agreement.
+     *
+     * @param groupId Group id.
+     * @param lease Lease to negotiate.
+     */
+    public void createAgreement(ReplicationGroupId groupId, Lease lease) {
+        leaseToNegotiate.put(groupId, new LeaseAgreement(lease));
+    }
+
+    /**
      * Removes lease from list to negotiate.
      *
      * @param groupId Lease to expire.
      */
-    public void onLeaseRemoved(ReplicationGroupId groupId) {
-        leaseToNegotiate.remove(groupId);
+    public void cancelAgreement(ReplicationGroupId groupId) {
+        LeaseAgreement agreement = leaseToNegotiate.remove(groupId);
+
+        if (agreement != null) {
+            agreement.cancel();
+        }
     }
 }

@@ -58,7 +58,6 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -842,12 +841,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
     }
 
-    /** Getter for wrapped write-ahead log syncer. */
-    // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22292
-    public LogSyncer getLogSyncer() {
-        return raftManager.getLogSyncer();
-    }
-
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, SnapshotStorageFactory snapshotFactory) {
         RaftGroupOptions raftGroupOptions;
 
@@ -1258,11 +1251,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
-                            + groupId + "].";
-
-                    context.assertReservation(groupId);
+                            + groupId + ", leaseStartTime=" + parameters.startTime() + "].";
                 } else if (context.reservedForPrimary) {
-                    context.assertReservation(groupId);
+                    context.assertReservation(groupId, parameters.startTime());
 
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
@@ -1285,7 +1276,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        context.assertReservation(parameters.groupId());
+                        context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
@@ -1541,9 +1532,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             leaseStartTime = null;
         }
 
-        void assertReservation(ReplicationGroupId groupId) {
-            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" + groupId + "].";
-            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId=" + groupId + "].";
+        void assertReservation(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
+            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
         }
     }
 

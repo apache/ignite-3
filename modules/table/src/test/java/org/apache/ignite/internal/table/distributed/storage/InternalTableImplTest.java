@@ -43,6 +43,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -73,7 +74,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TransactionInflights.class),
                 3_000,
                 0,
-                null
+                null,
+                mock(StreamerReceiverRunner.class)
         );
 
         // Let's check the empty table.
@@ -122,6 +124,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TransactionInflights.class),
                 3_000,
                 0,
+                null,
                 null
         );
 

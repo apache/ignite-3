@@ -55,7 +55,7 @@ class DataStreamer {
     }
 
     // T = key, E = element, V = payload, R = result.
-    private static <T, E, V, R> CompletableFuture<Void> streamData(
+    static <T, E, V, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
