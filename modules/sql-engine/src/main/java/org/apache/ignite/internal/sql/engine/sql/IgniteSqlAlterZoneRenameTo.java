@@ -26,6 +26,8 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.util.ImmutableNullableList;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -76,5 +78,13 @@ public class IgniteSqlAlterZoneRenameTo extends IgniteAbstractSqlAlterZone {
         writer.keyword("RENAME TO");
 
         newName.unparse(writer, leftPrec, rightPrec);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validate(SqlValidator validator, SqlValidatorScope scope) {
+        for (SqlNode node : getOperandList()) {
+            node.validate(validator, scope);
+        }
     }
 }

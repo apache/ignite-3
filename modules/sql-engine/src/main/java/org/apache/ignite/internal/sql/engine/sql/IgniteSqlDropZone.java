@@ -27,6 +27,8 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.util.ImmutableNullableList;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -83,6 +85,12 @@ public class IgniteSqlDropZone extends SqlDrop {
         }
 
         name.unparse(writer, leftPrec, rightPrec);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validate(SqlValidator validator, SqlValidatorScope scope) {
+        name.validate(validator, scope);
     }
 
     public SqlIdentifier name() {

@@ -95,7 +95,12 @@ public class IgniteSqlCreateTableOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public void validate(SqlValidator validator, SqlValidatorScope scope) {
-        throw new UnsupportedOperationException();
+        for (SqlNode node : getOperandList()) {
+            if (node == null) {
+                continue;
+            }
+            node.validate(validator, scope);
+        }
     }
 
     /** {@inheritDoc} */

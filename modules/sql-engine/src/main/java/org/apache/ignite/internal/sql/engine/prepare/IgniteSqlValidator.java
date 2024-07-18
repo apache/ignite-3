@@ -44,12 +44,14 @@ import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.CalciteException;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlExplain;
@@ -69,6 +71,7 @@ import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
@@ -83,6 +86,8 @@ import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.sql.IgniteDdlOperator;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlSpecialOperator;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
@@ -91,6 +96,8 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
@@ -129,6 +136,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
      * We store them to check that every i-th parameter has the same type.
      */
     private final IdentityHashMap<SqlDynamicParam, SqlDynamicParam> dynamicParamNodes = new IdentityHashMap<>();
+
+    /**
+     * Scopes used by other commands (e.g. DDL). There within such scopes identifiers should not be resolved.
+     */
+    private final Set<SqlValidatorScope> otherScopes = Collections.newSetFromMap(new IdentityHashMap<>());
 
     /**
      * Creates a validator.
@@ -172,6 +184,26 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         validateInferredDynamicParameters();
 
         return result;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void registerQuery(
+            SqlValidatorScope parentScope,
+            @Nullable SqlValidatorScope usingScope,
+            SqlNode node,
+            SqlNode enclosingNode,
+            @Nullable String alias,
+            boolean forceNullable) {
+
+        if (belongsToOtherScope(node)) {
+            otherScopes.add(parentScope);
+            // Assign this expression to some scope.
+            scopes.put(node, parentScope);
+            return;
+        }
+
+        super.registerQuery(parentScope, usingScope, node, enclosingNode, alias, forceNullable);
     }
 
     /** {@inheritDoc} */
@@ -459,6 +491,52 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         checkIntegerLimit(select.getOffset(), "offset");
     }
 
+    /** {@inheritDoc} */
+    @Override
+    protected RelDataType validateSelectList(SqlNodeList selectItems, SqlSelect select, RelDataType targetRowType) {
+        RelDataType dataType = super.validateSelectList(selectItems, select, targetRowType);
+
+        for (String fieldName : dataType.getFieldNames()) {
+            validateIdentifierSegment(fieldName);
+        }
+
+        return dataType;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void validateFrom(SqlNode node, RelDataType targetRowType, SqlValidatorScope scope) {
+        if (node instanceof SqlIdentifier) {
+            validateSqlIdentifier((SqlIdentifier) node);
+        }
+
+        super.validateFrom(node, targetRowType, scope);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validateIdentifier(SqlIdentifier id, SqlValidatorScope scope) {
+        validateSqlIdentifier(id);
+
+        // Do not validate identifiers within other scopes (e.g DDL), because they do not point to anything.
+        if (!otherScopes.contains(scope)) {
+            super.validateIdentifier(id, scope);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CalciteException handleUnresolvedFunction(SqlCall call,
+            SqlOperator unresolvedFunction,
+            List<RelDataType> argTypes,
+            @Nullable List<String> argNames
+    ) {
+
+        validateIdentifierSegment(unresolvedFunction.getName());
+
+        return super.handleUnresolvedFunction(call, unresolvedFunction, argTypes, argNames);
+    }
+
     /**
      * Check integer limit.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -571,6 +649,24 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         return dataType;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validateDataType(SqlDataTypeSpec dataType) {
+        validateSqlIdentifier(dataType.getTypeName());
+
+        super.validateDataType(dataType);
+    }
+
+    @Override
+    public RelDataType getValidatedNodeType(SqlNode node) {
+        // Do not assign types to nodes that belong to other scope (e.g. DDL statements).
+        if (belongsToOtherScope(node)) {
+            return unknownType;
+        } else {
+            return super.getValidatedNodeType(node);
+        }
     }
 
     /** {@inheritDoc} */
@@ -1249,5 +1345,32 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         VALUES,
         GROUP,
         OTHER
+    }
+
+    /**
+     * Checks whether the given node is a special node that belongs to other scope (it can be DDL or another similar statement).
+     */
+    private static boolean belongsToOtherScope(SqlNode node) {
+        if (node instanceof SqlCall) {
+            SqlCall specialCall = (SqlCall) node;
+            SqlOperator operator = specialCall.getOperator();
+
+            return operator instanceof IgniteSqlSpecialOperator || operator instanceof IgniteDdlOperator;
+        } else {
+            return false;
+        }
+    }
+
+    private static void validateSqlIdentifier(SqlIdentifier id) {
+        for (String name : id.names) {
+            validateIdentifierSegment(name);
+        }
+    }
+
+    private static void validateIdentifierSegment(String name) {
+        if (name.length() > SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH) {
+            String message = RESOURCE.identifierTooLong(name, SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH).ex().getMessage();
+            throw new SqlException(Sql.STMT_VALIDATION_ERR, message);
+        }
     }
 }

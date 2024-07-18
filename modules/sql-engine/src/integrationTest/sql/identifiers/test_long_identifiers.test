@@ -15,14 +15,16 @@ CREATE TABLE t (id INTEGER, val INTEGER, PRIMARY KEY (id))
 statement ok
 CREATE TABLE tableName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf128Characters (keyColumnName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf128Characters INTEGER, valueColumnName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf128Characters INTEGER, PRIMARY KEY (keyColumnName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf128Characters));
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 CREATE TABLE tableName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters (key INTEGER, val INTEGER, PRIMARY KEY (key));
 
+statement error: Length of identifier
+CREATE TABLE ttt (key tableName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters, val INTEGER, PRIMARY KEY (key));
 
 # Rename table with long identifiers
 skipif ignite3
 # Ignored: https://issues.apache.org/jira/browse/IGNITE-19484
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 ALTER TABLE t RENAME TO tableName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters;
 
 skipif ignite3
@@ -40,7 +42,7 @@ ALTER TABLE tableName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooo
 statement ok
 ALTER TABLE t ADD COLUMN (columnName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf128Characters INTEGER);
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 ALTER TABLE t ADD COLUMN (columnName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters INTEGER);
 
 statement ok
@@ -50,7 +52,7 @@ ALTER TABLE t DROP COLUMN (columnName_veryLooooooooooooooooooooooooooooooooooooo
 # Alter table rename column with long identifier
 skipif ignite3
 # Ignored: https://issues.apache.org/jira/browse/IGNITE-19485
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 ALTER TABLE t RENAME COLUMN val TO columnName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters;
 
 skipif ignite3
@@ -86,10 +88,10 @@ SELECT columnAlias_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 1
 2
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 SELECT columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters FROM (VALUES (1), (2)) t(columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters);
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 SELECT col FROM (VALUES (1), (2)) tableAlias_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters(col);
 
 query I
@@ -102,10 +104,10 @@ SELECT 1 columnAlias_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooo
 ----
 1
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 SELECT 1 as columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 SELECT 1 columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters
 
 # Long column aliases with subquery
@@ -119,10 +121,10 @@ SELECT columnAlias_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 ----
 1
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 SELECT columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters FROM (SELECT 1 as columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters);
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 SELECT columnAlias_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters FROM (SELECT 1 columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters);
 
 query I
@@ -137,7 +139,7 @@ SELECT * FROM (SELECT 1) as tableAlias_veryLoooooooooooooooooooooooooooooooooooo
 ----
 1
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 SELECT * FROM (SELECT 1) as tableAlias_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters;
 
 query I
@@ -159,7 +161,7 @@ SELECT id as columnAlias_veryLoooooooooooooooooooooooooooooooooooooooooooooooooo
 2
 1
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 SELECT id as columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters FROM t ORDER BY columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters DESC;
 
 
@@ -174,9 +176,11 @@ SELECT val as columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooo
 ----
 1	3
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier 
 SELECT id as columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters FROM t GROUP BY columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters;
 
+statement error: Length of identifier
+SELECT columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters(1, 2, 3)
 
 # Long identifier in WHERE clause
 query I
@@ -192,7 +196,7 @@ CREATE INDEX indexName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooo
 statement ok
 DROP INDEX indexName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf128Characters;
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier 
 CREATE INDEX indexName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters on t (val);
 
 
@@ -208,7 +212,7 @@ DROP TABLE tableName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooo
 statement ok
 CREATE ZONE zoneName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf128Characters WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 CREATE ZONE zoneName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;
 
 statement ok
@@ -217,7 +221,7 @@ ALTER ZONE zoneName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 statement ok
 ALTER ZONE zoneName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf128Characters RENAME TO zoneName;
 
-statement error: Failed to parse query: Length of identifier 
+statement error: Length of identifier
 ALTER ZONE zoneName RENAME TO zoneName_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters;
 
 statement ok

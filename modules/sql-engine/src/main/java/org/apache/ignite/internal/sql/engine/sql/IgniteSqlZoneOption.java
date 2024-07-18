@@ -97,7 +97,8 @@ public class IgniteSqlZoneOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public void validate(SqlValidator validator, SqlValidatorScope scope) {
-        throw new UnsupportedOperationException();
+        key.validate(validator, scope);
+        value.validate(validator, scope);
     }
 
     /** {@inheritDoc} */

@@ -55,6 +55,8 @@ public final class IgniteSqlParser  {
     public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
             .withParserFactory(InternalIgniteSqlParser.FACTORY)
             .withLex(Lex.ORACLE)
+            // Do not validate the length SQL identifiers.
+            .withIdentifierMaxLength(Integer.MAX_VALUE)
             .withConformance(IgniteSqlConformance.INSTANCE);
 
     private IgniteSqlParser() {
