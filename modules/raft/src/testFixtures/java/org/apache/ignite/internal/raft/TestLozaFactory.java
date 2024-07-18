@@ -72,30 +72,6 @@ public class TestLozaFactory {
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
         LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(clusterNetSvc.nodeName(), dataPath, raftConfig);
-
-        return create(clusterNetSvc, raftConfig, dataPath, clock, raftGroupEventsClientListener, logStorageFactory);
-    }
-
-    /**
-     * Factory method for {@link Loza}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path, RaftConfiguration)},
-     * and automatically wraps it in the Loza instance start/stop methods.
-     *
-     * @param clusterNetSvc Cluster network service.
-     * @param raftConfig Raft configuration.
-     * @param dataPath Data path.
-     * @param clock A hybrid logical clock.
-     * @param raftGroupEventsClientListener Raft group events client listener.
-     * @param logStorageFactory Log storage factory.
-     */
-    public static Loza create(
-            ClusterService clusterNetSvc,
-            RaftConfiguration raftConfig,
-            Path dataPath,
-            HybridClock clock,
-            RaftGroupEventsClientListener raftGroupEventsClientListener,
-            LogStorageFactory logStorageFactory
-    ) {
         return new Loza(
                 clusterNetSvc,
                 new NoOpMetricManager(),
