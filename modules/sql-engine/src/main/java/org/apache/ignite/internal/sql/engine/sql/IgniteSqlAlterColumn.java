@@ -171,6 +171,9 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
     @Override
     public void validate(SqlValidator validator, SqlValidatorScope scope) {
         for (SqlNode node : getOperandList()) {
+            if (node == null) {
+                continue;
+            }
             node.validate(validator, scope);
         }
     }
