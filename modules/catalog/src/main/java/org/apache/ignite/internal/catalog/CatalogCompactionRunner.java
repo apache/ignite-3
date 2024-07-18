@@ -242,7 +242,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private CompletableFuture<Boolean> startCompaction(LogicalTopologySnapshot topologySnapshot) {
         long localMinimum = localMinTimeProvider.time();
 
-        if (catalogByTsNullable(localMinimum) == null) {
+        Catalog catalog0 = catalogByTsNullable(localMinimum);
+        if (catalog0 == null || catalog0.version() == catalogManager.earliestCatalogVersion()) {
             return CompletableFutures.falseCompletedFuture();
         }
 
