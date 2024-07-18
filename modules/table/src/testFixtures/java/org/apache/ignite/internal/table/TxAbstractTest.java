@@ -135,6 +135,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -738,8 +739,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /**
      * Tests negative transfer scenario.
      */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17861")
+    @RepeatedTest(100)
+//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17861")
     public void testTxClosureAbortAsync() {
         double balance1 = 10.;
         double balance2 = 300.;

@@ -213,6 +213,7 @@ import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -1304,8 +1305,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * group stops for some time while restarting node is being recovered. The recovery process should continue and eventually succeed after
      * metastorage group starts again.
      */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18919")
+    @RepeatedTest(100)
+//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18919")
     public void testMetastorageStop() throws NodeStoppingException {
         int cfgGap = 4;
 

@@ -34,8 +34,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 
 /** Integration test to check the work with indexes on rebalancing. */
 public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
@@ -58,8 +57,7 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21710")
-    @Test
+    @RepeatedTest(100)
     void testChangeReplicaCountWithoutRestartNodes() throws Exception {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 2, 1);
 
