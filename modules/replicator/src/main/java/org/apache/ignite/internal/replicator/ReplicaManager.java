@@ -178,7 +178,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
 
     /** Replicas. */
-    private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<ReplicaContext>> replicas = new ConcurrentHashMap<>();
 
     private final ClockService clockService;
 
@@ -427,7 +427,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            CompletableFuture<Replica> replicaFut = replicas.get(groupId);
+            CompletableFuture<ReplicaContext> replicaFut = replicas.get(groupId);
 
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
@@ -444,7 +444,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             boolean sendTimestamp = request instanceof TimestampAware || request instanceof ReadOnlyDirectReplicaRequest;
 
             // replicaFut is always completed here.
-            Replica replica = replicaFut.join();
+            Replica replica = replicaFut.join().replica;
 
             String senderId = sender.id();
 
@@ -533,10 +533,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(msg.groupId(), k -> new CompletableFuture<>());
+            CompletableFuture<ReplicaContext> replicaFut = replicas.computeIfAbsent(msg.groupId(), k -> new CompletableFuture<>());
 
             replicaFut
-                    .thenCompose(replica -> replica.processPlacementDriverMessage(msg))
+                    .thenCompose(context -> context.replica.processPlacementDriverMessage(msg))
                     .whenComplete((response, ex) -> {
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
@@ -710,14 +710,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         raftClient
                 );
 
-                CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+                CompletableFuture<ReplicaContext> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
                     if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
                         assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
                         LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
-                        return completedFuture(newReplica);
+                        return completedFuture(new ReplicaContext(newReplica));
                     } else {
-                        existingReplicaFuture.complete(newReplica);
+                        existingReplicaFuture.complete(new ReplicaContext(newReplica));
                         LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
                         return existingReplicaFuture;
@@ -732,7 +732,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                             return null;
                         })
-                        .thenCompose(v -> replicaFuture);
+                        .thenCompose(v -> replicaFuture)
+                        .thenApply(context -> context.replica);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -812,15 +813,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
                     LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
-                    return completedFuture(newReplica);
+                    return completedFuture(new ReplicaContext(newReplica));
                 } else {
                     LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
-                    existingReplicaFuture.complete(newReplica);
+                    existingReplicaFuture.complete(new ReplicaContext(newReplica));
 
                     return existingReplicaFuture;
                 }
-            });
+            }).thenApply(context -> context.replica);
         });
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
@@ -840,8 +841,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicationGroupId Table-Partition identifier.
      * @return replica if it was created or null otherwise.
      */
+    @Nullable
     public CompletableFuture<Replica> replica(ReplicationGroupId replicationGroupId) {
-        return replicas.get(replicationGroupId);
+        CompletableFuture<ReplicaContext> future = replicas.get(replicationGroupId);
+
+        return future == null ? null : future.thenApply(context -> context.replica);
     }
 
     /**
@@ -929,7 +933,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         isRemovedFuture.complete(true);
                     } else {
                         replicaFuture
-                                .thenCompose(Replica::shutdown)
+                                .thenCompose(context -> context.replica.shutdown())
                                 .whenComplete((notUsed, throwable) -> {
                                     if (throwable != null) {
                                         LOG.error("Failed to stop replica [replicaGrpId={}].", throwable, grpId);
@@ -1011,7 +1015,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 : "There are replicas alive [replicas="
                 + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
 
-        for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
+        for (CompletableFuture<ReplicaContext> replicaFuture : replicas.values()) {
             replicaFuture.completeExceptionally(new NodeStoppingException());
         }
 
@@ -1118,7 +1122,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Idle safe time sync for replicas.
      */
     private void idleSafeTimeSync() {
-        for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
+        for (Entry<ReplicationGroupId, CompletableFuture<ReplicaContext>> entry : replicas.entrySet()) {
             try {
                 sendSafeTimeSyncIfReplicaReady(entry.getValue());
             } catch (Exception | AssertionError e) {
@@ -1131,15 +1135,27 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
     }
 
-    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture) {
+    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<ReplicaContext> replicaFuture) {
         if (isCompletedSuccessfully(replicaFuture)) {
-            Replica replica = replicaFuture.join();
+            ReplicaContext context = replicaFuture.join();
+            Replica replica = context.replica;
 
-            ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                    .groupId(toReplicationGroupIdMessage(replica.groupId()))
-                    .build();
+            // Only send partition SafeTime update if no previous SafeTime update is still being executed.
+            // This allows to avoid stacking tons of futures in the SafeTime update processing machinery
+            // in situations when the node struggles to make progress (due to a lot of GC activity, for example).
+            // This allows to prevent the self-choking effect when those tons of futures eat of scarce remaining
+            // heap making the node struggle even worse.
+            // Here, we can miss a SafeTime update if the node already struggles, but they are sent periodically, so this
+            // should not be a problem.
+            if (context.startSendingSafeTime()) {
+                ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
+                        .groupId(toReplicationGroupIdMessage(replica.groupId()))
+                        .build();
 
-            replica.processRequest(req, localNodeId);
+                nullCompletedFuture()
+                        .thenCompose(unused -> replica.processRequest(req, localNodeId))
+                        .whenComplete((res, ex) -> context.stopSendingSafeTime());
+            }
         }
     }
 
@@ -1150,7 +1166,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return True if the replica is started.
      */
     public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
-        CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
+        CompletableFuture<ReplicaContext> replicaFuture = replicas.get(replicaGrpId);
         return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
     }
 
@@ -1629,5 +1645,22 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         throw new AssertionError("Not supported: " + replicationGroupId);
+    }
+
+    private static class ReplicaContext {
+        private final Replica replica;
+        private final AtomicBoolean sendingSafeTime = new AtomicBoolean();
+
+        private ReplicaContext(Replica replica) {
+            this.replica = replica;
+        }
+
+        private boolean startSendingSafeTime() {
+            return sendingSafeTime.compareAndSet(false, true);
+        }
+
+        private void stopSendingSafeTime() {
+            sendingSafeTime.set(false);
+        }
     }
 }
