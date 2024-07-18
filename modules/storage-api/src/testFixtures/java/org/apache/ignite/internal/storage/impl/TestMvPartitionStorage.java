@@ -502,14 +502,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     throw new IllegalStateException();
                 }
 
-                // We don't check if row conforms the key filter here, because we've already checked it.
-                ReadResult read = read(currentChain, timestamp, null);
-
-                if (read.transactionId() == null) {
-                    return read.binaryRow();
-                }
-
-                return null;
+                return read(currentChain, timestamp, null).binaryRow();
             }
 
             @Override

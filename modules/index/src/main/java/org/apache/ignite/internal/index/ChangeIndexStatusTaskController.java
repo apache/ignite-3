@@ -90,8 +90,11 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         this.placementDriver = placementDriver;
         this.clusterService = clusterService;
         this.changeIndexStatusTaskScheduler = changeIndexStatusTaskScheduler;
+    }
 
-        addListeners();
+    /** Starts component. */
+    public void start() {
+        inBusyLock(busyLock, this::addListeners);
     }
 
     @Override

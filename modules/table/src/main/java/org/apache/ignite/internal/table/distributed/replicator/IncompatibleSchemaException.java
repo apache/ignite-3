@@ -25,6 +25,7 @@ import org.apache.ignite.tx.TransactionException;
  * Thrown when, during an attempt to execute a transactional operation, it turns out that the operation cannot be executed
  * because an incompatible schema change has happened.
  */
+// TODO: IGNITE-20415 - make this extend TransactionInternalException.
 public class IncompatibleSchemaException extends TransactionException implements ExpectedReplicationException {
     private static final String SCHEMA_CHANGED_MESSAGE = "Table schema was updated after the transaction was started "
             + "[table=%s, startSchema=%d, operationSchema=%d]";

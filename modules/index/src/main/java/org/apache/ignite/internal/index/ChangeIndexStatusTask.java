@@ -40,7 +40,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -63,6 +62,10 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.index.IndexMeta;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatus;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -79,8 +82,8 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *
  * <p>Approximate algorithm for a task:
  * <ol>
- *     <li>Wait for the activation (on every cluster node) of the catalog version specified by
- *     {@link CatalogIndexDescriptor#txWaitCatalogVersion()};</li>
+ *     <li>Wait for the activation (on every cluster node) of the catalog version in which the
+ *     {@link CatalogIndexDescriptor#status()} of {@link #targetIndex() index} appeared;</li>
  *     <li>Make sure that the local node is still the primary replica for partition {@code 0} of the table that the index belongs to;</li>
  *     <li>Retrieve the logical topology from the CMG leader;</li>
  *     <li>For each node in the logical topology, send {@link IsNodeFinishedRwTransactionsStartedBeforeRequest} and process the following
@@ -115,6 +118,8 @@ abstract class ChangeIndexStatusTask {
 
     private final ClockService clockService;
 
+    private final IndexMetaStorage indexMetaStorage;
+
     private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
@@ -130,6 +135,7 @@ abstract class ChangeIndexStatusTask {
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
+            IndexMetaStorage indexMetaStorage,
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
@@ -139,6 +145,7 @@ abstract class ChangeIndexStatusTask {
         this.clusterService = clusterService;
         this.logicalTopologyService = logicalTopologyService;
         this.clockService = clockService;
+        this.indexMetaStorage = indexMetaStorage;
         this.executor = executor;
         this.busyLock = busyLock;
     }
@@ -177,8 +184,8 @@ abstract class ChangeIndexStatusTask {
     }
 
     /**
-     * Returns a CatalogCommand that will be submitted to the Catalog after all RW transactions that had observed the Catalog at
-     * {@link CatalogIndexDescriptor#txWaitCatalogVersion()} have finished their execution.
+     * Returns a CatalogCommand that will be submitted to the Catalog after all RW transactions that had observed the catalog version in
+     * which the{@link CatalogIndexDescriptor#status()} of {@link #targetIndex() index} appeared and have finished their execution.
      */
     abstract CatalogCommand switchIndexStatusCommand();
 
@@ -202,12 +209,7 @@ abstract class ChangeIndexStatusTask {
             }
 
             try {
-                Catalog catalog = catalogManager.catalog(indexDescriptor.txWaitCatalogVersion());
-
-                assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [indexId={}, catalogVersion={}]",
-                        indexDescriptor.id(), indexDescriptor.txWaitCatalogVersion());
-
-                return clusterWideEnsuredActivationTimestamp(catalog, clockService.maxClockSkewMillis());
+                return clusterWideEnsuredActivationTimestamp(statusChange().activationTimestamp(), clockService.maxClockSkewMillis());
             } finally {
                 leaveBusy();
             }
@@ -314,7 +316,7 @@ abstract class ChangeIndexStatusTask {
 
     private IsNodeFinishedRwTransactionsStartedBeforeRequest isNodeFinishedRwTransactionsStartedBeforeRequest() {
         return FACTORY.isNodeFinishedRwTransactionsStartedBeforeRequest()
-                .targetCatalogVersion(indexDescriptor.txWaitCatalogVersion())
+                .targetCatalogVersion(statusChange().catalogVersion())
                 .build();
     }
 
@@ -333,8 +335,26 @@ abstract class ChangeIndexStatusTask {
 
         try {
             return supplier.get();
+        } catch (Throwable t) {
+            return failedFuture(t);
         } finally {
             leaveBusy();
         }
+    }
+
+    private MetaIndexStatusChange statusChange() {
+        IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
+
+        if (indexMeta == null) {
+            // Index was destroyed under a low watermark, well, we not need to build it.
+            throw new IndexTaskStoppingException();
+        }
+
+        MetaIndexStatusChange statusChange = indexMeta.statusChangeNullable(MetaIndexStatus.convert(indexDescriptor.status()));
+
+        assert statusChange != null : IgniteStringFormatter.format("Missing index status change: [indexId={}, catalogStatus={}]",
+                indexDescriptor.id(), indexDescriptor.status());
+
+        return statusChange;
     }
 }

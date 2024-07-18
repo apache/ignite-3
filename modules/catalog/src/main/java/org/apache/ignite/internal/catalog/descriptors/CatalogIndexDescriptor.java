@@ -31,22 +31,23 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index status. */
     private final CatalogIndexStatus status;
 
-    /**
-     * Catalog version used in special index status updates to wait for RW transactions, started before this version, to finish.
-     */
-    private final int txWaitCatalogVersion;
-
     /** Index descriptor type. */
     private final CatalogIndexDescriptorType indexType;
 
-    CatalogIndexDescriptor(CatalogIndexDescriptorType indexType, int id, String name, int tableId, boolean unique,
-            CatalogIndexStatus status, int txWaitCatalogVersion, long causalityToken) {
+    CatalogIndexDescriptor(
+            CatalogIndexDescriptorType indexType,
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            CatalogIndexStatus status,
+            long causalityToken
+    ) {
         super(id, Type.INDEX, name, causalityToken);
         this.indexType = indexType;
         this.tableId = tableId;
         this.unique = unique;
         this.status = Objects.requireNonNull(status, "status");
-        this.txWaitCatalogVersion = txWaitCatalogVersion;
     }
 
     /** Gets table ID. */
@@ -62,14 +63,6 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Returns index status. */
     public CatalogIndexStatus status() {
         return status;
-    }
-
-    /**
-     * Returns the Catalog version used in special index status updates to wait for RW transactions, started before
-     * this version, to finish.
-     */
-    public int txWaitCatalogVersion() {
-        return txWaitCatalogVersion;
     }
 
     /** Returns catalog index descriptor type. */

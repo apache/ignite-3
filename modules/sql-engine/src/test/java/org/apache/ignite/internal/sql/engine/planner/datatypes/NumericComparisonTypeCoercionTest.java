@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-
-import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.rex.RexNode;
@@ -29,7 +26,6 @@ import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -816,10 +812,6 @@ public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
      */
     @Test
     void argsIncludesAllTypePairs() {
-        EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
-
-        args().map(Arguments::get).map(arg -> (NumericPair) arg[0]).forEach(remainingPairs::remove);
-
-        assertThat(remainingPairs, Matchers.empty());
+        checkIncludesAllNumericTypePairs(args());
     }
 }

@@ -80,6 +80,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -117,6 +118,7 @@ import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
@@ -176,6 +178,7 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.LongPriorityQueue;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
@@ -416,6 +419,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
 
+    @Nullable
+    private StreamerReceiverRunner streamerReceiverRunner;
+
     /**
      * Creates a new table manager.
      *
@@ -473,7 +479,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             LowWatermark lowWatermark,
             TransactionInflights transactionInflights,
-            IndexMetaStorage indexMetaStorage
+            IndexMetaStorage indexMetaStorage,
+            LogSyncer logSyncer
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -570,11 +577,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 storagePath.resolve(TX_STATE_DIR),
                 txStateStorageScheduledPool,
                 txStateStoragePool,
-                replicaMgr.getLogSyncer(),
+                logSyncer,
                 TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
         );
 
-        fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark);
+        fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
     }
 
     @Override
@@ -1283,7 +1290,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 transactionInflights,
                 implicitTransactionTimeout,
                 attemptsObtainLock,
-                this::streamerFlushExecutor
+                this::streamerFlushExecutor,
+                Objects.requireNonNull(streamerReceiverRunner)
         );
 
         var table = new TableImpl(
@@ -2645,5 +2653,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Entry entry = metaStorageMgr.getLocally(stablePartAssignmentsKey(tablePartitionId), revision);
 
         return Assignments.fromBytes(entry.value());
+    }
+
+    @Override
+    public void setStreamerReceiverRunner(StreamerReceiverRunner runner) {
+        this.streamerReceiverRunner = runner;
     }
 }

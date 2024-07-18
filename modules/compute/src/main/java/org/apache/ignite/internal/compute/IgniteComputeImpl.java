@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -52,20 +53,25 @@ import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
+import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
@@ -74,7 +80,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link IgniteCompute}.
  */
-public class IgniteComputeImpl implements IgniteComputeInternal {
+public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceiverRunner {
     private final TopologyService topologyService;
 
     private final IgniteTablesInternal tables;
@@ -96,6 +102,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         this.tables = tables;
         this.computeComponent = computeComponent;
         this.clock = clock;
+
+        tables.setStreamerReceiverRunner(this);
     }
 
     @Override
@@ -360,6 +368,46 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
         return computeComponent.changePriorityAsync(jobId, newPriority);
+    }
+
+    @Override
+    public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
+            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
+            Collection<I> items,
+            ClusterNode node,
+            List<DeploymentUnit> deploymentUnits) {
+        var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(receiver, receiverArg, items);
+
+        return runReceiverAsync(payload, node, deploymentUnits)
+                .thenApply(StreamerReceiverSerializer::deserializeReceiverJobResults);
+    }
+
+    @Override
+    public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+        // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
+        JobExecution<byte[]> jobExecution = executeAsyncWithFailover(
+                Set.of(node),
+                deploymentUnits,
+                StreamerReceiverJob.class.getName(),
+                JobExecutionOptions.DEFAULT,
+                payload);
+
+        return jobExecution.resultAsync()
+                .handle((res, err) -> {
+                    if (err != null) {
+                        if (err.getCause() instanceof ComputeException) {
+                            ComputeException computeErr = (ComputeException) err.getCause();
+                            throw new IgniteException(
+                                    COMPUTE_JOB_FAILED_ERR,
+                                    "Streamer receiver failed: " + computeErr.getMessage(), computeErr);
+                        }
+
+                        ExceptionUtils.sneakyThrow(err);
+                    }
+
+                    return res;
+                });
     }
 
     @TestOnly

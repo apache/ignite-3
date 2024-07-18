@@ -44,8 +44,6 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
-     * @param txWaitCatalogVersion Catalog version used in special index status updates to wait for RW transactions, started before
-     *         this version, to finish.
      * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
@@ -54,10 +52,9 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             String name,
             int tableId,
             boolean unique,
-            int txWaitCatalogVersion,
             List<CatalogIndexColumnDescriptor> columns
     ) {
-        this(id, name, tableId, unique, REGISTERED, txWaitCatalogVersion, columns);
+        this(id, name, tableId, unique, REGISTERED, columns);
     }
 
     /**
@@ -68,8 +65,6 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param txWaitCatalogVersion Catalog version used in special index status updates to wait for RW transactions, started before
-     *         this version, to finish.
      * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
@@ -79,10 +74,9 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             int tableId,
             boolean unique,
             CatalogIndexStatus status,
-            int txWaitCatalogVersion,
             List<CatalogIndexColumnDescriptor> columns
     ) {
-        this(id, name, tableId, unique, status, txWaitCatalogVersion, columns, INITIAL_CAUSALITY_TOKEN);
+        this(id, name, tableId, unique, status, columns, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -93,8 +87,6 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param status Index status.
-     * @param txWaitCatalogVersion Catalog version used in special index status updates to wait for RW transactions, started before
-     *         this version, to finish.
      * @param columns A list of columns descriptors.
      * @param causalityToken Token of the update of the descriptor.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
@@ -105,11 +97,10 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             int tableId,
             boolean unique,
             CatalogIndexStatus status,
-            int txWaitCatalogVersion,
             List<CatalogIndexColumnDescriptor> columns,
             long causalityToken
     ) {
-        super(CatalogIndexDescriptorType.SORTED, id, name, tableId, unique, status, txWaitCatalogVersion, causalityToken);
+        super(CatalogIndexDescriptorType.SORTED, id, name, tableId, unique, status, causalityToken);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }
@@ -133,10 +124,9 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             int tableId = input.readInt();
             boolean unique = input.readBoolean();
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
-            int txWaitCatalogVersion = input.readInt();
             List<CatalogIndexColumnDescriptor> columns = readList(CatalogIndexColumnDescriptor.SERIALIZER, input);
 
-            return new CatalogSortedIndexDescriptor(id, name, tableId, unique, status, txWaitCatalogVersion, columns, updateToken);
+            return new CatalogSortedIndexDescriptor(id, name, tableId, unique, status, columns, updateToken);
         }
 
         @Override
@@ -147,7 +137,6 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             output.writeInt(descriptor.tableId());
             output.writeBoolean(descriptor.unique());
             output.writeByte(descriptor.status().id());
-            output.writeInt(descriptor.txWaitCatalogVersion());
             writeList(descriptor.columns(), CatalogIndexColumnDescriptor.SERIALIZER, output);
         }
     }

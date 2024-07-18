@@ -24,6 +24,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 public interface ReplicationGroupIdMessage extends NetworkMessage {
     /** Converts to {@link ReplicationGroupId}. */
     default ReplicationGroupId asReplicationGroupId() {
-        throw new AssertionError("Must be implemented by heirs.");
+        throw new AssertionError("Must be implemented by derived classes.");
     }
 }

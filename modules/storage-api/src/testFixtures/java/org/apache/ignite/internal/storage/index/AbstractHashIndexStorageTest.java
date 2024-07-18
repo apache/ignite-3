@@ -73,7 +73,6 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
                 tableId,
                 false,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
         );
 

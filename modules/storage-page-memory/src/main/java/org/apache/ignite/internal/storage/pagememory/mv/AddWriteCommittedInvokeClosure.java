@@ -143,5 +143,15 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
         if (rowLinkForAddToGcQueue != NULL_LINK) {
             gcQueue.add(rowId, commitTimestamp, rowLinkForAddToGcQueue);
         }
+
+        if (operationType == OperationType.PUT) {
+            if (row == null) {
+                storage.decrementEstimatedSize();
+            } else if (rowLinkForAddToGcQueue == NULL_LINK) {
+                // Checking for NULL_LINK allows us to distinguish if a new version chain was created or not. In other words if this is
+                // an insert or an update to an existing row.
+                storage.incrementEstimatedSize();
+            }
+        }
     }
 }

@@ -111,8 +111,11 @@ class IndexBuildController implements ManuallyCloseable {
         this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
+    }
 
-        addListeners();
+    /** Starts component. */
+    public void start() {
+        inBusyLock(busyLock, this::addListeners);
     }
 
     @Override
