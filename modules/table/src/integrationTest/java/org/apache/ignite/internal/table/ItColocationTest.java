@@ -302,7 +302,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 3_000,
                 0,
                 null,
-                null
+                mock(StreamerReceiverRunner.class)
         );
     }
 
