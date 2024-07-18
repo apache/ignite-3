@@ -45,6 +45,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.SystemConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -155,6 +156,9 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemConfiguration systemConfiguration;
 
     /**
      * Run {@code NODES} cluster nodes.
@@ -380,7 +384,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv1 = TestJraftServerFactory.create(
                 cluster.get(0),
                 workDir.resolve("node1"),
-                raftConfiguration,
+                systemConfiguration,
                 opt1,
                 new RaftGroupEventsClientListener()
         );
@@ -388,7 +392,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv2 = TestJraftServerFactory.create(
                 cluster.get(1),
                 workDir.resolve("node2"),
-                raftConfiguration,
+                systemConfiguration,
                 opt2,
                 new RaftGroupEventsClientListener()
         );
@@ -396,7 +400,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv3 = TestJraftServerFactory.create(
                 cluster.get(2),
                 workDir.resolve("node3"),
-                raftConfiguration,
+                systemConfiguration,
                 opt3,
                 new RaftGroupEventsClientListener()
         );

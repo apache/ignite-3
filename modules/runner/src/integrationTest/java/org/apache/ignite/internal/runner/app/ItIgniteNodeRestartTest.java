@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsBasePath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsRaftLogPath;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -107,6 +109,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
+import org.apache.ignite.internal.configuration.SystemConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -199,6 +202,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
@@ -244,6 +248,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration("mock: " + RAFT_CFG)
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static SystemConfiguration systemConfiguration;
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
@@ -359,7 +366,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), dir, raftConfiguration);
+        LazyPath partitionsBasePath = partitionsBasePath(systemConfiguration, dir);
+
+        LogStorageFactory logStorageFactory =
+                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsRaftLogPath(partitionsBasePath));
 
         var raftMgr = TestLozaFactory.create(
                 clusterSvc,
@@ -570,11 +580,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         LogSyncer logSyncer = logStorageFactory;
 
+        LazyPath lazyStoragePath = LazyPath.create(storagePath);
+
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
                         nodeCfgMgr.configurationRegistry(),
-                        storagePath,
+                        lazyStoragePath,
                         null,
                         failureProcessor,
                         logSyncer
@@ -635,7 +647,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaService,
                 txManager,
                 dataStorageManager,
-                storagePath,
+                lazyStoragePath,
                 metaStorageMgr,
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),

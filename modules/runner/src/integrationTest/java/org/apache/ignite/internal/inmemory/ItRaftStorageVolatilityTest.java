@@ -184,7 +184,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         stopNode(0);
 
-        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
+        Path logRocksDbDir = workDir.resolve(nodeName).resolve("partitions").resolve("log").resolve("log");
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.

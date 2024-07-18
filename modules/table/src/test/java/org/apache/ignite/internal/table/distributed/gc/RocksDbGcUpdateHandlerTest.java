@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -55,7 +56,13 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
             @InjectConfiguration("mock.profiles.default.engine = rocksdb")
             StorageConfiguration storageConfiguration
     ) {
-        engine = new RocksDbStorageEngine(testNodeName(testInfo, 0), engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
+        engine = new RocksDbStorageEngine(
+                testNodeName(testInfo, 0),
+                engineConfig,
+                storageConfiguration,
+                LazyPath.create(workDir),
+                mock(LogSyncer.class)
+        );
 
         engine.start();
 

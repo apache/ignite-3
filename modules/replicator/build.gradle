@@ -68,6 +68,7 @@ dependencies {
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-cluster-management')
+    testFixturesImplementation project(':ignite-system-configuration')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-configuration:'))

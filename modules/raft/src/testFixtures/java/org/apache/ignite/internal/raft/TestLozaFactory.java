@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsMetaPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsRaftLogPath;
+
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -26,6 +29,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /** Utilities for creating {@link Loza} instances. */
@@ -36,7 +40,7 @@ public class TestLozaFactory {
 
     /**
      * Factory method for {@link Loza}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path, RaftConfiguration)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
      * and automatically wraps it in the Loza instance start/stop methods.
      *
      * @param clusterNetSvc Cluster network service.
@@ -55,7 +59,7 @@ public class TestLozaFactory {
 
     /**
      * Factory method for {@link Loza}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path, RaftConfiguration)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
      * and automatically wraps it in the Loza instance start/stop methods.
      *
      * @param clusterNetSvc Cluster network service.
@@ -71,12 +75,17 @@ public class TestLozaFactory {
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
-        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(clusterNetSvc.nodeName(), dataPath, raftConfig);
+        LazyPath partitionsBaseDir = LazyPath.create(dataPath);
+
+        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+                clusterNetSvc.nodeName(),
+                partitionsRaftLogPath(partitionsBaseDir)
+        );
         return new Loza(
                 clusterNetSvc,
                 new NoOpMetricManager(),
                 raftConfig,
-                dataPath,
+                partitionsMetaPath(partitionsBaseDir),
                 clock,
                 raftGroupEventsClientListener,
                 logStorageFactory) {

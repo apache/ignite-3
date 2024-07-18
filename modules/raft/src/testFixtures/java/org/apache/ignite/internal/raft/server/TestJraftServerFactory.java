@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsBasePath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsMetaPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsRaftLogPath;
+
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.SystemConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
@@ -36,34 +41,32 @@ public class TestJraftServerFactory {
 
     /**
      * Factory method for {@link JraftServerImpl}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path, RaftConfiguration)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
      * and automatically wraps it in the JraftServerImpl instance start/stop methods.
      *
      * @param service Cluster service.
      * @param dataPath Data path.
-     * @param raftConfiguration Raft configuration.
      */
-    public static JraftServerImpl create(ClusterService service, Path dataPath, RaftConfiguration raftConfiguration) {
-        return create(service, dataPath, raftConfiguration, new NodeOptions(), new RaftGroupEventsClientListener());
+    public static JraftServerImpl create(ClusterService service, Path dataPath, SystemConfiguration systemConfiguration) {
+        return create(service, dataPath, systemConfiguration, new NodeOptions(), new RaftGroupEventsClientListener());
     }
 
     /**
      * Factory method for {@link JraftServerImpl}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path, RaftConfiguration)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
      * and automatically wraps it in the JraftServerImpl instance start/stop methods.
      *
      * @param service Cluster service.
      * @param dataPath Data path.
      * @param opts Node Options.
-     * @param raftConfiguration Raft configuration.
      */
-    public static JraftServerImpl create(ClusterService service, Path dataPath, RaftConfiguration raftConfiguration, NodeOptions opts) {
-        return create(service, dataPath, raftConfiguration, opts, new RaftGroupEventsClientListener());
+    public static JraftServerImpl create(ClusterService service, Path dataPath, SystemConfiguration systemConfiguration, NodeOptions opts) {
+        return create(service, dataPath, systemConfiguration, opts, new RaftGroupEventsClientListener());
     }
 
     /**
      * Factory method for {@link JraftServerImpl}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path, RaftConfiguration)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
      * and automatically wraps it in the JraftServerImpl instance start/stop methods.
      *
      * @param service Cluster service.
@@ -73,12 +76,23 @@ public class TestJraftServerFactory {
     public static JraftServerImpl create(
             ClusterService service,
             Path dataPath,
-            RaftConfiguration raftConfiguration,
+            SystemConfiguration systemConfiguration,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
-        LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(service.nodeName(), dataPath, raftConfiguration);
-        return new JraftServerImpl(service, dataPath, opts, raftGroupEventsClientListener, defaultLogStorageFactory) {
+        LazyPath partitionsBasePath = partitionsBasePath(systemConfiguration, dataPath);
+
+        LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                service.nodeName(),
+                partitionsRaftLogPath(partitionsBasePath)
+        );
+        return new JraftServerImpl(
+                service,
+                partitionsMetaPath(partitionsBasePath),
+                opts,
+                raftGroupEventsClientListener,
+                defaultLogStorageFactory
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return defaultLogStorageFactory.startAsync(componentContext).thenCompose(none -> super.startAsync(componentContext));

@@ -41,6 +41,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,7 +72,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 engineConfig,
                 storageConfiguration,
                 ioRegistry,
-                workDir,
+                LazyPath.create(workDir),
                 null,
                 mock(FailureProcessor.class),
                 mock(LogSyncer.class)

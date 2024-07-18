@@ -26,9 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.ignite.internal.configuration.SystemConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
@@ -59,44 +59,44 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     @Test
     @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
     void testDefaultFactory() {
-        Path logPath = workDir.resolve("db/log");
-        assertThat(raftConfiguration.logPath().update(logPath.toString()), willCompleteSuccessfully());
+        Path partitionsPath = workDir.resolve("partitions");
+        assertThat(systemConfiguration.partitionsBasePath().update(partitionsPath.toString()), willCompleteSuccessfully());
 
-        server = startServer(raftConfiguration);
+        server = startServer(systemConfiguration);
 
-        assertTrue(Files.exists(logPath));
+        assertTrue(Files.exists(partitionsPath));
     }
 
     @Test
     @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
     void testLogitFactory() {
-        Path logPath = workDir.resolve("db/log");
-        assertThat(raftConfiguration.logPath().update(logPath.toString()), willCompleteSuccessfully());
+        Path partitionsPath = workDir.resolve("partitions");
+        assertThat(systemConfiguration.partitionsBasePath().update(partitionsPath.toString()), willCompleteSuccessfully());
 
-        server = startServer(raftConfiguration);
+        server = startServer(systemConfiguration);
 
         LogitLogStorageFactory factory = (LogitLogStorageFactory) server.getLogStorageFactory();
-        assertEquals(logPath.resolve("log-1"), factory.resolveLogStoragePath("1"));
+        assertEquals(partitionsPath.resolve("log").resolve("log-1"), factory.resolveLogStoragePath("1"));
     }
 
     @Test
     @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
     void testDefaultLogPathDefaultFactory() {
-        server = startServer(raftConfiguration);
+        server = startServer(systemConfiguration);
 
-        assertTrue(Files.exists(dataPath.resolve("log")));
+        assertTrue(Files.exists(dataPath.resolve("partitions/log")));
     }
 
     @Test
     @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
     void testDefaultLogPathLogitFactory() {
-        server = startServer(raftConfiguration);
+        server = startServer(systemConfiguration);
 
         LogitLogStorageFactory factory = (LogitLogStorageFactory) server.getLogStorageFactory();
-        assertEquals(dataPath.resolve("log/log-1"), factory.resolveLogStoragePath("1"));
+        assertEquals(dataPath.resolve("partitions/log/log-1"), factory.resolveLogStoragePath("1"));
     }
 
-    private JraftServerImpl startServer(RaftConfiguration raftConfiguration) {
+    private JraftServerImpl startServer(SystemConfiguration systemConfiguration) {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
@@ -104,7 +104,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
         JraftServerImpl server = TestJraftServerFactory.create(
                 service,
                 dataPath,
-                raftConfiguration,
+                systemConfiguration,
                 new NodeOptions(),
                 new RaftGroupEventsClientListener()
         );

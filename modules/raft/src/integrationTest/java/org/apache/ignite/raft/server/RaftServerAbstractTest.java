@@ -24,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.configuration.SystemConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -57,6 +58,9 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
     /** Raft configuration. */
     @InjectConfiguration
     protected RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    protected SystemConfiguration systemConfiguration;
 
     /** Test info. */
     TestInfo testInfo;
@@ -98,6 +102,6 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
 
     protected JraftServerImpl jraftServer(int idx, ClusterService service, NodeOptions opts) {
         Path dataPath = workDir.resolve("node" + idx);
-        return TestJraftServerFactory.create(service, dataPath, raftConfiguration, opts);
+        return TestJraftServerFactory.create(service, dataPath, systemConfiguration, opts);
     }
 }
