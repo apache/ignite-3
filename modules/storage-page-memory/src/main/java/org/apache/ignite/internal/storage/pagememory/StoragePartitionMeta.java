@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
@@ -30,6 +31,9 @@ import org.jetbrains.annotations.Nullable;
 public class StoragePartitionMeta extends PartitionMeta {
 
     public static final PartitionMetaFactory FACTORY = new StoragePartitionMetaFactory();
+
+    private static final AtomicLongFieldUpdater<StoragePartitionMeta> ESTIMATED_SIZE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(StoragePartitionMeta.class, "estimatedSize");
 
     private volatile long lastAppliedIndex;
 
@@ -230,12 +234,21 @@ public class StoragePartitionMeta extends PartitionMeta {
     }
 
     /**
-     * Sets the estimated size of this partition.
+     * Increments the estimated size of this partition.
      */
-    public void estimatedSize(@Nullable UUID checkpointId, long estimatedSize) {
+    public void incrementEstimatedSize(@Nullable UUID checkpointId) {
         updateSnapshot(checkpointId);
 
-        this.estimatedSize = estimatedSize;
+        ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
+    }
+
+    /**
+     * Decrements the estimated size of this partition.
+     */
+    public void decrementEstimatedSize(@Nullable UUID checkpointId) {
+        updateSnapshot(checkpointId);
+
+        ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
     }
 
     @Override

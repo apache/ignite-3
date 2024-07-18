@@ -107,8 +107,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                         indexMetaTree,
                         gcQueue
                 ),
-                destructionExecutor,
-                meta.estimatedSize()
+                destructionExecutor
         );
 
         checkpointManager = tableStorage.engine().checkpointManager();
@@ -454,20 +453,17 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public long incrementEstimatedSize() {
-        long newSize = super.incrementEstimatedSize();
-
-        updateMeta((lastCheckpointId, meta) -> meta.estimatedSize(lastCheckpointId, newSize));
-
-        return newSize;
+    public long estimatedSize() {
+        return meta.estimatedSize();
     }
 
     @Override
-    public long decrementEstimatedSize() {
-        long newSize = super.decrementEstimatedSize();
+    public void incrementEstimatedSize() {
+        updateMeta((lastCheckpointId, meta) -> meta.incrementEstimatedSize(lastCheckpointId));
+    }
 
-        updateMeta((lastCheckpointId, meta) -> meta.estimatedSize(lastCheckpointId, newSize));
-
-        return newSize;
+    @Override
+    public void decrementEstimatedSize() {
+        updateMeta((lastCheckpointId, meta) -> meta.decrementEstimatedSize(lastCheckpointId));
     }
 }

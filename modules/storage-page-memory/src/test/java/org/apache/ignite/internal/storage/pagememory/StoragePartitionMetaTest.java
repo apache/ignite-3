@@ -132,13 +132,21 @@ public class StoragePartitionMetaTest {
 
         assertEquals(0, meta.estimatedSize());
 
-        assertDoesNotThrow(() -> meta.estimatedSize(null, 100));
+        assertDoesNotThrow(() -> meta.incrementEstimatedSize(null));
 
-        assertEquals(100, meta.estimatedSize());
+        assertEquals(1, meta.estimatedSize());
 
-        assertDoesNotThrow(() -> meta.estimatedSize(UUID.randomUUID(), 500));
+        assertDoesNotThrow(() -> meta.incrementEstimatedSize(UUID.randomUUID()));
 
-        assertEquals(500, meta.estimatedSize());
+        assertEquals(2, meta.estimatedSize());
+
+        assertDoesNotThrow(() -> meta.decrementEstimatedSize(null));
+
+        assertEquals(1, meta.estimatedSize());
+
+        assertDoesNotThrow(() -> meta.decrementEstimatedSize(UUID.randomUUID()));
+
+        assertEquals(0, meta.estimatedSize());
     }
 
     @Test
@@ -155,25 +163,25 @@ public class StoragePartitionMetaTest {
         meta.versionChainTreeRootPageId(checkpointId, 300);
         meta.freeListRootPageId(checkpointId, 900);
         meta.incrementPageCount(checkpointId);
-        meta.estimatedSize(checkpointId, 100);
+        meta.incrementEstimatedSize(checkpointId);
 
         checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0, 0);
-        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 50, 5, 12, 300, 900, 1, 100);
+        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 50, 5, 12, 300, 900, 1, 1);
 
         meta.lastApplied(checkpointId = UUID.randomUUID(), 51, 6);
         meta.lastReplicationProtocolGroupConfigFirstPageId(checkpointId, 34);
-        checkSnapshot(meta.metaSnapshot(checkpointId), 50, 5, 12, 300, 900, 1, 100);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 50, 5, 12, 300, 900, 1, 1);
 
         meta.versionChainTreeRootPageId(checkpointId = UUID.randomUUID(), 303);
-        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 300, 900, 1, 100);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 300, 900, 1, 1);
 
         meta.freeListRootPageId(checkpointId = UUID.randomUUID(), 909);
-        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 900, 1, 100);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 900, 1, 1);
 
         meta.incrementPageCount(checkpointId = UUID.randomUUID());
-        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 909, 1, 100);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 909, 1, 1);
 
-        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 51, 6, 34, 303, 909, 2, 100);
+        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 51, 6, 34, 303, 909, 2, 1);
     }
 
     @Test

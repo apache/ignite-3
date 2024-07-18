@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -94,9 +93,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** Preserved {@link LocalLocker} instance to allow nested calls of {@link #runConsistently(WriteClosure)}. */
     static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
-    private static final AtomicLongFieldUpdater<AbstractPageMemoryMvPartitionStorage> ESTIMATED_SIZE_UPDATER =
-            AtomicLongFieldUpdater.newUpdater(AbstractPageMemoryMvPartitionStorage.class, "estimatedSize");
-
     protected final int partitionId;
 
     protected final AbstractPageMemoryTableStorage tableStorage;
@@ -122,8 +118,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     private final UpdateTimestampHandler updateTimestampHandler;
 
-    private volatile long estimatedSize;
-
     /**
      * Constructor.
      *
@@ -134,15 +128,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             int partitionId,
             AbstractPageMemoryTableStorage tableStorage,
             RenewablePartitionStorageState renewableState,
-            ExecutorService destructionExecutor,
-            long estimatedSize
+            ExecutorService destructionExecutor
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
         this.renewableState = renewableState;
         this.destructionExecutor = createGradualTaskExecutor(destructionExecutor);
         this.indexes = new PageMemoryIndexes(this.destructionExecutor, this::runConsistently);
-        this.estimatedSize = estimatedSize;
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -219,8 +211,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         this.renewableState = newState;
 
         indexes.updateDataStructures(newState.indexStorageFactory());
-
-        this.estimatedSize = 0;
     }
 
     /**
@@ -254,11 +244,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 }
             });
         });
-    }
-
-    @Override
-    public long estimatedSize() {
-        return estimatedSize;
     }
 
     private static boolean lookingForLatestVersion(HybridTimestamp timestamp) {
@@ -912,11 +897,17 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> indexes.destroyIndex(indexId, renewableState.indexMetaTree()));
     }
 
-    public long incrementEstimatedSize() {
-        return ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
-    }
+    /**
+     * Increments the estimated size of this partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public abstract void incrementEstimatedSize();
 
-    public long decrementEstimatedSize() {
-        return ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
-    }
+    /**
+     * Decrements the estimated size of this partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public abstract void decrementEstimatedSize();
 }

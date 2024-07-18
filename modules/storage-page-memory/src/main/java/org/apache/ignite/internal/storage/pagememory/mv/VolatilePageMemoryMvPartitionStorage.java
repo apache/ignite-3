@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -55,6 +56,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     private static final Predicate<HybridTimestamp> NEVER_LOAD_VALUE = ts -> false;
 
+    private static final AtomicLongFieldUpdater<VolatilePageMemoryMvPartitionStorage> ESTIMATED_SIZE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(VolatilePageMemoryMvPartitionStorage.class, "estimatedSize");
+
     /** Last applied index value. */
     private volatile long lastAppliedIndex;
 
@@ -66,6 +70,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     /** Last group configuration. */
     private volatile byte @Nullable [] groupConfig;
+
+    private volatile long estimatedSize;
 
     /**
      * Constructor.
@@ -96,8 +102,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                         indexMetaTree,
                         gcQueue
                 ),
-                destructionExecutor,
-                0
+                destructionExecutor
         );
     }
 
@@ -344,6 +349,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 indexMetaTree,
                 gcQueue
         );
+
+        estimatedSize = 0;
     }
 
     @Override
@@ -351,5 +358,20 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.groupConfig = config;
+    }
+
+    @Override
+    public long estimatedSize() {
+        return estimatedSize;
+    }
+
+    @Override
+    public void incrementEstimatedSize() {
+        ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
+    }
+
+    @Override
+    public void decrementEstimatedSize() {
+        ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
     }
 }

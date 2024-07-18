@@ -100,7 +100,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 meta.freeListRootPageId(null, 900);
                 meta.incrementPageCount(null);
                 meta.updateLease(null, 500);
-                meta.estimatedSize(null, 100);
+                meta.incrementEstimatedSize(null);
 
                 manager.writeMetaToBuffer(partId, meta.metaSnapshot(UUID.randomUUID()), buffer);
 
@@ -122,7 +122,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(900, meta.freeListRootPageId());
                 assertEquals(2, meta.pageCount());
                 assertEquals(500, meta.leaseStartTime());
-                assertEquals(100, meta.estimatedSize());
+                assertEquals(1, meta.estimatedSize());
             }
 
             // Check with delta file.
