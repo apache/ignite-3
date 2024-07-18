@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
@@ -53,10 +55,8 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
 
     private static final String[] ALL_STORAGE_PROFILES = {
             DEFAULT_TEST_PROFILE_NAME,
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-22616
-            // DEFAULT_AIPERSIST_PROFILE_NAME,
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-22616
-            // DEFAULT_AIMEM_PROFILE_NAME,
+            DEFAULT_AIPERSIST_PROFILE_NAME,
+            DEFAULT_AIMEM_PROFILE_NAME
             // TODO: https://issues.apache.org/jira/browse/IGNITE-22617
             // DEFAULT_ROCKSDB_PROFILE_NAME
     };

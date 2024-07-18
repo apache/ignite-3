@@ -1450,6 +1450,31 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(mvPartitionStorage.estimatedSize(), is(0L));
     }
 
+    @Test
+    public void testEstimatedSizeAfterRestart() throws Exception {
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        List<TestRow> rows = List.of(
+                new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0"))),
+                new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(1, "1"), new TestValue(1, "1")))
+        );
+
+        fillStorages(mvPartitionStorage, null, null, rows);
+
+        assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(2L));
+
+        // Restart storages.
+        tableStorage.close();
+
+        tableStorage = createMvTableStorage();
+
+        mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(tableStorage.isVolatile() ? 0L : 2L));
+    }
+
     private void startRebalanceWithChecks(
             int partitionId,
             MvPartitionStorage mvPartitionStorage,

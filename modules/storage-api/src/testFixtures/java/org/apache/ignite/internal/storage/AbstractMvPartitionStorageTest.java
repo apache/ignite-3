@@ -1435,7 +1435,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
-    public void estimatedSizeNeverFallsBelowZero() {
+    public void estimatedSizeNeverFallsBelowZeroUsingWriteCommitted() {
         assertThat(storage.estimatedSize(), is(0L));
 
         addWriteCommitted(ROW_ID, null, clock.now());
@@ -1456,7 +1456,42 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
-    public void estimatedSizeShowsLatestRowsNumber() {
+    public void estimatedSizeNeverFallsBelowZeroUsingCommitWrite() {
+        assertThat(storage.estimatedSize(), is(0L));
+
+        UUID txId = UUID.randomUUID();
+
+        addWrite(ROW_ID, null, txId);
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        commitWrite(ROW_ID, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        addWriteCommitted(ROW_ID, binaryRow, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+
+        addWrite(ROW_ID, null, txId);
+
+        assertThat(storage.estimatedSize(), is(1L));
+
+        commitWrite(ROW_ID, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        addWrite(ROW_ID, null, txId);
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        commitWrite(ROW_ID, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+    }
+
+    @Test
+    public void estimatedSizeShowsLatestRowsNumberUsingWriteCommited() {
         assertThat(storage.estimatedSize(), is(0L));
 
         var rowId1 = new RowId(PARTITION_ID);
@@ -1469,6 +1504,35 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         // Overwrite an existing row.
         addWriteCommitted(rowId1, binaryRow, clock.now());
+
+        assertThat(storage.estimatedSize(), is(2L));
+    }
+
+    @Test
+    public void estimatedSizeShowsLatestRowsNumberUsingCommitWrite() {
+        assertThat(storage.estimatedSize(), is(0L));
+
+        var rowId1 = new RowId(PARTITION_ID);
+        var rowId2 = new RowId(PARTITION_ID);
+
+        UUID txId = UUID.randomUUID();
+
+        addWrite(rowId1, binaryRow, txId);
+        addWrite(rowId2, binaryRow, txId);
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        commitWrite(rowId1, clock.now());
+        commitWrite(rowId2, clock.now());
+
+        assertThat(storage.estimatedSize(), is(2L));
+
+        // Overwrite an existing row.
+        addWrite(rowId1, binaryRow, txId);
+
+        assertThat(storage.estimatedSize(), is(2L));
+
+        commitWrite(rowId1, clock.now());
 
         assertThat(storage.estimatedSize(), is(2L));
     }

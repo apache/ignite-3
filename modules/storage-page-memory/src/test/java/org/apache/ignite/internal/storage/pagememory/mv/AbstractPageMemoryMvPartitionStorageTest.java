@@ -28,7 +28,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RowId;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -109,41 +108,5 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
             assertThat(foundRow, isRow(longRow));
         }
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeUsingWriteIntents() {
-        super.estimatedSizeUsingWriteIntents();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeUsingCommittedWrites() {
-        super.estimatedSizeUsingCommittedWrites();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeNeverFallsBelowZero() {
-        super.estimatedSizeNeverFallsBelowZero();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeShowsLatestRowsNumber() {
-        super.estimatedSizeShowsLatestRowsNumber();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeIsNotAffectedByGarbageTombstones() {
-        super.estimatedSizeIsNotAffectedByGarbageTombstones();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeHandlesTransactionAborts() {
-        super.estimatedSizeHandlesTransactionAborts();
     }
 }
