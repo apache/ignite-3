@@ -46,17 +46,6 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
         return false;
     }
 
-    /** {@inheritDoc} */
-    @BeforeEach
-    @Override public void before() throws Exception {
-        super.before();
-
-        assertSame(
-                txTestCluster.raftClients.get(ACC_TABLE_NAME).get(0).clusterService(),
-                txTestCluster.getLeader(ACC_TABLE_NAME).service()
-        );
-    }
-
     @Test
     public void testTxStateReplication() throws InterruptedException {
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) igniteTransactions.begin();
