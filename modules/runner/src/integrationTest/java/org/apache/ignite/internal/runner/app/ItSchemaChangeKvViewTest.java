@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,8 +37,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     /**
      * Check add a new column to table schema.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20628")
-    @Test
+    @RepeatedTest(100)
     public void testDropColumn() {
         List<Ignite> grid = startGrid();
 
@@ -175,8 +175,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     /**
      * Check merge table schema changes.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20628")
-    @Test
+    @RepeatedTest(100)
     public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();
 
