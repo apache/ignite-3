@@ -29,7 +29,9 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -43,7 +45,6 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -145,6 +146,8 @@ import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceF
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -156,6 +159,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -1167,27 +1171,44 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20137")
-    public void testOneNodeRestartWithGap() {
+    public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
-
-        startNode(1);
-
-        createTableWithData(List.of(ignite), TABLE_NAME, 2);
-
-        stopNode(1);
-
-        Table table = ignite.tables().table(TABLE_NAME);
-
-        assertNotNull(table);
-
-        assertThrows(TransactionException.class, () -> table.keyValueView().get(null, Tuple.create().set("id", 0)));
-
-        createTableWithoutData(ignite, TABLE_NAME_2, 1, 1);
 
         IgniteImpl ignite1 = startNode(1);
 
-        TableManager tableManager = (TableManager) ignite1.tables();
+        createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
+
+        TableImpl table = unwrapTableImpl(ignite.tables().table(TABLE_NAME));
+
+        assertNotNull(table);
+
+        ReplicationGroupId groupId = new TablePartitionId(table.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryFut =
+                ignite.placementDriver().awaitPrimaryReplica(groupId, ignite.clock().now(), 30, TimeUnit.SECONDS);
+
+        assertThat(
+                primaryFut,
+                willCompleteSuccessfully()
+        );
+
+        String leaseholderId = primaryFut.join().getLeaseholderId();
+
+        if (!ignite1.id().equals(leaseholderId)) {
+            transferPrimary(List.of(ignite, ignite1), groupId, ignite1.name());
+        }
+
+        log.info("Test: stopping the node.");
+
+        stopNode(1);
+
+        assertThrowsWithCause(() -> table.keyValueView().get(null, Tuple.create().set("id", 0)), PrimaryReplicaAwaitTimeoutException.class);
+
+        createTableWithoutData(ignite, TABLE_NAME_2, 1, 1);
+
+        ignite1 = startNode(1);
+
+        TableManager tableManager = unwrapTableManager(ignite1.tables());
 
         assertNotNull(tableManager);
 

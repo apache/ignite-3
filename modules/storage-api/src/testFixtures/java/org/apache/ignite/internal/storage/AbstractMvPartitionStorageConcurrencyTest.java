@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -73,7 +75,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> scanFirstEntry(HybridTimestamp.MAX_VALUE)
             );
 
-            assertThat(read(ROW_ID, clock.now()), is(equalToRow(TABLE_ROW)));
+            assertThat(read(ROW_ID, clock.now()), isRow(TABLE_ROW));
         }
     }
 
@@ -89,7 +91,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> scanFirstEntry(HybridTimestamp.MAX_VALUE)
             );
 
-            assertThat(read(ROW_ID, clock.now()), is(equalToRow(TABLE_ROW2)));
+            assertThat(read(ROW_ID, clock.now()), isRow(TABLE_ROW2));
         }
     }
 
@@ -144,7 +146,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> addWrite(ROW_ID, TABLE_ROW2, TX_ID)
             );
 
-            assertThat(read(ROW_ID, HybridTimestamp.MAX_VALUE), is(equalToRow(TABLE_ROW2)));
+            assertThat(read(ROW_ID, HybridTimestamp.MAX_VALUE), isRow(TABLE_ROW2));
 
             abortWrite(ROW_ID);
 
@@ -167,7 +169,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> commitWrite(ROW_ID, clock.now())
             );
 
-            assertThat(read(ROW_ID, HybridTimestamp.MAX_VALUE), is(equalToRow(TABLE_ROW2)));
+            assertThat(read(ROW_ID, HybridTimestamp.MAX_VALUE), isRow(TABLE_ROW2));
 
             assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
 
@@ -270,10 +272,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         rows.removeIf(matcher::matches);
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     private void scanFirstEntry(HybridTimestamp firstCommitTs) {
-        try (var cursor = scan(firstCommitTs)) {
-            cursor.hasNext();
+        try (PartitionTimestampCursor cursor = scan(firstCommitTs)) {
+            assertDoesNotThrow(cursor::hasNext);
         }
     }
 
