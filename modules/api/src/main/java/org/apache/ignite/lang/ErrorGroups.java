@@ -577,6 +577,9 @@ public class ErrorGroups {
 
         /** Specified node is not found in the cluster. */
         public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
+
+        /** Specified node is not found in the cluster. */
+        public static final int TYPE_CHECK_MARSHALING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 15);
     }
 
     /** Catalog error group. */

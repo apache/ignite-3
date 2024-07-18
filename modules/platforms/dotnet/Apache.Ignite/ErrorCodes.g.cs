@@ -531,6 +531,9 @@ namespace Apache.Ignite
 
             /// <summary> NodeNotFound error. </summary>
             public const int NodeNotFound = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> TypeCheckMarshaling error. </summary>
+            public const int TypeCheckMarshaling = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>
