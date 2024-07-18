@@ -88,6 +88,8 @@ public class IgniteSqlAlterTableAddColumn extends IgniteAbstractSqlAlterTable {
             if (column instanceof SqlColumnDeclaration) {
                 SqlColumnDeclaration col = (SqlColumnDeclaration) column;
                 col.name.validate(validator, scope);
+                col.dataType.validate(validator, scope);
+                // we do not validate column expression
             }
         }
 
