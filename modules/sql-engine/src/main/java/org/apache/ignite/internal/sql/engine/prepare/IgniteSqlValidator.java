@@ -194,7 +194,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             SqlNode node,
             SqlNode enclosingNode,
             @Nullable String alias,
-            boolean forceNullable) {
+            boolean forceNullable
+    ) {
 
         if (belongsToOtherScope(node)) {
             // If the node belongs to other scope, we should not call registerQuery.
@@ -205,7 +206,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else {
             super.registerQuery(parentScope, usingScope, node, enclosingNode, alias, forceNullable);
         }
-
     }
 
     /** {@inheritDoc} */
