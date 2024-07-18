@@ -138,7 +138,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private final IdentityHashMap<SqlDynamicParam, SqlDynamicParam> dynamicParamNodes = new IdentityHashMap<>();
 
     /**
-     * Scopes used by other commands (e.g. DDL). Identifiers can not be validated within such scopes since DDL operators,
+     * Scopes used by other commands (e.g. DDL). Identifiers can not be resolved within such scopes since DDL operators,
      * do not expose defined/add/modified column names.
      */
     private final Set<SqlValidatorScope> otherScopes = Collections.newSetFromMap(new IdentityHashMap<>());
