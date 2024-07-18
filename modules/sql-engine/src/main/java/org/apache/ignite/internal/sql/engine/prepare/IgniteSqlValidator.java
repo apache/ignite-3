@@ -1049,8 +1049,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         try {
             if (otherScopes.contains(scope)) {
-                // For calls within the special scope, call perform simple validation,
-                // without attempting to check any scope.
+                // For calls within DDL scope perform a simple validation
+                // without attempting to check operands within call operand scope
+                // because such checks are going to fail.
                 for (SqlNode operand : call.getOperandList()) {
                     if (operand == null) {
                         continue;
