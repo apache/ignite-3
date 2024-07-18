@@ -19,34 +19,22 @@ package org.apache.ignite.internal.replicator;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TableAware;
 
 /**
  * Replica for the zone based partitions.
  */
 public class ZonePartitionReplicaImpl implements Replica {
-    private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaImpl.class);
-
     private final ReplicationGroupId replicaGrpId;
 
     private final ReplicaListener listener;
 
     private final TopologyAwareRaftGroupService raftClient;
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
-    private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -77,31 +65,7 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
-        if (!(request instanceof TableAware)) {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-22620 implement ReplicaSafeTimeSyncRequest processing.
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-22621 implement zone-based transaction storage
-            //  and txn messages processing
-            LOG.info("Non table request is not supported by the zone partition yet " + request);
-
-            return nullCompletedFuture();
-        } else {
-            int partitionId;
-
-            ReplicationGroupId replicationGroupId = request.groupId().asReplicationGroupId();
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 Refine this code when the zone based replication will done.
-            if (replicationGroupId instanceof  TablePartitionId) {
-                partitionId = ((TablePartitionId) replicationGroupId).partitionId();
-            } else if (replicationGroupId instanceof ZonePartitionId) {
-                partitionId = ((ZonePartitionId) replicationGroupId).partitionId();
-            } else {
-                throw new IllegalArgumentException("Requests with replication group type "
-                        + request.groupId().getClass() + " is not supported");
-            }
-
-            return replicas.get(new TablePartitionId(((TableAware) request).tableId(), partitionId))
-                    .invoke(request, senderId);
-        }
+        return listener.invoke(request, senderId);
     }
 
     @Override
@@ -117,15 +81,5 @@ public class ZonePartitionReplicaImpl implements Replica {
     @Override
     public CompletableFuture<Void> shutdown() {
         return nullCompletedFuture();
-    }
-
-    /**
-     * Add table replica.
-     *
-     * @param partitionId Table partition id.
-     * @param replicaListener Table replica listener.
-     */
-    public void addTableReplicaListener(TablePartitionId partitionId, Function<RaftGroupService, ReplicaListener> replicaListener) {
-        replicas.put(partitionId, replicaListener.apply(raftClient()));
     }
 }

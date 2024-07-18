@@ -46,6 +46,8 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
      */
     UUID txId();
 
+    TablePartitionIdMessage commitPartitionId();
+
     /**
      * Returns {@code True} if a commit request.
      *

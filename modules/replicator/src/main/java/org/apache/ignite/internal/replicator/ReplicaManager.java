@@ -206,7 +206,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /* Temporary converter to support the zone based partitions in tests. **/
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
-    private Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter = Function.identity();
+    private Function<ReplicaRequest, ReplicationGroupId> groupIdConverter = r -> r.groupId().asReplicationGroupId();
 
     /**
      * Constructor for a replica service.
@@ -244,7 +244,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter
+            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
     ) {
         this(
                 nodeName,
@@ -381,7 +381,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId().asReplicationGroupId());
+        ReplicationGroupId groupId = groupIdConverter.apply(request);
 
         String senderConsistentId = sender.name();
 
@@ -660,7 +660,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener,
+            Function<RaftGroupService, ReplicaListener> listener,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
@@ -691,7 +691,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 Replica newReplica = new ZonePartitionReplicaImpl(
                         replicaGrpId,
-                        listener,
+                        listener.apply(raftClient),
                         raftClient
                 );
 

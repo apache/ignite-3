@@ -162,10 +162,16 @@ public class TxMessageSender {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
+        TablePartitionIdMessage commitPartitionIdMessage = REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
+                .partitionId(commitPartition.partitionId())
+                .tableId(commitPartition.tableId())
+                .build();
+
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                         .txId(txId)
+                        .commitPartitionId(commitPartitionIdMessage)
                         .timestampLong(clockService.nowLong())
                         .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toTablePartitionIdMessages(replicationGroupIds))

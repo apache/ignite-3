@@ -283,7 +283,7 @@ public class PartitionReplicaLifecycleManager extends
         try {
             return replicaMgr.startReplica(
                     replicaGrpId,
-                    new ZonePartitionReplicaListener(),
+                    ZonePartitionReplicaListener::new,
                     new FailFastSnapshotStorageFactory(),
                     stablePeersAndLearners,
                     raftGroupListener,
