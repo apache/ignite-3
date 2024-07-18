@@ -87,7 +87,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteDdlOperator;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlMerge;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlSpecialOperator;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
@@ -612,6 +611,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
+        // Do not derive types for nodes within the special scope, because we can encounter identifiers that do not exist
+        // in such scope.
+        if (otherScopes.contains(scope)) {
+            return unknownType;
+        }
+
         if (expr instanceof SqlDynamicParam) {
             return deriveDynamicParamType((SqlDynamicParam) expr);
         }
