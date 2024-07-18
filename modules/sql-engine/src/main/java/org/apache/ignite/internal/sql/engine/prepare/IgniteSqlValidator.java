@@ -87,6 +87,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteDdlOperator;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlMerge;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlSpecialOperator;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
