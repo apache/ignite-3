@@ -970,13 +970,13 @@ public class ItTxTestCluster {
                 continue;
             }
 
-           grpIds.forEach(id -> {
-               try {
-                   replicaManager.stopReplica(id);
-               } catch (NodeStoppingException e) {
-                   // no-op
-               }
-           });
+            grpIds.forEach(id -> {
+                try {
+                    replicaManager.stopReplica(id);
+                } catch (NodeStoppingException e) {
+                    // no-op
+                }
+            });
         }
     }
 
