@@ -24,9 +24,9 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.IncompatibleSchemaException;
 import org.apache.ignite.internal.lang.IgniteExceptionMapper;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaVersionException;
+import org.apache.ignite.tx.IncompatibleSchemaException;
 import org.junit.jupiter.api.Test;
 
 class TableExceptionMapperProviderTest {

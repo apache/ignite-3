@@ -34,7 +34,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.StaleSchemaRollbackException;
+import org.apache.ignite.tx.IncompatibleSchemaException;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -102,7 +102,7 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
 
         ddl.executeOn(cluster);
 
-        StaleSchemaRollbackException ex = assertThrows(StaleSchemaRollbackException.class, tx::commit);
+        IncompatibleSchemaException ex = assertThrows(IncompatibleSchemaException.class, tx::commit);
         assertThat(
                 ex.getMessage(),
                 containsString(String.format(
@@ -132,7 +132,7 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
 
         ForwardIncompatibleDdl.CHANGE_DEFAULT.executeOn(cluster);
 
-        StaleSchemaRollbackException ex = assertWillThrow(tx.commitAsync(), StaleSchemaRollbackException.class, 10, SECONDS);
+        IncompatibleSchemaException ex = assertWillThrow(tx.commitAsync(), IncompatibleSchemaException.class, 10, SECONDS);
         assertThat(
                 ex.getMessage(),
                 containsString(

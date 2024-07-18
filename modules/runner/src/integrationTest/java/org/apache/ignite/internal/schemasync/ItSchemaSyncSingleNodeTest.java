@@ -27,7 +27,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.apache.ignite.IncompatibleSchemaException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -40,7 +39,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.StaleSchemaRollbackException;
+import org.apache.ignite.tx.IncompatibleSchemaException;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -295,13 +294,13 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         Throwable ex = assertThrows(Throwable.class, () -> operation.executeOn(tx));
         ex = ExceptionUtils.unwrapCause(ex);
 
-        assertThat(ex, is(instanceOf(StaleSchemaRollbackException.class)));
+        assertThat(ex, is(instanceOf(IncompatibleSchemaException.class)));
         assertThat(
                 ex.getMessage(),
                 containsString(String.format("Commit failed because a table was already dropped [table=%s]", table.name()))
         );
 
-        assertThat(((StaleSchemaRollbackException) ex).code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+        assertThat(((IncompatibleSchemaException) ex).code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }

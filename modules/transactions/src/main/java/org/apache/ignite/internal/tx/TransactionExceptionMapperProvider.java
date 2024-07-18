@@ -26,8 +26,8 @@ import java.util.List;
 import org.apache.ignite.internal.lang.IgniteExceptionMapper;
 import org.apache.ignite.internal.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.tx.IncompatibleSchemaException;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
-import org.apache.ignite.tx.StaleSchemaRollbackException;
 import org.apache.ignite.tx.TransactionException;
 
 /**
@@ -45,7 +45,7 @@ public class TransactionExceptionMapperProvider implements IgniteExceptionMapper
         mappers.add(unchecked(MismatchingTransactionOutcomeInternalException.class,
                 err -> new MismatchingTransactionOutcomeException(err.traceId(), err.code(), err.getMessage(), err)));
         mappers.add(unchecked(IncompatibleSchemaAbortException.class,
-                err -> new StaleSchemaRollbackException(err.traceId(), err.code(), err.getMessage(), err)));
+                err -> new IncompatibleSchemaException(err.traceId(), err.code(), err.getMessage(), err)));
 
         return mappers;
     }

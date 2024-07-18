@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite;
+package org.apache.ignite.tx;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Thrown when, during an attempt to execute a transactional operation, it turns out that the operation cannot be executed
- * because an incompatible schema change has happened.
+ * because an incompatible schema change has happened. The transaction in question is aborted.
  */
-public class IncompatibleSchemaException extends IgniteException {
+public class IncompatibleSchemaException extends TransactionException {
     /**
      * Constructs a new instance of IncompatibleSchemaException.
      *
