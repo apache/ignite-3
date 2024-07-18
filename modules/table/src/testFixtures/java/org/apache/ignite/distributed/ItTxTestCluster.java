@@ -239,6 +239,7 @@ public class ItTxTestCluster {
 
     protected TransactionStateResolver clientTxStateResolver;
 
+    // TODO: should be removed in https://issues.apache.org/jira/browse/IGNITE-22774
     protected Map<String, List<RaftGroupService>> raftClients = new HashMap<>();
 
     protected Map<String, TxStateStorage> txStateStorages;
@@ -792,6 +793,7 @@ public class ItTxTestCluster {
             // waiting for started replicas otherwise we would have NPE on {@link Replica#replica} call below
             allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
 
+            // TODO: should be removed in https://issues.apache.org/jira/browse/IGNITE-22774
             CompletableFuture<RaftGroupService> txExecutionRaftClient =  replicaManagers.get(extractConsistentId(cluster.get(0)))
                         .replica(grpId)
                         .thenApply(Replica::raftClient)
@@ -902,6 +904,7 @@ public class ItTxTestCluster {
 
     /**
      * Returns a raft manager for a group.
+     * TODO: should be removed in https://issues.apache.org/jira/browse/IGNITE-22774
      *
      * @param tableName Table name.
      * @return Raft manager hosting a leader for group.
@@ -917,6 +920,7 @@ public class ItTxTestCluster {
     }
 
     protected Peer getLeaderId(String tableName) {
+        // TODO: should be rewritten in https://issues.apache.org/jira/browse/IGNITE-22774
         var services = raftClients.get(tableName);
 
         return services.get(0).leader();
@@ -992,6 +996,7 @@ public class ItTxTestCluster {
             assertThat(clientTxManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
+        // TODO: should be removed in https://issues.apache.org/jira/browse/IGNITE-22774
         for (Map.Entry<String, List<RaftGroupService>> e : raftClients.entrySet()) {
             for (RaftGroupService svc : e.getValue()) {
                 svc.shutdown();
