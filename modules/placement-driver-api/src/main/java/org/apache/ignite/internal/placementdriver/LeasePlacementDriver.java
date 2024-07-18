@@ -66,7 +66,7 @@ public interface LeasePlacementDriver extends EventProducer<PrimaryReplicaEvent,
      *
      * @param replicationGroupId Replication group id.
      * @param timestamp CLOCK_SKEW aware timestamp reference value.
-     * @return Primary replica future.
+     * @return Primary replica future. {@code ReplicaMeta} will be {@code null} if there is no active lease.
      */
     CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp);
 
