@@ -33,6 +33,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.PairList;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
@@ -379,6 +381,42 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         if (literal.getTypeName() != SqlTypeName.DECIMAL) {
             super.validateLiteral(literal);
         }
+    }
+
+    @Override
+    protected RelDataType createTargetRowType(SqlValidatorTable table,
+            @Nullable SqlNodeList targetColumnList, boolean append) {
+        RelDataType baseRowType = table.unwrap(IgniteTable.class).rowTypeForInsert((IgniteTypeFactory) typeFactory);
+        if (targetColumnList == null) {
+            return baseRowType;
+        }
+        List<RelDataTypeField> targetFields = baseRowType.getFieldList();
+        final PairList<String, RelDataType> fields = PairList.of();
+        if (append) {
+            for (RelDataTypeField targetField : targetFields) {
+                fields.add(SqlUtil.deriveAliasFromOrdinal(fields.size()),
+                        targetField.getType());
+            }
+        }
+        final Set<Integer> assignedFields = new HashSet<>();
+        final RelOptTable relOptTable = table instanceof RelOptTable
+                ? ((RelOptTable) table) : null;
+        for (SqlNode node : targetColumnList) {
+            SqlIdentifier id = (SqlIdentifier) node;
+            RelDataTypeField targetField =
+                    SqlValidatorUtil.getTargetField(
+                            baseRowType, typeFactory, id, getCatalogReader(), relOptTable);
+            if (targetField == null) {
+                throw newValidationError(id,
+                        RESOURCE.unknownTargetColumn(id.toString()));
+            }
+            if (!assignedFields.add(targetField.getIndex())) {
+                throw newValidationError(id,
+                        RESOURCE.duplicateTargetColumn(targetField.getName()));
+            }
+            fields.add(targetField);
+        }
+        return typeFactory.createStructType(fields);
     }
 
     /** {@inheritDoc} */

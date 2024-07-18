@@ -43,6 +43,6 @@ select "__part" from t0
 
 # Partition system column in WHERE
 query IT
-select * from t0 WHERE __part = 17
+select * from t0 WHERE "__part" = 17
 ----
 102	val2

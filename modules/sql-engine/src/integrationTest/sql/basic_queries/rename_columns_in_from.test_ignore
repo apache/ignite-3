@@ -2,6 +2,7 @@
 # description: SQL feature E051-9 (Basic query specification. Rename columns in the FROM clause)
 # feature: E051-09
 # group: [basic_queries]
+# Ignore: https://issues.apache.org/jira/browse/IGNITE-22772
 
 statement ok
 CREATE TABLE tab ( A INT PRIMARY KEY, B INT )
