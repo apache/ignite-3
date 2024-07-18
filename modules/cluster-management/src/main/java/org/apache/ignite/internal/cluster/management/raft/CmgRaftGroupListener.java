@@ -139,9 +139,14 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
                 clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
             } else if (command instanceof JoinReadyCommand) {
+                JoinReadyCommand cmd = (JoinReadyCommand) command;
+
+                List<String> logicalTopologyNames = logicalTopology.getLogicalTopology().nodes().stream().map(n -> n.name()).collect(Collectors.toUnmodifiableList());
+                LOG.info("Got JoinReadyCommand for node=[" + cmd.node().name() + "] + logicalTopologyVersion=[" + logicalTopology.getLogicalTopology().version() + "], logicalTopologyNodes=[" + logicalTopologyNames + "]" );
                 ValidationResult response = completeValidation((JoinReadyCommand) command);
 
                 if (response.isValid()) {
+                    LOG.info("Node=[" + cmd.node().name() + "] is valid." );
                     // It is valid, the topology has been changed.
                     onLogicalTopologyChanged.accept(clo.term());
                 }

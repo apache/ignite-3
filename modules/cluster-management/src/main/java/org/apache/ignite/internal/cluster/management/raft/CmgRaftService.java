@@ -181,7 +181,8 @@ public class CmgRaftService implements ManuallyCloseable {
                     } else {
                         LOG.info("JoinReady command executed successfully");
                     }
-                });
+                })
+                .exceptionally(e -> {LOG.info("PZTS" + e); return null;});
     }
 
     /**

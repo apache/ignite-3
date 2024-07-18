@@ -1243,8 +1243,9 @@ public class IgniteImpl implements Ignite {
             CompletableFuture<Void> awaitSelfInLogicalTopologyFuture,
             LogicalTopologyEventListener awaitSelfListener
     ) {
-        if (logicalTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
+        if (logicalTopologySnapshot.nodes().stream().map(LogicalNode::id).anyMatch(id -> id.equals(id()))) {
             awaitSelfInLogicalTopologyFuture.complete(null);
+            LOG.info("Match self in logical topology.");
             logicalTopologyService.removeEventListener(awaitSelfListener);
         }
     }
