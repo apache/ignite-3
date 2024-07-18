@@ -90,12 +90,4 @@ public class IgniteSqlDropTable extends SqlDrop {
 
         name.unparse(writer, leftPrec, rightPrec);
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public void validate(SqlValidator validator, SqlValidatorScope scope) {
-        for (SqlNode node : getOperandList()) {
-            node.validate(validator, scope);
-        }
-    }
 }

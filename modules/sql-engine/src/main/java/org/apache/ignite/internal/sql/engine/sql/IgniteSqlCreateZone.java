@@ -104,16 +104,6 @@ public class IgniteSqlCreateZone extends SqlCreate {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void validate(SqlValidator validator, SqlValidatorScope scope) {
-        name.validate(validator, scope);
-
-        if (createOptionList != null) {
-            createOptionList.validate(validator, scope);
-        }
-    }
-
     /**
      * Get name of the distribution zone.
      */

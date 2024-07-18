@@ -166,15 +166,4 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
             dflt.unparse(writer, leftPrec, rightPrec);
         }
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public void validate(SqlValidator validator, SqlValidatorScope scope) {
-        for (SqlNode node : getOperandList()) {
-            if (node == null) {
-                continue;
-            }
-            node.validate(validator, scope);
-        }
-    }
 }

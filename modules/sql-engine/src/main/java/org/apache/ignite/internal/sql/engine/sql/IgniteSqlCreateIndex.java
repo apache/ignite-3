@@ -136,17 +136,6 @@ public class IgniteSqlCreateIndex extends SqlCreate {
         writer.endList(frame);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void validate(SqlValidator validator, SqlValidatorScope scope) {
-        for (SqlNode node : getOperandList()) {
-            if (node == null) {
-                continue;
-            }
-            node.validate(validator, scope);
-        }
-    }
-
     public SqlIdentifier indexName() {
         return idxName;
     }

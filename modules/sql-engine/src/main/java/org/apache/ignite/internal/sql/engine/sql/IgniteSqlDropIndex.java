@@ -85,14 +85,6 @@ public class IgniteSqlDropIndex extends SqlDrop {
         indexName.unparse(writer, leftPrec, rightPrec);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void validate(SqlValidator validator, SqlValidatorScope scope) {
-        for (SqlNode node : getOperandList()) {
-            node.validate(validator, scope);
-        }
-    }
-
     public SqlIdentifier indexName() {
         return indexName;
     }

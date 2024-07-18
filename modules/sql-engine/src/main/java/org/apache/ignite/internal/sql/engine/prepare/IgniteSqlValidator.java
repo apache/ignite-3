@@ -611,12 +611,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
-        // Do not derive types for nodes within the special scope, because we can encounter identifiers that do not exist
-        // in such scope.
-        if (otherScopes.contains(scope)) {
-            return unknownType;
-        }
-
         if (expr instanceof SqlDynamicParam) {
             return deriveDynamicParamType((SqlDynamicParam) expr);
         }
@@ -1054,9 +1048,20 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         try {
-            super.validateCall(call, scope);
+            if (otherScopes.contains(scope)) {
+                // For calls within the special scope, call perform simple validation,
+                // without attempting to check any scope.
+                for (SqlNode operand : call.getOperandList()) {
+                    if (operand == null) {
+                        continue;
+                    }
+                    operand.validate(this, scope);
+                }
+            } else {
+                super.validateCall(call, scope);
 
-            checkCallsWithCustomTypes(call, scope);
+                checkCallsWithCustomTypes(call, scope);
+            }
         } finally {
             callScopes.pop();
         }

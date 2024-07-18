@@ -74,14 +74,6 @@ public class IgniteSqlAlterZoneSet extends IgniteAbstractSqlAlterZone {
         optionList.unparse(writer, 0, 0);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void validate(SqlValidator validator, SqlValidatorScope scope) {
-        for (SqlNode node : getOperandList()) {
-            node.validate(validator, scope);
-        }
-    }
-
     /** The list of modification options. **/
     public SqlNodeList alterOptionsList() {
         return optionList;
