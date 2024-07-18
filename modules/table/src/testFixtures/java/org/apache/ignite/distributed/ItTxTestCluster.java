@@ -97,13 +97,13 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
-import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -344,7 +344,7 @@ public class ItTxTestCluster {
                 .forEach(addr -> {
                     ClusterService svc = startNode(testInfo, addr.toString(), addr.port(), nodeFinder);
                     cluster.add(svc);
-                    clusterServices.put(svc.topologyService().localMember().name(), svc);
+                    clusterServices.put(extractConsistentId(svc), svc);
                 });
 
         for (ClusterService node : cluster) {
@@ -498,7 +498,7 @@ public class ItTxTestCluster {
 
         LOG.info("Partition groups have been started");
 
-        localNodeName = cluster.get(0).topologyService().localMember().name();
+        localNodeName = extractConsistentId(cluster.get(0));
 
         if (startClient) {
             initializeClientTxComponents();
@@ -566,7 +566,7 @@ public class ItTxTestCluster {
         lenient().when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
 
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
-                cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
+                cluster.stream().map(ItTxTestCluster::extractConsistentId).collect(toList()),
                 1,
                 replicas
         );
@@ -581,7 +581,7 @@ public class ItTxTestCluster {
 
         Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
 
-        List<CompletableFuture<Boolean>> partitionReadyFutures = new ArrayList<>();
+        List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
         ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
                 new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
@@ -622,6 +622,8 @@ public class ItTxTestCluster {
 
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
+
+            PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
             TablePartitionId grpId = grpIds.get(p);
 
@@ -666,8 +668,6 @@ public class ItTxTestCluster {
 
                 IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
 
-                PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
-
                 PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
                         new PendingComparableValuesTracker<>(clockServices.get(assignment).now());
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
@@ -683,13 +683,6 @@ public class ItTxTestCluster {
                         partitionDataStorage,
                         indexUpdateHandler,
                         storageUpdateConfiguration
-                );
-
-                TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
-                        clusterServices.get(assignment),
-                        logicalTopologyService(clusterServices.get(assignment)),
-                        Loza.FACTORY,
-                        new RaftGroupEventsClientListener()
                 );
 
                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
@@ -778,51 +771,35 @@ public class ItTxTestCluster {
                     }
                 };
 
-                CompletableFuture<Boolean> partitionReadyFuture = replicaManagers.get(assignment).startReplica(
-                        RaftGroupEventsListener.noopLsnr,
-                        partitionListener,
-                        false,
-                        snapshotStorageFactory,
-                        createReplicaListener,
-                        storageIndexTracker,
-                        new TablePartitionId(tableId, partId),
-                        configuration
-                );
+                CompletableFuture<Void> partitionReadyFuture = replicaManagers.get(assignment)
+                        .startReplica(
+                                RaftGroupEventsListener.noopLsnr,
+                                partitionListener,
+                                false,
+                                snapshotStorageFactory,
+                                createReplicaListener,
+                                storageIndexTracker,
+                                grpId,
+                                configuration
+                        )
+                        .thenAccept(unused -> { });
 
                 partitionReadyFutures.add(partitionReadyFuture);
             }
 
-            PeersAndLearners membersConf = PeersAndLearners.fromConsistentIds(partAssignments);
+            // waiting for started replicas otherwise we would have NPE on {@link Replica#replica} call below
+            allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
 
-            if (startClient) {
-                RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, client, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
-                        .get(5, TimeUnit.SECONDS);
+            CompletableFuture<RaftGroupService> txExecutionRaftClient =  replicaManagers.get(extractConsistentId(cluster.get(0)))
+                        .replica(grpId)
+                        .thenApply(Replica::raftClient)
+                        .thenApply(RaftGroupService::leader)
+                        .thenApply(Peer::consistentId)
+                        .thenApply(replicaManagers::get)
+                        .thenCompose(rm -> rm.replica(grpId))
+                        .thenApply(Replica::raftClient);
 
-                clients.put(p, service);
-            } else {
-                // Create temporary client to find a leader address.
-                ClusterService tmpSvc = cluster.get(0);
-
-                RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, tmpSvc, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
-                        .get(5, TimeUnit.SECONDS);
-
-                Peer leader = service.leader();
-
-                service.shutdown();
-
-                ClusterService leaderSrv = cluster.stream()
-                        .filter(cluster -> cluster.topologyService().localMember().name().equals(leader.consistentId()))
-                        .findAny()
-                        .orElseThrow();
-
-                RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
-                        .start(grpId, leaderSrv, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
-                        .get(5, TimeUnit.SECONDS);
-
-                clients.put(p, leaderClusterSvc);
-            }
+            partitionReadyFutures.add(txExecutionRaftClient.thenAccept(leaderClient -> clients.put(grpId.partitionId(), leaderClient)));
         }
 
         allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
@@ -830,6 +807,10 @@ public class ItTxTestCluster {
         raftClients.computeIfAbsent(tableName, t -> new ArrayList<>()).addAll(clients.values());
 
         return table;
+    }
+
+    private static String extractConsistentId(ClusterService nodeService) {
+        return nodeService.topologyService().localMember().name();
     }
 
     protected PartitionReplicaListener newReplicaListener(
