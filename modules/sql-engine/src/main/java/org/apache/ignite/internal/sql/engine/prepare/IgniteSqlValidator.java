@@ -197,13 +197,15 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             boolean forceNullable) {
 
         if (belongsToOtherScope(node)) {
+            // If the node belongs to other scope, we should not call registerQuery.
+            // Otherwise we get AssertionError because this node is not expected by the validator.
             otherScopes.add(parentScope);
             // Assign this expression to some scope.
             scopes.put(node, parentScope);
-            return;
+        } else {
+            super.registerQuery(parentScope, usingScope, node, enclosingNode, alias, forceNullable);
         }
 
-        super.registerQuery(parentScope, usingScope, node, enclosingNode, alias, forceNullable);
     }
 
     /** {@inheritDoc} */
@@ -1348,7 +1350,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /**
-     * Checks whether the given node is a special node that belongs to other scope (it can be DDL or another similar statement).
+     * Checks whether the given node is a special node that belongs to other scope.
+     * This can be DDL or another statement, that is not supported by calcite.
      */
     private static boolean belongsToOtherScope(SqlNode node) {
         if (node instanceof SqlCall) {
