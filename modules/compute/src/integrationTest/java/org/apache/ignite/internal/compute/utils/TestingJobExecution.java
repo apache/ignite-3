@@ -128,10 +128,10 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     /**
      * Checks that the job execution object is cancelled.
      */
-    public void assertCancelled(Class<? extends Exception> exceptionClass) {
+    public void assertCancelled() {
         await().until(jobExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
 
-        assertThat(resultAsync(), willThrow(exceptionClass));
+        assertThat(resultAsync(), willThrow(IgniteException.class));
     }
 
     /**

@@ -188,14 +188,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
         NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
 
-        return executeOnOneNodeWithFailover(
-                targetNode,
-                selector,
-                units,
-                jobClassName,
-                options,
-                args
-        );
+        return new JobExecutionWrapper<>(
+                executeOnOneNodeWithFailover(
+                        targetNode,
+                        selector,
+                        units,
+                        jobClassName,
+                        options,
+                        args
+                ));
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {

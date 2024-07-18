@@ -89,35 +89,21 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaler<T, byte[]> inputMarshaller = jobInstance.inputMarshaler();
         Marshaler<R, byte[]> resultMarshaller = jobInstance.resultMarshaler();
 
-//        QueueExecution<Object> execution = executorService.submit(
-//                () -> {
-//                    try {
-//                        var fut = jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
-//                        if (fut != null) {
-//                            return ComputeUtils.convertToComputeFuture(fut.thenApply(res -> marshallOrNull(res, resultMarshaller)));
-//                        }
-//                        return null;
-//                    } catch (IgniteException e) {
-//                        throw e;
-//                    } catch (Throwable e) {
-//                        if (e instanceof IgniteCheckedException) {
-//                            throw e;
-//                        }
-//                        throw new ComputeException(COMPUTE_JOB_FAILED_ERR, "Job execution failed: " + e, e);
-//                    }
-//                },
-//                options.priority(),
-//                options.maxRetries()
-//        );
-
-        QueueExecution<Object> execution = (QueueExecution<Object>) executorService.submit(
-                () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input)),
+        QueueExecution<Object> execution = executorService.submit(
+                () -> {
+                    var fut = jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
+                    if (fut != null) {
+                        return fut.thenApply(res -> marshallOrNull(res, resultMarshaller));
+                    }
+                    return null;
+                },
                 options.priority(),
                 options.maxRetries()
         );
 
         return new JobExecutionInternal<>(execution, isInterrupted);
     }
+
 
     private static <R> Object marshallOrNull(R res, @Nullable Marshaler<R, byte[]> marshaler) {
         if (marshaler == null) {
