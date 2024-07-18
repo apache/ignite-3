@@ -90,10 +90,11 @@ class ClientDataStreamer {
                                     w.packDeploymentUnits(deploymentUnits);
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
-                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, receiverArgsMarshaller, items);
+                                    StreamerReceiverSerializer.serializeReceiverInfoOnClient(
+                                            w, receiverClassName, receiverArgs, receiverArgsMarshaller, items);
                                 },
                                 in -> resultSubscriber != null
-                                        ? StreamerReceiverSerializer.deserializeResults(in.in())
+                                        ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(in.in())
                                         : null,
                                 partitionAssignment.get(partitionId),
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),

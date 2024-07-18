@@ -146,6 +146,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -1105,6 +1106,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     indexMetaStorage,
                     logSyncer
             );
+
+            tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 
             indexManager = new IndexManager(
                     schemaManager,

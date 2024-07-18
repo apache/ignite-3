@@ -503,4 +503,11 @@ public interface InternalTable extends ManuallyCloseable {
      * @see MvPartitionStorage#estimatedSize
      */
     CompletableFuture<Long> estimatedSize();
+
+    /**
+     * Returns the streamer receiver runner.
+     *
+     * @return Streamer receiver runner.
+     */
+    StreamerReceiverRunner streamerReceiverRunner();
 }

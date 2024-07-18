@@ -107,6 +107,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -370,6 +371,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 return txStateTableStorage;
             }
         };
+
+        tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 
         var componentContext = new ComponentContext();
 

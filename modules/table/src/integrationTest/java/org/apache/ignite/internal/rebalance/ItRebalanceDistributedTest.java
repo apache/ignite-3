@@ -187,6 +187,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -1386,6 +1387,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             });
                 }
             };
+
+            tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 
             indexManager = new IndexManager(
                     schemaManager,
