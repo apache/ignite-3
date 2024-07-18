@@ -499,7 +499,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         RelDataType dataType = super.validateSelectList(selectItems, select, targetRowType);
 
         for (String fieldName : dataType.getFieldNames()) {
-            validateIdentifierSegment(fieldName);
+            validateIdentifierSegmentLength(fieldName);
         }
 
         return dataType;
@@ -509,7 +509,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     @Override
     protected void validateFrom(SqlNode node, RelDataType targetRowType, SqlValidatorScope scope) {
         if (node instanceof SqlIdentifier) {
-            validateSqlIdentifier((SqlIdentifier) node);
+            validateSqlIdentifierLength((SqlIdentifier) node);
         }
 
         super.validateFrom(node, targetRowType, scope);
@@ -518,7 +518,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public void validateIdentifier(SqlIdentifier id, SqlValidatorScope scope) {
-        validateSqlIdentifier(id);
+        validateSqlIdentifierLength(id);
 
         // Do not validate identifiers within other scopes (e.g DDL), because they do not point to anything.
         if (!otherScopes.contains(scope)) {
@@ -533,8 +533,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             List<RelDataType> argTypes,
             @Nullable List<String> argNames
     ) {
-
-        validateIdentifierSegment(unresolvedFunction.getName());
+        validateIdentifierSegmentLength(unresolvedFunction.getName());
 
         return super.handleUnresolvedFunction(call, unresolvedFunction, argTypes, argNames);
     }
@@ -656,7 +655,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public void validateDataType(SqlDataTypeSpec dataType) {
-        validateSqlIdentifier(dataType.getTypeName());
+        validateSqlIdentifierLength(dataType.getTypeName());
 
         super.validateDataType(dataType);
     }
@@ -1364,13 +1363,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
-    private static void validateSqlIdentifier(SqlIdentifier id) {
+    private static void validateSqlIdentifierLength(SqlIdentifier id) {
         for (String name : id.names) {
-            validateIdentifierSegment(name);
+            validateIdentifierSegmentLength(name);
         }
     }
 
-    private static void validateIdentifierSegment(String name) {
+    private static void validateIdentifierSegmentLength(String name) {
         if (name.length() > SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH) {
             String message = RESOURCE.identifierTooLong(name, SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH).ex().getMessage();
             throw new SqlException(Sql.STMT_VALIDATION_ERR, message);
