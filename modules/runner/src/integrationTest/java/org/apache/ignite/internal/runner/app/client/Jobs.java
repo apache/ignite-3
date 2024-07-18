@@ -29,7 +29,7 @@ import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.marshaling.Marshaler;
 import org.jetbrains.annotations.Nullable;
 
-public class Jobs {
+class Jobs {
 
     static class ArgumentStringMarshaller implements ByteArrayMarshaler<String> {
         @Override
