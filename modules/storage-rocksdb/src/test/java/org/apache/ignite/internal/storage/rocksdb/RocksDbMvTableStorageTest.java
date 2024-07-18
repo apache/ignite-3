@@ -175,4 +175,10 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     public void testEstimatedSizeAfterAbortRebalance() {
         super.testEstimatedSizeAfterAbortRebalance();
     }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void testEstimatedSizeAfterRestart() throws Exception {
+        super.testEstimatedSizeAfterRestart();
+    }
 }

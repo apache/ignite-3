@@ -73,6 +73,11 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final UpdateTimestampHandler updateTimestampHandler;
 
+    /**
+     * Flag indicating that we are committing a tombstone.
+     */
+    private boolean isCurrentRowTombstone = false;
+
     CommitWriteInvokeClosure(
             RowId rowId,
             HybridTimestamp timestamp,
@@ -88,7 +93,6 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
         this.freeList = localState.freeList();
         this.gcQueue = localState.gcQueue();
-
     }
 
     static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
@@ -128,7 +132,9 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         RowVersion current = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
         RowVersion next = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), DONT_LOAD_VALUE) : null;
 
-        if (next == null && current.isTombstone()) {
+        isCurrentRowTombstone = current.isTombstone();
+
+        if (next == null && isCurrentRowTombstone) {
             // If there is only one version, and it is a tombstone, then remove the chain.
             operationType = OperationType.REMOVE;
 
@@ -136,7 +142,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         // If the previous and current version are tombstones, then delete the current version.
-        if (next != null && current.isTombstone() && next.isTombstone()) {
+        if (next != null && isCurrentRowTombstone && next.isTombstone()) {
             toRemove = current;
 
             newRow = VersionChain.createCommitted(oldRow.rowId(), next.link(), next.nextLink());
@@ -194,6 +200,18 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
         if (rowLinkForAddToGcQueue != NULL_LINK) {
             gcQueue.add(rowId, timestamp, rowLinkForAddToGcQueue);
+        }
+
+        // We need to check the "toRemove" field in order to avoid a situation when we are committing a tombstone
+        // over an existing tombstone.
+        if (operationType == OperationType.PUT && toRemove == null) {
+            if (isCurrentRowTombstone) {
+                storage.decrementEstimatedSize();
+            } else if (rowLinkForAddToGcQueue == NULL_LINK) {
+                // Checking for NULL_LINK allows us to distinguish if a new version chain was created or not. In other words if this is
+                // an insert or an update to an existing row.
+                storage.incrementEstimatedSize();
+            }
         }
     }
 }

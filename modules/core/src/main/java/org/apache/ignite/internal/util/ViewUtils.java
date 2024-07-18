@@ -86,6 +86,7 @@ public final class ViewUtils {
      * @param e Exception.
      * @return Properly copied exception or a new error, if exception can not be copied.
      */
+    // TODO: consider removing after IGNITE-22721 gets resolved.
     private static <T extends Throwable & TraceableException> Throwable copyExceptionWithCauseIfPossible(T e) {
         Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e);
         if (copy != null) {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Objects.hash;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -222,7 +223,7 @@ public class LeaseUpdater {
     private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
         Lease deniedLease = lease.denyLease(redirectProposal);
 
-        leaseNegotiator.onLeaseRemoved(grpId);
+        leaseNegotiator.cancelAgreement(grpId);
 
         Leases leasesCurrent = leaseTracker.leasesCurrent();
 
@@ -371,7 +372,17 @@ public class LeaseUpdater {
                     agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
 
                     if (agreement.isAccepted()) {
-                        publishLease(grpId, lease, renewedLeases);
+                        Lease negotiatedLease = agreement.getLease();
+
+                        // Lease information is taken from lease tracker, where it appears on meta storage watch updates, so it can contain
+                        // stale leases, if watch processing was delayed for some reason. It is ok: negotiated lease is guaranteed to be
+                        // already written to meta storage before negotiation begins, and in this case its start time would be
+                        // greater than lease's.
+                        assert negotiatedLease.getStartTime().longValue() >= lease.getStartTime().longValue()
+                                : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
+                                    + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
+
+                        publishLease(grpId, negotiatedLease, renewedLeases);
 
                         continue;
                     } else if (agreement.isDeclined()) {
@@ -449,11 +460,15 @@ public class LeaseUpdater {
                 if (e != null) {
                     LOG.error("Lease update invocation failed", e);
 
+                    cancelAgreements(toBeNegotiated.keySet());
+
                     return;
                 }
 
                 if (!success) {
-                    LOG.debug("Lease update invocation failed");
+                    LOG.warn("Lease update invocation failed because of concurrent update.");
+
+                    cancelAgreements(toBeNegotiated.keySet());
 
                     return;
                 }
@@ -465,6 +480,18 @@ public class LeaseUpdater {
                     leaseNegotiator.negotiate(lease, force);
                 }
             });
+        }
+
+        /**
+         * Cancel all the given agreements. This should be done if the new leases that were to be negotiated had been not written to meta
+         * storage.
+         *
+         * @param groupIds Group ids.
+         */
+        private void cancelAgreements(Collection<ReplicationGroupId> groupIds) {
+            for (ReplicationGroupId groupId : groupIds) {
+                leaseNegotiator.cancelAgreement(groupId);
+            }
         }
 
         /**
@@ -486,6 +513,9 @@ public class LeaseUpdater {
             Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
             renewedLeases.put(grpId, renewedLease);
+
+            // Lease agreement should be created synchronously before negotiation begins.
+            leaseNegotiator.createAgreement(grpId, renewedLease);
 
             leaseUpdateStatistics.onLeaseCreate();
         }

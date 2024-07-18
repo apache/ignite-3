@@ -44,7 +44,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -65,7 +64,6 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22629")
     public void testReplicaStatesManagement() throws InterruptedException {
         int nodesCount = 3;
         List<IgniteImpl> nodes = startNodes(nodesCount);
