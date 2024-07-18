@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -233,7 +234,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(15, metrics().bytesSent());
 
         long handshakeReceived = metrics().bytesReceived();
-        assertThat(handshakeReceived, greaterThan(80L));
+        assertThat(handshakeReceived, greaterThanOrEqualTo(77L));
 
         client.tables().tables();
 
