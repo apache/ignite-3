@@ -511,6 +511,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     protected void validateFrom(SqlNode node, RelDataType targetRowType, SqlValidatorScope scope) {
         if (node instanceof SqlIdentifier) {
             validateSqlIdentifierLength((SqlIdentifier) node);
+        } else if (node.getKind() == SqlKind.AS) {
+            // Check FROM t AS xyz
+            SqlBasicCall asCall = (SqlBasicCall) node;
+            if (asCall.getOperandList().size() == 2 && asCall.operand(1) instanceof SqlIdentifier) {
+                validateSqlIdentifierLength(asCall.operand(1));
+            }
         }
 
         super.validateFrom(node, targetRowType, scope);
