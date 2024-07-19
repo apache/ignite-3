@@ -123,27 +123,20 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static IgniteImpl primaryReplica(ReplicationGroupId groupId) {
         IgniteImpl node = CLUSTER.aliveNode();
 
-        CompletableFuture<IgniteImpl> primaryReplicaFuture = node.placementDriver()
-                .awaitPrimaryReplica(
-                        groupId,
-                        node.clock().now(),
-                        AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                        SECONDS
-                )
-                .thenApply(ReplicaMeta::getLeaseholder)
-                .thenApply(leaseholder -> {
-                    assertNotNull(leaseholder);
+        CompletableFuture<ReplicaMeta> primaryReplicaMetaFuture = node.placementDriver()
+                .awaitPrimaryReplica(groupId, node.clock().now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
-                    return findByConsistentId(leaseholder);
-                });
+        assertThat(primaryReplicaMetaFuture, willCompleteSuccessfully());
 
-        assertThat(primaryReplicaFuture, willCompleteSuccessfully());
+        String primaryReplicaName = primaryReplicaMetaFuture.join().getLeaseholder();
 
-        IgniteImpl primaryNode = primaryReplicaFuture.join();
+        assertNotNull(primaryReplicaName);
 
-        assertNotNull(primaryNode);
+        IgniteImpl primaryReplicaNode = findByConsistentId(primaryReplicaName);
 
-        return primaryNode;
+        assertNotNull(primaryReplicaNode, String.format("Node %s not found", primaryReplicaName));
+
+        return primaryReplicaNode;
     }
 
     /**
