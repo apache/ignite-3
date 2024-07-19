@@ -54,8 +54,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for exceptions that are thrown when marshalers are defined
- * in a wrong way or throw an exception.
+ * Test for exceptions that are thrown when marshalers are defined in a wrong way or throw an exception.
  */
 @SuppressWarnings("resource")
 public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinClientTest {
@@ -141,7 +140,6 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         });
     }
 
-
     static class ArgumentTypeCheckingMarshalingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
@@ -155,7 +153,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                 public @Nullable String unmarshal(byte @Nullable [] raw) {
                     Object obj = ByteArrayMarshaler.super.unmarshal(raw);
                     if (obj == null) {
-                       return null;
+                        return null;
                     }
 
                     if (obj instanceof String) {
@@ -177,7 +175,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
 
         @Override
         public @Nullable Integer unmarshal(byte @Nullable [] raw) throws UnsupportedObjectTypeMarshalingException {
-            return 0;
+            return ByteArrayMarshaler.<Integer>create().unmarshal(raw);
         }
     }
 
@@ -205,7 +203,13 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         try {
             int waitSec = 5;
             return fut.get(waitSec, TimeUnit.SECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        } catch (ExecutionException e) {
+            var cause = e.getCause();
+            if (cause instanceof ClassCastException) {
+                throw (ClassCastException) cause;
+            }
+            throw new RuntimeException(e);
+        } catch (InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
     }
