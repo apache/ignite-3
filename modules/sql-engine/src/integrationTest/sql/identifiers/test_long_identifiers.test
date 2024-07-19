@@ -7,6 +7,12 @@
 statement ok
 PRAGMA enable_verification
 
+statement error: Non-query expression encountered in illegal context.
+tableName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters
+
+statement error: Non-query expression encountered in illegal context.
+SELECT 1; tableName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters
+
 # Create table with short identifiers for test simplicity purpose
 statement ok
 CREATE TABLE t (id INTEGER, val INTEGER, PRIMARY KEY (id))

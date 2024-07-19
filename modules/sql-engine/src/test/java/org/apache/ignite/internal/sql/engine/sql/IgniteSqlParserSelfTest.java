@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
@@ -209,42 +208,5 @@ public class IgniteSqlParserSelfTest {
                 Arguments.of("SELECT 1; INSERT INTO TEST VALUES(?, ?, ?)", new int[] {0, 3}),
                 Arguments.of("INSERT INTO TEST VALUES(?, ?); SELECT 1; SELECT 2 + ?", new int[] {2, 0, 1})
         );
-    }
-
-    @ParameterizedTest
-    @MethodSource("longIds")
-    public void testStatementModeLongIdentifierAtTheBeginning(String text) {
-        assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Non-query expression encountered in illegal context.",
-                () -> IgniteSqlParser.parse(text, StatementParseResult.MODE));
-    }
-
-    private static List<String> longIds() {
-        return List.of(
-                veryLongIdentifier(),
-                "  "  + veryLongIdentifier()
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("longIdsScripts")
-    public void testScriptModeLongIdentifierAtTheBeginning(String text) {
-        assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Non-query expression encountered in illegal context.",
-                () -> IgniteSqlParser.parse(text, ScriptParseResult.MODE));
-    }
-
-    private static List<String> longIdsScripts() {
-        return List.of(
-                veryLongIdentifier(),
-                "  "  + veryLongIdentifier(),
-                "SELECT 1;"  + veryLongIdentifier()
-        );
-    }
-
-    private static String veryLongIdentifier() {
-        return "a".repeat(SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH + 1);
     }
 }
