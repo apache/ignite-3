@@ -114,24 +114,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     void testChangePrimaryReplicaOnMiddleBuildIndex() throws Exception {
         IgniteImpl currentPrimary = prepareBuildIndexToChangePrimaryReplica();
 
-        IgniteImpl nextPrimary = CLUSTER.runningNodes()
-                .filter(n -> n != currentPrimary)
-                .findAny()
-                .orElseThrow();
-
-        CompletableFuture<Integer> sendBuildIndexCommandFuture = new CompletableFuture<>();
-
-        nextPrimary.dropMessages(waitSendBuildIndexCommand(sendBuildIndexCommandFuture, false));
-
-        // Let's change the primary replica for partition 0.
-        NodeUtils.transferPrimary(
-                CLUSTER.runningNodes().collect(toList()),
-                new TablePartitionId(tableId(TABLE_NAME), 0),
-                nextPrimary.name()
-        );
-
-        // Make sure that the index build command will be sent from the new primary replica.
-        assertThat(sendBuildIndexCommandFuture, willSucceedFast());
+        changePrimaryReplica(currentPrimary);
 
         // Let's make sure that the indexes are eventually built.
         checkIndexBuild(1, initialNodes(), INDEX_NAME);
@@ -190,6 +173,27 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         assertThat(sendBuildIndexCommandFuture, willBe(indexId(INDEX_NAME)));
 
         return primary;
+    }
+
+    private static void changePrimaryReplica(IgniteImpl currentPrimary) throws InterruptedException {
+        IgniteImpl nextPrimary = CLUSTER.runningNodes()
+                .filter(n -> n != currentPrimary)
+                .findAny()
+                .orElseThrow();
+
+        CompletableFuture<Integer> sendBuildIndexCommandFuture = new CompletableFuture<>();
+
+        nextPrimary.dropMessages(waitSendBuildIndexCommand(sendBuildIndexCommandFuture, false));
+
+        // Let's change the primary replica for partition 0.
+        NodeUtils.transferPrimary(
+                CLUSTER.runningNodes().collect(toList()),
+                new TablePartitionId(tableId(TABLE_NAME), 0),
+                nextPrimary.name()
+        );
+
+        // Make sure that the index build command will be sent from the new primary replica.
+        assertThat(sendBuildIndexCommandFuture, willSucceedFast());
     }
 
     @SafeVarargs
@@ -265,7 +269,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void checkIndexBuild(int partitions, int replicas, String indexName) throws Exception {
-        // TODO: IGNITE-20525 We are waiting for schema synchronization to avoid races to create and destroy indexes
         Map<Integer, Set<String>> nodesWithBuiltIndexesByPartitionId = waitForIndexBuild(TABLE_NAME, indexName);
 
         // Check that the number of nodes with built indexes is equal to the number of replicas.
@@ -292,7 +295,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static Integer indexId(String indexName) {
         CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(CLUSTER.aliveNode(), indexName);
 
-        assertNotNull(indexDescriptor);
+        assertNotNull(indexDescriptor, String.format("Index %s not found", indexName));
 
         return indexDescriptor.id();
     }
@@ -307,7 +310,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         CatalogTableDescriptor tableDescriptor = node.catalogManager().table(tableName, node.clock().nowLong());
 
-        assertNotNull(tableDescriptor);
+        assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
 
         return tableDescriptor.id();
     }
@@ -336,7 +339,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
                     IndexStorage index = internalTable.storage().getIndex(entry.getKey(), indexId);
 
-                    assertNotNull(index);
+                    assertNotNull(index, String.format("No index %d for partition %d", indexId, entry.getKey()));
 
                     assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, SECONDS.toMillis(10)));
                 }
