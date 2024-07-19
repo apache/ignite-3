@@ -38,6 +38,7 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-rocksdb-common')
+    implementation project(':ignite-storage-api')
     implementation project(':ignite-security')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core

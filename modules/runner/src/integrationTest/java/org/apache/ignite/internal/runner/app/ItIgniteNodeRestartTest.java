@@ -74,7 +74,6 @@ import java.util.function.IntFunction;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
@@ -170,7 +169,6 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
-import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -380,12 +378,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                new NodeAttributesCollector(
-                        nodeAttributes,
-                        () -> nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY).profiles().value().stream()
-                                .map(StorageProfileView::name)
-                                .collect(Collectors.toList())
-                ),
+                new NodeAttributesCollector(nodeAttributes,
+                        nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)),
                 failureProcessor
         );
 

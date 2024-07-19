@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.message;
+package org.apache.ignite.internal.catalog.compaction.message;
 
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Request to obtain the minimum timestamp to which, from the local
- * node's perspective, the catalog history can be safely truncated.
+ * Response message containing the low watermark required for the local node.
+ * This watermark is used to safely truncate catalog history.
  */
-@Transferable(CatalogMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST)
-public interface CatalogMinimumRequiredTimeRequest extends NetworkMessage {
-
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
+public interface CatalogMinimumRequiredTimeResponse extends NetworkMessage {
+    /** Returns node's minimum required time. */
+    long timestamp();
 }

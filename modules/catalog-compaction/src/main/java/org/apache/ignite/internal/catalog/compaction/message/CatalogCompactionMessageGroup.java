@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.message;
+package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
- * Response message containing the low watermark required for the local node.
- * This watermark is used to safely truncate catalog history.
+ * Message types used in catalog module.
  */
-@Transferable(CatalogMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
-public interface CatalogMinimumRequiredTimeResponse extends NetworkMessage {
-    /** Returns node's minimum required time. */
-    long timestamp();
+@MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
+public class CatalogCompactionMessageGroup {
+    public static final short GROUP_TYPE = 14;
+
+    /** See {@link CatalogMinimumRequiredTimeRequest} for the details. */
+    public static final short MINIMUM_REQUIRED_TIME_REQUEST = 0;
+
+    /** See {@link CatalogMinimumRequiredTimeResponse} for the details. */
+    public static final short MINIMUM_REQUIRED_TIME_RESPONSE = 1;
 }

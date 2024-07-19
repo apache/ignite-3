@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
-import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -115,12 +113,7 @@ public class MockNode {
                 clusterStateStorage,
                 new LogicalTopologyImpl(clusterStateStorage),
                 cmgConfiguration,
-                new NodeAttributesCollector(
-                        nodeAttributes,
-                        () -> storageProfilesConfiguration.profiles().value().stream()
-                                .map(StorageProfileView::name)
-                                .collect(Collectors.toList())
-                ),
+                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureProcessor
         );
 

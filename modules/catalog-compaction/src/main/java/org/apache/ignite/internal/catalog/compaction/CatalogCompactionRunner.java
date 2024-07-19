@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.function.Predicate.not;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -33,12 +33,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessageGroup;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogMinimumRequiredTimeRequest;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogMinimumRequiredTimeResponse;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.message.CatalogMessageGroup;
-import org.apache.ignite.internal.catalog.message.CatalogMessagesFactory;
-import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeRequest;
-import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeResponse;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -79,7 +81,7 @@ import org.jetbrains.annotations.TestOnly;
 public class CatalogCompactionRunner implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(CatalogCompactionRunner.class);
 
-    private static final CatalogMessagesFactory MESSAGES_FACTORY = new CatalogMessagesFactory();
+    private static final CatalogCompactionMessagesFactory MESSAGES_FACTORY = new CatalogCompactionMessagesFactory();
 
     private static final long ANSWER_TIMEOUT = 5_000;
 
@@ -154,9 +156,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        messagingService.addMessageHandler(CatalogMessageGroup.class, (message, sender, correlationId) -> {
-            assert message.groupType() == CatalogMessageGroup.GROUP_TYPE : message.groupType();
-            assert message.messageType() == CatalogMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST : message.messageType();
+        messagingService.addMessageHandler(CatalogCompactionMessageGroup.class, (message, sender, correlationId) -> {
+            assert message.groupType() == CatalogCompactionMessageGroup.GROUP_TYPE : message.groupType();
+            assert message.messageType() == CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST : message.messageType();
             assert correlationId != null;
 
             CatalogMinimumRequiredTimeResponse response = MESSAGES_FACTORY.catalogMinimumRequiredTimeResponse()

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
@@ -56,13 +56,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
-import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeRequest;
-import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeResponse;
-import org.apache.ignite.internal.catalog.message.CatalogMinimumRequiredTimeResponseImpl;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogMinimumRequiredTimeRequest;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogMinimumRequiredTimeResponse;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -318,6 +320,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         logicalTopologyService = mock(LogicalTopologyService.class);
         PlacementDriver placementDriver = mock(PlacementDriver.class);
         TopologyService topologyService = mock(TopologyService.class);
+        CatalogCompactionMessagesFactory messagesFactory = new CatalogCompactionMessagesFactory();
 
         when(topologyService.localMember()).thenReturn(localNode);
 
@@ -334,7 +337,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                         return CompletableFuture.failedFuture((Exception) obj);
                     }
 
-                    CatalogMinimumRequiredTimeResponse msg = CatalogMinimumRequiredTimeResponseImpl.builder()
+                    CatalogMinimumRequiredTimeResponse msg = messagesFactory.catalogMinimumRequiredTimeResponse()
                             .timestamp(((Long) obj)).build();
 
                     return CompletableFuture.completedFuture(msg);

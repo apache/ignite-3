@@ -15,20 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.message;
+package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message types used in catalog module.
+ * Request to obtain the minimum timestamp to which, from the local
+ * node's perspective, the catalog history can be safely truncated.
  */
-@MessageGroup(groupType = CatalogMessageGroup.GROUP_TYPE, groupName = "CatalogMessages")
-public class CatalogMessageGroup {
-    public static final short GROUP_TYPE = 14;
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST)
+public interface CatalogMinimumRequiredTimeRequest extends NetworkMessage {
 
-    /** See {@link CatalogMinimumRequiredTimeRequest} for the details. */
-    public static final short MINIMUM_REQUIRED_TIME_REQUEST = 0;
-
-    /** See {@link CatalogMinimumRequiredTimeResponse} for the details. */
-    public static final short MINIMUM_REQUIRED_TIME_RESPONSE = 1;
 }
