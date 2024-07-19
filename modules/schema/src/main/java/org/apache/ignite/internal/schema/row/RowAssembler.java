@@ -155,12 +155,6 @@ public class RowAssembler {
             case BYTES: {
                 return appendBytes((byte[]) val);
             }
-            case BITMASK: {
-                return appendBitmask((BitSet) val);
-            }
-            case NUMBER: {
-                return appendNumber((BigInteger) val);
-            }
             case DECIMAL: {
                 return appendDecimal((BigDecimal) val);
             }
@@ -496,10 +490,6 @@ public class RowAssembler {
         shiftColumn();
 
         return this;
-    }
-
-    public RowAssembler appendBitmask(BitSet value) {
-        return value == null ? appendNull() : appendBitmaskNotNull(value);
     }
 
     /**

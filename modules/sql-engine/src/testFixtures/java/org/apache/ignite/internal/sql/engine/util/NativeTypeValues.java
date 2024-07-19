@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -83,12 +82,8 @@ public final class NativeTypeValues {
                 return null;
             case DECIMAL:
                 return BigDecimal.valueOf(i + ((double) i / 1000));
-            case NUMBER:
-                return BigInteger.valueOf(i);
             case UUID:
                 return new UUID(i, i);
-            case BITMASK:
-                return new byte[]{(byte) i};
             case DURATION:
                 return Duration.ofNanos(i);
             case DATETIME:

@@ -321,8 +321,6 @@ public class JdbcColumnMeta extends Response {
             case DECIMAL: return "DECIMAL";
             case NULL: return "NULL";
             case UUID: return "UUID";
-            case NUMBER:
-            case BITMASK:
             case PERIOD:
             case DURATION:
                 // IgniteCustomType: JDBC spec allows database dependent type name. See DatabaseMetadata::getColumns (TYPE_NAME column);
@@ -350,8 +348,6 @@ public class JdbcColumnMeta extends Response {
             case DECIMAL: return DECIMAL;
             case NULL: return NULL;
             case UUID:
-            case NUMBER:
-            case BITMASK:
             case PERIOD:
             case DURATION:
             case TIMESTAMP:

@@ -301,10 +301,8 @@ public abstract class AbstractImmutableTupleTest {
                 .set("valDateTimeCol", truncateToDefaultPrecision(LocalDateTime.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault())))
                 .set("valTimeCol", truncateToDefaultPrecision(LocalTime.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault())))
                 .set("valTimeStampCol", truncateToDefaultPrecision(TIMESTAMP_VALUE))
-                .set("valBitmask1Col", BITSET_VALUE)
                 .set("valBytesCol", BYTE_ARRAY_VALUE)
                 .set("valStringCol", STRING_VALUE)
-                .set("valNumberCol", BIG_INTEGER_VALUE)
                 .set("valDecimalCol", BIG_DECIMAL_VALUE);
     }
 

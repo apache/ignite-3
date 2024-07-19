@@ -22,14 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -62,14 +60,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     /** Rows count ot test. */
     private static final int ROWS = 10;
-
-    /**
-     * Excluded native types.
-     */
-    private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
-            NativeTypeSpec.BITMASK,
-            NativeTypeSpec.NUMBER)
-            .collect(Collectors.toSet());
 
     @AfterEach
     public void dropTables() {
@@ -168,9 +158,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
         for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
             for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
-                if (!EXCLUDED_TYPES.contains(t0) && !EXCLUDED_TYPES.contains(t1)) {
-                    args.add(Arguments.of(t0, t1));
-                }
+                args.add(Arguments.of(t0, t1));
             }
         }
 
@@ -179,11 +167,13 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
     private static Stream<Arguments> oneColumnParameters() {
         List<Arguments> args = new ArrayList<>();
+        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
 
         for (NativeTypeSpec t : NativeTypeSpec.values()) {
-            if (!EXCLUDED_TYPES.contains(t)) {
-                args.add(Arguments.of(t));
+            if (unsupported.contains(t)) {
+                continue;
             }
+            args.add(Arguments.of(t));
         }
 
         return args.stream();
@@ -260,10 +250,6 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
                 return "str_" + i;
             case BYTES:
                 return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
-            case BITMASK:
-                return BitSet.valueOf(new byte[]{(byte) i});
-            case NUMBER:
-                return BigInteger.valueOf(i);
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(i);
             case TIME:
@@ -304,10 +290,6 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
                 return "varchar";
             case BYTES:
                 return "varbinary";
-            case BITMASK:
-                return "bitmap";
-            case NUMBER:
-                return "number";
             case DATE:
                 return "date";
             case TIME:
