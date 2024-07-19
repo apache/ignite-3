@@ -106,7 +106,7 @@ class Jobs {
         }
     }
 
-    static class JsonMarshalling {
+    private static class JsonMarshalling {
         private static final ObjectMapper mapper = new ObjectMapper();
 
         private static byte[] marshal(Object object) {

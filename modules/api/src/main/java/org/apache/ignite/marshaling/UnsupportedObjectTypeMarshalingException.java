@@ -32,7 +32,7 @@ public class UnsupportedObjectTypeMarshalingException extends IgniteException {
      *
      * @param unsupportedType Unsupported type.
      */
-    UnsupportedObjectTypeMarshalingException(Class<?> unsupportedType) {
+    public UnsupportedObjectTypeMarshalingException(Class<?> unsupportedType) {
         super(
                 Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR,
                 "Unsupported object type: " + unsupportedType.getName() + ". Please, define the marshaler that can handle this type."

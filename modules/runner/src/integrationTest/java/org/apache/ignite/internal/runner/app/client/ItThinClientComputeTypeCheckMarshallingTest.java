@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -35,14 +36,19 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeException;
+import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.runner.app.client.Jobs.ArgMarshalingJob;
 import org.apache.ignite.internal.runner.app.client.Jobs.ResultMarshalingJob;
 import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.marshaling.ByteArrayMarshaler;
+import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshaling.UnsupportedObjectTypeMarshalingException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -77,7 +83,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         var node = server(0);
 
         // When submit job with custom marshaller that is defined in job but
-        // client JobDescriptor does not declare the argument marshaler.
+        // client JobDescriptor does not declare the result marshaler.
         var compute = computeClientOn(node);
         JobExecution<String> result = compute.submit(
                 JobTarget.node(node(1)),
@@ -89,6 +95,90 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         assertThrows(ClassCastException.class, () -> {
             String str = getSafe(result.resultAsync());
         });
+    }
+
+    @Test
+    void argumentMarshalerDoesNotMatch() {
+        // Given.
+        var node = server(0);
+
+        // When submit job with custom marshaller that is defined in job but
+        // client JobDescriptor does not declare the result marshaler.
+        var compute = computeClientOn(node);
+        JobExecution<Integer> result = compute.submit(
+                JobTarget.node(node(1)),
+                // The descriptor does not match actual job arguments.
+                JobDescriptor.<Integer, Integer>builder(ArgumentTypeCheckingMarshalingJob.class.getName())
+                        .argumentMarshaller(new IntegerMarshaller())
+                        .build(),
+                1
+        );
+
+        assertStatusFailed(result);
+        assertResultFailsWithErr(Compute.TYPE_CHECK_MARSHALING_ERR, result);
+    }
+
+    @Test
+    void resultMarshalerDoesNotMatch() {
+        // Given.
+        var node = server(0);
+
+        // When submit job with custom marshaller that is defined in job but
+        // client JobDescriptor does not declare the result marshaler.
+        var compute = computeClientOn(node);
+        JobExecution<Integer> result = compute.submit(
+                JobTarget.node(node(1)),
+                // The descriptor does not match actual result.
+                JobDescriptor.<String, Integer>builder(ResultMarshalingJob.class.getName())
+                        .resultMarshaller(new IntegerMarshaller())
+                        .build(),
+                "Input"
+        );
+
+        assertStatusCompleted(result);
+        assertThrows(ClassCastException.class, () -> {
+            Integer i = getSafe(result.resultAsync());
+        });
+    }
+
+
+    static class ArgumentTypeCheckingMarshalingJob implements ComputeJob<String, String> {
+        @Override
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
+            return completedFuture(arg);
+        }
+
+        @Override
+        public Marshaler<String, byte[]> inputMarshaler() {
+            return new ByteArrayMarshaler<>() {
+                @Override
+                public @Nullable String unmarshal(byte @Nullable [] raw) {
+                    Object obj = ByteArrayMarshaler.super.unmarshal(raw);
+                    if (obj == null) {
+                       return null;
+                    }
+
+                    if (obj instanceof String) {
+                        return (String) obj;
+                    }
+
+                    throw new UnsupportedObjectTypeMarshalingException(obj.getClass());
+                }
+            };
+        }
+    }
+
+    private static class IntegerMarshaller implements Marshaler<Integer, byte[]> {
+
+        @Override
+        public byte @Nullable [] marshal(@Nullable Integer object) throws UnsupportedObjectTypeMarshalingException {
+            return ByteArrayMarshaler.create().marshal(object);
+        }
+
+        @Override
+        public @Nullable Integer unmarshal(byte @Nullable [] raw) throws UnsupportedObjectTypeMarshalingException {
+            return 0;
+        }
     }
 
     private static void assertResultFailsWithErr(int errCode, JobExecution<?> result) {

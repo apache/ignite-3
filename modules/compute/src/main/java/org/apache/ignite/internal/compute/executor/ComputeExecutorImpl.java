@@ -121,7 +121,11 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         }
 
         if (input instanceof byte[]) {
-            return marshaler.unmarshal((byte[]) input);
+            try {
+                return marshaler.unmarshal((byte[]) input);
+            } catch (Exception ex) {
+                throw new ComputeException(Compute.TYPE_CHECK_MARSHALING_ERR, "test", ex);
+            }
         }
 
         throw new ComputeException(Compute.TYPE_CHECK_MARSHALING_ERR, "test");
