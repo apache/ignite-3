@@ -43,6 +43,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
@@ -111,19 +112,19 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         }
     }
 
-    private static long calculateSafeTime(ClockService clockService) {
-        return clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
+    private static HybridTimestamp calculateSafeTime(ClockService clockService) {
+        return clockService.now().addPhysicalTime(clockService.maxClockSkewMillis());
     }
 
     private static void sendSafeTimeSyncCommand(
             RaftGroupService raftClient,
-            long safeTime,
+            HybridTimestamp safeTime,
             boolean expectSafeTimeReorderException
     ) {
         CompletableFuture<Object> safeTimeCommandFuture = raftClient.run(
                 REPLICA_MESSAGES_FACTORY
                         .safeTimeSyncCommand()
-                        .safeTimeLong(safeTime)
+                        .safeTime(safeTime)
                         .build()
         );
 
@@ -159,7 +160,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         assertThat(raftClient.refreshLeader(), willCompleteSuccessfully());
 
-        long firstSafeTime = calculateSafeTime(someNode.clockService);
+        HybridTimestamp firstSafeTime = calculateSafeTime(someNode.clockService);
 
         // Send command with safe time X.
         sendSafeTimeSyncCommand(raftClient, firstSafeTime, false);
@@ -181,7 +182,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         RaftGroupService anotherClient = aliveNode.get().raftClient;
 
         // Send command with safe time less than previously applied to the new leader and verify that SafeTimeReorderException is thrown.
-        sendSafeTimeSyncCommand(anotherClient, firstSafeTime - 1, true);
+        sendSafeTimeSyncCommand(anotherClient, firstSafeTime.subtractPhysicalTime(1), true);
 
         sendSafeTimeSyncCommand(anotherClient, calculateSafeTime(aliveNode.get().clockService), false);
     }
@@ -222,7 +223,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         assertThat(raftClient.refreshLeader(), willCompleteSuccessfully());
 
-        long firstSafeTime = calculateSafeTime(someNode.clockService);
+        HybridTimestamp firstSafeTime = calculateSafeTime(someNode.clockService);
 
         // Send command with safe time X.
         sendSafeTimeSyncCommand(raftClient, firstSafeTime, false);
@@ -238,7 +239,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         // Send command with safe time less than previously applied to the leader before the restart
         // and verify that SafeTimeReorderException is thrown.
-        sendSafeTimeSyncCommand(someNode.raftClient, firstSafeTime - 1, true);
+        sendSafeTimeSyncCommand(someNode.raftClient, firstSafeTime.subtractPhysicalTime(1), true);
 
         sendSafeTimeSyncCommand(someNode.raftClient, calculateSafeTime(someNode.clockService), false);
     }

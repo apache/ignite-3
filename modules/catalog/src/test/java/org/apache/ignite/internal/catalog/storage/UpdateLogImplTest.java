@@ -28,6 +28,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -62,7 +64,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.Mockito;
 
 /** Tests to verify {@link UpdateLogImpl}. */
 class UpdateLogImplTest extends BaseIgniteAbstractTest {
@@ -126,7 +127,8 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         List<VersionedUpdate> updates = List.of(
                 singleEntryUpdateOfVersion(1),
                 singleEntryUpdateOfVersion(2),
-                singleEntryUpdateOfVersion(3));
+                singleEntryUpdateOfVersion(3)
+        );
 
         appendUpdates(updateLogImpl, updates);
 
@@ -325,10 +327,10 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     }
 
     private static SnapshotEntry snapshotEntryOfVersion(int version) {
-        Catalog catalog = Mockito.mock(Catalog.class);
+        Catalog catalog = mock(Catalog.class);
 
-        Mockito.when(catalog.version()).thenReturn(version);
-        Mockito.when(catalog.defaultZone()).thenReturn(Mockito.mock(CatalogZoneDescriptor.class));
+        when(catalog.version()).thenReturn(version);
+        when(catalog.defaultZone()).thenReturn(mock(CatalogZoneDescriptor.class));
 
         return new SnapshotEntry(catalog);
     }

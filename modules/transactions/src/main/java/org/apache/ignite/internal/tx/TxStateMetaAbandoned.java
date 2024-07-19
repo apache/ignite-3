@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 
@@ -72,7 +71,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
                 .txStateInt(txState().ordinal())
                 .txCoordinatorId(txCoordinatorId())
                 .commitPartitionId(tablePartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, tablePartitionId))
-                .commitTimestampLong(hybridTimestampToLong(commitTimestamp()))
+                .commitTimestamp(commitTimestamp())
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
                 .lastAbandonedMarkerTs(lastAbandonedMarkerTs)

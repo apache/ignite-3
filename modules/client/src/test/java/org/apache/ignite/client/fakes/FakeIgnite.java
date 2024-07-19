@@ -46,6 +46,10 @@ public class FakeIgnite implements Ignite {
     /** Timestamp tracker. */
     private final HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
 
+    private final FakeCompute compute;
+
+    private final IgniteTables tables;
+
     /**
      * Default constructor.
      */
@@ -60,9 +64,9 @@ public class FakeIgnite implements Ignite {
      */
     public FakeIgnite(String name) {
         this.name = name;
+        this.compute = new FakeCompute(name, this);
+        this.tables = new FakeIgniteTables(compute);
     }
-
-    private final IgniteTables tables = new FakeIgniteTables();
 
     /** {@inheritDoc} */
     @Override
@@ -89,7 +93,7 @@ public class FakeIgnite implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteCompute compute() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return compute;
     }
 
     /** {@inheritDoc} */

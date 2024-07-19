@@ -42,7 +42,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -201,11 +200,6 @@ public class JraftServerImpl implements RaftServer {
         serviceEventInterceptor = new RaftServiceEventInterceptor();
     }
 
-    /** Returns log synchronizer. */
-    public LogSyncer getLogSyncer() {
-        return logStorageFactory;
-    }
-
     /** Returns log storage factory. */
     @TestOnly
     public LogStorageFactory getLogStorageFactory() {
@@ -214,7 +208,7 @@ public class JraftServerImpl implements RaftServer {
 
     /**
      * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #startAsync()} the component.
+     * to {@link #startAsync(ComponentContext)} the component.
      *
      * @param appendEntriesRequestInterceptor Interceptor to use.
      */
@@ -223,8 +217,8 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to {@link #startAsync()} the
-     * component.
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to
+     * {@link #startAsync(ComponentContext)} the component.
      *
      * @param actionRequestInterceptor Interceptor to use.
      */

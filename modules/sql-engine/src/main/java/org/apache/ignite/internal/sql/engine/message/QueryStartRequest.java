@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
@@ -65,15 +63,6 @@ public interface QueryStartRequest extends TimestampAware, ExecutionContextAware
      */
     String timeZoneId();
 
-    /**
-     * Time of the operation.
-     */
-    long operationTimeLong();
-
-    /**
-     * Time of the operation as {@link HybridTimestamp}.
-     */
-    default HybridTimestamp operationTime() {
-        return hybridTimestamp(operationTimeLong());
-    }
+    /** Time of the operation. */
+    HybridTimestamp operationTime();
 }

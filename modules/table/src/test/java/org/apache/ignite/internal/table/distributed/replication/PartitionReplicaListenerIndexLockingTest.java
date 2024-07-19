@@ -345,6 +345,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .primaryKey(testPk.tupleSlice())
                         .requestTypeInt(arg.type.ordinal())
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -365,6 +366,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .binaryTuple(testBinaryRow.tupleSlice())
                         .requestTypeInt(arg.type.ordinal())
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
                 break;
 
@@ -433,6 +435,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
                         .requestTypeInt(arg.type.ordinal())
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -450,6 +453,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .binaryTuples(binaryRowsToBuffers(rows))
                         .requestTypeInt(arg.type.ordinal())
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;

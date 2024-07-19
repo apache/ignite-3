@@ -54,8 +54,6 @@ pre_uninstall() {
 }
 
 post_uninstall_remove() {
-  /bin/rm -rf '@INSTALL_DIR@' >/dev/null 2>&1
-  /bin/rm -rf '@LOG_DIR@' >/dev/null 2>&1
   if command -v initctl >/dev/null && initctl version | grep upstart >/dev/null; then
     /bin/rm -f '/etc/init/@PRODUCT_NAME@.conf' >/dev/null 2>&1
     /bin/rm -rf '@PID_DIR@' >/dev/null 2>&1
@@ -65,7 +63,12 @@ post_uninstall_remove() {
     /bin/rm -f '/usr/lib/systemd/system/@PRODUCT_NAME@.service' >/dev/null 2>&1
     systemctl daemon-reload
     echo "  @PRODUCT_DISPLAY_NAME@ uninstalled successfully."
-fi
+  fi
+}
+
+post_uninstall_purge() {
+  post_uninstall_remove
+  /bin/rm -rf '@LOG_DIR@' >/dev/null 2>&1
 }
 
 post_uninstall_upgrade() {

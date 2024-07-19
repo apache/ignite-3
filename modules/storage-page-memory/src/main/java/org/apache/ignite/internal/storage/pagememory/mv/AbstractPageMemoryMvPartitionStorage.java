@@ -246,14 +246,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         });
     }
 
-    // TODO: Implement, see https://issues.apache.org/jira/browse/IGNITE-22616
-    @Override
-    public long estimatedSize() {
-        throw new UnsupportedOperationException();
-    }
-
     private static boolean lookingForLatestVersion(HybridTimestamp timestamp) {
-        return timestamp == HybridTimestamp.MAX_VALUE;
+        return HybridTimestamp.MAX_VALUE.equals(timestamp);
     }
 
     ReadResult findLatestRowVersion(VersionChain versionChain) {
@@ -902,4 +896,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public CompletableFuture<Void> destroyIndex(int indexId) {
         return busy(() -> indexes.destroyIndex(indexId, renewableState.indexMetaTree()));
     }
+
+    /**
+     * Increments the estimated size of this partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public abstract void incrementEstimatedSize();
+
+    /**
+     * Decrements the estimated size of this partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public abstract void decrementEstimatedSize();
 }

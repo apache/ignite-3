@@ -41,6 +41,14 @@ public class IgniteMath {
     private static final Float UPPER_LONG_FLOAT = (float) Long.MAX_VALUE;
     private static final Float LOWER_LONG_FLOAT = (float) Long.MIN_VALUE;
 
+    private static final BigDecimal UPPER_DOUBLE_BIG_DECIMAL = new BigDecimal(String.valueOf(Double.MAX_VALUE));
+    private static final BigDecimal LOWER_DOUBLE_BIG_DECIMAL = UPPER_DOUBLE_BIG_DECIMAL.negate();
+    private static final BigDecimal UPPER_FLOAT_BIG_DECIMAL = new BigDecimal(String.valueOf(Float.MAX_VALUE));
+    private static final BigDecimal LOWER_FLOAT_BIG_DECIMAL = UPPER_FLOAT_BIG_DECIMAL.negate();
+
+    private static final double UPPER_FLOAT_DOUBLE = Float.MAX_VALUE;
+    private static final double LOWER_FLOAT_DOUBLE = -Float.MAX_VALUE;
+
     /** Returns the sum of its arguments, throwing an exception if the result overflows an {@code long}. */
     public static long addExact(long x, long y) {
         long r = x + y;
@@ -280,6 +288,13 @@ public class IgniteMath {
     }
 
     /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
+    public static long convertToLongExact(Number x) {
+        checkNumberLongBounds(BIGINT, x);
+
+        return x.longValue();
+    }
+
+    /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
     public static long convertToLongExact(double x) {
         if (x > Long.MAX_VALUE || x < Long.MIN_VALUE) {
             throw new ArithmeticException(BIGINT.getName() + " out of range");
@@ -407,6 +422,47 @@ public class IgniteMath {
             throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range", ex);
         } catch (NumberFormatException ex1) {
             throw new SqlException(RUNTIME_ERR, "Invalid input syntax for type " + TINYINT.getName() + ": \"" + x + "\"", ex1);
+        }
+    }
+
+    /** Cast value to {@code float}, throwing an exception if the result overflows. */
+    public static float convertToFloatExact(Number x) {
+        if (x instanceof BigDecimal) {
+            BigDecimal value = (BigDecimal) x;
+
+            if (value.compareTo(UPPER_FLOAT_BIG_DECIMAL) > 0) {
+                throw new SqlException(RUNTIME_ERR, "REAL out of range");
+            }
+            if (value.compareTo(LOWER_FLOAT_BIG_DECIMAL) < 0) {
+                throw new SqlException(RUNTIME_ERR, "REAL out of range");
+            }
+
+            return value.floatValue();
+        } else {
+            double v = x.doubleValue();
+            if (v > UPPER_FLOAT_DOUBLE || v < LOWER_FLOAT_DOUBLE) {
+                throw new SqlException(RUNTIME_ERR, "REAL out of range");
+            }
+
+            return x.floatValue();
+        }
+    }
+
+    /** Cast value to {@code double}, throwing an exception if the result overflows. */
+    public static double convertToDoubleExact(Number x) {
+        if (x instanceof BigDecimal) {
+            BigDecimal value = (BigDecimal) x;
+            if (value.compareTo(UPPER_DOUBLE_BIG_DECIMAL) > 0) {
+                throw new SqlException(RUNTIME_ERR, "DOUBLE out of range");
+            }
+
+            if (value.compareTo(LOWER_DOUBLE_BIG_DECIMAL) < 0) {
+                throw new SqlException(RUNTIME_ERR, "DOUBLE out of range");
+            }
+
+            return value.doubleValue();
+        } else {
+            return x.doubleValue();
         }
     }
 

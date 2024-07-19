@@ -17,39 +17,51 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.hamcrest.Matchers.is;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import org.hamcrest.Description;
-import org.hamcrest.TypeSafeMatcher;
+import org.hamcrest.CustomMatcher;
+import org.hamcrest.Matcher;
+import org.jetbrains.annotations.Nullable;
 
 /** Matcher for comparing {@link BinaryRow}s. */
-public class BinaryRowMatcher extends TypeSafeMatcher<BinaryRow> {
-    private final BinaryRow row;
+public class BinaryRowMatcher extends CustomMatcher<BinaryRow> {
+    private final @Nullable BinaryRow row;
 
-    private BinaryRowMatcher(BinaryRow row) {
+    private BinaryRowMatcher(@Nullable BinaryRow row) {
+        super("Expected row to be equal to " + rowToString(row));
         this.row = row;
     }
 
-    public static BinaryRowMatcher equalToRow(BinaryRow row) {
+    public static BinaryRowMatcher equalToRow(@Nullable BinaryRow row) {
         return new BinaryRowMatcher(row);
     }
 
+    public static Matcher<BinaryRow> isRow(@Nullable BinaryRow expectedRow) {
+        return is(equalToRow(expectedRow));
+    }
+
     @Override
-    protected boolean matchesSafely(BinaryRow item) {
+    public boolean matches(@Nullable Object o) {
+        if (row == null || o == null) {
+            return row == o; // Both are null.
+        }
+
+        if (!(o instanceof BinaryRow)) {
+            return false;
+        }
+
+        BinaryRow item = (BinaryRow) o;
+
         return row.schemaVersion() == item.schemaVersion() && row.tupleSlice().equals(item.tupleSlice());
     }
 
-    @Override
-    public void describeTo(Description description) {
-        description.appendValue(rowToString(row));
-    }
+    private static String rowToString(@Nullable BinaryRow row) {
+        if (row == null) {
+            return "{null row}";
+        }
 
-    @Override
-    protected void describeMismatchSafely(BinaryRow item, Description mismatchDescription) {
-        mismatchDescription.appendText("was ").appendValue(rowToString(item));
-    }
-
-    private static String rowToString(BinaryRow row) {
         ByteBuffer tupleSlice = row.tupleSlice();
 
         byte[] array = new byte[tupleSlice.remaining()];

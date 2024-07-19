@@ -469,7 +469,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 receiver.units(),
                 receiver.receiverClassName(),
                 receiverArg,
-                receiver.argumentsMarshaler()
+                receiver.argumentMarshaller()
         );
     }
 }

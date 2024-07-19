@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -189,9 +190,11 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
+        ClusterTimeImpl clusterTime = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
+
         MetaStorageListener metaStorageListener = new MetaStorageListener(
                 keyValueStorage,
-                mock(ClusterTimeImpl.class),
+                clusterTime,
                 raftConfiguration.retryTimeout(),
                 completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
@@ -204,7 +207,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                     Command cmd = invocationClose.getArgument(0);
 
                     if (cmd instanceof MetaStorageWriteCommand) {
-                        ((MetaStorageWriteCommand) cmd).safeTimeLong(10);
+                        ((MetaStorageWriteCommand) cmd).safeTime(hybridTimestamp(10));
                     }
 
                     long commandIndex = raftIndex.incrementAndGet();
@@ -249,7 +252,11 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).id(commandIdGenerator.newId()).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
+                    .iif(iif)
+                    .id(commandIdGenerator.newId())
+                    .initiatorTime(clusterTime.now())
+                    .build();
 
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
@@ -301,7 +308,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -324,7 +331,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -358,7 +365,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
         int zoneId = getZoneId(ZONE_NAME_0);
 
@@ -394,7 +401,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -443,7 +450,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         try {
             createRebalanceEngine(realMetaStorageManager);
 
-            rebalanceEngine.start();
+            rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
             alterZone(ZONE_NAME_0, 2);
 
@@ -475,7 +482,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         try {
             createRebalanceEngine(realMetaStorageManager);
 
-            rebalanceEngine.start();
+            rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
             alterZone(getDefaultZone(catalogManager, clock.nowLong()).name(), 2);
 

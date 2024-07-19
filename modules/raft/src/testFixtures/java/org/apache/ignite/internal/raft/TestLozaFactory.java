@@ -62,6 +62,7 @@ public class TestLozaFactory {
      * @param raftConfig Raft configuration.
      * @param dataPath Data path.
      * @param clock A hybrid logical clock.
+     * @param raftGroupEventsClientListener Raft group events client listener.
      */
     public static Loza create(
             ClusterService clusterNetSvc,

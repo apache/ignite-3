@@ -106,8 +106,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
                 .condition(notExists(testKey))
                 .success(List.of(put(testKey, testValue.bytes())))
                 .failure(List.of(put(testKey, anotherValue.bytes())))
-                .safeTimeLong(clock.now().longValue())
-                .initiatorTimeLong(clock.now().longValue())
+                .safeTime(clock.now())
+                .initiatorTime(clock.now())
                 .build();
 
         metaStorageListener.onWrite(commandIterator(command));
@@ -138,8 +138,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         MultiInvokeCommand command = CMD_FACTORY.multiInvokeCommand()
                 .id(commandIdGenerator.newId())
                 .iif(iif)
-                .safeTimeLong(clock.now().longValue())
-                .initiatorTimeLong(clock.now().longValue())
+                .safeTime(clock.now())
+                .initiatorTime(clock.now())
                 .build();
 
         metaStorageListener.onWrite(commandIterator(command));
@@ -166,8 +166,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         PutCommand command0 = CMD_FACTORY.putCommand()
                 .key(ByteBuffer.wrap(testKey.bytes()))
                 .value(ByteBuffer.wrap(testValue0.bytes()))
-                .safeTimeLong(clock.now().longValue())
-                .initiatorTimeLong(clock.now().longValue())
+                .safeTime(clock.now())
+                .initiatorTime(clock.now())
                 .build();
 
         metaStorageListener.onWrite(commandIterator(command0));
@@ -183,8 +183,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         PutCommand command1 = CMD_FACTORY.putCommand()
                 .key(ByteBuffer.wrap(testKey.bytes()))
                 .value(ByteBuffer.wrap(testValue1.bytes()))
-                .safeTimeLong(clock.now().longValue())
-                .initiatorTimeLong(clock.now().longValue())
+                .safeTime(clock.now())
+                .initiatorTime(clock.now())
                 .build();
 
         metaStorageListener.onWrite(commandIterator(command1));

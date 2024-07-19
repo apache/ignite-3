@@ -88,13 +88,7 @@ namespace Apache.Ignite.Internal
 
                 for (var i = 0; i < count; i++)
                 {
-                    var fieldCount = r.ReadInt32();
-                    Debug.Assert(fieldCount == 4, "fieldCount == 4");
-
-                    res.Add(new ClusterNode(
-                        id: r.ReadString(),
-                        name: r.ReadString(),
-                        endpoint: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
+                    res.Add(ClusterNode.Read(ref r));
                 }
 
                 return res;

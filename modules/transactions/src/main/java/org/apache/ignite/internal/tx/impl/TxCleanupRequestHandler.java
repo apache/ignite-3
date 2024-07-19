@@ -176,7 +176,7 @@ public class TxCleanupRequestHandler {
     private NetworkMessage prepareResponse() {
         return TX_MESSAGES_FACTORY
                 .txCleanupMessageResponse()
-                .timestampLong(clockService.nowLong())
+                .timestamp(clockService.now())
                 .build();
     }
 
@@ -184,7 +184,7 @@ public class TxCleanupRequestHandler {
         return TX_MESSAGES_FACTORY
                 .txCleanupMessageResponse()
                 .result(toCleanupReplicatedInfoMessage(result))
-                .timestampLong(clockService.nowLong())
+                .timestamp(clockService.now())
                 .build();
     }
 
@@ -193,7 +193,7 @@ public class TxCleanupRequestHandler {
                 .txCleanupMessageErrorResponse()
                 .txId(txId)
                 .throwable(th)
-                .timestampLong(clockService.nowLong())
+                .timestamp(clockService.now())
                 .build();
     }
 

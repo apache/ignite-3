@@ -147,6 +147,11 @@ namespace Apache.Ignite
         ComputeChangePriority,
 
         /// <summary>
+        /// Get primary replicas (<see cref="IPartitionManager.GetPrimaryReplicasAsync"/>).
+        /// </summary>
+        PrimaryReplicasGet,
+
+        /// <summary>
         /// Send data streamer batch (<see cref="IDataStreamerTarget{T}"/>).
         /// </summary>
         StreamerBatchSend,
