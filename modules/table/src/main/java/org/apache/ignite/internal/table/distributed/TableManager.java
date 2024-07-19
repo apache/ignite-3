@@ -169,7 +169,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionReplicaImpl;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -620,7 +619,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
             catalogService.listen(CatalogEvent.TABLE_CREATE, parameters -> onTableCreate((CreateTableEventParameters) parameters));
-            catalogService.listen(CatalogEvent.TABLE_CREATE, parameters -> onTableCreateZoneReplicaIntegration((CreateTableEventParameters) parameters));
+            catalogService.listen(CatalogEvent.TABLE_CREATE, parameters ->
+                    onTableCreateZoneReplicaIntegration((CreateTableEventParameters) parameters));
             catalogService.listen(CatalogEvent.TABLE_DROP, fromConsumer(this::onTableDrop));
             catalogService.listen(CatalogEvent.TABLE_ALTER, parameters -> {
                 if (parameters instanceof RenameTableEventParameters) {
@@ -695,7 +695,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             return allOf(localPartsUpdateFuture, tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
-                // TODO: KKK looks like recovery mechanism will be the same?
+                        // TODO: KKK looks like recovery mechanism will be the same?
                         BitSetPartitionSet parts = new BitSetPartitionSet();
 
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for
@@ -705,7 +705,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 parts.set(i);
                             }
                         }
-
 
 //                        if (onNodeRecovery) {
 //                            SchemaRegistry schemaRegistry = table.schemaView();
@@ -757,7 +756,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
-            // TODO: KKK Recovery must be supported here?
+        // TODO: KKK Recovery must be supported here?
 //            CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
 //                    ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
 //                    replicaGrpId,
@@ -767,67 +766,67 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 //            )
 //                    : trueCompletedFuture();
 
-            CompletableFuture<Boolean> shouldStartGroupFut = trueCompletedFuture();
-            return (CompletableFuture<Void>) shouldStartGroupFut.thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
-                // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
-                if (!startGroup) {
-                    return falseCompletedFuture();
-                }
+        CompletableFuture<Boolean> shouldStartGroupFut = trueCompletedFuture();
+        return (CompletableFuture<Void>) shouldStartGroupFut.thenComposeAsync(startGroup -> inBusyLock(busyLock, () -> {
+            // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
+            if (!startGroup) {
+                return falseCompletedFuture();
+            }
 
-                // (2) Otherwise let's start replica manually
-                var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(HybridTimestamp.MIN_VALUE);
+            // (2) Otherwise let's start replica manually
+            var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(HybridTimestamp.MIN_VALUE);
 
-                var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
+            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 
-                PartitionStorages partitionStorages = getPartitionStorages(table, partId);
+            PartitionStorages partitionStorages = getPartitionStorages(table, partId);
 
-                PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
-                        internalTbl, partId);
+            PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
+                    internalTbl, partId);
 
-                storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
+            storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
 
-                PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                        partId,
-                        partitionDataStorage,
-                        table,
-                        safeTimeTracker,
-                        storageUpdateConfig
-                );
+            PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+                    partId,
+                    partitionDataStorage,
+                    table,
+                    safeTimeTracker,
+                    storageUpdateConfig
+            );
 
-                internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
+            internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
-                mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
+            mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
-                // TODO: KKK It will be needed for the next PR
-                RaftGroupListener raftGroupListener = new PartitionListener(
-                        txManager,
-                        partitionDataStorage,
-                        partitionUpdateHandlers.storageUpdateHandler,
-                        partitionStorages.getTxStateStorage(),
-                        safeTimeTracker,
-                        storageIndexTracker,
-                        catalogService,
-                        table.schemaView(),
-                        clockService,
-                        indexMetaStorage
-                );
+            // TODO: KKK It will be needed for the next PR
+            RaftGroupListener raftGroupListener = new PartitionListener(
+                    txManager,
+                    partitionDataStorage,
+                    partitionUpdateHandlers.storageUpdateHandler,
+                    partitionStorages.getTxStateStorage(),
+                    safeTimeTracker,
+                    storageIndexTracker,
+                    catalogService,
+                    table.schemaView(),
+                    clockService,
+                    indexMetaStorage
+            );
 
-                Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
-                        replicaGrpId,
-                        table,
-                        safeTimeTracker,
-                        partitionStorages.getMvPartitionStorage(),
-                        partitionStorages.getTxStateStorage(),
-                        partitionUpdateHandlers,
-                        raftClient);
+            Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
+                    replicaGrpId,
+                    table,
+                    safeTimeTracker,
+                    partitionStorages.getMvPartitionStorage(),
+                    partitionStorages.getTxStateStorage(),
+                    partitionUpdateHandlers,
+                    raftClient);
 
-                RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, replicaGrpId);
+            RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(zoneId, replicaGrpId);
 
-                return replicaMgr.replica(new ZonePartitionId(zoneId, partId))
-                        .thenAccept(zoneReplica ->
-                                ((ZonePartitionReplicaListener) zoneReplica.listener()).addTableReplicaListener(
-                                        new TablePartitionId(tableId, partId), createListener));
-            }), ioExecutor);
+            return replicaMgr.replica(new ZonePartitionId(zoneId, partId))
+                    .thenAccept(zoneReplica ->
+                            ((ZonePartitionReplicaListener) zoneReplica.listener()).addTableReplicaListener(
+                                    new TablePartitionId(tableId, partId), createListener));
+        }), ioExecutor);
     }
 
 

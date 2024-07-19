@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
@@ -67,15 +66,17 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 TxFinishReplicaRequest requestForTableListener = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                         .txId(txFinishReplicaRquest.txId())
                         .commitPartitionId(txFinishReplicaRquest.commitPartitionId())
-                        .timestampLong(txFinishReplicaRquest.timestampLong())
+                        .timestamp(txFinishReplicaRquest.timestamp())
                         .groupId(txFinishReplicaRquest.commitPartitionId())
                         .groups(txFinishReplicaRquest.groups())
                         .commit(txFinishReplicaRquest.commit())
-                        .commitTimestampLong(txFinishReplicaRquest.commitTimestampLong())
+                        .commitTimestamp(txFinishReplicaRquest.commitTimestamp())
                         .enlistmentConsistencyToken(txFinishReplicaRquest.enlistmentConsistencyToken())
                         .build();
 
-                return replicas.get(txFinishReplicaRquest.commitPartitionId().asTablePartitionId()).invoke(requestForTableListener, senderId);
+                return replicas
+                        .get(txFinishReplicaRquest.commitPartitionId().asTablePartitionId())
+                        .invoke(requestForTableListener, senderId);
             } else {
                 LOG.debug("Non table request is not supported by the zone partition yet " + request);
             }

@@ -62,8 +62,8 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
@@ -728,7 +728,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     private void prepareTableIdToZoneIdConverter(Node node, TablePartitionId tablePartitionId, ZonePartitionId zonePartitionId) {
         node.converter.set(request ->  {
-            if (request.groupId().asReplicationGroupId().equals(tablePartitionId) && !(request instanceof WriteIntentSwitchReplicaRequest)) {
+            if (request.groupId().asReplicationGroupId().equals(tablePartitionId) &&
+                    !(request instanceof WriteIntentSwitchReplicaRequest)) {
                 return zonePartitionId;
             } else {
                 return request.groupId().asReplicationGroupId();

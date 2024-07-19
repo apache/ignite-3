@@ -76,7 +76,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
@@ -120,8 +119,7 @@ import org.jetbrains.annotations.Nullable;
  * - Stop the same nodes on the zone removing.
  * - Support the rebalance mechanism and start the new replication nodes when the rebalance triggers occurred.
  */
-public class PartitionReplicaLifecycleManager extends
-        AbstractEventProducer<PartitionReplicaLifecycleEvent, PartitionReplicaLifecycleEventParameters> implements IgniteComponent {
+public class PartitionReplicaLifecycleManager implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
@@ -412,11 +410,6 @@ public class PartitionReplicaLifecycleManager extends
                     raftGroupListener,
                     raftGroupEventsListener,
                     busyLock
-            ).thenCompose(unused ->
-                    fireEvent(
-                            PartitionReplicaLifecycleEvent.REPLICA_STARTED,
-                            new PartitionReplicaLifecycleEventParameters()
-                    )
             ).thenApply(ignored -> null);
         } catch (NodeStoppingException e) {
             return failedFuture(e);
