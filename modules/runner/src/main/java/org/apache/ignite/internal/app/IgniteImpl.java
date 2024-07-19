@@ -751,7 +751,9 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 lowWatermark,
                 threadPoolsManager.tableIoExecutor(),
-                rebalanceScheduler
+                rebalanceScheduler,
+                clockService,
+                placementDriverMgr.placementDriver()
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
@@ -1651,4 +1653,11 @@ public class IgniteImpl implements Ignite {
     public LowWatermarkImpl lowWatermark() {
         return lowWatermark;
     }
+
+    /** Returns replicas manager. */
+    @TestOnly
+    public ReplicaManager replicaManager() {
+        return replicaMgr;
+    }
+
 }
