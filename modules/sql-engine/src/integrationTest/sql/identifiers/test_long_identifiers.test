@@ -114,6 +114,12 @@ statement error: Length of identifier
 SELECT 1 as columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters
 
 statement error: Length of identifier
+SELECT * FROM (VALUES (1)) t(columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters);
+
+statement error: Length of identifier
+SELECT * FROM (VALUES (1)) tableAlias_veryLoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters(c);
+
+statement error: Length of identifier
 SELECT 1 columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters
 
 # Long column aliases with subquery
@@ -187,6 +193,7 @@ SELECT id as columnAlias_veryLoooooooooooooooooooooooooooooooooooooooooooooooooo
 
 statement error: Length of identifier
 SELECT columnAlias_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters(1, 2, 3)
+
 
 # Long identifier in WHERE clause
 query I
