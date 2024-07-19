@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.compaction.message;
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
- * Message types used in catalog module.
+ * Message types used in catalog compaction module.
  */
 @MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
 public class CatalogCompactionMessageGroup {

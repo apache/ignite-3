@@ -712,7 +712,7 @@ public class IgniteImpl implements Ignite {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        CatalogCompactionRunner catalogCompaction = new CatalogCompactionRunner(
+        CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
                 catalogManager,
                 clusterSvc.messagingService(),
                 clusterSvc.topologyService(),
@@ -722,7 +722,7 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.commonScheduler()
         );
 
-        metaStorageMgr.addElectionListener(catalogCompaction::updateCoordinator);
+        metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
@@ -730,7 +730,7 @@ public class IgniteImpl implements Ignite {
         systemViewManager.register(catalogManager);
 
         this.catalogManager = catalogManager;
-        this.catalogCompactionRunner = catalogCompaction;
+        this.catalogCompactionRunner = catalogCompactionRunner;
 
         lowWatermark = new LowWatermarkImpl(
                 name,
@@ -742,7 +742,7 @@ public class IgniteImpl implements Ignite {
         );
 
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
-                params -> catalogCompaction.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
+                params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
         this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
 
