@@ -21,9 +21,9 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
-import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.SetOp;
 import org.apache.calcite.rel.type.RelDataType;
@@ -45,7 +45,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -57,13 +56,13 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which values.
  */
-public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
+public class NumericSetOperatorCoercionTest extends BaseTypeCoercionTest {
     @ParameterizedTest
     @MethodSource("args")
     public void unionOperator(
             TypePair pair,
-            Matcher firstOperandMatcher,
-            Matcher secondOperandMatcher
+            Matcher<Object> firstOperandMatcher,
+            Matcher<Object> secondOperandMatcher
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoSingleColumnTable(pair.first(), pair.second());
 
@@ -77,8 +76,8 @@ public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
     @MethodSource("args")
     public void exceptOperator(
             TypePair pair,
-            Matcher firstOperandMatcher,
-            Matcher secondOperandMatcher
+            Matcher<Object> firstOperandMatcher,
+            Matcher<Object> secondOperandMatcher
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoSingleColumnTable(pair.first(), pair.second());
 
@@ -92,8 +91,8 @@ public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
     @MethodSource("args")
     public void intersectOperator(
             TypePair pair,
-            Matcher firstOperandMatcher,
-            Matcher secondOperandMatcher
+            Matcher<Object> firstOperandMatcher,
+            Matcher<Object> secondOperandMatcher
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoSingleColumnTable(pair.first(), pair.second());
 
@@ -108,11 +107,7 @@ public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
      */
     @Test
     void argsIncludesAllTypePairs() {
-        EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
-
-        args().map(Arguments::get).map(arg -> (NumericPair) arg[0]).forEach(remainingPairs::remove);
-
-        assertThat(remainingPairs, Matchers.empty());
+        checkIncludesAllNumericTypePairs(args());
     }
 
 
@@ -810,7 +805,7 @@ public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
      * @param type Expected return type.
      * @return A matcher.
      */
-    static Matcher<RelDataTypeField> ofJustType(NativeType type) {
+    private static Matcher<RelDataTypeField> ofJustType(NativeType type) {
         IgniteTypeFactory typeFactory = Commons.typeFactory();
         RelDataType sqlType = TypeUtils.native2relationalType(typeFactory, type);
 
@@ -832,7 +827,7 @@ public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
         };
     }
 
-    static Matcher<IgniteRel> setOperandsMatcher(Matcher<Object> first, Matcher<Object> second) {
+    private static Matcher<IgniteRel> setOperandsMatcher(Matcher<Object> first, Matcher<Object> second) {
         return new BaseMatcher<>() {
             @Override
             public boolean matches(Object actual) {
@@ -851,6 +846,7 @@ public class SetOperatorCoercionTest extends BaseTypeCoercionTest {
                 return true;
             }
 
+            @Nullable
             private Object getOperand(RelNode relNode) {
                 Object result = null;
                 if (relNode instanceof IgniteProject) {

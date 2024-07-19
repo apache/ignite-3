@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
 import java.util.concurrent.CompletableFuture;
@@ -73,7 +72,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
                 .txStateInt(txState().ordinal())
                 .txCoordinatorId(txCoordinatorId())
                 .commitPartitionId(commitPartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, commitPartitionId))
-                .commitTimestampLong(hybridTimestampToLong(commitTimestamp()))
+                .commitTimestamp(commitTimestamp())
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
                 .build();

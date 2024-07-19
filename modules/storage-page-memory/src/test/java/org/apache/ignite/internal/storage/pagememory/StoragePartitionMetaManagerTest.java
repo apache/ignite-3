@@ -91,6 +91,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(0, meta.freeListRootPageId());
                 assertEquals(1, meta.pageCount());
                 assertEquals(HybridTimestamp.MIN_VALUE.longValue(), meta.leaseStartTime());
+                assertEquals(0, meta.estimatedSize());
 
                 // Change the meta and write it to the file.
                 meta.lastApplied(null, 50, 10);
@@ -99,6 +100,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 meta.freeListRootPageId(null, 900);
                 meta.incrementPageCount(null);
                 meta.updateLease(null, 500);
+                meta.incrementEstimatedSize(null);
 
                 manager.writeMetaToBuffer(partId, meta.metaSnapshot(UUID.randomUUID()), buffer);
 
@@ -120,13 +122,14 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(900, meta.freeListRootPageId());
                 assertEquals(2, meta.pageCount());
                 assertEquals(500, meta.leaseStartTime());
+                assertEquals(1, meta.estimatedSize());
             }
 
             // Check with delta file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new StoragePartitionMeta(4, 100, 10, 34, 1000, 900, 300, 200, 400)
+                        new StoragePartitionMeta(4, 100, 10, 34, 1000, 900, 300, 200, 400, 200)
                                 .init(null)
                                 .metaSnapshot(null),
                         buffer.rewind()
@@ -152,6 +155,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(400, meta.gcQueueMetaPageId());
                 assertEquals(4, meta.pageCount());
                 assertEquals(1000, meta.leaseStartTime());
+                assertEquals(200, meta.estimatedSize());
             }
 
             // Let's check the broken CRC.
@@ -171,6 +175,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(0, meta.versionChainTreeRootPageId());
                 assertEquals(0, meta.freeListRootPageId());
                 assertEquals(1, meta.pageCount());
+                assertEquals(0, meta.estimatedSize());
             }
         } finally {
             freeBuffer(buffer);

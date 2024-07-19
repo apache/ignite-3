@@ -117,7 +117,7 @@ public class TransactionStateResolver {
                         .thenAccept(txStateMeta -> {
                             NetworkMessage response = TX_MESSAGES_FACTORY.txStateResponse()
                                     .txStateMeta(toTransactionMetaMessage(txStateMeta))
-                                    .timestampLong(clockService.nowLong())
+                                    .timestamp(clockService.now())
                                     .build();
 
                             messagingService.respond(sender, response, correlationId);

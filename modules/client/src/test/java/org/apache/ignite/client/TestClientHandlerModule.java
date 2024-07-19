@@ -112,7 +112,6 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param shouldDropConnection Connection drop condition.
      * @param responseDelay Response delay, in milliseconds.
      * @param clusterService Cluster service.
-     * @param compute Compute.
      * @param clusterTag Cluster tag.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
@@ -126,7 +125,6 @@ public class TestClientHandlerModule implements IgniteComponent {
             Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             ClusterService clusterService,
-            IgniteComputeInternal compute,
             ClusterTag clusterTag,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
@@ -142,7 +140,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.shouldDropConnection = shouldDropConnection;
         this.responseDelay = responseDelay;
         this.clusterService = clusterService;
-        this.compute = compute;
+        this.compute = (IgniteComputeInternal) ignite.compute();
         this.clusterTag = clusterTag;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;

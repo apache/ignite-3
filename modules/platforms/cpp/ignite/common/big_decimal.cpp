@@ -188,16 +188,6 @@ void big_decimal::multiply(const big_decimal &other, big_decimal &res) const {
     res.m_scale = m_scale + other.m_scale;
 }
 
-// Let p1, s1 be the precision and scale of the first operand
-// Let p2, s2 be the precision and scale of the second operand
-// Let p, s be the precision and scale of the result
-// Let d be the number of whole digits in the result
-// Then the result type is a decimal with:
-//     d = p1 - s1 + s2
-//     s < max(6, s1 + p2 + 1)
-//     p = d + s
-//     p and s are capped at their maximum values
-
 void big_decimal::divide(const big_decimal &other, big_decimal &res) const {
     big_decimal v1 = *this;
     big_decimal v2 = other;

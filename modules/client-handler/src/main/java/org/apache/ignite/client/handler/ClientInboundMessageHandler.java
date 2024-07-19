@@ -797,7 +797,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, out, igniteTables);
 
             case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
-                return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables, compute);
+                return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
