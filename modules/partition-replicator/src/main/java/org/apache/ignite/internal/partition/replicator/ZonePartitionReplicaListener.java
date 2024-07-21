@@ -61,7 +61,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-22621 implement zone-based transaction storage
             //  and txn messages processing
             if (request instanceof TxFinishReplicaRequest) {
-                var txFinishReplicaRquest = (TxFinishReplicaRequest) request;
+                TxFinishReplicaRequest txFinishReplicaRquest = (TxFinishReplicaRequest) request;
 
                 TxFinishReplicaRequest requestForTableListener = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                         .txId(txFinishReplicaRquest.txId())
@@ -107,6 +107,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         return raftClient;
     }
 
+    /**
+     * Add table partition listener to the current zone replica listener.
+     *
+     * @param partitionId Table partition id.
+     * @param replicaListener Table replica listener.
+     */
     public void addTableReplicaListener(TablePartitionId partitionId, Function<RaftGroupService, ReplicaListener> replicaListener) {
         replicas.put(partitionId, replicaListener.apply(raftClient));
     }

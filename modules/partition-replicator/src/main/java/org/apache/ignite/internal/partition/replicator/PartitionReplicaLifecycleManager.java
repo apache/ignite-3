@@ -572,8 +572,14 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         return assignmentsFuture;
     }
 
+    /**
+     * Check if the current node has local replica for this {@link ZonePartitionId}.
+     *
+     * @param zonePartitionId Zone partition id.
+     * @return true if local replica exists, false otherwise.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 replace this method by the replicas await process.
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
-        // TODO: we must have await mechanism here
         return replicationGroupIds.contains(zonePartitionId);
     }
 

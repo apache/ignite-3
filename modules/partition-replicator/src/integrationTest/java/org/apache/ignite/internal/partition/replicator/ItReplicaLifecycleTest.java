@@ -728,8 +728,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     private void prepareTableIdToZoneIdConverter(Node node, TablePartitionId tablePartitionId, ZonePartitionId zonePartitionId) {
         node.converter.set(request ->  {
-            if (request.groupId().asReplicationGroupId().equals(tablePartitionId) &&
-                    !(request instanceof WriteIntentSwitchReplicaRequest)) {
+            if (request.groupId().asReplicationGroupId().equals(tablePartitionId)
+                    && !(request instanceof WriteIntentSwitchReplicaRequest)) {
                 return zonePartitionId;
             } else {
                 return request.groupId().asReplicationGroupId();

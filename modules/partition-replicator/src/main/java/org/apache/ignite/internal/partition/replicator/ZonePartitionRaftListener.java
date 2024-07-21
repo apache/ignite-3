@@ -54,9 +54,11 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             Command command = clo.command();
 
             Serializable result = null;
+
             try {
                 if (command instanceof FinishTxCommand) {
                     FinishTxCommand cmd = (FinishTxCommand) command;
+
                     result = new TransactionResult(cmd.commit() ? COMMITTED : ABORTED, cmd.commitTimestamp());
                 } else {
                     LOG.debug("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
