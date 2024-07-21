@@ -1731,6 +1731,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                 .groupId(tablePartitionIdMessage(grpId))
+                .commitPartitionId(tablePartitionIdMessage(grpId))
                 .txId(txId)
                 .groups(Map.of(tablePartitionIdMessage(grpId), localNode.name()))
                 .commit(false)
@@ -1795,6 +1796,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                 .groupId(tablePartitionIdMessage(grpId))
+                .commitPartitionId(tablePartitionIdMessage(grpId))
                 .txId(txId)
                 .groups(Map.of(tablePartitionIdMessage(grpId), localNode.name()))
                 .commit(true)
@@ -2547,6 +2549,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         CompletableFuture<?> future = partitionReplicaListener.invoke(
                 TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                         .groupId(tablePartitionIdMessage(commitPartitionId))
+                        .commitPartitionId(tablePartitionIdMessage(commitPartitionId))
                         .groups(groups.entrySet().stream().collect(toMap(e -> tablePartitionIdMessage(e.getKey()), Map.Entry::getValue)))
                         .txId(txId)
                         .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
