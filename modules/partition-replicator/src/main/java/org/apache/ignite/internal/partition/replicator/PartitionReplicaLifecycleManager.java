@@ -427,13 +427,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         });
     }
 
-    private boolean shouldStartLocally(Assignments assignments) {
-        return assignments
-                .nodes()
-                .stream()
-                .anyMatch(a -> a.consistentId().equals(localNode().name()));
-    }
-
     private ClusterNode localNode() {
         return topologyService.localMember();
     }
