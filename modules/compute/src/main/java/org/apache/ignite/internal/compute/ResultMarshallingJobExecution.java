@@ -42,8 +42,9 @@ class ResultMarshallingJobExecution<R> implements JobExecution<R> {
     public CompletableFuture<R> resultAsync() {
         return delegate.resultAsync()
                 .thenApply(res -> {
-                    if (resultMarshaler == null)
+                    if (resultMarshaler == null) {
                         return (R) res;
+                    }
 
                     return resultMarshaler.unmarshal((byte[]) res);
                 });

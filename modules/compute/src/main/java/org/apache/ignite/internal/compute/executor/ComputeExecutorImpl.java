@@ -45,7 +45,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshaling.Marshaler;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -103,7 +102,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return new JobExecutionInternal<>(execution, isInterrupted);
     }
 
-    private static <T, R> @NotNull Callable<CompletableFuture<Object>> unmarshalExecMarshal(
+    private static <T, R> Callable<CompletableFuture<Object>> unmarshalExecMarshal(
             T input,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,

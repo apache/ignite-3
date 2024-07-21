@@ -59,6 +59,7 @@ import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -93,6 +94,8 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            @Nullable Marshaler<Object, byte[]> argumentMarshaler,
+            @Nullable Marshaler<Object, byte[]> resultMarshaler,
             Object args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
@@ -126,8 +129,15 @@ public class FakeCompute implements IgniteComputeInternal {
     /** {@inheritDoc} */
     @Override
         public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
-                TableViewInternal table, Tuple key, List<DeploymentUnit> units, String jobClassName,
-            JobExecutionOptions options, Object args) {
+            TableViewInternal table,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            @Nullable Marshaler<Object, byte[]> argumentMarshaler,
+            @Nullable Marshaler<R, byte[]> resultMarshaler,
+            Object args
+    ) {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 
@@ -136,7 +146,7 @@ public class FakeCompute implements IgniteComputeInternal {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
             return (JobExecution<R>) executeAsyncWithFailover(
-                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), null, null, args
             );
         } else if (target instanceof ColocatedJobTarget) {
             return jobExecution(future != null ? future : completedFuture((R) nodeName));
