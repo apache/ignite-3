@@ -20,6 +20,8 @@ package org.apache.ignite.internal.compute.executor;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshaling.Marshaler;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -92,18 +95,28 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaler<R, byte[]> resultMarshaller = jobInstance.resultMarshaler();
 
         QueueExecution<Object> execution = executorService.submit(
-                () -> {
-                    var fut = jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
-                    if (fut != null) {
-                        return fut.thenApply(res -> marshallOrNull(res, resultMarshaller));
-                    }
-                    return null;
-                },
+                unmarshalExecMarshal(input, jobInstance, context, inputMarshaller, resultMarshaller),
                 options.priority(),
                 options.maxRetries()
         );
 
         return new JobExecutionInternal<>(execution, isInterrupted);
+    }
+
+    private static <T, R> @NotNull Callable<CompletableFuture<Object>> unmarshalExecMarshal(
+            T input,
+            ComputeJob<T, R> jobInstance,
+            JobExecutionContext context,
+            @Nullable Marshaler<T, byte[]> inputMarshaller,
+            @Nullable Marshaler<R, byte[]> resultMarshaller
+    ) {
+        return () -> {
+            var fut = jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
+            if (fut != null) {
+                return fut.thenApply(res -> marshallOrNull(res, resultMarshaller));
+            }
+            return null;
+        };
     }
 
 
@@ -124,11 +137,21 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             try {
                 return marshaler.unmarshal((byte[]) input);
             } catch (Exception ex) {
-                throw new ComputeException(Compute.TYPE_CHECK_MARSHALING_ERR, "test", ex);
+                throw new ComputeException(Compute.TYPE_CHECK_MARSHALING_ERR,
+                        "Job argument can not be unmarhaled. Both client-side and server-side marshalers should be compatible.",
+                        ex
+                );
             }
         }
 
-        throw new ComputeException(Compute.TYPE_CHECK_MARSHALING_ERR, "test");
+        throw new ComputeException(
+                Compute.TYPE_CHECK_MARSHALING_ERR,
+                "Argument must be a `byte[]` because marhaler is defined. "
+                        + "If you want to use default marshalling strategy, "
+                        + "then you should not define your marshaler in the job. "
+                        + "If you would like to use your own marshalers, then double-check"
+                        + "that both of them are defined in the client and in the server."
+        );
     }
 
     @Override

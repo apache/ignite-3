@@ -62,7 +62,9 @@ public class ClientComputeExecuteRequest {
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
         Object arg = unpackPayload(in);
 
-        JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, arg);
+        JobExecution<Object> execution = compute.executeAsyncWithFailover(
+                candidates, deploymentUnits, jobClassName, options, null, null, arg
+        );
         sendResultAndState(execution, notificationSender);
 
         //noinspection DataFlowIssue

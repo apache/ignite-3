@@ -22,11 +22,20 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 class Jobs {
@@ -245,6 +254,38 @@ class Jobs {
         @Override
         public String toString() {
             return "PojoResult{" + "longValue=" + longValue + '}';
+        }
+    }
+
+
+    public static class MapReduce implements MapReduceTask<List<String>, String, String, String> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(
+                TaskExecutionContext taskContext,
+                @Nullable List<String> input) {
+
+            List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
+
+            var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultMarshalingJob.class)
+                    .argumentMarshaller(new ArgumentStringMarshaller())
+                    .resultMarshaller(new ResultStringUnMarshaller())
+                    .build();
+
+            return completedFuture(List.of(
+                    MapReduceJob.<String, String>builder()
+                            .jobDescriptor(mapJobDescriptor)
+                            .node(nodes.get(0))
+                            .build(),
+                    MapReduceJob.<String, String>builder()
+                            .jobDescriptor(mapJobDescriptor)
+                            .node(nodes.get(1))
+                            .build()
+            ));
+        }
+
+        @Override
+        public CompletableFuture<String> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
+            return null;
         }
     }
 }

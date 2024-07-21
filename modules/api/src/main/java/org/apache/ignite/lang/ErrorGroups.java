@@ -578,7 +578,11 @@ public class ErrorGroups {
         /** Specified node is not found in the cluster. */
         public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
 
-        /** Specified node is not found in the cluster. */
+        /**
+         * Incompatible types for argument/result in compute job.
+         * For example, the one has defined a marshaler for Type A in the compute job
+         * but on the client side they have passed Type B.
+         */
         public static final int TYPE_CHECK_MARSHALING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 15);
     }
 
