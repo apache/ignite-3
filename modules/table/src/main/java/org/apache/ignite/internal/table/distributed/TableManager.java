@@ -1088,7 +1088,25 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return assignments.stream().anyMatch(isLocalNodeAssignment);
     }
 
-    private CompletableFuture<Boolean> isLocalNodeLeaseholder(ReplicationGroupId replicationGroupId) {
+    /**
+     * Checks that the local node is primary or not.
+     * <br>
+     * Internally we use there {@link PlacementDriver#getPrimaryReplica} with a penultimate
+     * safe time value, because metastore is waiting for pending or stable assignments events handling over and only then metastore will
+     * increment the safe time. On the other hand placement driver internally is waiting the metastore for given safe time plus
+     * {@link ClockService#maxClockSkewMillis}. So, if given time is just {@link ClockService#now}, then there is a dead lock: metastore
+     * is waiting until assignments handling is over, but internally placement driver is waiting for a non-applied safe time.
+     * <br>
+     * To solve this issue we pass to {@link PlacementDriver#getPrimaryReplica} current time minus the skew, so placement driver could
+     * successfully get primary replica for the time stamp before the handling has began. Also there a corner case for tests that are using
+     * {@code WatchListenerInhibitor#metastorageEventsInhibitor} and it leads to current time equals {@link HybridTimestamp#MIN_VALUE} and
+     * the skew's subtraction will lead to {@link IllegalArgumentException} from {@link HybridTimestamp}. Then, if we got the minimal
+     * possible timestamp, then we also couldn't have any primary replica, then return {@code false}.
+     *
+     * @param replicationGroupId Replication group ID for that we check is the local node a primary.
+     * @return {@code true} is the local node is primary and {@code false} otherwise.
+     */
+    private CompletableFuture<Boolean> isLocalNodeIsPrimary(ReplicationGroupId replicationGroupId) {
         HybridTimestamp currentSafeTime = metaStorageMgr.clusterTime().currentSafeTime();
 
         if (HybridTimestamp.MIN_VALUE.equals(currentSafeTime)) {
@@ -1107,7 +1125,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         } catch (IllegalArgumentException e) {
             long currentSafeTimeMs = currentSafeTime.longValue();
 
-            throw new AssertionError("!!! [currentSafeTime=" + currentSafeTime
+            throw new AssertionError("Got a negative time [currentSafeTime=" + currentSafeTime
                     + ", currentSafeTimeMs=" + currentSafeTimeMs
                     + ", skewMs=" + skewMs
                     + ", internal=" + (currentSafeTimeMs + ((-skewMs) << LOGICAL_TIME_BITS_SIZE)) + "]", e);
@@ -1906,7 +1924,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture
-                .thenComposeAsync(v -> inBusyLock(busyLock, () -> isLocalNodeLeaseholder(replicaGrpId)), ioExecutor)
+                .thenComposeAsync(v -> inBusyLock(busyLock, () -> isLocalNodeIsPrimary(replicaGrpId)), ioExecutor)
                 .thenAcceptAsync(isLeaseholder -> inBusyLock(busyLock, () -> {
                     boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
                             replicaGrpId,
@@ -2310,7 +2328,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionId tablePartitionId,
             Set<Assignment> stableAssignments
     ) {
-        return isLocalNodeLeaseholder(tablePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
+        return isLocalNodeIsPrimary(tablePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
 
             if (!isLocalInStable && !isLeaseholder) {
@@ -2318,7 +2336,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             assert replicaMgr.isReplicaStarted(tablePartitionId)
-                    : "The local node is outside of the replication group [inStable=" + isLocalInStable
+                    : "The local node is outside of the replication group [stable=" + stableAssignments
                             + ", isLeaseholder=" + isLeaseholder + "].";
 
             // Update raft client peers and learners according to the actual assignments.
