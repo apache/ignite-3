@@ -28,7 +28,7 @@ import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
  * Executor of Compute jobs.
  */
 public interface ComputeExecutor {
-    <T, R> JobExecutionInternal<Object> executeJob(
+    <T, R> JobExecutionInternal<R> executeJob(
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,

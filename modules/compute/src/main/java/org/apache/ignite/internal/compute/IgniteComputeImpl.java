@@ -180,13 +180,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public JobExecution<Object> executeAsyncWithFailover(
+    public <R> JobExecution<R> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
             Marshaler<Object, byte[]> argumentMarshaler,
-            Marshaler<Object, byte[]> resultMarshaler,
+            Marshaler<R, byte[]> resultMarshaler,
             Object args
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
@@ -229,14 +229,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return iterator.next();
     }
 
-    private JobExecution<Object> executeOnOneNodeWithFailover(
+    private <R> JobExecution<R> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
             @Nullable Marshaler<Object, byte[]> argumentMarshaler,
-            @Nullable Marshaler<Object, byte[]> resultMarshaler,
+            @Nullable Marshaler<R, byte[]> resultMarshaler,
             @Nullable Object payload
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);

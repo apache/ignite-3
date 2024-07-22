@@ -44,7 +44,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param arg Job args.
      * @return Job execution object.
      */
-    <T> JobExecution<Object> executeLocally(
+    <T, R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -59,7 +59,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param arg Job args.
      * @return Job execution object.
      */
-    default <T> JobExecution<Object> executeLocally(
+    default <T, R> JobExecution<R> executeLocally(
             List<DeploymentUnit> units,
             String jobClassName,
             T arg
@@ -118,7 +118,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <T, R> JobExecution<Object> executeRemotelyWithFailover(
+    <T, R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,

@@ -79,7 +79,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <T, R> JobExecutionInternal<Object> executeJob(
+    public <T, R> JobExecutionInternal<R> executeJob(
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
@@ -93,7 +93,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaler<T, byte[]> inputMarshaller = jobInstance.inputMarshaler();
         Marshaler<R, byte[]> resultMarshaller = jobInstance.resultMarshaler();
 
-        QueueExecution<Object> execution = executorService.submit(
+        QueueExecution<R> execution = executorService.submit(
                 unmarshalExecMarshal(input, jobInstance, context, inputMarshaller, resultMarshaller),
                 options.priority(),
                 options.maxRetries()
@@ -102,7 +102,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return new JobExecutionInternal<>(execution, isInterrupted);
     }
 
-    private static <T, R> Callable<CompletableFuture<Object>> unmarshalExecMarshal(
+    private static <T, R> Callable<CompletableFuture<R>> unmarshalExecMarshal(
             T input,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,
@@ -112,19 +112,19 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return () -> {
             var fut = jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
             if (fut != null) {
-                return fut.thenApply(res -> marshallOrNull(res, resultMarshaller));
+                return (CompletableFuture<R>) fut.thenApply(res -> marshallOrNull(res, resultMarshaller));
             }
             return null;
         };
     }
 
 
-    private static <R> Object marshallOrNull(R res, @Nullable Marshaler<R, byte[]> marshaler) {
+    private static <R> Object marshallOrNull(Object res, @Nullable Marshaler<R, byte[]> marshaler) {
         if (marshaler == null) {
             return res;
         }
 
-        return marshaler.marshal(res);
+        return marshaler.marshal((R) res);
     }
 
     private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaler<T, byte[]> marshaler, Object input) {

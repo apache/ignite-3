@@ -116,7 +116,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <I> JobExecution<Object> executeLocally(
+    public <I, R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -129,10 +129,10 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            CompletableFuture<JobExecutionInternal<Object>> future =
+            CompletableFuture<JobExecutionInternal<R>> future =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
                             .thenApply(context -> {
-                                JobExecutionInternal<Object> execution = execJob(context, options, jobClassName, arg);
+                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, arg);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -140,7 +140,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
             inFlightFutures.registerFuture(future);
 
-            JobExecution<Object> result = new DelegatingJobExecution<>(future);
+            JobExecution<R> result = new DelegatingJobExecution<>(future);
             result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
             return result;
         } finally {
@@ -212,7 +212,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public <T, R> JobExecution<Object> executeRemotelyWithFailover(
+    public <T, R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
@@ -220,7 +220,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             ExecutionOptions options,
             T arg
     ) {
-        JobExecution<Object> result = new ComputeJobFailover(
+        JobExecution<R> result = new ComputeJobFailover(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
                 jobClassName, options, arg
@@ -294,7 +294,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
 
-    private <T, R> JobExecutionInternal<Object> execJob(JobContext context, ExecutionOptions options, String jobClassName, T args) {
+    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, T args) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), args);
         } catch (Throwable e) {
