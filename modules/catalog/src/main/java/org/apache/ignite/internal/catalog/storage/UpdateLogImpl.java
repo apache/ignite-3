@@ -26,7 +26,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToIntKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -206,13 +208,16 @@ public class UpdateLogImpl implements UpdateLog {
                 return falseCompletedFuture();
             }
 
+            // We need to keep order for the comparison to work correctly.
+            byte[] snapshotVersionValue = intToBytesKeepingOrder(snapshotVersion);
+
             Condition versionIsRecent = or(
                     notExists(CatalogKey.snapshotVersion()),
-                    value(CatalogKey.snapshotVersion()).lt(intToBytes(snapshotVersion))
+                    value(CatalogKey.snapshotVersion()).lt(snapshotVersionValue)
             );
             Update saveSnapshotAndDropOutdatedUpdates = ops(Stream.concat(
                     Stream.of(
-                            put(CatalogKey.snapshotVersion(), intToBytes(snapshotVersion)),
+                            put(CatalogKey.snapshotVersion(), snapshotVersionValue),
                             put(CatalogKey.update(snapshotVersion), marshaller.marshall(update))
                     ),
                     IntStream.range(oldSnapshotVersion, snapshotVersion).mapToObj(ver -> Operations.remove(CatalogKey.update(ver)))
@@ -240,7 +245,7 @@ public class UpdateLogImpl implements UpdateLog {
 
         Entry earliestVersion = metastore.getLocally(CatalogKey.snapshotVersion(), recoveryRevision);
 
-        int ver = earliestVersion.empty() ? 1 : bytesToInt(Objects.requireNonNull(earliestVersion.value()));
+        int ver = earliestVersion.empty() ? 1 : bytesToIntKeepingOrder(Objects.requireNonNull(earliestVersion.value()));
 
         recoverUpdates(handler, recoveryRevision, ver);
     }

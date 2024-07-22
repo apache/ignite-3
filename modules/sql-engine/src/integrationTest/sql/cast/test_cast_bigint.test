@@ -6,7 +6,7 @@
 statement ok
 SELECT CAST('100' AS BIGINT);
 
-# https://issues.apache.org/jira/browse/IGNITE-22519
+# https://issues.apache.org/jira/browse/IGNITE-20889
 skipif ignite3
 statement error
 SELECT CAST('100.1' AS BIGINT);
@@ -16,7 +16,7 @@ SELECT CAST(1e1 AS BIGINT);
 ----
 10
 
-# https://issues.apache.org/jira/browse/IGNITE-22519
+# https://issues.apache.org/jira/browse/IGNITE-20889
 skipif ignite3
 statement error: For input string: "1e2"
 SELECT CAST('1e2' AS BIGINT);
@@ -74,7 +74,7 @@ SELECT CAST(100.1::DOUBLE AS BIGINT);
 ----
 100
 
-statement error: Character x is neither a decimal digit number, decimal point, nor "e" notation exponential mark.
+statement error: Invalid input syntax for type BIGINT: "100x"
 SELECT CAST('100x' AS BIGINT);
 
 statement error: Cast function cannot convert value of type BINARY(1) to type BIGINT

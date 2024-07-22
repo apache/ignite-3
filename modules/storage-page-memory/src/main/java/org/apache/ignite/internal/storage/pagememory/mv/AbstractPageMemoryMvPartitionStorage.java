@@ -247,7 +247,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private static boolean lookingForLatestVersion(HybridTimestamp timestamp) {
-        return timestamp == HybridTimestamp.MAX_VALUE;
+        return HybridTimestamp.MAX_VALUE.equals(timestamp);
     }
 
     ReadResult findLatestRowVersion(VersionChain versionChain) {
@@ -386,7 +386,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return ReadResult.empty(chain.rowId());
     }
 
-    private ReadResult writeIntentToResult(VersionChain chain, RowVersion rowVersion, @Nullable HybridTimestamp lastCommittedTimestamp) {
+    private static ReadResult writeIntentToResult(
+            VersionChain chain,
+            RowVersion rowVersion,
+            @Nullable HybridTimestamp lastCommittedTimestamp
+    ) {
         assert rowVersion.isUncommitted();
 
         UUID transactionId = chain.transactionId();
@@ -569,19 +573,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 return cursor.hasNext() ? cursor.next().rowId() : null;
             } catch (Exception e) {
                 throw new StorageException("Error occurred while trying to read a row id", e);
-            }
-        });
-    }
-
-    @Override
-    public long rowsCount() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
-
-            try {
-                return renewableState.versionChainTree().size();
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error occurred while fetching the size.", e);
             }
         });
     }
@@ -905,4 +896,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public CompletableFuture<Void> destroyIndex(int indexId) {
         return busy(() -> indexes.destroyIndex(indexId, renewableState.indexMetaTree()));
     }
+
+    /**
+     * Increments the estimated size of this partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public abstract void incrementEstimatedSize();
+
+    /**
+     * Decrements the estimated size of this partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public abstract void decrementEstimatedSize();
 }

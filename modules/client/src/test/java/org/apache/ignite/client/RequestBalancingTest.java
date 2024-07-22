@@ -49,10 +49,9 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        FakeIgnite ignite = new FakeIgnite();
-        server1 = new TestServer(0, ignite, null, null, "s1", AbstractClientTest.clusterId, null, 10991);
-        server2 = new TestServer(0, ignite, null, null, "s2", AbstractClientTest.clusterId, null, 10992);
-        server3 = new TestServer(0, ignite, null, null, "s3", AbstractClientTest.clusterId, null, 10993);
+        server1 = new TestServer(0, new FakeIgnite("s1"), null, null, "s1", AbstractClientTest.clusterId, null, 10991);
+        server2 = new TestServer(0, new FakeIgnite("s2"), null, null, "s2", AbstractClientTest.clusterId, null, 10992);
+        server3 = new TestServer(0, new FakeIgnite("s3"), null, null, "s3", AbstractClientTest.clusterId, null, 10993);
     }
 
     @AfterEach
@@ -67,7 +66,7 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
 
             // Execute on unknown node to fall back to balancing.
             List<Object> res = IntStream.range(0, 5)
-                    .mapToObj(i -> client.compute().execute(getClusterNodes("s123"), JobDescriptor.builder("job").build()))
+                    .mapToObj(i -> client.compute().execute(getClusterNodes("s123"), JobDescriptor.builder("job").build(), null))
                     .collect(Collectors.toList());
 
             assertEquals(5, res.size());

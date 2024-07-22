@@ -74,6 +74,8 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 /**
  * Listener for the raft group events, which must provide correct error handling of rebalance process
  * and start new rebalance after the current one finished.
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this class and use {@link ZoneRebalanceRaftGroupEventsListener} instead
+ *  after switching to zone-based replication.
  */
 public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener {
     /** Ignite logger. */
@@ -259,11 +261,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             Set<Integer> counter = fromBytes(counterEntry.value());
 
-            assert !counter.isEmpty();
-
             if (!counter.contains(tablePartitionId.tableId())) {
                 // Count down for this table has already been processed, just skip.
                 // For example, this can happen when leader re-election happened during the rebalance process.
+                LOG.info("Counter count down skipped, because the counter doesn't contain the tableId=" + tablePartitionId.tableId());
+
                 return;
             }
 
@@ -310,6 +312,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
             LOG.warn("Unable to count down partitions counter in metastore: " + tablePartitionId, e);
+        } catch (Throwable e) {
+            // TODO: IGNITE-14693
+            LOG.error("Unable to count down partitions counter in metastore: " + tablePartitionId, e);
+
+            throw e;
         }
     }
 
@@ -405,7 +412,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     )
             ).get();
 
-            Set<Assignment> calculatedAssignments = calculateAssignments(tablePartitionId, catalogService, distributionZoneManager).get();
+            // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+            //  in the catalog. Better to take the version from Assignments.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
+            Set<Assignment> calculatedAssignments =
+                    calculateAssignments(tablePartitionId, catalogService, distributionZoneManager, catalogVersion).get();
 
             Entry stableEntry = values.get(stablePartAssignmentsKey);
             Entry pendingEntry = values.get(pendingPartAssignmentsKey);

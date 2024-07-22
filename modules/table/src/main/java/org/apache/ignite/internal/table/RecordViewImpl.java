@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -33,6 +36,7 @@ import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.TupleReader;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -143,6 +147,36 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             BinaryRowEx keyRow = marshalKey(keyRec, schemaVersion);
 
             return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<R> keys) {
+        return sync(containsAllAsync(tx, keys));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<R> keys) {
+        checkKeysForNulls(keys);
+
+        if (keys.isEmpty()) {
+            return trueCompletedFuture();
+        }
+
+        return doOperation(tx, (schemaVersion) -> {
+            Collection<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
+
+            return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> {
+                for (BinaryRow row : rows) {
+                    if (row == null) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
         });
     }
 
@@ -548,14 +582,6 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<R>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
-        // columns never change (so they are the same for all schema versions of the table),
-        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(
-                rowConverter.registry(),
-                tbl.partitions(),
-                marshaller(rowConverter.registry().lastKnownSchemaVersion())
-        );
-
         @SuppressWarnings({"rawtypes", "unchecked"})
         StreamerBatchSender<R, Integer, Void> batchSender = (partitionId, items, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture) withSchemaSync(
@@ -564,22 +590,53 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                 ));
 
         CompletableFuture<Void> future = DataStreamer.streamData(
-                publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
+                publisher, options, batchSender, streamerPartitioner(), tbl.streamerFlushExecutor());
 
         return convertToPublicFuture(future);
     }
 
     @Override
-    public <E, V, R1> CompletableFuture<Void> streamData(
+    public <E, V, R1, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, R> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R1> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object... receiverArgs) {
-        // TODO: IGNITE-22285 Embedded Data Streamer with Receiver
-        throw new UnsupportedOperationException("Not implemented yet");
+            @Nullable A receiverArg) {
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(receiver);
+
+        StreamerBatchSender<V, Integer, R1> batchSender = (partitionId, rows, deleted) ->
+                PublicApiThreading.execUserAsyncOperation(() ->
+                        tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
+                                .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
+                                        receiver, receiverArg, rows, node, receiver.units())));
+
+        CompletableFuture<Void> future = DataStreamer.<R, E, V, R1>streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options,
+                batchSender,
+                resultSubscriber,
+                streamerPartitioner(),
+                tbl.streamerFlushExecutor());
+
+        return convertToPublicFuture(future);
+    }
+
+    private PojoStreamerPartitionAwarenessProvider<R> streamerPartitioner() {
+        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+        // columns never change (so they are the same for all schema versions of the table),
+        return new PojoStreamerPartitionAwarenessProvider<>(
+                rowConverter.registry(),
+                tbl.partitions(),
+                marshaller(rowConverter.registry().lastKnownSchemaVersion())
+        );
     }
 
     /** {@inheritDoc} */

@@ -103,6 +103,16 @@ public class PublicApiThreadingKeyValueView<K, V> extends PublicApiThreadingView
     }
 
     @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<K> keys) {
+        return executeSyncOp(() -> view.containsAll(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<K> keys) {
+        return executeAsyncOp(() -> view.containsAllAsync(tx, keys));
+    }
+
+    @Override
     public void put(@Nullable Transaction tx, K key, @Nullable V val) {
         executeSyncOp(() -> view.put(tx, key, val));
     }

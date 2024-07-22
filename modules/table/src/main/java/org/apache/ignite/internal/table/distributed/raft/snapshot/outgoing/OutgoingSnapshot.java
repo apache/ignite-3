@@ -42,6 +42,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -49,6 +50,8 @@ import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxMetaMessage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
@@ -62,7 +65,12 @@ import org.jetbrains.annotations.Nullable;
 public class OutgoingSnapshot {
     private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshot.class);
 
-    private static final PartitionReplicationMessagesFactory MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     private final UUID id;
 
@@ -204,7 +212,7 @@ public class OutgoingSnapshot {
 
         assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
 
-        return MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
     }
 
     @Nullable
@@ -247,7 +255,7 @@ public class OutgoingSnapshot {
             }
         }
 
-        return MESSAGES_FACTORY.snapshotMvDataResponse()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotMvDataResponse()
                 .rows(batch)
                 .finish(finishedMvData())
                 .build();
@@ -346,7 +354,7 @@ public class OutgoingSnapshot {
 
             BinaryRowMessage rowMessage = row == null
                     ? null
-                    : MESSAGES_FACTORY.binaryRowMessage()
+                    : PARTITION_REPLICATION_MESSAGES_FACTORY.binaryRowMessage()
                             .binaryTuple(row.tupleSlice())
                             .schemaVersion(row.schemaVersion())
                             .build();
@@ -364,7 +372,7 @@ public class OutgoingSnapshot {
             }
         }
 
-        return MESSAGES_FACTORY.responseEntry()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.responseEntry()
                 .rowId(rowId.uuid())
                 .rowVersions(rowVersions)
                 .timestamps(commitTimestamps)
@@ -408,15 +416,15 @@ public class OutgoingSnapshot {
     }
 
     private static SnapshotTxDataResponse buildTxDataResponse(List<IgniteBiTuple<UUID, TxMeta>> rows, boolean finished) {
-        List<UUID> txIds = new ArrayList<>();
-        List<TxMeta> txMetas = new ArrayList<>();
+        var txIds = new ArrayList<UUID>(rows.size());
+        var txMetas = new ArrayList<TxMetaMessage>(rows.size());
 
         for (IgniteBiTuple<UUID, TxMeta> row : rows) {
             txIds.add(row.getKey());
-            txMetas.add(row.getValue());
+            txMetas.add(row.getValue().toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY));
         }
 
-        return MESSAGES_FACTORY.snapshotTxDataResponse()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.snapshotTxDataResponse()
                 .txIds(txIds)
                 .txMeta(txMetas)
                 .finish(finished)

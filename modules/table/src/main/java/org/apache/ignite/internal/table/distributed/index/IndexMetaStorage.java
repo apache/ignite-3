@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import static java.util.Collections.unmodifiableCollection;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
@@ -38,7 +39,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.READ_ONLY;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.statusOnRemoveIndex;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -82,7 +83,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Local storage of {@link IndexMeta index metadata}, based on a {@link CatalogIndexDescriptor} and stored in metastore, is responsible for
@@ -201,10 +201,9 @@ public class IndexMetaStorage implements IgniteComponent {
         return indexMetaByIndexId.get(indexId);
     }
 
-    /** Returns a snapshot of all {@link IndexMeta}s. */
-    @TestOnly
-    Collection<IndexMeta> indexMetasSnapshot() {
-        return List.copyOf(indexMetaByIndexId.values());
+    /** Returns a view of all index meta. */
+    public Collection<IndexMeta> indexMetas() {
+        return unmodifiableCollection(indexMetaByIndexId.values());
     }
 
     private CompletableFuture<Boolean> onCatalogIndexCreateEvent(CreateIndexEventParameters parameters) {
@@ -440,11 +439,13 @@ public class IndexMetaStorage implements IgniteComponent {
 
     private CompletableFuture<?> saveToMetastore(IndexMeta newMeta) {
         ByteArray versionKey = indexMetaVersionKey(newMeta);
+        // We need to keep order for the comparison to work correctly.
+        byte[] versionValue = intToBytesKeepingOrder(newMeta.catalogVersion());
 
         return metaStorageManager.invoke(
-                value(versionKey).lt(intToBytes(newMeta.catalogVersion())),
+                value(versionKey).lt(versionValue),
                 List.of(
-                        put(versionKey, intToBytes(newMeta.catalogVersion())),
+                        put(versionKey, versionValue),
                         put(indexMetaValueKey(newMeta), toBytes(newMeta))
                 ),
                 List.of(noop())

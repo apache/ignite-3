@@ -52,7 +52,7 @@ public final class SqlOperationContext {
             ZoneId timeZoneId,
             Object[] parameters,
             HybridTimestamp operationTime,
-            QueryTransactionContext txContext,
+            @Nullable QueryTransactionContext txContext,
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
             @Nullable PrefetchCallback prefetchCallback
@@ -85,7 +85,7 @@ public final class SqlOperationContext {
      * Returns callback to notify about readiness of the first page of the results.
      *
      * <p>May be null on remote side, but never null on node initiator.
-     */ 
+     */
     public @Nullable PrefetchCallback prefetchCallback() {
         return prefetchCallback;
     }
@@ -141,7 +141,7 @@ public final class SqlOperationContext {
         private ZoneId timeZoneId;
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
         private HybridTimestamp operationTime;
-        private QueryTransactionContext txContext;
+        private @Nullable QueryTransactionContext txContext;
 
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;

@@ -100,12 +100,14 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         alterTable(TABLE_NAME);
 
-        IgniteException ex;
+        int errorCode;
 
         int tableId = unwrapTableViewInternal(table).tableId();
 
         if (operation.sql()) {
-            ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
+            IgniteException ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
+            errorCode = ex.code();
+
             assertThat(
                     ex.getMessage(),
                     containsString(String.format(
@@ -114,7 +116,9 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     ))
             );
         } else {
-            ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
+            IncompatibleSchemaException ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
+            errorCode = ex.code();
+
             assertThat(
                     ex.getMessage(),
                     is(String.format(
@@ -124,7 +128,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             );
         }
 
-        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+        assertThat(errorCode, is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }
@@ -244,19 +248,23 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         dropTable(TABLE_NAME);
 
-        IgniteException ex;
+        int errorCode;
 
         int tableId = unwrapTableViewInternal(table).tableId();
 
         if (operation.sql()) {
-            ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
+            IgniteException ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
+            errorCode = ex.code();
+
             assertThat(
                     ex.getMessage(),
                     // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
                     containsString(String.format("Table was dropped [tableId=%s]", tableId))
             );
         } else {
-            ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
+            IncompatibleSchemaException ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
+            errorCode = ex.code();
+
             assertThat(
                     ex.getMessage(),
                     // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
@@ -264,7 +272,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             );
         }
 
-        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+        assertThat(errorCode, is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }
@@ -299,7 +307,8 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                 containsString(String.format("Commit failed because a table was already dropped [table=%s]", table.name()))
         );
 
-        assertThat(((TransactionException) ex).code(), is(Transactions.TX_UNEXPECTED_STATE_ERR));
+        // TODO: IGNITE-20415 - assert that the failure is because of a changed schema.
+        assertThat(((TransactionException) ex).code(), is(Transactions.TX_COMMIT_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }

@@ -49,18 +49,19 @@ public interface DataStreamerTarget<T> {
      *     NOTE: The result subscriber follows the pace of publisher and ignores backpressure
      *     from {@link Flow.Subscription#request(long)} calls.
      * @param options Options (can be null).
-     * @param receiverArgs Receiver arguments.
+     * @param receiverArg Receiver arguments.
      * @return Future that will be completed when the stream is finished.
      * @param <E> Producer item type.
      * @param <V> Payload type.
      * @param <R> Result type.
+     * @param <A> Receiver job argument type.
      */
-    <E, V, R> CompletableFuture<Void> streamData(
+    <E, V, R, A> CompletableFuture<Void> streamData(
             Flow.Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object... receiverArgs);
+            @Nullable A receiverArg);
 }

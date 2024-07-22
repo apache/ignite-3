@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.testframework.asserts;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
@@ -45,12 +46,36 @@ public class CompletableFutureAssert {
             CompletableFuture<?> future,
             Class<X> expectedExceptionClass
     ) {
+        return assertWillThrow(future, expectedExceptionClass, 1, SECONDS);
+    }
+
+    /**
+     * Asserts that the given future completes with an exception being an instance of the given class (in time) and returns
+     * that exception for further examination.
+     *
+     * <p>Unlike
+     * {@link org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
+     * this method allows to examine the actual exception thrown further in the test.
+     *
+     * @param future Future to work on.
+     * @param expectedExceptionClass Expected class of the exception.
+     * @param timeout Duration to wait for future completion.
+     * @param timeUnit Time unit of the duration.
+     * @param <X> Exception type.
+     * @return Matched exception.
+     */
+    public static <X extends Throwable> X assertWillThrow(
+            CompletableFuture<?> future,
+            Class<X> expectedExceptionClass,
+            long timeout,
+            TimeUnit timeUnit
+    ) {
         Object normalResult;
 
         try {
-            normalResult = future.get(1, TimeUnit.SECONDS);
+            normalResult = future.get(timeout, timeUnit);
         } catch (TimeoutException e) {
-            return fail("Expected the future to be completed with an exception of class in 1 second, but it did not complete in time");
+            return fail("Expected the future to be completed with an exception of class in time, but it did not");
         } catch (Throwable e) {
             Throwable unwrapped = unwrapThrowable(e);
 

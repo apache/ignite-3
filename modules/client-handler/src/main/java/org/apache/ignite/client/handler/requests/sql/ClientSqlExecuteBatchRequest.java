@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -30,9 +29,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.SqlBatchException;
 
 /**
  * Client SQL execute batch request.
@@ -79,55 +76,18 @@ public class ClientSqlExecuteBatchRequest {
                         () -> {},
                         cursor -> 0,
                         cursorId -> {})
-                .handle((affectedRows, ex) -> {
+                .thenApply((affectedRows) -> {
                     out.meta(transactions.observableTimestamp());
 
-                    if (ex != null) {
-                        var cause = ExceptionUtils.unwrapCause(ex.getCause());
+                    out.packNil(); // resourceId
 
-                        if (cause instanceof SqlBatchException) {
-                            var exBatch = ((SqlBatchException) cause);
+                    out.packBoolean(false); // has row set
+                    out.packBoolean(false); // has more pages
+                    out.packBoolean(false); // was applied
 
-                            writeBatchResult(out, exBatch.updateCounters(), exBatch.code(), exBatch.getMessage(), exBatch.traceId());
-                            return null;
-                        }
+                    out.packLongArray(affectedRows); // affected rows
 
-                        affectedRows = ArrayUtils.LONG_EMPTY_ARRAY;
-                    }
-
-                    writeBatchResult(out, affectedRows);
                     return null;
                 });
-    }
-
-    private static void writeBatchResult(
-            ClientMessagePacker out,
-            long[] affectedRows,
-            int errorCode,
-            String errorMessage,
-            UUID traceId) {
-        out.packNil(); // resourceId
-
-        out.packBoolean(false); // has row set
-        out.packBoolean(false); // has more pages
-        out.packBoolean(false); // was applied
-        out.packLongArray(affectedRows); // affected rows
-        out.packInt(errorCode); // error code
-        out.packString(errorMessage); // error message
-        out.packUuid(traceId);
-    }
-
-    private static void writeBatchResult(
-            ClientMessagePacker out,
-            long[] affectedRows) {
-        out.packNil(); // resourceId
-
-        out.packBoolean(false); // has row set
-        out.packBoolean(false); // has more pages
-        out.packBoolean(false); // was applied
-        out.packLongArray(affectedRows); // affected rows
-        out.packNil(); // error code
-        out.packNil(); // error message
-        out.packNil(); // trace id
     }
 }

@@ -111,8 +111,11 @@ class IndexBuildController implements ManuallyCloseable {
         this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
+    }
 
-        addListeners();
+    /** Starts component. */
+    public void start() {
+        inBusyLock(busyLock, this::addListeners);
     }
 
     @Override
@@ -184,6 +187,11 @@ class IndexBuildController implements ManuallyCloseable {
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
                 int catalogVersion = catalogService.latestCatalogVersion();
+
+                // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed table by LWM
+                if (catalogService.table(primaryReplicaId.tableId(), catalogVersion) == null) {
+                    return nullCompletedFuture();
+                }
 
                 return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
                         .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())

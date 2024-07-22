@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -171,6 +173,29 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
+                tx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<Tuple> keys) {
+        return sync(containsAllAsync(tx, keys));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
+        checkKeysForNulls(keys);
+
+        if (keys.isEmpty()) {
+            return trueCompletedFuture();
+        }
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                (s, w) -> ser.writeTuples(tx, keys, s, w, true),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()),
                 tx);
     }
 
@@ -488,14 +513,14 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public <E, V, R> CompletableFuture<Void> streamData(
+    public <E, V, R, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, Entry<Tuple, Tuple>> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor receiver,
+            ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            Object... receiverArgs) {
+            A receiverArg) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -512,7 +537,9 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 resultSubscriber,
                 receiver.units(),
                 receiver.receiverClassName(),
-                receiverArgs);
+                receiverArg,
+                receiver.argumentMarshaller()
+        );
     }
 
     /** {@inheritDoc} */

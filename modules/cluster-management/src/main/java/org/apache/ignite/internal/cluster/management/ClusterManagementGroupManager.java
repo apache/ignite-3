@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -53,10 +52,12 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMes
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftGroupListener;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
 import org.apache.ignite.internal.cluster.management.raft.IllegalInitArgumentException;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
+import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -81,6 +82,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -127,9 +129,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final RaftManager raftManager;
 
-    private final ClusterStateStorage clusterStateStorage;
+    private final ClusterStateStorageManager clusterStateStorageMgr;
 
     private final LogicalTopology logicalTopology;
+
+    private final ValidationManager validationManager;
 
     private final ClusterManagementConfiguration configuration;
 
@@ -154,8 +158,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterService clusterService,
             ClusterInitializer clusterInitializer,
             RaftManager raftManager,
-            ClusterStateStorage clusterStateStorage,
+            ClusterStateStorageManager clusterStateStorageMgr,
             LogicalTopology logicalTopology,
+            ValidationManager validationManager,
             ClusterManagementConfiguration configuration,
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor
@@ -163,8 +168,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
         this.raftManager = raftManager;
-        this.clusterStateStorage = clusterStateStorage;
+        this.clusterStateStorageMgr = clusterStateStorageMgr;
         this.logicalTopology = logicalTopology;
+        this.validationManager = validationManager;
         this.configuration = configuration;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
@@ -172,6 +178,33 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
+        );
+    }
+
+    /** Constructor. */
+    @TestOnly
+    public ClusterManagementGroupManager(
+            VaultManager vault,
+            ClusterService clusterService,
+            ClusterInitializer clusterInitializer,
+            RaftManager raftManager,
+            ClusterStateStorage clusterStateStorage,
+            LogicalTopology logicalTopology,
+            ClusterManagementConfiguration configuration,
+            NodeAttributes nodeAttributes,
+            FailureProcessor failureProcessor
+    ) {
+        this(
+                vault,
+                clusterService,
+                clusterInitializer,
+                raftManager,
+                new ClusterStateStorageManager(clusterStateStorage),
+                logicalTopology,
+                new ValidationManager(new ClusterStateStorageManager(clusterStateStorage), logicalTopology),
+                configuration,
+                nodeAttributes,
+                failureProcessor
         );
     }
 
@@ -187,7 +220,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             Collection<String> cmgNodeNames,
             String clusterName
     ) throws NodeStoppingException {
-        initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, null);
+        sync(initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName));
     }
 
     /**
@@ -204,18 +237,63 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             String clusterName,
             @Nullable String clusterConfiguration
     ) throws NodeStoppingException {
+        sync(initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration));
+    }
+
+    private static void sync(CompletableFuture<Void> future) {
+        try {
+            future.join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(unwrapCause(e));
+        }
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
+     * @param clusterName Human-readable name of the cluster.
+     * @return Future which completes when cluster is initialized.
+     */
+    public CompletableFuture<Void> initClusterAsync(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName
+    ) throws NodeStoppingException {
+        return initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName, null);
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
+     * @param clusterName Human-readable name of the cluster.
+     * @param clusterConfiguration Cluster configuration.
+     * @return Future which completes when cluster is initialized.
+     */
+    public CompletableFuture<Void> initClusterAsync(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName,
+            @Nullable String clusterConfiguration
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration).get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new InitException("Interrupted while initializing the cluster", e);
-        } catch (ExecutionException e) {
-            throw new InitException("Unable to initialize the cluster: " + e.getCause().getMessage(), e.getCause());
+            return clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration)
+                    .handle((res, e) -> {
+                        if (e == null) {
+                            return res;
+                        }
+                        if (e instanceof InterruptedException) {
+                            throw new InitException("Interrupted while initializing the cluster", e);
+                        }
+                        throw new InitException("Unable to initialize the cluster: " + e.getMessage(), e);
+                    });
         } finally {
             busyLock.leaveBusy();
         }
@@ -589,7 +667,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                     .startRaftGroupNodeAndWaitNodeReadyFuture(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             raftConfiguration,
-                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
+                            new CmgRaftGroupListener(clusterStateStorageMgr, logicalTopology, validationManager,
+                                    this::onLogicalTopologyChanged),
                             this::onElectedAsLeader
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));

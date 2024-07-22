@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,21 +34,9 @@ public interface FinishTxCommand extends PartitionCommand {
      */
     boolean commit();
 
-    /**
-     * Returns a transaction commit timestamp.
-     */
-    long commitTimestampLong();
+    /** Transaction commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
 
-    /**
-     * Returns a transaction commit timestamp.
-     */
-    default @Nullable HybridTimestamp commitTimestamp() {
-        return nullableHybridTimestamp(commitTimestampLong());
-    }
-
-    /**
-     * Returns an ordered replication groups ids.
-     */
+    /** Returns ordered replication groups IDs. */
     List<TablePartitionIdMessage> partitionIds();
-
 }

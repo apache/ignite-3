@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -42,7 +43,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.AnyNodeJobTarget;
 import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeException;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -52,19 +52,26 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
+import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
@@ -73,7 +80,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link IgniteCompute}.
  */
-public class IgniteComputeImpl implements IgniteComputeInternal {
+public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceiverRunner {
     private final TopologyService topologyService;
 
     private final IgniteTablesInternal tables;
@@ -95,17 +102,33 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         this.tables = tables;
         this.computeComponent = computeComponent;
         this.clock = clock;
+
+        tables.setStreamerReceiverRunner(this);
     }
 
     @Override
-    public <R> JobExecution<R> submit(JobTarget target, JobDescriptor descriptor, Object... args) {
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
+
+        Marshaler<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
 
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-            return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+            if (nodes.size() == 1) {
+                ClusterNode node = nodes.iterator().next();
+                if (node.id().equals(topologyService.localMember().id())) {
+                    return executeAsyncWithFailover(
+                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
+                    );
+                }
+            }
+
+            return executeAsyncWithFailover(
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                    argumentMarshaler == null ? args : argumentMarshaler.marshal(args)
+            );
         }
 
         if (target instanceof ColocatedJobTarget) {
@@ -124,7 +147,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                         descriptor.units(),
                                         descriptor.jobClassName(),
                                         descriptor.options(),
-                                        args
+                                        argumentMarshaler == null ? args : argumentMarshaler.marshal(args)
                                 )));
 
             } else {
@@ -135,7 +158,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                 descriptor.units(),
                                 descriptor.jobClassName(),
                                 descriptor.options(),
-                                args));
+                                argumentMarshaler == null ? args : argumentMarshaler.marshal(args)));
             }
 
             return new JobExecutionFutureWrapper<>(jobFut);
@@ -145,7 +168,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> R execute(JobTarget target, JobDescriptor descriptor, Object... args) {
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         return sync(executeAsync(target, descriptor, args));
     }
 
@@ -155,7 +178,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            Object args
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
         for (ClusterNode node : nodes) {
@@ -195,19 +218,19 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return iterator.next();
     }
 
-    private <R> JobExecution<R> executeOnOneNodeWithFailover(
+    private <T, R> JobExecution<R> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
-            Object[] args
+            T payload
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(options, units, jobClassName, args);
+            return computeComponent.executeLocally(options, units, jobClassName, payload);
         } else {
-            return computeComponent.executeRemotelyWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, args);
+            return computeComponent.executeRemotelyWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, payload);
         }
     }
 
@@ -239,12 +262,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args) {
+            Object arg) {
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
-                        units, jobClassName, options, args
+                        units, jobClassName, options, arg
                 ));
     }
 
@@ -286,14 +309,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            JobDescriptor descriptor,
-            Object... args
+            JobDescriptor<T, R> descriptor,
+            T args
     ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
+        Marshaler<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
@@ -303,12 +327,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                                 return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
                             }
                             return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node, CompletableFutures::nullCompletedFuture,
-                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
+                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                                    argumentMarshaler == null ? args : argumentMarshaler.marshal(args)));
                         }));
     }
 
     @Override
-    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         Objects.requireNonNull(units);
         Objects.requireNonNull(taskClassName);
 
@@ -316,12 +341,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
         return sync(executeMapReduceAsync(units, taskClassName, args));
     }
 
-    private JobExecution<Object> submitJob(MapReduceJob runner) {
-        return submit(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.args());
+    private <M, T> JobExecution<T> submitJob(MapReduceJob<M, T> runner) {
+        return submit(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.arg());
     }
 
     @Override
@@ -342,6 +367,46 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
         return computeComponent.changePriorityAsync(jobId, newPriority);
+    }
+
+    @Override
+    public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
+            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
+            Collection<I> items,
+            ClusterNode node,
+            List<DeploymentUnit> deploymentUnits) {
+        var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(receiver, receiverArg, items);
+
+        return runReceiverAsync(payload, node, deploymentUnits)
+                .thenApply(StreamerReceiverSerializer::deserializeReceiverJobResults);
+    }
+
+    @Override
+    public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+        // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
+        JobExecution<byte[]> jobExecution = executeAsyncWithFailover(
+                Set.of(node),
+                deploymentUnits,
+                StreamerReceiverJob.class.getName(),
+                JobExecutionOptions.DEFAULT,
+                payload);
+
+        return jobExecution.resultAsync()
+                .handle((res, err) -> {
+                    if (err != null) {
+                        if (err.getCause() instanceof ComputeException) {
+                            ComputeException computeErr = (ComputeException) err.getCause();
+                            throw new IgniteException(
+                                    COMPUTE_JOB_FAILED_ERR,
+                                    "Streamer receiver failed: " + computeErr.getMessage(), computeErr);
+                        }
+
+                        ExceptionUtils.sneakyThrow(err);
+                    }
+
+                    return res;
+                });
     }
 
     @TestOnly

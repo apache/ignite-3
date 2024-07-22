@@ -107,11 +107,13 @@ class PartitionCommandsMarshallerImplTest {
         NetworkMessage message = commandWithRequiredCatalogVersion(42);
 
         byte[] serialized = partitionCommandsMarshaller.marshall(message);
+        ByteBuffer buffer = ByteBuffer.wrap(serialized);
 
-        FinishTxCommand unmarshalled = partitionCommandsMarshaller.unmarshall(serialized);
+        FinishTxCommand unmarshalled = partitionCommandsMarshaller.unmarshall(buffer);
 
         assertThat(unmarshalled.requiredCatalogVersion(), is(42));
+        assertThat(buffer.position(), is(0));
 
-        assertThat(partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(serialized)), is(42));
+        assertThat(partitionCommandsMarshaller.readRequiredCatalogVersion(buffer), is(42));
     }
 }

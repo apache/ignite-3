@@ -117,7 +117,7 @@ namespace Apache.Ignite
         TupleContainsKey,
 
         /// <summary>
-        /// Compute (<see cref="ICompute.SubmitAsync{T}"/>, <see cref="ICompute.SubmitBroadcast{T}"/>).
+        /// Compute (<see cref="ICompute.SubmitAsync{TTarget,TArg,TResult}"/>, <see cref="ICompute.SubmitBroadcast{TArg,TResult}"/>).
         /// </summary>
         ComputeExecute,
 
@@ -145,6 +145,11 @@ namespace Apache.Ignite
         /// Change compute job priority (<see cref="IJobExecution{T}.ChangePriorityAsync"/>).
         /// </summary>
         ComputeChangePriority,
+
+        /// <summary>
+        /// Get primary replicas (<see cref="IPartitionManager.GetPrimaryReplicasAsync"/>).
+        /// </summary>
+        PrimaryReplicasGet,
 
         /// <summary>
         /// Send data streamer batch (<see cref="IDataStreamerTarget{T}"/>).

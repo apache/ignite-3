@@ -30,9 +30,11 @@ import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 
 /**
  * ConverterUtils.
@@ -222,31 +224,32 @@ public class ConverterUtils {
         Primitive toPrimitive = Primitive.of(toType);
         Primitive fromPrimitive = Primitive.of(fromType);
 
-        // check overflow for 'integer' subtypes
-        if (fromPrimitive == Primitive.LONG && toPrimitive == Primitive.INT) {
-            return IgniteExpressions.convertToIntExact(operand);
-        }
+        boolean fromNumber = fromType instanceof Class
+                && Number.class.isAssignableFrom((Class<?>) fromType);
+        Primitive fromBox = Primitive.ofBox(fromType);
 
-        if ((fromPrimitive == Primitive.LONG || fromPrimitive == Primitive.INT) && toPrimitive == Primitive.SHORT) {
-            return IgniteExpressions.convertToShortExact(operand);
-        }
-
-        if ((fromPrimitive == Primitive.LONG || fromPrimitive == Primitive.INT || fromPrimitive == Primitive.SHORT)
-                && toPrimitive == Primitive.BYTE) {
-            return IgniteExpressions.convertToByteExact(operand);
-        }
-
-        if (!Primitive.isBox(fromType)) {
-            if ((fromType == BigDecimal.class || fromType == String.class) && toPrimitive == Primitive.LONG) {
-                return IgniteExpressions.convertToLongExact(operand);
+        if (toPrimitive != null) {
+            if ((toPrimitive == Primitive.LONG || toPrimitive == Primitive.INT || toPrimitive == Primitive.SHORT
+                    || toPrimitive == Primitive.BYTE) && fromType == String.class) {
+                return Expressions.call(IgniteMath.class, "convertTo"
+                        + SqlFunctions.initcap(toPrimitive.primitiveName) + "Exact", operand);
             }
 
-            if (fromType == BigDecimal.class && toPrimitive == Primitive.BYTE) {
-                return IgniteExpressions.convertToByteExact(operand);
+            if (fromPrimitive != null) {
+                // E.g. from "float" to "double"
+                return IgniteExpressions.convertChecked(operand, fromPrimitive, toPrimitive);
             }
 
-            if (fromType == BigDecimal.class && toPrimitive == Primitive.SHORT) {
-                return IgniteExpressions.convertToShortExact(operand);
+            if (fromNumber) {
+                // Generate "x.shortValue()".
+                return IgniteExpressions.unboxChecked(operand, fromBox, toPrimitive);
+            } else {
+                // E.g. from "Object" to "short".
+                // Generate "SqlFunctions.toShort(x)"
+                return Expressions.call(
+                        SqlFunctions.class,
+                        "to" + SqlFunctions.initcap(toPrimitive.primitiveName),
+                        operand);
             }
         }
 
@@ -272,12 +275,6 @@ public class ConverterUtils {
     private static boolean isA(Type fromType, Primitive primitive) {
         return Primitive.of(fromType) == primitive
                 || Primitive.ofBox(fromType) == primitive;
-    }
-
-    private static boolean representAsInternalType(Type type) {
-        return type == java.sql.Date.class
-                || type == java.sql.Time.class
-                || type == java.sql.Timestamp.class;
     }
 
     /**

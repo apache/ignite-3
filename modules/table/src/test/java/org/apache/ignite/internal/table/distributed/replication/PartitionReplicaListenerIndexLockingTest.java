@@ -19,6 +19,18 @@ package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_DELETE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_REPLACE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE_IF_EXIST;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -311,7 +323,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         BinaryRow testPk = kvMarshaller.marshal(1);
         BinaryRow testBinaryRow = kvMarshaller.marshal(1, 1);
 
-        if (arg.type != RequestType.RW_INSERT) {
+        if (arg.type != RW_INSERT) {
             var rowId = new RowId(PART_ID);
             insertRows(List.of(new Pair<>(testBinaryRow, rowId)), TestTransactionIds.newTransactionId());
         }
@@ -324,14 +336,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_DELETE:
             case RW_GET_AND_DELETE:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
-                        .groupId(PARTITION_ID)
+                        .groupId(tablePartitionId(PARTITION_ID))
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
-                        .requestType(arg.type)
+                        .requestTypeInt(arg.type.ordinal())
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -343,14 +356,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_REPLACE:
             case RW_GET_AND_UPSERT:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
-                        .groupId(PARTITION_ID)
+                        .groupId(tablePartitionId(PARTITION_ID))
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testBinaryRow.schemaVersion())
                         .binaryTuple(testBinaryRow.tupleSlice())
-                        .requestType(arg.type)
+                        .requestTypeInt(arg.type.ordinal())
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
                 break;
 
@@ -396,7 +410,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             rows.add(kvMarshaller.marshal(i, i));
         }
 
-        if (arg.type != RequestType.RW_INSERT_ALL) {
+        if (arg.type != RW_INSERT_ALL) {
             for (BinaryRow row : rows) {
                 var rowId = new RowId(PART_ID);
                 insertRows(List.of(new Pair<>(row, rowId)), TestTransactionIds.newTransactionId());
@@ -410,14 +424,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         switch (arg.type) {
             case RW_DELETE_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
-                        .groupId(PARTITION_ID)
+                        .groupId(tablePartitionId(PARTITION_ID))
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
-                        .requestType(arg.type)
+                        .requestTypeInt(arg.type.ordinal())
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -426,14 +441,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_INSERT_ALL:
             case RW_UPSERT_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                        .groupId(PARTITION_ID)
+                        .groupId(tablePartitionId(PARTITION_ID))
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(rows.iterator().next().schemaVersion())
                         .binaryTuples(binaryRowsToBuffers(rows))
-                        .requestType(arg.type)
+                        .requestTypeInt(arg.type.ordinal())
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -475,24 +491,24 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
     private static Iterable<ReadWriteTestArg> readWriteSingleTestArguments() {
         return List.of(
-                new ReadWriteTestArg(RequestType.RW_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_DELETE_EXACT, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_INSERT, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RequestType.RW_UPSERT, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RequestType.RW_REPLACE_IF_EXIST, LockMode.X, LockMode.IX, LockMode.X),
+                new ReadWriteTestArg(RW_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_DELETE_EXACT, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_INSERT, LockMode.X, LockMode.IX, LockMode.X),
+                new ReadWriteTestArg(RW_UPSERT, LockMode.X, LockMode.IX, LockMode.X),
+                new ReadWriteTestArg(RW_REPLACE_IF_EXIST, LockMode.X, LockMode.IX, LockMode.X),
 
-                new ReadWriteTestArg(RequestType.RW_GET_AND_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_GET_AND_REPLACE, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RequestType.RW_GET_AND_UPSERT, LockMode.X, LockMode.IX, LockMode.X)
+                new ReadWriteTestArg(RW_GET_AND_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_GET_AND_REPLACE, LockMode.X, LockMode.IX, LockMode.X),
+                new ReadWriteTestArg(RW_GET_AND_UPSERT, LockMode.X, LockMode.IX, LockMode.X)
         );
     }
 
     private static Iterable<ReadWriteTestArg> readWriteMultiTestArguments() {
         return List.of(
-                new ReadWriteTestArg(RequestType.RW_DELETE_ALL, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_DELETE_EXACT_ALL, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_INSERT_ALL, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RequestType.RW_UPSERT_ALL, LockMode.X, LockMode.IX, LockMode.X)
+                new ReadWriteTestArg(RW_DELETE_ALL, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_DELETE_EXACT_ALL, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_INSERT_ALL, LockMode.X, LockMode.IX, LockMode.X),
+                new ReadWriteTestArg(RW_UPSERT_ALL, LockMode.X, LockMode.IX, LockMode.X)
         );
     }
 

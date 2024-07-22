@@ -23,7 +23,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -33,6 +33,7 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -60,9 +61,9 @@ class ClientDataStreamer {
                 tbl);
     }
 
-    // T = key, E = element, V = payload, R = result.
+    // T = key, E = element, V = payload, R = result, A = Argument.
     @SuppressWarnings("resource")
-    static <T, E, V, R> CompletableFuture<Void> streamData(
+    static <T, E, V, R, A> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
@@ -73,7 +74,9 @@ class ClientDataStreamer {
             @Nullable Flow.Subscriber<R> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
-            Object... receiverArgs) {
+            A receiverArgs,
+            @Nullable Marshaler<A, byte[]> receiverArgsMarshaller
+    ) {
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(
                         partitionAssignment -> tbl.channel().serviceAsync(
@@ -87,10 +90,11 @@ class ClientDataStreamer {
                                     w.packDeploymentUnits(deploymentUnits);
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
-                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items);
+                                    StreamerReceiverSerializer.serializeReceiverInfoOnClient(
+                                            w, receiverClassName, receiverArgs, receiverArgsMarshaller, items);
                                 },
                                 in -> resultSubscriber != null
-                                        ? StreamerReceiverSerializer.deserializeResults(in.in())
+                                        ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(in.in())
                                         : null,
                                 partitionAssignment.get(partitionId),
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),

@@ -78,6 +78,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -105,6 +106,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxMetaMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
@@ -141,7 +144,11 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private static final PartitionReplicationMessagesFactory TABLE_MSG_FACTORY = new PartitionReplicationMessagesFactory();
 
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
     private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
+
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
@@ -278,7 +285,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
             assertEquals(snapshotId, snapshotTxDataRequest.id());
 
-            List<TxMeta> txMetas = txIds.stream().map(outgoingTxStatePartitionStorage::get).collect(toList());
+            List<TxMetaMessage> txMetas = txIds.stream()
+                    .map(outgoingTxStatePartitionStorage::get)
+                    .map(txMeta -> txMeta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY))
+                    .collect(toList());
 
             return completedFuture(TABLE_MSG_FACTORY.snapshotTxDataResponse().txIds(txIds).txMeta(txMetas).finish(true).build());
         });

@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;

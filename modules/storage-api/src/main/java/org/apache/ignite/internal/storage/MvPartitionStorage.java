@@ -228,7 +228,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *
      * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
     PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;
@@ -261,17 +260,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable BinaryRow vacuum(GcEntry entry);
 
     /**
-     * Returns rows count belongs to current storage.
-     *
-     * @return Rows count.
-     * @throws StorageException If failed to obtain size.
-     * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multi-versioned storages.
-     *      TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
-     */
-    @Deprecated
-    long rowsCount() throws StorageException;
-
-    /**
      * Updates the current lease start time in the storage.
      *
      * @param leaseStartTime Lease start time.
@@ -279,11 +267,27 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     void updateLease(long leaseStartTime);
 
     /**
-     * Return the start time of the known lease for this replication group.
+     * Returns the start time of the known lease for this replication group.
      *
      * @return Lease start time.
      */
     long leaseStartTime();
+
+    /**
+     * Returns the <em>estimated size</em> of this partition.
+     *
+     * <p>It corresponds to the number of rows in this partition that satisfies the following restrictions:
+     *
+     * <ol>
+     *     <li>It is <b>eventually consistent</b> in relation to concurrent transactions, that is, it only shows the amount of committed
+     *     rows, regardless of the transaction context;</li>
+     *     <li>It only reflects the number of rows at the <b>most recent</b> point in time, that is, it does not reflect any historical
+     *     changes to the same rows.</li>
+     * </ol>
+     *
+     * @return Estimated size of this partition.
+     */
+    long estimatedSize();
 
     /**
      * Closes the storage.

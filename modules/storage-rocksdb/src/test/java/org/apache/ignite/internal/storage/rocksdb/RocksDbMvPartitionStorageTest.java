@@ -33,6 +33,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -81,5 +82,53 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
         // exception is thrown only to ease debugging as the caller must make sure that no write intent exists
         // before calling addWriteCommitted(). For RocksDbMvPartitionStorage, it is not that cheap to check whether
         // there is a write intent in the storage, so we do not require it to throw this optional exception.
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeUsingWriteIntents() {
+        super.estimatedSizeUsingWriteIntents();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeUsingCommittedWrites() {
+        super.estimatedSizeUsingCommittedWrites();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeNeverFallsBelowZeroUsingWriteCommitted() {
+        super.estimatedSizeNeverFallsBelowZeroUsingWriteCommitted();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeNeverFallsBelowZeroUsingCommitWrite() {
+        super.estimatedSizeNeverFallsBelowZeroUsingCommitWrite();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeShowsLatestRowsNumberUsingWriteCommited() {
+        super.estimatedSizeShowsLatestRowsNumberUsingWriteCommited();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeShowsLatestRowsNumberUsingCommitWrite() {
+        super.estimatedSizeShowsLatestRowsNumberUsingCommitWrite();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeIsNotAffectedByGarbageTombstones() {
+        super.estimatedSizeIsNotAffectedByGarbageTombstones();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeHandlesTransactionAborts() {
+        super.estimatedSizeHandlesTransactionAborts();
     }
 }

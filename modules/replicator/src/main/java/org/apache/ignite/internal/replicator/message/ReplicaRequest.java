@@ -18,18 +18,11 @@
 package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Marshallable;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
  * Replica request.
  */
 public interface ReplicaRequest extends NetworkMessage {
-    /**
-     * Gets a replication group id.
-     *
-     * @return Replication group id.
-     */
-    @Marshallable
-    ReplicationGroupId groupId();
+    /** Gets a replication group id. */
+    ReplicationGroupIdMessage groupId();
 }

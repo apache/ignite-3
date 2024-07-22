@@ -58,17 +58,20 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
     /** Serial version UID. */
@@ -236,40 +239,85 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             Set<Assignment> currentAssignments,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21303
-        //  This is a naive approach that doesn't exclude nodes in error state, if they exist.
         Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
-
         Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
 
         if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
             return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
         }
 
-        enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
+        Iif invokeClosure;
 
-        byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
-        byte[] revisionBytes = longToBytesKeepingOrder(revision);
+        if (aliveStableNodes.isEmpty()) {
+            enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
 
-        ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
+            // There are no known nodes with data, which means that we can just put new assignments into pending assignments with "forced"
+            // flag.
+            invokeClosure = prepareMsInvokeClosure(
+                    partId,
+                    longToBytesKeepingOrder(revision),
+                    Assignments.forced(partAssignments).toBytes(),
+                    null
+            );
+        } else {
+            Set<Assignment> stableAssignments = Set.copyOf(partAssignments);
+            enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
+
+            // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
+            // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments.
+            invokeClosure = prepareMsInvokeClosure(
+                    partId,
+                    longToBytesKeepingOrder(revision),
+                    Assignments.forced(stableAssignments).toBytes(),
+                    Assignments.toBytes(partAssignments)
+            );
+        }
+
+        return metaStorageMgr.invoke(invokeClosure).thenApply(StatementResult::getAsInt);
+    }
+
+    /**
+     * Creates an {@link Iif} instance for meta-storage's {@link MetaStorageManager#invoke(Iif)} call. Does the following:
+     * <ul>
+     *     <li>Guards the condition with a standard {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)} check.</li>
+     *     <li>Adds additional guard with comparison of real and proposed values of
+     *          {@link RebalanceUtil#pendingPartAssignmentsKey(TablePartitionId)}, just in case.</li>
+     *     <li>Updates the value of {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.</li>
+     *     <li>Updates the value of {@link RebalanceUtil#pendingPartAssignmentsKey(TablePartitionId)}.</li>
+     *     <li>Updates the value of {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or removes it, if
+     *          {@code plannedAssignmentsBytes} is {@code null}.</li>
+     * </ul>
+     *
+     * @param partId Partition ID.
+     * @param revisionBytes Properly serialized current meta-storage revision.
+     * @param pendingAssignmentsBytes Value for {@link RebalanceUtil#pendingPartAssignmentsKey(TablePartitionId)}.
+     * @param plannedAssignmentsBytes Value for {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or {@code null}.
+     * @return {@link Iif} instance.
+     */
+    private static Iif prepareMsInvokeClosure(
+            TablePartitionId partId,
+            byte[] revisionBytes,
+            byte[] pendingAssignmentsBytes,
+            byte @Nullable [] plannedAssignmentsBytes
+    ) {
+        ByteArray pendingChangeTriggerKey = pendingChangeTriggerKey(partId);
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
-        Iif iif = iif(
-                notExists(partChangeTriggerKey).or(value(partChangeTriggerKey).lt(revisionBytes)),
+        return iif(notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(revisionBytes)),
                 iif(
-                        value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
+                        value(partAssignmentsPendingKey).ne(pendingAssignmentsBytes),
                         ops(
-                                put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                put(partChangeTriggerKey, revisionBytes),
-                                remove(partAssignmentsPlannedKey)
+                                put(pendingChangeTriggerKey, revisionBytes),
+                                put(partAssignmentsPendingKey, pendingAssignmentsBytes),
+                                plannedAssignmentsBytes == null
+                                        ? remove(partAssignmentsPlannedKey)
+                                        : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal())
                 ),
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
         );
-
-        return metaStorageMgr.invoke(iif).thenApply(StatementResult::getAsInt);
     }
 
     /**
@@ -278,18 +326,23 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
      */
     private static Set<Assignment> getAliveNodesWithData(
             Set<String> aliveNodesConsistentIds,
-            LocalPartitionStateMessageByNode localPartitionStateMessageByNode
+            @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
-        Set<Assignment> partAssignments = new HashSet<>();
-        if (localPartitionStateMessageByNode != null) {
-            for (Entry<String, LocalPartitionStateMessage> entry : localPartitionStateMessageByNode.entrySet()) {
-                if (aliveNodesConsistentIds.contains(entry.getKey())
-                        && (entry.getValue().state() == HEALTHY || entry.getValue().state() == CATCHING_UP)
-                ) {
-                    partAssignments.add(Assignment.forPeer(entry.getKey()));
-                }
+        if (localPartitionStateMessageByNode == null) {
+            return Set.of();
+        }
+
+        var partAssignments = new HashSet<Assignment>();
+
+        for (Entry<String, LocalPartitionStateMessage> entry : localPartitionStateMessageByNode.entrySet()) {
+            String nodeName = entry.getKey();
+            LocalPartitionStateEnum state = entry.getValue().state();
+
+            if (aliveNodesConsistentIds.contains(nodeName) && (state == HEALTHY || state == CATCHING_UP)) {
+                partAssignments.add(Assignment.forPeer(nodeName));
             }
         }
+
         return partAssignments;
     }
 

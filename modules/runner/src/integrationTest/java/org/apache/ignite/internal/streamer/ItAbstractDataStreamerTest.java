@@ -39,6 +39,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -49,6 +50,7 @@ import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
+import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
@@ -368,21 +370,47 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testWithReceiver(boolean returnResults) {
+    public void testWithReceiverRecordBinaryView(boolean returnResults) {
+        testWithReceiver(defaultTable().recordView(), Function.identity(), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverKvBinaryView(boolean returnResults) {
+        testWithReceiver(defaultTable().keyValueView(), t -> Map.entry(t, t), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverRecordPojoView(boolean returnResults) {
+        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+
+        testWithReceiver(view, t -> new PersonPojo(t.intValue(0)), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverKvPojoView(boolean returnResults) {
+        KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
+
+        testWithReceiver(view, t -> Map.entry(t.intValue(0), new PersonValPojo()), returnResults);
+    }
+
+    private static <T> void testWithReceiver(DataStreamerTarget<T> target, Function<Tuple, T> keyFunc, boolean returnResults) {
         CompletableFuture<Void> streamerFut;
 
         var resultSubscriber = returnResults ? new TestSubscriber<String>() : null;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            streamerFut = defaultTable().recordView().streamData(
+            streamerFut = target.streamData(
                     publisher,
-                    t -> t,
+                    keyFunc,
                     t -> t.stringValue(1),
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     resultSubscriber,
                     DataStreamerOptions.builder().retryLimit(0).build(),
-                    "arg1",
-                    123);
+                    "arg1"
+            );
 
             // Same ID goes to the same partition.
             publisher.submit(tuple(1, "val1"));
@@ -394,12 +422,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         if (returnResults) {
             assertEquals(1, resultSubscriber.items.size());
-            assertEquals("Received: 3 items, 2 args", resultSubscriber.items.iterator().next());
+            assertEquals("Received: 3 items, arg1 arg", resultSubscriber.items.iterator().next());
         }
     }
 
     @Test
-    public void testReceivedIsExecutedOnTargetNode() {
+    public void testReceiverIsExecutedOnTargetNode() {
         // Await primary replicas before streaming.
         Table table = defaultTable();
         RecordView<Tuple> view = table.recordView();
@@ -414,8 +442,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     t -> t,
                     t -> t.intValue(0),
                     ReceiverDescriptor.builder(NodeNameReceiver.class).build(),
-                    null,
-                    null);
+                    null, null, null
+            );
 
             for (int i = 0; i < count; i++) {
                 publisher.submit(tupleKey(i));
@@ -522,14 +550,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @SuppressWarnings("resource")
-    private static class TestReceiver implements DataStreamerReceiver<String, String> {
+    private static class TestReceiver implements DataStreamerReceiver<String, Object, String> {
         @Override
-        public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
-            if ("throw".equals(args[0])) {
+        public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object arg) {
+            if ("throw".equals(arg)) {
                 throw new ArithmeticException("test");
             }
 
-            if ("throw-async".equals(args[0])) {
+            if ("throw-async".equals(arg)) {
                 return CompletableFuture.failedFuture(new ArithmeticException("test"));
             }
 
@@ -540,18 +568,16 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             assertNotNull(ctx.ignite().tables().table(TABLE_NAME));
 
-            assertEquals(2, args.length);
-            assertEquals("arg1", args[0]);
-            assertEquals(123, args[1]);
+            assertEquals("arg1", arg);
 
-            return CompletableFuture.completedFuture(List.of("Received: " + page.size() + " items, " + args.length + " args"));
+            return CompletableFuture.completedFuture(List.of("Received: " + page.size() + " items, " + arg + " arg"));
         }
     }
 
     @SuppressWarnings("resource")
-    private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Void> {
+    private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Object, Void> {
         @Override
-        public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object... args) {
+        public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object arg) {
             var nodeName = ctx.ignite().name();
             RecordView<Tuple> view = ctx.ignite().tables().table(TABLE_NAME).recordView();
 

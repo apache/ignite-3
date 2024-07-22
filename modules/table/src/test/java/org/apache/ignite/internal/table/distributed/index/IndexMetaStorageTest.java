@@ -34,12 +34,17 @@ import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REMOVED;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.STOPPING;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
 
+import java.util.Collection;
 import java.util.Map;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -482,5 +487,21 @@ public class IndexMetaStorageTest extends BaseIndexMetaStorageTest {
             default:
                 fail("Unknown status: " + metaIndexStatus);
         }
+    }
+
+    @Test
+    void testIndexMetas() {
+        createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME);
+
+        int pkIndexId = indexId(PK_INDEX_NAME);
+        int indexId = indexId(INDEX_NAME);
+
+        Collection<IndexMeta> indexMetas = indexMetaStorage.indexMetas();
+
+        assertThat(indexMetas, containsInAnyOrder(indexMetaStorage.indexMeta(pkIndexId), indexMetaStorage.indexMeta(indexId)));
+
+        assertThrows(UnsupportedOperationException.class, () -> indexMetas.add(mock(IndexMeta.class)));
+        assertThrows(UnsupportedOperationException.class, () -> indexMetas.remove(mock(IndexMeta.class)));
+        assertThrows(UnsupportedOperationException.class, () -> indexMetas.iterator().remove());
     }
 }

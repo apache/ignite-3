@@ -29,23 +29,24 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> Payload type.
  * @param <R> Result type.
+ * @param <A> Receiver job argument type.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface DataStreamerReceiver<T, R> {
+public interface DataStreamerReceiver<T, A, R> {
     /**
      * Receives an item from the data streamer (see {@link DataStreamerTarget#streamData(Publisher, Function, Function,
-     * ReceiverDescriptor, Subscriber, DataStreamerOptions, Object...)}).
+     * ReceiverDescriptor, Subscriber, DataStreamerOptions, Object)}).
      *
      * <p>The receiver is called for each page (batch) in the data streamer and is responsible for processing the items,
      * updating zero or more tables, and returning a result.
      *
      * @param page Item batch.
      * @param ctx Receiver context.
-     * @param args Additional arguments.
+     * @param arg Additional argument.
      * @return Future with the result. Null future for synchronous completion.
      */
     @Nullable CompletableFuture<List<R>> receive(
             List<T> page,
             DataStreamerReceiverContext ctx,
-            Object... args);
+            @Nullable A arg);
 }

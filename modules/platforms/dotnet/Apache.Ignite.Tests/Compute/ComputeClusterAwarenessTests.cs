@@ -44,11 +44,10 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await IgniteClient.StartAsync(clientCfg);
             client.WaitForConnections(3);
 
-            IJobExecution<string> exec2 = await client.Compute.SubmitAsync<string>(
-                new[] { server2.Node }, new(string.Empty));
+            var job = new JobDescriptor<object?, string>(string.Empty);
 
-            IJobExecution<string> exec3 = await client.Compute.SubmitAsync<string>(
-                new[] { server3.Node }, new(string.Empty));
+            IJobExecution<string> exec2 = await client.Compute.SubmitAsync(JobTarget.Node(server2.Node), job, null);
+            IJobExecution<string> exec3 = await client.Compute.SubmitAsync(JobTarget.Node(server3.Node), job, null);
 
             Assert.AreEqual("s2", await exec2.GetResultAsync());
             Assert.AreEqual("s3", await exec3.GetResultAsync());
@@ -67,12 +66,10 @@ namespace Apache.Ignite.Tests.Compute
             using var server3 = new FakeServer(nodeName: "s3");
 
             using var client = await server1.ConnectClientAsync();
+            var job = new JobDescriptor<object?, string>(string.Empty);
 
-            IJobExecution<string> exec2 = await client.Compute.SubmitAsync<string>(
-                new[] { server2.Node }, new(string.Empty));
-
-            IJobExecution<string> exec3 = await client.Compute.SubmitAsync<string>(
-                new[] { server3.Node }, new(string.Empty));
+            IJobExecution<string> exec2 = await client.Compute.SubmitAsync(JobTarget.Node(server2.Node), job, null);
+            IJobExecution<string> exec3 = await client.Compute.SubmitAsync(JobTarget.Node(server3.Node), job, null);
 
             Assert.AreEqual("s1", await exec2.GetResultAsync());
             Assert.AreEqual("s1", await exec3.GetResultAsync());
@@ -100,13 +97,13 @@ namespace Apache.Ignite.Tests.Compute
             client.WaitForConnections(2);
 
             var nodeNames = new HashSet<string>();
+            var job = new JobDescriptor<object?, string>(string.Empty);
 
             for (int i = 0; i < 100; i++)
             {
                 var node = i % 2 == 0 ? server1.Node : server2.Node;
 
-                IJobExecution<string> jobExecution = await client.Compute.SubmitAsync<string>(
-                    new[] { node }, new(string.Empty));
+                IJobExecution<string> jobExecution = await client.Compute.SubmitAsync(JobTarget.Node(node), job, null);
 
                 string res = await jobExecution.GetResultAsync();
 

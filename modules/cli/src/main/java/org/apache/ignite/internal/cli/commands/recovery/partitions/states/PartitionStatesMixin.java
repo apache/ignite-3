@@ -31,17 +31,11 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION_DESC;
 
 import java.util.List;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import picocli.CommandLine.ArgGroup;
-import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /** Arguments for recovery partition states command. */
 public class PartitionStatesMixin {
-    /** Cluster endpoint URL option. */
-    @Mixin
-    private ClusterUrlMixin clusterUrl;
-
     /** Specific local / global states filters. */
     @ArgGroup(exclusive = true, multiplicity = "1")
     private PartitionStatesArgGroup statesArgs;
@@ -78,10 +72,6 @@ public class PartitionStatesMixin {
 
     public List<Integer> partitionIds() {
         return partitionIds;
-    }
-
-    public String clusterUrl() {
-        return clusterUrl.getClusterUrl();
     }
 
     static class PartitionStatesArgGroup {

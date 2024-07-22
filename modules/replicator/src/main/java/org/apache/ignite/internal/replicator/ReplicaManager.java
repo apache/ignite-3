@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
@@ -56,7 +59,6 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -105,8 +107,10 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.ThreadAttributes;
@@ -195,6 +199,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final ExecutorService executor;
 
     private final ReplicaStateManager replicaStateManager;
+
+    private final ExecutorService replicasCreationExecutor;
 
     private volatile String localNodeId;
 
@@ -327,6 +333,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "replica", LOG)
         );
+
+        replicasCreationExecutor = new ThreadPoolExecutor(
+                threadCount,
+                threadCount,
+                30,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create(nodeName, "replica-manager", LOG, STORAGE_READ, STORAGE_WRITE)
+        );
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
@@ -377,7 +392,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId());
+        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId().asReplicationGroupId());
 
         String senderConsistentId = sender.name();
 
@@ -592,7 +607,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 updateTableRaftService,
                 createListener,
                 storageIndexTracker,
-                newRaftClientFut);
+                newRaftClientFut
+        );
     }
 
     /**
@@ -609,6 +625,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newConfiguration A configuration for new raft group.
+     *
      * @return Future that promises ready new replica when done.
      */
     public CompletableFuture<Boolean> startReplica(
@@ -661,7 +678,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
-            RaftGroupEventsListener raftGroupEventsListener
+            RaftGroupEventsListener raftGroupEventsListener,
+            IgniteSpinBusyLock busyLock
     ) throws NodeStoppingException {
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 false,
@@ -669,44 +687,56 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
 
-        ((Loza) raftManager).startRaftGroupNodeWithoutService(
+        CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut = ((Loza) raftManager).startRaftGroupNode(
                 raftNodeId,
                 newConfiguration,
                 raftGroupListener,
                 raftGroupEventsListener,
-                groupOptions
+                groupOptions,
+                raftGroupServiceFactory
         );
 
-        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
-
-        Replica newReplica = new ZonePartitionReplicaImpl(
-                replicaGrpId,
-                listener
-        );
-
-        CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
-                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
-                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
-
-                return completedFuture(newReplica);
-            } else {
-                existingReplicaFuture.complete(newReplica);
-                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
-
-                return existingReplicaFuture;
+        return newRaftClientFut.thenComposeAsync(raftClient -> {
+            if (!busyLock.enterBusy()) {
+                return failedFuture(new NodeStoppingException());
             }
-        });
 
-        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
+            try {
+                LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
-                .exceptionally(e -> {
-                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
+                Replica newReplica = new ZonePartitionReplicaImpl(
+                        replicaGrpId,
+                        listener,
+                        raftClient
+                );
 
-                    return null;
-                })
-                .thenCompose(v -> replicaFuture);
+                CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+                    if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                        assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                        LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
+
+                        return completedFuture(newReplica);
+                    } else {
+                        existingReplicaFuture.complete(newReplica);
+                        LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
+
+                        return existingReplicaFuture;
+                    }
+                });
+
+                var eventParams = new LocalReplicaEventParameters(replicaGrpId);
+
+                return fireEvent(AFTER_REPLICA_STARTED, eventParams)
+                        .exceptionally(e -> {
+                            LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
+
+                            return null;
+                        })
+                        .thenCompose(v -> replicaFuture);
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }, executor);
     }
 
     /**
@@ -736,14 +766,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) throws NodeStoppingException {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
-                .thenApply((v) -> true);
-
-        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
-
-        startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
-
-        return resultFuture;
+        return newRaftClientFut
+                .thenApplyAsync(raftClient -> {
+                    // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
+                    updateTableRaftService.accept(raftClient);
+                    return createListener.apply(raftClient);
+                }, replicasCreationExecutor)
+                .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, completedFuture(replicaListener)))
+                .thenApply(r -> true);
     }
 
     /**
@@ -761,7 +791,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CompletableFuture<ReplicaListener> newReplicaListenerFut
-    ) throws NodeStoppingException {
+    ) {
 
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
@@ -805,30 +835,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Temporary public method for RAFT-client starting.
-     * TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
-     *
-     * @param replicaGrpId Replication Group ID.
-     * @param newConfiguration Peers and learners nodes for a raft group.
-     * @param raftClientCache Temporal supplier that returns RAFT-client from TableRaftService if it's already exists and was put into the
-     *      service's map.
-     * @return Future that returns started RAFT-client.
-     * @throws NodeStoppingException In case if node was stopping.
-     */
-    @Deprecated
-    public CompletableFuture<TopologyAwareRaftGroupService> startRaftClient(
-            ReplicationGroupId replicaGrpId,
-            PeersAndLearners newConfiguration,
-            Supplier<RaftGroupService> raftClientCache)
-            throws NodeStoppingException {
-        RaftGroupService cachedRaftClient = raftClientCache.get();
-        return cachedRaftClient != null
-                ? completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
-                // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-                : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
-    }
-
-    /**
      * Returns future with a replica if it was created or null if there no any replicas starting with given identifier.
      *
      * @param replicationGroupId Table-Partition identifier.
@@ -847,12 +853,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
-    }
-
-    /** Getter for wrapped write-ahead log syncer. */
-    // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22292
-    public LogSyncer getLogSyncer() {
-        return raftManager.getLogSyncer();
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, SnapshotStorageFactory snapshotFactory) {
@@ -1005,6 +1005,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(replicasCreationExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="
@@ -1047,7 +1048,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                             groupId,
                                             clusterNetSvc.topologyService().localMember())
                             )
-                            .timestampLong(clockService.updateClock(requestTimestamp).longValue())
+                            .timestamp(clockService.updateClock(requestTimestamp))
                             .build(),
                     correlationId);
         } else {
@@ -1085,7 +1086,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -1103,7 +1104,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -1135,7 +1136,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Replica replica = replicaFuture.join();
 
             ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                    .groupId(replica.groupId())
+                    .groupId(toReplicationGroupIdMessage(replica.groupId()))
                     .build();
 
             replica.processRequest(req, localNodeId);
@@ -1203,11 +1204,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return replicas.containsKey(replicaGrpId);
     }
 
-    @TestOnly
-    public CompletableFuture<Replica> getReplica(ReplicationGroupId replicationGroupId) {
-        return replicas.get(replicationGroupId);
-    }
-
     /**
      * Returns started replication groups.
      *
@@ -1266,11 +1262,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
-                            + groupId + "].";
-
-                    context.assertReservation(groupId);
+                            + groupId + ", leaseStartTime=" + parameters.startTime() + "].";
                 } else if (context.reservedForPrimary) {
-                    context.assertReservation(groupId);
+                    context.assertReservation(groupId, parameters.startTime());
 
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
@@ -1293,7 +1287,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        context.assertReservation(parameters.groupId());
+                        context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
@@ -1346,6 +1340,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return trueCompletedFuture();
                 } else if (state == ReplicaState.PRIMARY_ONLY) {
                     context.replicaState = ReplicaState.ASSIGNED;
+
+                    LOG.debug("Weak replica start complete [state={}].", context.replicaState);
 
                     return trueCompletedFuture();
                 } // else no-op.
@@ -1547,9 +1543,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             leaseStartTime = null;
         }
 
-        void assertReservation(ReplicationGroupId groupId) {
-            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" + groupId + "].";
-            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId=" + groupId + "].";
+        void assertReservation(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
+            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
         }
     }
 
@@ -1620,5 +1618,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         /** Explicit manual replica restart for disaster recovery purposes. */
         RESTART
+    }
+
+    // TODO: IGNITE-22630 Fix serialization into message
+    private static ReplicationGroupIdMessage toReplicationGroupIdMessage(ReplicationGroupId replicationGroupId) {
+        if (replicationGroupId instanceof TablePartitionId) {
+            return toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (TablePartitionId) replicationGroupId);
+        } else if (replicationGroupId instanceof ZonePartitionId) {
+            return toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, (ZonePartitionId) replicationGroupId);
+        }
+
+        throw new AssertionError("Not supported: " + replicationGroupId);
     }
 }

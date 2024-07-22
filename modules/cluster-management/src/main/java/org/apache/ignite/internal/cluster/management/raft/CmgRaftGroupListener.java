@@ -62,7 +62,7 @@ import org.jetbrains.annotations.TestOnly;
 public class CmgRaftGroupListener implements RaftGroupListener {
     private static final IgniteLogger LOG = Loggers.forClass(CmgRaftGroupListener.class);
 
-    private final RaftStorageManager storage;
+    private final ClusterStateStorageManager storageManager;
 
     private final LogicalTopology logicalTopology;
 
@@ -73,19 +73,21 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     /**
      * Creates a new instance.
      *
-     * @param storage Storage where this listener local data will be stored.
+     * @param storageManager Storage where this listener local data will be stored.
      * @param logicalTopology Logical topology that will be updated by this listener.
+     * @param validationManager Validator for cluster nodes.
      * @param onLogicalTopologyChanged Callback invoked (with the corresponding RAFT term) when logical topology gets changed.
      */
     public CmgRaftGroupListener(
-            ClusterStateStorage storage,
+            ClusterStateStorageManager storageManager,
             LogicalTopology logicalTopology,
+            ValidationManager validationManager,
             LongConsumer onLogicalTopologyChanged
     ) {
-        this.storage = new RaftStorageManager(storage);
+        this.storageManager = storageManager;
         this.logicalTopology = logicalTopology;
+        this.validationManager = validationManager;
         this.onLogicalTopologyChanged = onLogicalTopologyChanged;
-        this.validationManager = new ValidationManager(this.storage, logicalTopology);
     }
 
     @Override
@@ -96,7 +98,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             ReadCommand command = clo.command();
 
             if (command instanceof ReadStateCommand) {
-                clo.result(storage.getClusterState());
+                clo.result(storageManager.getClusterState());
             } else if (command instanceof ReadLogicalTopologyCommand) {
                 clo.result(new LogicalTopologyResponse(logicalTopology.getLogicalTopology()));
             } else if (command instanceof ReadValidatedNodesCommand) {
@@ -106,7 +108,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private HashSet<LogicalNode> getValidatedNodes() {
-        List<LogicalNode> validatedNodes = storage.getValidatedNodes();
+        List<LogicalNode> validatedNodes = storageManager.getValidatedNodes();
         Set<LogicalNode> logicalTopologyNodes = logicalTopology.getLogicalTopology().nodes();
 
         var result = new HashSet<LogicalNode>(capacity(validatedNodes.size() + logicalTopologyNodes.size()));
@@ -130,21 +132,21 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 clo.result(response);
             } else if (command instanceof UpdateClusterStateCommand) {
                 UpdateClusterStateCommand updateClusterStateCommand = (UpdateClusterStateCommand) command;
-                storage.putClusterState(updateClusterStateCommand.clusterState());
+                storageManager.putClusterState(updateClusterStateCommand.clusterState());
                 clo.result(null);
             } else if (command instanceof JoinRequestCommand) {
                 ValidationResult response = validateNode((JoinRequestCommand) command);
 
                 clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
             } else if (command instanceof JoinReadyCommand) {
-                Serializable response = completeValidation((JoinReadyCommand) command);
+                ValidationResult response = completeValidation((JoinReadyCommand) command);
 
-                if (response == null) {
+                if (response.isValid()) {
                     // It is valid, the topology has been changed.
                     onLogicalTopologyChanged.accept(clo.term());
                 }
 
-                clo.result(response);
+                clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
             } else if (command instanceof NodesLeaveCommand) {
                 removeNodesFromLogicalTopology((NodesLeaveCommand) command);
 
@@ -157,10 +159,10 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Nullable
     private Serializable initCmgState(InitCmgStateCommand command) {
-        ClusterState state = storage.getClusterState();
+        ClusterState state = storageManager.getClusterState();
 
         if (state == null) {
-            storage.putClusterState(command.clusterState());
+            storageManager.putClusterState(command.clusterState());
 
             return command.clusterState();
         } else {
@@ -200,11 +202,10 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 command.node().storageProfiles()
         );
 
-        return validationManager.validateNode(storage.getClusterState(), logicalNode, command.igniteVersion(), command.clusterTag());
+        return validationManager.validateNode(storageManager.getClusterState(), logicalNode, command.igniteVersion(), command.clusterTag());
     }
 
-    @Nullable
-    private Serializable completeValidation(JoinReadyCommand command) {
+    private ValidationResult completeValidation(JoinReadyCommand command) {
         ClusterNode node = command.node().asClusterNode();
 
         LogicalNode logicalNode = new LogicalNode(
@@ -215,13 +216,15 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         );
 
         if (validationManager.isNodeValidated(logicalNode)) {
-            validationManager.completeValidation(logicalNode);
+            ValidationResult validationResponse = validationManager.completeValidation(logicalNode);
 
-            logicalTopology.putNode(logicalNode);
+            if (validationResponse.isValid()) {
+                logicalTopology.putNode(logicalNode);
+            }
 
-            return null;
+            return validationResponse;
         } else {
-            return new ValidationErrorResponse(String.format("Node \"%s\" has not yet passed the validation step", node));
+            return ValidationResult.errorResult(String.format("Node \"%s\" has not yet passed the validation step", node));
         }
     }
 
@@ -243,14 +246,14 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        storage.snapshot(path)
+        storageManager.snapshot(path)
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
     @Override
     public boolean onSnapshotLoad(Path path) {
         try {
-            storage.restoreSnapshot(path);
+            storageManager.restoreSnapshot(path);
 
             logicalTopology.fireTopologyLeap();
 
@@ -268,7 +271,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     @TestOnly
-    public RaftStorageManager storage() {
-        return storage;
+    public ClusterStateStorageManager storageManager() {
+        return storageManager;
     }
 }

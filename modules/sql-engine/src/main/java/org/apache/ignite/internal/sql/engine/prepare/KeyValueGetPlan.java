@@ -205,6 +205,8 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
             result.whenCompleteAsync((res, err) -> firstPageReadyCallback.onPrefetchComplete(err), executor);
         }
 
+        ctx.scheduleTimeout(result);
+
         return new AsyncWrapper<>(result, Runnable::run);
     }
 

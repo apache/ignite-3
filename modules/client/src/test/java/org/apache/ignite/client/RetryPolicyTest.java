@@ -214,6 +214,11 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
 
         for (var field : ClientOp.class.getDeclaredFields()) {
             var opCode = (int) field.get(null);
+
+            if (opCode == ClientOp.RESERVED_EXTENSION_RANGE_START || opCode == ClientOp.RESERVED_EXTENSION_RANGE_END) {
+                continue;
+            }
+
             var publicOp = ClientUtils.opCodeToClientOperationType(opCode);
 
             if (publicOp == null) {
@@ -221,7 +226,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
             }
         }
 
-        long expectedNullCount = 22;
+        long expectedNullCount = 21;
 
         String msg = nullOpFields.size()
                 + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "

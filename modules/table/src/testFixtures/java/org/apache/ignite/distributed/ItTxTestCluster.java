@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -119,6 +118,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
@@ -682,7 +682,6 @@ public class ItTxTestCluster {
                         topologyAwareRaftGroupServiceFactory
                 ).thenAccept(
                         raftSvc -> {
-                            try {
                                 PartitionReplicaListener listener = newReplicaListener(
                                         mvPartStorage,
                                         raftSvc,
@@ -713,9 +712,6 @@ public class ItTxTestCluster {
                                         storageIndexTracker,
                                         completedFuture(listener)
                                 );
-                            } catch (NodeStoppingException e) {
-                                fail("Unexpected node stopping", e);
-                            }
                         }
                 );
 
@@ -776,7 +772,8 @@ public class ItTxTestCluster {
                         clientTransactionInflights,
                         500,
                         0,
-                        null
+                        null,
+                        mock(StreamerReceiverRunner.class)
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),

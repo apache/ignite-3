@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
@@ -59,7 +60,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -78,6 +79,7 @@ import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -89,6 +91,7 @@ import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -221,7 +224,11 @@ public class PlatformTestNodeRunner {
             return;
         }
 
-        List<Ignite> startedNodes = startNodes(BASE_PATH, nodesBootstrapCfg);
+        List<IgniteServer> startedIgniteServers = startNodes(BASE_PATH, nodesBootstrapCfg);
+
+        List<Ignite> startedNodes = startedIgniteServers.stream()
+                .map(IgniteServer::api)
+                .collect(toList());
 
         createTables(startedNodes.get(0));
 
@@ -237,8 +244,8 @@ public class PlatformTestNodeRunner {
         Thread.sleep(runTimeMinutes * 60_000);
         System.out.println("Exiting after " + runTimeMinutes + " minutes.");
 
-        for (Ignite node : startedNodes) {
-            IgnitionManager.stop(node.name());
+        for (IgniteServer node : startedIgniteServers) {
+            node.shutdown();
         }
     }
 
@@ -249,7 +256,7 @@ public class PlatformTestNodeRunner {
      * @param nodeCfg Node configuration.
      * @return Started nodes.
      */
-    static List<Ignite> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
+    static List<IgniteServer> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
         IgniteUtils.deleteIfExists(basePath);
         Files.createDirectories(basePath);
 
@@ -257,7 +264,7 @@ public class PlatformTestNodeRunner {
         var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
         var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
 
-        List<CompletableFuture<Ignite>> igniteFutures = nodeCfg.entrySet().stream()
+        List<IgniteServer> nodes = nodeCfg.entrySet().stream()
                 .map(e -> {
                     String nodeName = e.getKey();
                     String config = e.getValue()
@@ -269,22 +276,21 @@ public class PlatformTestNodeRunner {
                 })
                 .collect(toList());
 
-        String metaStorageNodeName = nodeCfg.keySet().iterator().next();
+        IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
                 .build();
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNode, initParameters);
 
         System.out.println("Initialization complete");
 
-        List<Ignite> startedNodes = igniteFutures.stream().map(CompletableFuture::join).collect(toList());
+        allOf(nodes.stream().map(IgniteServer::waitForInitAsync).toArray(CompletableFuture[]::new)).join();
 
         System.out.println("Ignite nodes started");
 
-        return startedNodes;
+        return nodes;
     }
 
     private static void createTables(Ignite node) {
@@ -548,11 +554,9 @@ public class PlatformTestNodeRunner {
      * Compute job that creates a table.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class CreateTableJob implements ComputeJob<String> {
+    private static class CreateTableJob implements ComputeJob<String, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-            String tableName = (String) args[0];
-
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
             context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
 
             return completedFuture(tableName);
@@ -563,10 +567,9 @@ public class PlatformTestNodeRunner {
      * Compute job that drops a table.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class DropTableJob implements ComputeJob<String> {
+    private static class DropTableJob implements ComputeJob<String, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-            String tableName = (String) args[0];
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
             context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
 
             return completedFuture(tableName);
@@ -577,10 +580,10 @@ public class PlatformTestNodeRunner {
      * Compute job that throws an exception.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class ExceptionJob implements ComputeJob<String> {
+    private static class ExceptionJob implements ComputeJob<String, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-            throw new RuntimeException("Test exception: " + args[0]);
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String msg) {
+            throw new RuntimeException("Test exception: " + msg);
         }
     }
 
@@ -588,10 +591,10 @@ public class PlatformTestNodeRunner {
      * Compute job that throws an exception.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class CheckedExceptionJob implements ComputeJob<String> {
+    private static class CheckedExceptionJob implements ComputeJob<String, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
-            throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + args[0]));
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String msg) {
+            throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + msg));
         }
     }
 
@@ -599,13 +602,14 @@ public class PlatformTestNodeRunner {
      * Compute job that computes row colocation hash.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class ColocationHashJob implements ComputeJob<Integer> {
+    private static class ColocationHashJob implements ComputeJob<byte[], Integer> {
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            var columnCount = (int) args[0];
-            var buf = (byte[]) args[1];
-            var timePrecision = (int) args[2];
-            var timestampPrecision = (int) args[3];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
+            BinaryTupleReader argsReader = new BinaryTupleReader(4, args);
+            var columnCount = argsReader.intValue(0);
+            var timePrecision = argsReader.intValue(1);
+            var timestampPrecision = argsReader.intValue(2);
+            var buf = argsReader.bytesValue(3);
 
             List<Column> columns = new ArrayList<>(columnCount);
             var tuple = Tuple.create(columnCount);
@@ -719,11 +723,12 @@ public class PlatformTestNodeRunner {
      * Compute job that computes row colocation hash according to the current table schema.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class TableRowColocationHashJob implements ComputeJob<Integer> {
+    private static class TableRowColocationHashJob implements ComputeJob<byte[], Integer> {
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            String tableName = (String) args[0];
-            int i = (int) args[1];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
+            BinaryTupleReader reader = new BinaryTupleReader(2, args);
+            String tableName = reader.stringValue(0);
+            int i = reader.intValue(1);
             Tuple key = Tuple.create().set("id", 1 + i).set("id0", 2L + i).set("id1", "3" + i);
 
             @SuppressWarnings("resource")
@@ -739,10 +744,10 @@ public class PlatformTestNodeRunner {
      * Compute job that enables or disables client authentication.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class EnableAuthenticationJob implements ComputeJob<Void> {
+    private static class EnableAuthenticationJob implements ComputeJob<Integer, Void> {
         @Override
-        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object... args) {
-            boolean enable = ((Integer) args[0]) != 0;
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer flag) {
+            boolean enable = flag != 0;
             @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
@@ -768,13 +773,14 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class TestReceiver implements DataStreamerReceiver<String, String> {
+    private static class TestReceiver implements DataStreamerReceiver<String, String, String> {
         @SuppressWarnings("resource")
         @Override
-        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
-            String tableName = (String) args[0];
-            String arg1 = (String) args[1];
-            int arg2 = (Integer) args[2];
+        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, String arg) {
+            String[] args = arg.split(":", 3);
+            String tableName = args[0];
+            String arg1 = args[1];
+            int arg2 = Integer.parseInt(args[2]);
 
             if (Objects.equals(arg1, "throw")) {
                 throw new ArithmeticException("Test exception: " + arg2);
@@ -797,18 +803,20 @@ public class PlatformTestNodeRunner {
                 recordView.upsert(null, rec);
             }
 
-            return CompletableFuture.completedFuture(res);
+            return completedFuture(res);
         }
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, String, Object> {
         @SuppressWarnings("resource")
         @Override
-        public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
-            String tableName = (String) args[0];
-            long id1 = (Long) args[1];
-            long id2 = (Long) args[2];
+        public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, String arg) {
+            String[] args = arg.split(":", 3);
+
+            String tableName = args[0];
+            long id1 = Long.parseLong(args[1]);
+            long id2 = Long.parseLong(args[2]);
 
             Table table = ctx.ignite().tables().table(tableName);
             RecordView<Tuple> recordView = table.recordView();
@@ -832,18 +840,30 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @Override
-        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
-            return CompletableFuture.completedFuture(List.of(args));
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
+            return CompletableFuture.completedFuture(List.of(arg));
         }
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class EchoReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class EchoReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @Override
-        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
             return CompletableFuture.completedFuture(page);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class PartitionJob implements ComputeJob<Long, Integer> {
+        @Override
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Long id) {
+            Table table = context.ignite().tables().table(TABLE_NAME);
+            Tuple key = Tuple.create().set("key", id);
+            Partition partition = table.partitionManager().partitionAsync(key).join();
+
+            return completedFuture(((HashPartition) partition).partitionId());
         }
     }
 }

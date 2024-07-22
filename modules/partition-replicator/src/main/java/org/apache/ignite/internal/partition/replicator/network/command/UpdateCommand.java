@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,12 +48,10 @@ public interface UpdateCommand extends PartitionCommand {
         return tsRoMsg == null ? null : tsRoMsg.binaryRow();
     }
 
-    /**
-     * Returns the timestamp of the last committed entry.
-     */
+    /** Returns the timestamp of the last committed entry. */
     default @Nullable HybridTimestamp lastCommitTimestamp() {
         TimedBinaryRowMessage tsRoMsg = messageRowToUpdate();
 
-        return tsRoMsg == null ? null : nullableHybridTimestamp(tsRoMsg.timestamp());
+        return tsRoMsg == null ? null : tsRoMsg.timestamp();
     }
 }

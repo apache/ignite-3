@@ -32,7 +32,7 @@ option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
 option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
@@ -65,7 +65,9 @@ else()
 endif()
 
 set(IGNITE_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
-message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
+if(${INSTALL_IGNITE_FILES})
+    message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
+endif()
 message(STATUS "IGNITE_INCLUDEDIR=${IGNITE_INCLUDEDIR}")
 include(ignite_install_headers)
 

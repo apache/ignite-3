@@ -20,8 +20,11 @@ package org.apache.ignite.internal.metastorage.server.raft;
 import static java.util.Arrays.copyOfRange;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -180,25 +183,25 @@ public class MetaStorageWriteHandler {
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
 
-            storage.put(putCmd.key(), putCmd.value(), opTime);
+            storage.put(toByteArray(putCmd.key()), toByteArray(putCmd.value()), opTime);
 
             clo.result(null);
         } else if (command instanceof PutAllCommand) {
             PutAllCommand putAllCmd = (PutAllCommand) command;
 
-            storage.putAll(putAllCmd.keys(), putAllCmd.values(), opTime);
+            storage.putAll(toByteArrayList(putAllCmd.keys()), toByteArrayList(putAllCmd.values()), opTime);
 
             clo.result(null);
         } else if (command instanceof RemoveCommand) {
             RemoveCommand rmvCmd = (RemoveCommand) command;
 
-            storage.remove(rmvCmd.key(), opTime);
+            storage.remove(toByteArray(rmvCmd.key()), opTime);
 
             clo.result(null);
         } else if (command instanceof RemoveAllCommand) {
             RemoveAllCommand rmvAllCmd = (RemoveAllCommand) command;
 
-            storage.removeAll(rmvAllCmd.keys(), opTime);
+            storage.removeAll(toByteArrayList(rmvAllCmd.keys()), opTime);
 
             clo.result(null);
         } else if (command instanceof InvokeCommand) {
@@ -236,15 +239,15 @@ public class MetaStorageWriteHandler {
 
             return new ValueCondition(
                     toValueConditionType(valueCondition.type()),
-                    valueCondition.key(),
-                    valueCondition.value()
+                    toByteArray(valueCondition.key()),
+                    toByteArray(valueCondition.value())
             );
         } else if (condition instanceof SimpleCondition.RevisionCondition) {
             var revisionCondition = (SimpleCondition.RevisionCondition) condition;
 
             return new RevisionCondition(
                     toRevisionConditionType(revisionCondition.type()),
-                    revisionCondition.key(),
+                    toByteArray(revisionCondition.key()),
                     revisionCondition.revision()
             );
         } else if (condition instanceof SimpleCondition) {
@@ -252,16 +255,16 @@ public class MetaStorageWriteHandler {
 
             switch (simpleCondition.type()) {
                 case KEY_EXISTS:
-                    return new ExistenceCondition(ExistenceCondition.Type.EXISTS, simpleCondition.key());
+                    return new ExistenceCondition(ExistenceCondition.Type.EXISTS, toByteArray(simpleCondition.key()));
 
                 case KEY_NOT_EXISTS:
-                    return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, simpleCondition.key());
+                    return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, toByteArray(simpleCondition.key()));
 
                 case TOMBSTONE:
-                    return new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, simpleCondition.key());
+                    return new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, toByteArray(simpleCondition.key()));
 
                 case NOT_TOMBSTONE:
-                    return new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, simpleCondition.key());
+                    return new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, toByteArray(simpleCondition.key()));
 
                 default:
                     throw new IllegalArgumentException("Unexpected simple condition type " + simpleCondition.type());
@@ -333,7 +336,7 @@ public class MetaStorageWriteHandler {
 
             clusterTime.adjust(writeCommand.initiatorTime());
 
-            writeCommand.safeTimeLong(clusterTime.nowLong());
+            writeCommand.safeTime(clusterTime.now());
 
             return true;
         }
@@ -362,7 +365,7 @@ public class MetaStorageWriteHandler {
                     if (entry.value().length == 1) {
                         result = byteToBoolean(entry.value()[0]);
                     } else {
-                        result = MSG_FACTORY.statementResult().result(entry.value()).build();
+                        result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entry.value())).build();
                     }
 
                     idempotentCommandCache.put(commandId, new IdempotentCommandCachedResult(result, now));

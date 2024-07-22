@@ -67,7 +67,6 @@ public class TableUtils {
      * @param catalogService Catalog service.
      * @param lowWatermark Low watermark, {@code null} if it has never been updated.
      */
-    // TODO: IGNITE-21771 Process or check catalog compaction
     static List<DroppedTableInfo> droppedTables(CatalogService catalogService, @Nullable HybridTimestamp lowWatermark) {
         if (lowWatermark == null) {
             return List.of();

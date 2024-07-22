@@ -38,6 +38,11 @@ namespace Apache.Ignite.Table
         public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
 
         /// <summary>
+        /// Gets the partition manager.
+        /// </summary>
+        public IPartitionManager PartitionManager { get; }
+
+        /// <summary>
         /// Gets the record view mapped to specified type <typeparamref name="T"/>.
         /// <para />
         /// Table columns will be mapped to properties or fields by name, ignoring case. Any fields are supported,

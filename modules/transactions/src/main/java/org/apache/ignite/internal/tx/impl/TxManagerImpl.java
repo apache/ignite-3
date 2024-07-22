@@ -82,7 +82,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -367,9 +366,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
         return primaryReplicaEventListener(eventParameters, groupId -> {
-            String localNodeName = topologyService.localMember().name();
+            if (localNodeId.equals(eventParameters.leaseholderId())) {
+                String localNodeName = topologyService.localMember().name();
 
-            txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+                txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+            }
         });
     }
 
@@ -590,7 +591,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         (unused, throwable) -> {
                             boolean verifiedCommit = throwable == null && commit;
 
-                            Map<ReplicationGroupId, String> replicationGroupIds = enlistedGroups.entrySet().stream()
+                            Map<TablePartitionId, String> replicationGroupIds = enlistedGroups.entrySet().stream()
                                     .collect(Collectors.toMap(
                                             Entry::getKey,
                                             entry -> entry.getValue().get1().name()
@@ -617,7 +618,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, String> replicationGroupIds,
+            Map<TablePartitionId, String> replicationGroupIds,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
@@ -690,7 +691,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             String primaryConsistentId,
             Long enlistmentConsistencyToken,
             boolean commit,
-            Map<ReplicationGroupId, String> replicationGroupIds,
+            Map<TablePartitionId, String> replicationGroupIds,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture

@@ -29,7 +29,9 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -37,12 +39,12 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -75,6 +77,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -98,6 +101,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -143,6 +147,8 @@ import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceF
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -151,9 +157,12 @@ import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -323,7 +332,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var threadPoolsManager = new ThreadPoolsManager(name);
 
-        var failureProcessor = new NoOpFailureProcessor(name);
+        var failureProcessor = new NoOpFailureProcessor();
 
         var workerRegistry = new CriticalWorkerWatchdog(workersConfiguration, threadPoolsManager.commonScheduler(), failureProcessor);
 
@@ -349,6 +358,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var hybridClock = new HybridClockImpl();
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
+
+        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), dir, raftConfiguration);
 
         var raftMgr = TestLozaFactory.create(
                 clusterSvc,
@@ -411,7 +422,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage"), new NoOpFailureProcessor(name));
+        var metaStorage = new RocksDbKeyValueStorage(name, dir.resolve("metastorage"), new NoOpFailureProcessor());
 
         InvokeInterceptor metaStorageInvokeInterceptor = metaStorageInvokeInterceptorByNode.get(idx);
 
@@ -557,6 +568,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Path storagePath = getPartitionsStorePath(dir);
 
+        LogSyncer logSyncer = logStorageFactory;
+
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
@@ -564,7 +577,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         storagePath,
                         null,
                         failureProcessor,
-                        raftMgr.getLogSyncer()
+                        logSyncer
                 ),
                 nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)
         );
@@ -640,7 +653,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourcesRegistry,
                 lowWatermark,
                 transactionInflights,
-                indexMetaStorage
+                indexMetaStorage,
+                logSyncer
         );
 
         var indexManager = new IndexManager(
@@ -670,7 +684,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
                 transactionInflights,
-                txManager
+                txManager,
+                threadPoolsManager.commonScheduler()
         );
 
         sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));
@@ -1124,13 +1139,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         } else {
             // Since the first node is the CMG leader, the second node can't be started synchronously (it won't be able to join the cluster
             // and the future will never resolve).
-            CompletableFuture<Ignite> future = startNodeAsync(1, null);
+            IgniteServer node = startEmbeddedNode(1, null);
 
             startNode(0);
 
-            assertThat(future, willCompleteSuccessfully());
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            ignite = future.join();
+            ignite = node.api();
         }
 
         checkTableWithData(ignite, TABLE_NAME);
@@ -1164,27 +1179,44 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20137")
-    public void testOneNodeRestartWithGap() {
+    public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
-
-        startNode(1);
-
-        createTableWithData(List.of(ignite), TABLE_NAME, 2);
-
-        stopNode(1);
-
-        Table table = ignite.tables().table(TABLE_NAME);
-
-        assertNotNull(table);
-
-        assertThrows(TransactionException.class, () -> table.keyValueView().get(null, Tuple.create().set("id", 0)));
-
-        createTableWithoutData(ignite, TABLE_NAME_2, 1, 1);
 
         IgniteImpl ignite1 = startNode(1);
 
-        TableManager tableManager = (TableManager) ignite1.tables();
+        createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
+
+        TableImpl table = unwrapTableImpl(ignite.tables().table(TABLE_NAME));
+
+        assertNotNull(table);
+
+        ReplicationGroupId groupId = new TablePartitionId(table.tableId(), 0);
+
+        CompletableFuture<ReplicaMeta> primaryFut =
+                ignite.placementDriver().awaitPrimaryReplica(groupId, ignite.clock().now(), 30, TimeUnit.SECONDS);
+
+        assertThat(
+                primaryFut,
+                willCompleteSuccessfully()
+        );
+
+        String leaseholderId = primaryFut.join().getLeaseholderId();
+
+        if (!ignite1.id().equals(leaseholderId)) {
+            transferPrimary(List.of(ignite, ignite1), groupId, ignite1.name());
+        }
+
+        log.info("Test: stopping the node.");
+
+        stopNode(1);
+
+        assertThrowsWithCause(() -> table.keyValueView().get(null, Tuple.create().set("id", 0)), PrimaryReplicaAwaitTimeoutException.class);
+
+        createTableWithoutData(ignite, TABLE_NAME_2, 1, 1);
+
+        ignite1 = startNode(1);
+
+        TableManager tableManager = unwrapTableManager(ignite1.tables());
 
         assertNotNull(tableManager);
 
@@ -1687,7 +1719,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22521")
     public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws InterruptedException {
         IgniteImpl node0 = startNode(0);
         IgniteImpl node1 = startNode(1);
@@ -1813,7 +1844,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private boolean checkMetaStorageInvoke(Collection<Operation> ops, ByteArray key) {
         var k = new String(key.bytes(), StandardCharsets.UTF_8);
 
-        return ops.stream().anyMatch(op -> new String(op.key(), StandardCharsets.UTF_8).equals(k));
+        return ops.stream().anyMatch(op -> new String(toByteArray(op.key()), StandardCharsets.UTF_8).equals(k));
     }
 
     private void checkAssignmentsInMetaStorage(MetaStorageManager metaStorageManager, byte[] assignmentsKey, Set<Assignment> expected) {

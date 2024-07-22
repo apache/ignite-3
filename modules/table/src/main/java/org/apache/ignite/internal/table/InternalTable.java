@@ -26,15 +26,14 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -90,7 +89,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @param keyRow Row with key columns set.
      * @param tx     The transaction.
      * @return Future representing pending completion of the operation.
-     * @throws LockException If a lock can't be acquired by some reason.
      */
     CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx);
 
@@ -101,7 +99,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @param readTimestamp Read timestamp.
      * @param recipientNode Cluster node that will handle given get request.
      * @return Future representing pending completion of the operation.
-     * @throws LockException If a lock can't be acquired by some reason.
      */
     CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
@@ -491,8 +488,26 @@ public interface InternalTable extends ManuallyCloseable {
     /**
      * Returns {@link ClusterNode} where primary replica of replication group is located.
      *
-     * @param partition Replication group identifier.
+     * @param partitionId Replication group ID.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId partition);
+    CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partitionId);
+
+    /**
+     * Returns the <em>estimated size</em> of this table.
+     *
+     * <p>It is computed as a sum of estimated sizes of all partitions of this table.
+     *
+     * @return Estimated size of this table.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    CompletableFuture<Long> estimatedSize();
+
+    /**
+     * Returns the streamer receiver runner.
+     *
+     * @return Streamer receiver runner.
+     */
+    StreamerReceiverRunner streamerReceiverRunner();
 }

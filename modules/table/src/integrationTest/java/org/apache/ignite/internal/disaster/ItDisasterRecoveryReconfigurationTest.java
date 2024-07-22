@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
@@ -416,10 +417,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 SECONDS.toMillis(DEFAULT_IDLE_SAFE_TIME_PROP_DURATION) + node0.clockService().maxClockSkewMillis())
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21303
-        //  We need wait quite a bit before data is available. Log shows term mismatches, meaning that right now it only works due to some
-        //  miracle. For future improvements we must specify "stable" forced sub-assignments explicitly, instead of calculating them as an
-        //  intersection.
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22657
+        //  We need wait quite a bit before data is available for some reason.
         Thread.sleep(10_000);
 
         // "forEach" makes "i" effectively final, which is convenient for internal lambda.
@@ -448,10 +447,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                     ByteArray raftConfigurationAppliedKey = raftConfigurationAppliedKey(new TablePartitionId(tableId, partId));
 
                     for (Operation operation : operations) {
-                        ByteArray opKey = new ByteArray(operation.key());
+                        ByteArray opKey = new ByteArray(toByteArray(operation.key()));
 
                         if (operation.type() == OperationType.PUT && opKey.equals(raftConfigurationAppliedKey)) {
-                            return blockedAssignments.equals(ByteUtils.fromBytes(operation.value()));
+                            return blockedAssignments.equals(ByteUtils.fromBytes(toByteArray(operation.value())));
                         }
                     }
                 }

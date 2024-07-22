@@ -446,20 +446,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        JobDescriptor job = JobDescriptor.builder("job").build();
+        JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t1), job), willBe(nodeKey1));
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t2), job), willBe(nodeKey2));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t1), job, null), willBe(nodeKey1));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t2), job, null), willBe(nodeKey2));
     }
 
     @Test
     public void testExecuteColocatedObjectKeyRoutesRequestToPrimaryNode() {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
-        JobDescriptor job = JobDescriptor.builder("job").build();
+        JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 1L, mapper), job), willBe(nodeKey1));
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 2L, mapper), job), willBe(nodeKey2));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 1L, mapper), job, null), willBe(nodeKey1));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 2L, mapper), job, null), willBe(nodeKey2));
     }
 
     @ParameterizedTest
@@ -472,7 +472,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SimplePublisher<Tuple> publisher = new SimplePublisher<>()) {
                 fut = withReceiver
-                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null)
+                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
                         : recordView.streamData(publisher, null);
 
                 publisher.submit(t);
@@ -498,7 +498,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SimplePublisher<PersonPojo> publisher = new SimplePublisher<>()) {
                 fut = withReceiver
-                        ? pojoView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null)
+                        ? pojoView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
                         : pojoView.streamData(publisher, null);
 
                 publisher.submit(t);
@@ -524,7 +524,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SimplePublisher<Entry<Tuple, Tuple>> publisher = new SimplePublisher<>()) {
                 fut = withReceiver
-                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null)
+                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
                         : recordView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, Tuple.create()));
             }
@@ -540,7 +540,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    @ValueSource(booleans = {true})
     public void testDataStreamerKeyValueView(boolean withReceiver) {
         KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
@@ -549,7 +549,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SimplePublisher<Entry<Long, String>> publisher = new SimplePublisher<>()) {
                 fut = withReceiver
-                        ? kvView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null)
+                        ? kvView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
                         : kvView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, t.toString()));
             }
@@ -685,14 +685,14 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
     }
 
-    private static ReceiverDescriptor receiver() {
-        return ReceiverDescriptor.builder(TestReceiver.class).build();
+    private static <A> ReceiverDescriptor<A> receiver() {
+        return (ReceiverDescriptor<A>) ReceiverDescriptor.builder(TestReceiver.class).build();
     }
 
-    private static class TestReceiver implements DataStreamerReceiver<Object, Object> {
+    private static class TestReceiver implements DataStreamerReceiver<Object, Object, Object> {
         @SuppressWarnings("resource")
         @Override
-        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object... args) {
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
             ctx.ignite().tables().table(DEFAULT_TABLE).recordView().upsert(null, Tuple.create().set("ID", 0L));
             return CompletableFuture.completedFuture(null);
         }

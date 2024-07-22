@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,17 +38,16 @@ public class TxStateMeta implements TransactionMeta {
 
     private final TxState txState;
 
-    private final String txCoordinatorId;
+    private final @Nullable String txCoordinatorId;
 
-    /** Identifier of the replication group that manages a transaction state. */
-    private final TablePartitionId commitPartitionId;
+    /** ID of the replication group that manages a transaction state. */
+    private final @Nullable TablePartitionId commitPartitionId;
 
-    private final HybridTimestamp commitTimestamp;
+    private final @Nullable HybridTimestamp commitTimestamp;
 
-    private final Long initialVacuumObservationTimestamp;
+    private final @Nullable Long initialVacuumObservationTimestamp;
 
-    @Nullable
-    private final Long cleanupCompletionTimestamp;
+    private final @Nullable Long cleanupCompletionTimestamp;
 
     /**
      * Constructor.
@@ -152,6 +155,21 @@ public class TxStateMeta implements TransactionMeta {
 
     public @Nullable Long cleanupCompletionTimestamp() {
         return cleanupCompletionTimestamp;
+    }
+
+    @Override
+    public TxStateMetaMessage toTransactionMetaMessage(
+            ReplicaMessagesFactory replicaMessagesFactory,
+            TxMessagesFactory txMessagesFactory
+    ) {
+        return txMessagesFactory.txStateMetaMessage()
+                .txStateInt(txState.ordinal())
+                .txCoordinatorId(txCoordinatorId)
+                .commitPartitionId(commitPartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, commitPartitionId))
+                .commitTimestamp(commitTimestamp)
+                .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
+                .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                .build();
     }
 
     @Override

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -31,9 +29,5 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 public interface TxStateCoordinatorRequest extends NetworkMessage {
     UUID txId();
 
-    long readTimestampLong();
-
-    default HybridTimestamp readTimestamp() {
-        return hybridTimestamp(readTimestampLong());
-    }
+    HybridTimestamp readTimestamp();
 }

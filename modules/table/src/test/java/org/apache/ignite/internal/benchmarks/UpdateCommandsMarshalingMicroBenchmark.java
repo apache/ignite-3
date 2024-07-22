@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.benchmarks;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -33,6 +36,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -59,7 +63,10 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 public class UpdateCommandsMarshalingMicroBenchmark {
-    private static final PartitionReplicationMessagesFactory MSG_FACTORY = new PartitionReplicationMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final MessageSerializationRegistry REGISTRY = new MessageSerializationRegistryImpl();
 
@@ -89,11 +96,11 @@ public class UpdateCommandsMarshalingMicroBenchmark {
         byte[] array = new byte[payloadSize];
 
         UUID uuid = UUID.randomUUID();
-        long timestamp = System.currentTimeMillis();
+        HybridTimestamp timestamp = hybridTimestamp(System.currentTimeMillis());
 
-        TimedBinaryRowMessage timedBinaryRowMessage = MSG_FACTORY.timedBinaryRowMessage()
+        TimedBinaryRowMessage timedBinaryRowMessage = PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                 .timestamp(timestamp)
-                .binaryRowMessage(MSG_FACTORY.binaryRowMessage()
+                .binaryRowMessage(PARTITION_REPLICATION_MESSAGES_FACTORY.binaryRowMessage()
                         .schemaVersion(128)
                         .binaryTuple(ByteBuffer.wrap(array))
                         .build())
@@ -104,12 +111,12 @@ public class UpdateCommandsMarshalingMicroBenchmark {
             for (int i = 0; i < 100; i++) {
                 map.put(UUID.randomUUID(), timedBinaryRowMessage);
             }
-            message = MSG_FACTORY.updateAllCommand()
+            message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
                     .txId(uuid)
-                    .leaseStartTime(timestamp)
-                    .safeTimeLong(timestamp)
+                    .leaseStartTime(timestamp.longValue())
+                    .safeTime(timestamp)
                     .requiredCatalogVersion(10_000)
-                    .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
+                    .tablePartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
                             .partitionId(2048)
                             .tableId(10_000)
                             .build())
@@ -117,13 +124,13 @@ public class UpdateCommandsMarshalingMicroBenchmark {
                     .messageRowsToUpdate(map)
                     .build();
         } else {
-            message = MSG_FACTORY.updateCommand()
+            message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
                     .txId(uuid)
-                    .leaseStartTime(timestamp)
-                    .safeTimeLong(timestamp)
+                    .leaseStartTime(timestamp.longValue())
+                    .safeTime(timestamp)
                     .rowUuid(uuid)
                     .requiredCatalogVersion(10_000)
-                    .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
+                    .tablePartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
                             .partitionId(2048)
                             .tableId(10_000)
                             .build())

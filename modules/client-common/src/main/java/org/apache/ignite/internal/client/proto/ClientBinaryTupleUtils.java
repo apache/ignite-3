@@ -38,6 +38,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.marshaling.Marshaler;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,7 +50,7 @@ public class ClientBinaryTupleUtils {
      * Reads an object from binary tuple at the specified index.
      *
      * @param reader Binary tuple reader.
-     * @param index  Starting index in the binary tuple.
+     * @param index Starting index in the binary tuple.
      * @return Object.
      */
     static @Nullable Object readObject(BinaryTupleReader reader, int index) {
@@ -194,11 +195,14 @@ public class ClientBinaryTupleUtils {
      * @param builder Builder.
      * @param obj Object.
      */
-    public static void appendObject(BinaryTupleBuilder builder, Object obj) {
+    public static <T> void appendObject(BinaryTupleBuilder builder, @Nullable T obj, @Nullable Marshaler<T, byte[]> marshaler) {
         if (obj == null) {
             builder.appendNull(); // Type.
             builder.appendNull(); // Scale.
             builder.appendNull(); // Value.
+        } else if (marshaler != null) {
+            appendTypeAndScale(builder, ColumnType.BYTE_ARRAY);
+            builder.appendBytes(marshaler.marshal(obj));
         } else if (obj instanceof Boolean) {
             appendTypeAndScale(builder, ColumnType.BOOLEAN);
             builder.appendBoolean((Boolean) obj);

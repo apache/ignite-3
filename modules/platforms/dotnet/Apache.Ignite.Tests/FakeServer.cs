@@ -366,7 +366,7 @@ namespace Apache.Ignite.Tests
                         reader.ReadBoolean(); // returnResults.
 
                         var payloadTupleSize = reader.ReadInt32();
-                        var payloadItemCount = payloadTupleSize - 4; // NOTE: Ignores args.
+                        var payloadItemCount = payloadTupleSize - 6; // NOTE: Ignores args.
                         StreamerRowCount += payloadItemCount;
 
                         if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
@@ -377,13 +377,36 @@ namespace Apache.Ignite.Tests
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
                     }
+
+                    case ClientOp.PrimaryReplicasGet:
+                    {
+                        using var arrayBufferWriter = new PooledArrayBuffer();
+                        var writer = new MsgPackWriter(arrayBufferWriter);
+
+                        writer.Write(PartitionAssignment.Length);
+
+                        for (var index = 0; index < PartitionAssignment.Length; index++)
+                        {
+                            var nodeId = PartitionAssignment[index];
+
+                            writer.Write(index); // Partition id.
+                            writer.Write(4); // Prop count.
+                            writer.Write(nodeId); // Id.
+                            writer.Write(nodeId); // Name.
+                            writer.Write("localhost"); // Host.
+                            writer.Write(10900 + index); // Port.
+                        }
+
+                        Send(handler, requestId, arrayBufferWriter);
+                        continue;
+                    }
                 }
 
                 // Fake error message for any other op code.
                 using var errWriter = new PooledArrayBuffer();
                 var w = new MsgPackWriter(errWriter);
                 w.Write(Guid.Empty);
-                w.Write(262150);
+                w.Write(262148);
                 w.Write("org.foo.bar.BazException");
                 w.Write(Err);
                 w.WriteNil(); // Stack trace.
