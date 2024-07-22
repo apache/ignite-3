@@ -31,6 +31,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -76,7 +77,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
@@ -90,6 +90,7 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -327,7 +328,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(failedFuture(
-                        new MismatchingTransactionOutcomeException(
+                        new MismatchingTransactionOutcomeInternalException(
                                 "Test exception",
                                 new TransactionResult(TxState.ABORTED, null
                                 )
@@ -342,7 +343,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::commit);
 
-        assertTrue(IgniteTestUtils.hasCause(transactionException, MismatchingTransactionOutcomeException.class, null));
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, transactionException);
 
         tx.commitAsync().get(3, TimeUnit.SECONDS);
         tx.rollbackAsync().get(3, TimeUnit.SECONDS);
@@ -355,7 +356,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(failedFuture(
-                        new MismatchingTransactionOutcomeException(
+                        new MismatchingTransactionOutcomeInternalException(
                                 "Test exception",
                                 new TransactionResult(TxState.ABORTED, null
                                 )
@@ -370,7 +371,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::rollback);
 
-        assertTrue(IgniteTestUtils.hasCause(transactionException, MismatchingTransactionOutcomeException.class, null));
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, transactionException);
 
         tx.commitAsync().get(3, TimeUnit.SECONDS);
         tx.rollbackAsync().get(3, TimeUnit.SECONDS);
@@ -582,7 +583,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
-                .thenReturn(failedFuture(new MismatchingTransactionOutcomeException(
+                .thenReturn(failedFuture(new MismatchingTransactionOutcomeInternalException(
                         "TX already finished.",
                         new TransactionResult(TxState.ABORTED, null)
                 )));
