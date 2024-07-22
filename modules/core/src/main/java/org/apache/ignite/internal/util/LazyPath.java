@@ -25,44 +25,55 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * A {@link Lazy} for {@link Path}.
+ *
+ * <p>Use this class to defer initialization of {@link Path} until it is needed.
  */
 public class LazyPath extends Lazy<Path> {
-    /**
-     * Creates the lazy value with the given value supplier.
-     *
-     * @param supplier A supplier of the value.
-     */
+
     private LazyPath(Supplier<Path> supplier) {
         super(supplier);
     }
 
     /**
-     * Create a new instance.
+     * Create a new instance for a path.
+     *
+     * @param defaultPath Path.
      */
     public static LazyPath create(Path defaultPath) {
         return new LazyPath(() -> defaultPath);
     }
 
     /**
-     * Create a new instance.
+     * Create a new instance from {@code pathSupplier} if it returns a nonempty value, otherwise use {@code defaultPath}.
+     *
+     * @param pathSupplier Path supplier.
+     * @param defaultPath Default path.
      */
-    public static LazyPath create(Supplier<String> pathConfig, Path defaultPath) {
-        return new LazyPath(() -> pathOrDefault(pathConfig.get(), defaultPath));
+    public static LazyPath create(Supplier<String> pathSupplier, Path defaultPath) {
+        return new LazyPath(() -> pathOrDefault(pathSupplier.get(), defaultPath));
     }
 
     /**
-     * Create a new instance.
+     * Create a new instance from {@code pathSupplier} if it returns a nonempty value, otherwise use {@code defaultPathSupplier}.
+     *
+     * @param pathSupplier Path supplier.
+     * @param defaultPathSupplier Default path supplier.
      */
-    public static LazyPath create(Supplier<String> pathConfig, Supplier<Path> defaultPathSupplier) {
-        return create(pathConfig, defaultPathSupplier, false);
+    public static LazyPath create(Supplier<String> pathSupplier, Supplier<Path> defaultPathSupplier) {
+        return create(pathSupplier, defaultPathSupplier, false);
     }
 
     /**
-     * Create a new instance.
+     * Create a new instance from {@code pathSupplier} if it returns a nonempty value, otherwise use {@code defaultPathSupplier}. If {code
+     * ensureCreated} is {@code true}, then create the path if it doesn't exist.
+     *
+     * @param pathSupplier Path supplier.
+     * @param defaultPathSupplier Default path supplier.
+     * @param ensureCreated If {@code true}, then create the path if it doesn't exist.
      */
-    public static LazyPath create(Supplier<String> pathConfig, Supplier<Path> defaultPathSupplier, boolean ensureCreated) {
+    public static LazyPath create(Supplier<String> pathSupplier, Supplier<Path> defaultPathSupplier, boolean ensureCreated) {
         return new LazyPath(() -> {
-            Path path = pathOrDefault(pathConfig.get(), defaultPathSupplier);
+            Path path = pathOrDefault(pathSupplier.get(), defaultPathSupplier);
 
             return ensureCreated ? ensureCreated(path) : path;
         });
@@ -77,15 +88,13 @@ public class LazyPath extends Lazy<Path> {
 
     /**
      * Resolve the other path against this one.
-     *
      */
     public LazyPath resolveLazy(String other) {
         return resolveLazy(other, false);
     }
 
     /**
-     * Resolve the other path against this one.
-     *
+     * Resolve the other path against this one.  If {code ensureCreated} is {@code true}, then create the path if it doesn't exist.
      */
     public LazyPath resolveLazy(Path other, boolean ensureCreated) {
         return new LazyPath(() -> {
@@ -96,8 +105,7 @@ public class LazyPath extends Lazy<Path> {
     }
 
     /**
-     * Resolve the other path against this one.
-     *
+     * Resolve the other path against this one. If {code ensureCreated} is {@code true}, then create the path if it doesn't exist.
      */
     public LazyPath resolveLazy(String other, boolean ensureCreated) {
         return new LazyPath(() -> {

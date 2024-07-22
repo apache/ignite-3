@@ -27,7 +27,16 @@ import org.apache.ignite.configuration.annotation.Value;
 @ConfigurationRoot(rootName = "system", type = ConfigurationType.LOCAL)
 public class SystemConfigurationSchema {
 
-    /** Directory where partition data is stored. By default "partitions" subfolder of data storage path is used. */
+    /**
+     * Directory where partition data is stored. By default "partitions" subfolder of data storage path is used.
+     *
+     * <pre>
+     * The internal directory structure contains:
+     * - `log` directory - raft log directory.
+     * - `meta` directory - raft meta directory (raft log metadata and snapshots).
+     * - `db` directory - persistent storage directory.
+     * </pre>
+     */
     @Value(hasDefault = true)
     public String partitionsBasePath = "";
 }
