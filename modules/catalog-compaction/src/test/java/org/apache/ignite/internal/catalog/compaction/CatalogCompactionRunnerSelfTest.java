@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZo
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -79,10 +80,10 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.hamcrest.Matchers;
@@ -109,6 +110,8 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     private LogicalTopologyService logicalTopologyService;
 
     private MessagingService messagingService;
+
+    private PlacementDriver placementDriver;
 
     @BeforeEach
     void setup() {
@@ -301,6 +304,34 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         assertThat(ex.getCause().getSuppressed(), emptyArray());
     }
 
+    @Test
+    public void assignmentsWasDroppedForTable() {
+        CreateTableCommandBuilder tabBuilder = CreateTableCommand.builder()
+                .tableName("test")
+                .schemaName("PUBLIC")
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
+                .colocationColumns(List.of("key2"));
+
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tabBuilder.tableName("test1").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clockService.nowLong()));
+        assertNotNull(catalog);
+
+        CatalogCompactionRunner compactor = createRunner(
+                NODE1,
+                NODE1,
+                (n) -> catalog.time(),
+                logicalNodes,
+                logicalNodes
+        );
+
+        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFutures.nullCompletedFuture());
+        assertThat(compactor.triggerCompaction(clockService.now()), willThrow(IllegalStateException.class));
+    }
+
     private CatalogCompactionRunner createRunner(
             ClusterNode localNode,
             ClusterNode coordinator,
@@ -318,11 +349,8 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     ) {
         messagingService = mock(MessagingService.class);
         logicalTopologyService = mock(LogicalTopologyService.class);
-        PlacementDriver placementDriver = mock(PlacementDriver.class);
-        TopologyService topologyService = mock(TopologyService.class);
+        placementDriver = mock(PlacementDriver.class);
         CatalogCompactionMessagesFactory messagesFactory = new CatalogCompactionMessagesFactory();
-
-        when(topologyService.localMember()).thenReturn(localNode);
 
         when(messagingService.invoke(any(ClusterNode.class), any(CatalogMinimumRequiredTimeRequest.class), anyLong()))
                 .thenAnswer(invocation -> {
@@ -355,9 +383,9 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         when(logicalTopologyService.localLogicalTopology()).thenReturn(logicalTop);
 
         CatalogCompactionRunner runner = new CatalogCompactionRunner(
+                localNode.name(),
                 catalogManager,
                 messagingService,
-                topologyService,
                 logicalTopologyService,
                 placementDriver,
                 clockService,

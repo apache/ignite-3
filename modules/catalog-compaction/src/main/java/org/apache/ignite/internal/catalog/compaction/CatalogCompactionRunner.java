@@ -52,7 +52,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -89,8 +88,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final MessagingService messagingService;
 
-    private final TopologyService topologyService;
-
     private final LogicalTopologyService logicalTopologyService;
 
     private final PlacementDriver placementDriver;
@@ -103,6 +100,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final MinimumRequiredTimeProvider localMinTimeProvider;
 
+    private final String localNodeName;
+
     /**
      * Node that is considered to be a coordinator of compaction process.
      *
@@ -114,30 +113,28 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private volatile HybridTimestamp lowWatermark;
 
-    private volatile String localMemberName;
-
     /**
      * Constructs catalog compaction runner.
      */
     public CatalogCompactionRunner(
+            String localNodeName,
             CatalogManagerImpl catalogManager,
             MessagingService messagingService,
-            TopologyService topologyService,
             LogicalTopologyService logicalTopologyService,
             PlacementDriver placementDriver,
             ClockService clockService,
             Executor executor
     ) {
-        this(catalogManager, messagingService, topologyService, logicalTopologyService, placementDriver, clockService, executor, null);
+        this(localNodeName, catalogManager, messagingService, logicalTopologyService, placementDriver, clockService, executor, null);
     }
 
     /**
      * Constructs catalog compaction runner with custom minimum required time provider.
      */
     CatalogCompactionRunner(
+            String localNodeName,
             CatalogManagerImpl catalogManager,
             MessagingService messagingService,
-            TopologyService topologyService,
             LogicalTopologyService logicalTopologyService,
             PlacementDriver placementDriver,
             ClockService clockService,
@@ -145,7 +142,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             @Nullable CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
     ) {
         this.messagingService = messagingService;
-        this.topologyService = topologyService;
+        this.localNodeName = localNodeName;
         this.logicalTopologyService = logicalTopologyService;
         this.catalogManager = catalogManager;
         this.clockService = clockService;
@@ -167,8 +164,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             messagingService.respond(sender, response, correlationId);
         });
-
-        localMemberName = topologyService.localMember().name();
 
         return CompletableFutures.nullCompletedFuture();
     }
@@ -209,7 +204,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     /** Starts the catalog compaction routine. */
     CompletableFuture<Boolean> triggerCompaction(@Nullable HybridTimestamp lwm) {
-        if (lwm == null || !localMemberName.equals(compactionCoordinatorNodeName)) {
+        if (lwm == null || !localNodeName.equals(compactionCoordinatorNodeName)) {
             return CompletableFutures.falseCompletedFuture();
         }
 
@@ -287,7 +282,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         CatalogMinimumRequiredTimeRequest request = MESSAGES_FACTORY.catalogMinimumRequiredTimeRequest().build();
         List<CompletableFuture<?>> ackFutures = new ArrayList<>(logicalTopologyNodes.size());
         AtomicLong minimumRequiredTimeHolder = new AtomicLong(Long.MAX_VALUE);
-        String localMemberName0 = localMemberName;
+        String localMemberName0 = localNodeName;
 
         for (LogicalNode node : logicalTopologyNodes) {
             if (localMemberName0.equals(node.name())) {
@@ -351,14 +346,16 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
                     .whenComplete((tokenizedAssignments, ex) -> {
-                        // Compaction will be performed even if placement driver doesn't provide table assignments.
-                        if (tokenizedAssignments != null) {
-                            List<String> assignments = tokenizedAssignments.nodes().stream()
-                                    .map(Assignment::consistentId)
-                                    .collect(Collectors.toList());
-
-                            required.addAll(assignments);
+                        if (tokenizedAssignments == null) {
+                            throw new IllegalStateException("Cannot get assignments for table " + table.name()
+                                    + " (replication group=" + replicationGroupId + ").");
                         }
+
+                        List<String> assignments = tokenizedAssignments.nodes().stream()
+                                .map(Assignment::consistentId)
+                                .collect(Collectors.toList());
+
+                        required.addAll(assignments);
                     });
 
             partitionFutures.add(assignmentsFut);

@@ -713,9 +713,9 @@ public class IgniteImpl implements Ignite {
         );
 
         CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
+                name,
                 catalogManager,
                 clusterSvc.messagingService(),
-                clusterSvc.topologyService(),
                 logicalTopologyService,
                 placementDriverMgr.placementDriver(),
                 clockService,
