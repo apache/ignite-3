@@ -105,7 +105,7 @@ public abstract class IndexWrapper {
         TableSchemaAwareIndexStorage getStorage(int partitionId) {
             IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
 
-            //assert !fsm_err;
+            assert !fsm_err;
 
             assert index != null : "tableId=" + tbl.tableId() + ", indexId=" + indexId + ", partitionId=" + partitionId;
 

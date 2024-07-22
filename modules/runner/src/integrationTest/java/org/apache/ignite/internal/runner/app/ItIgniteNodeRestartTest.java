@@ -1358,6 +1358,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     // TODO doesn't register the indexes. As a result, indexes are not found and assertion happens.
     // TODO This also causes https://issues.apache.org/jira/browse/IGNITE-20996 .
     public void testCfgGap() {
+        IndexWrapper.fsm_err = false;
+
         List<IgniteImpl> nodes = startNodes(4);
 
         createTableWithData(nodes, "t1", nodes.size(), 1);
@@ -1376,13 +1378,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IndexWrapper.fsm_err = true;
 
-        IgniteImpl newNode = startNode(nodes.size() - 1);
+        try {
+            IgniteImpl newNode = startNode(nodes.size() - 1);
 
-        checkTableWithData(nodes.get(0), "t1");
-        checkTableWithData(nodes.get(0), "t2");
+            checkTableWithData(nodes.get(0), "t1");
+            checkTableWithData(nodes.get(0), "t2");
 
-        checkTableWithData(newNode, "t1");
-        checkTableWithData(newNode, "t2");
+            checkTableWithData(newNode, "t1");
+            checkTableWithData(newNode, "t2");
+        } finally {
+            IndexWrapper.fsm_err = false;
+        }
     }
 
     /**
