@@ -23,6 +23,7 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
 /** Log storage factory interface. */
+// TODO https://issues.apache.org/jira/browse/IGNITE-22766
 public interface LogStorageFactory extends LogSyncer, IgniteComponent {
     /**
      * Creates a log storage.

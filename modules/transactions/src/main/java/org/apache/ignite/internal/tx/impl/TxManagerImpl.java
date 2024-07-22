@@ -366,9 +366,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
         return primaryReplicaEventListener(eventParameters, groupId -> {
-            String localNodeName = topologyService.localMember().name();
+            if (localNodeId.equals(eventParameters.leaseholderId())) {
+                String localNodeName = topologyService.localMember().name();
 
-            txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+                txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+            }
         });
     }
 

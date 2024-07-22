@@ -107,6 +107,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -178,6 +179,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     // Table internal components
     @Mock
     private ReplicaManager replicaMgr;
+    @Mock
+    private LogSyncer logSyncer;
     private volatile MvTableStorage mvTableStorage;
     private volatile TxStateTableStorage txStateTableStorage;
 
@@ -275,13 +278,11 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(raftGrpSrvcMock.leader()).thenReturn(new Peer("node0"));
         when(rm.startRaftGroupService(any(), any(), any(), any())).thenAnswer(mock -> completedFuture(raftGrpSrvcMock));
 
-        when(rm.getLogSyncer()).thenReturn(mock(LogSyncer.class));
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
-        when(replicaMgr.getLogSyncer()).thenReturn(mock(LogSyncer.class));
         when(replicaMgr.startReplica(any(), any(), any(), any(), any(PendingComparableValuesTracker.class), any()))
                 .thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
@@ -349,7 +350,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
                 new TransactionInflights(placementDriver, clockService),
-                indexMetaStorage
+                indexMetaStorage,
+                logSyncer
         ) {
 
             @Override
@@ -369,6 +371,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 return txStateTableStorage;
             }
         };
+
+        tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 
         var componentContext = new ComponentContext();
 

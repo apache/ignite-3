@@ -74,6 +74,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -261,7 +262,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(TransactionInflights.class),
                     3_000,
                     0,
-                    null
+                    null,
+                    mock(StreamerReceiverRunner.class)
             );
             this.dataAmount = dataAmount;
 

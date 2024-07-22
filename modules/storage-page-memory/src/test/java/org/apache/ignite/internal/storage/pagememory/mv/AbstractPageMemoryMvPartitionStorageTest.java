@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.stream.Collectors.joining;
-import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -29,7 +28,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RowId;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -55,7 +53,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         BinaryRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
 
-        assertThat(foundRow, is(equalToRow(longRow)));
+        assertThat(foundRow, isRow(longRow));
     }
 
     private BinaryRow rowStoredInFragments() {
@@ -81,7 +79,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         BinaryRow foundRow = read(rowId, clock.now());
 
-        assertThat(foundRow, is(equalToRow(longRow)));
+        assertThat(foundRow, isRow(longRow));
     }
 
     @Test
@@ -93,7 +91,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
         try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
             BinaryRow foundRow = cursor.next().binaryRow();
 
-            assertThat(foundRow, is(equalToRow(longRow)));
+            assertThat(foundRow, isRow(longRow));
         }
     }
 
@@ -108,43 +106,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
         try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
             BinaryRow foundRow = cursor.next().binaryRow();
 
-            assertThat(foundRow, is(equalToRow(longRow)));
+            assertThat(foundRow, isRow(longRow));
         }
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeUsingWriteIntents() {
-        super.estimatedSizeUsingWriteIntents();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeUsingCommittedWrites() {
-        super.estimatedSizeUsingCommittedWrites();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeNeverFallsBelowZero() {
-        super.estimatedSizeNeverFallsBelowZero();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeShowsLatestRowsNumber() {
-        super.estimatedSizeShowsLatestRowsNumber();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeIsNotAffectedByGarbageTombstones() {
-        super.estimatedSizeIsNotAffectedByGarbageTombstones();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void estimatedSizeHandlesTransactionAborts() {
-        super.estimatedSizeHandlesTransactionAborts();
     }
 }

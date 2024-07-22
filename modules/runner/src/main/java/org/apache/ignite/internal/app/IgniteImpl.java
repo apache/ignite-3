@@ -680,7 +680,7 @@ public class IgniteImpl implements Ignite {
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
-        LogSyncer logSyncer = raftMgr.getLogSyncer();
+        LogSyncer logSyncer = logStorageFactory;
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
@@ -828,7 +828,8 @@ public class IgniteImpl implements Ignite {
                 resourcesRegistry,
                 lowWatermark,
                 transactionInflights,
-                indexMetaStorage
+                indexMetaStorage,
+                logSyncer
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(

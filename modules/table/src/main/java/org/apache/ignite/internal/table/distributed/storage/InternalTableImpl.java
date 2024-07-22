@@ -119,6 +119,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -158,6 +159,8 @@ public class InternalTableImpl implements InternalTable {
     private final int partitions;
 
     private final Supplier<ScheduledExecutorService> streamerFlushExecutor;
+
+    private final StreamerReceiverRunner streamerReceiverRunner;
 
     /** Table name. */
     private volatile String tableName;
@@ -243,7 +246,8 @@ public class InternalTableImpl implements InternalTable {
             TransactionInflights transactionInflights,
             long implicitTransactionTimeout,
             int attemptsObtainLock,
-            Supplier<ScheduledExecutorService> streamerFlushExecutor
+            Supplier<ScheduledExecutorService> streamerFlushExecutor,
+            StreamerReceiverRunner streamerReceiverRunner
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -261,6 +265,7 @@ public class InternalTableImpl implements InternalTable {
         this.implicitTransactionTimeout = implicitTransactionTimeout;
         this.attemptsObtainLock = attemptsObtainLock;
         this.streamerFlushExecutor = streamerFlushExecutor;
+        this.streamerReceiverRunner = streamerReceiverRunner;
     }
 
     /** {@inheritDoc} */
@@ -2245,6 +2250,11 @@ public class InternalTableImpl implements InternalTable {
 
         return allOf(invokeFutures)
                 .thenApply(v -> Arrays.stream(invokeFutures).mapToLong(f -> (Long) f.join()).sum());
+    }
+
+    @Override
+    public StreamerReceiverRunner streamerReceiverRunner() {
+        return streamerReceiverRunner;
     }
 
     private <T> CompletableFuture<T> sendToPrimaryWithRetry(

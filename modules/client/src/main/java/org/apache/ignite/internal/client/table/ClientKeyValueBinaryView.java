@@ -538,7 +538,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 receiver.units(),
                 receiver.receiverClassName(),
                 receiverArg,
-                receiver.argumentsMarshaler()
+                receiver.argumentMarshaller()
         );
     }
 
