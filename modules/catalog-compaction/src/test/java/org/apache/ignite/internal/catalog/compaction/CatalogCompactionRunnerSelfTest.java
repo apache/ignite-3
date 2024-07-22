@@ -301,7 +301,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void compactionFailedIfAssignmentsNotExistForTable() {
+    public void compactionAbortedIfAssignmentsNotAvailableForTable() {
         CreateTableCommandBuilder tabBuilder = CreateTableCommand.builder()
                 .tableName("test")
                 .schemaName("PUBLIC")
@@ -323,6 +323,9 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 logicalNodes,
                 logicalNodes
         );
+
+        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFuture.failedFuture(new NullPointerException()));
+        assertThat(compactor.triggerCompaction(clockService.now()), willThrow(NullPointerException.class));
 
         when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFutures.nullCompletedFuture());
         assertThat(compactor.triggerCompaction(clockService.now()), willThrow(IllegalStateException.class));
