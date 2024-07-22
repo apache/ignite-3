@@ -15,19 +15,29 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.configuration;
 
-dependencies {
-    annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor libs.auto.service
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.Collections;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
-    implementation project(':ignite-core')
-    implementation project(':ignite-configuration-api')
-    implementation libs.jetbrains.annotations
-    implementation libs.auto.service.annotations
+/**
+ * {@link ConfigurationModule} for node-local system configuration.
+ */
+@AutoService(ConfigurationModule.class)
+public class SystemConfigurationModule implements ConfigurationModule {
+
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.LOCAL;
+    }
+
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return Collections.singleton(SystemConfiguration.KEY);
+    }
+
 }
-
-description = 'ignite-system-configuration'
