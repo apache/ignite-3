@@ -239,8 +239,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private CompletableFuture<Boolean> startCompaction(LogicalTopologySnapshot topologySnapshot) {
         long localMinimum = localMinTimeProvider.time();
 
-        Catalog catalog0 = catalogByTsNullable(localMinimum);
-        if (catalog0 == null || catalog0.version() == catalogManager.earliestCatalogVersion()) {
+        if (catalogByTsNullable(localMinimum) == null) {
             return CompletableFutures.falseCompletedFuture();
         }
 
@@ -282,10 +281,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
         CatalogMinimumRequiredTimeRequest request = MESSAGES_FACTORY.catalogMinimumRequiredTimeRequest().build();
         List<CompletableFuture<?>> ackFutures = new ArrayList<>(logicalTopologyNodes.size());
         AtomicLong minimumRequiredTimeHolder = new AtomicLong(Long.MAX_VALUE);
-        String localMemberName0 = localNodeName;
 
         for (LogicalNode node : logicalTopologyNodes) {
-            if (localMemberName0.equals(node.name())) {
+            if (localNodeName.equals(node.name())) {
                 continue;
             }
 

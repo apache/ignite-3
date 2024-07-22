@@ -155,9 +155,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         verify(messagingService, times(logicalNodes.size() - 1)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
 
         // Nothing should be changed if catalog already compacted for previous timestamp.
-        compactionRunner = createRunner(NODE3, NODE3, nodeToTime::get);
         assertThat(compactionRunner.triggerCompaction(clockService.now()), willBe(false));
-        verify(messagingService, times(0)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
 
         // Nothing should be changed if previous catalog doesn't exists.
         Catalog earliestCatalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.earliestCatalogVersion()));
@@ -292,8 +290,6 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
             return Long.MAX_VALUE;
         };
 
-        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-
         CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, timeSupplier);
 
         ExecutionException ex = Assertions.assertThrows(ExecutionException.class,
@@ -305,7 +301,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void assignmentsWasDroppedForTable() {
+    public void compactionFailedIfAssignmentsNotExistForTable() {
         CreateTableCommandBuilder tabBuilder = CreateTableCommand.builder()
                 .tableName("test")
                 .schemaName("PUBLIC")
