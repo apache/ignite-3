@@ -39,5 +39,6 @@ public interface AssignmentsPlacementDriver {
      * @param clusterTimeToAwait Cluster time to await.
      * @return Tokenized assignments.
      */
-    CompletableFuture<TokenizedAssignments> getAssignments(ReplicationGroupId replicationGroupId, HybridTimestamp clusterTimeToAwait);
+    CompletableFuture<TokenizedAssignments>
+    getAssignments(ReplicationGroupId replicationGroupId, HybridTimestamp clusterTimeToAwait);
 }
