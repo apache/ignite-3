@@ -177,6 +177,7 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
+import org.apache.ignite.internal.table.IndexWrapper;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -216,6 +217,7 @@ import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -1347,12 +1349,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20996")
+    @RepeatedTest(100)
+    //@Disabled("https://issues.apache.org/jira/browse/IGNITE-20996")
+    // TODO https://issues.apache.org/jira/browse/IGNITE-19712 This test should work, but is disabled because of assertion errors.
+    // TODO Root cause of errors is the absence of the indexes on the partition after restart. Scenario: indexes are recovered from
+    // TODO the catalog, then partition storages are cleaned up on recovery due to the absence of the node in stable assignments,
+    // TODO then after recovery the pending assignments event is processed, and it creates the storages and partition again, but
+    // TODO doesn't register the indexes. As a result, indexes are not found and assertion happens.
+    // TODO This also causes https://issues.apache.org/jira/browse/IGNITE-20996 .
     public void testCfgGap() {
         List<IgniteImpl> nodes = startNodes(4);
 
-        createTableWithData(nodes, "t1", nodes.size());
+        createTableWithData(nodes, "t1", nodes.size(), 1);
 
         log.info("Stopping the node.");
 
@@ -1362,9 +1370,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         checkTableWithData(nodes.get(0), "t1");
 
-        createTableWithData(nodes, "t2", nodes.size());
+        createTableWithData(nodes, "t2", nodes.size(), 1);
 
         log.info("Starting the node.");
+
+        IndexWrapper.fsm_err = true;
 
         IgniteImpl newNode = startNode(nodes.size() - 1);
 

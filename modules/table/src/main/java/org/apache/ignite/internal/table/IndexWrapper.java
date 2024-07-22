@@ -27,7 +27,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.tx.LockManager;
 
 /** Class that creates index storage and locker decorators for given partition. */
-abstract class IndexWrapper {
+public abstract class IndexWrapper {
     final InternalTable tbl;
     final LockManager lockManager;
     final int indexId;
@@ -89,6 +89,8 @@ abstract class IndexWrapper {
         }
     }
 
+    public static boolean fsm_err = false;
+
     /** {@link IndexWrapper} for hash indexes. */
     static class HashIndexWrapper extends IndexWrapper {
         private final boolean unique;
@@ -102,6 +104,8 @@ abstract class IndexWrapper {
         @Override
         TableSchemaAwareIndexStorage getStorage(int partitionId) {
             IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
+
+            //assert !fsm_err;
 
             assert index != null : "tableId=" + tbl.tableId() + ", indexId=" + indexId + ", partitionId=" + partitionId;
 
