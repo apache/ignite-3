@@ -48,7 +48,7 @@ import org.apache.ignite.internal.runner.app.client.Jobs.ResultMarshalingJob;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshaling.ByteArrayMarshaler;
 import org.apache.ignite.marshaling.Marshaler;
-import org.apache.ignite.marshaling.UnsupportedObjectTypeMarshalingException;
+import org.apache.ignite.marshaling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -73,7 +73,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         assertStatusFailed(result);
-        assertResultFailsWithErr(Compute.TYPE_CHECK_MARSHALING_ERR, result);
+        assertResultFailsWithErr(Compute.TYPE_CHECK_MARSHALLING_ERR, result);
     }
 
     @Test
@@ -114,7 +114,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         assertStatusFailed(result);
-        assertResultFailsWithErr(Compute.TYPE_CHECK_MARSHALING_ERR, result);
+        assertResultFailsWithErr(Compute.TYPE_CHECK_MARSHALLING_ERR, result);
     }
 
     @Test
@@ -160,7 +160,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                         return (String) obj;
                     }
 
-                    throw new UnsupportedObjectTypeMarshalingException(obj.getClass());
+                    throw new UnsupportedObjectTypeMarshallingException(obj.getClass());
                 }
             };
         }
@@ -169,12 +169,12 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
     private static class IntegerMarshaller implements Marshaler<Integer, byte[]> {
 
         @Override
-        public byte @Nullable [] marshal(@Nullable Integer object) throws UnsupportedObjectTypeMarshalingException {
+        public byte @Nullable [] marshal(@Nullable Integer object) throws UnsupportedObjectTypeMarshallingException {
             return ByteArrayMarshaler.create().marshal(object);
         }
 
         @Override
-        public @Nullable Integer unmarshal(byte @Nullable [] raw) throws UnsupportedObjectTypeMarshalingException {
+        public @Nullable Integer unmarshal(byte @Nullable [] raw) throws UnsupportedObjectTypeMarshallingException {
             return ByteArrayMarshaler.<Integer>create().unmarshal(raw);
         }
     }

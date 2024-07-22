@@ -42,7 +42,7 @@ public interface ByteArrayMarshaler<T> extends Marshaler<T, byte[]> {
             return JavaSerializationByteArrayMarshallilng.marshal((Serializable) object);
         }
 
-        throw new UnsupportedObjectTypeMarshalingException(object.getClass());
+        throw new UnsupportedObjectTypeMarshallingException(object.getClass());
     }
 
     @Override

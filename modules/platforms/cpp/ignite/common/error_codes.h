@@ -198,7 +198,7 @@ enum class code : underlying_t {
     PRIMARY_REPLICA_RESOLVE = 0x10000c,
     CHANGE_JOB_PRIORITY = 0x10000d,
     NODE_NOT_FOUND = 0x10000e,
-    TYPE_CHECK_MARSHALING = 0x10000f,
+    TYPE_CHECK_MARSHALLING = 0x10000f,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,

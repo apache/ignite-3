@@ -42,10 +42,10 @@ import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for embedded client marshalers for Compute API.
+ * Test for embedded API marshalers for Compute API.
  */
 @SuppressWarnings("resource")
-public class ItEmbeddedClientMarshallingTest extends ItAbstractThinClientTest {
+public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
     @Test
     void embeddedOk() {
         // Given entry node that are not supposed to execute job.

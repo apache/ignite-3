@@ -136,7 +136,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             try {
                 return marshaler.unmarshal((byte[]) input);
             } catch (Exception ex) {
-                throw new ComputeException(Compute.TYPE_CHECK_MARSHALING_ERR,
+                throw new ComputeException(Compute.TYPE_CHECK_MARSHALLING_ERR,
                         "Job argument can not be unmarhaled. Both client-side and server-side marshalers should be compatible.",
                         ex
                 );
@@ -144,7 +144,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         }
 
         throw new ComputeException(
-                Compute.TYPE_CHECK_MARSHALING_ERR,
+                Compute.TYPE_CHECK_MARSHALLING_ERR,
                 "Argument must be a `byte[]` because marhaler is defined. "
                         + "If you want to use default marshalling strategy, "
                         + "then you should not define your marshaler in the job. "

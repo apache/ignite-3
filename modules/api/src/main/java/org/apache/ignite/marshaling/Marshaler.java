@@ -40,9 +40,9 @@ public interface Marshaler<T, R> {
      * @param object object to marshal.
      *
      * @return raw presentation of object.
-     * @throws UnsupportedObjectTypeMarshalingException if the given type can not be marshalled with current instance.
+     * @throws UnsupportedObjectTypeMarshallingException if the given type can not be marshalled with current instance.
      */
-    @Nullable R marshal(@Nullable T object) throws UnsupportedObjectTypeMarshalingException;
+    @Nullable R marshal(@Nullable T object) throws UnsupportedObjectTypeMarshallingException;
 
     /**
      * Unmarshal the raw type into object.
@@ -50,8 +50,8 @@ public interface Marshaler<T, R> {
      * @param raw raw presentation of object.
      *
      * @return object.
-     * @throws UnsupportedObjectTypeMarshalingException if the given type can not be unmarshalled with current instance.
+     * @throws UnsupportedObjectTypeMarshallingException if the given type can not be unmarshalled with current instance.
      */
-    @Nullable T unmarshal(@Nullable R raw) throws UnsupportedObjectTypeMarshalingException;
+    @Nullable T unmarshal(@Nullable R raw) throws UnsupportedObjectTypeMarshallingException;
 }
 

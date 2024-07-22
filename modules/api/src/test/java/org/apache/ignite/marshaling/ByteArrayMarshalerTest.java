@@ -148,7 +148,7 @@ class ByteArrayMarshalerTest {
         NotSerializable notSerializable = new NotSerializable(2);
 
         assertThrows(
-                UnsupportedObjectTypeMarshalingException.class,
+                UnsupportedObjectTypeMarshallingException.class,
                 () -> notSerializableMarshaller.marshal(notSerializable)
         );
     }
