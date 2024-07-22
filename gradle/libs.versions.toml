@@ -61,7 +61,7 @@ value = "2.10.1"
 janino = "3.1.12"
 jsonpath = "2.9.0"
 javassist = "3.30.2-GA"
-rocksdb = "9.3.1"
+rocksdb = "9.4.0"
 disruptor = "4.0.0"
 metrics = "4.2.26"
 jctools = "4.0.5"
@@ -100,7 +100,7 @@ checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.8"
-spotbugs = "com.github.spotbugs:6.0.18"
+spotbugs = "com.github.spotbugs:6.0.19"
 
 
 [libraries]
