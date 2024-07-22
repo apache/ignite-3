@@ -30,10 +30,10 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Result type.
  */
 class ResultMarshallingJobExecution<R> implements JobExecution<R> {
-    private final JobExecution<Object> delegate;
+    private final JobExecution<R> delegate;
     private final Marshaler<R, byte[]> resultMarshaler;
 
-    ResultMarshallingJobExecution(JobExecution<Object> delegate, Marshaler<R, byte[]> resultMarshaler) {
+    ResultMarshallingJobExecution(JobExecution<R> delegate, Marshaler<R, byte[]> resultMarshaler) {
         this.delegate = delegate;
         this.resultMarshaler = resultMarshaler;
     }
@@ -43,7 +43,7 @@ class ResultMarshallingJobExecution<R> implements JobExecution<R> {
         return delegate.resultAsync()
                 .thenApply(res -> {
                     if (resultMarshaler == null) {
-                        return (R) res;
+                        return res;
                     }
 
                     return resultMarshaler.unmarshal((byte[]) res);

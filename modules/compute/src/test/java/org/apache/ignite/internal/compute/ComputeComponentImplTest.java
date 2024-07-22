@@ -183,7 +183,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executesLocally() {
-        JobExecution<Object> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), "");
+        JobExecution<String> execution = computeComponent.executeLocally(List.of(), SimpleJob.class.getName(), "");
 
         assertThat(execution.resultAsync(), willBe("jobResponse"));
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
@@ -195,7 +195,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void getsStateAndCancelsLocally() {
-        JobExecution<Object> execution = computeComponent.executeLocally(List.of(), LongJob.class.getName(), null);
+        JobExecution<String> execution = computeComponent.executeLocally(List.of(), LongJob.class.getName(), null);
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
@@ -208,10 +208,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void stateCancelAndChangePriorityTriesLocalNodeFirst() {
-        JobExecution<Object> runningExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName(), null);
+        JobExecution<String> runningExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName(), null);
         await().until(runningExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
-        JobExecution<Object> queuedExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName(), null);
+        JobExecution<String> queuedExecution = computeComponent.executeLocally(List.of(), LongJob.class.getName(), null);
         await().until(queuedExecution::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         UUID jobId = queuedExecution.idAsync().join();
@@ -451,7 +451,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void stoppedComponentReturnsExceptionOnLocalExecutionAttempt() {
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        CompletableFuture<Object> result = executeLocally(SimpleJob.class.getName());
+        CompletableFuture<String> result = executeLocally(SimpleJob.class.getName());
 
         assertThat(result, willThrowWithCauseOrSuppressed(NodeStoppingException.class));
     }
@@ -566,7 +566,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @Test
     void executorThreadsAreNamedAccordingly() {
         assertThat(
-                executeLocally(GetThreadNameJob.class.getName()).thenApply(String.class::cast),
+                executeLocally(GetThreadNameJob.class.getName()),
                 willBe(startsWith(NamedThreadFactory.threadPrefix(INSTANCE_NAME, "compute")))
         );
     }
@@ -577,7 +577,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         executeLocally(LongJob.class.getName());
 
         // the corresponding task goes to work queue
-        CompletableFuture<Object> resultFuture = executeLocally(SimpleJob.class.getName());
+        CompletableFuture<String> resultFuture = executeLocally(SimpleJob.class.getName());
 
         assertThat(computeComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -672,16 +672,16 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         return responseCaptor.getValue();
     }
 
-    private CompletableFuture<Object> executeLocally(String jobClassName, String args) {
+    private CompletableFuture<String> executeLocally(String jobClassName, String args) {
         return executeLocally(List.of(), jobClassName, args);
     }
 
-    private CompletableFuture<Object> executeLocally(String jobClassName) {
+    private CompletableFuture<String> executeLocally(String jobClassName) {
         return executeLocally(jobClassName, null);
     }
 
-    private CompletableFuture<Object> executeLocally(List<DeploymentUnit> units, String jobClassName, String args) {
-        return computeComponent.executeLocally(units, jobClassName, args).resultAsync();
+    private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName, String args) {
+        return computeComponent.<String, String>executeLocally(units, jobClassName, args).resultAsync();
     }
 
     private CompletableFuture<String> executeRemotely(

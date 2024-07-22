@@ -123,7 +123,7 @@ public class FakeCompute implements IgniteComputeInternal {
         }
 
         var future0 = future;
-        return jobExecution(future0 != null ? future0 : completedFuture((Object) nodeName));
+        return jobExecution(future0 != null ? future0 : completedFuture((R) nodeName));
     }
 
     /** {@inheritDoc} */

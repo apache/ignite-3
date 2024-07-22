@@ -220,7 +220,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             ExecutionOptions options,
             T arg
     ) {
-        JobExecution<R> result = new ComputeJobFailover(
+        JobExecution<R> result = (JobExecution<R>) new ComputeJobFailover<>(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
                 jobClassName, options, arg

@@ -42,10 +42,13 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * Executes a {@link ComputeJob} of the given class on a single node. If the node leaves the cluster, it will be restarted on one of the
      * candidate nodes.
      *
+     * @param <R> Job result type.
      * @param nodes Candidate nodes; In case target node left the cluster, the job will be restarted on one of them.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options.
+     * @param argumentMarshaler Marshaler for the job argument.
+     * @param resultMarshaler Marshaler for the job result.
      * @param payload Arguments of the job.
      * @return CompletableFuture Job result.
      */
@@ -68,7 +71,10 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options job execution options (priority, max retries).
+     * @param argumentMarshaler Marshaler for the job argument.
+     * @param resultMarshaler Marshaler for the job result.
      * @param payload Arguments of the job.
+     * @param <R> Job result type.
      * @return Job execution object.
      */
     <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(

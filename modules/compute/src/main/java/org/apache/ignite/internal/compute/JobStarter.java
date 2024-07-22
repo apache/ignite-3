@@ -32,9 +32,10 @@ public interface JobStarter {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args Arguments of the job.
+     * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    JobExecution<Object> start(
+    <R> JobExecution<R> start(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,

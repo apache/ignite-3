@@ -185,8 +185,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Marshaler<Object, byte[]> argumentMarshaler,
-            Marshaler<R, byte[]> resultMarshaler,
+            @Nullable Marshaler<Object, byte[]> argumentMarshaler,
+            @Nullable Marshaler<R, byte[]> resultMarshaler,
             Object args
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
@@ -229,15 +229,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return iterator.next();
     }
 
-    private <R> JobExecution<R> executeOnOneNodeWithFailover(
+    private <T, R> JobExecution<R> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
-            @Nullable Marshaler<Object, byte[]> argumentMarshaler,
+            @Nullable Marshaler<T, byte[]> argumentMarshaler,
             @Nullable Marshaler<R, byte[]> resultMarshaler,
-            @Nullable Object payload
+            @Nullable T payload
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
         Object marshaledArg = argumentMarshaler == null ? payload : argumentMarshaler.marshal(payload);
@@ -342,7 +342,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
-        Marshaler<Object, byte[]> argumentMarshaler = (Marshaler<Object, byte[]>) descriptor.argumentMarshaler();
+        Marshaler<T, byte[]> argumentMarshaler = descriptor.argumentMarshaler();
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
@@ -411,7 +411,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     @Override
     public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
-        JobExecution<Object> jobExecution = executeAsyncWithFailover(
+        JobExecution<byte[]> jobExecution = executeAsyncWithFailover(
                 Set.of(node),
                 deploymentUnits,
                 StreamerReceiverJob.class.getName(),
@@ -432,7 +432,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ExceptionUtils.sneakyThrow(err);
                     }
 
-                    return (byte[]) res;
+                    return res;
                 });
     }
 
