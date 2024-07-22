@@ -158,6 +158,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
@@ -753,7 +754,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
-            Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
+            Function<RaftCommandRunner, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
                     replicaGrpId,
                     table,
                     safeTimeTracker,
@@ -1191,7 +1192,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MvPartitionStorage mvPartitionStorage,
             TxStateStorage txStatePartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
-            RaftGroupService raftClient
+            RaftCommandRunner raftClient
     ) {
         int tableId = tablePartitionId.tableId();
         int partId = tablePartitionId.partitionId();

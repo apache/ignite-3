@@ -34,18 +34,21 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.replicator.ZonePartitionReplicaImpl;
 import org.apache.ignite.internal.tx.TransactionResult;
 
 /**
  * RAFT listener for the zone partition.
  */
 public class ZonePartitionRaftListener implements RaftGroupListener {
-    private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionRaftListener.class);
 
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-        // No-op
+        iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
+            Command command = clo.command();
+
+            assert false : "No read commands expected, [cmd=" + command + ']';
+        });
     }
 
     @Override

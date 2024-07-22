@@ -48,7 +48,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
     private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
 
-    private final RaftGroupService raftClient;
+    private final RaftCommandRunner raftClient;
 
     public ZonePartitionReplicaListener(RaftGroupService raftClient) {
         this.raftClient = raftClient;
@@ -61,21 +61,21 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-22621 implement zone-based transaction storage
             //  and txn messages processing
             if (request instanceof TxFinishReplicaRequest) {
-                TxFinishReplicaRequest txFinishReplicaRquest = (TxFinishReplicaRequest) request;
+                TxFinishReplicaRequest txFinishReplicaRequest = (TxFinishReplicaRequest) request;
 
                 TxFinishReplicaRequest requestForTableListener = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
-                        .txId(txFinishReplicaRquest.txId())
-                        .commitPartitionId(txFinishReplicaRquest.commitPartitionId())
-                        .timestamp(txFinishReplicaRquest.timestamp())
-                        .groupId(txFinishReplicaRquest.commitPartitionId())
-                        .groups(txFinishReplicaRquest.groups())
-                        .commit(txFinishReplicaRquest.commit())
-                        .commitTimestamp(txFinishReplicaRquest.commitTimestamp())
-                        .enlistmentConsistencyToken(txFinishReplicaRquest.enlistmentConsistencyToken())
+                        .txId(txFinishReplicaRequest.txId())
+                        .commitPartitionId(txFinishReplicaRequest.commitPartitionId())
+                        .timestamp(txFinishReplicaRequest.timestamp())
+                        .groupId(txFinishReplicaRequest.commitPartitionId())
+                        .groups(txFinishReplicaRequest.groups())
+                        .commit(txFinishReplicaRequest.commit())
+                        .commitTimestamp(txFinishReplicaRequest.commitTimestamp())
+                        .enlistmentConsistencyToken(txFinishReplicaRequest.enlistmentConsistencyToken())
                         .build();
 
                 return replicas
-                        .get(txFinishReplicaRquest.commitPartitionId().asTablePartitionId())
+                        .get(txFinishReplicaRequest.commitPartitionId().asTablePartitionId())
                         .invoke(requestForTableListener, senderId);
             } else {
                 LOG.debug("Non table request is not supported by the zone partition yet " + request);
@@ -113,7 +113,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param partitionId Table partition id.
      * @param replicaListener Table replica listener.
      */
-    public void addTableReplicaListener(TablePartitionId partitionId, Function<RaftGroupService, ReplicaListener> replicaListener) {
+    public void addTableReplicaListener(TablePartitionId partitionId, Function<RaftCommandRunner, ReplicaListener> replicaListener) {
         replicas.put(partitionId, replicaListener.apply(raftClient));
     }
 }
