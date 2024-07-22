@@ -72,7 +72,7 @@ class PojoValue {
 }
 
 // execute
-ignite.catalog().create(PojoKey.class, PojoValue.class).execute();
+ignite.catalog().create(PojoKey.class, PojoValue.class);
 
 // access
 ignite.tables().table("kv_pojo_test").keyValueView(PojoKey.class, PojoValue.class)
@@ -137,7 +137,7 @@ class Pojo {
 }
 
 // execute
-ignite.catalog().create(Pojo.class).execute();
+ignite.catalog().create(Pojo.class);
 
 // access
 ignite.tables().table("pojo_test").recordView(Pojo.class)
@@ -168,8 +168,7 @@ class Pojo {
 
 ignite.catalog()
   .create(ZoneDefinition.builder("zone_test")
-    .partitions(2))
-  .execute();
+    .partitions(2));
 
 ignite.catalog()
   .create(TableDefinition.builder("pojo_test")
@@ -177,8 +176,7 @@ ignite.catalog()
   	.colocateBy("id", "id_str")
   	.zone("zone_test")
     .record(Pojo.class) // .key(Key.class).value(Value.class)
-    .build())
-  .execute();
+    .build());
 ----
 
 == Next Steps

@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
+import org.apache.ignite.internal.tx.TransactionInternalException;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.tx.TransactionException;
 
 /**
  * Thrown when, during an attempt to execute a transactional operation, it turns out that the operation cannot be executed
  * because an incompatible schema change has happened.
  */
-// TODO: IGNITE-20415 - make this extend TransactionInternalException.
-public class IncompatibleSchemaException extends TransactionException implements ExpectedReplicationException {
+public class IncompatibleSchemaVersionException extends TransactionInternalException implements ExpectedReplicationException {
     private static final String SCHEMA_CHANGED_MESSAGE = "Table schema was updated after the transaction was started "
             + "[table=%s, startSchema=%d, operationSchema=%d]";
 
@@ -34,7 +33,7 @@ public class IncompatibleSchemaException extends TransactionException implements
 
     private static final String TABLE_DROPPED_ID_MESSAGE = "Table was dropped [tableId=%d]";
 
-    public IncompatibleSchemaException(String message) {
+    public IncompatibleSchemaVersionException(String message) {
         super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, message);
     }
 
@@ -46,8 +45,8 @@ public class IncompatibleSchemaException extends TransactionException implements
      * @param operationSchemaVersion Schema version at the moment of the operation.
      * @return Exception with formatted message.
      */
-    public static IncompatibleSchemaException schemaChanged(String tableName, int startSchemaVersion, int operationSchemaVersion) {
-        return new IncompatibleSchemaException(String.format(
+    public static IncompatibleSchemaVersionException schemaChanged(String tableName, int startSchemaVersion, int operationSchemaVersion) {
+        return new IncompatibleSchemaVersionException(String.format(
                 SCHEMA_CHANGED_MESSAGE,
                 tableName, startSchemaVersion, operationSchemaVersion
         ));
@@ -59,8 +58,8 @@ public class IncompatibleSchemaException extends TransactionException implements
      * @param tableName Name of the table.
      * @return Exception with formatted message.
      */
-    public static IncompatibleSchemaException tableDropped(String tableName) {
-        return new IncompatibleSchemaException(String.format(TABLE_DROPPED_NAME_MESSAGE, tableName));
+    public static IncompatibleSchemaVersionException tableDropped(String tableName) {
+        return new IncompatibleSchemaVersionException(String.format(TABLE_DROPPED_NAME_MESSAGE, tableName));
     }
 
     /**
@@ -70,7 +69,7 @@ public class IncompatibleSchemaException extends TransactionException implements
      * @return Exception with formatted message.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
-    public static IncompatibleSchemaException tableDropped(int tableId) {
-        return new IncompatibleSchemaException(String.format(TABLE_DROPPED_ID_MESSAGE, tableId));
+    public static IncompatibleSchemaVersionException tableDropped(int tableId) {
+        return new IncompatibleSchemaVersionException(String.format(TABLE_DROPPED_ID_MESSAGE, tableId));
     }
 }

@@ -126,6 +126,11 @@ public class QueryCancel {
         doCancel(Reason.CANCEL);
     }
 
+    /** Returns {@code true} if the cancellation procedure has already been started. */
+    public synchronized boolean isCancelled() {
+        return reason != null;
+    }
+
     private void doCancel(Reason reason) {
         if (this.reason != null) {
             return;
