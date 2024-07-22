@@ -29,8 +29,8 @@ import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgMarshalingJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentAndResultMarshalingJob;
+import org.apache.ignite.internal.runner.app.client.Jobs.ArgmarshallingJob;
+import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentAndResultmarshallingJob;
 import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentStringMarshaller;
 import org.apache.ignite.internal.runner.app.client.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.runner.app.client.Jobs.PojoArg;
@@ -42,7 +42,7 @@ import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for embedded API marshalers for Compute API.
+ * Test for embedded API marshallers for Compute API.
  */
 @SuppressWarnings("resource")
 public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
@@ -76,7 +76,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         // When.
         Map<ClusterNode, String> result = node.compute().executeBroadcast(
                 Set.of(node(0), node(1)),
-                JobDescriptor.builder(ArgumentAndResultMarshalingJob.class)
+                JobDescriptor.builder(ArgumentAndResultmarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
@@ -112,13 +112,13 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
 
         String result = node.compute().execute(
                 JobTarget.colocated(tableName, tup),
-                JobDescriptor.builder(ArgMarshalingJob.class)
+                JobDescriptor.builder(ArgmarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .build(),
                 "Input"
         );
 
-        // Then both client and server marshaler were called.
+        // Then both client and server marshaller were called.
         assertEquals("Input"
                         + ":marshalledOnClient"
                         + ":unmarshalledOnServer"

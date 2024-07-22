@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.marshaling;
+package org.apache.ignite.marshalling;
 
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -37,7 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class ByteArrayMarshalerTest {
+class ByteArrayMarshallerTest {
 
     private static Stream<Arguments> primitiveTypes() {
         return Stream.of(
@@ -72,15 +72,15 @@ class ByteArrayMarshalerTest {
     @ParameterizedTest
     @MethodSource("primitiveTypes")
     void marshalPrimitiveTypes(Object obj) {
-        ByteArrayMarshaler<Object> marshaler = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<Object> marshaller = ByteArrayMarshaller.create();
 
-        assertEquals(obj, marshaler.unmarshal(marshaler.marshal(obj)));
+        assertEquals(obj, marshaller.unmarshal(marshaller.marshal(obj)));
     }
 
     @Test
     void nullValue() {
-        ByteArrayMarshaler<Object> marshaler = ByteArrayMarshaler.create();
-        assertNull(marshaler.unmarshal(marshaler.marshal(null)));
+        ByteArrayMarshaller<Object> marshaller = ByteArrayMarshaller.create();
+        assertNull(marshaller.unmarshal(marshaller.marshal(null)));
     }
 
     @ParameterizedTest
@@ -92,58 +92,58 @@ class ByteArrayMarshalerTest {
 
     @Test
     void byteArray() {
-        ByteArrayMarshaler<byte[]> marshaler = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<byte[]> marshaller = ByteArrayMarshaller.create();
 
         byte[] bytes = {1, 2, 3, 4, 5};
 
-        assertArrayEquals(bytes, marshaler.unmarshal(marshaler.marshal(bytes)));
+        assertArrayEquals(bytes, marshaller.unmarshal(marshaller.marshal(bytes)));
     }
 
     @Test
     void javaInt() {
-        ByteArrayMarshaler<Integer> intMarshaller = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<Integer> intMarshaller = ByteArrayMarshaller.create();
         assertEquals(2, intMarshaller.unmarshal(intMarshaller.marshal(2)));
     }
 
     @Test
     void javaString() {
-        ByteArrayMarshaler<String> stringMarshaller = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<String> stringMarshaller = ByteArrayMarshaller.create();
         assertEquals("Hello", stringMarshaller.unmarshal(stringMarshaller.marshal("Hello")));
     }
 
     @Test
     void javaBoolean() {
-        ByteArrayMarshaler<Boolean> booleanMarshaller = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<Boolean> booleanMarshaller = ByteArrayMarshaller.create();
         assertEquals(true, booleanMarshaller.unmarshal(booleanMarshaller.marshal(true)));
     }
 
     @Test
     void javaLong() {
-        ByteArrayMarshaler<Long> longMarshaller = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<Long> longMarshaller = ByteArrayMarshaller.create();
         assertEquals(2L, longMarshaller.unmarshal(longMarshaller.marshal(2L)));
     }
 
     @Test
     void javaShort() {
-        ByteArrayMarshaler<Short> shortMarshaller = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<Short> shortMarshaller = ByteArrayMarshaller.create();
         assertEquals((short) 2, shortMarshaller.unmarshal(shortMarshaller.marshal((short) 2)));
     }
 
     @Test
     void javaByte() {
-        ByteArrayMarshaler<Byte> byteMarshaller = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<Byte> byteMarshaller = ByteArrayMarshaller.create();
         assertEquals((byte) 2, byteMarshaller.unmarshal(byteMarshaller.marshal((byte) 2)));
     }
 
     @Test
     void javaFloat() {
-        ByteArrayMarshaler<Float> floatMarshaller = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<Float> floatMarshaller = ByteArrayMarshaller.create();
         assertEquals(2.0f, floatMarshaller.unmarshal(floatMarshaller.marshal(2.0f)));
     }
 
     @Test
     void notSerializable() {
-        ByteArrayMarshaler<NotSerializable> notSerializableMarshaller = ByteArrayMarshaler.create();
+        ByteArrayMarshaller<NotSerializable> notSerializableMarshaller = ByteArrayMarshaller.create();
 
         NotSerializable notSerializable = new NotSerializable(2);
 

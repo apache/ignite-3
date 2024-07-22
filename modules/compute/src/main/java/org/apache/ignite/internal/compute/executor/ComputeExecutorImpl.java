@@ -44,7 +44,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.lang.ErrorGroups.Compute;
-import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -90,8 +90,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
         ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
-        Marshaler<T, byte[]> inputMarshaller = jobInstance.inputMarshaler();
-        Marshaler<R, byte[]> resultMarshaller = jobInstance.resultMarshaler();
+        Marshaller<T, byte[]> inputMarshaller = jobInstance.inputMarshaller();
+        Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
 
         QueueExecution<R> execution = executorService.submit(
                 unmarshalExecMarshal(input, jobInstance, context, inputMarshaller, resultMarshaller),
@@ -106,8 +106,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             T input,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,
-            @Nullable Marshaler<T, byte[]> inputMarshaller,
-            @Nullable Marshaler<R, byte[]> resultMarshaller
+            @Nullable Marshaller<T, byte[]> inputMarshaller,
+            @Nullable Marshaller<R, byte[]> resultMarshaller
     ) {
         return () -> {
             var fut = jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
@@ -119,25 +119,25 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
 
-    private static <R> Object marshallOrNull(Object res, @Nullable Marshaler<R, byte[]> marshaler) {
-        if (marshaler == null) {
+    private static <R> Object marshallOrNull(Object res, @Nullable Marshaller<R, byte[]> marshaller) {
+        if (marshaller == null) {
             return res;
         }
 
-        return marshaler.marshal((R) res);
+        return marshaller.marshal((R) res);
     }
 
-    private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaler<T, byte[]> marshaler, Object input) {
-        if (marshaler == null) {
+    private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaller<T, byte[]> marshaller, Object input) {
+        if (marshaller == null) {
             return (T) input;
         }
 
         if (input instanceof byte[]) {
             try {
-                return marshaler.unmarshal((byte[]) input);
+                return marshaller.unmarshal((byte[]) input);
             } catch (Exception ex) {
                 throw new ComputeException(Compute.TYPE_CHECK_MARSHALLING_ERR,
-                        "Job argument can not be unmarhaled. Both client-side and server-side marshalers should be compatible.",
+                        "Job argument can not be unmarshalled. Both client-side and server-side marshaller should be compatible.",
                         ex
                 );
             }
@@ -145,10 +145,10 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
         throw new ComputeException(
                 Compute.TYPE_CHECK_MARSHALLING_ERR,
-                "Argument must be a `byte[]` because marhaler is defined. "
+                "Argument must be a `byte[]` because marshaller is defined. "
                         + "If you want to use default marshalling strategy, "
-                        + "then you should not define your marshaler in the job. "
-                        + "If you would like to use your own marshalers, then double-check"
+                        + "then you should not define your marshaller in the job. "
+                        + "If you would like to use your own marshaller, then double-check"
                         + "that both of them are defined in the client and in the server."
         );
     }

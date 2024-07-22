@@ -33,16 +33,16 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgMarshalingJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentAndResultMarshalingJob;
+import org.apache.ignite.internal.runner.app.client.Jobs.ArgmarshallingJob;
+import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentAndResultmarshallingJob;
 import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentStringMarshaller;
 import org.apache.ignite.internal.runner.app.client.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.runner.app.client.Jobs.MapReduce;
 import org.apache.ignite.internal.runner.app.client.Jobs.PojoArg;
 import org.apache.ignite.internal.runner.app.client.Jobs.PojoJob;
 import org.apache.ignite.internal.runner.app.client.Jobs.PojoResult;
-import org.apache.ignite.internal.runner.app.client.Jobs.ResultMarshalingJob;
 import org.apache.ignite.internal.runner.app.client.Jobs.ResultStringUnMarshaller;
+import org.apache.ignite.internal.runner.app.client.Jobs.ResultmarshallingJob;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
@@ -51,7 +51,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Test for client marshalers for Compute API.
+ * Test for client marshaller for Compute API.
  */
 @SuppressWarnings("resource")
 public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest {
@@ -81,15 +81,15 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When run job with custom marshaller for string argument.
         String result = computeClientOn(node).execute(
                 JobTarget.node(targetNode),
-                // Accepts string argument and defines marshaler for it.
-                JobDescriptor.builder(ArgMarshalingJob.class)
-                        // If marshaler is defined for job, we define it on the client as well.
+                // Accepts string argument and defines marshaller for it.
+                JobDescriptor.builder(ArgmarshallingJob.class)
+                        // If marshaller is defined for job, we define it on the client as well.
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .build(),
                 "Input"
         );
 
-        // Then both client and server marshaler were called.
+        // Then both client and server marshaller were called.
         assertEquals("Input"
                         + ":marshalledOnClient"
                         + ":unmarshalledOnServer"
@@ -109,15 +109,15 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When run job with custom marshaller for string result.
         String result = computeClientOn(node).execute(
                 JobTarget.node(targetNode),
-                // Returns string result and defines marshaler for it.
-                JobDescriptor.builder(ResultMarshalingJob.class)
-                        // If result marshaler is defined for job, we define it on the client as well.
+                // Returns string result and defines marshaller for it.
+                JobDescriptor.builder(ResultmarshallingJob.class)
+                        // If result marshaller is defined for job, we define it on the client as well.
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
                 "Input"
         );
 
-        // Then both client and server marshaler were called.
+        // Then both client and server marshaller were called.
         assertEquals("Input"
                         + ":processedOnServer"
                         + ":marshalledOnServer"
@@ -137,16 +137,16 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When run job with custom marshaller for string result.
         String result = computeClientOn(node).execute(
                 JobTarget.node(targetNode),
-                // The job defines custom marshalers for both argument and result.
-                JobDescriptor.builder(ArgumentAndResultMarshalingJob.class)
-                        // The client must define both marshalers as well.
+                // The job defines custom marshaller for both argument and result.
+                JobDescriptor.builder(ArgumentAndResultmarshallingJob.class)
+                        // The client must define both marshaller as well.
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
                 "Input"
         );
 
-        // Then both client and server marshaler were called for argument and for result.
+        // Then both client and server marshaller were called for argument and for result.
         assertEquals("Input"
                         + ":marshalledOnClient"
                         + ":unmarshalledOnServer"
@@ -159,7 +159,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
-    void pojoJobWithMarshalers(int targetNodeIdx) {
+    void pojoJobWithMarshallers(int targetNodeIdx) {
         // Given entry node for client.
         var node = server(0);
         // And.
@@ -168,9 +168,9 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When run job with custom marshaller for pojo argument and result.
         PojoResult result = computeClientOn(node).execute(
                 JobTarget.node(targetNode),
-                // The job accepts PojoArg and returns PojoResult and defines marshalers for both.
+                // The job accepts PojoArg and returns PojoResult and defines marshaller for both.
                 JobDescriptor.builder(PojoJob.class)
-                        // The client must define both marshalers as well.
+                        // The client must define both marshaller as well.
                         .argumentMarshaller(new JsonMarshaller<>(PojoArg.class))
                         .resultMarshaller(new JsonMarshaller<>(PojoResult.class))
                         .build(),
@@ -189,7 +189,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When.
         Map<ClusterNode, String> result = computeClientOn(node).executeBroadcast(
                 Set.of(node(0), node(1)),
-                JobDescriptor.builder(ArgumentAndResultMarshalingJob.class)
+                JobDescriptor.builder(ArgumentAndResultmarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
@@ -226,13 +226,13 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         var compute = computeClientOn(node);
         String result = compute.execute(
                 JobTarget.colocated(tableName, tup),
-                JobDescriptor.builder(ArgMarshalingJob.class)
+                JobDescriptor.builder(ArgmarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .build(),
                 "Input"
         );
 
-        // Then both client and server marshaler were called.
+        // Then both client and server marshaller were called.
         assertEquals("Input"
                         + ":marshalledOnClient"
                         + ":unmarshalledOnServer"
@@ -253,7 +253,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
                 List.of(), MapReduce.class.getName(), List.of("Input_0", "Input_1")
         );
 
-        // Then both client and server marshaler were called.
+        // Then both client and server marshaller were called.
         assertEquals("Input"
                         + ":marshalledOnClient"
                         + ":unmarshalledOnServer"

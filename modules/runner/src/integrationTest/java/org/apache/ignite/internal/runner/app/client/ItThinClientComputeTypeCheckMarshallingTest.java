@@ -43,32 +43,32 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgMarshalingJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.ResultMarshalingJob;
+import org.apache.ignite.internal.runner.app.client.Jobs.ArgmarshallingJob;
+import org.apache.ignite.internal.runner.app.client.Jobs.ResultmarshallingJob;
 import org.apache.ignite.lang.ErrorGroups.Compute;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
-import org.apache.ignite.marshaling.Marshaler;
-import org.apache.ignite.marshaling.UnsupportedObjectTypeMarshallingException;
+import org.apache.ignite.marshalling.ByteArrayMarshaller;
+import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for exceptions that are thrown when marshalers are defined in a wrong way or throw an exception.
+ * Test for exceptions that are thrown when marshallers are defined in a wrong way or throw an exception.
  */
 @SuppressWarnings("resource")
 public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinClientTest {
     @Test
-    void argumentMarshalerDefinedOnlyInJob() {
+    void argumentMarshallerDefinedOnlyInJob() {
         // Given.
         var node = server(0);
 
         // When submit job with custom marshaller that is defined in job but
-        // client JobDescriptor does not declare the argument marshaler.
+        // client JobDescriptor does not declare the argument marshaller.
         var compute = computeClientOn(node);
         JobExecution<String> result = compute.submit(
                 JobTarget.node(node(1)),
-                JobDescriptor.builder(ArgMarshalingJob.class).build(),
+                JobDescriptor.builder(ArgmarshallingJob.class).build(),
                 "Input"
         );
 
@@ -77,16 +77,16 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
     }
 
     @Test
-    void resultMarshalerDefinedOnlyInJob() {
+    void resultMarshallerDefinedOnlyInJob() {
         // Given.
         var node = server(0);
 
         // When submit job with custom marshaller that is defined in job but
-        // client JobDescriptor does not declare the result marshaler.
+        // client JobDescriptor does not declare the result marshaller.
         var compute = computeClientOn(node);
         JobExecution<String> result = compute.submit(
                 JobTarget.node(node(1)),
-                JobDescriptor.builder(ResultMarshalingJob.class).build(),
+                JobDescriptor.builder(ResultmarshallingJob.class).build(),
                 "Input"
         );
 
@@ -97,17 +97,17 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
     }
 
     @Test
-    void argumentMarshalerDoesNotMatch() {
+    void argumentMarshallerDoesNotMatch() {
         // Given.
         var node = server(0);
 
         // When submit job with custom marshaller that is defined in job but
-        // client JobDescriptor does not declare the result marshaler.
+        // client JobDescriptor does not declare the result marshaller.
         var compute = computeClientOn(node);
         JobExecution<Integer> result = compute.submit(
                 JobTarget.node(node(1)),
                 // The descriptor does not match actual job arguments.
-                JobDescriptor.<Integer, Integer>builder(ArgumentTypeCheckingMarshalingJob.class.getName())
+                JobDescriptor.<Integer, Integer>builder(ArgumentTypeCheckingmarshallingJob.class.getName())
                         .argumentMarshaller(new IntegerMarshaller())
                         .build(),
                 1
@@ -118,17 +118,17 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
     }
 
     @Test
-    void resultMarshalerDoesNotMatch() {
+    void resultMarshallerDoesNotMatch() {
         // Given.
         var node = server(0);
 
         // When submit job with custom marshaller that is defined in job but
-        // client JobDescriptor does not declare the result marshaler.
+        // client JobDescriptor does not declare the result marshaller.
         var compute = computeClientOn(node);
         JobExecution<Integer> result = compute.submit(
                 JobTarget.node(node(1)),
                 // The descriptor does not match actual result.
-                JobDescriptor.<String, Integer>builder(ResultMarshalingJob.class.getName())
+                JobDescriptor.<String, Integer>builder(ResultmarshallingJob.class.getName())
                         .resultMarshaller(new IntegerMarshaller())
                         .build(),
                 "Input"
@@ -140,18 +140,18 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         });
     }
 
-    static class ArgumentTypeCheckingMarshalingJob implements ComputeJob<String, String> {
+    static class ArgumentTypeCheckingmarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
             return completedFuture(arg);
         }
 
         @Override
-        public Marshaler<String, byte[]> inputMarshaler() {
-            return new ByteArrayMarshaler<>() {
+        public Marshaller<String, byte[]> inputMarshaller() {
+            return new ByteArrayMarshaller<>() {
                 @Override
                 public @Nullable String unmarshal(byte @Nullable [] raw) {
-                    Object obj = ByteArrayMarshaler.super.unmarshal(raw);
+                    Object obj = ByteArrayMarshaller.super.unmarshal(raw);
                     if (obj == null) {
                         return null;
                     }
@@ -166,16 +166,16 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         }
     }
 
-    private static class IntegerMarshaller implements Marshaler<Integer, byte[]> {
+    private static class IntegerMarshaller implements Marshaller<Integer, byte[]> {
 
         @Override
         public byte @Nullable [] marshal(@Nullable Integer object) throws UnsupportedObjectTypeMarshallingException {
-            return ByteArrayMarshaler.create().marshal(object);
+            return ByteArrayMarshaller.create().marshal(object);
         }
 
         @Override
         public @Nullable Integer unmarshal(byte @Nullable [] raw) throws UnsupportedObjectTypeMarshallingException {
-            return ByteArrayMarshaler.<Integer>create().unmarshal(raw);
+            return ByteArrayMarshaller.<Integer>create().unmarshal(raw);
         }
     }
 

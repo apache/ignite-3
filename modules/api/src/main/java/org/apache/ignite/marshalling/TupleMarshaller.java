@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.marshaling;
+package org.apache.ignite.marshalling;
 
 import org.apache.ignite.table.Tuple;
 
 /**
- * Ignite serialization protocol that can be used used instead of {@link ByteArrayMarshaler}.
+ * Ignite serialization protocol that can be used used instead of {@link ByteArrayMarshaller}.
  */
-interface TupleMarshaller<T> extends Marshaler<T, Tuple> {
+interface TupleMarshaller<T> extends Marshaller<T, Tuple> {
     @Override
     Tuple marshal(T object);
 

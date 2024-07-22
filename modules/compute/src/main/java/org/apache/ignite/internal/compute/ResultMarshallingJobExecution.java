@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
-import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,22 +31,22 @@ import org.jetbrains.annotations.Nullable;
  */
 class ResultMarshallingJobExecution<R> implements JobExecution<R> {
     private final JobExecution<R> delegate;
-    private final Marshaler<R, byte[]> resultMarshaler;
+    private final Marshaller<R, byte[]> resultMarshaller;
 
-    ResultMarshallingJobExecution(JobExecution<R> delegate, Marshaler<R, byte[]> resultMarshaler) {
+    ResultMarshallingJobExecution(JobExecution<R> delegate, Marshaller<R, byte[]> resultMarshaller) {
         this.delegate = delegate;
-        this.resultMarshaler = resultMarshaler;
+        this.resultMarshaller = resultMarshaller;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
         return delegate.resultAsync()
                 .thenApply(res -> {
-                    if (resultMarshaler == null) {
+                    if (resultMarshaller == null) {
                         return res;
                     }
 
-                    return resultMarshaler.unmarshal((byte[]) res);
+                    return resultMarshaller.unmarshal((byte[]) res);
                 });
     }
 

@@ -15,25 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.marshaling;
+package org.apache.ignite.marshalling;
 
 import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Exception thrown when an object type is not supported by the marshaler.
+ * Exception thrown when an object type is not supported by the marshaller.
  */
-public class MarshallingException extends IgniteException {
-    private static final long serialVersionUID = -4170221560474770629L;
+public class UnsupportedObjectTypeMarshallingException extends IgniteException {
+    private static final long serialVersionUID = -8131613381875542450L;
 
     /**
      * Creates an exception with the given unsupported type.
      *
-     * @param exception The exception that caused the error.
+     * @param unsupportedType Unsupported type.
      */
-    MarshallingException(Exception exception) {
-        super(Marshalling.COMMON_ERR, exception);
+    public UnsupportedObjectTypeMarshallingException(Class<?> unsupportedType) {
+        super(
+                Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR,
+                "Unsupported object type: " + unsupportedType.getName() + ". Please, define the marshaller that can handle this type."
+        );
     }
 
     /**
@@ -44,7 +47,7 @@ public class MarshallingException extends IgniteException {
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public MarshallingException(UUID traceId, int code, String message, Throwable cause) {
+    public UnsupportedObjectTypeMarshallingException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

@@ -29,7 +29,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -47,8 +47,8 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options.
-     * @param argumentMarshaler Marshaler for the job argument.
-     * @param resultMarshaler Marshaler for the job result.
+     * @param argumentMarshaller Marshaller for the job argument.
+     * @param resultMarshaller Marshaller for the job result.
      * @param payload Arguments of the job.
      * @return CompletableFuture Job result.
      */
@@ -57,8 +57,8 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaler<Object, byte[]> argumentMarshaler,
-            @Nullable Marshaler<R, byte[]> resultMarshaler,
+            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
+            @Nullable Marshaller<R, byte[]> resultMarshaller,
             Object payload
     );
 
@@ -71,8 +71,8 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options job execution options (priority, max retries).
-     * @param argumentMarshaler Marshaler for the job argument.
-     * @param resultMarshaler Marshaler for the job result.
+     * @param argumentMarshaller Marshaller for the job argument.
+     * @param resultMarshaller Marshaller for the job result.
      * @param payload Arguments of the job.
      * @param <R> Job result type.
      * @return Job execution object.
@@ -83,8 +83,8 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaler<Object, byte[]> argumentMarshaler,
-            @Nullable Marshaler<R, byte[]> resultMarshaler,
+            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
+            @Nullable Marshaller<R, byte[]> resultMarshaller,
             Object payload);
 
     /**

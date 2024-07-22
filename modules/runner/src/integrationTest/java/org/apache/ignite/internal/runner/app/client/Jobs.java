@@ -33,83 +33,83 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
-import org.apache.ignite.marshaling.ByteArrayMarshaler;
-import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshalling.ByteArrayMarshaller;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 class Jobs {
 
-    static class ArgumentStringMarshaller implements ByteArrayMarshaler<String> {
+    static class ArgumentStringMarshaller implements ByteArrayMarshaller<String> {
         @Override
         public byte @Nullable [] marshal(@Nullable String object) {
-            return ByteArrayMarshaler.super.marshal(object + ":marshalledOnClient");
+            return ByteArrayMarshaller.super.marshal(object + ":marshalledOnClient");
         }
     }
 
-    static class ArgMarshalingJob implements ComputeJob<String, String> {
+    static class ArgmarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
             return completedFuture(arg + ":processedOnServer");
         }
 
         @Override
-        public Marshaler<String, byte[]> inputMarshaler() {
-            return new ByteArrayMarshaler<>() {
+        public Marshaller<String, byte[]> inputMarshaller() {
+            return new ByteArrayMarshaller<>() {
                 @Override
                 public String unmarshal(byte @Nullable [] raw) {
-                    return ByteArrayMarshaler.super.unmarshal(raw) + ":unmarshalledOnServer";
+                    return ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnServer";
                 }
             };
         }
     }
 
-    static class ResultStringUnMarshaller implements ByteArrayMarshaler<String> {
+    static class ResultStringUnMarshaller implements ByteArrayMarshaller<String> {
         @Override
         public @Nullable String unmarshal(byte @Nullable [] raw) {
-            return ByteArrayMarshaler.super.unmarshal(raw) + ":unmarshalledOnClient";
+            return ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnClient";
         }
     }
 
-    static class ArgumentAndResultMarshalingJob implements ComputeJob<String, String> {
+    static class ArgumentAndResultmarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
             return completedFuture(arg + ":processedOnServer");
         }
 
         @Override
-        public Marshaler<String, byte[]> inputMarshaler() {
-            return new ByteArrayMarshaler<>() {
+        public Marshaller<String, byte[]> inputMarshaller() {
+            return new ByteArrayMarshaller<>() {
                 @Override
                 public String unmarshal(byte @Nullable [] raw) {
-                    return ByteArrayMarshaler.super.unmarshal(raw) + ":unmarshalledOnServer";
+                    return ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnServer";
                 }
             };
         }
 
         @Override
-        public Marshaler<String, byte[]> resultMarshaler() {
-            return new ByteArrayMarshaler<>() {
+        public Marshaller<String, byte[]> resultMarshaller() {
+            return new ByteArrayMarshaller<>() {
                 @Override
                 public byte @Nullable [] marshal(@Nullable String object) {
-                    return ByteArrayMarshaler.super.marshal(object + ":marshalledOnServer");
+                    return ByteArrayMarshaller.super.marshal(object + ":marshalledOnServer");
                 }
             };
         }
     }
 
-    static class ResultMarshalingJob implements ComputeJob<String, String> {
+    static class ResultmarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
             return completedFuture(arg + ":processedOnServer");
         }
 
         @Override
-        public Marshaler<String, byte[]> resultMarshaler() {
-            return new ByteArrayMarshaler<>() {
+        public Marshaller<String, byte[]> resultMarshaller() {
+            return new ByteArrayMarshaller<>() {
                 @Override
                 public byte @Nullable [] marshal(@Nullable String object) {
-                    return ByteArrayMarshaler.super.marshal(object + ":marshalledOnServer");
+                    return ByteArrayMarshaller.super.marshal(object + ":marshalledOnServer");
                 }
             };
         }
@@ -135,7 +135,7 @@ class Jobs {
         }
     }
 
-    static class JsonMarshaller<T> implements Marshaler<T, byte[]> {
+    static class JsonMarshaller<T> implements Marshaller<T, byte[]> {
         private final Class<T> clazz;
 
         JsonMarshaller(Class<T> clazz) {
@@ -161,12 +161,12 @@ class Jobs {
         }
 
         @Override
-        public Marshaler<PojoArg, byte[]> inputMarshaler() {
+        public Marshaller<PojoArg, byte[]> inputMarshaller() {
             return new JsonMarshaller<>(PojoArg.class);
         }
 
         @Override
-        public Marshaler<PojoResult, byte[]> resultMarshaler() {
+        public Marshaller<PojoResult, byte[]> resultMarshaller() {
             return new JsonMarshaller<>(PojoResult.class);
         }
     }
@@ -266,7 +266,7 @@ class Jobs {
 
             List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
 
-            var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultMarshalingJob.class)
+            var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultmarshallingJob.class)
                     .argumentMarshaller(new ArgumentStringMarshaller())
                     .resultMarshaller(new ResultStringUnMarshaller())
                     .build();
