@@ -83,8 +83,4 @@ public class RaftConfigurationSchema {
      */
     @Value(hasDefault = true)
     public boolean logYieldStrategy = false;
-
-    /** Directory where log is stored. By default "log" subfolder of data storage path is used. */
-    @Value(hasDefault = true)
-    public String logPath = "";
 }

@@ -43,7 +43,6 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-metrics')
-    implementation project(':ignite-system-configuration')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.disruptor
