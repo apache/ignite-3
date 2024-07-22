@@ -52,7 +52,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -60,9 +59,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
@@ -237,37 +233,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 () -> CLUSTER.runningNodes().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),
                 10_000)
         );
-    }
-
-    private static @Nullable RaftGroupService getRaftClient(Ignite node, int partitionId) {
-        TableViewInternal table = getTableView(node, TABLE_NAME);
-        assertNotNull(table);
-
-        return ReplicaTestUtils.getRaftClient(node, table.tableId(), partitionId)
-                .orElse(null);
-    }
-
-    /**
-     * Collects peers for a partition, the first in the list is primary.
-     *
-     * @param partitionId Partition ID.
-     */
-    private static List<Peer> collectPeers(int partitionId) {
-        RaftGroupService raftGroupService = getRaftClient(CLUSTER.aliveNode(), partitionId);
-
-        List<Peer> peers = raftGroupService.peers();
-        assertNotNull(peers);
-
-        Peer leader = raftGroupService.leader();
-        assertNotNull(leader);
-
-        List<Peer> result = new ArrayList<>(peers);
-
-        assertTrue(result.remove(leader));
-
-        result.add(0, leader);
-
-        return result;
     }
 
     /**
