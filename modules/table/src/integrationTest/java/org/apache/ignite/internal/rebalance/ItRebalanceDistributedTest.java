@@ -1361,7 +1361,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             clusterService.topologyService(),
                             lowWatermark,
                             threadPoolsManager.tableIoExecutor(),
-                            rebalanceScheduler
+                            rebalanceScheduler,
+                            threadPoolsManager.partitionOperationsExecutor()
                     )
             ) {
                 @Override

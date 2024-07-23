@@ -50,7 +50,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
     private final RaftCommandRunner raftClient;
 
-    public ZonePartitionReplicaListener(RaftGroupService raftClient) {
+    /**
+     * The constructor.
+     *
+     * @param raftClient Raft client.
+     */
+    public ZonePartitionReplicaListener(RaftCommandRunner raftClient) {
         this.raftClient = raftClient;
     }
 

@@ -664,7 +664,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         clusterSvc.topologyService(),
                         lowWatermark,
                         threadPoolsManager.tableIoExecutor(),
-                        rebalanceScheduler
+                        rebalanceScheduler,
+                        threadPoolsManager.partitionOperationsExecutor()
                 )
         );
 

@@ -1123,7 +1123,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     lowWatermark,
                     threadPoolsManager.tableIoExecutor(),
-                    rebalanceScheduler
+                    rebalanceScheduler,
+                    threadPoolsManager.partitionOperationsExecutor()
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);

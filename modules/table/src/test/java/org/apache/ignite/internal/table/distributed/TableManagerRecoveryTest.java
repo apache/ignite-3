@@ -362,7 +362,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         topologyService,
                         lowWatermark,
                         ForkJoinPool.commonPool(),
-                        mock(ScheduledExecutorService.class)
+                        mock(ScheduledExecutorService.class),
+                        partitionOperationsExecutor
                 )
         ) {
 
