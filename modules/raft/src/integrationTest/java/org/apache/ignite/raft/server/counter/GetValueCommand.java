@@ -19,16 +19,13 @@ package org.apache.ignite.raft.server.counter;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.raft.messages.TestMessageGroup;
-import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 
 /**
  * Get a value command.
  */
-// TODO IGNITE-18357 Move to integration test directory when Maven build is not supported anymore.
-@Transferable(TestMessageGroup.GET_VALUE_COMMAND)
+@Transferable(IntegrationTestMessageGroup.GET_VALUE_COMMAND)
 public interface GetValueCommand extends ReadCommand {
     static GetValueCommand getValueCommand() {
-        return new TestRaftMessagesFactory().getValueCommand().build();
+        return new IngtegrationTestRaftMessagesFactory().getValueCommand().build();
     }
 }

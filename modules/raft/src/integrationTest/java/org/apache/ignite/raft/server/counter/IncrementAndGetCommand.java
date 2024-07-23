@@ -15,13 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.messages;
+package org.apache.ignite.raft.server.counter;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * Message group for tests.
+ * Increment and get command.
  */
-@MessageGroup(groupType = 444, groupName = "TestRaftMessages")
-public interface TestMessageGroup {
+@Transferable(IntegrationTestMessageGroup.INCREMENT_AND_GET_COMMAND)
+public interface IncrementAndGetCommand extends WriteCommand {
+    /**
+     * Returns the delta.
+     */
+    long delta();
+
+    static IncrementAndGetCommand incrementAndGetCommand(long delta) {
+        return new IngtegrationTestRaftMessagesFactory().incrementAndGetCommand().delta(delta).build();
+    }
 }
