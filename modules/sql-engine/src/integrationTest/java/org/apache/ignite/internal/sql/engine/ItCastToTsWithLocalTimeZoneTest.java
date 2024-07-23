@@ -79,11 +79,11 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                 .returns(Instant.parse("1970-01-01T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T09:00:00Z"))
                 .returns(Instant.parse("1969-12-31T20:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T06:00:00Z"))
                 .returns(Instant.parse("1970-01-01T07:00:00Z"))
                 .returns(Instant.parse("1969-12-31T16:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                 .check();
     }
 
@@ -127,11 +127,11 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                 .returns(Instant.parse("1970-01-01T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T09:00:00Z"))
                 .returns(Instant.parse("1969-12-31T20:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T06:00:00Z"))
                 .returns(Instant.parse("1970-01-01T07:00:00Z"))
                 .returns(Instant.parse("1969-12-31T16:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                 .check();
     }
 
@@ -154,7 +154,7 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                     .check();
             assertQuery("SELECT CAST(time '12:00:00' as TIMESTAMP WITH LOCAL TIME ZONE)")
                     .withTimeZoneId(zone)
-                    .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                    .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                     .check();
         }
 
@@ -175,7 +175,7 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                     .check();
             assertQuery("SELECT CAST(time '14:00:00' as TIMESTAMP WITH LOCAL TIME ZONE)")
                     .withTimeZoneId(zone)
-                    .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                    .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                     .check();
         }
     }
@@ -208,11 +208,11 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                 .returns(Instant.parse("1970-01-01T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T09:00:00Z"))
                 .returns(Instant.parse("1969-12-31T20:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T06:00:00Z"))
                 .returns(Instant.parse("1970-01-01T07:00:00Z"))
                 .returns(Instant.parse("1969-12-31T16:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                 .check();
     }
 
@@ -265,11 +265,11 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                 .returns(Instant.parse("1970-01-01T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T09:00:00Z"))
                 .returns(Instant.parse("1969-12-31T20:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T06:00:00Z"))
                 .returns(Instant.parse("1970-01-01T07:00:00Z"))
                 .returns(Instant.parse("1969-12-31T16:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                 .check();
     }
 
@@ -318,11 +318,11 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                 .returns(Instant.parse("1970-01-01T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T09:00:00Z"))
                 .returns(Instant.parse("1969-12-31T20:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T06:00:00Z"))
                 .returns(Instant.parse("1970-01-01T07:00:00Z"))
                 .returns(Instant.parse("1969-12-31T16:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                 .check();
     }
 
@@ -374,11 +374,11 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                 .returns(Instant.parse("1970-01-01T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T09:00:00Z"))
                 .returns(Instant.parse("1969-12-31T20:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T06:00:00Z"))
                 .returns(Instant.parse("1970-01-01T07:00:00Z"))
                 .returns(Instant.parse("1969-12-31T16:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                 .check();
     }
 
@@ -405,7 +405,7 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
             assertQuery("SELECT CAST(? as TIMESTAMP WITH LOCAL TIME ZONE)")
                     .withTimeZoneId(zone)
                     .withParam(LocalTime.parse("12:00:00"))
-                    .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                    .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                     .check();
         }
 
@@ -430,7 +430,7 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
             assertQuery("SELECT CAST(? as TIMESTAMP WITH LOCAL TIME ZONE)")
                     .withTimeZoneId(zone)
                     .withParam(LocalTime.parse("14:00:00"))
-                    .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                    .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                     .check();
         }
     }
@@ -477,11 +477,11 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                 .returns(Instant.parse("1970-01-01T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T09:00:00Z"))
                 .returns(Instant.parse("1969-12-31T20:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T06:00:00Z"))
                 .returns(Instant.parse("1970-01-01T07:00:00Z"))
                 .returns(Instant.parse("1969-12-31T16:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                 .check();
     }
 
@@ -530,11 +530,11 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
                 .returns(Instant.parse("1970-01-01T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T09:00:00Z"))
                 .returns(Instant.parse("1969-12-31T20:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                 .returns(Instant.parse("1970-01-01T06:00:00Z"))
                 .returns(Instant.parse("1970-01-01T07:00:00Z"))
                 .returns(Instant.parse("1969-12-31T16:00:00Z"))
-                .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                 .check();
     }
 
@@ -565,7 +565,7 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
 
             assertQuery("SELECT CAST(t as TIMESTAMP WITH LOCAL TIME ZONE) FROM src WHERE id = 1")
                     .withTimeZoneId(zone)
-                    .returns(Instant.parse(LocalDate.now() + "T08:00:00Z"))
+                    .returns(Instant.parse(currentUtcDate() + "T08:00:00Z"))
                     .check();
         }
 
@@ -589,8 +589,12 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
 
             assertQuery("SELECT CAST(t as TIMESTAMP WITH LOCAL TIME ZONE) FROM src WHERE id = 2")
                     .withTimeZoneId(zone)
-                    .returns(Instant.parse(LocalDate.now() + "T06:00:00Z"))
+                    .returns(Instant.parse(currentUtcDate() + "T06:00:00Z"))
                     .check();
         }
+    }
+
+    private static LocalDate currentUtcDate() {
+        return LocalDate.now(ZoneId.of("UTC"));
     }
 }
