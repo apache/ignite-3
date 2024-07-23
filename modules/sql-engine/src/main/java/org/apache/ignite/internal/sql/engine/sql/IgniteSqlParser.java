@@ -204,8 +204,6 @@ public final class IgniteSqlParser  {
                 messageFromCause = messageFromCause.substring(0, messageFromCause.length() - 1);
             }
 
-            ex.printStackTrace(System.err);
-
             message = format(
                     "{}. At line {}, column {}",
                     messageFromCause,
