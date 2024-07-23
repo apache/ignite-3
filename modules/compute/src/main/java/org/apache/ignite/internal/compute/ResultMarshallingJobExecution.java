@@ -17,43 +17,51 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.compute.ComputeUtils.convertToComputeFuture;
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
-
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wraps the {@link JobExecution} converting exceptions thrown by the delegate to public.
+ * Delegates {@link JobExecution} to the future of {@link JobExecutionInternal}.
  *
  * @param <R> Result type.
  */
-public class JobExecutionWrapper<R> implements JobExecution<R> {
+class ResultMarshallingJobExecution<R> implements JobExecution<R> {
     private final JobExecution<R> delegate;
+    private final Marshaller<R, byte[]> resultMarshaller;
 
-    JobExecutionWrapper(JobExecution<R> delegate) {
+    ResultMarshallingJobExecution(JobExecution<R> delegate, Marshaller<R, byte[]> resultMarshaller) {
         this.delegate = delegate;
+        this.resultMarshaller = resultMarshaller;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return convertToComputeFuture(delegate.resultAsync());
+        return delegate.resultAsync()
+                .thenApply(res -> {
+                    if (resultMarshaller == null) {
+                        return res;
+                    }
+
+                    return resultMarshaller.unmarshal((byte[]) res);
+                });
     }
 
     @Override
     public CompletableFuture<@Nullable JobState> stateAsync() {
-        return convertToPublicFuture(delegate.stateAsync());
+        return delegate.stateAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return convertToPublicFuture(delegate.cancelAsync());
+        return delegate.cancelAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
+        return delegate.changePriorityAsync(newPriority);
     }
 }
