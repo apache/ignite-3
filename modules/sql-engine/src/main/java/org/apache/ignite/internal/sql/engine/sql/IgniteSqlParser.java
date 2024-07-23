@@ -65,7 +65,9 @@ public final class IgniteSqlParser  {
     public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
             .withParserFactory(InternalIgniteSqlParser.FACTORY)
             .withLex(Lex.ORACLE)
-            // Do not validate the length of SQL identifiers.
+            // Do not validate the length of SQL identifiers by the parser because a validation error is throw after creating a token,
+            // which is rather confusing. E.g. A string 12...(129 chars) is going to produce "identifier is too long" error,
+            // instead of reporting that expected a query but got something else.
             .withIdentifierMaxLength(Integer.MAX_VALUE)
             .withConformance(IgniteSqlConformance.INSTANCE);
 
