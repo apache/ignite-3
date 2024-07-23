@@ -73,7 +73,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         assertStatusFailed(result);
-        assertResultFailsWithErr(Compute.TYPE_CHECK_MARSHALLING_ERR, result);
+        assertResultFailsWithErr(Compute.MARSHALLING_TYPE_MISMATCH_ERR, result);
     }
 
     @Test
@@ -114,7 +114,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         assertStatusFailed(result);
-        assertResultFailsWithErr(Compute.TYPE_CHECK_MARSHALLING_ERR, result);
+        assertResultFailsWithErr(Compute.MARSHALLING_TYPE_MISMATCH_ERR, result);
     }
 
     @Test

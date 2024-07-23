@@ -136,7 +136,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             try {
                 return marshaller.unmarshal((byte[]) input);
             } catch (Exception ex) {
-                throw new ComputeException(Compute.TYPE_CHECK_MARSHALLING_ERR,
+                throw new ComputeException(Compute.MARSHALLING_TYPE_MISMATCH_ERR,
                         "Exception in user-defined marshaller: " + ex.getMessage(),
                         ex
                 );
@@ -144,11 +144,11 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         }
 
         throw new ComputeException(
-                Compute.TYPE_CHECK_MARSHALLING_ERR,
-                "Marshaller is defined, expected argument type: `byte[]`, actual: `...`."
+                Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                "Marshaller is defined, expected argument type: `byte[]`, actual: `" + input.getClass() + "`."
                         + "If you want to use default marshalling strategy, "
                         + "then you should not define your marshaller in the job. "
-                        + "If you would like to use your own marshaller, then double-check"
+                        + "If you would like to use your own marshaller, then double-check "
                         + "that both of them are defined in the client and in the server."
         );
     }

@@ -315,7 +315,7 @@ sql_state error_code_to_sql_state(error::code code) {
         // Marshalling group. Group code: асV 22
         case error::code::COMMON:
         case error::code::UNSUPPORTED_OBJECT_TYPE:
-        case error::code::TYPE_CHECK_MARSHALLING:
+        case error::code::MARSHALLING_TYPE_MISMATCH:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 
