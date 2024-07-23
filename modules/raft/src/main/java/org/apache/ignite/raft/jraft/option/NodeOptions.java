@@ -99,7 +99,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // |catchup_margin|
     //
     // Default: 1000
-    private int catchupMargin = 1;
+    private int catchupMargin = 1000;
 
     // If node is starting from a empty environment (both LogStorage and
     // SnapshotStorage are empty), it would use |initial_conf| as the

@@ -89,8 +89,6 @@ public abstract class IndexWrapper {
         }
     }
 
-    public static boolean fsm_err = false;
-
     /** {@link IndexWrapper} for hash indexes. */
     static class HashIndexWrapper extends IndexWrapper {
         private final boolean unique;
@@ -104,8 +102,6 @@ public abstract class IndexWrapper {
         @Override
         TableSchemaAwareIndexStorage getStorage(int partitionId) {
             IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
-
-            assert !fsm_err;
 
             assert index != null : "tableId=" + tbl.tableId() + ", indexId=" + indexId + ", partitionId=" + partitionId;
 

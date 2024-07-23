@@ -517,11 +517,7 @@ public class NodeImpl implements Node, RaftServerService {
             Requires.requireTrue(isBusy(), "Not in busy stage");
             switch (this.stage) {
                 case STAGE_CATCHING_UP:
-                    LOG.info("Catch up phase to change peers from={} to={} was successfully finished,"
-                        + " newPeersSize={}, oldPeersSize={}, serverId={}", oldPeers, newPeers,
-                        oldPeers == null ? 0 : oldPeers.size(),
-                        newPeers == null ? 0 : newPeers.size(),
-                        node.serverId);
+                    LOG.info("Catch up phase to change peers from={} to={} was successfully finished", oldPeers, newPeers);
                     if (this.nchanges > 0) {
                         this.stage = Stage.STAGE_JOINT;
                         this.node.unsafeApplyConfiguration(new Configuration(this.newPeers, this.newLearners),

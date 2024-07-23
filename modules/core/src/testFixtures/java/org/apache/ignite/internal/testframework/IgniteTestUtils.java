@@ -25,6 +25,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
@@ -50,6 +51,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -965,6 +969,29 @@ public final class IgniteTestUtils {
             buf.rewind();
             channel.write(buf);
         }
+    }
+
+    /**
+     * Run the closure in the given executor, wait for the result and get it synchronously.
+     *
+     * @param executor Executor.
+     * @param closure Closure.
+     * @return Closure result.
+     */
+    public static <T> T runInExecutor(ExecutorService executor, Supplier<T> closure) {
+        Object[] arr = new Object[1];
+
+        Future f = executor.submit(() -> {
+            arr[0] = closure.get();
+        });
+
+        try {
+            f.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+
+        return (T) arr[0];
     }
 
     /**
