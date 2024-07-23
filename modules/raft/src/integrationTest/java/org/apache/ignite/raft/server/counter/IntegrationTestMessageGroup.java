@@ -17,23 +17,13 @@
 
 package org.apache.ignite.raft.server.counter;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.raft.messages.TestMessageGroup;
-import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
-/**
- * Increment and get command.
- */
-// TODO IGNITE-18357 Move to integration test directory when Maven build is not supported anymore.
-@Transferable(TestMessageGroup.INCREMENT_AND_GET_COMMAND)
-public interface IncrementAndGetCommand extends WriteCommand {
-    /**
-     * Returns the delta.
-     */
-    long delta();
+@MessageGroup(groupType = 555, groupName = "IngtegrationTestRaftMessages")
+interface IntegrationTestMessageGroup {
+    /** Message type for {@link GetValueCommand}. */
+    short GET_VALUE_COMMAND = 1000;
 
-    static IncrementAndGetCommand incrementAndGetCommand(long delta) {
-        return new TestRaftMessagesFactory().incrementAndGetCommand().delta(delta).build();
-    }
+    /** Message type for {@link IncrementAndGetCommand}. */
+    short INCREMENT_AND_GET_COMMAND = 1001;
 }
