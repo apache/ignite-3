@@ -583,7 +583,7 @@ public class ErrorGroups {
          * For example, the one has defined a marshaller for Type A in the compute job
          * but on the client side they have passed Type B.
          */
-        public static final int TYPE_CHECK_MARSHALLING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 15);
+        public static final int MARSHALLING_TYPE_MISMATCH_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 15);
     }
 
     /** Catalog error group. */
