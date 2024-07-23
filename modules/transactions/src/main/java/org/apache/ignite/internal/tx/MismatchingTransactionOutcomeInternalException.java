@@ -19,14 +19,15 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * The exception is thrown when the transaction result differs from the intended one.
  *
  * <p>For example, {@code tx.commit()} is called for a transaction, but the verification logic decided to abort it instead. The transaction
  * will be finished with {@link TxState#ABORTED} and the call to {@code tx.commit()} will throw this exception.
  */
-// TODO: IGNITE-20415 - split this into public exception (in a public package) and internal exception (carrying internal state).
-public class MismatchingTransactionOutcomeException extends TransactionInternalException {
+public class MismatchingTransactionOutcomeInternalException extends TransactionInternalException {
 
     private static final long serialVersionUID = -7953057695915339651L;
 
@@ -36,13 +37,18 @@ public class MismatchingTransactionOutcomeException extends TransactionInternalE
     /**
      * Constructor.
      */
-    public MismatchingTransactionOutcomeException(int errorCode, String message, TransactionResult transactionResult, Throwable cause) {
+    public MismatchingTransactionOutcomeInternalException(
+            int errorCode,
+            String message,
+            TransactionResult transactionResult,
+            @Nullable Throwable cause
+    ) {
         super(errorCode, message, cause);
 
         this.transactionResult = transactionResult;
     }
 
-    public MismatchingTransactionOutcomeException(String message, TransactionResult transactionResult) {
+    public MismatchingTransactionOutcomeInternalException(String message, TransactionResult transactionResult) {
         this(TX_UNEXPECTED_STATE_ERR, message, transactionResult, null);
     }
 

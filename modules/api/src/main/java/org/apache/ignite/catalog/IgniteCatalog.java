@@ -30,7 +30,7 @@ import org.apache.ignite.table.Table;
  *    private static class Value {
  *        String val;
  *    }
- *    ignite.catalog().create(Integer.class, Value.class).execute();
+ *    ignite.catalog().createTable(Integer.class, Value.class);
  * </pre>
  * This is equivalent to executing the following statement:
  * <pre>
@@ -46,7 +46,7 @@ import org.apache.ignite.table.Table;
  *            )
  *            .primaryKey("id")
  *            .build();
- *    ignite.catalog().createTable(table).execute();
+ *    ignite.catalog().createTable(table);
  * </pre>
  * This is an example of the table created from simple annotated record class.
  * <pre>
@@ -67,7 +67,7 @@ import org.apache.ignite.table.Table;
  *            .columns(column("id", INTEGER))
  *            .primaryKey("id")
  *            .build();
- *    ignite.catalog().createTable(table).execute();
+ *    ignite.catalog().createTable(table);
  * </pre>
  * Here's an example of more complex annotations including zones, colocation and indexes:
  * <pre>
@@ -127,15 +127,15 @@ import org.apache.ignite.table.Table;
  *                    column("id_str", ColumnType.varchar(20)),
  *                    column("f_name", ColumnType.varchar(20).notNull().defaultValue("a")),
  *                    column("l_name", ColumnType.VARCHAR),
- *                    column("str", ColumnType.VARCHAR),
+ *                    column("str", ColumnType.VARCHAR)
  *            )
  *            .primaryKey("id", "id_str")
  *            .colocateBy("id", "id_str")
  *            .zone("zone_test")
- *            .index("ix_pojo", IndexType.DEFAULT, column("f_name"), column("l_name").desc())
+ *            .index("ix_pojo", IndexType.DEFAULT, ColumnSorted.column("f_name"), ColumnSorted.column("l_name", SortOrder.DESC))
  *            .build();
- *    ignite.catalog().createZone(zone).execute();
- *    ignite.catalog().createTable(table).execute();
+ *    ignite.catalog().createZone(zone);
+ *    ignite.catalog().createTable(table);
  * </pre>
  *
  *
@@ -198,6 +198,11 @@ public interface IgniteCatalog {
      */
     CompletableFuture<Void> createZoneAsync(ZoneDefinition definition);
 
+    /**
+     * Creates a {@code CREATE ZONE} query object from the zone definition.
+     *
+     * @param definition Zone definition.
+     */
     void createZone(ZoneDefinition definition);
 
     /**

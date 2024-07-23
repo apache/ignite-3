@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
-
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STALE_OPERATION_ERR;
+package org.apache.ignite.tx;
 
 import java.util.UUID;
-import org.apache.ignite.internal.tx.TransactionInternalException;
+import org.jetbrains.annotations.Nullable;
 
-/** Error that occurs when a stale operation of a completed transaction is detected. */
-// TODO: IGNITE-22748 - make this exception public?
-public class StaleTransactionOperationException extends TransactionInternalException {
+/**
+ * Thrown when, during an attempt to execute a transactional operation, it turns out that the operation cannot be executed
+ * because an incompatible schema change has happened. The transaction in question is aborted.
+ */
+public class IncompatibleSchemaException extends TransactionException {
     /**
-     * Constructor.
+     * Constructs a new instance of IncompatibleSchemaException.
      *
-     * @param txId Transaction ID.
+     * @param traceId Trace ID.
+     * @param code Error code.
+     * @param message Error message.
+     * @param cause The Throwable that is the cause of this exception (can be {@code null}).
      */
-    public StaleTransactionOperationException(UUID txId) {
-        super(TX_STALE_OPERATION_ERR, format("Stale operation of a completed transaction was detected: [txId={}]", txId));
+    public IncompatibleSchemaException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

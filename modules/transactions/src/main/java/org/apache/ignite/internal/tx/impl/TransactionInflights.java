@@ -38,7 +38,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.network.ClusterNode;
@@ -266,7 +266,7 @@ public class TransactionInflights {
                 Throwable unwrappedReadyToFinishException = unwrapCause(readyToFinishException);
 
                 if (commit && unwrappedReadyToFinishException instanceof PrimaryReplicaExpiredException) {
-                    finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeException(
+                    finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeInternalException(
                             TX_PRIMARY_REPLICA_EXPIRED_ERR,
                             "Failed to commit the transaction.",
                             new TransactionResult(ABORTED, null),
