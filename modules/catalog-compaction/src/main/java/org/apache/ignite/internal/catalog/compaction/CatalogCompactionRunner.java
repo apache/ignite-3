@@ -344,7 +344,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
                     .whenComplete((tokenizedAssignments, ex) -> {
-                        if (ex == null && tokenizedAssignments == null) {
+                        if (ex != null) {
+                            return;
+                        }
+
+                        if (tokenizedAssignments == null) {
                             throw new IllegalStateException("Cannot get assignments for table " + table.name()
                                     + " (replication group=" + replicationGroupId + ").");
                         }
