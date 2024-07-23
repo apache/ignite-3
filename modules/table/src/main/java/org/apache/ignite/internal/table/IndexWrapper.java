@@ -27,7 +27,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.tx.LockManager;
 
 /** Class that creates index storage and locker decorators for given partition. */
-public abstract class IndexWrapper {
+abstract class IndexWrapper {
     final InternalTable tbl;
     final LockManager lockManager;
     final int indexId;
