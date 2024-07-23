@@ -309,10 +309,12 @@ public final class IgniteSqlParser  {
         @Override
         public @Nullable SqlNode visit(SqlCall call) {
             SqlOperator operator = call.getOperator();
+
             // If something when wrong during the parsing, fail at the validation stage
             if (operator != null) {
                 validateId(call.getParserPosition(), operator.getName());
             }
+
             return super.visit(call);
         }
 
@@ -323,7 +325,6 @@ public final class IgniteSqlParser  {
             // getComponentTypeSpec throws AssertionError if typeNameSpec is not an instance of CollectionTypeNameSpec.
             if (type.getTypeNameSpec() instanceof SqlCollectionTypeNameSpec) {
                 SqlDataTypeSpec componentTypeSpec = type.getComponentTypeSpec();
-
                 if (componentTypeSpec != null) {
                     this.visit(componentTypeSpec);
                 }
