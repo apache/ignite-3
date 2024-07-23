@@ -31,7 +31,10 @@ statement error: Length of identifier
 SELECT * FROM t where 1 = (SELECT 1 from t as tableName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters LIMIT 1);
 
 statement error: Length of identifier
-CREATE TABLE ttt (key tableName_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters, val INTEGER, PRIMARY KEY (key));
+CREATE TABLE ttt (key type0Name_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters, val INTEGER, PRIMARY KEY (key));
+
+statement error: Length of identifier
+CREATE TABLE ttt (key type0Name_veryLooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongIdentifierOf129Characters ARRAY, val INTEGER, PRIMARY KEY (key));
 
 # Rename table with long identifiers
 skipif ignite3

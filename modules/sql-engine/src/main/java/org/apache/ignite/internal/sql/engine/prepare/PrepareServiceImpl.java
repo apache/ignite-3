@@ -268,9 +268,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
-        SqlDdl validNode = (SqlDdl) ctx.planner().validate(sqlNode);
-
-        return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert(validNode, ctx)));
+        return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert((SqlDdl) sqlNode, ctx)));
     }
 
     private CompletableFuture<QueryPlan> prepareExplain(ParsedResult parsedResult, PlanningContext ctx) {
