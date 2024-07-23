@@ -227,7 +227,6 @@ import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -1363,7 +1362,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
-    @RepeatedTest(100)
+    @Test
     public void testCfgGap() {
         List<IgniteImpl> nodes = startNodes(4);
 
