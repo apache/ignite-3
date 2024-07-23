@@ -620,7 +620,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             catalogService.listen(CatalogEvent.TABLE_CREATE, parameters -> onTableCreate((CreateTableEventParameters) parameters));
             catalogService.listen(CatalogEvent.TABLE_CREATE, parameters ->
-                    initTableFsmOnTableCreate((CreateTableEventParameters) parameters));
+                    prepareTableResourcesAndLoadToZoneReplica((CreateTableEventParameters) parameters));
             catalogService.listen(CatalogEvent.TABLE_DROP, fromConsumer(this::onTableDrop));
             catalogService.listen(CatalogEvent.TABLE_ALTER, parameters -> {
                 if (parameters instanceof RenameTableEventParameters) {
@@ -646,7 +646,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<Boolean> initTableFsmOnTableCreate(CreateTableEventParameters parameters) {
+    private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
         if (!PartitionReplicaLifecycleManager.ENABLED) {
             return completedFuture(false);
         }
@@ -691,7 +691,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         for (int i = 0; i < zoneDescriptor.partitions(); i++) {
                             if (partitionReplicaLifecycleManager.hasLocalPartition(new ZonePartitionId(zoneDescriptor.id(), i))) {
-                                startPartsFut.add(initPartitionFsmAndLoadToZoneReplica(
+                                startPartsFut.add(preparePartitionResourcesAndLoadToZoneReplica(
                                         table,
                                         i,
                                         zoneDescriptor.id()));
@@ -712,14 +712,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     /**
-     * Init the table partition fsm and load it to the zone-based replica.
+     * Prepare the table partition resources and load it to the zone-based replica.
      *
      * @param table Table.
-     * @param partId Partitions id.
+     * @param partId Partition id.
      * @param zoneId Zone id.
      * @return Future, which will complete when the table processor loaded to the zone replica.
      */
-    private CompletableFuture<Void> initPartitionFsmAndLoadToZoneReplica(
+    private CompletableFuture<Void> preparePartitionResourcesAndLoadToZoneReplica(
             TableImpl table,
             int partId,
             int zoneId
