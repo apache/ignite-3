@@ -220,6 +220,33 @@ public class NumericTypesSerializerTest {
         );
     }
 
+    /**
+     * Test.
+     */
+    @ParameterizedTest
+    @MethodSource("sameDecimals")
+    public void testSameBinaryRepresentation(Pair<BigDecimal, BigDecimal> pair) {
+        schema = new SchemaDescriptor(
+                42,
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
+                new Column[]{
+                        new Column("DECIMALCOL", NativeTypes.decimalOf(19, 3), false),
+                }
+        );
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+
+        long randomKey = rnd.nextLong();
+
+        Tuple firstTup = createTuple().set("key", randomKey).set("decimalCol", pair.getFirst());
+        Tuple secondTup = createTuple().set("key", randomKey).set("decimalCol", pair.getSecond());
+
+        Row firstRow = marshaller.marshal(firstTup);
+        Row secondRow = marshaller.marshal(secondTup);
+
+        assertEquals(firstRow, secondRow);
+    }
+
     private Tuple createTuple() {
         return Tuple.create();
     }
