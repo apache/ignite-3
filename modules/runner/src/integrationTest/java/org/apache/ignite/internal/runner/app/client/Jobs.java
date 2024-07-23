@@ -39,7 +39,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 class Jobs {
-
     static class ArgumentStringMarshaller implements ByteArrayMarshaller<String> {
         @Override
         public byte @Nullable [] marshal(@Nullable String object) {
