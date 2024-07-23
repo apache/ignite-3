@@ -110,6 +110,18 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
     @Override
+    public void estimatedSizeIncreasedAfterTombstoneUsingWriteCommitted() {
+        super.estimatedSizeIncreasedAfterTombstoneUsingWriteCommitted();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
+    public void estimatedSizeIncreasedAfterTombstoneUsingCommiteWrite() {
+        super.estimatedSizeIncreasedAfterTombstoneUsingCommiteWrite();
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
+    @Override
     public void estimatedSizeShowsLatestRowsNumberUsingWriteCommited() {
         super.estimatedSizeShowsLatestRowsNumberUsingWriteCommited();
     }

@@ -1491,6 +1491,41 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
+    public void estimatedSizeIncreasedAfterTombstoneUsingWriteCommitted() {
+        addWriteCommitted(ROW_ID, binaryRow, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+
+        addWriteCommitted(ROW_ID, null, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        addWriteCommitted(ROW_ID, binaryRow, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+    }
+
+    @Test
+    public void estimatedSizeIncreasedAfterTombstoneUsingCommiteWrite() {
+        UUID txId = UUID.randomUUID();
+
+        addWrite(ROW_ID, binaryRow, txId);
+        commitWrite(ROW_ID, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+
+        addWrite(ROW_ID, null, txId);
+        commitWrite(ROW_ID, clock.now());
+
+        assertThat(storage.estimatedSize(), is(0L));
+
+        addWrite(ROW_ID, binaryRow, txId);
+        commitWrite(ROW_ID, clock.now());
+
+        assertThat(storage.estimatedSize(), is(1L));
+    }
+
+    @Test
     public void estimatedSizeShowsLatestRowsNumberUsingWriteCommited() {
         assertThat(storage.estimatedSize(), is(0L));
 
