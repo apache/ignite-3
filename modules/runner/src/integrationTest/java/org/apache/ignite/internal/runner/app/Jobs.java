@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.runner.app.client;
+package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -38,15 +38,21 @@ import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
-class Jobs {
-    static class ArgumentStringMarshaller implements ByteArrayMarshaller<String> {
+/** Jobs and marhallers definitions that are used in tests. */
+public class Jobs {
+    /** Marshal string argument and adds ":marshalledOnClient" to it. */
+    public static class ArgumentStringMarshaller implements ByteArrayMarshaller<String> {
         @Override
         public byte @Nullable [] marshal(@Nullable String object) {
             return ByteArrayMarshaller.super.marshal(object + ":marshalledOnClient");
         }
     }
 
-    static class ArgmarshallingJob implements ComputeJob<String, String> {
+    /**
+     * Job that unmarhsals input bytes to string and adds ":unmarshalledOnServer" to it, then processes string argument and
+     * adds ":processedOnServer" to it.
+     */
+    public static class ArgMarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
             return completedFuture(arg + ":processedOnServer");
@@ -63,14 +69,19 @@ class Jobs {
         }
     }
 
-    static class ResultStringUnMarshaller implements ByteArrayMarshaller<String> {
+    /** Unmarshals result bytes to string and adds ":unmarshalledOnClient" to it. */
+    public static class ResultStringUnMarshaller implements ByteArrayMarshaller<String> {
         @Override
         public @Nullable String unmarshal(byte @Nullable [] raw) {
             return ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnClient";
         }
     }
 
-    static class ArgumentAndResultmarshallingJob implements ComputeJob<String, String> {
+    /**
+     * Job that unmarshals input bytes to string and adds ":unmarshalledOnServer" to it, then processes string argument and
+     * adds ":processedOnServer" to it. Then marshals result to bytes and adds ":marshalledOnServer" to it.
+     */
+    public static class ArgumentAndResultMarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
             return completedFuture(arg + ":processedOnServer");
@@ -97,7 +108,11 @@ class Jobs {
         }
     }
 
-    static class ResultmarshallingJob implements ComputeJob<String, String> {
+    /**
+     * Job that unmarshals input bytes to string and adds ":unmarshalledOnServer" to it, then processes string argument and
+     * adds ":processedOnServer" to it. Then marshals result to bytes and adds ":marshalledOnServer" to it.
+     */
+    public static class ResultMarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
             return completedFuture(arg + ":processedOnServer");
@@ -134,10 +149,11 @@ class Jobs {
         }
     }
 
-    static class JsonMarshaller<T> implements Marshaller<T, byte[]> {
+    /** Marshaller that uses Jackson to marshal/unmarshal objects to/from JSON. */
+    public static class JsonMarshaller<T> implements Marshaller<T, byte[]> {
         private final Class<T> clazz;
 
-        JsonMarshaller(Class<T> clazz) {
+        public JsonMarshaller(Class<T> clazz) {
             this.clazz = clazz;
         }
 
@@ -152,7 +168,8 @@ class Jobs {
         }
     }
 
-    static class PojoJob implements ComputeJob<PojoArg, PojoResult> {
+    /** Job that accepts and returns user-defined POJOs. */
+    public static class PojoJob implements ComputeJob<PojoArg, PojoResult> {
         @Override
         public CompletableFuture<PojoResult> executeAsync(JobExecutionContext context, @Nullable PojoArg arg) {
             var numberFromStr = Integer.parseInt(arg.strValue);
@@ -170,7 +187,8 @@ class Jobs {
         }
     }
 
-    static class PojoArg {
+    /** POJO argument for {@link PojoJob}. */
+    public static class PojoArg {
         String strValue;
         int intValue;
 
@@ -218,7 +236,8 @@ class Jobs {
         }
     }
 
-    static class PojoResult {
+    /** POJO result for {@link PojoJob}. */
+    public static class PojoResult {
         long longValue;
 
         public PojoResult() {
@@ -256,7 +275,7 @@ class Jobs {
         }
     }
 
-
+    /** MapReduce task that splits input list into two parts and sends them to different nodes. */
     public static class MapReduce implements MapReduceTask<List<String>, String, String, String> {
         @Override
         public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(
@@ -265,7 +284,7 @@ class Jobs {
 
             List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
 
-            var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultmarshallingJob.class)
+            var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                     .argumentMarshaller(new ArgumentStringMarshaller())
                     .resultMarshaller(new ResultStringUnMarshaller())
                     .build();

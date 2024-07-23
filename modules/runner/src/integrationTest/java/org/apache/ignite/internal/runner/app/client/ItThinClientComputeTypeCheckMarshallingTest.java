@@ -43,8 +43,8 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgmarshallingJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.ResultmarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
@@ -68,7 +68,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         var compute = computeClientOn(node);
         JobExecution<String> result = compute.submit(
                 JobTarget.node(node(1)),
-                JobDescriptor.builder(ArgmarshallingJob.class).build(),
+                JobDescriptor.builder(ArgMarshallingJob.class).build(),
                 "Input"
         );
 
@@ -86,7 +86,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         var compute = computeClientOn(node);
         JobExecution<String> result = compute.submit(
                 JobTarget.node(node(1)),
-                JobDescriptor.builder(ResultmarshallingJob.class).build(),
+                JobDescriptor.builder(ResultMarshallingJob.class).build(),
                 "Input"
         );
 
@@ -128,7 +128,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         JobExecution<Integer> result = compute.submit(
                 JobTarget.node(node(1)),
                 // The descriptor does not match actual result.
-                JobDescriptor.<String, Integer>builder(ResultmarshallingJob.class.getName())
+                JobDescriptor.<String, Integer>builder(ResultMarshallingJob.class.getName())
                         .resultMarshaller(new IntegerMarshaller())
                         .build(),
                 "Input"

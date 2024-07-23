@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.runner.app.client;
+package org.apache.ignite.internal.runner.app.compute;
 
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,14 +29,15 @@ import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgmarshallingJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentAndResultmarshallingJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentStringMarshaller;
-import org.apache.ignite.internal.runner.app.client.Jobs.JsonMarshaller;
-import org.apache.ignite.internal.runner.app.client.Jobs.PojoArg;
-import org.apache.ignite.internal.runner.app.client.Jobs.PojoJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.PojoResult;
-import org.apache.ignite.internal.runner.app.client.Jobs.ResultStringUnMarshaller;
+import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ArgumentAndResultMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ArgumentStringMarshaller;
+import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
+import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
+import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
+import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
+import org.apache.ignite.internal.runner.app.Jobs.ResultStringUnMarshaller;
+import org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -65,7 +66,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         );
 
         // Then the job returns the expected result.
-        assertEquals(3L, result.longValue);
+        assertEquals(3L, result.getLongValue());
     }
 
     @Test
@@ -76,7 +77,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         // When.
         Map<ClusterNode, String> result = node.compute().executeBroadcast(
                 Set.of(node(0), node(1)),
-                JobDescriptor.builder(ArgumentAndResultmarshallingJob.class)
+                JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
@@ -112,7 +113,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
 
         String result = node.compute().execute(
                 JobTarget.colocated(tableName, tup),
-                JobDescriptor.builder(ArgmarshallingJob.class)
+                JobDescriptor.builder(ArgMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .build(),
                 "Input"

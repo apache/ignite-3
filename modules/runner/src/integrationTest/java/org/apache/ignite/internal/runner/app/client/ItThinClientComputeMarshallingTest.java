@@ -33,16 +33,16 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgmarshallingJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentAndResultmarshallingJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.ArgumentStringMarshaller;
-import org.apache.ignite.internal.runner.app.client.Jobs.JsonMarshaller;
-import org.apache.ignite.internal.runner.app.client.Jobs.MapReduce;
-import org.apache.ignite.internal.runner.app.client.Jobs.PojoArg;
-import org.apache.ignite.internal.runner.app.client.Jobs.PojoJob;
-import org.apache.ignite.internal.runner.app.client.Jobs.PojoResult;
-import org.apache.ignite.internal.runner.app.client.Jobs.ResultStringUnMarshaller;
-import org.apache.ignite.internal.runner.app.client.Jobs.ResultmarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ArgumentAndResultMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ArgumentStringMarshaller;
+import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
+import org.apache.ignite.internal.runner.app.Jobs.MapReduce;
+import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
+import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
+import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
+import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ResultStringUnMarshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
@@ -82,7 +82,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         String result = computeClientOn(node).execute(
                 JobTarget.node(targetNode),
                 // Accepts string argument and defines marshaller for it.
-                JobDescriptor.builder(ArgmarshallingJob.class)
+                JobDescriptor.builder(ArgMarshallingJob.class)
                         // If marshaller is defined for job, we define it on the client as well.
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .build(),
@@ -110,7 +110,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         String result = computeClientOn(node).execute(
                 JobTarget.node(targetNode),
                 // Returns string result and defines marshaller for it.
-                JobDescriptor.builder(ResultmarshallingJob.class)
+                JobDescriptor.builder(ResultMarshallingJob.class)
                         // If result marshaller is defined for job, we define it on the client as well.
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
@@ -138,7 +138,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         String result = computeClientOn(node).execute(
                 JobTarget.node(targetNode),
                 // The job defines custom marshaller for both argument and result.
-                JobDescriptor.builder(ArgumentAndResultmarshallingJob.class)
+                JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         // The client must define both marshaller as well.
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
@@ -178,7 +178,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
 
         // Then the job returns the expected result.
-        assertEquals(3L, result.longValue);
+        assertEquals(3L, result.getLongValue());
     }
 
     @Test
@@ -189,7 +189,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When.
         Map<ClusterNode, String> result = computeClientOn(node).executeBroadcast(
                 Set.of(node(0), node(1)),
-                JobDescriptor.builder(ArgumentAndResultmarshallingJob.class)
+                JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
@@ -226,7 +226,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         var compute = computeClientOn(node);
         String result = compute.execute(
                 JobTarget.colocated(tableName, tup),
-                JobDescriptor.builder(ArgmarshallingJob.class)
+                JobDescriptor.builder(ArgMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .build(),
                 "Input"
@@ -262,7 +262,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
     }
 
-    private IgniteCompute computeClientOn(Ignite node) {
+    private static IgniteCompute computeClientOn(Ignite node) {
         return IgniteClient.builder()
                 .addresses(getClientAddresses(List.of(node)).toArray(new String[0]))
                 .build()
