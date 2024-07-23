@@ -110,9 +110,6 @@ public final class IgniteSqlParser  {
             SqlParser parser = SqlParser.create(reader, PARSER_CONFIG);
             SqlNodeList nodeList = parser.parseStmtList();
 
-            ValidateSqlIdentifiers visitor = new ValidateSqlIdentifiers();
-            nodeList.accept(visitor);
-
             Integer dynamicParamsCount = InternalIgniteSqlParser.dynamicParamCount.get();
             assert dynamicParamsCount != null : "dynamicParamCount has not been updated";
 
@@ -123,6 +120,9 @@ public final class IgniteSqlParser  {
                 SqlNode node = fixNodesIfNecessary(original);
                 list.set(i, node);
             }
+
+            ValidateSqlIdentifiers visitor = new ValidateSqlIdentifiers();
+            nodeList.accept(visitor);
 
             return mode.createResult(list, dynamicParamsCount);
         } catch (SqlParseException e) {
