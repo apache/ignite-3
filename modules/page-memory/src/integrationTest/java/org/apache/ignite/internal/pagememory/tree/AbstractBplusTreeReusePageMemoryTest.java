@@ -88,7 +88,7 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
                 long metaPageId,
                 boolean initNew
         ) throws IgniteInternalCheckedException {
-            super(grpId, partId, name, pageMem, lockLsnr, metaPageId, initNew, null, IoStatisticsHolderNoOp.INSTANCE);
+            super(name, grpId, partId, pageMem, lockLsnr, metaPageId, initNew, null, IoStatisticsHolderNoOp.INSTANCE);
         }
 
         static boolean checkNoLocks() {

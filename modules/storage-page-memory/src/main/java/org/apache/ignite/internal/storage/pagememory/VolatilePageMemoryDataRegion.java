@@ -90,9 +90,8 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         long metaPageId = pageMemory.allocatePageNoReuse(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
         return new FreeListImpl(
-                FREE_LIST_GROUP_ID,
+                FREE_LIST_NAME, FREE_LIST_GROUP_ID,
                 FREE_LIST_PARTITION_ID,
-                FREE_LIST_NAME,
                 pageMemory,
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
