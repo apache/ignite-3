@@ -415,7 +415,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         try {
             return replicaMgr.startReplica(
                     replicaGrpId,
-                    (raftClient) -> new ZonePartitionReplicaListener(new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
+                    (raftClient) -> new ZonePartitionReplicaListener(
+                            new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
                     new FailFastSnapshotStorageFactory(),
                     stablePeersAndLearners,
                     raftGroupListener,
