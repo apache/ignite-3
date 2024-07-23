@@ -145,7 +145,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
         throw new ComputeException(
                 Compute.TYPE_CHECK_MARSHALLING_ERR,
-                "Argument must be a `byte[]` because marshaller is defined. "
+                "Marshaller is defined, expected argument type: `byte[]`, actual: `...`."
                         + "If you want to use default marshalling strategy, "
                         + "then you should not define your marshaller in the job. "
                         + "If you would like to use your own marshaller, then double-check"
