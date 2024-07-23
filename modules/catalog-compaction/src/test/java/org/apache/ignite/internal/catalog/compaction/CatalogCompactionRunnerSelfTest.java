@@ -324,8 +324,8 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 logicalNodes
         );
 
-        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFuture.failedFuture(new NullPointerException()));
-        assertThat(compactor.triggerCompaction(clockService.now()), willThrow(NullPointerException.class));
+        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFuture.failedFuture(new ArithmeticException()));
+        assertThat(compactor.triggerCompaction(clockService.now()), willThrow(ArithmeticException.class));
 
         when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFutures.nullCompletedFuture());
         assertThat(compactor.triggerCompaction(clockService.now()), willThrow(IllegalStateException.class));
