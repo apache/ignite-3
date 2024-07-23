@@ -110,6 +110,9 @@ public final class IgniteSqlParser  {
             SqlParser parser = SqlParser.create(reader, PARSER_CONFIG);
             SqlNodeList nodeList = parser.parseStmtList();
 
+            ValidateSqlIdentifiers visitor = new ValidateSqlIdentifiers();
+            nodeList.accept(visitor);
+
             Integer dynamicParamsCount = InternalIgniteSqlParser.dynamicParamCount.get();
             assert dynamicParamsCount != null : "dynamicParamCount has not been updated";
 
@@ -239,8 +242,6 @@ public final class IgniteSqlParser  {
         // it is not possible to access an instance of IgniteSqlParser created by a parser factory.
         static final ThreadLocal<Integer> dynamicParamCount = new ThreadLocal<>();
 
-        final ValidateSqlIdentifiersVisitor idValidator = new ValidateSqlIdentifiersVisitor();
-
         InternalIgniteSqlParser(Reader reader) {
             super(reader);
         }
@@ -249,9 +250,7 @@ public final class IgniteSqlParser  {
         @Override
         public SqlNode parseSqlExpressionEof() throws Exception {
             try {
-                SqlNode node = super.parseSqlExpressionEof();
-                node.accept(idValidator);
-                return node;
+                return super.parseSqlExpressionEof();
             } finally {
                 dynamicParamCount.set(nDynamicParams);
             }
@@ -261,9 +260,7 @@ public final class IgniteSqlParser  {
         @Override
         public SqlNode parseSqlStmtEof() throws Exception {
             try {
-                SqlNode node = super.parseSqlStmtEof();
-                node.accept(idValidator);
-                return node;
+                return super.parseSqlStmtEof();
             } finally {
                 dynamicParamCount.set(nDynamicParams);
             }
@@ -273,9 +270,7 @@ public final class IgniteSqlParser  {
         @Override
         public SqlNodeList parseSqlStmtList() throws Exception {
             try {
-                SqlNodeList nodeList = super.parseSqlStmtList();
-                nodeList.accept(idValidator);
-                return nodeList;
+                return super.parseSqlStmtList();
             } finally {
                 dynamicParamCount.set(nDynamicParams);
             }
@@ -296,7 +291,7 @@ public final class IgniteSqlParser  {
         }
     }
 
-    private static class ValidateSqlIdentifiersVisitor extends SqlShuttle {
+    private static class ValidateSqlIdentifiers extends SqlShuttle {
         @Override
         public @Nullable SqlNode visit(SqlIdentifier id) {
             for (String segment : id.names) {
