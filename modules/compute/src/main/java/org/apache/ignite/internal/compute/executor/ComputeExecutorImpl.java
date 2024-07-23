@@ -137,7 +137,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 return marshaller.unmarshal((byte[]) input);
             } catch (Exception ex) {
                 throw new ComputeException(Compute.TYPE_CHECK_MARSHALLING_ERR,
-                        "Job argument can not be unmarshalled. Both client-side and server-side marshaller should be compatible.",
+                        "Exception in user-defined marshaller: " + ex.getMessage(),
                         ex
                 );
             }
