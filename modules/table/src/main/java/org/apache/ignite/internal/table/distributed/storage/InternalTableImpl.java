@@ -2294,6 +2294,8 @@ public class InternalTableImpl implements InternalTable {
                                     return completedFuture(response);
                                 }
 
+                                e = unwrapCause(e);
+
                                 if (e instanceof ReplicationException && e.getCause() != null) {
                                     e = e.getCause();
                                 }
