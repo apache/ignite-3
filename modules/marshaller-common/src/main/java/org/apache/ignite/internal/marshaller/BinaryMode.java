@@ -85,6 +85,7 @@ public enum BinaryMode {
     BITSET,
 
     /** BigInteger. */
+    @Deprecated(forRemoval = true)
     NUMBER,
 
     /** BigDecimal. */
