@@ -34,6 +34,10 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <PackageTags>Apache;Ignite;In-Memory;Distributed;Computing;SQL;NoSQL;Database;</PackageTags>
         <Description>.NET client for Apache Ignite. Ignite is a distributed database for high-performance computing with in-memory speed.</Description>
+
+        <NuGetAudit>true</NuGetAudit>
+        <NuGetAuditMode>all</NuGetAuditMode>
+        <NuGetAuditLevel>low</NuGetAuditLevel>
     </PropertyGroup>
 
     <ItemGroup>
