@@ -2961,7 +2961,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 }, 10_000));
             } else {
                 SynchronizedClosure done = new SynchronizedClosure();
-                leader.changePeers(new Configuration(Collections.singletonList(newLeaderPeer)), done);
+                leader.changePeers(new Configuration(Collections.singletonList(newLeaderPeer)), leader.getCurrentTerm(), done);
                 Status status = done.await();
                 assertTrue(status.isOk(), status.getRaftError().toString());
             }
@@ -3200,21 +3200,21 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         TestPeer peer = peers.get(1);
         // fail, because the peers are not started.
         SynchronizedClosure done = new SynchronizedClosure();
-        leader.changePeers(new Configuration(Collections.singletonList(peer.getPeerId())), done);
+        leader.changePeers(new Configuration(Collections.singletonList(peer.getPeerId())), leader.getCurrentTerm(), done);
         assertEquals(RaftError.ECATCHUP, done.await().getRaftError());
 
         // start peer1
         assertTrue(cluster.start(peer));
         // still fail, because peer2 is not started
         done.reset();
-        leader.changePeers(conf, done);
+        leader.changePeers(conf, leader.getCurrentTerm(), done);
         assertEquals(RaftError.ECATCHUP, done.await().getRaftError());
         // start peer2
         peer = peers.get(2);
         assertTrue(cluster.start(peer));
         done.reset();
         // works
-        leader.changePeers(conf, done);
+        leader.changePeers(conf, leader.getCurrentTerm(), done);
         Status await = done.await();
         assertTrue(await.isOk(), await.getErrorMsg());
 
@@ -3258,7 +3258,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // change peers
         SynchronizedClosure done = new SynchronizedClosure();
-        leader.changePeers(conf, done);
+        leader.changePeers(conf, leader.getCurrentTerm(), done);
         assertTrue(done.await().isOk());
 
         // stop peer3
@@ -3269,7 +3269,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // Change peers to [peer2, peer3], which must fail since peer3 is stopped
         done.reset();
-        leader.changePeers(conf, done);
+        leader.changePeers(conf, leader.getCurrentTerm(), done);
         assertEquals(RaftError.EPERM, done.await().getRaftError());
         log.info(done.getStatus().toString());
 
@@ -3333,7 +3333,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                         continue;
                     }
                     SynchronizedClosure done = new SynchronizedClosure();
-                    leader.changePeers(conf, done);
+                    leader.changePeers(conf, leader.getCurrentTerm(), done);
                     done.await();
                     assertTrue(done.getStatus().isOk() || expectedErrors.contains(done.getStatus().getRaftError()), done.getStatus().toString());
                 }
@@ -3380,7 +3380,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         future.get();
         SynchronizedClosure done = new SynchronizedClosure();
         Node leader = cluster.waitAndGetLeader();
-        leader.changePeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), done);
+        leader.changePeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), leader.getCurrentTerm(), done);
         Status st = done.await();
         assertTrue(st.isOk(), st.getErrorMsg());
         cluster.ensureSame();
@@ -3426,7 +3426,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         future.get();
         SynchronizedClosure done = new SynchronizedClosure();
         Node leader = cluster.waitAndGetLeader();
-        leader.changePeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), done);
+        leader.changePeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), leader.getCurrentTerm(), done);
         assertTrue(done.await().isOk());
         cluster.ensureSame();
         assertEquals(10, cluster.getFsms().size());
@@ -3499,7 +3499,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         SynchronizedClosure done = new SynchronizedClosure();
         Node leader = cluster.waitAndGetLeader();
-        leader.changePeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), done);
+        leader.changePeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), leader.getCurrentTerm(), done);
         assertTrue(done.await().isOk());
         cluster.ensureSame();
         assertEquals(10, cluster.getFsms().size());
