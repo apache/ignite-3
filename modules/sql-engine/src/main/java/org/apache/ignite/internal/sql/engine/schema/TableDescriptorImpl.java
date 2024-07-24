@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relati
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -166,12 +165,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     @Override
     public ColumnDescriptor columnDescriptor(int idx) {
         return idx < 0 || idx >= descriptors.length ? null : descriptors[idx];
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ColumnDescriptor[] columnDescriptors() {
-        return descriptorsMap.values().toArray(new ColumnDescriptor[0]);
     }
 
     /** {@inheritDoc} */

@@ -56,13 +56,6 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
     ColumnDescriptor columnDescriptor(int idx);
 
     /**
-     * Returns all columns descriptor.
-     *
-     * @return All columns descriptor.
-     */
-    ColumnDescriptor[] columnDescriptors();
-
-    /**
      * Returns count of columns in the table.
      *
      * @return Actual count of columns.
