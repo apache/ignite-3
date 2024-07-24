@@ -55,11 +55,10 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
             LogSyncer logSyncer,
             HybridClock clock
     ) throws StorageException {
-        PersistentPageMemoryStorageEngineConfiguration engineConfig =
-                ((PersistentPageMemoryStorageEngineExtensionConfiguration) configRegistry
-                        .getConfiguration(StorageConfiguration.KEY).engines()).aipersist();
-
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageConfiguration.KEY);
+
+        PersistentPageMemoryStorageEngineConfiguration engineConfig =
+                ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
 
         assert engineConfig != null;
 
@@ -75,7 +74,8 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
                 storagePath,
                 longJvmPauseDetector,
                 failureProcessor,
-                logSyncer
+                logSyncer,
+                clock
         );
     }
 }

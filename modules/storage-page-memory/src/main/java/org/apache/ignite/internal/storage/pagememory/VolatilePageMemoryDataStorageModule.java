@@ -55,9 +55,10 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
             LogSyncer logSyncer,
             HybridClock clock
     ) throws StorageException {
+        StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageConfiguration.KEY);
+
         VolatilePageMemoryStorageEngineConfiguration engineConfig =
-                ((VolatilePageMemoryStorageEngineExtensionConfiguration) configRegistry
-                        .getConfiguration(StorageConfiguration.KEY).engines()).aimem();
+                ((VolatilePageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aimem();
 
         assert engineConfig != null;
 
@@ -65,7 +66,12 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig,
-                configRegistry.getConfiguration(StorageConfiguration.KEY), ioRegistry);
+        return new VolatilePageMemoryStorageEngine(
+                igniteInstanceName,
+                engineConfig,
+                storageConfig,
+                ioRegistry,
+                clock
+        );
     }
 }

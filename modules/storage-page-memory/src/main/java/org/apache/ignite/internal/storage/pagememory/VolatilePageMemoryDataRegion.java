@@ -57,11 +57,12 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
      * @param ioRegistry IO registry.
      * @param pageSize Page size in bytes.
      */
-    public VolatilePageMemoryDataRegion(
+    VolatilePageMemoryDataRegion(
             VolatilePageMemoryProfileConfiguration cfg,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
-            int pageSize) {
+            int pageSize
+    ) {
         this.cfg = cfg;
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
@@ -84,7 +85,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         this.pageMemory = pageMemory;
     }
 
-    private FreeListImpl createFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
+    private static FreeListImpl createFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
         long metaPageId = pageMemory.allocatePageNoReuse(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
         return new FreeListImpl(
@@ -111,7 +112,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public VolatilePageMemory pageMemory() {
         checkDataRegionStarted();

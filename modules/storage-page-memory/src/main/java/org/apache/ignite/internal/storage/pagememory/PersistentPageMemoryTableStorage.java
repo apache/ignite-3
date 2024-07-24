@@ -25,7 +25,6 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -83,9 +82,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         this.destructionExecutor = destructionExecutor;
     }
 
-    /**
-     * Returns a storage engine instance.
-     */
+    @Override
     public PersistentPageMemoryStorageEngine engine() {
         return engine;
     }
@@ -216,7 +213,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    engine.generateGlobalRemoveId(),
                     meta.versionChainTreeRootPageId(),
                     reuseList,
                     initNew
@@ -258,7 +255,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     partitionId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    engine.generateGlobalRemoveId(),
                     meta.indexTreeMetaPageId(),
                     reuseList,
                     initNew
@@ -300,7 +297,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     partitionId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    engine.generateGlobalRemoveId(),
                     meta.gcQueueMetaPageId(),
                     reuseList,
                     initNew
