@@ -82,7 +82,7 @@ namespace Apache.Ignite.Tests
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
 
-            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)Listener.LocalEndPoint!);
+            Node = new ClusterNode("id-" + nodeName, nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
             PartitionAssignment = new[] { Node.Id };
 
             if (!disableOpsTracking)
