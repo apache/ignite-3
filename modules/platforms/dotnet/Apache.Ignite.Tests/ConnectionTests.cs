@@ -92,8 +92,9 @@ public class ConnectionTests
         await TestGetClusterNodes(new DnsEndPoint("foobar", 12345));
 
     [Test]
-    public async Task TestGetClusterNodesWithIp() =>
-        await TestGetClusterNodes(IPEndPoint.Parse("1.2.3.4:5678"));
+    public async Task TestGetClusterNodesWithIp(
+        [Values("1.2.3.4:5678", "[2001:db8::1]:8080")] string ipString) =>
+        await TestGetClusterNodes(IPEndPoint.Parse(ipString));
 
     private static async Task TestGetClusterNodes(EndPoint dnsEndPoint)
     {
