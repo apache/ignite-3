@@ -63,7 +63,7 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super(
-                "GarbageCollectionTree_" + grpId,
+                "GarbageCollectionTree",
                 grpId,
                 grpName,
                 partId,

@@ -68,7 +68,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
             long metaPageId,
             @Nullable ReuseList reuseList
     ) throws IgniteInternalCheckedException {
-        super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("HashIndexTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = readInlineSizeFromMetaIo();
         this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
@@ -101,7 +101,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
             @Nullable ReuseList reuseList,
             StorageHashIndexDescriptor indexDescriptor
     ) throws IgniteInternalCheckedException {
-        super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("HashIndexTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor);
         this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());

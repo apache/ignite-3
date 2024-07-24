@@ -327,6 +327,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
     /**
      * Constructor.
      *
+     * @param freeListNamePrefix Free list name prefix (for debugging purposes).
      * @param grpId Group ID.
      * @param partId Partition ID.
      * @param pageMem Page memory.
@@ -337,9 +338,9 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      * @throws IgniteInternalCheckedException If failed.
      */
     public FreeListImpl(
+            String freeListNamePrefix,
             int grpId,
             int partId,
-            String name,
             PageMemory pageMem,
             PageLockListener lockLsnr,
             long metaPageId,
@@ -348,7 +349,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
         super(
-                name,
+                freeListNamePrefix,
                 grpId,
                 partId,
                 pageMem,

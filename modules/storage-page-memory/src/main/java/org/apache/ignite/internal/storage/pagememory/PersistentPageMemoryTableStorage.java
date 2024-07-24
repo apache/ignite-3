@@ -172,9 +172,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
 
             return new FreeListImpl(
-                    getTableId(),
+                    String.format(FREE_LIST_NAME, getTableId(), partId), getTableId(),
                     partId,
-                    String.format(FREE_LIST_NAME, getTableId(), partId),
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     meta.freeListRootPageId(),

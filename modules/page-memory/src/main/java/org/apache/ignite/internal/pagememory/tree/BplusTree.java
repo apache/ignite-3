@@ -906,7 +906,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Constructor.
      *
-     * @param name Tree name.
+     * @param treeNamePrefix Tree name prefix (for debugging purposes).
      * @param grpId Group ID.
      * @param grpName Group name.
      * @param partId Partition ID.
@@ -920,7 +920,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param metaIos Meta IO versions.
      */
     protected BplusTree(
-            String name,
+            String treeNamePrefix,
             int grpId,
             @Nullable String grpName,
             int partId,
@@ -933,7 +933,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             IoVersions<? extends BplusLeafIo<L>> leafIos,
             IoVersions<? extends BplusMetaIo> metaIos
     ) {
-        this(name, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        this(treeNamePrefix, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         setIos(innerIos, leafIos, metaIos);
     }
@@ -941,7 +941,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Constructor.
      *
-     * @param name Tree name.
+     * @param treeNamePrefix Tree name prefix (for debugging purposes).
      * @param grpId Group ID.
      * @param grpName Group name.
      * @param pageMem Page memory.
@@ -951,7 +951,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param reuseList Reuse list.
      */
     protected BplusTree(
-            String name,
+            String treeNamePrefix,
             int grpId,
             @Nullable String grpName,
             int partId,
@@ -961,7 +961,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long metaPageId,
             @Nullable ReuseList reuseList
     ) {
-        super(name, grpId, grpName, partId, pageMem, lockLsnr, FLAG_AUX);
+        super(treeNamePrefix, grpId, grpName, partId, pageMem, lockLsnr, FLAG_AUX);
 
         // TODO: IGNITE-16350 Move to config.
         minFill = 0.0f; // Testing worst case when merge happens only on empty page.

@@ -82,7 +82,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             StorageSortedIndexDescriptor indexDescriptor,
             boolean initNew
     ) throws IgniteInternalCheckedException {
-        super("SortedIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("SortedIndexTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = initNew
                 ? binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor)
@@ -116,7 +116,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             long metaPageId,
             @Nullable ReuseList reuseList
     ) throws IgniteInternalCheckedException {
-        super("SortedIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("SortedIndexTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = readInlineSizeFromMetaIo();
         this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
