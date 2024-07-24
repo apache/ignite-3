@@ -19,42 +19,31 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
-    annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor libs.auto.service
+    annotationProcessor project(':ignite-network-annotation-processor')
 
-    implementation project(':ignite-api')
+    implementation project(':ignite-affinity')
+    implementation project(':ignite-catalog')
+    implementation project(':ignite-cluster-management')
     implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
-    implementation project(':ignite-metastorage-api')
-    implementation project(':ignite-vault')
+    implementation project(':ignite-network-api')
+    implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-system-view-api')
 
     implementation libs.jetbrains.annotations
-    implementation libs.auto.service.annotations
-    implementation(libs.jsonpath.core) {
-        //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
-        //So, exclude asm-core transitive dependency to protect of jar-hell.
-        exclude group: 'org.ow2.asm', module: 'asm'
-    }
 
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
-    testImplementation(testFixtures(project(':ignite-vault')))
+    testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
-    testImplementation libs.assertj.core
 
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.mockito.junit
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation project(':ignite-system-view-api')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation(testFixtures(project(':ignite-vault')))
-    testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
 }
 
-description = "ignite-catalog"
+description = "ignite-catalog-compaction"
