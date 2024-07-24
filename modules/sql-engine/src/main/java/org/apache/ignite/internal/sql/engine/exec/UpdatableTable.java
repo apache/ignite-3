@@ -68,8 +68,7 @@ public interface UpdatableTable {
     /**
      * Updates rows if they are exists, inserts the rows otherwise.
      *
-     * <p>The rows passed should match the full row type defined by the table's {@link #descriptor() descriptor}
-     * (see {@link TableDescriptor#insertRowType(IgniteTypeFactory)} (IgniteTypeFactory)}).
+     * <p>The rows passed should match the full row type defined by the table's {@link #descriptor() descriptor}.
      *
      * @param ectx An execution context.
      * @param rows Rows to upsert.

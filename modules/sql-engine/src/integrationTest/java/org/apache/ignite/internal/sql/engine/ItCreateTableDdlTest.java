@@ -229,7 +229,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Check implicit partition column configuration (defined by PK)..
+     * Check implicit partition column configuration (defined by PK).
      */
     @Test
     public void implicitPartitionColumn() throws Exception {

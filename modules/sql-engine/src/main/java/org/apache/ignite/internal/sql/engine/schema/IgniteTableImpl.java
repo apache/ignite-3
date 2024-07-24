@@ -71,7 +71,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
         this.columnsToInsert = deriveColumnsToInsert(desc);
 
         int virtualColumnsCount = (int) StreamSupport.stream(desc.spliterator(), false)
-                .filter(ColumnDescriptor::system)
+                .filter(ColumnDescriptor::virtual)
                 .count();
 
         this.columnsToUpdate = ImmutableBitSet.range(desc.columnsCount() - virtualColumnsCount);
@@ -114,7 +114,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
 
         boolean hiddenColumnFound = false;
         for (ColumnDescriptor columnDescriptor : desc) {
-            if (columnDescriptor.virtual()) {
+            if (columnDescriptor.hidden()) {
                 hiddenColumnFound = true;
 
                 continue;
@@ -178,7 +178,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     @Override
     public boolean isUpdateAllowed(int colIdx) {
         ColumnDescriptor columnDescriptor = descriptor().columnDescriptor(colIdx);
-        return !columnDescriptor.key() && !columnDescriptor.system();
+        return !columnDescriptor.key() && !columnDescriptor.virtual();
     }
 
     /** {@inheritDoc} */

@@ -69,7 +69,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
         ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(Commons.PART_COL_NAME);
 
         if (columnDescriptor != null) {
-            assert columnDescriptor.system();
+            assert columnDescriptor.virtual();
 
             virtualColumnFactory = (partId) -> new VirtualColumn(columnDescriptor.logicalIndex(), NativeTypes.INT32, false, partId);
         }
@@ -77,7 +77,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
 
     @Override
     public TableRowConverter create(@Nullable BitSet requiredColumns) {
-        // TODO: fix this. UpdatableTable must pass the bitset with updatable columns.
+        // TODO: IGNITE-22823 fix this. UpdatableTable must pass the bitset with updatable columns.
         if (requiredColumns == null) {
             return fullRowConverter;
         }

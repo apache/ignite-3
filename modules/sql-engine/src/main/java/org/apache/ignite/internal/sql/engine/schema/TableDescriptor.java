@@ -42,14 +42,6 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
     RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns);
 
     /**
-     * Returns row type.
-     *
-     * @param factory     Type factory.
-     * @return Row type.
-     */
-    RelDataType insertRowType(IgniteTypeFactory factory);
-
-    /**
      * Returns column descriptor for given field name.
      *
      * @return Column descriptor
@@ -64,18 +56,16 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
     ColumnDescriptor columnDescriptor(int idx);
 
     /**
+     * Returns all columns descriptor.
+     *
+     * @return All columns descriptor.
+     */
+    ColumnDescriptor[] columnDescriptors();
+
+    /**
      * Returns count of columns in the table.
      *
      * @return Actual count of columns.
      */
     int columnsCount();
-
-    /**
-     * Returns count of columns in the table that can be stored.
-     *
-     * @return Actual count of persistent columns.
-     */
-    default int storedColumns() {
-        return columnsCount();
-    }
 }

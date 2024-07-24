@@ -31,10 +31,10 @@ public interface ColumnDescriptor {
     boolean key();
 
     /** Returns {@code true} if this column should not be expanded in query until user explicitly specify it as part of the statement. */
-    boolean virtual();
+    boolean hidden();
 
     /** Returns {@code true} if this column should not be stored. */
-    default boolean system() {
+    default boolean virtual() {
         return false;
     }
 

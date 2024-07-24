@@ -893,7 +893,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public boolean virtual() {
+        public boolean hidden() {
             return false;
         }
 

@@ -123,7 +123,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.mapping = mapping(table.descriptor(), updateColumns);
 
         this.insertRowMapping = StreamSupport.stream(table.descriptor().spliterator(), false)
-                        .filter(Predicate.not(ColumnDescriptor::system))
+                        .filter(Predicate.not(ColumnDescriptor::virtual))
                         .mapToInt(ColumnDescriptor::logicalIndex)
                         .toArray();
     }
@@ -449,7 +449,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             String columnName = updateColumns.get(i);
             ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(columnName);
 
-            assert !columnDescriptor.system() : "System column can't be updated";
+            assert !columnDescriptor.virtual() : "Virtual column can't be updated";
 
             mapping[columnDescriptor.logicalIndex()] = columnCount + i;
         }

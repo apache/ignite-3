@@ -57,8 +57,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     private final RelDataType rowType;
 
-    private final ImmutableBitSet storedColumns;
-
     /**
      * Constructor.
      *
@@ -72,12 +70,8 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         IgniteTypeFactory factory = Commons.typeFactory();
         RelDataTypeFactory.Builder typeBuilder = new RelDataTypeFactory.Builder(factory);
-        BitSet virtualColumns = new BitSet();
-        for (ColumnDescriptor descriptor : columnDescriptors) {
-            if (descriptor.system()) {
-                virtualColumns.set(descriptor.logicalIndex());
-            }
 
+        for (ColumnDescriptor descriptor : columnDescriptors) {
             typeBuilder.add(descriptor.name(), deriveLogicalType(factory, descriptor));
             descriptorsMap.put(descriptor.name(), descriptor);
         }
@@ -85,13 +79,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         this.descriptors = columnDescriptors.toArray(DUMMY);
         this.descriptorsMap = descriptorsMap;
         this.rowType = typeBuilder.build();
-
-        if (virtualColumns.isEmpty()) {
-            storedColumns = ImmutableBitSet.range(descriptors.length);
-        } else {
-            virtualColumns.flip(0, descriptors.length);
-            storedColumns = ImmutableBitSet.fromBitSet(virtualColumns);
-        }
     }
 
     @Override
@@ -108,7 +95,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public ColumnStrategy generationStrategy(RelOptTable tbl, int colIdx) {
-        if (descriptors[colIdx].system()) {
+        if (descriptors[colIdx].virtual()) {
             return ColumnStrategy.VIRTUAL;
         }
         if (descriptors[colIdx].defaultStrategy() != DefaultValueStrategy.DEFAULT_NULL) {
@@ -139,7 +126,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
                 return rexBuilder.makeLiteral(internalValue, relDataType, false);
             }
             case DEFAULT_COMPUTED: {
-                if (descriptor.system()) {
+                if (descriptor.virtual()) {
                     return rexBuilder.makeInputRef(tbl.getRowType().getFieldList().get(colIdx).getType(), colIdx);
                 }
 
@@ -171,12 +158,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     /** {@inheritDoc} */
     @Override
-    public RelDataType insertRowType(IgniteTypeFactory factory) {
-        return rowType(factory, storedColumns);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public ColumnDescriptor columnDescriptor(String fieldName) {
         return fieldName == null ? null : descriptorsMap.get(fieldName);
     }
@@ -189,13 +170,14 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     /** {@inheritDoc} */
     @Override
-    public int columnsCount() {
-        return descriptors.length;
+    public ColumnDescriptor[] columnDescriptors() {
+        return descriptorsMap.values().toArray(new ColumnDescriptor[0]);
     }
 
+    /** {@inheritDoc} */
     @Override
-    public int storedColumns() {
-        return storedColumns.cardinality();
+    public int columnsCount() {
+        return descriptors.length;
     }
 
     private RelDataType deriveLogicalType(RelDataTypeFactory factory, ColumnDescriptor desc) {

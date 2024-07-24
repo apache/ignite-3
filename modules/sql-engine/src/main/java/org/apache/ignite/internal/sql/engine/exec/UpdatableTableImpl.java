@@ -30,12 +30,14 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Static;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -123,7 +125,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
-        RelDataType rowType = descriptor().insertRowType(ectx.getTypeFactory());
+        RelDataType rowType = insertRowType(descriptor(), ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
@@ -203,7 +205,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     ) {
         validateNotNullConstraint(ectx.rowHandler(), row);
 
-        RelDataType rowType = descriptor().insertRowType(ectx.getTypeFactory());
+        RelDataType rowType = insertRowType(descriptor(), ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
         RowT validatedRow = TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), row, schemaSupplier);
@@ -234,7 +236,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
-        RelDataType rowType = descriptor().insertRowType(ectx.getTypeFactory());
+        RelDataType rowType = insertRowType(descriptor(), ectx.getTypeFactory());
         Supplier<RowSchema> schemaSupplier = makeSchemaSupplier(ectx);
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
@@ -351,7 +353,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
                     RowHandler<RowT> handler = ectx.rowHandler();
                     IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.insertRowType(typeFactory)));
+                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(insertRowType(desc, typeFactory)));
                     RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
 
                     ArrayList<String> conflictRows = new ArrayList<>(response.size());
@@ -417,9 +419,35 @@ public final class UpdatableTableImpl implements UpdatableTable {
                 return rowSchema;
             }
 
-            RelDataType rowType = descriptor().insertRowType(ectx.getTypeFactory());
+            RelDataType rowType = insertRowType(descriptor(), ectx.getTypeFactory());
             rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
             return rowSchema;
         };
+    }
+
+    /**
+     * Returns row type.
+     *
+     * @param factory     Type factory.
+     * @return Row type.
+     */
+    private static RelDataType insertRowType(TableDescriptor tableDescriptor, IgniteTypeFactory factory) {
+        ColumnDescriptor[] columnDescriptors = tableDescriptor.columnDescriptors();
+
+        BitSet virtualColumns = new BitSet();
+        for (ColumnDescriptor descriptor : columnDescriptors) {
+            if (descriptor.virtual()) {
+                virtualColumns.set(descriptor.logicalIndex());
+            }
+        }
+        ImmutableBitSet storedColumns;
+        if (virtualColumns.isEmpty()) {
+            storedColumns = ImmutableBitSet.range(columnDescriptors.length);
+        } else {
+            virtualColumns.flip(0, columnDescriptors.length);
+            storedColumns = ImmutableBitSet.fromBitSet(virtualColumns);
+        }
+
+        return tableDescriptor.rowType(factory, storedColumns);
     }
 }
