@@ -287,7 +287,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.BIGINT_BIGINT)
-                        .opMatches(castTo(NativeTypes.INT64)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_NUMBER_1)
                         .opMatches(castTo(NativeTypes.INT64)),
