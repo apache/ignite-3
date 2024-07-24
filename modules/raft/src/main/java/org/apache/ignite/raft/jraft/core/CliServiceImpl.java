@@ -204,7 +204,12 @@ public class CliServiceImpl implements CliService {
 
     // TODO refactor addPeer/removePeer/changePeers/transferLeader, remove duplicated code IGNITE-14832
     @Override
-    public Status changePeers(final String groupId, final Configuration conf, final Configuration newPeers) {
+    public Status changePeers(
+            final String groupId,
+            final Configuration conf,
+            final Configuration newPeers,
+            long term
+    ) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null configuration");
         Requires.requireNonNull(newPeers, "Null new peers");
@@ -220,6 +225,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .newPeersList(newPeers.getPeers().stream().map(Object::toString).collect(toList()))
+            .term(term)
             .build();
 
         try {

@@ -70,7 +70,8 @@ public final class CliRequests {
 
         Collection<String> newPeersList();
 
-        long term();
+        // term is intentionally Long and not long in order to perform nullable (not initialized) check.
+        Long term();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_RESPONSE)
@@ -91,7 +92,8 @@ public final class CliRequests {
 
         Collection<String> newLearnersList();
 
-        long term();
+        // term is intentionally Long and not long in order to perform nullable (not initialized) check.
+        Long term();
     }
 
     @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_ASYNC_RESPONSE)
