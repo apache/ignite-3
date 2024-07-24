@@ -247,7 +247,7 @@ public class Instrumentation {
         private String message;
 
         public Measurement(String message) {
-            this.message = message;
+            this.message = message + ":" + Thread.currentThread().getName();
         }
 
         public void start() {
