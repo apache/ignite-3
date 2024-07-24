@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests;
 
-using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -51,14 +50,22 @@ public class ConnectionTests
     [Test]
     public async Task TestConnectToHostName()
     {
-        await Task.Delay(1);
-        Assert.Fail();
+        using var server = new FakeServer();
+
+        var endpoint = $"localhost:{server.Port}";
+        using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(endpoint));
+
+        Assert.AreEqual(1, client.GetConnections().Count);
     }
 
     [Test]
     public async Task TestConnectToHostNameDefaultPort()
     {
-        await Task.Delay(1);
-        Assert.Fail();
+        using var server = new FakeServer(port: IgniteClientConfiguration.DefaultPort);
+
+        var endpoint = "localhost";
+        using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(endpoint));
+
+        Assert.AreEqual(1, client.GetConnections().Count);
     }
 }
