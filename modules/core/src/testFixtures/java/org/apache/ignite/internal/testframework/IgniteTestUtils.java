@@ -683,25 +683,6 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Returns random BitSet.
-     *
-     * @param rnd  Random generator.
-     * @param bits Amount of bits in bitset.
-     * @return Random BitSet.
-     */
-    public static BitSet randomBitSet(Random rnd, int bits) {
-        BitSet set = new BitSet();
-
-        for (int i = 0; i < bits; i++) {
-            if (rnd.nextBoolean()) {
-                set.set(i);
-            }
-        }
-
-        return set;
-    }
-
-    /**
      * Returns random byte array.
      *
      * @param rnd Random generator.

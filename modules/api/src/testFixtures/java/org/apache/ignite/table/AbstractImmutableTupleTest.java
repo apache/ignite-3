@@ -35,7 +35,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.Temporal;
-import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
 import java.util.function.Function;
@@ -54,7 +53,6 @@ public abstract class AbstractImmutableTupleTest {
     protected static final LocalTime TIME_VALUE;
     protected static final LocalDateTime DATETIME_VALUE;
 
-    protected static final BitSet BITSET_VALUE;
     protected static final byte[] BYTE_ARRAY_VALUE;
     protected static final String STRING_VALUE;
     protected static final BigInteger BIG_INTEGER_VALUE;
@@ -71,7 +69,6 @@ public abstract class AbstractImmutableTupleTest {
         DATE_VALUE = LocalDate.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault());
         TIME_VALUE = LocalTime.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault());
         DATETIME_VALUE = LocalDateTime.ofInstant(TIMESTAMP_VALUE, ZoneId.systemDefault());
-        BITSET_VALUE = randomBitSet(rnd, 12);
         STRING_VALUE = "🔥 Ignite";
         BYTE_ARRAY_VALUE = randomBytes;
         BIG_INTEGER_VALUE = BigInteger.valueOf(rnd.nextLong());
@@ -334,24 +331,6 @@ public abstract class AbstractImmutableTupleTest {
         }
 
         return baos.toByteArray();
-    }
-
-    /**
-     * Returns random BitSet.
-     *
-     * @param rnd Random generator.
-     * @param bits Amount of bits in bitset.
-     */
-    private static BitSet randomBitSet(Random rnd, int bits) {
-        BitSet set = new BitSet();
-
-        for (int i = 0; i < bits; i++) {
-            if (rnd.nextBoolean()) {
-                set.set(i);
-            }
-        }
-
-        return set;
     }
 
     private static <T extends Temporal> T truncateToDefaultPrecision(T temporal) {

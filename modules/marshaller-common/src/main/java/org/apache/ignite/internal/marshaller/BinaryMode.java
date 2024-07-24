@@ -81,6 +81,7 @@ public enum BinaryMode {
     BYTE_ARR,
 
     /** BitSet. */
+    @Deprecated(forRemoval = true)
     BITSET,
 
     /** BigInteger. */

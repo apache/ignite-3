@@ -347,6 +347,7 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
+    @Deprecated(forRemoval = true)
     public RowAssembler appendNumberNotNull(BigInteger val) throws SchemaMismatchException {
         checkType(NativeTypeSpec.NUMBER);
 
@@ -368,6 +369,7 @@ public class RowAssembler {
         return this;
     }
 
+    @Deprecated(forRemoval = true)
     public RowAssembler appendNumber(BigInteger val) throws SchemaMismatchException {
         return val == null ? appendNull() : appendNumberNotNull(val);
     }
@@ -473,6 +475,7 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
+    @Deprecated(forRemoval = true)
     public RowAssembler appendBitmaskNotNull(BitSet bitSet) throws SchemaMismatchException {
         Column col = columns.get(curCol);
 
