@@ -17,7 +17,13 @@
 
 namespace Apache.Ignite.Tests;
 
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading.Tasks;
+using Internal.Network;
+using Network;
 using NUnit.Framework;
 
 /// <summary>
@@ -79,5 +85,32 @@ public class ConnectionTests
         using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(endpoints));
 
         client.WaitForConnections(2);
+    }
+
+    [Test]
+    public async Task TestGetClusterNodesWithHostname() =>
+        await TestGetClusterNodes(new DnsEndPoint("foobar", 12345));
+
+    [Test]
+    public async Task TestGetClusterNodesWithIp() =>
+        await TestGetClusterNodes(IPEndPoint.Parse("1.2.3.4:5678"));
+
+    private static async Task TestGetClusterNodes(EndPoint dnsEndPoint)
+    {
+        var clusterNode = new ClusterNode(
+            id: "node-id",
+            name: "node-name",
+            endpoint: dnsEndPoint);
+
+        using var server = new FakeServer
+        {
+            ClusterNodes = new List<IClusterNode> { clusterNode }
+        };
+
+        using var client = await server.ConnectClientAsync();
+
+        var nodes = await client.GetClusterNodesAsync();
+
+        Assert.AreEqual(clusterNode, nodes.Single());
     }
 }
