@@ -45,7 +45,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
 
-    private static Stream<Arguments> nonDecimals() {
+    private static Stream<Arguments> lhsNonDecimal() {
         return Stream.of(
                 Arguments.of(
                         NumericPair.TINYINT_TINYINT,
@@ -1116,7 +1116,7 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
         );
 
         return Stream.concat(
-                nonDecimals(),
+                lhsNonDecimal(),
                 decimals
         );
     }
@@ -1711,7 +1711,7 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
         );
 
         return Stream.concat(
-                nonDecimals(),
+                lhsNonDecimal(),
                 decimals
         );
     }
@@ -2334,7 +2334,7 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                 )
         );
         return Stream.concat(
-                nonDecimals(),
+                lhsNonDecimal(),
                 decimals
         );
     }
