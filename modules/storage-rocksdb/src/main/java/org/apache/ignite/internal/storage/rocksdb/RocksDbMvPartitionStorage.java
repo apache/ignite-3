@@ -56,7 +56,6 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -120,9 +119,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private static final ThreadLocal<ByteBuffer> HEAP_KEY_BUFFER = withInitial(() -> allocate(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
 
     private static final ThreadLocal<ByteBuffer> DIRECT_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
-
-    private static final AtomicLongFieldUpdater<RocksDbMvPartitionStorage> ESTIMATED_SIZE_UPDATER =
-            AtomicLongFieldUpdater.newUpdater(RocksDbMvPartitionStorage.class, "estimatedSize");
 
     /** Table storage instance. */
     private final RocksDbTableStorage tableStorage;
@@ -258,7 +254,21 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         V res = closure.execute(locker);
 
                         if (writeBatch.count() > 0) {
-                            db.write(DFLT_WRITE_OPTS, writeBatch);
+                            // Check if the current thread's modifications have affected the estimated size. If they have,
+                            // we need to use synchronization in order to atomically update and persist the new estimated size.
+                            if (state.pendingEstimatedSizeDiff != 0) {
+                                synchronized (this) {
+                                    long newEstimatedSize = estimatedSize + state.pendingEstimatedSizeDiff;
+
+                                    writeBatch.put(meta, estimatedSizeKey, longToBytes(newEstimatedSize));
+
+                                    db.write(DFLT_WRITE_OPTS, writeBatch);
+
+                                    estimatedSize = newEstimatedSize;
+                                }
+                            } else {
+                                db.write(DFLT_WRITE_OPTS, writeBatch);
+                            }
 
                             // Here we assume that no two threads would try to update these values concurrently.
                             if (oldAppliedIndex != state.pendingAppliedIndex) {
@@ -575,7 +585,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         copyOfRange(valueBytes, VALUE_HEADER_SIZE, valueBytes.length)
                 );
 
-                updateEstimatedSize(writeBatch, isNewValueTombstone, addResult);
+                updateEstimatedSize(isNewValueTombstone, addResult);
 
                 return null;
             } catch (RocksDBException e) {
@@ -621,7 +631,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 writeBatch.put(helper.partCf, keyBuf.array(), rowBytes);
 
-                updateEstimatedSize(writeBatch, isNewValueTombstone, addResult);
+                updateEstimatedSize(isNewValueTombstone, addResult);
 
                 return null;
             } catch (RocksDBException e) {
@@ -630,19 +640,18 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    private void updateEstimatedSize(WriteBatchWithIndex writeBatch, boolean isNewValueTombstone, AddResult gcQueueAddResult)
-            throws RocksDBException {
+    private static void updateEstimatedSize(boolean isNewValueTombstone, AddResult gcQueueAddResult) throws RocksDBException {
         if (isNewValueTombstone) {
             if (gcQueueAddResult == AddResult.WAS_VALUE) {
-                long newSize = ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
+                ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
-                writeBatch.put(meta, estimatedSizeKey, longToBytes(newSize));
+                state.pendingEstimatedSizeDiff -= 1;
             }
         } else {
             if (gcQueueAddResult != AddResult.WAS_VALUE) {
-                long newSize = ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
+                ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
-                writeBatch.put(meta, estimatedSizeKey, longToBytes(newSize));
+                state.pendingEstimatedSizeDiff += 1;
             }
         }
     }
