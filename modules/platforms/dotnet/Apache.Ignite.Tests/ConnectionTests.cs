@@ -68,4 +68,16 @@ public class ConnectionTests
 
         Assert.AreEqual(1, client.GetConnections().Count);
     }
+
+    [Test]
+    public async Task TestConnectToIpAndHostName()
+    {
+        using var server = new FakeServer();
+        using var server2 = new FakeServer();
+
+        var endpoints = new[] { $"127.0.0.100:{server.Port}", $"localhost:{server2.Port}" };
+        using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(endpoints));
+
+        client.WaitForConnections(2);
+    }
 }
