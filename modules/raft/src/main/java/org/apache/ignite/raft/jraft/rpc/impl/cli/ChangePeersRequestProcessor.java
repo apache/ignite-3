@@ -64,9 +64,12 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
                     .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         }
-        LOG.info("Receive ChangePeersRequest to {} from {}, new conf is {}", ctx.node.getNodeId(), done.getRpcCtx()
+        long term = request.term();
+
+        LOG.info("Receive ChangePeersRequest with term {} to {} from {}, new conf is {}", term, ctx.node.getNodeId(), done.getRpcCtx()
             .getRemoteAddress(), conf);
-        ctx.node.changePeers(conf, status -> {
+
+        ctx.node.changePeers(conf, term, status -> {
             if (!status.isOk()) {
                 done.run(status);
             }

@@ -3371,11 +3371,22 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void changePeers(final Configuration newPeers, final Closure done) {
+    public void changePeers(final Configuration newPeers, long term, final Closure done) {
         Requires.requireNonNull(newPeers, "Null new peers");
         Requires.requireTrue(!newPeers.isEmpty(), "Empty new peers");
         this.writeLock.lock();
         try {
+            long currentTerm = getCurrentTerm();
+
+            if (currentTerm != term) {
+                LOG.warn("Node {} ignored the configuration because of mismatching terms. Current term is {}, but provided is {}.",
+                    getNodeId(), currentTerm, term);
+
+                    Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, Status.OK());
+
+                    return;
+            }
+
             LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
             unsafeRegisterConfChange(this.conf.getConf(), newPeers, done);
         }
@@ -3393,7 +3404,7 @@ public class NodeImpl implements Node, RaftServerService {
             long currentTerm = getCurrentTerm();
 
             if (currentTerm != term) {
-                LOG.warn("Node {} refused configuration because of mismatching terms. Current term is {}, but provided is {}.",
+                LOG.warn("Node {} ignored the configuration because of mismatching terms. Current term is {}, but provided is {}.",
                         getNodeId(), currentTerm, term);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, Status.OK());

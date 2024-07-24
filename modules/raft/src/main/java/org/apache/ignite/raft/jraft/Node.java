@@ -179,9 +179,10 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * finishes, describing the detailed result.
      *
      * @param newPeers new peers to change
+     * @param term term on which this method was called. If real raft group term will be different - changePeers will be skipped.
      * @param done callback
      */
-    void changePeers(final Configuration newPeers, final Closure done);
+    void changePeers(final Configuration newPeers, long term, final Closure done);
 
     /**
      * Asynchronously change the configuration of the raft group to |newPeers|. If done closure was completed with {@link Status#OK()},
@@ -189,7 +190,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * {@code STAGE_CATCHING_UP}
      *
      * @param newConf new peers and learners configuration to apply.
-     * @param term term on which this method was called.
+     * @param term term on which this method was called. If real raft group term will be different - changePeers will be skipped.
      * @param done callback
      */
     void changePeersAsync(final Configuration newConf, long term, final Closure done);

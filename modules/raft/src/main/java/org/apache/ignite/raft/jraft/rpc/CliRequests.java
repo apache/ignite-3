@@ -69,6 +69,8 @@ public final class CliRequests {
         String leaderId();
 
         Collection<String> newPeersList();
+
+        long term();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_RESPONSE)

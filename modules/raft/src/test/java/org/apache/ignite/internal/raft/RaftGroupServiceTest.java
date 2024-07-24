@@ -62,6 +62,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
@@ -436,7 +437,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeers() {
+    public void testChangePeers() throws Exception {
         List<String> shrunkPeers = peersToIds(NODES.subList(0, 1));
 
         List<String> extendedPeers = peersToIds(NODES);
@@ -452,12 +453,16 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
         assertThat(service.learners(), is(empty()));
 
-        assertThat(service.changePeers(NODES.subList(0, 1)), willCompleteSuccessfully());
+        CompletableFuture<LeaderWithTerm> leaderWithTermFuture = service.refreshAndGetLeaderWithTerm();
+        assertThat(leaderWithTermFuture, willCompleteSuccessfully());
+        LeaderWithTerm leaderWithTerm = leaderWithTermFuture.get();
+
+        assertThat(service.changePeers(NODES.subList(0, 1), leaderWithTerm.term()), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), is(empty()));
 
-        assertThat(service.changePeers(NODES), willCompleteSuccessfully());
+        assertThat(service.changePeers(NODES, leaderWithTerm.term()), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
         assertThat(service.learners(), is(empty()));
