@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage;
 import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessageGroup;
+import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessagesFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -29,7 +30,31 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(MetaStorageMessageGroup.COMMAND_ID)
 public interface CommandId extends NetworkMessage, Serializable {
+    MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
+
     UUID nodeId();
 
     long counter();
+
+    /**
+     * @return String representation of a CommandId to use as a human readable meta storage key.
+     */
+    default String toMGKeyAsString() {
+        return nodeId() + "_cnt_" + counter();
+    }
+
+    /**
+     * Meta storage key as string to CommandId converter. See {@link CommandId#toMGKeyAsString()} for more details.
+     *
+     * @param mgKeyString String representation of a CommandId.
+     * @return CommandId instance.
+     */
+    static CommandId fromString(String mgKeyString) {
+        String[] parts = mgKeyString.split("_cnt_");
+
+        return MSG_FACTORY.commandId()
+                .nodeId(UUID.fromString(parts[0]))
+                .counter(Long.parseLong(parts[1]))
+                .build();
+    }
 }

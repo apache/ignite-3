@@ -81,7 +81,9 @@ public class MetaStorageWriteHandler {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageWriteHandler.class);
 
-    public static final byte[] IDEMPOTENT_COMMAND_PREFIX_BYTES = "icp.".getBytes(StandardCharsets.UTF_8);
+    public static final String IDEMPOTENT_COMMAND_PREFIX = "icp.";
+
+    public static final byte[] IDEMPOTENT_COMMAND_PREFIX_BYTES = IDEMPOTENT_COMMAND_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
@@ -358,8 +360,8 @@ public class MetaStorageWriteHandler {
         try (cursor) {
             for (Entry entry : cursor) {
                 if (!entry.tombstone()) {
-                    byte[] commandIdBytes = copyOfRange(entry.key(), IDEMPOTENT_COMMAND_PREFIX_BYTES.length, entry.key().length);
-                    CommandId commandId = ByteUtils.fromBytes(commandIdBytes);
+                    CommandId commandId = CommandId.fromString(
+                            ByteUtils.stringFromBytes(entry.key()).substring(IDEMPOTENT_COMMAND_PREFIX.length(), entry.key().length));
 
                     Serializable result;
                     if (entry.value().length == 1) {
@@ -391,7 +393,7 @@ public class MetaStorageWriteHandler {
 
             if (!commandIdsToRemove.isEmpty()) {
                 List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
-                        .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
+                        .map(commandId -> ByteUtils.stringToBytes(IDEMPOTENT_COMMAND_PREFIX + commandId.toMGKeyAsString()))
                         .collect(toList());
 
                 storage.removeAll(commandIdStorageKeys, null);
