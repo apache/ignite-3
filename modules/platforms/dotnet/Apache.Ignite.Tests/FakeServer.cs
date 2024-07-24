@@ -76,7 +76,9 @@ namespace Apache.Ignite.Tests
         internal FakeServer(
             Func<RequestContext, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
-            bool disableOpsTracking = false)
+            bool disableOpsTracking = false,
+            int port = 0)
+            : base(port)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
 
