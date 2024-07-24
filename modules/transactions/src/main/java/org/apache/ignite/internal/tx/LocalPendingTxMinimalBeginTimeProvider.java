@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.compaction.message;
+package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Response message containing the low watermark required for the local node.
- * This watermark is used to safely truncate catalog history.
+ * Provides the minimal begin time across all locally started non-finished read-write transactions.
  */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
-public interface CatalogMinimumRequiredTimeResponse extends NetworkMessage {
-    /** Returns node's minimum required time. */
-    long timestamp();
-
-    @Nullable HybridTimestamp minimumActiveTxTime();
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface LocalPendingTxMinimalBeginTimeProvider {
+    /** Returns minimal begin time across all locally started active read-write transactions. */
+    @Nullable HybridTimestamp minimalStartTime();
 }

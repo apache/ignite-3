@@ -17,24 +17,13 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message types used in catalog compaction module.
+ * Request to obtain the minimum starting time among all pending RW transactions.
  */
-@MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
-public class CatalogCompactionMessageGroup {
-    public static final short GROUP_TYPE = 14;
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_TX_BEGIN_TIME_REQUEST)
+public interface CatalogMinimumTxTimeRequest extends NetworkMessage {
 
-    /** See {@link CatalogMinimumRequiredTimeRequest} for the details. */
-    public static final short MINIMUM_REQUIRED_TIME_REQUEST = 0;
-
-    /** See {@link CatalogMinimumRequiredTimeResponse} for the details. */
-    public static final short MINIMUM_REQUIRED_TIME_RESPONSE = 1;
-
-    /** See {@link CatalogMinimumTxTimeRequest} for the details. */
-    public static final short MINIMUM_TX_BEGIN_TIME_REQUEST = 2;
-
-    /** See {@link CatalogMinimumTxTimeResponse} for the details. */
-    public static final short MINIMUM_TX_BEGIN_TIME_RESPONSE = 3;
 }

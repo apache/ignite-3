@@ -17,24 +17,16 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Message types used in catalog compaction module.
+ * Response message containing the minimum starting time among locally started active RW transactions.
  */
-@MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
-public class CatalogCompactionMessageGroup {
-    public static final short GROUP_TYPE = 14;
-
-    /** See {@link CatalogMinimumRequiredTimeRequest} for the details. */
-    public static final short MINIMUM_REQUIRED_TIME_REQUEST = 0;
-
-    /** See {@link CatalogMinimumRequiredTimeResponse} for the details. */
-    public static final short MINIMUM_REQUIRED_TIME_RESPONSE = 1;
-
-    /** See {@link CatalogMinimumTxTimeRequest} for the details. */
-    public static final short MINIMUM_TX_BEGIN_TIME_REQUEST = 2;
-
-    /** See {@link CatalogMinimumTxTimeResponse} for the details. */
-    public static final short MINIMUM_TX_BEGIN_TIME_RESPONSE = 3;
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_TX_BEGIN_TIME_RESPONSE)
+public interface CatalogMinimumTxTimeResponse extends NetworkMessage {
+    /** Returns node's minimum starting time among locally started active RW transactions. */
+    @Nullable HybridTimestamp timestamp();
 }

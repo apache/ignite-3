@@ -74,6 +74,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -81,6 +82,7 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -387,8 +389,10 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 messagingService,
                 logicalTopologyService,
                 placementDriver,
+                mock(ReplicaService.class),
                 clockService,
                 ForkJoinPool.commonPool(),
+                () -> HybridTimestamp.MIN_VALUE,
                 () -> (Long) timeSupplier.apply(coordinator.name())
         );
 

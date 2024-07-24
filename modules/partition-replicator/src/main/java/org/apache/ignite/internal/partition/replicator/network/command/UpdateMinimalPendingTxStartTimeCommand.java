@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.compaction.message;
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.NetworkMessage;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMAL_ACTIVE_TX_TIME_COMMAND;
+
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * Response message containing the low watermark required for the local node.
- * This watermark is used to safely truncate catalog history.
+ * Command to store the minimum starting time among all pending RW transactions
+ * into transient state of each raft group.
  */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
-public interface CatalogMinimumRequiredTimeResponse extends NetworkMessage {
-    /** Returns node's minimum required time. */
+@Transferable(UPDATE_MINIMAL_ACTIVE_TX_TIME_COMMAND)
+public interface UpdateMinimalPendingTxStartTimeCommand extends WriteCommand {
+    /** Returns the minimum starting time among all pending RW transactions. */
     long timestamp();
-
-    @Nullable HybridTimestamp minimumActiveTxTime();
 }
