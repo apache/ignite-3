@@ -36,8 +36,8 @@
         <Description>.NET client for Apache Ignite. Ignite is a distributed database for high-performance computing with in-memory speed.</Description>
 
         <NuGetAudit>true</NuGetAudit>
-        <NuGetAuditMode>all</NuGetAuditMode>
-        <NuGetAuditLevel>low</NuGetAuditLevel>
+        <NuGetAuditMode>all</NuGetAuditMode> <!-- Direct and transitive dependencies -->
+        <NuGetAuditLevel>low</NuGetAuditLevel> <!-- Fail on low+ severity issues -->
     </PropertyGroup>
 
     <ItemGroup>
