@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.datatypes;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.NULL_AS_VARARG;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -277,6 +278,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
     @Test
     void implicitCastOfSourceTableOnInsert() {
         sql("INSERT INTO src VALUES "
+                + "(0, NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
                 + "(1, 42, 42, 42, 42, 42, 42, '42'),"
                 + "(2, 127, 127, 127, 127, 127, 127, '127'),"
                 + "(3, 127.1, 127.1, 127.1, 127.1, 127.1, 127.1, '127.1'),"
@@ -295,6 +297,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
         assertQuery("INSERT INTO test SELECT s FROM src").check();
 
         assertQuery("SELECT * FROM test")
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -302,6 +305,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -309,6 +313,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -316,6 +321,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -323,6 +329,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -330,6 +337,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -337,6 +345,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -373,6 +382,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
     @Test
     void explicitCastOfSourceTableOnInsert() {
         sql("INSERT INTO src VALUES "
+                + "(0, NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
                 + "(1, 42, 42, 42, 42, 42, 42, '42'),"
                 + "(2, 127, 127, 127, 127, 127, 127, '127'),"
                 + "(3, 127.1, 127.1, 127.1, 127.1, 127.1, 127.1, '127.1'),"
@@ -391,6 +401,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
         assertQuery("INSERT INTO test SELECT CAST(s as TINYINT) FROM src").check();
 
         assertQuery("SELECT * FROM test")
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -398,6 +409,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -405,6 +417,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -412,6 +425,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -419,6 +433,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -426,6 +441,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -433,6 +449,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .returns((byte) -128)
                 .returns((byte) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -469,6 +486,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
     @Test
     void explicitCastOfSourceTableOnSelect() {
         sql("INSERT INTO src VALUES "
+                + "(0, NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
                 + "(1, 42, 42, 42, 42, 42, 42, '42'),"
                 + "(2, 127, 127, 127, 127, 127, 127, '127'),"
                 + "(3, 127.1, 127.1, 127.1, 127.1, 127.1, 127.1, '127.1'),"
@@ -479,6 +497,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
         );
 
         assertQuery("SELECT CAST(si as TINYINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -488,6 +507,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .check();
         assertQuery("SELECT CAST(i as TINYINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -497,6 +517,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .check();
         assertQuery("SELECT CAST(bi as TINYINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -506,6 +527,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .check();
         assertQuery("SELECT CAST(dec as TINYINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -515,6 +537,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .check();
         assertQuery("SELECT CAST(r as TINYINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -524,6 +547,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .check();
         assertQuery("SELECT CAST(d as TINYINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -533,6 +557,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
                 .returns((byte) -128)
                 .check();
         assertQuery("SELECT CAST(s as TINYINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((byte) 42)
                 .returns((byte) 127)
                 .returns((byte) 127)
@@ -568,6 +593,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> literalsWithExpectedResult() {
         return Stream.of(
+                Arguments.of("NULL", null),
                 Arguments.of("42", (byte) 42),
                 Arguments.of("127", (byte) 127),
                 Arguments.of("-128", (byte) -128),
@@ -597,6 +623,7 @@ public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> valuesWithExpectedResult() {
         return Stream.of(
+                Arguments.of(null, null),
                 Arguments.of((short) 42, (byte) 42),
                 Arguments.of((short) 127, (byte) 127),
                 Arguments.of((short) -128, (byte) -128),

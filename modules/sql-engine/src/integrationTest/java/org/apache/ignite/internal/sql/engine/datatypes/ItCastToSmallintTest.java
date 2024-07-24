@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.datatypes;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.NULL_AS_VARARG;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -277,6 +278,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
     @Test
     void implicitCastOfSourceTableOnInsert() {
         sql("INSERT INTO src VALUES "
+                + "(0, NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
                 + "(1, 42, 42, 42, 42, 42, 42, '42'),"
                 + "(2, 127, 32767, 32767, 32767, 32767, 32767, '32767'),"
                 + "(3, 127.1, 32767.1, 32767.1, 32767.1, 32767.1, 32767.1, '32767.1'),"
@@ -295,6 +297,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
         assertQuery("INSERT INTO test SELECT s FROM src").check();
 
         assertQuery("SELECT * FROM test")
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 127)
                 .returns((short) 127)
@@ -302,6 +305,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -128)
                 .returns((short) -128)
                 .returns((short) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -309,6 +313,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -316,6 +321,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -323,6 +329,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -330,6 +337,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -337,6 +345,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -373,6 +382,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
     @Test
     void explicitCastOfSourceTableOnInsert() {
         sql("INSERT INTO src VALUES "
+                + "(0, NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
                 + "(1, 42, 42, 42, 42, 42, 42, '42'),"
                 + "(2, 127, 32767, 32767, 32767, 32767, 32767, '32767'),"
                 + "(3, 127.1, 32767.1, 32767.1, 32767.1, 32767.1, 32767.1, '32767.1'),"
@@ -391,6 +401,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
         assertQuery("INSERT INTO test SELECT CAST(s as SMALLINT) FROM src").check();
 
         assertQuery("SELECT * FROM test")
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 127)
                 .returns((short) 127)
@@ -398,6 +409,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -128)
                 .returns((short) -128)
                 .returns((short) -128)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -405,6 +417,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -412,6 +425,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -419,6 +433,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -426,6 +441,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -433,6 +449,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .returns((short) -32768)
                 .returns((short) -32768)
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -469,6 +486,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
     @Test
     void explicitCastOfSourceTableOnSelect() {
         sql("INSERT INTO src VALUES "
+                + "(0, NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
                 + "(1, 42, 42, 42, 42, 42, 42, '42'),"
                 + "(2, 127, 32767, 32767, 32767, 32767, 32767, '32767'),"
                 + "(3, 127.1, 32767.1, 32767.1, 32767.1, 32767.1, 32767.1, '32767.1'),"
@@ -479,6 +497,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
         );
 
         assertQuery("SELECT CAST(ti as SMALLINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 127)
                 .returns((short) 127)
@@ -488,6 +507,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -128)
                 .check();
         assertQuery("SELECT CAST(i as SMALLINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -497,6 +517,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .check();
         assertQuery("SELECT CAST(bi as SMALLINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -506,6 +527,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .check();
         assertQuery("SELECT CAST(dec as SMALLINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -515,6 +537,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .check();
         assertQuery("SELECT CAST(r as SMALLINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -524,6 +547,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .check();
         assertQuery("SELECT CAST(d as SMALLINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -533,6 +557,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
                 .returns((short) -32768)
                 .check();
         assertQuery("SELECT CAST(s as SMALLINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns((short) 42)
                 .returns((short) 32767)
                 .returns((short) 32767)
@@ -568,6 +593,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> literalsWithExpectedResult() {
         return Stream.of(
+                Arguments.of("NULL", null),
                 Arguments.of("42", (short) 42),
                 Arguments.of("32767", (short) 32767),
                 Arguments.of("-32768", (short) -32768),
@@ -597,6 +623,7 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> valuesWithExpectedResult() {
         return Stream.of(
+                Arguments.of(null, null),
                 Arguments.of((byte) 42, (short) 42),
                 Arguments.of((byte) 127, (short) 127),
                 Arguments.of((byte) -128, (short) -128),

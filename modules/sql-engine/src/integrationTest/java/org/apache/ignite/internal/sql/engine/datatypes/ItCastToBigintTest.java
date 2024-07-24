@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.datatypes;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.NULL_AS_VARARG;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -277,6 +278,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
     @Test
     void implicitCastOfSourceTableOnInsert() {
         sql("INSERT INTO src VALUES "
+                + "(0, NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
                 + "(1, 42, 42, 42, 42, 42, 42, '42'),"
                 + "(2, 127, 32767, 2147483647, 9223372036854775807, 9.223371E18, 9.223372036854775E18, '9223372036854775807'),"
                 + "(3, 127.1, 32767.1, 2147483647.1, 9223372036854775807.1, 9.223371E18, 9.223372036854775E18, '9223372036854775807.1'),"
@@ -297,6 +299,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
         assertQuery("INSERT INTO test SELECT s FROM src").check();
 
         assertQuery("SELECT * FROM test")
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(127L)
                 .returns(127L)
@@ -304,6 +307,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-128L)
                 .returns(-128L)
                 .returns(-128L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(32767L)
                 .returns(32767L)
@@ -311,6 +315,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-32768L)
                 .returns(-32768L)
                 .returns(-32768L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(2147483647L)
                 .returns(2147483647L)
@@ -318,6 +323,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-2147483648L)
                 .returns(-2147483648L)
                 .returns(-2147483648L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223372036854775807L)
                 .returns(9223372036854775807L)
@@ -325,6 +331,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-9223372036854775808L)
                 .returns(-9223372036854775808L)
                 .returns(-9223372036854775808L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223370937343148032L)
                 .returns(9223370937343148032L)
@@ -332,6 +339,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-9223370937343148032L)
                 .returns(-9223370937343148032L)
                 .returns(-9223370937343148032L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223372036854774784L)
                 .returns(9223372036854774784L)
@@ -339,6 +347,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-9223372036854774784L)
                 .returns(-9223372036854774784L)
                 .returns(-9223372036854774784L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223372036854775807L)
                 .returns(9223372036854775807L)
@@ -377,6 +386,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
     @Test
     void explicitCastOfSourceTableOnInsert() {
         sql("INSERT INTO src VALUES "
+                + "(0, NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
                 + "(1, 42, 42, 42, 42, 42, 42, '42'),"
                 + "(2, 127, 32767, 2147483647, 9223372036854775807, 9.223371E18, 9.223372036854775E18, '9223372036854775807'),"
                 + "(3, 127.1, 32767.1, 2147483647.1, 9223372036854775807.1, 9.223371E18, 9.223372036854775E18, '9223372036854775807.1'),"
@@ -397,6 +407,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
         assertQuery("INSERT INTO test SELECT CAST(s as BIGINT) FROM src").check();
 
         assertQuery("SELECT * FROM test")
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(127L)
                 .returns(127L)
@@ -404,6 +415,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-128L)
                 .returns(-128L)
                 .returns(-128L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(32767L)
                 .returns(32767L)
@@ -411,6 +423,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-32768L)
                 .returns(-32768L)
                 .returns(-32768L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(2147483647L)
                 .returns(2147483647L)
@@ -418,6 +431,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-2147483648L)
                 .returns(-2147483648L)
                 .returns(-2147483648L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223372036854775807L)
                 .returns(9223372036854775807L)
@@ -425,6 +439,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-9223372036854775808L)
                 .returns(-9223372036854775808L)
                 .returns(-9223372036854775808L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223370937343148032L)
                 .returns(9223370937343148032L)
@@ -432,6 +447,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-9223370937343148032L)
                 .returns(-9223370937343148032L)
                 .returns(-9223370937343148032L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223372036854774784L)
                 .returns(9223372036854774784L)
@@ -439,6 +455,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-9223372036854774784L)
                 .returns(-9223372036854774784L)
                 .returns(-9223372036854774784L)
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223372036854775807L)
                 .returns(9223372036854775807L)
@@ -477,6 +494,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
     @Test
     void explicitCastOfSourceTableOnSelect() {
         sql("INSERT INTO src VALUES "
+                + "(0, NULL, NULL, NULL, NULL, NULL, NULL, NULL),"
                 + "(1, 42, 42, 42, 42, 42, 42, '42'),"
                 + "(2, 127, 32767, 2147483647, 9223372036854775807, 9.223371E18, 9.223372036854775E18, '9223372036854775807'),"
                 + "(3, 127.1, 32767.1, 2147483647.1, 9223372036854775807.1, 9.223371E18, 9.223372036854775E18, '9223372036854775807.1'),"
@@ -489,6 +507,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
         );
 
         assertQuery("SELECT CAST(ti as BIGINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(127L)
                 .returns(127L)
@@ -498,6 +517,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-128L)
                 .check();
         assertQuery("SELECT CAST(si as BIGINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(32767L)
                 .returns(32767L)
@@ -507,6 +527,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-32768L)
                 .check();
         assertQuery("SELECT CAST(i as BIGINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(2147483647L)
                 .returns(2147483647L)
@@ -516,6 +537,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-2147483648L)
                 .check();
         assertQuery("SELECT CAST(dec as BIGINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223372036854775807L)
                 .returns(9223372036854775807L)
@@ -525,6 +547,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-9223372036854775808L)
                 .check();
         assertQuery("SELECT CAST(r as BIGINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223370937343148032L)
                 .returns(9223370937343148032L)
@@ -534,6 +557,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-9223370937343148032L)
                 .check();
         assertQuery("SELECT CAST(d as BIGINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223372036854774784L)
                 .returns(9223372036854774784L)
@@ -543,6 +567,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
                 .returns(-9223372036854774784L)
                 .check();
         assertQuery("SELECT CAST(s as BIGINT) FROM src")
+                .returns(NULL_AS_VARARG)
                 .returns(42L)
                 .returns(9223372036854775807L)
                 .returns(9223372036854775807L)
@@ -580,6 +605,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> literalsWithExpectedResult() {
         return Stream.of(
+                Arguments.of("NULL", null),
                 Arguments.of("42", 42L),
                 Arguments.of("9223372036854775807", 9223372036854775807L),
                 Arguments.of("-9223372036854775808", -9223372036854775808L),
@@ -609,6 +635,7 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> valuesWithExpectedResult() {
         return Stream.of(
+                Arguments.of(null, null),
                 Arguments.of((byte) 42, 42L),
                 Arguments.of((byte) 127, 127L),
                 Arguments.of((byte) -128, -128L),
