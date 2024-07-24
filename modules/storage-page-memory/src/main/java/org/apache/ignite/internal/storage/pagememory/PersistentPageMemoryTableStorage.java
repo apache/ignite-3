@@ -25,7 +25,6 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -53,9 +52,6 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
 public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
-    /** String to format free list's name. */
-    private static final String FREE_LIST_NAME = "PersistentFreeList_%d_%d";
-
     /** Storage engine instance. */
     private final PersistentPageMemoryStorageEngine engine;
 
@@ -86,9 +82,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         this.destructionExecutor = destructionExecutor;
     }
 
-    /**
-     * Returns a storage engine instance.
-     */
+    @Override
     public PersistentPageMemoryStorageEngine engine() {
         return engine;
     }
@@ -172,7 +166,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
 
             return new FreeListImpl(
-                    String.format(FREE_LIST_NAME, getTableId(), partId), getTableId(),
+                    "PersistentFreeList",
+                    getTableId(),
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
@@ -218,7 +213,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    engine.generateGlobalRemoveId(),
                     meta.versionChainTreeRootPageId(),
                     reuseList,
                     initNew
@@ -260,7 +255,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     partitionId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    engine.generateGlobalRemoveId(),
                     meta.indexTreeMetaPageId(),
                     reuseList,
                     initNew
@@ -302,7 +297,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     partitionId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    engine.generateGlobalRemoveId(),
                     meta.gcQueueMetaPageId(),
                     reuseList,
                     initNew

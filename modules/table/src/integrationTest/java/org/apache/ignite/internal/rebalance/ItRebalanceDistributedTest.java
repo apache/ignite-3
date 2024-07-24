@@ -1242,7 +1242,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureProcessor,
-                            logSyncer
+                            logSyncer,
+                            hybridClock
                     ),
                     storageConfiguration
             );
