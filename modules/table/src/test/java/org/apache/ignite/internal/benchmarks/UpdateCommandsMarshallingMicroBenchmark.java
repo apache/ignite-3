@@ -62,7 +62,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
-public class UpdateCommandsMarshalingMicroBenchmark {
+public class UpdateCommandsMarshallingMicroBenchmark {
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
 
@@ -151,7 +151,7 @@ public class UpdateCommandsMarshalingMicroBenchmark {
     public static void main(String[] args) throws Exception {
         Options build = new OptionsBuilder()
                 // .addProfiler("gc")
-                .include(UpdateCommandsMarshalingMicroBenchmark.class.getName() + ".*").build();
+                .include(UpdateCommandsMarshallingMicroBenchmark.class.getName() + ".*").build();
 
         new Runner(build).run();
     }
