@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -51,7 +52,9 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ChangePeersRequest request,
         final IgniteCliRpcRequestClosure done) {
-        final List<PeerId> oldConf = ctx.node.listPeers();
+        // TODO sanpwc consider code deduplication with matching ChangePeersAsyncRequestProcessor
+        final List<PeerId> oldPeers = ctx.node.listPeers();
+        final List<PeerId> oldLearners = ctx.node.listLearners();
 
         final Configuration conf = new Configuration();
         for (final String peerIdStr : request.newPeersList()) {
@@ -64,6 +67,18 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
                     .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         }
+
+        for (final String learnerIdStr : request.newLearnersList()) {
+            final PeerId learner = new PeerId();
+            if (learner.parse(learnerIdStr)) {
+                conf.addLearner(learner);
+            }
+            else {
+                return RaftRpcFactory.DEFAULT //
+                    .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse learner id %s", learnerIdStr);
+            }
+        }
+
         long term = request.term();
 
         LOG.info("Receive ChangePeersRequest with term {} to {} from {}, new conf is {}", term, ctx.node.getNodeId(), done.getRpcCtx()
@@ -75,14 +90,20 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
             }
             else {
                 ChangePeersResponse req = msgFactory().changePeersResponse()
-                    .oldPeersList(oldConf.stream().map(Object::toString).collect(toList()))
-                    .newPeersList(conf.getPeers().stream().map(Object::toString).collect(toList()))
+                    .oldPeersList(toStringList(oldPeers))
+                    .newPeersList(toStringList(conf.getPeers()))
+                    .oldLearnersList(toStringList(oldLearners))
+                    .newLearnersList(toStringList(conf.getLearners()))
                     .build();
 
                 done.sendResponse(req);
             }
         });
         return null;
+    }
+
+    private static List<String> toStringList(Collection<?> collection) {
+        return collection.stream().map(Object::toString).collect(toList());
     }
 
     @Override

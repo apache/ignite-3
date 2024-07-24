@@ -419,8 +419,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> changePeers(Collection<Peer> peers, long term) {
-        return raftClient.changePeers(peers, term);
+    public CompletableFuture<Void> changePeers(PeersAndLearners peersAndLearners, long term) {
+        return raftClient.changePeers(peersAndLearners, term);
     }
 
     @Override
