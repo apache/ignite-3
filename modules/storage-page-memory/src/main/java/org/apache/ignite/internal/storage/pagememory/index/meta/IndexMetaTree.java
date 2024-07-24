@@ -59,7 +59,7 @@ public class IndexMetaTree extends BplusTree<IndexMetaKey, IndexMeta> {
             @Nullable ReuseList reuseList,
             boolean initNew
     ) throws IgniteInternalCheckedException {
-        super("IndexMetaTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("IndexMetaTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         setIos(IndexMetaInnerIo.VERSIONS, IndexMetaLeafIo.VERSIONS, IndexMetaTreeMetaIo.VERSIONS);
 

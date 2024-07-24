@@ -145,6 +145,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -654,7 +655,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                logSyncer
+                logSyncer,
+                new PartitionReplicaLifecycleManager(
+                        catalogManager,
+                        replicaMgr,
+                        distributionZoneManager,
+                        metaStorageMgr,
+                        clusterSvc.topologyService(),
+                        lowWatermark,
+                        threadPoolsManager.tableIoExecutor(),
+                        rebalanceScheduler,
+                        threadPoolsManager.partitionOperationsExecutor()
+                )
         );
 
         var indexManager = new IndexManager(

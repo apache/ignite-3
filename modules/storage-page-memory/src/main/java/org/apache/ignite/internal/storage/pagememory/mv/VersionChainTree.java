@@ -60,7 +60,7 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super(
-                "VersionChainTree_" + grpId,
+                "VersionChainTree",
                 grpId,
                 grpName,
                 partId,

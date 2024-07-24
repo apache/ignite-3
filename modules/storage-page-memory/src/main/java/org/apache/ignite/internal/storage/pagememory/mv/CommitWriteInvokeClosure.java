@@ -73,10 +73,11 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final UpdateTimestampHandler updateTimestampHandler;
 
-    /**
-     * Flag indicating that we are committing a tombstone.
-     */
-    private boolean isCurrentRowTombstone = false;
+    @Nullable
+    private RowVersion currentRowVersion;
+
+    @Nullable
+    private RowVersion prevRowVersion;
 
     CommitWriteInvokeClosure(
             RowId rowId,
@@ -129,30 +130,33 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
         operationType = OperationType.PUT;
 
-        RowVersion current = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
-        RowVersion next = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), DONT_LOAD_VALUE) : null;
+        currentRowVersion = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
 
-        isCurrentRowTombstone = current.isTombstone();
+        assert currentRowVersion != null;
 
-        if (next == null && isCurrentRowTombstone) {
+        prevRowVersion = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), DONT_LOAD_VALUE) : null;
+
+        if (prevRowVersion == null && currentRowVersion.isTombstone()) {
             // If there is only one version, and it is a tombstone, then remove the chain.
             operationType = OperationType.REMOVE;
 
             return;
         }
 
+        boolean isPreviousRowTombstone = prevRowVersion != null && prevRowVersion.isTombstone();
+
         // If the previous and current version are tombstones, then delete the current version.
-        if (next != null && isCurrentRowTombstone && next.isTombstone()) {
-            toRemove = current;
+        if (isPreviousRowTombstone && currentRowVersion.isTombstone()) {
+            toRemove = currentRowVersion;
 
-            newRow = VersionChain.createCommitted(oldRow.rowId(), next.link(), next.nextLink());
+            newRow = VersionChain.createCommitted(rowId, prevRowVersion.link(), prevRowVersion.nextLink());
         } else {
-            updateTimestampLink = oldRow.headLink();
+            updateTimestampLink = currentRowVersion.link();
 
-            newRow = VersionChain.createCommitted(oldRow.rowId(), oldRow.headLink(), oldRow.nextLink());
+            newRow = VersionChain.createCommitted(rowId, currentRowVersion.link(), currentRowVersion.nextLink());
 
-            if (oldRow.hasNextLink()) {
-                rowLinkForAddToGcQueue = oldRow.headLink();
+            if (currentRowVersion.hasNextLink()) {
+                rowLinkForAddToGcQueue = currentRowVersion.link();
             }
         }
     }
@@ -194,6 +198,12 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
     void afterCompletion() {
         assert operationType == OperationType.PUT || toRemove == null : "toRemove=" + toRemove + ", op=" + operationType;
 
+        if (operationType == OperationType.NOOP) {
+            return;
+        }
+
+        assert currentRowVersion != null;
+
         if (toRemove != null) {
             storage.removeRowVersion(toRemove);
         }
@@ -202,15 +212,15 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             gcQueue.add(rowId, timestamp, rowLinkForAddToGcQueue);
         }
 
-        // We need to check the "toRemove" field in order to avoid a situation when we are committing a tombstone
-        // over an existing tombstone.
-        if (operationType == OperationType.PUT && toRemove == null) {
-            if (isCurrentRowTombstone) {
-                storage.decrementEstimatedSize();
-            } else if (rowLinkForAddToGcQueue == NULL_LINK) {
-                // Checking for NULL_LINK allows us to distinguish if a new version chain was created or not. In other words if this is
-                // an insert or an update to an existing row.
-                storage.incrementEstimatedSize();
+        if (operationType == OperationType.PUT) {
+            if (prevRowVersion == null || prevRowVersion.isTombstone()) {
+                if (!currentRowVersion.isTombstone()) {
+                    storage.incrementEstimatedSize();
+                }
+            } else {
+                if (currentRowVersion.isTombstone()) {
+                    storage.decrementEstimatedSize();
+                }
             }
         }
     }

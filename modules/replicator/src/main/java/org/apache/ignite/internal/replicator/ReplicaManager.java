@@ -208,7 +208,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /* Temporary converter to support the zone based partitions in tests. **/
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
-    private Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter = Function.identity();
+    private Function<ReplicaRequest, ReplicationGroupId> groupIdConverter = r -> r.groupId().asReplicationGroupId();
 
     /**
      * Constructor for a replica service.
@@ -246,7 +246,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter
+            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
     ) {
         this(
                 nodeName,
@@ -392,7 +392,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId().asReplicationGroupId());
+        ReplicationGroupId groupId = groupIdConverter.apply(request);
 
         String senderConsistentId = sender.name();
 
@@ -573,7 +573,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
     }
 
-    private CompletableFuture<Boolean> startReplicaInternal(
+    private CompletableFuture<Replica> startReplicaInternal(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
@@ -628,7 +628,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @return Future that promises ready new replica when done.
      */
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
@@ -663,7 +663,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
-     * @param listener Replica listener.
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
      * @param newConfiguration A configuration for new raft group.
      * @param raftGroupListener Raft group listener for raft group starting.
@@ -674,7 +673,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener,
+            Function<RaftGroupService, ReplicaListener> listener,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
@@ -706,7 +705,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 Replica newReplica = new ZonePartitionReplicaImpl(
                         replicaGrpId,
-                        listener,
+                        listener.apply(raftClient),
                         raftClient
                 );
 
@@ -756,7 +755,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     @VisibleForTesting
     @Deprecated
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
             Consumer<RaftGroupService> updateTableRaftService,
@@ -772,8 +771,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     updateTableRaftService.accept(raftClient);
                     return createListener.apply(raftClient);
                 }, replicasCreationExecutor)
-                .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, completedFuture(replicaListener)))
-                .thenApply(r -> true);
+                .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, completedFuture(replicaListener)));
     }
 
     /**
