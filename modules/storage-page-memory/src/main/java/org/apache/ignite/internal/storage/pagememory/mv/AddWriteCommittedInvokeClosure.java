@@ -63,6 +63,9 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
      */
     private long rowLinkForAddToGcQueue = NULL_LINK;
 
+    @Nullable
+    private RowVersion prevRowVersion;
+
     AddWriteCommittedInvokeClosure(
             RowId rowId,
             @Nullable BinaryRow row,
@@ -97,10 +100,10 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
             newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
         } else {
-            RowVersion current = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
+            prevRowVersion = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
 
             // If the current and new version are tombstones, then there is no need to add a new version.
-            if (current.isTombstone() && row == null) {
+            if (prevRowVersion.isTombstone() && row == null) {
                 operationType = OperationType.NOOP;
             } else {
                 operationType = OperationType.PUT;
@@ -145,12 +148,14 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         if (operationType == OperationType.PUT) {
-            if (row == null) {
-                storage.decrementEstimatedSize();
-            } else if (rowLinkForAddToGcQueue == NULL_LINK) {
-                // Checking for NULL_LINK allows us to distinguish if a new version chain was created or not. In other words if this is
-                // an insert or an update to an existing row.
-                storage.incrementEstimatedSize();
+            if (prevRowVersion == null || prevRowVersion.isTombstone()) {
+                if (row != null) {
+                    storage.incrementEstimatedSize();
+                }
+            } else {
+                if (row == null) {
+                    storage.decrementEstimatedSize();
+                }
             }
         }
     }

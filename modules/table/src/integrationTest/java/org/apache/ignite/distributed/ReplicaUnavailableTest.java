@@ -113,6 +113,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
+    private static final int TABLE_ID = 1;
+
     private static final String NODE_NAME = "client";
 
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
@@ -222,7 +224,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testWithReplicaStartedAfterRequestSending() throws Exception {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
         ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
@@ -265,6 +267,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         return tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(toTablePartitionIdMessage(replicaMessageFactory, tablePartitionId))
+                .tableId(TABLE_ID)
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId())
                 .timestamp(clock.now())
@@ -280,7 +283,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testStopReplicaException() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
         ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
@@ -315,7 +318,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testWithNotStartedReplica() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
         ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
@@ -345,7 +348,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testWithNotReadyReplica() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(clusterNode.name()));
 
@@ -395,7 +398,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private TablePartitionIdMessage tablePartitionId() {
         return replicaMessageFactory.tablePartitionIdMessage()
-                .tableId(1)
+                .tableId(TABLE_ID)
                 .partitionId(1)
                 .build();
     }

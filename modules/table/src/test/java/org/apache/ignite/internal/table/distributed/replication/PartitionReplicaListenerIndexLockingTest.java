@@ -337,6 +337,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_DELETE:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
                         .groupId(tablePartitionId(PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
@@ -357,6 +358,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_UPSERT:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                         .groupId(tablePartitionId(PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
@@ -425,6 +427,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_DELETE_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                         .groupId(tablePartitionId(PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
@@ -442,6 +445,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_UPSERT_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                         .groupId(tablePartitionId(PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)

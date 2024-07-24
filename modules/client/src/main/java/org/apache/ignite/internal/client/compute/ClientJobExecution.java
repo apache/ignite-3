@@ -34,7 +34,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -55,7 +55,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
     // Local state cache
     private final CompletableFuture<@Nullable JobState> stateFuture = new CompletableFuture<>();
 
-    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, @Nullable Marshaler<R, byte[]> marshaler) {
+    ClientJobExecution(ReliableChannel ch, CompletableFuture<SubmitResult> reqFuture, @Nullable Marshaller<R, byte[]> marshaller) {
         this.ch = ch;
 
         jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
@@ -66,7 +66,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                     // Notifications require explicit input close.
                     try (r) {
                         Object o = r.in().unpackObjectFromBinaryTuple();
-                        R result = marshaler != null ? marshaler.unmarshal((byte[]) o) : (R) o;
+                        R result = marshaller != null ? marshaller.unmarshal((byte[]) o) : (R) o;
 
                         stateFuture.complete(unpackJobState(r));
                         return result;

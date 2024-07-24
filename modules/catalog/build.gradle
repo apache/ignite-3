@@ -19,7 +19,6 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
-apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
@@ -56,11 +55,6 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-vault')))
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
-
-    integrationTestImplementation project(':ignite-api')
-    integrationTestImplementation project(':ignite-system-view-api')
-    integrationTestImplementation testFixtures(project(':ignite-core'))
-    integrationTestImplementation testFixtures(project(':ignite-runner'))
 }
 
 description = "ignite-catalog"
