@@ -36,10 +36,10 @@ public class PartitionManagerTests : IgniteTestsBase
     public async Task TestGetPrimaryReplicas()
     {
         var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
-        var replicasNodes = replicas.Values.Distinct().OrderBy(x => x.Address.Port).ToList();
+        var replicasNodes = replicas.Values.Distinct().OrderBy(x => x.Address).ToList();
         var replicasPartitions = replicas.Keys.Select(x => ((HashPartition)x).PartitionId).OrderBy(x => x).ToList();
 
-        var expectedNodes = (await Client.GetClusterNodesAsync()).OrderBy(x => x.Address.Port).ToList();
+        var expectedNodes = (await Client.GetClusterNodesAsync()).OrderBy(x => x.Address).ToList();
 
         CollectionAssert.AreEqual(expectedNodes, replicasNodes, "Primary replicas should be distributed among all nodes");
 

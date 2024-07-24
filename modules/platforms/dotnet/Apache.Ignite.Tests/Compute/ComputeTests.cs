@@ -78,12 +78,8 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsNotEmpty(res[0].Id);
             Assert.IsNotEmpty(res[1].Id);
 
-            Assert.AreEqual(3344, res[0].Address.Port);
-            Assert.AreEqual(3345, res[1].Address.Port);
-
-            Assert.AreNotEqual(IPAddress.None, res[0].Address.Address);
-            Assert.AreNotEqual(IPAddress.None, res[1].Address.Address);
-            Assert.AreEqual(res[0].Address.Address, res[1].Address.Address);
+            Assert.AreEqual(IPEndPoint.Parse("127.0.0.1:3344"), res[0].Address);
+            Assert.AreEqual(IPEndPoint.Parse("127.0.0.1:3345"), res[0].Address);
         }
 
         [Test]
