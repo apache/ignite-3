@@ -193,7 +193,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
                     failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
-            );
+           );
         }
 
         try {
@@ -220,7 +220,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             ExecutionOptions options,
             T arg
     ) {
-        JobExecution<R> result = new ComputeJobFailover<R>(
+        JobExecution<R> result = (JobExecution<R>) new ComputeJobFailover<>(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
                 jobClassName, options, arg
@@ -294,7 +294,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
 
-    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, Object args) {
+    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, T args) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), args);
         } catch (Throwable e) {

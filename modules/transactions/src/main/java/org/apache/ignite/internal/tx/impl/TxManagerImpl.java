@@ -94,7 +94,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -566,7 +566,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return nullCompletedFuture();
         }
 
-        return failedFuture(new MismatchingTransactionOutcomeException(
+        return failedFuture(new MismatchingTransactionOutcomeInternalException(
                 "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + stateMeta.txState() + "].",
                 new TransactionResult(stateMeta.txState(), stateMeta.commitTimestamp()))
         );
@@ -640,8 +640,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     if (ex != null) {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
-                        if (cause instanceof MismatchingTransactionOutcomeException) {
-                            MismatchingTransactionOutcomeException transactionException = (MismatchingTransactionOutcomeException) cause;
+                        if (cause instanceof MismatchingTransactionOutcomeInternalException) {
+                            MismatchingTransactionOutcomeInternalException transactionException =
+                                    (MismatchingTransactionOutcomeInternalException) cause;
 
                             TransactionResult result = transactionException.transactionResult();
 
@@ -740,7 +741,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     txResult.transactionState()
             );
 
-            throw new MismatchingTransactionOutcomeException(
+            throw new MismatchingTransactionOutcomeInternalException(
                     "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txResult.transactionState()
                             + "].",
                     txResult

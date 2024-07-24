@@ -143,7 +143,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteException(int code, Throwable cause) {
+    public IgniteException(int code, @Nullable Throwable cause) {
         this(getOrCreateTraceId(cause), code, cause);
     }
 
@@ -154,7 +154,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteException(UUID traceId, int code, Throwable cause) {
+    public IgniteException(UUID traceId, int code, @Nullable Throwable cause) {
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
