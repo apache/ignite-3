@@ -30,12 +30,11 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
  * Replica for the zone based partitions.
  */
 public class ZonePartitionReplicaImpl implements Replica {
-
     private final ReplicationGroupId replicaGrpId;
 
     private final ReplicaListener listener;
 
-    TopologyAwareRaftGroupService raftClient;
+    private final TopologyAwareRaftGroupService raftClient;
 
     /**
      * Constructor.
@@ -52,6 +51,11 @@ public class ZonePartitionReplicaImpl implements Replica {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
         this.raftClient = raftClient;
+    }
+
+    @Override
+    public ReplicaListener listener() {
+        return listener;
     }
 
     @Override

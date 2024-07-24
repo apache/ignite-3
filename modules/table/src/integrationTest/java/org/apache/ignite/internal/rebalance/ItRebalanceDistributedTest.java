@@ -154,6 +154,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -625,7 +626,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Test checks rebances from [A,B,C] to [A,B] and then again to [A,B,C].
+     * Test checks rebalances from [A,B,C] to [A,B] and then again to [A,B,C].
      * In this case the raft group node and {@link Replica} are started only once on each node.
      *
      * <p>1. We have an in-progress rebalance and current metastore keys:
@@ -1351,7 +1352,18 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    logSyncer
+                    logSyncer,
+                    new PartitionReplicaLifecycleManager(
+                            catalogManager,
+                            replicaManager,
+                            distributionZoneManager,
+                            metaStorageManager,
+                            clusterService.topologyService(),
+                            lowWatermark,
+                            threadPoolsManager.tableIoExecutor(),
+                            rebalanceScheduler,
+                            threadPoolsManager.partitionOperationsExecutor()
+                    )
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

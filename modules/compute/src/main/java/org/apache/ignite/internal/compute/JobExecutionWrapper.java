@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-class JobExecutionWrapper<R> implements JobExecution<R> {
+public class JobExecutionWrapper<R> implements JobExecution<R> {
     private final JobExecution<R> delegate;
 
     JobExecutionWrapper(JobExecution<R> delegate) {

@@ -240,7 +240,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '0')", strUpper)).returns(checkReturn).check();
         assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - '1', '0')").withParam(checkReturn).returns(checkReturn).check();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22519 Comparison on BIGINT cast brings overflow
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20889
+        //  Sql. Change type derivation for literals and expressions for overflowed BIGINT
         // BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
         // assertQuery(format("SELECT * FROM tbl WHERE v < {}::DECIMAL(19, 0)", moreThanUpperBoundExact)).returns(checkReturn).check();
 

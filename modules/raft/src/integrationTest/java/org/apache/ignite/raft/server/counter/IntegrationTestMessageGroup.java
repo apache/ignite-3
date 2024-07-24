@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.marshaling;
+package org.apache.ignite.raft.server.counter;
 
-import org.apache.ignite.table.Tuple;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
-/**
- * Ignite serialization protocol that can be used used instead of {@link ByteArrayMarshaler}.
- */
-interface TupleMarshaller<T> extends Marshaler<T, Tuple> {
-    @Override
-    Tuple marshal(T object);
+@MessageGroup(groupType = 555, groupName = "IngtegrationTestRaftMessages")
+interface IntegrationTestMessageGroup {
+    /** Message type for {@link GetValueCommand}. */
+    short GET_VALUE_COMMAND = 1000;
 
-    @Override
-    T unmarshal(Tuple raw);
+    /** Message type for {@link IncrementAndGetCommand}. */
+    short INCREMENT_AND_GET_COMMAND = 1001;
 }

@@ -17,22 +17,31 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
 import java.io.Reader;
 import java.util.List;
 import org.apache.calcite.config.Lex;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlUpdate;
+import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.parser.SqlParserImplFactory;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.util.SourceStringReader;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImplConstants;
@@ -41,6 +50,7 @@ import org.apache.ignite.internal.generated.query.calcite.sql.Token;
 import org.apache.ignite.internal.generated.query.calcite.sql.TokenMgrError;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.SqlException;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Provides method for parsing SQL statements in SQL dialect of Apache Ignite 3.
@@ -55,6 +65,10 @@ public final class IgniteSqlParser  {
     public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
             .withParserFactory(InternalIgniteSqlParser.FACTORY)
             .withLex(Lex.ORACLE)
+            // Do not validate the length of SQL identifiers by the parser because a validation error is throw after creating a token,
+            // which is rather confusing. E.g. A string 12...(129 chars) is going to produce "identifier is too long" error,
+            // instead of reporting that expected a query but got something else.
+            .withIdentifierMaxLength(Integer.MAX_VALUE)
             .withConformance(IgniteSqlConformance.INSTANCE);
 
     private IgniteSqlParser() {
@@ -106,6 +120,9 @@ public final class IgniteSqlParser  {
                 SqlNode node = fixNodesIfNecessary(original);
                 list.set(i, node);
             }
+
+            ValidateSqlIdentifiers visitor = new ValidateSqlIdentifiers();
+            nodeList.accept(visitor);
 
             return mode.createResult(list, dynamicParamsCount);
         } catch (SqlParseException e) {
@@ -271,6 +288,52 @@ public final class IgniteSqlParser  {
             return new IgniteSqlMerge((SqlMerge) node);
         } else {
             return node;
+        }
+    }
+
+    private static class ValidateSqlIdentifiers extends SqlShuttle {
+        @Override
+        public @Nullable SqlNode visit(SqlIdentifier id) {
+            for (String segment : id.names) {
+                validateId(id.getParserPosition(), segment);
+            }
+
+            return super.visit(id);
+        }
+
+        @Override
+        public @Nullable SqlNode visit(SqlCall call) {
+            SqlOperator operator = call.getOperator();
+
+            // If something when wrong during the parsing, fail at the validation stage
+            if (operator != null) {
+                validateId(call.getParserPosition(), operator.getName());
+            }
+
+            return super.visit(call);
+        }
+
+        @Override
+        public @Nullable SqlNode visit(SqlDataTypeSpec type) {
+            this.visit(type.getTypeName());
+
+            // getComponentTypeSpec throws AssertionError if typeNameSpec is not an instance of CollectionTypeNameSpec.
+            if (type.getTypeNameSpec() instanceof SqlCollectionTypeNameSpec) {
+                SqlDataTypeSpec componentTypeSpec = type.getComponentTypeSpec();
+                if (componentTypeSpec != null) {
+                    this.visit(componentTypeSpec);
+                }
+            }
+
+            return super.visit(type);
+        }
+
+        private static void validateId(SqlParserPos pos, String segment) {
+            int maxLength = SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH;
+
+            if (segment.length() > maxLength) {
+                throw SqlUtil.newContextException(pos, RESOURCE.identifierTooLong(segment, maxLength));
+            }
         }
     }
 }

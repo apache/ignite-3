@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.meta;
 
+import org.apache.ignite.internal.tostring.S;
+
 /**
  * Index meta key.
  */
@@ -56,5 +58,10 @@ public class IndexMetaKey {
     @Override
     public int hashCode() {
         return indexId;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

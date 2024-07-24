@@ -15,25 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.server.counter;
+package org.apache.ignite.marshalling;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.raft.messages.TestMessageGroup;
-import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
+import org.apache.ignite.table.Tuple;
 
 /**
- * Increment and get command.
+ * Ignite serialization protocol that can be used used instead of {@link ByteArrayMarshaller}.
  */
-// TODO IGNITE-18357 Move to integration test directory when Maven build is not supported anymore.
-@Transferable(TestMessageGroup.INCREMENT_AND_GET_COMMAND)
-public interface IncrementAndGetCommand extends WriteCommand {
-    /**
-     * Returns the delta.
-     */
-    long delta();
+interface TupleMarshaller<T> extends Marshaller<T, Tuple> {
+    @Override
+    Tuple marshal(T object);
 
-    static IncrementAndGetCommand incrementAndGetCommand(long delta) {
-        return new TestRaftMessagesFactory().incrementAndGetCommand().delta(delta).build();
-    }
+    @Override
+    T unmarshal(Tuple raw);
 }
