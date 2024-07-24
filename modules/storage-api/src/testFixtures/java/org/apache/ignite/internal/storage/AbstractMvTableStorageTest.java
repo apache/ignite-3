@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -1473,6 +1474,58 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(mvPartitionStorage.estimatedSize(), is(tableStorage.isVolatile() ? 0L : 2L));
+    }
+
+    /**
+     * Tests that correct estimated size is saved on disk when multiple threads modify the same partition storage.
+     */
+    @Test
+    public void testEstimatedSizeAfterRestartConcurrent() throws Exception {
+        assumeFalse(tableStorage.isVolatile());
+
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        var rowId1 = new RowId(PARTITION_ID);
+        var rowId2 = new RowId(PARTITION_ID);
+
+        List<TestRow> rows = List.of(
+                new TestRow(rowId1, binaryRow(new TestKey(0, "0"), new TestValue(0, "0"))),
+                new TestRow(rowId2, binaryRow(new TestKey(1, "1"), new TestValue(1, "1")))
+        );
+
+        fillStorages(mvPartitionStorage, null, null, rows);
+
+        MvPartitionStorage finalStorage = mvPartitionStorage;
+
+        runRace(
+                () -> finalStorage.runConsistently(locker -> {
+                    locker.lock(rowId1);
+
+                    finalStorage.addWriteCommitted(rowId1, null, clock.now());
+
+                    return null;
+                }),
+                () -> finalStorage.runConsistently(locker -> {
+                    locker.lock(rowId2);
+
+                    finalStorage.addWriteCommitted(rowId2, null, clock.now());
+
+                    return null;
+                })
+        );
+
+        assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(0L));
+
+        // Restart storages.
+        tableStorage.close();
+
+        tableStorage = createMvTableStorage();
+
+        mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(0L));
     }
 
     private void startRebalanceWithChecks(

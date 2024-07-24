@@ -33,7 +33,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -74,11 +73,5 @@ public class RocksDbMvPartitionStorageConcurrencyTest extends AbstractMvPartitio
                 table,
                 engine == null ? null : engine::stop
         );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
-    @Override
-    public void testConcurrentAddAndRemoveEstimatedSize() {
-        super.testConcurrentAddAndRemoveEstimatedSize();
     }
 }
