@@ -96,12 +96,12 @@ public class ConnectionTests
         [Values("1.2.3.4:5678", "[2001:db8::1]:8080")] string ipString) =>
         await TestGetClusterNodes(IPEndPoint.Parse(ipString));
 
-    private static async Task TestGetClusterNodes(EndPoint dnsEndPoint)
+    private static async Task TestGetClusterNodes(EndPoint endpoint)
     {
         var clusterNode = new ClusterNode(
             id: "node-id",
             name: "node-name",
-            endpoint: dnsEndPoint);
+            endpoint: endpoint);
 
         using var server = new FakeServer
         {
