@@ -688,7 +688,8 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 longJvmPauseDetector,
                 failureProcessor,
-                logSyncer
+                logSyncer,
+                clock
         );
 
         dataStorageMgr = new DataStorageManager(
