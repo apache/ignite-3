@@ -1338,7 +1338,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             lowWatermark,
                             threadPoolsManager.tableIoExecutor(),
                             rebalanceScheduler,
-                            threadPoolsManager.partitionOperationsExecutor()
+                            threadPoolsManager.partitionOperationsExecutor(),
+                            clockService,
+                            placementDriver
                     )
             ) {
                 @Override
