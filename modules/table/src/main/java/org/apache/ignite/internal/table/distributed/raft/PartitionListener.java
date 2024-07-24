@@ -686,13 +686,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     private void handleUpdateMinimalActiveTxTimeCommand(UpdateMinimalPendingTxStartTimeCommand cmd, long commandIndex, long commandTerm) {
-        // TODO do we need this check?
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
         }
 
-        minimalActiveTxTime = cmd.timestamp();
+        long minimalActiveTxTime0 = minimalActiveTxTime;
+        minimalActiveTxTime = Math.max(cmd.timestamp(), minimalActiveTxTime0);
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

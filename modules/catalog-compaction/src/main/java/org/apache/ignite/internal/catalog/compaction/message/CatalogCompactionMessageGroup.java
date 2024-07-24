@@ -26,15 +26,9 @@ import org.apache.ignite.internal.network.annotations.MessageGroup;
 public class CatalogCompactionMessageGroup {
     public static final short GROUP_TYPE = 14;
 
-    /** See {@link CatalogMinimumRequiredTimeRequest} for the details. */
+    /** See {@link CatalogCompactionMinimumTimesRequest} for the details. */
     public static final short MINIMUM_REQUIRED_TIME_REQUEST = 0;
 
-    /** See {@link CatalogMinimumRequiredTimeResponse} for the details. */
+    /** See {@link CatalogCompactionMinimumTimesResponse} for the details. */
     public static final short MINIMUM_REQUIRED_TIME_RESPONSE = 1;
-
-    /** See {@link CatalogMinimumTxTimeRequest} for the details. */
-    public static final short MINIMUM_TX_BEGIN_TIME_REQUEST = 2;
-
-    /** See {@link CatalogMinimumTxTimeResponse} for the details. */
-    public static final short MINIMUM_TX_BEGIN_TIME_RESPONSE = 3;
 }

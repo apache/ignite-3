@@ -27,16 +27,14 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -46,9 +44,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingSta
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.raft.jraft.RaftGroupService;
-import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -70,84 +66,71 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     @Test
     void testRaftGroupsUpdate() throws InterruptedException {
         IgniteImpl ignite = CLUSTER.aliveNode();
+        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager());
 
         sql(format("create zone if not exists test with partitions=16, replicas={}, storage_profiles='default'",
                 initialNodes()));
         sql("alter zone test set default");
 
-        sql("create table a(a int primary key)");
-
-        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager());
-
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-        assertNotNull(catalog);
-
-        sql("create table b(a int primary key)");
-        sql("drop table b");
-        sql("drop table a");
-
+        // Latest active catalog contains all required tables.
         {
-            HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(catalog.time());
+            sql("create table a(a int primary key)");
+
+            Catalog minRequiredCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+            assertNotNull(minRequiredCatalog);
+
+            sql("create table b(a int primary key)");
+
+            HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(minRequiredCatalog.time());
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .updateAllReplicasWithMinimalTime(expectedTime);
+                    .propagateMinimalRequiredTimeToReplicas(expectedTime);
 
             assertThat(fut, willCompleteSuccessfully());
 
-            verifyMinimalActiveTxTime(catalog, expectedTime);
+            verifyMinimalActiveTxTime(expectedTime, 2);
         }
 
-//        {
-//            HybridTimestamp expectedTime = HybridTimestamp.MAX_VALUE;
-//
-//            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-//                    .updateAllReplicasWithMinimalTime(expectedTime);
-//
-//            assertThat(fut, willCompleteSuccessfully());
-//
-//            verifyMinimalActiveTxTime(catalog, 2, expectedTime);
-//        }
-    }
-
-    @Test
-    void testGlobalMinimalTxBeginTime() throws Exception {
-        IgniteImpl node0 = CLUSTER.node(0);
-        IgniteImpl node1 = CLUSTER.node(1);
-        IgniteImpl node2 = CLUSTER.node(2);
-
-        InternalTransaction tx0min = (InternalTransaction) node0.transactions().begin();
-        InternalTransaction tx0max = (InternalTransaction) node0.transactions().begin();
-        Transaction tx1 = node1.transactions().begin();
-        Transaction tx2 = node2.transactions().begin();
-
+        // Latest active catalog contains all required tables.
+        long requiredTime = CLUSTER.aliveNode().clockService().nowLong();
         {
-            HybridTimestamp time = node2.catalogCompactionRunner().determineGlobalMinimumTxStartTime(node0.clusterNodes()).get();
-            assertThat(time, equalTo(tx0min.startTimestamp()));
+            sql("drop table a");;
+            sql("drop table b");;
+
+            HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime);
+
+            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
+                    .propagateMinimalRequiredTimeToReplicas(expectedTime);
+
+            assertThat(fut, willCompleteSuccessfully());
+
+            verifyMinimalActiveTxTime(expectedTime, 2);
         }
 
-        tx0min.rollback();
-
+        // Update to lower timestamp should not succeed.
         {
-            HybridTimestamp time = node2.catalogCompactionRunner().determineGlobalMinimumTxStartTime(node0.clusterNodes()).get();
-            assertThat(time, equalTo(tx0max.startTimestamp()));
+            HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime - 1);
+
+            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
+                    .propagateMinimalRequiredTimeToReplicas(expectedTime);
+
+            assertThat(fut, willCompleteSuccessfully());
+
+            verifyMinimalActiveTxTime(HybridTimestamp.hybridTimestamp(requiredTime), 2);
         }
     }
 
-    private static void verifyMinimalActiveTxTime(
-            Catalog catalog,
-            HybridTimestamp expectedTs
-    ) throws InterruptedException {
+    private void verifyMinimalActiveTxTime(HybridTimestamp expectedTs, int expectedTablesCount) throws InterruptedException {
+        Map<Integer, Integer> tablesWithPartitions = catalogManagerHelper().findAllTablesSince(expectedTs.longValue());
         Loza loza = CLUSTER.aliveNode().raftManager();
         JraftServerImpl server = (JraftServerImpl) loza.server();
-        Collection<CatalogTableDescriptor> tables = catalog.tables();
 
-        for (CatalogTableDescriptor table : tables) {
-            CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
+        assertThat(tablesWithPartitions.keySet(), hasSize(expectedTablesCount));
 
-            assertNotNull(zone);
+        for (Map.Entry<Integer, Integer> e : tablesWithPartitions.entrySet()) {
+            for (int p = 0; p < e.getValue(); p++) {
+                TablePartitionId groupId = new TablePartitionId(e.getKey(), p);
 
-            for (int p = 0; p < zone.partitions(); p++) {
-                TablePartitionId groupId = new TablePartitionId(table.id(), p);
                 List<Peer> peers = server.localPeers(groupId);
 
                 assertThat(peers, is(not(empty())));
@@ -161,5 +144,9 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 assertThat(grp.getGroupId(), listener.minimalActiveTxTime(), equalTo(expectedTs.longValue()));
             }
         }
+    }
+
+    private CatalogManagerHelper catalogManagerHelper() {
+        return new CatalogManagerHelper((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager(), CLUSTER.aliveNode().clockService());
     }
 }

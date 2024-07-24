@@ -4146,6 +4146,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
+        // The timestamp must increase monotonically, otherwise it will have to be
+        // stored on disk so that reordering does not occur after the node is restarted.
         applyCmdWithRetryOnSafeTimeReorderException(
                 cmd,
                 resultFuture

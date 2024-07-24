@@ -17,13 +17,25 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Request to obtain the minimum starting time among all pending RW transactions.
+ * Response message containing timestamps from the entire cluster required to safely perform catalog compaction.
+ *
+ * <p>This includes the following:
+ * <ol>
+ *     <li>the minimal timestamp to which, from the local node's perspective, the catalog history can be safely truncated</li>
+ *     <li>the minimal starting time among locally started active RW transactions</li>
+ * </ol>
  */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_TX_BEGIN_TIME_REQUEST)
-public interface CatalogMinimumTxTimeRequest extends NetworkMessage {
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
+public interface CatalogCompactionMinimumTimesResponse extends NetworkMessage {
+    /** Returns node's minimum required time. */
+    long minimumRequiredTime();
 
+    /** Returns node's minimum starting time among locally started active RW transactions. */
+    @Nullable HybridTimestamp minimumActiveTxTime();
 }

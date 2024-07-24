@@ -17,19 +17,13 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Response message containing the low watermark required for the local node.
- * This watermark is used to safely truncate catalog history.
+ * Request to obtain timestamps from the entire cluster required to safely perform catalog compaction.
  */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
-public interface CatalogMinimumRequiredTimeResponse extends NetworkMessage {
-    /** Returns node's minimum required time. */
-    long timestamp();
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST)
+public interface CatalogCompactionMinimumTimesRequest extends NetworkMessage {
 
-    @Nullable HybridTimestamp minimumActiveTxTime();
 }
