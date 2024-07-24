@@ -31,17 +31,21 @@ public class ConnectionTests
     {
         using var server = new FakeServer();
 
-        var cfg = new IgniteClientConfiguration(server.Endpoint);
-        using var client = await IgniteClient.StartAsync(cfg);
+        var endpoint = $"127.0.0.33:{server.Port}";
+        using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(endpoint));
 
-        Assert.AreEqual(server.Endpoint, client.GetConnections().Single().Node.Address.ToString());
+        Assert.AreEqual(1, client.GetConnections().Count);
     }
 
     [Test]
     public async Task TestConnectToIpDefaultPort()
     {
-        await Task.Delay(1);
-        Assert.Fail();
+        using var server = new FakeServer(port: IgniteClientConfiguration.DefaultPort);
+
+        var endpoint = "127.0.0.34";
+        using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(endpoint));
+
+        Assert.AreEqual(1, client.GetConnections().Count);
     }
 
     [Test]

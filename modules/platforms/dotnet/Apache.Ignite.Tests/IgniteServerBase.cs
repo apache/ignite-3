@@ -46,7 +46,7 @@ public abstract class IgniteServerBase : IDisposable
         _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         _listener.NoDelay = true;
 
-        _listener.Bind(new IPEndPoint(IPAddress.Loopback, port));
+        _listener.Bind(new IPEndPoint(IPAddress.Any, port));
         _listener.Listen(backlog: 1);
 
         Console.WriteLine($"Fake server started [port={Port}, test={TestContext.CurrentContext.Test.Name}]");
