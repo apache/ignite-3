@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rebalance;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
@@ -46,11 +47,13 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -58,6 +61,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -94,13 +98,17 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
      */
     @Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
-        cluster.startAndInit(4);
+        cluster.startAndInit(4, builder -> builder.clusterConfiguration("{\n"
+                + "    \"replication\": {\n"
+                + "        \"rpcTimeout\": 3000 \n"
+                + "    }"
+                + "}"));
 
         createZone("TEST_ZONE", 1, 3);
         // Creates table with 1 partition and 3 replicas.
         createTestTable("TEST_TABLE", "TEST_ZONE");
 
-        TableViewInternal table = (TableViewInternal) cluster.node(0).tables().table("TEST_TABLE");
+        TableViewInternal table = unwrapTableViewInternal(cluster.node(0).tables().table("TEST_TABLE"));
 
         waitForStableAssignmentsInMetastore(Set.of(
                 nodeName(0),
@@ -109,7 +117,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         ), table.tableId());
 
         BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("val", "value1"));
-        BinaryRowEx key = marshalTuple(table, Tuple.create().set("id", 1));
+        BinaryRowEx key = marshalKey(table, 1, Integer.class);
 
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(nullValue()));
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(nullValue()));
@@ -253,6 +261,18 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
 
         return marshaller.marshal(tuple);
+    }
+
+    private static <K> Row marshalKey(TableViewInternal table, K key, Class<K> keyClass) {
+        SchemaRegistry schemaReg = table.schemaView();
+        var marshaller = new KvMarshallerImpl<>(
+                schemaReg.lastKnownSchema(),
+                new ReflectionMarshallersProvider(),
+                Mapper.of(keyClass),
+                Mapper.of(Void.class)
+        );
+
+        return marshaller.marshal(key);
     }
 
     private void waitForStableAssignmentsInMetastore(Set<String> expectedNodes, int table) throws InterruptedException {
