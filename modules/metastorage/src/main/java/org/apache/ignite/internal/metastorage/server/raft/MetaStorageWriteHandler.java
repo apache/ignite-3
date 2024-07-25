@@ -396,10 +396,10 @@ public class MetaStorageWriteHandler {
                         .map(commandId -> ByteUtils.stringToBytes(IDEMPOTENT_COMMAND_PREFIX + commandId.toMGKeyAsString()))
                         .collect(toList());
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-22819 Formally using clusterTime.now() as local operation timestamp is
-                // TODO incorrect. It's not possible to use null, because RocksDB may throw AssertionException, thus locally triggered
-                // TODO processing should be reworked with linearized leader based one.
-                storage.removeAll(commandIdStorageKeys, clusterTime.now());
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22819 Using clusterTime.currentSafeTime() as local operation
+                // TODO timestamp is incorrect. It's not possible to use null, because RocksDB may throw AssertionException, thus locally
+                // TODO triggered processing should be reworked with linearized leader based one.
+                storage.removeAll(commandIdStorageKeys, clusterTime.currentSafeTime());
 
                 commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
             }
