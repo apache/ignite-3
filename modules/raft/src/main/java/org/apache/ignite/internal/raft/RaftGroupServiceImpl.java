@@ -314,21 +314,29 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> changePeers(Collection<Peer> peers) {
+    public CompletableFuture<Void> changePeers(PeersAndLearners peersAndLearners, long term) {
         Peer leader = this.leader;
 
         if (leader == null) {
-            return refreshLeader().thenCompose(res -> changePeers(peers));
+            return refreshLeader().thenCompose(res -> changePeers(peersAndLearners, term));
         }
 
         Function<Peer, ChangePeersRequest> requestFactory = targetPeer -> factory.changePeersRequest()
                 .leaderId(peerId(targetPeer))
                 .groupId(groupId)
-                .newPeersList(peerIds(peers))
+                .newPeersList(peerIds(peersAndLearners.peers()))
+                .newLearnersList(peerIds(peersAndLearners.learners()))
+                .term(term)
                 .build();
 
+        LOG.info("Sending changePeers request for group={} to peers={} and learners={} with leader term={}",
+                groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
+
         return this.<ChangePeersResponse>sendWithRetry(leader, requestFactory)
-                .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
+                .thenAccept(resp -> {
+                    this.peers = parsePeerList(resp.newPeersList());
+                    this.learners = parsePeerList(resp.newLearnersList());
+                });
     }
 
     @Override

@@ -135,10 +135,12 @@ public interface RaftGroupService extends RaftCommandRunner {
      *
      * <p>This operation is executed on a group leader.
      *
-     * @param peers Peers.
+     * @param peersAndLearners New peers and Learners of the Raft group.
+     * @param term Current known leader term.
+     *             If real raft group term will be different - changePeers will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeers(Collection<Peer> peers);
+    CompletableFuture<Void> changePeers(PeersAndLearners peersAndLearners, long term);
 
     /**
      * Changes peers and learners of a replication group.

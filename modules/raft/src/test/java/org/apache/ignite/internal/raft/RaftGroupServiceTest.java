@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
@@ -109,6 +111,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(ConfigurationExtension.class)
 public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     private static final List<Peer> NODES = Stream.of(20000, 20001, 20002)
+            .map(port -> new Peer("localhost-" + port))
+            .collect(toUnmodifiableList());
+
+    private static final List<Peer> NODES_FOR_LEARNERS = Stream.of(20003, 20004, 20005)
             .map(port -> new Peer("localhost-" + port))
             .collect(toUnmodifiableList());
 
@@ -436,14 +442,29 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeers() {
+    public void testChangePeers() throws Exception {
         List<String> shrunkPeers = peersToIds(NODES.subList(0, 1));
 
         List<String> extendedPeers = peersToIds(NODES);
 
+        List<String> fullLearners = peersToIds(NODES_FOR_LEARNERS);
+
         when(messagingService.invoke(any(ClusterNode.class), any(ChangePeersRequest.class), anyLong()))
-                .then(invocation -> completedFuture(FACTORY.changePeersResponse().newPeersList(shrunkPeers).build()))
-                .then(invocation -> completedFuture(FACTORY.changePeersResponse().newPeersList(extendedPeers).build()));
+                .then(invocation -> completedFuture(FACTORY.changePeersResponse()
+                        .newPeersList(shrunkPeers)
+                        .newLearnersList(emptyList())
+                        .build()
+                ))
+                .then(invocation -> completedFuture(FACTORY.changePeersResponse()
+                        .newPeersList(extendedPeers)
+                        .newLearnersList(emptyList())
+                        .build()
+                ))
+                .then(invocation -> completedFuture(FACTORY.changePeersResponse()
+                        .newPeersList(shrunkPeers)
+                        .newLearnersList(fullLearners)
+                        .build()
+                ));
 
         mockLeaderRequest(false);
 
@@ -452,15 +473,30 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 2).toArray()));
         assertThat(service.learners(), is(empty()));
 
-        assertThat(service.changePeers(NODES.subList(0, 1)), willCompleteSuccessfully());
+        CompletableFuture<LeaderWithTerm> leaderWithTermFuture = service.refreshAndGetLeaderWithTerm();
+        assertThat(leaderWithTermFuture, willCompleteSuccessfully());
+        LeaderWithTerm leaderWithTerm = leaderWithTermFuture.get();
+
+        // Peers[0, 1], Learners [empty]
+        PeersAndLearners configuration = PeersAndLearners.fromPeers(NODES.subList(0, 1), emptyList());
+        assertThat(service.changePeers(configuration, leaderWithTerm.term()), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), is(empty()));
 
-        assertThat(service.changePeers(NODES), willCompleteSuccessfully());
+        // Peers[0, 1, 2], Learners [empty]
+        PeersAndLearners configuration2 = PeersAndLearners.fromPeers(NODES, emptyList());
+        assertThat(service.changePeers(configuration2, leaderWithTerm.term()), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
         assertThat(service.learners(), is(empty()));
+
+        // Peers[0, 1], Learners [3, 4, 5]
+        PeersAndLearners configuration3 = PeersAndLearners.fromPeers(NODES.subList(0, 1), NODES_FOR_LEARNERS);
+        assertThat(service.changePeers(configuration3, leaderWithTerm.term()), willCompleteSuccessfully());
+
+        assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
+        assertThat(service.learners(), containsInAnyOrder(NODES_FOR_LEARNERS.toArray()));
     }
 
     @Test
