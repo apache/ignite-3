@@ -6,16 +6,20 @@
 statement ok
 SELECT CAST('100' AS SMALLINT);
 
-statement error
+query I
 SELECT CAST('100.1' AS SMALLINT);
+----
+100
 
-query T
+query I
 SELECT CAST(1e1 AS SMALLINT);
 ----
 10
 
-statement error: Invalid input syntax for type SMALLINT: "1e2"
+query I
 SELECT CAST('1e2' AS SMALLINT);
+----
+100
 
 # overflow
 statement error
@@ -70,7 +74,7 @@ SELECT CAST(100.1::DOUBLE AS SMALLINT);
 ----
 100
 
-statement error: Invalid input syntax for type SMALLINT: "100x"
+statement error: Invalid input string for type SMALLINT: "100x"
 SELECT CAST('100x' AS SMALLINT);
 
 statement error: Cast function cannot convert value of type BINARY(1) to type SMALLINT

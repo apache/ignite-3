@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.datatypes;
 
 import java.time.Instant;
 import java.time.LocalDate;
