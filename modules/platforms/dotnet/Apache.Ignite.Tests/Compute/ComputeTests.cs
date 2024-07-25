@@ -792,6 +792,20 @@ namespace Apache.Ignite.Tests.Compute
             }
         }
 
+        [Test]
+        public async Task TestCancelTask()
+        {
+            await Task.Delay(1);
+            Assert.Fail();
+        }
+
+        [Test]
+        public async Task TestChangeTaskPriority()
+        {
+            await Task.Delay(1);
+            Assert.Fail();
+        }
+
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
         {
             JobState? state = await jobExecution.GetStateAsync();
