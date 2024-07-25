@@ -21,12 +21,10 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.readValue;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
@@ -257,7 +255,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                     } else if (value instanceof ByteString) {
                         estimatedSize += ((ByteString) value).length();
                     } else {
-                        assert (value instanceof BigDecimal) || (value instanceof BigInteger) : "unexpected value " + value.getClass();
+                        assert (value instanceof BigDecimal) : "unexpected value " + value.getClass();
 
                         exactEstimate = false;
                     }
@@ -322,10 +320,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                     builder.appendDouble((double) value);
                     break;
 
-                case NUMBER:
-                    builder.appendNumberNotNull((BigInteger) value);
-                    break;
-
                 case DECIMAL:
                     builder.appendDecimalNotNull((BigDecimal) value, ((DecimalNativeType) nativeType).scale());
                     break;
@@ -340,10 +334,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
                 case STRING:
                     builder.appendStringNotNull((String) value);
-                    break;
-
-                case BITMASK:
-                    builder.appendBitmaskNotNull((BitSet) value);
                     break;
 
                 case DATE:

@@ -89,9 +89,6 @@ public class JdbcConverterUtils {
             case BYTE_ARRAY:
                 return binaryTuple.bytesValue(idx);
 
-            case BITMASK:
-                return binaryTuple.bitmaskValue(idx);
-
             case DATE:
                 return binaryTuple.dateValue(idx);
 
@@ -103,9 +100,6 @@ public class JdbcConverterUtils {
 
             case TIMESTAMP:
                 return binaryTuple.timestampValue(idx);
-
-            case NUMBER:
-                return binaryTuple.numberValue(idx);
 
             case BOOLEAN:
                 return binaryTuple.booleanValueBoxed(idx);

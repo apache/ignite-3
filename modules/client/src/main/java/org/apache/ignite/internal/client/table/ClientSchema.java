@@ -306,12 +306,6 @@ public class ClientSchema {
             case DECIMAL:
                 return BinaryMode.DECIMAL;
 
-            case NUMBER:
-                return BinaryMode.NUMBER;
-
-            case BITMASK:
-                return BinaryMode.BITSET;
-
             case DATE:
                 return BinaryMode.DATE;
 

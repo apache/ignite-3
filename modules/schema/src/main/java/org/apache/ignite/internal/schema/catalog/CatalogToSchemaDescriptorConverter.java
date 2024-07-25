@@ -75,11 +75,6 @@ public final class CatalogToSchemaDescriptorConverter {
         }
 
         switch (typeName) {
-            case "BITMASK":
-                int bitmaskLen = columnDescriptor.length();
-
-                return NativeTypes.bitmaskOf(bitmaskLen);
-
             case "STRING":
                 int strLen = columnDescriptor.length();
 
@@ -96,9 +91,6 @@ public final class CatalogToSchemaDescriptorConverter {
                 int scale = columnDescriptor.scale();
 
                 return NativeTypes.decimalOf(prec, scale);
-
-            case "NUMBER":
-                return NativeTypes.numberOf(columnDescriptor.precision());
 
             case "TIME":
                 return NativeTypes.time(columnDescriptor.precision());
