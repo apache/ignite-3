@@ -23,7 +23,6 @@ namespace Apache.Ignite.Tests.Compute
     using System.Globalization;
     using System.Linq;
     using System.Net;
-    using System.Numerics;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Table;
@@ -70,6 +69,10 @@ namespace Apache.Ignite.Tests.Compute
         public static readonly JobDescriptor<long, int> PartitionJob = new(PlatformTestNodeRunner + "$PartitionJob");
 
         public static readonly TaskDescriptor<string, string> NodeNameTask = new(ItThinClientComputeTest + "$MapReduceNodeNameTask");
+
+        public static readonly TaskDescriptor<object?, object?> SplitExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnSplitTask");
+
+        public static readonly TaskDescriptor<object?, object?> ReduceExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnReduceTask");
 
         [Test]
         public async Task TestGetClusterNodes()
@@ -747,6 +750,24 @@ namespace Apache.Ignite.Tests.Compute
                 Assert.IsNotNull(jobState);
                 Assert.AreEqual(JobStatus.Completed, jobState!.Status);
             }
+        }
+
+        [Test]
+        public async Task TestExceptionInTask([Values(true, false)] bool splitOrReduce)
+        {
+            TaskDescriptor<object?, object?> task = splitOrReduce ? SplitExceptionTask : ReduceExceptionTask;
+
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(task, null);
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await taskExec.GetResultAsync());
+
+            var state = await taskExec.GetStateAsync();
+            var jobStates = await taskExec.GetJobStatesAsync();
+
+            Assert.AreEqual("Custom job error", ex.Message);
+            StringAssert.Contains("ItThinClientComputeTest$CustomException", ex.InnerException!.Message);
+            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
+
+            // TODO: Check state.
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)

@@ -45,8 +45,6 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
     /// <param name="compute">Compute.</param>
     public TaskExecution(Guid id, IReadOnlyList<Guid> jobIds, Task<(T Result, TaskState Status)> resultTask, Compute compute)
     {
-        Debug.Assert(jobIds.Count > 0, "jobIds.Count > 0");
-
         Id = id;
         JobIds = jobIds;
 
