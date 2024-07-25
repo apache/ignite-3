@@ -52,14 +52,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -685,12 +683,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         testEchoArg(BigDecimal.TEN);
         testEchoArg(UUID.randomUUID());
         testEchoArg("string");
-        testEchoArg(new BitSet(10));
         testEchoArg(LocalDate.now());
         testEchoArg(LocalTime.now());
         testEchoArg(LocalDateTime.now());
         testEchoArg(Instant.now());
-        testEchoArg(BigInteger.TEN);
     }
 
     @Test

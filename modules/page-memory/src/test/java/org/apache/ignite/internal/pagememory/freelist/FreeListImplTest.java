@@ -143,7 +143,8 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
         long metaPageId = pageMemory.allocatePageNoReuse(1, 1, FLAG_DATA);
 
         return new FreeListImpl(
-                "TestFreeList", 0,
+                "TestFreeList",
+                0,
                 1,
                 pageMemory,
                 PageLockListenerNoOp.INSTANCE,

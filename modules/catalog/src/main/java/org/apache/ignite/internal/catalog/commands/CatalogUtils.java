@@ -362,7 +362,6 @@ public class CatalogUtils {
     public static int defaultLength(ColumnType columnType, int precision) {
         // TODO IGNITE-20432: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
         switch (columnType) {
-            case BITMASK:
             case STRING:
             case BYTE_ARRAY:
                 return DEFAULT_VARLEN_LENGTH;

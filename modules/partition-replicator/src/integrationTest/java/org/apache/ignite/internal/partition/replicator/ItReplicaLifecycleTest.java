@@ -1041,7 +1041,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureProcessor,
-                            logSyncer
+                            logSyncer,
+                            hybridClock
                     ),
                     storageConfiguration
             );

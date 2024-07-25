@@ -889,7 +889,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                         storagePath,
                         null,
                         mock(FailureProcessor.class),
-                        mock(LogSyncer.class)
+                        mock(LogSyncer.class),
+                        clock
                 ),
                 storageConfiguration
         );

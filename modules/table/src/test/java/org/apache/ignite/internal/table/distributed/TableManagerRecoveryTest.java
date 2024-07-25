@@ -73,6 +73,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -333,7 +334,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule),
+                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule, clock),
                 workDir,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
@@ -420,7 +421,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             ConfigurationRegistry mockedRegistry,
             Path storagePath,
             StorageConfiguration config,
-            DataStorageModule dataStorageModule
+            DataStorageModule dataStorageModule,
+            HybridClock clock
     ) {
         when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(config);
 
@@ -433,7 +435,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         storagePath,
                         null,
                         mock(FailureProcessor.class),
-                        mock(LogSyncer.class)
+                        mock(LogSyncer.class),
+                        clock
                 ),
                 config
         );
@@ -482,14 +485,16 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
                     FailureProcessor failureProcessor,
-                    LogSyncer logSyncer
+                    LogSyncer logSyncer,
+                    HybridClock clock
             ) throws StorageException {
                 return spy(super.createEngine(igniteInstanceName,
                         configRegistry,
                         storagePath,
                         longJvmPauseDetector,
                         failureProcessor,
-                        logSyncer
+                        logSyncer,
+                        clock
                 ));
             }
         };

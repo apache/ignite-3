@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PART
 import static org.apache.ignite.internal.util.Constants.KiB;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
@@ -59,7 +58,7 @@ public class InlineUtils {
      */
     static final int MIN_INNER_PAGE_ITEM_COUNT = 2;
 
-    /** Heuristic maximum inline size for {@link BigDecimal} and {@link BigInteger} column in bytes. */
+    /** Heuristic maximum inline size for {@link BigDecimal} column in bytes. */
     static final int BIG_NUMBER_INLINE_SIZE = 4;
 
     /**
@@ -84,9 +83,6 @@ public class InlineUtils {
 
             case DECIMAL:
                 return Short.BYTES + BIG_NUMBER_INLINE_SIZE;
-
-            case NUMBER:
-                return BIG_NUMBER_INLINE_SIZE;
 
             default:
                 throw new IllegalArgumentException("Unknown type " + spec);
