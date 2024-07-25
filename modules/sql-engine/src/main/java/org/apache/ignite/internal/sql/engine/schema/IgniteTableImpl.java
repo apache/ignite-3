@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
@@ -43,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteTable {
     private final ImmutableIntList keyColumns;
     private final @Nullable ImmutableBitSet columnsToInsert;
+    private final @Nullable ImmutableBitSet columnsToUpdate;
 
     private final Map<String, IgniteIndex> indexMap;
 
@@ -67,6 +69,12 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
         this.indexMap = indexMap;
         this.partitions = partitions;
         this.columnsToInsert = deriveColumnsToInsert(desc);
+
+        int virtualColumnsCount = (int) StreamSupport.stream(desc.spliterator(), false)
+                .filter(ColumnDescriptor::virtual)
+                .count();
+
+        this.columnsToUpdate = ImmutableBitSet.range(desc.columnsCount() - virtualColumnsCount);
 
         colocationColumnTypes = new Lazy<>(this::evaluateTypes);
     }
@@ -169,13 +177,20 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     /** {@inheritDoc} */
     @Override
     public boolean isUpdateAllowed(int colIdx) {
-        return !descriptor().columnDescriptor(colIdx).key();
+        ColumnDescriptor columnDescriptor = descriptor().columnDescriptor(colIdx);
+        return !columnDescriptor.key() && !columnDescriptor.virtual();
     }
 
     /** {@inheritDoc} */
     @Override
     public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
         return descriptor().rowType(factory, columnsToInsert);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType rowTypeForUpdate(IgniteTypeFactory factory) {
+        return descriptor().rowType(factory, columnsToUpdate);
     }
 
     /** {@inheritDoc} */
