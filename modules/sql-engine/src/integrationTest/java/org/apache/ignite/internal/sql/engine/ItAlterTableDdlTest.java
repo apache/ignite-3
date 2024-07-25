@@ -28,7 +28,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.List;
-import java.util.Set;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -36,7 +35,6 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -152,11 +150,6 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
     public void testDropAndAddColumnsAllTypes() {
         List<NativeType> allTypes = SchemaTestUtils.ALL_TYPES;
 
-        Set<NativeTypeSpec> unsupportedTypes = Set.of(
-                // TODO https://issues.apache.org/jira/browse/IGNITE-18431
-                NativeTypeSpec.BITMASK
-        );
-
         // List of columns for 'ADD COLUMN' statement.
         IgniteStringBuilder addColumnsList = new IgniteStringBuilder();
         // List of columns for 'DROP COLUMN' statement.
@@ -164,10 +157,6 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
 
         for (int i = 0; i < allTypes.size(); i++) {
             NativeType type = allTypes.get(i);
-
-            if (unsupportedTypes.contains(type.spec())) {
-                continue;
-            }
 
             RelDataType relDataType = TypeUtils.native2relationalType(Commons.typeFactory(), type);
 
@@ -186,7 +175,7 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
 
         List<List<Object>> res = sql("SELECT * FROM test");
         assertThat(res.size(), is(1));
-        assertThat(res.get(0).size(), is(allTypes.size() - unsupportedTypes.size() + /* initial columns */ 2));
+        assertThat(res.get(0).size(), is(allTypes.size() + /* initial columns */ 2));
 
         sql(format("ALTER TABLE test DROP COLUMN ({})", dropColumnsList.toString()));
         assertQuery("SELECT * FROM test")

@@ -67,7 +67,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.testobjects.TestBitmaskObject;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ObjectFactory;
@@ -161,8 +160,8 @@ public class RecordMarshallerTest {
                 () -> factory.create(schema, TestObjectWithAllTypes.class));
 
         assertEquals(
-                "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
-                        + "longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, primitiveFloatCol, "
+                "Fields [booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
+                        + "longCol, nullBytesCol, nullLongCol, primitiveBooleanCol, primitiveByteCol, primitiveFloatCol, "
                         + "primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] of type "
                         + "org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes are not mapped to columns",
                 ex.getMessage());
@@ -206,11 +205,11 @@ public class RecordMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(
                 schemaVersion.incrementAndGet(),
                 new Column[]{
-                        new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
+                        new Column("longCol".toUpperCase(), INT32, false),
                         new Column("intCol".toUpperCase(), UUID, false)
                 },
                 new Column[]{
-                        new Column("bytesCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                        new Column("bytesCol".toUpperCase(), NativeTypes.blobOf(42), true),
                         new Column("stringCol".toUpperCase(), UUID, true)
                 }
         );
@@ -219,24 +218,7 @@ public class RecordMarshallerTest {
 
         assertThat(
                 ex.getMessage(),
-                containsString("Column's type mismatch [column=LONGCOL, expectedType=BITSET, actualType=class java.lang.Long]"));
-    }
-
-    @ParameterizedTest
-    @MethodSource("marshallerFactoryProvider")
-    public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                schemaVersion.incrementAndGet(),
-                new Column[]{ new Column("key".toUpperCase(), INT32, false) },
-                new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
-        );
-
-        RecordMarshaller<TestBitmaskObject> marshaller = factory.create(schema, TestBitmaskObject.class);
-
-        TestBitmaskObject rec = new TestBitmaskObject(1, IgniteTestUtils.randomBitSet(rnd, 42));
-
-        Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec)).getCause();
-        assertThat(ex.getMessage(), containsString("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
+                containsString("Column's type mismatch [column=LONGCOL, expectedType=INT, actualType=class java.lang.Long]"));
     }
 
     @ParameterizedTest
@@ -424,11 +406,9 @@ public class RecordMarshallerTest {
                 new Column("timestampCol".toUpperCase(), timestamp(6), true),
 
                 new Column("uuidCol".toUpperCase(), UUID, true),
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
                 new Column("stringCol".toUpperCase(), STRING, true),
                 new Column("nullBytesCol".toUpperCase(), BYTES, true),
                 new Column("bytesCol".toUpperCase(), BYTES, true),
-                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
                 new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
         };
     }

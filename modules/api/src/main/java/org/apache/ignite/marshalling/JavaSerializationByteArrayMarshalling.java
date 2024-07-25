@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.marshaling;
+package org.apache.ignite.marshalling;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Default java serialization marshaller. It is used by default if no other marshaller is provided.
  */
-class JavaSerializationByteArrayMarshallilng {
+class JavaSerializationByteArrayMarshalling {
     /**
      * Writes the object to a byte array with java serialization.
      *

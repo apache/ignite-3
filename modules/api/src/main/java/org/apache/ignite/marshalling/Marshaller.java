@@ -15,34 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.marshaling;
+package org.apache.ignite.marshalling;
 
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Object marshaler interface that is used in every Ignite API that requires
+ * Object marshaller interface that is used in every Ignite API that requires
  * serialization/deserialization of user objects. If you want to define the way
  * your objects are serialized/deserialized, you can implement this interface
  * and pass it to the API that requires it.
  *
- * <p>NOTE: The marshaler itself are not sent over the wire. This means that if you
- * define a custom marshaller on the client, you must also define the marshaler
+ * <p>NOTE: The marshaller itself are not sent over the wire. This means that if you
+ * define a custom marshaller on the client, you must also define the marshaller
  * on the server as well.
  *
  * @param <T> The object (T)ype.
  * @param <R> The (R)aw type, for example, {@code byte[]} or {@link org.apache.ignite.table.Tuple}.
  */
-public interface Marshaler<T, R> {
+public interface Marshaller<T, R> {
     /**
      * Marshal the object into raw type.
      *
      * @param object object to marshal.
      *
      * @return raw presentation of object.
-     * @throws UnsupportedObjectTypeMarshalingException if the given type can not be marshalled with current instance.
+     * @throws UnsupportedObjectTypeMarshallingException if the given type can not be marshalled with current instance.
      */
-    @Nullable R marshal(@Nullable T object) throws UnsupportedObjectTypeMarshalingException;
+    @Nullable R marshal(@Nullable T object) throws UnsupportedObjectTypeMarshallingException;
 
     /**
      * Unmarshal the raw type into object.
@@ -50,8 +50,8 @@ public interface Marshaler<T, R> {
      * @param raw raw presentation of object.
      *
      * @return object.
-     * @throws UnsupportedObjectTypeMarshalingException if the given type can not be unmarshalled with current instance.
+     * @throws UnsupportedObjectTypeMarshallingException if the given type can not be unmarshalled with current instance.
      */
-    @Nullable T unmarshal(@Nullable R raw) throws UnsupportedObjectTypeMarshalingException;
+    @Nullable T unmarshal(@Nullable R raw) throws UnsupportedObjectTypeMarshallingException;
 }
 

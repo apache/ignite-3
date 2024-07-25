@@ -62,6 +62,7 @@ import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -129,6 +130,8 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -386,6 +389,8 @@ public class IgniteImpl implements Ignite {
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
     private final CatalogManager catalogManager;
+
+    private final CatalogCompactionRunner catalogCompactionRunner;
 
     private final AuthenticationManager authenticationManager;
 
@@ -688,7 +693,8 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 longJvmPauseDetector,
                 failureProcessor,
-                logSyncer
+                logSyncer,
+                clock
         );
 
         dataStorageMgr = new DataStorageManager(
@@ -707,7 +713,17 @@ public class IgniteImpl implements Ignite {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        metaStorageMgr.addElectionListener(catalogManager::updateCompactionCoordinator);
+        CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
+                name,
+                catalogManager,
+                clusterSvc.messagingService(),
+                logicalTopologyService,
+                placementDriverMgr.placementDriver(),
+                clockService,
+                threadPoolsManager.commonScheduler()
+        );
+
+        metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
@@ -715,6 +731,7 @@ public class IgniteImpl implements Ignite {
         systemViewManager.register(catalogManager);
 
         this.catalogManager = catalogManager;
+        this.catalogCompactionRunner = catalogCompactionRunner;
 
         lowWatermark = new LowWatermarkImpl(
                 name,
@@ -724,6 +741,9 @@ public class IgniteImpl implements Ignite {
                 failureProcessor,
                 clusterSvc.messagingService()
         );
+
+        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
+                params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
         this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
 
@@ -751,7 +771,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 lowWatermark,
                 threadPoolsManager.tableIoExecutor(),
-                rebalanceScheduler
+                rebalanceScheduler,
+                threadPoolsManager.partitionOperationsExecutor()
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
@@ -829,7 +850,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                logSyncer
+                logSyncer,
+                partitionReplicaLifecycleManager
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
@@ -1143,6 +1165,7 @@ public class IgniteImpl implements Ignite {
                         lifecycleManager.startComponentsAsync(
                                 componentContext,
                                 catalogManager,
+                                catalogCompactionRunner,
                                 indexMetaStorage,
                                 clusterCfgMgr,
                                 authenticationManager,
@@ -1626,6 +1649,12 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public CatalogManager catalogManager() {
         return catalogManager;
+    }
+
+    /** Returns the node's catalog compaction runner. */
+    @TestOnly
+    public CatalogCompactionRunner catalogCompactionRunner() {
+        return catalogCompactionRunner;
     }
 
     /** Returns {@link NettyBootstrapFactory}. */

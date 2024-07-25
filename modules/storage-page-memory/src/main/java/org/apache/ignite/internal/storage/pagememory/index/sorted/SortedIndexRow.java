@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * {@link IndexRow} implementation used in the {@link SortedIndexTree}.
@@ -45,5 +46,10 @@ public class SortedIndexRow extends SortedIndexRowKey {
      */
     public RowId rowId() {
         return rowId;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

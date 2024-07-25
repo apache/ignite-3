@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -39,7 +38,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -675,12 +673,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
         testArgRoundtrip(LocalDateTime.now());
         testArgRoundtrip(Instant.now());
         testArgRoundtrip(UUID.randomUUID());
-        testArgRoundtrip(BitSet.valueOf(new long[] {1, 2, 3}));
         testArgRoundtrip("Ignite 🔥");
         testArgRoundtrip(new byte[]{-1, 1});
         testArgRoundtrip(Period.ofDays(3));
         testArgRoundtrip(Duration.ofDays(3));
-        testArgRoundtrip(BigInteger.valueOf(123));
     }
 
     private void testArgRoundtrip(Object arg) {

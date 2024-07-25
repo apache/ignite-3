@@ -268,7 +268,8 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             // Add columns with All supported types.
             EnumSet<ColumnType> excludeTypes = EnumSet
-                    .of(ColumnType.TIMESTAMP, ColumnType.NUMBER, ColumnType.BITMASK, ColumnType.DURATION,
+                    .of(ColumnType.TIMESTAMP, ColumnType.DURATION,
+                            ColumnType.BITMASK, ColumnType.NUMBER,
                             ColumnType.PERIOD, ColumnType.NULL);
             Arrays.stream(ColumnType.values()).filter(t -> !excludeTypes.contains(t))
                     .forEach(t -> {

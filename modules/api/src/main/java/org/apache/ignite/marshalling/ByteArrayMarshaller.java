@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.marshaling;
+package org.apache.ignite.marshalling;
 
 import java.io.Serializable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The ByteArrayMarshaler interface is designed to marshal and unmarshal objects to and from byte arrays. If the byte[] is your preferred
- * way of marshaling objects, you can implement this interface to provide custom marshaling logic.
+ * The ByteArrayMarshaller interface is designed to marshal and unmarshal objects to and from byte arrays. If the byte[] is your preferred
+ * way of marshalling objects, you can implement this interface to provide custom marshalling logic.
  *
  * <p>The default implementation of the marshal method is plain java serialization.
  */
-public interface ByteArrayMarshaler<T> extends Marshaler<T, byte[]> {
+public interface ByteArrayMarshaller<T> extends Marshaller<T, byte[]> {
 
-    static <T> ByteArrayMarshaler<T> create() {
-        return new ByteArrayMarshaler<>() {};
+    static <T> ByteArrayMarshaller<T> create() {
+        return new ByteArrayMarshaller<>() {};
     }
 
     @Override
@@ -39,10 +39,10 @@ public interface ByteArrayMarshaler<T> extends Marshaler<T, byte[]> {
         }
 
         if (object instanceof Serializable) {
-            return JavaSerializationByteArrayMarshallilng.marshal((Serializable) object);
+            return JavaSerializationByteArrayMarshalling.marshal((Serializable) object);
         }
 
-        throw new UnsupportedObjectTypeMarshalingException(object.getClass());
+        throw new UnsupportedObjectTypeMarshallingException(object.getClass());
     }
 
     @Override
@@ -51,6 +51,6 @@ public interface ByteArrayMarshaler<T> extends Marshaler<T, byte[]> {
             return null;
         }
 
-        return JavaSerializationByteArrayMarshallilng.unmarshal(raw);
+        return JavaSerializationByteArrayMarshalling.unmarshal(raw);
     }
 }

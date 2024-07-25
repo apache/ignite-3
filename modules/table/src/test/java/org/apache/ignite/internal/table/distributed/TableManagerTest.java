@@ -104,6 +104,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -263,6 +264,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private IndexMetaStorage indexMetaStorage;
 
+    /** Partition replica lifecycle manager. */
+    @Mock
+    private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+
     @BeforeEach
     void before() throws NodeStoppingException {
         lowWatermark = new TestLowWatermark();
@@ -290,7 +295,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(trueCompletedFuture());
+                .thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
         when(replicaMgr.weakStartReplica(any(), any(), any())).thenAnswer(inv -> {
             Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
@@ -832,7 +837,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 lowWatermark,
                 mock(TransactionInflights.class),
                 indexMetaStorage,
-                logSyncer
+                logSyncer,
+                partitionReplicaLifecycleManager
         ) {
 
             @Override
@@ -883,7 +889,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                         storagePath,
                         null,
                         mock(FailureProcessor.class),
-                        mock(LogSyncer.class)
+                        mock(LogSyncer.class),
+                        clock
                 ),
                 storageConfiguration
         );
