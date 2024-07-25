@@ -207,12 +207,12 @@ public class CliServiceImpl implements CliService {
     public Status changePeers(
             final String groupId,
             final Configuration conf,
-            final Configuration newPeers,
+            final Configuration newPeersAndLearners,
             long term
     ) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null configuration");
-        Requires.requireNonNull(newPeers, "Null new peers");
+        Requires.requireNonNull(newPeersAndLearners, "Null new configuration");
 
         final PeerId leaderId = new PeerId();
         final Status st = checkLeaderAndConnect(groupId, conf, leaderId);
@@ -224,7 +224,8 @@ public class CliServiceImpl implements CliService {
             .changePeersRequest()
             .groupId(groupId)
             .leaderId(leaderId.toString())
-            .newPeersList(newPeers.getPeers().stream().map(Object::toString).collect(toList()))
+            .newPeersList(newPeersAndLearners.getPeers().stream().map(Object::toString).collect(toList()))
+            .newLearnersList(newPeersAndLearners.getLearners().stream().map(Object::toString).collect(toList()))
             .term(term)
             .build();
 

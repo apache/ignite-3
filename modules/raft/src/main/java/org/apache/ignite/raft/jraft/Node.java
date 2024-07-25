@@ -178,11 +178,11 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * Change the configuration of the raft group to |newPeers| , done.run() would be invoked after this operation
      * finishes, describing the detailed result.
      *
-     * @param newPeers new peers to change
+     * @param newPeersAndLearners new peers and learners to change
      * @param term term on which this method was called. If real raft group term will be different - changePeers will be skipped.
      * @param done callback
      */
-    void changePeers(final Configuration newPeers, long term, final Closure done);
+    void changePeers(final Configuration newPeersAndLearners, long term, final Closure done);
 
     /**
      * Asynchronously change the configuration of the raft group to |newPeers|. If done closure was completed with {@link Status#OK()},

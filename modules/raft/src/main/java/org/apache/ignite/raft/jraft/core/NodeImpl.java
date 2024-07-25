@@ -3371,9 +3371,9 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void changePeers(final Configuration newPeers, long term, final Closure done) {
-        Requires.requireNonNull(newPeers, "Null new peers");
-        Requires.requireTrue(!newPeers.isEmpty(), "Empty new peers");
+    public void changePeers(final Configuration newPeersAndLearners, long term, final Closure done) {
+        Requires.requireNonNull(newPeersAndLearners, "Null new configuration");
+        Requires.requireTrue(!newPeersAndLearners.isEmpty(), "Empty new configuration");
         this.writeLock.lock();
         try {
             long currentTerm = getCurrentTerm();
@@ -3387,8 +3387,8 @@ public class NodeImpl implements Node, RaftServerService {
                     return;
             }
 
-            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
-            unsafeRegisterConfChange(this.conf.getConf(), newPeers, done);
+            LOG.info("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newPeersAndLearners);
+            unsafeRegisterConfChange(this.conf.getConf(), newPeersAndLearners, done);
         }
         finally {
             this.writeLock.unlock();
@@ -3397,8 +3397,8 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public void changePeersAsync(final Configuration newConf, long term, Closure done) {
-        Requires.requireNonNull(newConf, "Null new peers");
-        Requires.requireTrue(!newConf.isEmpty(), "Empty new peers");
+        Requires.requireNonNull(newConf, "Null new configuration");
+        Requires.requireTrue(!newConf.isEmpty(), "Empty new configuration");
         this.writeLock.lock();
         try {
             long currentTerm = getCurrentTerm();
@@ -3412,7 +3412,7 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
-            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newConf);
+            LOG.info("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newConf);
 
             unsafeRegisterConfChange(this.conf.getConf(), newConf, done, true);
         }

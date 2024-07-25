@@ -52,14 +52,14 @@ public interface CliService extends Lifecycle<CliOptions> {
      *
      * @param groupId the raft group id
      * @param conf current configuration
-     * @param newPeers new peers to change
+     * @param newPeersAndLearners new peers and learners to change
      * @param term term term on which this method was called. If real raft group term will be different - changePeers will be skipped.
      * @return operation status
      */
     Status changePeers(
             final String groupId,
             final Configuration conf,
-            final Configuration newPeers,
+            final Configuration newPeersAndLearners,
             long term
     );
 
