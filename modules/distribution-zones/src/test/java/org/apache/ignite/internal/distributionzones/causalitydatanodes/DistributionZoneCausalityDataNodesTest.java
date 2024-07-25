@@ -599,7 +599,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsOfDifferentTimersValue")
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22833")
     void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) {
         CountDownLatch latch = new CountDownLatch(1);
 
