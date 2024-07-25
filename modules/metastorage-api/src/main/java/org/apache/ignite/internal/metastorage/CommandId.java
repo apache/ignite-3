@@ -37,14 +37,16 @@ public interface CommandId extends NetworkMessage, Serializable {
     long counter();
 
     /**
+     * Returns string representation of a CommandId to use as a human readable meta storage key.
+     *
      * @return String representation of a CommandId to use as a human readable meta storage key.
      */
-    default String toMGKeyAsString() {
+    default String toMgKeyAsString() {
         return nodeId() + "_cnt_" + counter();
     }
 
     /**
-     * Meta storage key as string to CommandId converter. See {@link CommandId#toMGKeyAsString()} for more details.
+     * Meta storage key as string to CommandId converter. See {@link CommandId#toMgKeyAsString()} for more details.
      *
      * @param mgKeyString String representation of a CommandId.
      * @return CommandId instance.

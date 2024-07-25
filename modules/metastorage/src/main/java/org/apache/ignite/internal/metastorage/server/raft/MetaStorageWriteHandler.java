@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
-import static java.util.Arrays.copyOfRange;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
@@ -69,7 +68,6 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -393,7 +391,7 @@ public class MetaStorageWriteHandler {
 
             if (!commandIdsToRemove.isEmpty()) {
                 List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
-                        .map(commandId -> ByteUtils.stringToBytes(IDEMPOTENT_COMMAND_PREFIX + commandId.toMGKeyAsString()))
+                        .map(commandId -> ByteUtils.stringToBytes(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()))
                         .collect(toList());
 
                 // TODO https://issues.apache.org/jira/browse/IGNITE-22819 Using clusterTime.currentSafeTime() as local operation
