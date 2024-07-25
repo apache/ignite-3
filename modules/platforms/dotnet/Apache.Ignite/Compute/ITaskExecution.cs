@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Compute;
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -46,22 +48,28 @@ public interface ITaskExecution<T>
     Task<TaskState?> GetStateAsync();
 
     /// <summary>
-    /// Cancels the job execution.
+    /// Cancels the task execution.
     /// </summary>
     /// <returns>
-    /// Returns <c>true</c> if the job was successfully cancelled, <c>false</c> if the job has already finished,
-    /// <c>null</c> if the job was not found (no longer exists due to exceeding the retention time limit).
+    /// Returns <c>true</c> if the task was successfully cancelled, <c>false</c> if the task has already finished,
+    /// <c>null</c> if the task was not found (no longer exists due to exceeding the retention time limit).
     /// </returns>
     Task<bool?> CancelAsync();
 
     /// <summary>
-    /// Changes the job priority. After priority change the job will be the last in the queue of jobs with the same priority.
+    /// Changes the task priority. After priority change the task will be the last in the queue of tasks with the same priority.
     /// </summary>
     /// <param name="priority">New priority.</param>
     /// <returns>
     /// Returns <c>true</c> if the priority was successfully changed,
-    /// <c>false</c> when the priority couldn't be changed (job is already executing or completed),
-    /// <c>null</c> if the job was not found (no longer exists due to exceeding the retention time limit).
+    /// <c>false</c> when the priority couldn't be changed (task is already executing or completed),
+    /// <c>null</c> if the task was not found (no longer exists due to exceeding the retention time limit).
     /// </returns>
     Task<bool?> ChangePriorityAsync(int priority);
+
+    /// <summary>
+    /// Gets the job states for all jobs that are part of this task.
+    /// </summary>
+    /// <returns>A list of job states. Can contain nulls when the time for retaining job state has been exceeded.</returns>
+    Task<IList<JobState?>> GetJobStatesAsync();
 }
