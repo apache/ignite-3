@@ -246,11 +246,11 @@ class SchemaCompatibilityValidator {
         assert tableAtBeginTs != null;
 
         if (tableAtOpTs == null) {
-            throw IncompatibleSchemaException.tableDropped(tableAtBeginTs.name());
+            throw IncompatibleSchemaVersionException.tableDropped(tableAtBeginTs.name());
         }
 
         if (tableAtOpTs.tableVersion() != tableAtBeginTs.tableVersion()) {
-            throw IncompatibleSchemaException.schemaChanged(
+            throw IncompatibleSchemaVersionException.schemaChanged(
                     tableAtBeginTs.name(),
                     tableAtBeginTs.tableVersion(),
                     tableAtOpTs.tableVersion()
@@ -262,7 +262,7 @@ class SchemaCompatibilityValidator {
         CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
 
         if (tableAtOpTs == null) {
-            throw IncompatibleSchemaException.tableDropped(tableId);
+            throw IncompatibleSchemaVersionException.tableDropped(tableId);
         }
     }
 

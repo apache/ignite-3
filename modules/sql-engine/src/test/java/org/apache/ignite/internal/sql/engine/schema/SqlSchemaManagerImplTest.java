@@ -749,15 +749,13 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(ColumnType.DOUBLE, -1, -1),
                 Arguments.of(ColumnType.DECIMAL, 4, 0),
                 Arguments.of(ColumnType.DECIMAL, 4, 2),
-                Arguments.of(ColumnType.NUMBER, 4, -1),
                 Arguments.of(ColumnType.STRING, 40, -1),
                 Arguments.of(ColumnType.BYTE_ARRAY, 40, -1),
                 Arguments.of(ColumnType.DATE, -1, -1),
                 Arguments.of(ColumnType.TIME, 2, -1),
                 Arguments.of(ColumnType.DATETIME, 2, -1),
                 Arguments.of(ColumnType.TIMESTAMP, 2, -1),
-                Arguments.of(ColumnType.UUID, -1, -1),
-                Arguments.of(ColumnType.BITMASK, 2, -1)
+                Arguments.of(ColumnType.UUID, -1, -1)
         );
     }
 
@@ -828,7 +826,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             case UUID:
             case BOOLEAN:
                 break;
-            case NUMBER:
             case TIME:
             case DATETIME:
             case TIMESTAMP:
@@ -840,7 +837,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 break;
             case STRING:
             case BYTE_ARRAY:
-            case BITMASK:
                 builder.length(precision);
                 break;
             default:

@@ -18,7 +18,7 @@
 package org.apache.ignite.compute;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,8 +26,8 @@ import org.jetbrains.annotations.Nullable;
  * deploy the job to the cluster with Deployment API. Then, you can execute this job on the cluster by calling
  * {@link IgniteCompute} APIs.
  *
- * <p>If you want to pass/return custom data structures to/from the job, you should also implement {@link Marshaler}
- * and return it from {@link #inputMarshaler()} and {@link #resultMarshaler()} methods.
+ * <p>If you want to pass/return custom data structures to/from the job, you should also implement {@link Marshaller}
+ * and return it from {@link #inputMarshaller()} and {@link #resultMarshaller()} methods.
  *
  * @param <T> Type of the job argument.
  * @param <R> Type of the job result.
@@ -44,20 +44,20 @@ public interface ComputeJob<T, R> {
     @Nullable CompletableFuture<R> executeAsync(JobExecutionContext context, @Nullable T arg);
 
     /**
-     * Marshaler for the input argument. Default is {@code null} meaning that only primitive types are supported.
+     * Marshaller for the input argument. Default is {@code null} meaning that only primitive types are supported.
      *
-     * @return Input marshaler.
+     * @return Input marshaller.
      */
-    default @Nullable Marshaler<T, byte[]> inputMarshaler() {
+    default @Nullable Marshaller<T, byte[]> inputMarshaller() {
         return null;
     }
 
     /**
-     * Marshaler for the job result. Default is {@code null} meaning that only primitive types are supported.
+     * Marshaller for the job result. Default is {@code null} meaning that only primitive types are supported.
      *
-     * @return Result marshaler.
+     * @return Result marshaller.
      */
-    default @Nullable Marshaler<R, byte[]> resultMarshaler() {
+    default @Nullable Marshaller<R, byte[]> resultMarshaller() {
         return null;
     }
 }

@@ -33,10 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -140,9 +138,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.ztimestamp);
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
-        assertEquals(BitSet.valueOf(new byte[]{32}), res.zbitmask);
         assertEquals(21, res.zdecimal.longValue());
-        assertEquals(22, res.znumber.longValue());
         assertEquals(uuid, res.zuuid);
     }
 
@@ -175,9 +171,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         val.ztimestamp = instant;
         val.zstring = "119";
         val.zbytes = new byte[]{120};
-        val.zbitmask = BitSet.valueOf(new byte[]{121});
         val.zdecimal = BigDecimal.valueOf(122);
-        val.znumber = BigInteger.valueOf(123);
         val.zuuid = uuid;
 
         pojoView.put(null, key, val);
@@ -199,9 +193,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
-        assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
         assertEquals(122, ((BigDecimal) res.value("zdecimal")).longValue());
-        assertEquals(BigInteger.valueOf(123), res.value("znumber"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
 

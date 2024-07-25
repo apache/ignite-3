@@ -180,7 +180,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         String nodeName = testNodeName(testInfo, 0);
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(nodeName));
 
-        CompletableFuture<Boolean> startReplicaFuture = replicaManager.startReplica(
+        CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
                 groupId,
                 newConfiguration,
                 (unused) -> replicaListener,

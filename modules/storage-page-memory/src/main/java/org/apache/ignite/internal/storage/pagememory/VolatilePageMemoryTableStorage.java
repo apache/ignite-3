@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
@@ -38,6 +37,8 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
  */
 public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+    private final VolatilePageMemoryStorageEngine engine;
+
     private final VolatilePageMemoryDataRegion dataRegion;
 
     private final ExecutorService destructionExecutor;
@@ -47,17 +48,20 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      *
      * @param tableDescriptor Table descriptor.
      * @param indexDescriptorSupplier Index descriptor supplier.
+     * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
      * @param destructionExecutor Executor used to destruct partitions.
      */
     VolatilePageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
+            VolatilePageMemoryStorageEngine engine,
             VolatilePageMemoryDataRegion dataRegion,
             ExecutorService destructionExecutor
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
+        this.engine = engine;
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
     }
@@ -65,6 +69,11 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     @Override
     public VolatilePageMemoryDataRegion dataRegion() {
         return dataRegion;
+    }
+
+    @Override
+    public VolatilePageMemoryStorageEngine engine() {
+        return engine;
     }
 
     @Override
@@ -95,7 +104,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     partitionId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
                     true
@@ -115,7 +124,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     partitionId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
                     true
@@ -151,7 +160,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    engine.generateGlobalRemoveId(),
                     metaPageId,
                     dataRegion.reuseList(),
                     true

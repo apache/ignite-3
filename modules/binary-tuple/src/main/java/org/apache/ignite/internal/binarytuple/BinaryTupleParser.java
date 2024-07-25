@@ -298,6 +298,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
+    @Deprecated(forRemoval = true)
     public final BigInteger numberValue(int begin, int end) {
         int len = end - begin;
         if (len <= 0) {
@@ -388,6 +389,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
+    @Deprecated(forRemoval = true)
     public final BitSet bitmaskValue(int begin, int end) {
         int len = end - begin;
         if (len <= 0) {

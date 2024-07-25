@@ -130,10 +130,8 @@ public class UpgradingRowAdapterTest {
                         new Column("valTimeCol", time(0), true),
                         new Column("valDateTimeCol", datetime(6), true),
                         new Column("valTimeStampCol", timestamp(6), true),
-                        new Column("valBitmask1Col", NativeTypes.bitmaskOf(22), true),
                         new Column("valBytesCol", BYTES, false),
                         new Column("valStringCol", STRING, false),
-                        new Column("valNumberCol", NativeTypes.numberOf(20), false),
                         new Column("valDecimalCol", NativeTypes.decimalOf(25, 5), false)),
                 List.of("keyUuidCol"),
                 null

@@ -24,7 +24,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.tx.TransactionInternalException;
 
 /** Error that occurs when a stale operation of a completed transaction is detected. */
-// TODO: IGNITE-20415 - make this exception public.
+// TODO: IGNITE-22748 - make this exception public?
 public class StaleTransactionOperationException extends TransactionInternalException {
     /**
      * Constructor.

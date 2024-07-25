@@ -45,7 +45,6 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
             boolean initNew
     ) throws IgniteInternalCheckedException {
         return new TestReuseList(
-                "test",
                 grpId,
                 partId,
                 pageMem,
@@ -70,7 +69,6 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
         /**
          * Constructor.
          *
-         * @param name Structure name (for debug purpose).
          * @param grpId Group ID.
          * @param partId Partition ID.
          * @param pageMem Page memory.
@@ -79,8 +77,7 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
          * @param initNew {@code True} if new metadata should be initialized.
          * @throws IgniteInternalCheckedException If failed.
          */
-        public TestReuseList(
-                String name,
+        TestReuseList(
                 int grpId,
                 int partId,
                 PageMemory pageMem,
@@ -88,7 +85,7 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
                 long metaPageId,
                 boolean initNew
         ) throws IgniteInternalCheckedException {
-            super(grpId, partId, name, pageMem, lockLsnr, metaPageId, initNew, null, IoStatisticsHolderNoOp.INSTANCE);
+            super("test", grpId, partId, pageMem, lockLsnr, metaPageId, initNew, null, IoStatisticsHolderNoOp.INSTANCE);
         }
 
         static boolean checkNoLocks() {

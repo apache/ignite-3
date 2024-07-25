@@ -63,7 +63,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
@@ -138,6 +140,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -165,11 +168,14 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.PublicApiThreadingIgniteTransactions;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
@@ -177,6 +183,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -342,7 +349,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testEmptyReplicaListener(TestInfo testInfo) throws Exception {
+    public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
@@ -355,17 +362,54 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         createZone(node, "test_zone", 1, 1);
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
-        createTable(node, "test_zone", "test_table");
-        int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
+        long key = 1;
 
-        node.converter.put(new TablePartitionId(tableId, 0), new ZonePartitionId(zoneId, 0));
+        {
+            createTable(node, "test_zone", "test_table");
+            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
 
-        KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+            prepareTableIdToZoneIdConverter(
+                    node,
+                    new TablePartitionId(tableId, 0),
+                    new ZonePartitionId(zoneId, 0)
+            );
 
-        assertDoesNotThrow(() -> keyValueView.put(null, 1L, 1));
+            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
-        // Actually we are testing not the fair put value, but the hardcoded one from temporary noop replica listener
-        assertEquals(-1, keyValueView.get(null, 1L));
+            int val = 100;
+
+            node.transactions().runInTransaction(tx -> {
+                assertDoesNotThrow(() -> keyValueView.put(tx, key, val));
+
+                assertEquals(val, keyValueView.get(tx, key));
+            });
+
+            node.transactions().runInTransaction(tx -> {
+                // Check the replica read inside the another transaction
+                assertEquals(val, keyValueView.get(tx, key));
+            });
+        }
+
+        {
+            createTable(node, "test_zone", "test_table1");
+            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table1", node.hybridClock.nowLong());
+
+            prepareTableIdToZoneIdConverter(
+                    node,
+                    new TablePartitionId(tableId, 0),
+                    new ZonePartitionId(zoneId, 0)
+            );
+
+            KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+
+            int val = 200;
+
+            node.transactions().runInTransaction(tx -> {
+                assertDoesNotThrow(() -> keyValueView.put(tx, key, val));
+
+                assertEquals(val, keyValueView.get(tx, key));
+            });
+        }
     }
 
     @Test
@@ -686,6 +730,18 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(() -> getNode(0).replicaManager.isReplicaStarted(partId), 10_000L));
     }
 
+    private void prepareTableIdToZoneIdConverter(Node node, TablePartitionId tablePartitionId, ZonePartitionId zonePartitionId) {
+        node.converter.set(request ->  {
+            if (request.groupId().asReplicationGroupId().equals(tablePartitionId)
+                    && !(request instanceof WriteIntentSwitchReplicaRequest)) {
+                return zonePartitionId;
+            } else {
+                return request.groupId().asReplicationGroupId();
+            }
+        });
+
+    }
+
     private Node getNode(int nodeIndex) {
         return nodes.get(nodeIndex);
     }
@@ -794,11 +850,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         private final ScheduledExecutorService rebalanceScheduler;
 
-        private final Map<ReplicationGroupId, ReplicationGroupId> converter = new ConcurrentHashMap<>();
+        private AtomicReference<Function<ReplicaRequest, ReplicationGroupId>> converter =
+                new AtomicReference<>(request -> request.groupId().asReplicationGroupId());
 
         private final LogStorageFactory logStorageFactory;
 
         private final IndexMetaStorage indexMetaStorage;
+
+        private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -986,7 +1045,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureProcessor,
-                            logSyncer
+                            logSyncer,
+                            hybridClock
                     ),
                     storageConfiguration
             );
@@ -1030,7 +1090,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     raftManager,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool(),
-                    t -> (converter.get(t) != null) ? converter.get(t) : t
+                    t -> converter.get().apply(t)
             );
 
             LongSupplier delayDurationMsSupplier = () -> 10L;
@@ -1069,6 +1129,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     threadPoolsManager.tableIoExecutor(),
                     rebalanceScheduler,
+                    threadPoolsManager.partitionOperationsExecutor(),
                     clockService,
                     placementDriver);
 
@@ -1086,7 +1147,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),
                     replicaManager,
-                    mock(LockManager.class),
+                    lockManager,
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
@@ -1102,14 +1163,15 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
-                    new HybridTimestampTracker(),
+                    observableTimestampTracker,
                     placementDriver,
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    logSyncer
+                    logSyncer,
+                    partitionReplicaLifecycleManager
             );
 
             tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
@@ -1122,6 +1184,11 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     registry,
                     lowWatermark
             );
+        }
+
+        private IgniteTransactions transactions() {
+            IgniteTransactionsImpl transactions = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
+            return new PublicApiThreadingIgniteTransactions(transactions, ForkJoinPool.commonPool());
         }
 
         private void waitForMetadataCompletenessAtNow() {

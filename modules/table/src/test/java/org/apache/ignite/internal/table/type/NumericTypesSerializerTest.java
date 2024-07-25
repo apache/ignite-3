@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.List;
@@ -52,21 +51,6 @@ public class NumericTypesSerializerTest {
 
     /** Schema descriptor. */
     private SchemaDescriptor schema;
-
-    /**
-     * Returns list of BigInteger pairs for test.
-     */
-    private static List<Pair<BigInteger, BigInteger>> numbers() {
-        return Arrays.asList(
-                new Pair<>(BigInteger.valueOf(10L), BigInteger.valueOf(10)),
-                new Pair<>(BigInteger.valueOf(-10L), BigInteger.valueOf(-10)),
-                new Pair<>(new BigInteger("10"), BigInteger.valueOf(10)),
-                new Pair<>(new BigInteger("1000").divide(BigInteger.TEN), BigInteger.valueOf(10).multiply(BigInteger.TEN)),
-                new Pair<>(new BigInteger("999999999"), BigInteger.valueOf(999999999L)),
-                new Pair<>(new BigInteger("+999999999"), BigInteger.valueOf(999999999L)),
-                new Pair<>(new BigInteger("-999999999"), BigInteger.valueOf(-999999999L))
-        );
-    }
 
     /**
      * Returns list of string decimal representations for test.
@@ -103,60 +87,6 @@ public class NumericTypesSerializerTest {
         long seed = System.currentTimeMillis();
 
         rnd = new Random(seed);
-    }
-
-    /**
-     * Test.
-     */
-    @ParameterizedTest
-    @MethodSource("numbers")
-    public void testNumber(Pair<BigInteger, BigInteger> pair) {
-        schema = new SchemaDescriptor(
-                42,
-                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
-                new Column[]{
-                        new Column("NUMBER1", NativeTypes.numberOf(19), false),
-                        new Column("NUMBER2", NativeTypes.numberOf(10), false)
-                }
-        );
-
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
-
-        final Tuple tup = createTuple().set("key", rnd.nextLong()).set("number1", pair.getFirst()).set("number2", pair.getSecond());
-
-        final Row row = marshaller.marshal(tup);
-
-        assertEquals(row.numberValue(1), row.numberValue(2));
-    }
-
-    @Test
-    public void testPrecisionRestrictionsForNumbers() {
-        schema = new SchemaDescriptor(
-                42,
-                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
-                new Column[]{new Column("NUMBER1", NativeTypes.numberOf(5), false)}
-        );
-
-        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
-
-        final Tuple badTup = createTuple().set("key", rnd.nextLong());
-
-        assertThrowsWithCause(
-                () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(999991L))),
-                MarshallerException.class,
-                "Column's type mismatch");
-        assertThrowsWithCause(
-                () -> marshaller.marshal(badTup.set("number1", new BigInteger("111111"))),
-                MarshallerException.class,
-                "Column's type mismatch");
-        assertThrowsWithCause(
-                () -> marshaller.marshal(badTup.set("number1", BigInteger.valueOf(-999991L))),
-                MarshallerException.class,
-                "Column's type mismatch");
-        assertThrowsWithCause(
-                () -> marshaller.marshal(badTup.set("number1", new BigInteger("-111111"))),
-                MarshallerException.class,
-                "Column's type mismatch");
     }
 
     @Test
@@ -295,7 +225,7 @@ public class NumericTypesSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("sameDecimals")
-    public void testSameBinaryRepresentation(Pair<BigInteger, BigInteger> pair) {
+    public void testSameBinaryRepresentation(Pair<BigDecimal, BigDecimal> pair) {
         schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("KEY", NativeTypes.INT64, false)},
