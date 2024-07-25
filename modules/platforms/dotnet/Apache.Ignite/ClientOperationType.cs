@@ -122,6 +122,11 @@ namespace Apache.Ignite
         ComputeExecute,
 
         /// <summary>
+        /// Compute (<see cref="ICompute.SubmitMapReduceAsync{TArg,TResult}"/>).
+        /// </summary>
+        ComputeExecuteMapReduce,
+
+        /// <summary>
         /// SQL (<see cref="ISql.ExecuteAsync"/>, <see cref="ISql.ExecuteAsync{T}"/>).
         /// </summary>
         SqlExecute,
