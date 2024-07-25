@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
-    using System.Collections;
     using System.Diagnostics.CodeAnalysis;
     using NodaTime;
 
@@ -39,7 +38,6 @@ namespace Apache.Ignite.Tests.Table
         double? Double = null,
         Guid? Uuid = null,
         LocalDate? Date = null,
-        BitArray? BitMask = null,
         LocalTime? Time = null,
         LocalDateTime? DateTime = null,
         Instant? Timestamp = null,

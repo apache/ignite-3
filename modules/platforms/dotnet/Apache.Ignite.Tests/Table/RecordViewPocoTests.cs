@@ -656,7 +656,6 @@ namespace Apache.Ignite.Tests.Table
                 Double: 64.64,
                 Uuid: Guid.NewGuid(),
                 Date: dt.Date,
-                BitMask: new BitArray(new byte[] { 1 }),
                 Time: dt.TimeOfDay,
                 DateTime: dt,
                 Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
@@ -679,7 +678,6 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Int64, res.Int64);
             Assert.AreEqual(poco.Str, res.Str);
             Assert.AreEqual(poco.Uuid, res.Uuid);
-            Assert.AreEqual(poco.BitMask, res.BitMask);
             Assert.AreEqual(poco.Timestamp, res.Timestamp);
             Assert.AreEqual(poco.Time, res.Time);
             Assert.AreEqual(poco.DateTime, res.DateTime);
@@ -707,7 +705,6 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Int64, res.Int64);
             Assert.AreEqual(poco.Str, res.Str);
             Assert.AreEqual(poco.Uuid, res.Uuid);
-            Assert.AreEqual(poco.BitMask, res.BitMask);
             Assert.AreEqual(poco.Timestamp, res.Timestamp);
             Assert.AreEqual(poco.Time, res.Time);
             Assert.AreEqual(poco.DateTime, res.DateTime);

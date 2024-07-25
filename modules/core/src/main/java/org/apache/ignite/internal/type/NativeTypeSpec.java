@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.type;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -92,11 +90,13 @@ public enum NativeTypeSpec {
     /**
      * Native type representing a bitmask.
      */
+    @Deprecated(forRemoval = true)
     BITMASK(true),
 
     /**
      * Native type representing a BigInteger.
      */
+    @Deprecated(forRemoval = true)
     NUMBER(false),
 
     /**
@@ -205,10 +205,6 @@ public enum NativeTypeSpec {
             return STRING;
         } else if (cls == java.util.UUID.class) {
             return UUID;
-        } else if (cls == BitSet.class) {
-            return BITMASK;
-        } else if (cls == BigInteger.class) {
-            return NUMBER;
         } else if (cls == BigDecimal.class) {
             return DECIMAL;
         }
@@ -241,8 +237,6 @@ public enum NativeTypeSpec {
                 return nullable ? Float.class : float.class;
             case DOUBLE:
                 return nullable ? Double.class : double.class;
-            case BITMASK:
-                return BitSet.class;
             case BYTES:
                 return byte[].class;
             case STRING:
@@ -257,8 +251,6 @@ public enum NativeTypeSpec {
                 return LocalDateTime.class;
             case UUID:
                 return java.util.UUID.class;
-            case NUMBER:
-                return BigInteger.class;
             case DECIMAL:
                 return BigDecimal.class;
             default:
@@ -313,9 +305,6 @@ public enum NativeTypeSpec {
             case DECIMAL:
                 return ColumnType.DECIMAL;
 
-            case NUMBER:
-                return ColumnType.NUMBER;
-
             case UUID:
                 return ColumnType.UUID;
 
@@ -324,9 +313,6 @@ public enum NativeTypeSpec {
 
             case BYTES:
                 return ColumnType.BYTE_ARRAY;
-
-            case BITMASK:
-                return ColumnType.BITMASK;
 
             case DATE:
                 return ColumnType.DATE;

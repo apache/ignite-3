@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.sql.engine.QueryProperty.TIME_ZONE_ID;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -31,7 +30,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -78,11 +76,9 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
             columns.add(new FakeColumnMetadata("DATETIME", ColumnType.DATETIME));
             columns.add(new FakeColumnMetadata("TIMESTAMP", ColumnType.TIMESTAMP));
             columns.add(new FakeColumnMetadata("UUID", ColumnType.UUID));
-            columns.add(new FakeColumnMetadata("BITMASK", ColumnType.BITMASK));
             columns.add(new FakeColumnMetadata("BYTE_ARRAY", ColumnType.BYTE_ARRAY));
             columns.add(new FakeColumnMetadata("PERIOD", ColumnType.PERIOD));
             columns.add(new FakeColumnMetadata("DURATION", ColumnType.DURATION));
-            columns.add(new FakeColumnMetadata("NUMBER", ColumnType.NUMBER));
 
             var row = getRow(
                     true,
@@ -98,11 +94,10 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
                     LocalDateTime.of(2001, 3, 4, 5, 6),
                     Instant.ofEpochSecond(987),
                     new UUID(0, 0),
-                    BitSet.valueOf(new byte[0]),
                     new byte[1],
                     Period.of(10, 9, 8),
-                    Duration.ofDays(11),
-                    BigInteger.valueOf(42));
+                    Duration.ofDays(11)
+            );
 
             rows.add(row);
         } else if ("SELECT LAST SCRIPT".equals(qry)) {
