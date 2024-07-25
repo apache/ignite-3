@@ -65,6 +65,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -96,11 +97,12 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
+    //@RepeatedTest(100)
     @Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4, builder -> builder.clusterConfiguration("{\n"
                 + "    \"replication\": {\n"
-                + "        \"rpcTimeout\": 3000 \n"
+                + "        \"rpcTimeout\": 7000 \n"
                 + "    }"
                 + "}"));
 
