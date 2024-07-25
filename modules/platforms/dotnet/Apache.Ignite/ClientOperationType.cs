@@ -132,7 +132,7 @@ namespace Apache.Ignite
         SqlExecuteScript,
 
         /// <summary>
-        /// Get status of a compute job (<see cref="IJobExecution{T}.GetStatusAsync"/>).
+        /// Get status of a compute job (<see cref="IJobExecution{T}.GetStateAsync"/>).
         /// </summary>
         ComputeGetStatus,
 

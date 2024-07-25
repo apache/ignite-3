@@ -618,7 +618,7 @@ namespace Apache.Ignite.Tests.Compute
             var fakeJobExecution = new JobExecution<int>(
                 Guid.NewGuid(), Task.FromException<(int, JobState)>(new Exception("x")), (Compute)Client.Compute);
 
-            var status = await fakeJobExecution.GetStatusAsync();
+            var status = await fakeJobExecution.GetStateAsync();
 
             Assert.IsNull(status);
         }
@@ -704,7 +704,7 @@ namespace Apache.Ignite.Tests.Compute
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
         {
-            JobState? state = await jobExecution.GetStatusAsync();
+            JobState? state = await jobExecution.GetStateAsync();
 
             Assert.IsNotNull(state);
             Assert.AreEqual(jobExecution.Id, state!.Id);

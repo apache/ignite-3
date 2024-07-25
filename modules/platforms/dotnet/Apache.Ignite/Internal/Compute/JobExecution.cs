@@ -60,7 +60,7 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     }
 
     /// <inheritdoc/>
-    public async Task<JobState?> GetStatusAsync()
+    public async Task<JobState?> GetStateAsync()
     {
         var finalStatus = _finalStatus;
         if (finalStatus != null)

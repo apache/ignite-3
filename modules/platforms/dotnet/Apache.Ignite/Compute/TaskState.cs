@@ -17,38 +17,20 @@
 
 namespace Apache.Ignite.Compute;
 
+using System;
+using NodaTime;
+
 /// <summary>
-/// Compute job status.
+/// Compute task state.
 /// </summary>
-public enum JobStatus
-{
-    /// <summary>
-    /// The job is submitted and waiting for an execution start.
-    /// </summary>
-    Queued,
-
-    /// <summary>
-    /// The job is being executed.
-    /// </summary>
-    Executing,
-
-    /// <summary>
-    /// The job was unexpectedly terminated during execution.
-    /// </summary>
-    Failed,
-
-    /// <summary>
-    /// The job was executed successfully and the execution result was returned.
-    /// </summary>
-    Completed,
-
-    /// <summary>
-    /// The job has received the cancel command, but is still running.
-    /// </summary>
-    Canceling,
-
-    /// <summary>
-    /// The job was successfully cancelled.
-    /// </summary>
-    Canceled
-}
+/// <param name="Id">Task ID.</param>
+/// <param name="Status">Task status.</param>
+/// <param name="CreateTime">Create time.</param>
+/// <param name="StartTime">Start time (<c>null</c> when not yet started).</param>
+/// <param name="FinishTime">Finish time (<c>null</c> when not yet finished).</param>
+public sealed record TaskState(
+    Guid Id,
+    TaskStatus Status,
+    Instant CreateTime,
+    Instant? StartTime,
+    Instant? FinishTime);

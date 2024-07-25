@@ -21,29 +21,29 @@ using System;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Job control object, provides information about the job execution process and result, allows cancelling the job.
+/// Compute task control object, provides information about the task execution process and result, allows cancelling the task.
 /// </summary>
 /// <typeparam name="T">Job result type.</typeparam>
-public interface IJobExecution<T>
+public interface ITaskExecution<T>
 {
     /// <summary>
-    /// Gets the job ID.
+    /// Gets the task ID.
     /// </summary>
     Guid Id { get; }
 
     /// <summary>
-    /// Gets the job execution result.
+    /// Gets the task execution result.
     /// </summary>
-    /// <returns>Job execution result.</returns>
+    /// <returns>Task execution result.</returns>
     Task<T> GetResultAsync();
 
     /// <summary>
-    /// Gets the job execution state. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
+    /// Gets the task execution state. Can be <c>null</c> if the task status no longer exists due to exceeding the retention time limit.
     /// </summary>
     /// <returns>
-    /// Job execution state. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
+    /// Task execution state. Can be <c>null</c> if the task status no longer exists due to exceeding the retention time limit.
     /// </returns>
-    Task<JobState?> GetStateAsync();
+    Task<TaskState?> GetStateAsync();
 
     /// <summary>
     /// Cancels the job execution.

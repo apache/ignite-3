@@ -18,37 +18,37 @@
 namespace Apache.Ignite.Compute;
 
 /// <summary>
-/// Compute job status.
+/// Compute task status.
 /// </summary>
-public enum JobStatus
+public enum TaskStatus
 {
     /// <summary>
-    /// The job is submitted and waiting for an execution start.
+    /// The task is submitted and waiting for an execution start.
     /// </summary>
     Queued,
 
     /// <summary>
-    /// The job is being executed.
+    /// The task is being executed.
     /// </summary>
     Executing,
 
     /// <summary>
-    /// The job was unexpectedly terminated during execution.
+    /// The task was unexpectedly terminated during execution.
     /// </summary>
     Failed,
 
     /// <summary>
-    /// The job was executed successfully and the execution result was returned.
+    /// The task was executed successfully and the execution result was returned.
     /// </summary>
     Completed,
 
     /// <summary>
-    /// The job has received the cancel command, but is still running.
+    /// The task has received the cancel command, but is still running.
     /// </summary>
     Canceling,
 
     /// <summary>
-    /// The job was successfully cancelled.
+    /// The task was successfully cancelled.
     /// </summary>
     Canceled
 }
