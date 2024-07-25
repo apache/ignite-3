@@ -98,7 +98,6 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22806")
     void testEstimatedSizeAfterScaleUp() throws InterruptedException {
         for (String profile : ALL_STORAGE_PROFILES) {
             String tableName = createTableWithData(profile);
@@ -116,6 +115,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22806")
     void testEstimatedAfterScaleDown() throws InterruptedException {
         for (String profile : ALL_STORAGE_PROFILES) {
             String tableName = createTableWithData(profile);
