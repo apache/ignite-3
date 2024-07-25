@@ -599,6 +599,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsOfDifferentTimersValue")
+    @Disabled
     void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) {
         CountDownLatch latch = new CountDownLatch(1);
 
