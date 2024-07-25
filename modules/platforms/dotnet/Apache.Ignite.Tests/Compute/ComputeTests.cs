@@ -720,13 +720,18 @@ namespace Apache.Ignite.Tests.Compute
 
             CollectionAssert.AreEquivalent(expectedNodeNames, nodeNames);
 
+            // Execution.
+            Assert.AreNotEqual(Guid.Empty, taskExec.Id);
+            Assert.AreEqual(expectedNodeNames.Count, taskExec.JobIds.Count);
+            CollectionAssert.DoesNotContain(taskExec.JobIds, Guid.Empty);
+
             // Task state.
             TaskState? state = await taskExec.GetStateAsync();
 
             Assert.IsNotNull(state); // TODO all props
             Assert.AreEqual(TaskStatus.Completed, state.Status);
 
-            // Job state.
+            // Job states.
             IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
 
             Assert.AreEqual(expectedNodeNames.Count, jobStates.Count);

@@ -39,11 +39,14 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
     /// Initializes a new instance of the <see cref="TaskExecution{T}"/> class.
     /// </summary>
     /// <param name="id">Job id.</param>
+    /// <param name="jobIds">Job ids.</param>
     /// <param name="resultTask">Result task.</param>
     /// <param name="compute">Compute.</param>
-    public TaskExecution(Guid id, Task<(T Result, TaskState Status)> resultTask, Compute compute)
+    public TaskExecution(Guid id, IReadOnlyList<Guid> jobIds, Task<(T Result, TaskState Status)> resultTask, Compute compute)
     {
         Id = id;
+        JobIds = jobIds;
+
         _resultTask = resultTask;
         _compute = compute;
 
@@ -53,6 +56,9 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
 
     /// <inheritdoc/>
     public Guid Id { get; }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Guid> JobIds { get; }
 
     /// <inheritdoc/>
     public async Task<T> GetResultAsync()

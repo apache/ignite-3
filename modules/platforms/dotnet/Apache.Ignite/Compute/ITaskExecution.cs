@@ -34,6 +34,11 @@ public interface ITaskExecution<T>
     Guid Id { get; }
 
     /// <summary>
+    /// Gets the IDs of the jobs that are part of this task.
+    /// </summary>
+    IReadOnlyList<Guid> JobIds { get; }
+
+    /// <summary>
     /// Gets the task execution result.
     /// </summary>
     /// <returns>Task execution result.</returns>

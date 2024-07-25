@@ -348,10 +348,19 @@ namespace Apache.Ignite.Internal.Compute
                 _ = reader.ReadInt32();
             }
 
-            var jobId = reader.ReadGuid();
+            var taskId = reader.ReadGuid();
+
+            var jobCount = reader.ReadInt32();
+            List<Guid> jobIds = new(jobCount);
+
+            for (var i = 0; i < jobCount; i++)
+            {
+                jobIds.Add(reader.ReadGuid());
+            }
+
             var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
 
-            return new TaskExecution<T>(jobId, resultTask, this);
+            return new TaskExecution<T>(taskId, jobIds, resultTask, this);
 
             static async Task<(T, TaskState)> GetResult(NotificationHandler handler)
             {
