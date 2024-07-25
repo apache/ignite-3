@@ -44,7 +44,7 @@ class CatalogManagerCompactionHelperTest extends AbstractCatalogCompactionTest {
 
     @BeforeEach
     void setupHelper() {
-        catalogManagerHelper = new CatalogManagerCompactionHelper(catalogManager);;
+        catalogManagerHelper = new CatalogManagerCompactionHelper(catalogManager);
     }
 
     @Test

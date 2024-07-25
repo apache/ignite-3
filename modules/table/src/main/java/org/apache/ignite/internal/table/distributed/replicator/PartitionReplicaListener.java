@@ -127,7 +127,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimalPendingTxStartTimeReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxStartTimeReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
@@ -814,8 +814,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
         } else if (request instanceof VacuumTxStateReplicaRequest) {
             return processVacuumTxStateReplicaRequest((VacuumTxStateReplicaRequest) request);
-        } else if (request instanceof UpdateMinimalPendingTxStartTimeReplicaRequest) {
-            return processMinimalActiveTxTimeReplicaRequest((UpdateMinimalPendingTxStartTimeReplicaRequest) request);
+        } else if (request instanceof UpdateMinimumActiveTxStartTimeReplicaRequest) {
+            return processMinimumActiveTxTimeReplicaRequest((UpdateMinimumActiveTxStartTimeReplicaRequest) request);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -4139,8 +4139,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         return raftClient.run(cmd);
     }
 
-    private CompletableFuture<?> processMinimalActiveTxTimeReplicaRequest(UpdateMinimalPendingTxStartTimeReplicaRequest request) {
-        Command cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateMinimalPendingTxStartTimeCommand()
+    private CompletableFuture<?> processMinimumActiveTxTimeReplicaRequest(UpdateMinimumActiveTxStartTimeReplicaRequest request) {
+        Command cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateMinimumActiveTxStartTimeCommand()
                 .timestamp(request.timestamp())
                 .build();
 

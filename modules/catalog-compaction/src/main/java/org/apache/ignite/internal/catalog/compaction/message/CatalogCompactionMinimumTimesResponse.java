@@ -27,8 +27,8 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>This includes the following:
  * <ol>
- *     <li>the minimal timestamp to which, from the local node's perspective, the catalog history can be safely truncated</li>
- *     <li>the minimal starting time among locally started active RW transactions</li>
+ *     <li>the minimum timestamp to which, from the local node's perspective, the catalog history can be safely truncated</li>
+ *     <li>the minimum starting time among locally started active RW transactions</li>
  * </ol>
  */
 @Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)

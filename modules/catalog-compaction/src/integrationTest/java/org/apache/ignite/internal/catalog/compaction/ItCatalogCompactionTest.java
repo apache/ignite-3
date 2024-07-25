@@ -34,7 +34,6 @@ import it.unimi.dsi.fastutil.ints.Int2IntMap.Entry;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -66,11 +65,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         return CLUSTER_SIZE;
     }
 
-    @Override
-    protected int[] cmgMetastoreNodes() {
-        return IntStream.range(0, CLUSTER_SIZE).toArray();
-    }
-
     @Test
     void testRaftGroupsUpdate() throws InterruptedException {
         IgniteImpl ignite = CLUSTER.aliveNode();
@@ -92,11 +86,11 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(minRequiredCatalog.time());
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateMinimalRequiredTimeToReplicas(expectedTime);
+                    .propagateTimeToReplicas(expectedTime);
 
             assertThat(fut, willCompleteSuccessfully());
 
-            ensureTimestampStoredAllReplicas(expectedTime, 2);
+            ensureTimestampStoredInAllReplicas(expectedTime, 2);
         }
 
         // Latest active catalog contains all required tables.
@@ -108,11 +102,11 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime);
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateMinimalRequiredTimeToReplicas(expectedTime);
+                    .propagateTimeToReplicas(expectedTime);
 
             assertThat(fut, willCompleteSuccessfully());
 
-            ensureTimestampStoredAllReplicas(expectedTime, 2);
+            ensureTimestampStoredInAllReplicas(expectedTime, 2);
         }
 
         // Update to lower timestamp should not succeed.
@@ -120,16 +114,16 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime - 1);
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateMinimalRequiredTimeToReplicas(expectedTime);
+                    .propagateTimeToReplicas(expectedTime);
 
             assertThat(fut, willCompleteSuccessfully());
 
-            ensureTimestampStoredAllReplicas(HybridTimestamp.hybridTimestamp(requiredTime), 2);
+            ensureTimestampStoredInAllReplicas(HybridTimestamp.hybridTimestamp(requiredTime), 2);
         }
     }
 
     @Test
-    void testGlobalMinimalTxBeginTime() {
+    void testGlobalMinimumTxBeginTime() {
         IgniteImpl node0 = CLUSTER.node(0);
         IgniteImpl node1 = CLUSTER.node(1);
         IgniteImpl node2 = CLUSTER.node(2);
@@ -148,44 +142,44 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         InternalTransaction tx3 = (InternalTransaction) node2.transactions().begin();
 
         compactors.forEach(compactor -> {
-            TimeHolder timeHolder = await(compactor.determineGlobalMinimalRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxTime, equalTo(tx1.startTimestamp()));
+            TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
+            assertThat(timeHolder.minActiveTxStartTime, equalTo(tx1.startTimestamp()));
         });
 
         tx1.rollback();
 
         compactors.forEach(compactor -> {
-            TimeHolder timeHolder = await(compactor.determineGlobalMinimalRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxTime, equalTo(tx2.startTimestamp()));
+            TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
+            assertThat(timeHolder.minActiveTxStartTime, equalTo(tx2.startTimestamp()));
         });
 
         tx2.commit();
 
         compactors.forEach(compactor -> {
-            TimeHolder timeHolder = await(compactor.determineGlobalMinimalRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxTime, equalTo(tx3.startTimestamp()));
+            TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
+            assertThat(timeHolder.minActiveTxStartTime, equalTo(tx3.startTimestamp()));
         });
 
         tx3.rollback();
 
         compactors.forEach(compactor -> {
-            TimeHolder timeHolder = await(compactor.determineGlobalMinimalRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxTime, is(nullValue()));
+            TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
+            assertThat(timeHolder.minActiveTxStartTime, is(nullValue()));
         });
 
         readonlyTx.rollback();
     }
 
-    private void ensureTimestampStoredAllReplicas(HybridTimestamp expectedTs, int expectedTablesCount) throws InterruptedException {
+    private void ensureTimestampStoredInAllReplicas(HybridTimestamp expTime, int expTablesCount) throws InterruptedException {
         Int2IntMap tablesWithPartitions = catalogManagerHelper().collectTablesWithPartitionsBetween(
-                expectedTs.longValue(),
+                expTime.longValue(),
                 CLUSTER.aliveNode().clockService().nowLong()
         );
 
         Loza loza = CLUSTER.aliveNode().raftManager();
         JraftServerImpl server = (JraftServerImpl) loza.server();
 
-        assertThat(tablesWithPartitions.keySet(), hasSize(expectedTablesCount));
+        assertThat(tablesWithPartitions.keySet(), hasSize(expTablesCount));
 
         for (Entry e : tablesWithPartitions.int2IntEntrySet()) {
             for (int p = 0; p < e.getIntValue(); p++) {
@@ -199,13 +193,19 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 DelegatingStateMachine fsm = (DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
                 PartitionListener listener = (PartitionListener) fsm.getListener();
 
-                IgniteTestUtils.waitForCondition(() -> Long.valueOf(expectedTs.longValue()).equals(listener.minimalActiveTxTime()), 5_000);
-                assertThat(grp.getGroupId(), listener.minimalActiveTxTime(), equalTo(expectedTs.longValue()));
+                // When a future completes from `Invoke`, it is guaranteed that the leader will be updated,
+                // the remaining replicas can be updated later.
+                IgniteTestUtils.waitForCondition(
+                        () -> Long.valueOf(expTime.longValue()).equals(listener.minimumActiveTxStartTime()),
+                        5_000
+                );
+
+                assertThat(grp.getGroupId(), listener.minimumActiveTxStartTime(), equalTo(expTime.longValue()));
             }
         }
     }
 
-    private CatalogManagerCompactionHelper catalogManagerHelper() {
+    private static CatalogManagerCompactionHelper catalogManagerHelper() {
         return new CatalogManagerCompactionHelper((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager());
     }
 }

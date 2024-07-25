@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 /** Base class for catalog compaction unit testing. */
 abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
+
     private final ClockWaiter clockWaiter = new ClockWaiter("test-node", clock);
 
     final ClockService clockService = new TestClockService(clock, clockWaiter);

@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMAL_ACTIVE_TX_TIME_COMMAND;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * Command to store the minimum starting time among all pending RW transactions
+ * Command to store the minimum starting time among all active RW transactions
  * into transient state of each raft group.
  */
-@Transferable(UPDATE_MINIMAL_ACTIVE_TX_TIME_COMMAND)
-public interface UpdateMinimalPendingTxStartTimeCommand extends WriteCommand {
-    /** Returns the minimum starting time among all pending RW transactions. */
+@Transferable(UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND)
+public interface UpdateMinimumActiveTxStartTimeCommand extends WriteCommand {
+    /** Returns the minimum starting time among all active RW transactions. */
     long timestamp();
 }

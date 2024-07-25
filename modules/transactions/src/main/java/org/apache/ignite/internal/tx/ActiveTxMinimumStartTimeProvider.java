@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.replication;
+package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Request to update the minimal starting time among all pending RW transactions.
+ * Provides the minimum starting time among all locally started active RW transactions.
  */
-@Transferable(PartitionReplicationMessageGroup.UPDATE_MINIMAL_ACTIVE_TX_TIME_REPLICA_REQUEST)
-public interface UpdateMinimalPendingTxStartTimeReplicaRequest extends ReplicaRequest {
-    /** Returns the minimal starting time among all pending RW transactions. */
-    long timestamp();
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ActiveTxMinimumStartTimeProvider {
+    /** Returns minimum starting time among all locally started active RW transactions. */
+    @Nullable HybridTimestamp minimumStartTime();
 }

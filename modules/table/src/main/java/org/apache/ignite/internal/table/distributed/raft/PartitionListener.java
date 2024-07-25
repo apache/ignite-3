@@ -50,7 +50,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimalPendingTxStartTimeCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxStartTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -129,10 +129,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private final IndexMetaStorage indexMetaStorage;
 
     /**
-     * Timestamp with minimal starting time among all pending RW transactions in the cluster.
+     * Timestamp with minimum starting time among all pending RW transactions in the cluster.
      * This timestamp is used to prevent the catalog from being removed, which may be used when applying raft commands.
      */
-    private volatile long minimalActiveTxTime = 0;
+    private volatile long minActiveTxStartTime = 0;
 
     /** Constructor. */
     public PartitionListener(
@@ -228,8 +228,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof VacuumTxStatesCommand) {
                     handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof UpdateMinimalPendingTxStartTimeCommand) {
-                    handleUpdateMinimalActiveTxTimeCommand((UpdateMinimalPendingTxStartTimeCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof UpdateMinimumActiveTxStartTimeCommand) {
+                    handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxStartTimeCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -584,11 +584,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     /**
-     * Returns minimal starting time among all pending RW transactions in the cluster.
+     * Returns minimum starting time among all pending RW transactions in the cluster.
      */
     @TestOnly
-    public @Nullable Long minimalActiveTxTime() {
-        long ts = minimalActiveTxTime;
+    public @Nullable Long minimumActiveTxStartTime() {
+        long ts = minActiveTxStartTime;
 
         return ts == 0 ? null : ts;
     }
@@ -685,14 +685,14 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
     }
 
-    private void handleUpdateMinimalActiveTxTimeCommand(UpdateMinimalPendingTxStartTimeCommand cmd, long commandIndex, long commandTerm) {
+    private void handleUpdateMinimalActiveTxTimeCommand(UpdateMinimumActiveTxStartTimeCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
         }
 
-        long minimalActiveTxTime0 = minimalActiveTxTime;
-        minimalActiveTxTime = Math.max(cmd.timestamp(), minimalActiveTxTime0);
+        long minActiveTxStartTime0 = minActiveTxStartTime;
+        minActiveTxStartTime = Math.max(cmd.timestamp(), minActiveTxStartTime0);
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

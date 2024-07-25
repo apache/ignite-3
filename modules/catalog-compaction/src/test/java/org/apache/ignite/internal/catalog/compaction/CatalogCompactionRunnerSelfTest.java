@@ -67,9 +67,6 @@ import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMi
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -94,8 +91,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     private static final LogicalNode NODE3 = new LogicalNode("3", "node3", new NetworkAddress("localhost", 123));
 
     private static final List<LogicalNode> logicalNodes = List.of(NODE1, NODE2, NODE3);
-
-    private final ClockService clockService = new TestClockService(new HybridClockImpl());
 
     private final AtomicReference<ClusterNode> coordinatorNodeHolder = new AtomicReference<>();
 
