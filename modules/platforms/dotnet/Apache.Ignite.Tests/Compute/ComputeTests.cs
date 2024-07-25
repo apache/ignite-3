@@ -34,6 +34,7 @@ namespace Apache.Ignite.Tests.Compute
     using NodaTime;
     using NUnit.Framework;
     using Table;
+    using TaskStatus = Ignite.Compute.TaskStatus;
 
     /// <summary>
     /// Tests <see cref="ICompute"/>.
@@ -709,6 +710,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             ITaskExecution<string> taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "+arg");
 
+            // Result.
             string nodeNameString = await taskExec.GetResultAsync();
             string[] nodeNames = nodeNameString.Split(',');
 
@@ -717,6 +719,17 @@ namespace Apache.Ignite.Tests.Compute
                 .ToList();
 
             CollectionAssert.AreEquivalent(expectedNodeNames, nodeNames);
+
+            // Task state.
+            TaskState? state = await taskExec.GetStateAsync();
+
+            Assert.IsNotNull(state); // TODO all props
+            Assert.AreEqual(TaskStatus.Completed, state.Status);
+
+            // Job state.
+            IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
+
+            Assert.AreEqual(expectedNodeNames.Count, jobStates.Count);
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
