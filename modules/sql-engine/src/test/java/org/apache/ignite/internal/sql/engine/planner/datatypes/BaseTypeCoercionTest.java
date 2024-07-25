@@ -66,8 +66,8 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
 
         EnumSet.allOf(NumericPair.class).forEach(allPairs::remove);
 
-        assertThat("missing pairs", remainingPairs, Matchers.empty());
-        assertThat("duplicate pairs", allPairs, Matchers.empty());
+        assertThat("There are missing pairs", remainingPairs, Matchers.empty());
+        assertThat("There are duplicate pairs. Remove them", allPairs, Matchers.empty());
     }
 
     static IgniteSchema createSchemaWithTwoColumnTable(NativeType c1, NativeType c2) {
