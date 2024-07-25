@@ -31,7 +31,7 @@ public interface ICompute
     /// </summary>
     /// <param name="target">Job execution target.</param>
     /// <param name="jobDescriptor">Job descriptor.</param>
-    /// <param name="arg">Job arguments.</param>
+    /// <param name="arg">Job argument.</param>
     /// <typeparam name="TTarget">Job target type.</typeparam>
     /// <typeparam name="TArg">Job argument type.</typeparam>
     /// <typeparam name="TResult">Job result type.</typeparam>
@@ -47,12 +47,24 @@ public interface ICompute
     /// </summary>
     /// <param name="nodes">Nodes to use for the job execution.</param>
     /// <param name="jobDescriptor">Job descriptor.</param>
-    /// <param name="arg">Job arguments.</param>
+    /// <param name="arg">Job argument.</param>
     /// <typeparam name="TArg">Job argument type.</typeparam>
     /// <typeparam name="TResult">Job result type.</typeparam>
     /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
     IDictionary<IClusterNode, Task<IJobExecution<TResult>>> SubmitBroadcast<TArg, TResult>(
         IEnumerable<IClusterNode> nodes,
         JobDescriptor<TArg, TResult> jobDescriptor,
+        TArg arg);
+
+    /// <summary>
+    /// Submits a compute map-reduce task represented by the given class.
+    /// </summary>
+    /// <param name="taskDescriptor">Task descriptor.</param>
+    /// <param name="arg">Job arguments.</param>
+    /// <typeparam name="TArg">Task argument type.</typeparam>
+    /// <typeparam name="TResult">Task result type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task<ITaskExecution<TResult>> SubmitMapReduceAsync<TArg, TResult>(
+        TaskDescriptor<TArg, TResult> taskDescriptor,
         TArg arg);
 }

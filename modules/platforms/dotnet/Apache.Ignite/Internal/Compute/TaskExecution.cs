@@ -18,28 +18,30 @@
 namespace Apache.Ignite.Internal.Compute;
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Ignite.Compute;
+using TaskStatus = Ignite.Compute.TaskStatus;
 
 /// <summary>
 /// Job execution.
 /// </summary>
 /// <typeparam name="T">Job result type.</typeparam>
-internal sealed record JobExecution<T> : IJobExecution<T>
+internal sealed record TaskExecution<T> : ITaskExecution<T>
 {
-    private readonly Task<(T Result, JobState Status)> _resultTask;
+    private readonly Task<(T Result, TaskState Status)> _resultTask;
 
     private readonly Compute _compute;
 
-    private volatile JobState? _finalStatus;
+    private volatile TaskState? _finalStatus;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="JobExecution{T}"/> class.
+    /// Initializes a new instance of the <see cref="TaskExecution{T}"/> class.
     /// </summary>
     /// <param name="id">Job id.</param>
     /// <param name="resultTask">Result task.</param>
     /// <param name="compute">Compute.</param>
-    public JobExecution(Guid id, Task<(T Result, JobState Status)> resultTask, Compute compute)
+    public TaskExecution(Guid id, Task<(T Result, TaskState Status)> resultTask, Compute compute)
     {
         Id = id;
         _resultTask = resultTask;
@@ -60,7 +62,7 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     }
 
     /// <inheritdoc/>
-    public async Task<JobState?> GetStateAsync()
+    public async Task<TaskState?> GetStateAsync()
     {
         var finalStatus = _finalStatus;
         if (finalStatus != null)
@@ -68,8 +70,8 @@ internal sealed record JobExecution<T> : IJobExecution<T>
             return finalStatus;
         }
 
-        var status = await _compute.GetJobStateAsync(Id).ConfigureAwait(false);
-        if (status is { Status: JobStatus.Completed or JobStatus.Failed or JobStatus.Canceled })
+        var status = await _compute.GetTaskStateAsync(Id).ConfigureAwait(false);
+        if (status is { Status: TaskStatus.Completed or TaskStatus.Failed or TaskStatus.Canceled })
         {
             // Can't be transitioned to another state, cache it.
             _finalStatus = status;
@@ -85,6 +87,13 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     /// <inheritdoc/>
     public async Task<bool?> ChangePriorityAsync(int priority) =>
         await _compute.ChangeJobPriorityAsync(Id, priority).ConfigureAwait(false);
+
+    /// <inheritdoc/>
+    public Task<IList<JobState?>> GetJobStatesAsync()
+    {
+        // TODO
+        throw new NotImplementedException();
+    }
 
     private async Task CacheStatusOnCompletion()
     {
