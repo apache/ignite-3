@@ -68,6 +68,8 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly JobDescriptor<long, int> PartitionJob = new(PlatformTestNodeRunner + "$PartitionJob");
 
+        public static readonly TaskDescriptor<string, string> NodeNameTask = new(ItThinClientComputeTest + "$MapReduceNodeNameTask");
+
         [Test]
         public async Task TestGetClusterNodes()
         {
@@ -700,6 +702,16 @@ namespace Apache.Ignite.Tests.Compute
             }
 
             Assert.AreEqual(expected, resVal);
+        }
+
+        [Test]
+        public async Task TestMapReduceNodeNameTask()
+        {
+            ITaskExecution<string> taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "+arg");
+
+            string res = await taskExec.GetResultAsync();
+
+            Assert.AreEqual(PlatformTestNodeRunner + "+arg", res);
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
