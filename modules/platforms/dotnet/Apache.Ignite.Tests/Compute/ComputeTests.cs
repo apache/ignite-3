@@ -708,6 +708,8 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestMapReduceNodeNameTask()
         {
+            Instant beforeStart = SystemClock.Instance.GetCurrentInstant();
+
             ITaskExecution<string> taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "+arg");
 
             // Result.
@@ -728,8 +730,12 @@ namespace Apache.Ignite.Tests.Compute
             // Task state.
             TaskState? state = await taskExec.GetStateAsync();
 
-            Assert.IsNotNull(state); // TODO all props
+            Assert.IsNotNull(state);
             Assert.AreEqual(TaskStatus.Completed, state.Status);
+            Assert.AreEqual(taskExec.Id, state.Id);
+            Assert.That(state.CreateTime, Is.GreaterThan(beforeStart));
+            Assert.That(state.StartTime, Is.GreaterThan(state.CreateTime));
+            Assert.That(state.FinishTime, Is.GreaterThan(state.StartTime));
 
             // Job states.
             IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
