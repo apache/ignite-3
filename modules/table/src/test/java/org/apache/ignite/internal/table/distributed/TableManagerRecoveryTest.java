@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -72,6 +73,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -86,6 +88,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -331,7 +334,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule),
+                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule, clock),
                 workDir,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
@@ -351,7 +354,18 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 lowWatermark,
                 new TransactionInflights(placementDriver, clockService),
                 indexMetaStorage,
-                logSyncer
+                logSyncer,
+                new PartitionReplicaLifecycleManager(
+                        catalogManager,
+                        replicaMgr,
+                        distributionZoneManager,
+                        metaStorageManager,
+                        topologyService,
+                        lowWatermark,
+                        ForkJoinPool.commonPool(),
+                        mock(ScheduledExecutorService.class),
+                        partitionOperationsExecutor
+                )
         ) {
 
             @Override
@@ -407,7 +421,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             ConfigurationRegistry mockedRegistry,
             Path storagePath,
             StorageConfiguration config,
-            DataStorageModule dataStorageModule
+            DataStorageModule dataStorageModule,
+            HybridClock clock
     ) {
         when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(config);
 
@@ -420,7 +435,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         storagePath,
                         null,
                         mock(FailureProcessor.class),
-                        mock(LogSyncer.class)
+                        mock(LogSyncer.class),
+                        clock
                 ),
                 config
         );
@@ -469,14 +485,16 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
                     FailureProcessor failureProcessor,
-                    LogSyncer logSyncer
+                    LogSyncer logSyncer,
+                    HybridClock clock
             ) throws StorageException {
                 return spy(super.createEngine(igniteInstanceName,
                         configRegistry,
                         storagePath,
                         longJvmPauseDetector,
                         failureProcessor,
-                        logSyncer
+                        logSyncer,
+                        clock
                 ));
             }
         };

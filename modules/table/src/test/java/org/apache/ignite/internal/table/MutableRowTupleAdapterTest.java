@@ -99,10 +99,8 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                     new Column("valTimeCol".toUpperCase(), time(TIME_PRECISION), true),
                     new Column("valDateTimeCol".toUpperCase(), datetime(TIMESTAMP_PRECISION), true),
                     new Column("valTimeStampCol".toUpperCase(), timestamp(TIMESTAMP_PRECISION), true),
-                    new Column("valBitmask1Col".toUpperCase(), NativeTypes.bitmaskOf(22), true),
                     new Column("valBytesCol".toUpperCase(), BYTES, false),
                     new Column("valStringCol".toUpperCase(), STRING, false),
-                    new Column("valNumberCol".toUpperCase(), NativeTypes.numberOf(20), false),
                     new Column("valDecimalCol".toUpperCase(), NativeTypes.decimalOf(25, 5), false)
             ),
             List.of("keyUuidCol".toUpperCase()),
@@ -470,8 +468,14 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 .map(NativeTypeSpec::asColumnType)
                 .collect(Collectors.toSet());
 
+        Set<ColumnType> unsupported = Set.of(ColumnType.BITMASK, ColumnType.NUMBER);
+
         for (ColumnType columnType : ColumnType.values()) {
             if (columnType == ColumnType.NULL) {
+                continue;
+            }
+
+            if (unsupported.contains(columnType)) {
                 continue;
             }
 

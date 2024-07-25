@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.sql.ColumnType.BITMASK;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
 import static org.apache.ignite.sql.ColumnType.DATE;
@@ -38,7 +37,6 @@ import static org.apache.ignite.sql.ColumnType.INT16;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.INT8;
-import static org.apache.ignite.sql.ColumnType.NUMBER;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.apache.ignite.sql.ColumnType.TIME;
 import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
@@ -330,7 +328,6 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
                         ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
                         ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
-                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
@@ -489,20 +486,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(NUMBER).precision(15).build(),
-                ColumnParams.builder().name("VAL").type(NUMBER).precision(15).nullable(true).build()
-        );
-
-        createTwoColumnTable(
-                ignite,
                 ColumnParams.builder().name("KEY").type(BYTE_ARRAY).length(1000).build(),
                 ColumnParams.builder().name("VAL").type(BYTE_ARRAY).length(1000).nullable(true).build()
-        );
-
-        createTwoColumnTable(
-                ignite,
-                ColumnParams.builder().name("KEY").type(BITMASK).length(1000).build(),
-                ColumnParams.builder().name("VAL").type(BITMASK).length(1000).nullable(true).build()
         );
     }
 
@@ -671,16 +656,6 @@ public class PlatformTestNodeRunner {
                     case UUID:
                         columns.add(new Column(colName, NativeTypes.UUID, false));
                         tuple.set(colName, reader.uuidValue(valIdx));
-                        break;
-
-                    case NUMBER:
-                        columns.add(new Column(colName, NativeTypes.numberOf(255), false));
-                        tuple.set(colName, reader.numberValue(valIdx));
-                        break;
-
-                    case BITMASK:
-                        columns.add(new Column(colName, NativeTypes.bitmaskOf(32), false));
-                        tuple.set(colName, reader.bitmaskValue(valIdx));
                         break;
 
                     case DATE:

@@ -222,6 +222,14 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     // TODO: IGNITE-16350 Make it final.
     private IoVersions<? extends BplusMetaIo> metaIos;
 
+    /**
+     * Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it  must be greater than or
+     * equal to the previous value.
+     *
+     * <p>Used to define an inner replace when deleting the rightmost element of a leaf (but strictly not a tree) that was also stored in
+     * the root inner. If, when restoring a tree, the value is less than what was previously in the tree, it can lead to a loop in the tree
+     * when searching through it if there were inner replace.</p>
+     */
     private final AtomicLong globalRmvId;
 
     /** Tree meta data. */
@@ -906,13 +914,14 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Constructor.
      *
-     * @param name Tree name.
+     * @param treeNamePrefix Tree name prefix (for debugging purposes).
      * @param grpId Group ID.
      * @param grpName Group name.
      * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param innerIos Inner IO versions.
@@ -920,7 +929,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param metaIos Meta IO versions.
      */
     protected BplusTree(
-            String name,
+            String treeNamePrefix,
             int grpId,
             @Nullable String grpName,
             int partId,
@@ -933,7 +942,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             IoVersions<? extends BplusLeafIo<L>> leafIos,
             IoVersions<? extends BplusMetaIo> metaIos
     ) {
-        this(name, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        this(treeNamePrefix, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         setIos(innerIos, leafIos, metaIos);
     }
@@ -941,17 +950,18 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Constructor.
      *
-     * @param name Tree name.
+     * @param treeNamePrefix Tree name prefix (for debugging purposes).
      * @param grpId Group ID.
      * @param grpName Group name.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      */
     protected BplusTree(
-            String name,
+            String treeNamePrefix,
             int grpId,
             @Nullable String grpName,
             int partId,
@@ -961,7 +971,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long metaPageId,
             @Nullable ReuseList reuseList
     ) {
-        super(name, grpId, grpName, partId, pageMem, lockLsnr, FLAG_AUX);
+        super(treeNamePrefix, grpId, grpName, partId, pageMem, lockLsnr, FLAG_AUX);
 
         // TODO: IGNITE-16350 Move to config.
         minFill = 0.0f; // Testing worst case when merge happens only on empty page.

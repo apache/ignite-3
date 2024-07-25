@@ -89,7 +89,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
                     SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
                     TableRowConverterFactory converterFactory = new TableRowConverterFactoryImpl(
-                            sqlTable.keyColumns(), schemaRegistry, schemaDescriptor
+                            tableDescriptor, schemaRegistry, schemaDescriptor
                     );
 
                     InternalTable internalTable = table.internalTable();

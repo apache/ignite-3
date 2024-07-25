@@ -61,6 +61,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -97,6 +98,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.snapshot.FailFastSnapshotStorageFactory;
+import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -163,6 +165,11 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     private final ScheduledExecutorService rebalanceScheduler;
 
     /**
+     * Executes partition operations (that might cause I/O and/or be blocked on locks).
+     */
+    private final Executor partitionOperationsExecutor;
+
+    /**
      * The constructor.
      *
      * @param catalogMgr Catalog manager.
@@ -170,7 +177,9 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
      * @param distributionZoneMgr Distribution zone manager.
      * @param metaStorageMgr Metastorage manager.
      * @param topologyService Topology service.
-     * @param ioExecutor Separate executor for IO operations.
+     * @param rebalanceScheduler Executor for scheduling rebalance routine.
+     * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
+     *     will be executed.
      */
     public PartitionReplicaLifecycleManager(
             CatalogManager catalogMgr,
@@ -180,7 +189,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             TopologyService topologyService,
             LowWatermark lowWatermark,
             ExecutorService ioExecutor,
-            ScheduledExecutorService rebalanceScheduler
+            ScheduledExecutorService rebalanceScheduler,
+            Executor partitionOperationsExecutor
     ) {
         this.catalogMgr = catalogMgr;
         this.replicaMgr = replicaMgr;
@@ -190,6 +200,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         this.lowWatermark = lowWatermark;
         this.ioExecutor = ioExecutor;
         this.rebalanceScheduler = rebalanceScheduler;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
@@ -404,7 +415,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         try {
             return replicaMgr.startReplica(
                     replicaGrpId,
-                    new ZonePartitionReplicaListener(),
+                    (raftClient) -> new ZonePartitionReplicaListener(
+                            new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
                     new FailFastSnapshotStorageFactory(),
                     stablePeersAndLearners,
                     raftGroupListener,
@@ -425,13 +437,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             }
             return replicaFut.thenApply(Replica::raftClient);
         });
-    }
-
-    private boolean shouldStartLocally(Assignments assignments) {
-        return assignments
-                .nodes()
-                .stream()
-                .anyMatch(a -> a.consistentId().equals(localNode().name()));
     }
 
     private ClusterNode localNode() {
@@ -577,6 +582,17 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         }
 
         return assignmentsFuture;
+    }
+
+    /**
+     * Check if the current node has local replica for this {@link ZonePartitionId}.
+     *
+     * @param zonePartitionId Zone partition id.
+     * @return true if local replica exists, false otherwise.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 replace this method by the replicas await process.
+    public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
+        return replicationGroupIds.contains(zonePartitionId);
     }
 
 

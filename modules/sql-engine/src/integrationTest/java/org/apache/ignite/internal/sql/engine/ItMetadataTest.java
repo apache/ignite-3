@@ -30,6 +30,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -89,6 +90,7 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("IGNITE-22772")
     public void renameColumnsInFrom() {
         assertQuery("select NEW_PERSON.NEW_ID, NEW_NAME, NEW_persON.New_salary from person NEW_PERSON(NeW_Id, NeW_NaMe, New_SaLaRy)")
                 .columnNames("NEW_ID", "NEW_NAME", "NEW_SALARY").check();

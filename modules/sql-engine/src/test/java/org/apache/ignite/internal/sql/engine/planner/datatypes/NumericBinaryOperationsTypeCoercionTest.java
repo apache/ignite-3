@@ -133,18 +133,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(NumericPair.TINYINT_NUMBER_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.TINYINT_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.TINYINT_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
                 forTypePair(NumericPair.TINYINT_DECIMAL_1_0)
                         .firstOpBeSame()
                         .secondOpBeSame(),
@@ -202,18 +190,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(NumericPair.SMALLINT_NUMBER_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
                 forTypePair(NumericPair.SMALLINT_DECIMAL_1_0)
                         .firstOpBeSame()
                         .secondOpBeSame(),
@@ -267,18 +243,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(NumericPair.INT_NUMBER_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.INT_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.INT_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
                 forTypePair(NumericPair.INT_DECIMAL_1_0)
                         .firstOpBeSame()
                         .secondOpBeSame(),
@@ -328,18 +292,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(NumericPair.BIGINT_NUMBER_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
                 forTypePair(NumericPair.BIGINT_DECIMAL_1_0)
                         .firstOpBeSame()
                         .secondOpBeSame(),
@@ -383,166 +335,6 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
                 forTypePair(NumericPair.BIGINT_DOUBLE)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.DECIMAL_30_15)),
-
-
-                forTypePair(NumericPair.NUMBER_1_NUMBER_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_1_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_2_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_4_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_2_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_3_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_5_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_5_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_6_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_8_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_REAL)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
-
-                forTypePair(NumericPair.NUMBER_1_DOUBLE)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
-
-
-                forTypePair(NumericPair.NUMBER_2_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_1_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_2_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_4_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_2_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_3_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_5_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_5_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_6_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_8_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_REAL)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
-
-                forTypePair(NumericPair.NUMBER_2_DOUBLE)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
-
-
-                forTypePair(NumericPair.NUMBER_5_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_1_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_2_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_4_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_2_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_3_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_5_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_5_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_6_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_8_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_5_REAL)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
-
-                forTypePair(NumericPair.NUMBER_5_DOUBLE)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
-
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0)
                         .firstOpBeSame()

@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
@@ -53,6 +54,7 @@ public class InlineUtilsTest extends BaseIgniteAbstractTest {
     @Test
     void testInlineSizeForNativeType() {
         EnumSet<NativeTypeSpec> nativeTypeSpecs = EnumSet.allOf(NativeTypeSpec.class);
+        nativeTypeSpecs.removeAll(Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER));
 
         // Fixed length type checking.
 
@@ -80,9 +82,6 @@ public class InlineUtilsTest extends BaseIgniteAbstractTest {
         nativeTypeSpecs.remove(nativeType.spec());
 
         assertEquals(16, inlineSize(nativeType = NativeTypes.UUID));
-        nativeTypeSpecs.remove(nativeType.spec());
-
-        assertEquals(1, inlineSize(nativeType = NativeTypes.bitmaskOf(8)));
         nativeTypeSpecs.remove(nativeType.spec());
 
         assertEquals(3, inlineSize(nativeType = NativeTypes.DATE));
@@ -121,12 +120,6 @@ public class InlineUtilsTest extends BaseIgniteAbstractTest {
         nativeTypeSpecs.remove(nativeType.spec());
 
         assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.blobOf(Integer.MAX_VALUE)));
-        nativeTypeSpecs.remove(nativeType.spec());
-
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.numberOf(1)));
-        nativeTypeSpecs.remove(nativeType.spec());
-
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.numberOf(100)));
         nativeTypeSpecs.remove(nativeType.spec());
 
         // Let's check that all types have been checked.

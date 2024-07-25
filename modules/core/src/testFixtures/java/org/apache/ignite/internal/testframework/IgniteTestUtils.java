@@ -40,7 +40,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -684,25 +683,6 @@ public final class IgniteTestUtils {
         }
 
         return false;
-    }
-
-    /**
-     * Returns random BitSet.
-     *
-     * @param rnd  Random generator.
-     * @param bits Amount of bits in bitset.
-     * @return Random BitSet.
-     */
-    public static BitSet randomBitSet(Random rnd, int bits) {
-        BitSet set = new BitSet();
-
-        for (int i = 0; i < bits; i++) {
-            if (rnd.nextBoolean()) {
-                set.set(i);
-            }
-        }
-
-        return set;
     }
 
     /**

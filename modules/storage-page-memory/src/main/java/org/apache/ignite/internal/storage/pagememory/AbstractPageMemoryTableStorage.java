@@ -93,6 +93,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      */
     public abstract DataRegion<?> dataRegion();
 
+    /** Returns storage engine for the table. */
+    public abstract AbstractPageMemoryStorageEngine engine();
+
     @Override
     public CompletableFuture<Void> destroy() {
         if (!stopGuard.compareAndSet(false, true)) {

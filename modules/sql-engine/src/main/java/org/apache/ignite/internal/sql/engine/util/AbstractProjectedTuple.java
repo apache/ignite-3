@@ -47,8 +47,8 @@ import org.apache.ignite.internal.lang.InternalTuple;
  * </pre>
  */
 abstract class AbstractProjectedTuple implements InternalTuple {
-    InternalTuple delegate;
-    int[] projection;
+    protected InternalTuple delegate;
+    protected int[] projection;
 
     private boolean normalized = false;
 
