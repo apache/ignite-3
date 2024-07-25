@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Compute;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Ignite.Compute;
 using TaskStatus = Ignite.Compute.TaskStatus;
@@ -44,6 +45,8 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
     /// <param name="compute">Compute.</param>
     public TaskExecution(Guid id, IReadOnlyList<Guid> jobIds, Task<(T Result, TaskState Status)> resultTask, Compute compute)
     {
+        Debug.Assert(jobIds.Count > 0, "jobIds.Count > 0");
+
         Id = id;
         JobIds = jobIds;
 
@@ -95,10 +98,17 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
         await _compute.ChangeJobPriorityAsync(Id, priority).ConfigureAwait(false);
 
     /// <inheritdoc/>
-    public Task<IList<JobState?>> GetJobStatesAsync()
+    public async Task<IList<JobState?>> GetJobStatesAsync()
     {
-        // TODO
-        throw new NotImplementedException();
+        var res = new List<JobState?>(JobIds.Count);
+
+        foreach (var jobId in JobIds)
+        {
+            var state = await _compute.GetJobStateAsync(jobId).ConfigureAwait(false);
+            res.Add(state);
+        }
+
+        return res;
     }
 
     private async Task CacheStatusOnCompletion()

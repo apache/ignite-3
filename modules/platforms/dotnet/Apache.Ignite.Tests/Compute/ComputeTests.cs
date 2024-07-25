@@ -735,6 +735,12 @@ namespace Apache.Ignite.Tests.Compute
             IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
 
             Assert.AreEqual(expectedNodeNames.Count, jobStates.Count);
+
+            foreach (var jobState in jobStates)
+            {
+                Assert.IsNotNull(jobState);
+                Assert.AreEqual(JobStatus.Completed, jobState!.Status);
+            }
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
