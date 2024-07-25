@@ -396,7 +396,10 @@ public class MetaStorageWriteHandler {
                         .map(commandId -> ByteUtils.stringToBytes(IDEMPOTENT_COMMAND_PREFIX + commandId.toMGKeyAsString()))
                         .collect(toList());
 
-                storage.removeAll(commandIdStorageKeys, null);
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22819 Formally using clusterTime.now() as local operation timestamp is
+                // TODO incorrect. It's not possible to use null, because RocksDB may throw AssertionException, thus locally triggered
+                // TODO processing should be reworked with linearized leader based one.
+                storage.removeAll(commandIdStorageKeys, clusterTime.now());
 
                 commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
             }
