@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -871,6 +872,15 @@ class RelJson {
 
                 if (literal == null) {
                     return rexBuilder.makeNullLiteral(type);
+                }
+
+                if (literal instanceof BigInteger) {
+                    // If the literal is a BigInteger, RexBuilder assumes it represents a long value
+                    // within the valid range and converts it without checking the bounds. If the
+                    // actual value falls outside the valid range, an overflow will occur, leading to
+                    // incorrect results. To prevent this, we should convert BigInteger to BigDecimal
+                    // so RexBuilder can handle the conversion correctly
+                    literal = new BigDecimal((BigInteger) literal);
                 }
 
                 if (type.getSqlTypeName() == SqlTypeName.SYMBOL) {

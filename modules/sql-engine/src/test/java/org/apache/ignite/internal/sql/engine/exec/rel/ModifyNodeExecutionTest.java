@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.List;
+import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -80,7 +81,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     @BeforeEach
     void setUpMock() {
-        when(descriptors.columnsCount()).thenReturn(2);
+        when(descriptors.spliterator()).thenReturn(Spliterators.emptySpliterator());
         when(updatableTable.descriptor()).thenReturn(descriptors);
     }
 
