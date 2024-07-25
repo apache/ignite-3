@@ -97,12 +97,12 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    //@RepeatedTest(100)
-    @Test
+    @RepeatedTest(100)
+    //@Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4, builder -> builder.clusterConfiguration("{\n"
                 + "    \"replication\": {\n"
-                + "        \"rpcTimeout\": 7000 \n"
+                + "        \"rpcTimeout\": 8000 \n"
                 + "    }"
                 + "}"));
 
