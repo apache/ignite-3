@@ -36,7 +36,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
  * @see AbstractProjectedTuple
  */
 public class FieldDeserializingProjectedTuple extends AbstractProjectedTuple {
-    private final BinaryTupleSchema schema;
+    protected final BinaryTupleSchema schema;
 
     /**
      * Constructor.

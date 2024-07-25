@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.TestHybridClock;
@@ -156,6 +157,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
             when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
             when(descriptor.iterator()).thenReturn(Collections.emptyIterator());
+            when(descriptor.spliterator()).thenReturn(Spliterators.emptySpliterator());
 
             IgniteTable sqlTable = new IgniteTableImpl(
                     table.name(), tableId, tableVersion, descriptor, ImmutableIntList.of(0), new TestStatistic(1_000.0), Map.of(), 1
