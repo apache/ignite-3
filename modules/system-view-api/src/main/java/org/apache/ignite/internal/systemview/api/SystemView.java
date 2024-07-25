@@ -49,7 +49,6 @@ import org.apache.ignite.internal.type.NativeType;
  *     <li>{@link java.time.LocalDate}</li>
  *     <li>{@link java.time.Instant}</li>
  *     <li>{@link java.util.UUID}</li>
- *     <li>TODO Add BitSet support https://issues.apache.org/jira/browse/IGNITE-18431</li>
  *     <li>TODO Add Interval type (java.time.Period, java.time.Duration) support https://issues.apache.org/jira/browse/IGNITE-15200</li>
  * </ul>
  *

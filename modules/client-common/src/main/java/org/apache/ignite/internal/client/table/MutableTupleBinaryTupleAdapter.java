@@ -291,22 +291,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     /** {@inheritDoc} */
     @Override
-    public BitSet bitmaskValue(String columnName) {
-        return tuple != null
-                ? tuple.bitmaskValue(columnName)
-                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnName, ColumnType.BITMASK));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        return tuple != null
-                ? tuple.bitmaskValue(columnIndex)
-                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnIndex, ColumnType.BITMASK));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public LocalDate dateValue(String columnName) {
         return tuple != null
                 ? tuple.dateValue(columnName)

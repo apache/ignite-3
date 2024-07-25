@@ -57,8 +57,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     private static final int TEST_SCALE = 5;
 
     private static Stream<NativeTypeSpec> nativeTypeSpecs() {
-        return Stream.of(NativeTypeSpec.values())
-                .filter(t -> t != NativeTypeSpec.NUMBER && t != NativeTypeSpec.BITMASK);
+        return Stream.of(NativeTypeSpec.values());
     }
 
     @ParameterizedTest

@@ -212,7 +212,7 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
                 .collect(Collectors.toSet());
 
         for (ColumnType columnType : ColumnType.values()) {
-            if (columnType == ColumnType.NULL || columnType == ColumnType.BITMASK || columnType == ColumnType.NUMBER) {
+            if (columnType == ColumnType.NULL) {
                 continue;
             }
 

@@ -189,9 +189,6 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
                 // Custom types
                 + "UUID_C UUID, "
-                // TODO: IGNITE-18431: Sql. BitSet is not supported.
-                // + "BITSET_C BITMASK, "
-                // + "BITSET_C BITMASK(8), "
 
                 // Nullability constraint
                 + "NULLABLE_C INT, " + "NON_NULL_C INT NOT NULL " + ")");
@@ -253,9 +250,6 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
                         // Custom types
                         new MetadataMatcher().name("UUID_C"),
-                        // TODO: IGNITE-18431: Sql. BitSet is not supported.
-                        // new MetadataMatcher().name("BITSET_C"),
-                        // new MetadataMatcher().name("BITSET_C2"),
 
                         // Nullability constraint
                         new MetadataMatcher().name("NULLABLE_C").nullable(true),

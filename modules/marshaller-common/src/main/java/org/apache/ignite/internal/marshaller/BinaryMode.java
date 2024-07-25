@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 
 /**
  * Various read/write modes for binary objects that maps Java types to binary types.
@@ -79,14 +77,6 @@ public enum BinaryMode {
 
     /** Raw byte array. */
     BYTE_ARR,
-
-    /** BitSet. */
-    @Deprecated(forRemoval = true)
-    BITSET,
-
-    /** BigInteger. */
-    @Deprecated(forRemoval = true)
-    NUMBER,
 
     /** BigDecimal. */
     DECIMAL,
@@ -156,10 +146,6 @@ public enum BinaryMode {
             return STRING;
         } else if (cls == java.util.UUID.class) {
             return UUID;
-        } else if (cls == BitSet.class) {
-            return BITSET;
-        } else if (cls == BigInteger.class) {
-            return NUMBER;
         } else if (cls == BigDecimal.class) {
             return DECIMAL;
         }

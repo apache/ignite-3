@@ -124,10 +124,7 @@ public class RowSchemaTypesTest {
 
         Set<Entry<NativeTypeSpec, Boolean>> nativeTypeSpecs = new CopyOnWriteArraySet<>();
 
-        EnumSet<NativeTypeSpec> set = EnumSet.allOf(NativeTypeSpec.class);
-        set.removeAll(Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER));
-
-        for (NativeTypeSpec spec : set) {
+        for (NativeTypeSpec spec : EnumSet.allOf(NativeTypeSpec.class)) {
             nativeTypeSpecs.add(Map.entry(spec, true));
             nativeTypeSpecs.add(Map.entry(spec, false));
         }

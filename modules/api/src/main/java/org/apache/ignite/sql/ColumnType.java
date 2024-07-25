@@ -17,15 +17,15 @@
 
 package org.apache.ignite.sql;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,9 +79,7 @@ public enum ColumnType {
     /** 128-bit UUID. */
     UUID(13, UUID.class, false, false, false),
 
-    /** Bit mask. */
-    @Deprecated(forRemoval = true)
-    BITMASK(14, BitSet.class, false, false, true),
+    // UNUSED id = 14
 
     /** String. */
     STRING(15, String.class, false, false, true),
@@ -93,11 +91,7 @@ public enum ColumnType {
     PERIOD(17, Period.class, true, false, false),
 
     /** Time interval. */
-    DURATION(18, Duration.class, true, false, false),
-
-    /** Number. */
-    @Deprecated(forRemoval = true)
-    NUMBER(19, BigInteger.class, true, false, false);
+    DURATION(18, Duration.class, true, false, false);
 
     private final Class<?> javaClass;
     private final boolean precisionAllowed;
@@ -106,12 +100,12 @@ public enum ColumnType {
 
     private final int id;
 
-    private static final ColumnType[] VALS = new ColumnType[values().length];
+    private static final Int2ObjectMap<ColumnType> VALS = new Int2ObjectOpenHashMap<>();
 
     static {
         for (ColumnType columnType : values()) {
-            assert VALS[columnType.id] == null : "Found duplicate id " + columnType.id;
-            VALS[columnType.id()] = columnType;
+            ColumnType existing = VALS.put(columnType.id, columnType);
+            assert existing == null : "Found duplicate id " + columnType.id;
         }
     }
 
@@ -152,6 +146,6 @@ public enum ColumnType {
 
     /** Returns corresponding {@code ColumnType} by given id, {@code null} for unknown id. */
     public static @Nullable ColumnType getById(int id) {
-        return id >= 0 && id < VALS.length ? VALS[id] : null;
+        return VALS.get(id);
     }
 }

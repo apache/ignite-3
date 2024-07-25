@@ -165,8 +165,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     }
 
     private static Stream<NativeTypeSpec> nativeTypeSpecs() {
-        return Stream.of(NativeTypeSpec.values())
-                .filter(t -> t != NativeTypeSpec.BITMASK && t != NativeTypeSpec.NUMBER);
+        return Stream.of(NativeTypeSpec.values());
     }
 
     @Test
