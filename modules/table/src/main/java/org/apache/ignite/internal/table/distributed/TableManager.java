@@ -148,6 +148,8 @@ import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleEvent;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleEventParameters;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -591,6 +593,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
+
+        partitionReplicaLifecycleManager.listen(PartitionReplicaLifecycleEvent.REPLICA_STARTED, (PartitionReplicaLifecycleEventParameters params) -> {
+            return prepareTableResourcesAndLoadToZoneReplica2(params);
+        });
     }
 
     @Override
@@ -644,6 +650,77 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return nullCompletedFuture();
         });
+    }
+
+    private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica2(PartitionReplicaLifecycleEventParameters parameters) {
+        if (!PartitionReplicaLifecycleManager.ENABLED) {
+            return completedFuture(false);
+        }
+
+        long causalityToken = parameters.causalityToken();
+        CatalogZoneDescriptor zoneDescriptor = parameters.zoneDescriptor();
+
+        var tablesFuts = new ArrayList<CompletableFuture<Void>>();
+
+        findTablesByZoneId(zoneDescriptor.id(), catalogService.latestCatalogVersion(), catalogService).forEach(tableDescriptor -> {
+
+            TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor);
+
+            tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
+                return schemaManager.schemaRegistry(causalityToken, tableDescriptor.id()).thenAccept(table::schemaView);
+            }));
+
+            // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
+            CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
+                    (ignore, throwable) -> inBusyLock(busyLock, () -> nullCompletedFuture().thenComposeAsync((ignored) -> {
+                        PartitionSet parts = new BitSetPartitionSet();
+
+                        for (int i = 0; i < zoneDescriptor.partitions(); i++) {
+                            if (partitionReplicaLifecycleManager.hasLocalPartition(new ZonePartitionId(zoneDescriptor.id(), i))) {
+                                parts.set(i);
+                            }
+                        }
+
+                        return getOrCreatePartitionStorages(table, parts).thenAccept(
+                                u -> localPartsByTableId.put(tableDescriptor.id(), parts));
+                    }, ioExecutor)));
+
+            CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
+
+            CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
+                return allOf(localPartsUpdateFuture, tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
+                            var startPartsFut = new ArrayList<CompletableFuture<?>>();
+
+                            for (int i = 0; i < zoneDescriptor.partitions(); i++) {
+                                if (partitionReplicaLifecycleManager.hasLocalPartition(new ZonePartitionId(zoneDescriptor.id(), i))) {
+                                    startPartsFut.add(preparePartitionResourcesAndLoadToZoneReplica(
+                                            table,
+                                            i,
+                                            zoneDescriptor.id()));
+                                }
+                            }
+
+                            return allOf(startPartsFut.toArray(CompletableFuture[]::new));
+                        }
+                ), ioExecutor);
+            });
+
+            tables.put(tableDescriptor.id(), table);
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
+            tablesFuts.add(createPartsFut.thenAccept(ignore -> startedTables.put(tableDescriptor.id(), table)));
+        });
+
+        return CompletableFuture.allOf(tablesFuts.toArray(CompletableFuture[]::new)).thenApply((v) -> false);
+
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {

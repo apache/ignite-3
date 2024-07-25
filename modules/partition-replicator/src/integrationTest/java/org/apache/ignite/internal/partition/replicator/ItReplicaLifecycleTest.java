@@ -570,7 +570,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         Node node0 = getNode(0);
 
-        createZone(node0, "test_zone", 2, 3);
+        createZone(node0, "test_zone", 1, 3);
+        createTable(node0, "test_zone", "test_table");
 
         int zoneId = DistributionZonesTestUtil.getZoneId(node0.catalogManager, "test_zone", node0.hybridClock.nowLong());
 

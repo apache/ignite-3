@@ -80,6 +80,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -121,7 +122,8 @@ import org.jetbrains.annotations.Nullable;
  * - Stop the same nodes on the zone removing.
  * - Support the rebalance mechanism and start the new replication nodes when the rebalance triggers occurred.
  */
-public class PartitionReplicaLifecycleManager implements IgniteComponent {
+public class PartitionReplicaLifecycleManager  extends
+        AbstractEventProducer<PartitionReplicaLifecycleEvent, PartitionReplicaLifecycleEventParameters> implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
@@ -349,11 +351,11 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             CompletableFuture<List<Assignments>> assignmentsFutureAfterInvoke =
                     writeZoneAssignmentsToMetastore(zoneDescriptor.id(), assignmentsFuture);
 
-            return createZoneReplicationNodes(assignmentsFutureAfterInvoke, zoneDescriptor.id());
+            return createZoneReplicationNodes(assignmentsFutureAfterInvoke, zoneDescriptor.id(), causalityToken);
         });
     }
 
-    private CompletableFuture<Void> createZoneReplicationNodes(CompletableFuture<List<Assignments>> assignmentsFuture, int zoneId) {
+    private CompletableFuture<Void> createZoneReplicationNodes(CompletableFuture<List<Assignments>> assignmentsFuture, int zoneId, long revision) {
         return inBusyLockAsync(busyLock, () -> assignmentsFuture.thenCompose(assignments -> {
             assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
 
@@ -364,7 +366,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                 Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
 
-                partitionsStartFutures.add(createZonePartitionReplicationNode(zoneId, partId, localMemberAssignment, zoneAssignment));
+                partitionsStartFutures.add(createZonePartitionReplicationNode(zoneId, partId, localMemberAssignment, zoneAssignment, revision));
             }
 
             return allOf(partitionsStartFutures.toArray(new CompletableFuture<?>[0]));
@@ -385,7 +387,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             int zoneId,
             int partId,
             @Nullable Assignment localMemberAssignment,
-            Assignments stableAssignments
+            Assignments stableAssignments,
+            long revision
     ) {
         if (localMemberAssignment == null) {
             return nullCompletedFuture();
@@ -411,6 +414,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         );
 
         replicationGroupIds.add(replicaGrpId);
+        CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(replicaGrpId.zoneId(), catalogMgr.latestCatalogVersion());
 
         try {
             return replicaMgr.startReplica(
@@ -422,7 +426,12 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     raftGroupListener,
                     raftGroupEventsListener,
                     busyLock
-            ).thenApply(ignored -> null);
+                    ).thenCompose(unused ->
+                            fireEvent(
+                                    PartitionReplicaLifecycleEvent.REPLICA_STARTED,
+                                    new PartitionReplicaLifecycleEventParameters(revision, zoneDescriptor)
+                            ))
+                    .thenApply(ignored -> null);
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
@@ -844,7 +853,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             return handleChangePendingAssignmentEvent(
                     zonePartitionId,
                     stableAssignments,
-                    pendingAssignments
+                    pendingAssignments,
+                    revision
             ).thenCompose(v -> changePeersOnRebalance(
                     replicaMgr,
                     zonePartitionId,
@@ -860,7 +870,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
             ZonePartitionId replicaGrpId,
             @Nullable Assignments stableAssignments,
-            Assignments pendingAssignments
+            Assignments pendingAssignments,
+            long revision
     ) {
         boolean pendingAssignmentsAreForced = pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
@@ -902,7 +913,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     zoneId,
                     partitionId,
                     localMemberAssignment,
-                    computedStableAssignments
+                    computedStableAssignments,
+                    revision
             );
         } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
