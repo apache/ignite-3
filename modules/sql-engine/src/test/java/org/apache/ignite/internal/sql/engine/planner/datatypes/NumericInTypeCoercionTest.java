@@ -25,7 +25,6 @@ import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
@@ -2245,14 +2244,20 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
         RelDataType rowType = table.getRowType(Commons.typeFactory());
         RelDataType secondType = rowType.getFieldList().get(1).getType();
 
-        String expr;
+        StringBuilder sb = new StringBuilder("(");
+
         if (SqlTypeUtil.isIntType(secondType)) {
-            expr = "(1)";
-        } else if (secondType.getSqlTypeName() == SqlTypeName.DECIMAL) {
-            expr = "(" + decimalVal((DecimalNativeType) numericPair.second()) + ")";
+            sb.append('1');
+        } else if (SqlTypeUtil.isDecimal(secondType)) {
+            sb.append(decimalLiteral((DecimalNativeType) numericPair.second()));
+        } else if (SqlTypeUtil.isApproximateNumeric(secondType)) {
+            // Approximate numeric types do no have special literals
+            sb.append("2.3");
         } else {
-            expr = "(2.3)";
+            throw new IllegalStateException("Unexpected type: " + secondType);
         }
+
+        sb.append(")");
 
         // literal 2.3 is converted to 2:INT or 2:BIGINT depending on the left-hand side.
         if ((numericPair.first() == NativeTypes.INT32 || numericPair.first() == NativeTypes.INT64)
@@ -2263,20 +2268,20 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
         }
 
         Predicate<IgniteTableScan> matcher = checkPlan(first, second);
-        assertPlan("SELECT c1 FROM T1 WHERE c1 IN " + expr, schema, matcher);
+        assertPlan("SELECT c1 FROM T1 WHERE c1 IN " + sb, schema, matcher);
     }
 
-    private static String decimalVal(DecimalNativeType nativeType) {
+    private static String decimalLiteral(DecimalNativeType nativeType) {
         StringBuilder sb = new StringBuilder();
 
         for (int i = 0; i < nativeType.precision() - nativeType.scale(); i++) {
-            sb.append((i + 1));
+            sb.append(i + 1);
         }
 
         if (nativeType.scale() != 0) {
-            sb.append(".");
+            sb.append('.');
             for (int i = 0; i < nativeType.scale(); i++) {
-                sb.append((i + 1));
+                sb.append(i + 1);
             }
         }
 
