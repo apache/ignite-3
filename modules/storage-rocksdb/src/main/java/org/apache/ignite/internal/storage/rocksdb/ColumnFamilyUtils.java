@@ -202,14 +202,6 @@ public class ColumnFamilyUtils {
                     nativeType = NativeTypes.BYTES;
                     break;
 
-                case BITMASK:
-                    nativeType = NativeTypes.bitmaskOf(1);
-                    break;
-
-                case NUMBER:
-                    nativeType = NativeTypes.numberOf(-1);
-                    break;
-
                 case DATE:
                     nativeType = NativeTypes.DATE;
                     break;

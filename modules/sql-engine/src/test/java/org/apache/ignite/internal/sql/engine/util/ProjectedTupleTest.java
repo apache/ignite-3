@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.equalTo;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -83,6 +84,9 @@ class ProjectedTupleTest {
                 .collect(Collectors.toList());
 
         EnumSet<NativeTypeSpec> allTypes = EnumSet.allOf(NativeTypeSpec.class);
+
+        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
+        allTypes.removeAll(unsupported);
 
         coveredTypes.forEach(allTypes::remove);
 

@@ -20,12 +20,10 @@ package org.apache.ignite.internal.schema.configuration;
 import static java.math.RoundingMode.HALF_UP;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -61,14 +59,11 @@ public final class ValueSerializationHelper {
             case TIME:
             case DATETIME:
             case TIMESTAMP:
-            case NUMBER:
             case STRING:
             case UUID:
                 return defaultValue.toString();
             case BYTES:
                 return StringUtils.toHexString((byte[]) defaultValue);
-            case BITMASK:
-                return StringUtils.toHexString(((BitSet) defaultValue).toByteArray());
             default:
                 throw new IllegalStateException("Unknown type [type=" + type + ']');
         }
@@ -113,16 +108,12 @@ public final class ValueSerializationHelper {
                 return LocalDateTime.parse(defaultValue);
             case TIMESTAMP:
                 return Instant.parse(defaultValue);
-            case NUMBER:
-                return new BigInteger(defaultValue);
             case STRING:
                 return defaultValue;
             case UUID:
                 return UUID.fromString(defaultValue);
             case BYTES:
                 return StringUtils.fromHexString(defaultValue);
-            case BITMASK:
-                return BitSet.valueOf(StringUtils.fromHexString(defaultValue));
             default:
                 throw new IllegalStateException("Unknown type [type=" + type + ']');
         }

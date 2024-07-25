@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema.marshaller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -59,9 +58,6 @@ public class MarshallerUtilTest extends BaseIgniteAbstractTest {
                 Arguments.of(new String(new byte[]{-36, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 2),
                 Arguments.of(new String(new byte[]{-30, -104, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 3),
                 Arguments.of(new String(new byte[]{97, -36, -128, -30, -104, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 6),
-                // number
-                Arguments.of(BigInteger.ONE, NativeTypes.numberOf(12), 1),
-                Arguments.of(BigInteger.valueOf(123456789), NativeTypes.numberOf(12), 4),
                 // decimal
                 Arguments.of(BigDecimal.ONE, NativeTypes.decimalOf(12, 1), 3),
                 Arguments.of(BigDecimal.valueOf(123456789), NativeTypes.decimalOf(12, 3), 6)
