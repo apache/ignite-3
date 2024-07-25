@@ -118,7 +118,7 @@ namespace Apache.Ignite.Internal.Compute
             Write();
 
             using PooledBuffer res = await _socket.DoOutInOpAsync(
-                    ClientOp.ComputeExecuteMapReduce, writer, default, expectNotifications: true)
+                    ClientOp.ComputeExecuteMapReduce, writer, expectNotifications: true)
                 .ConfigureAwait(false);
 
             return GetTaskExecution<TResult>(res, readSchema: false);
@@ -127,11 +127,8 @@ namespace Apache.Ignite.Internal.Compute
             {
                 var w = writer.MessageWriter;
 
-                WriteNodeNames(nodes, writer);
-                WriteUnits(units, writer);
-                w.Write(jobClassName);
-                w.Write(options.Priority);
-                w.Write(options.MaxRetries);
+                WriteUnits(taskDescriptor.DeploymentUnits, writer);
+                w.Write(taskDescriptor.TaskClassName);
 
                 w.WriteObjectAsBinaryTuple(arg);
             }
