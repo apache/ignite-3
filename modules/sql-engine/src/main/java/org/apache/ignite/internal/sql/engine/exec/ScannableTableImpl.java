@@ -61,18 +61,20 @@ public class ScannableTableImpl implements ScannableTable {
         Publisher<BinaryRow> pub;
         TxAttributes txAttributes = ctx.txAttributes();
 
+        int partId = partWithConsistencyToken.partId();
+
         if (txAttributes.readOnly()) {
             HybridTimestamp readTime = txAttributes.time();
 
             assert readTime != null;
 
-            pub = internalTable.scan(partWithConsistencyToken.partId(), txAttributes.id(), readTime, ctx.localNode(),
+            pub = internalTable.scan(partId, txAttributes.id(), readTime, ctx.localNode(),
                     txAttributes.coordinatorId());
         } else {
             PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken());
 
             pub = internalTable.scan(
-                    partWithConsistencyToken.partId(),
+                    partId,
                     txAttributes.id(),
                     txAttributes.commitPartition(),
                     txAttributes.coordinatorId(),
@@ -85,7 +87,7 @@ public class ScannableTableImpl implements ScannableTable {
             );
         }
 
-        TableRowConverter rowConverter = converterFactory.create(requiredColumns);
+        TableRowConverter rowConverter = converterFactory.create(requiredColumns, partId);
 
         return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
@@ -122,13 +124,15 @@ public class ScannableTableImpl implements ScannableTable {
             flags |= (cond.upperInclude()) ? LESS_OR_EQUAL : 0;
         }
 
+        int partId = partWithConsistencyToken.partId();
+
         if (txAttributes.readOnly()) {
             HybridTimestamp readTime = txAttributes.time();
 
             assert readTime != null;
 
             pub = internalTable.scan(
-                    partWithConsistencyToken.partId(),
+                    partId,
                     txAttributes.id(),
                     readTime,
                     ctx.localNode(),
@@ -141,7 +145,7 @@ public class ScannableTableImpl implements ScannableTable {
             );
         } else {
             pub = internalTable.scan(
-                    partWithConsistencyToken.partId(),
+                    partId,
                     txAttributes.id(),
                     txAttributes.commitPartition(),
                     txAttributes.coordinatorId(),
@@ -154,7 +158,7 @@ public class ScannableTableImpl implements ScannableTable {
             );
         }
 
-        TableRowConverter rowConverter = converterFactory.create(requiredColumns);
+        TableRowConverter rowConverter = converterFactory.create(requiredColumns, partId);
 
         return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
@@ -179,13 +183,15 @@ public class ScannableTableImpl implements ScannableTable {
         assert keyTuple.elementCount() == columns.size()
                 : format("Key should contain exactly {} fields, but was {}", columns.size(), handler.toString(key));
 
+        int partId = partWithConsistencyToken.partId();
+
         if (txAttributes.readOnly()) {
             HybridTimestamp readTime = txAttributes.time();
 
             assert readTime != null;
 
             pub = internalTable.lookup(
-                    partWithConsistencyToken.partId(),
+                    partId,
                     txAttributes.id(),
                     readTime,
                     ctx.localNode(),
@@ -196,7 +202,7 @@ public class ScannableTableImpl implements ScannableTable {
             );
         } else {
             pub = internalTable.lookup(
-                    partWithConsistencyToken.partId(),
+                    partId,
                     txAttributes.id(),
                     txAttributes.commitPartition(),
                     txAttributes.coordinatorId(),
@@ -207,7 +213,7 @@ public class ScannableTableImpl implements ScannableTable {
             );
         }
 
-        TableRowConverter rowConverter = converterFactory.create(requiredColumns);
+        TableRowConverter rowConverter = converterFactory.create(requiredColumns, partId);
 
         return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
@@ -218,7 +224,7 @@ public class ScannableTableImpl implements ScannableTable {
             @Nullable InternalTransaction explicitTx,
             RowFactory<RowT> rowFactory,
             RowT key,
-            @Nullable BitSet requiredColumns
+            BitSet requiredColumns
     ) {
         TableRowConverter converter = converterFactory.create(requiredColumns);
 

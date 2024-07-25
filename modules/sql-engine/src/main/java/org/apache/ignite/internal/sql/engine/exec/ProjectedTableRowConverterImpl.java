@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
+import java.util.List;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.util.ExtendedFieldDeserializingProjectedTuple;
 import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
 import org.apache.ignite.internal.sql.engine.util.FormatAwareProjectedTuple;
 
@@ -40,16 +42,20 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
 
     private final BinaryTupleSchema fullTupleSchema;
 
+    private final List<VirtualColumn> virtualColumns;
+
     /** Constructor. */
     ProjectedTableRowConverterImpl(
             SchemaRegistry schemaRegistry,
             BinaryTupleSchema fullTupleSchema,
             SchemaDescriptor schemaDescriptor,
-            BitSet requiredColumns
+            BitSet requiredColumns,
+            List<VirtualColumn> extraColumns
     ) {
         super(schemaRegistry, schemaDescriptor);
 
         this.fullTupleSchema = fullTupleSchema;
+        this.virtualColumns = extraColumns;
 
         int size = requiredColumns.cardinality();
 
@@ -61,23 +67,27 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
                 requiredColumnsMapping[requiredIndex++] = column.positionInRow();
             }
         }
+
+        for (VirtualColumn col : extraColumns) {
+            requiredColumnsMapping[requiredIndex++] = col.columnIndex();
+        }
     }
 
     @Override
     public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow tableRow, RowFactory<RowT> factory) {
         InternalTuple tuple;
-        if (tableRow.schemaVersion() == schemaDescriptor.version()) {
-            BinaryTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
+        boolean rowSchemaMatches = tableRow.schemaVersion() == schemaDescriptor.version();
 
+        InternalTuple tableTuple = rowSchemaMatches
+                ? new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice())
+                : schemaRegistry.resolve(tableRow, schemaDescriptor);
+
+        if (!virtualColumns.isEmpty()) {
+            tuple = new ExtendedFieldDeserializingProjectedTuple(fullTupleSchema, tableTuple, requiredColumnsMapping, virtualColumns);
+        } else if (rowSchemaMatches) {
             tuple = new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
         } else {
-            InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
-
-            tuple = new FieldDeserializingProjectedTuple(
-                    fullTupleSchema,
-                    tableTuple,
-                    requiredColumnsMapping
-            );
+            tuple = new FieldDeserializingProjectedTuple(fullTupleSchema, tableTuple, requiredColumnsMapping);
         }
 
         return factory.create(tuple);
