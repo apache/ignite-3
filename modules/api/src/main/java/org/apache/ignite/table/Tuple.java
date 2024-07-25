@@ -446,6 +446,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
+    @Deprecated(forRemoval = true)
     BitSet bitmaskValue(String columnName);
 
     /**
@@ -455,6 +456,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
+    @Deprecated(forRemoval = true)
     BitSet bitmaskValue(int columnIndex);
 
     /**

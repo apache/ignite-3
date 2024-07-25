@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -38,7 +37,6 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
@@ -185,8 +183,6 @@ public class SqlTestUtils {
                 return SqlTypeName.VARCHAR.getName();
             case BYTE_ARRAY:
                 return SqlTypeName.VARBINARY.getName();
-            case NUMBER:
-                return SqlTypeName.INTEGER.getName();
             case NULL:
                 return SqlTypeName.NULL.getName();
             default:
@@ -237,12 +233,8 @@ public class SqlTestUtils {
                 return null;
             case DECIMAL:
                 return BigDecimal.valueOf(base + ((double) base / 1000)).add(BigDecimal.valueOf(Long.MAX_VALUE));
-            case NUMBER:
-                return BigInteger.valueOf(base).add(BigInteger.valueOf(Long.MAX_VALUE));
             case UUID:
                 return new UUID(base, base);
-            case BITMASK:
-                return BitSet.valueOf(BigInteger.valueOf(base).toByteArray());
             case DURATION:
                 return Duration.ofNanos(base);
             case DATETIME:
@@ -339,8 +331,6 @@ public class SqlTestUtils {
                 IgniteCustomType uuidType = typeFactory.createCustomType(UuidType.NAME);
 
                 return rexBuilder.makeCast(uuidType, uuidStr);
-            case BITMASK:
-                throw new IllegalArgumentException("Not supported: " + type);
             case STRING:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.VARCHAR));
             case BYTE_ARRAY:
@@ -349,8 +339,6 @@ public class SqlTestUtils {
                 return rexBuilder.makeLiteral(byteStr, typeFactory.createSqlType(SqlTypeName.VARBINARY));
             case PERIOD:
             case DURATION:
-            case NUMBER:
-                throw new IllegalArgumentException("Not supported: " + type);
             default:
                 throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -376,7 +364,6 @@ public class SqlTestUtils {
             case DOUBLE:
                 return SqlTypeName.DOUBLE;
             case DECIMAL:
-            case NUMBER:
                 return SqlTypeName.DECIMAL;
             case DATE:
                 return SqlTypeName.DATE;
@@ -387,7 +374,6 @@ public class SqlTestUtils {
             case TIMESTAMP:
                 return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
             case UUID:
-            case BITMASK:
                 return SqlTypeName.ANY;
             case STRING:
                 return SqlTypeName.VARCHAR;

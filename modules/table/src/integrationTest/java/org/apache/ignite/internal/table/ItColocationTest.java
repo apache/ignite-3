@@ -41,14 +41,12 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -347,10 +345,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 return "str_" + i;
             case BYTES:
                 return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
-            case BITMASK:
-                return BitSet.valueOf(new byte[]{(byte) i, (byte) (i + 1)});
-            case NUMBER:
-                return BigInteger.valueOf(i);
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(i);
             case TIME:
@@ -371,9 +365,13 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> twoColumnsParameters() {
         List<Arguments> args = new ArrayList<>();
+        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
 
         for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
             for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
+                if (unsupported.contains(t0) || unsupported.contains(t1)) {
+                    continue;
+                }
                 args.add(Arguments.of(t0, t1));
             }
         }

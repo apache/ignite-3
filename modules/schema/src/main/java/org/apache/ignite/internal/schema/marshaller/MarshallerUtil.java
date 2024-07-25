@@ -58,9 +58,6 @@ public final class MarshallerUtil {
                 CharSequence chars = (CharSequence) val;
                 return chars.length() == 0 ? 1 : utf8EncodedLength(chars);
 
-            case NUMBER:
-                return sizeInBytes((BigInteger) val);
-
             case DECIMAL:
                 return sizeInBytes((BigDecimal) val);
 
@@ -185,10 +182,6 @@ public final class MarshallerUtil {
                 return BinaryMode.STRING;
             case BYTES:
                 return BinaryMode.BYTE_ARR;
-            case BITMASK:
-                return BinaryMode.BITSET;
-            case NUMBER:
-                return BinaryMode.NUMBER;
             case DATE:
                 return BinaryMode.DATE;
             case TIME:

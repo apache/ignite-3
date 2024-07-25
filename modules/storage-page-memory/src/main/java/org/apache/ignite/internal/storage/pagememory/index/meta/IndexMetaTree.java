@@ -42,10 +42,12 @@ public class IndexMetaTree extends BplusTree<IndexMetaKey, IndexMeta> {
      * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
-     * @param initNew {@code True} if new tree should be created.
+     * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating it
+     *      for the first time), {@code false} if not necessary (for example, when restoring a tree).
      * @throws IgniteInternalCheckedException If failed.
      */
     public IndexMetaTree(
@@ -59,7 +61,7 @@ public class IndexMetaTree extends BplusTree<IndexMetaKey, IndexMeta> {
             @Nullable ReuseList reuseList,
             boolean initNew
     ) throws IgniteInternalCheckedException {
-        super("IndexMetaTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("IndexMetaTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         setIos(IndexMetaInnerIo.VERSIONS, IndexMetaLeafIo.VERSIONS, IndexMetaTreeMetaIo.VERSIONS);
 

@@ -52,7 +52,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
             @InjectConfiguration
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
-            StorageConfiguration storageConfiguration
+            StorageConfiguration storageConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -61,12 +61,13 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
                 engineConfig,
-                storageConfiguration,
+                storageConfig,
                 ioRegistry,
                 workDir,
                 null,
                 mock(FailureProcessor.class),
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                clock
         );
 
         engine.start();

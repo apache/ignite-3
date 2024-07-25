@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.jetbrains.annotations.Nullable;
@@ -58,6 +59,13 @@ public class RocksDbMetaStorage {
      * Prefix to store lease start time. Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
     public static final byte[] LEASE_PREFIX = {3};
+
+    /**
+     * Prefix to store the estimated size of a partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public static final byte[] ESTIMATED_SIZE_PREFIX = {4};
 
     private final ColumnFamily metaColumnFamily;
 

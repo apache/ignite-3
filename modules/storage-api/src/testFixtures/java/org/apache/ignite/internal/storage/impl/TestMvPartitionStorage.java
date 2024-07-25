@@ -320,13 +320,19 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {
         VersionChain nextChain = committedVersionChain.next;
 
+        boolean isNewValueTombstone = committedVersionChain.row == null;
+
         if (nextChain != null) {
-            if (committedVersionChain.row == null) {
-                if (nextChain.row == null) {
+            boolean isOldValueTombstone = nextChain.row == null;
+
+            if (isOldValueTombstone) {
+                if (isNewValueTombstone) {
                     // Avoid creating tombstones for tombstones.
                     return nextChain;
                 }
 
+                ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
+            } else if (isNewValueTombstone) {
                 ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
             }
 
@@ -334,7 +340,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             // several times, the same tuple will be inserted into the GC queue (timestamp and rowId don't change in this case).
             gcQueue.add(committedVersionChain);
         } else {
-            if (committedVersionChain.row == null) {
+            if (isNewValueTombstone) {
                 // If there is only one version, and it is a tombstone, then remove the chain.
                 return null;
             }

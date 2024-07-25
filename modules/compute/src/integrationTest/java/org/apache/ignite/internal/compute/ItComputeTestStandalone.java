@@ -166,7 +166,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Test
     void executeJobWithObsoleteUnit() {
         IgniteImpl entryNode = node(0);
-        JobDescriptor job = JobDescriptor.builder(SleepJob.class).units(units).build();
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units).build();
 
         CompletableFuture<Void> successJob = entryNode.compute().executeAsync(JobTarget.node(entryNode.node()), job, 2L);
 

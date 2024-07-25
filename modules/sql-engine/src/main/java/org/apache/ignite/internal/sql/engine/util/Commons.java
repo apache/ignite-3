@@ -34,14 +34,12 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.io.StringReader;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -111,10 +109,8 @@ import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -483,8 +479,6 @@ public final class Commons {
             case UUID: return tuple.uuidValue(fieldIndex);
             case STRING: return tuple.stringValue(fieldIndex);
             case BYTES: return tuple.bytesValue(fieldIndex);
-            case BITMASK: return tuple.bitmaskValue(fieldIndex);
-            case NUMBER: return tuple.numberValue(fieldIndex);
             case DATE: return tuple.dateValue(fieldIndex);
             case TIME: return tuple.timeValue(fieldIndex);
             case DATETIME: return tuple.dateTimeValue(fieldIndex);
@@ -565,9 +559,6 @@ public final class Commons {
             case DOUBLE:
                 return Double.class;
 
-            case NUMBER:
-                return BigInteger.class;
-
             case DECIMAL:
                 return BigDecimal.class;
 
@@ -579,9 +570,6 @@ public final class Commons {
 
             case BYTES:
                 return byte[].class;
-
-            case BITMASK:
-                return BitSet.class;
 
             case DATE:
                 return LocalDate.class;
@@ -626,9 +614,6 @@ public final class Commons {
             case DOUBLE:
                 return 15;
 
-            case NUMBER:
-                return ((NumberNativeType) type).precision();
-
             case DECIMAL:
                 return ((DecimalNativeType) type).precision();
 
@@ -645,9 +630,6 @@ public final class Commons {
             case BYTES:
             case STRING:
                 return ((VarlenNativeType) type).length();
-
-            case BITMASK:
-                return ((BitmaskNativeType) type).bits();
 
             default:
                 throw new IllegalArgumentException("Unsupported type " + type.spec());
@@ -666,7 +648,6 @@ public final class Commons {
             case INT16:
             case INT32:
             case INT64:
-            case NUMBER:
                 return 0;
 
             case BOOLEAN:
@@ -679,7 +660,6 @@ public final class Commons {
             case TIMESTAMP:
             case BYTES:
             case STRING:
-            case BITMASK:
                 return UNDEFINED_SCALE;
 
             case DECIMAL:

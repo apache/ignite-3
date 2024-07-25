@@ -234,17 +234,10 @@ namespace Apache.Ignite.Tests.Compute
 
             await Test(new byte[] { 1, 255 }, "[1, -1]");
             await Test("Ignite 🔥");
-            await Test(new BitArray(new[] { byte.MaxValue }), "{0, 1, 2, 3, 4, 5, 6, 7}");
             await Test(LocalDate.MinIsoValue, "-9998-01-01");
             await Test(LocalTime.Noon, "12:00");
             await Test(LocalDateTime.MaxIsoValue, "9999-12-31T23:59:59.999999999");
             await Test(Instant.FromUtc(2001, 3, 4, 5, 6));
-
-            await Test(BigInteger.One);
-            await Test(BigInteger.Zero);
-            await Test(BigInteger.MinusOne);
-            await Test(new BigInteger(123456));
-            await Test(BigInteger.Pow(1234, 56));
 
             await Test(Guid.Empty);
             await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));

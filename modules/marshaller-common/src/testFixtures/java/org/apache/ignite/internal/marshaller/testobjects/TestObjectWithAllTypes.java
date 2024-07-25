@@ -20,14 +20,12 @@ package org.apache.ignite.internal.marshaller.testobjects;
 import static org.apache.ignite.internal.util.TemporalTypeUtils.normalizeNanos;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
@@ -61,7 +59,6 @@ public class TestObjectWithAllTypes {
         obj.doubleCol = rnd.nextDouble();
 
         obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
-        obj.bitmaskCol = IgniteTestUtils.randomBitSet(rnd, 42);
 
         obj.dateCol = LocalDate.ofYearDay(1990 + rnd.nextInt(50), 1 + rnd.nextInt(360));
         obj.timeCol = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60));
@@ -71,7 +68,6 @@ public class TestObjectWithAllTypes {
 
         obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
         obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
-        obj.numberCol = BigInteger.probablePrime(12, rnd);
         obj.decimalCol = BigDecimal.valueOf(rnd.nextLong(), 3);
 
         obj.nullLongCol = null;
@@ -134,15 +130,11 @@ public class TestObjectWithAllTypes {
 
     private Instant timestampCol;
 
-    private BitSet bitmaskCol;
-
     private String stringCol;
 
     private byte[] bytesCol;
 
     private byte[] nullBytesCol;
-
-    private BigInteger numberCol;
 
     private BigDecimal decimalCol;
 
@@ -183,10 +175,8 @@ public class TestObjectWithAllTypes {
                 && Objects.equals(timestampCol, object.timestampCol)
                 && Objects.equals(dateTimeCol, object.dateTimeCol)
                 && Objects.equals(uuidCol, object.uuidCol)
-                && Objects.equals(bitmaskCol, object.bitmaskCol)
                 && Objects.equals(stringCol, object.stringCol)
                 && Arrays.equals(bytesCol, object.bytesCol)
-                && Objects.equals(numberCol, object.numberCol)
                 && Objects.equals(decimalCol, object.decimalCol);
     }
 
@@ -356,14 +346,6 @@ public class TestObjectWithAllTypes {
         this.timestampCol = timestampCol;
     }
 
-    public BitSet getBitmaskCol() {
-        return bitmaskCol;
-    }
-
-    public void setBitmaskCol(BitSet bitmaskCol) {
-        this.bitmaskCol = bitmaskCol;
-    }
-
     public String getStringCol() {
         return stringCol;
     }
@@ -386,14 +368,6 @@ public class TestObjectWithAllTypes {
 
     public void setNullBytesCol(byte[] nullBytesCol) {
         this.nullBytesCol = nullBytesCol;
-    }
-
-    public BigInteger getNumberCol() {
-        return numberCol;
-    }
-
-    public void setNumberCol(BigInteger numberCol) {
-        this.numberCol = numberCol;
     }
 
     public BigDecimal getDecimalCol() {

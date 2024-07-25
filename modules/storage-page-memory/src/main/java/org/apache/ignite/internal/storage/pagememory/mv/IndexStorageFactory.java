@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
 
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -132,7 +131,7 @@ class IndexStorageFactory {
                         partitionId,
                         tableStorage.dataRegion().pageMemory(),
                         PageLockListenerNoOp.INSTANCE,
-                        new AtomicLong(),
+                        tableStorage.engine().generateGlobalRemoveId(),
                         metaPageId,
                         freeList,
                         indexDescriptor
@@ -147,7 +146,7 @@ class IndexStorageFactory {
                     partitionId,
                     tableStorage.dataRegion().pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    tableStorage.engine().generateGlobalRemoveId(),
                     indexMeta.metaPageId(),
                     freeList
             );
@@ -209,7 +208,7 @@ class IndexStorageFactory {
                         partitionId,
                         tableStorage.dataRegion().pageMemory(),
                         PageLockListenerNoOp.INSTANCE,
-                        new AtomicLong(),
+                        tableStorage.engine().generateGlobalRemoveId(),
                         metaPageId,
                         freeList,
                         indexDescriptor
@@ -225,7 +224,7 @@ class IndexStorageFactory {
                     partitionId,
                     tableStorage.dataRegion().pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    tableStorage.engine().generateGlobalRemoveId(),
                     indexMeta.metaPageId(),
                     freeList,
                     indexDescriptor
@@ -243,7 +242,7 @@ class IndexStorageFactory {
                     partitionId,
                     tableStorage.dataRegion().pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
+                    tableStorage.engine().generateGlobalRemoveId(),
                     indexMeta.metaPageId(),
                     freeList
             );

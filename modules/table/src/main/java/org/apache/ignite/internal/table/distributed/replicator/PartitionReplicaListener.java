@@ -174,11 +174,12 @@ import org.apache.ignite.internal.table.distributed.raft.UnexpectedTransactionSt
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -1065,7 +1066,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
                 .thenAccept(validationResult -> {
                     if (!validationResult.isSuccessful()) {
-                        throw new IncompatibleSchemaException(String.format(
+                        throw new IncompatibleSchemaVersionException(String.format(
                                 "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
                                         + "txSchemaVersion=%d, rowSchemaVersion=%d]",
                                 validationResult.failedTableName(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
@@ -1660,12 +1661,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
         if (!validationResult.isSuccessful()) {
             if (validationResult.isTableDropped()) {
-                throw new MismatchingTransactionOutcomeException(
+                throw new IncompatibleSchemaAbortException(
                         format("Commit failed because a table was already dropped [table={}]", validationResult.failedTableName()),
                         txResult
                 );
             } else {
-                throw new MismatchingTransactionOutcomeException(
+                throw new IncompatibleSchemaAbortException(
                         format(
                                 "Commit failed because schema is not forward-compatible "
                                         + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
@@ -1723,7 +1724,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         txMeta.txState()
                 );
 
-                throw new MismatchingTransactionOutcomeException(
+                throw new MismatchingTransactionOutcomeInternalException(
                         "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
@@ -1777,7 +1778,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                             markFinished(txId, result.transactionState(), result.commitTimestamp());
 
-                            throw new MismatchingTransactionOutcomeException(utse.getMessage(), utse.transactionResult());
+                            throw new MismatchingTransactionOutcomeInternalException(utse.getMessage(), utse.transactionResult());
                         }
                         // Otherwise we convert from the internal exception to the client one.
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);

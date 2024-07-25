@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Streams;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -122,7 +123,11 @@ public class RowSchemaTypesTest {
         // Check for missed types add fail if such types present.
 
         Set<Entry<NativeTypeSpec, Boolean>> nativeTypeSpecs = new CopyOnWriteArraySet<>();
-        for (NativeTypeSpec spec : NativeTypeSpec.values()) {
+
+        EnumSet<NativeTypeSpec> set = EnumSet.allOf(NativeTypeSpec.class);
+        set.removeAll(Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER));
+
+        for (NativeTypeSpec spec : set) {
             nativeTypeSpecs.add(Map.entry(spec, true));
             nativeTypeSpecs.add(Map.entry(spec, false));
         }
@@ -153,7 +158,6 @@ public class RowSchemaTypesTest {
         DOUBLE(NativeTypes.DOUBLE, true),
         DECIMAL_10_0(NativeTypes.decimalOf(10, 0), false),
         DECIMAL_10_4(NativeTypes.decimalOf(10, 4), false),
-        NUMBER_10(NativeTypes.numberOf(10), false),
 
         STRING(NativeTypes.INT16, true),
         STRING_8(NativeTypes.stringOf(8), false),
@@ -166,7 +170,6 @@ public class RowSchemaTypesTest {
         TIME_2(NativeTypes.time(2), false),
         DATETIME_2(NativeTypes.datetime(2), false),
         TIMESTAMP_2(NativeTypes.timestamp(2), false),
-        BITMASK_8(NativeTypes.bitmaskOf(8), false),
         ;
 
         final NativeType nativeType;

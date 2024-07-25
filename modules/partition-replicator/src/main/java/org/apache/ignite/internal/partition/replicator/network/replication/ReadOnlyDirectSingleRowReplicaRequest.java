@@ -20,11 +20,12 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TableAware;
 
 /**
  * Read only direct node single row replica request.
  * The type of RO request never waits and is executed at the current node timestamp.
  */
 @Transferable(PartitionReplicationMessageGroup.RO_DIRECT_SINGLE_ROW_REPLICA_REQUEST)
-public interface ReadOnlyDirectSingleRowReplicaRequest extends SingleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest {
+public interface ReadOnlyDirectSingleRowReplicaRequest extends SingleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest, TableAware {
 }

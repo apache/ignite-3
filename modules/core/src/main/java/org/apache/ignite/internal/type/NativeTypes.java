@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.type;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -100,6 +98,7 @@ public class NativeTypes {
      * @param bits The number of bits in the bitmask.
      * @return Native type.
      */
+    @Deprecated(forRemoval = true)
     public static NativeType bitmaskOf(int bits) {
         return new BitmaskNativeType(bits);
     }
@@ -110,6 +109,7 @@ public class NativeTypes {
      * @param precision The number of digits in the number value.
      * @return Native type.
      */
+    @Deprecated(forRemoval = true)
     public static NativeType numberOf(int precision) {
         return new NumberNativeType(precision);
     }
@@ -237,12 +237,6 @@ public class NativeTypes {
 
             case BYTES:
                 return blobOf(((byte[]) val).length);
-
-            case BITMASK:
-                return bitmaskOf(((BitSet) val).length());
-
-            case NUMBER:
-                return numberOf(new BigDecimal((BigInteger) val).precision());
 
             case DECIMAL:
                 return decimalOf(((BigDecimal) val).precision(), ((BigDecimal) val).scale());

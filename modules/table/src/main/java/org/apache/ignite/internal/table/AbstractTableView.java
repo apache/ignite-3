@@ -40,7 +40,7 @@ import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.criteria.SqlSerializer.Builder;
-import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
+import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -157,7 +157,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
                                 // Repeat.
                                 return withSchemaSync(tx, schemaVersion, action);
-                            } else if (tx == null && isOrCausedBy(IncompatibleSchemaException.class, ex)) {
+                            } else if (tx == null && isOrCausedBy(IncompatibleSchemaVersionException.class, ex)) {
                                 // Table version was changed while we were executing an implicit transaction (between it had been created
                                 // and the moment when the operation actually touched the partition), let's retry.
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);

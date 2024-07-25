@@ -155,12 +155,6 @@ public class RowAssembler {
             case BYTES: {
                 return appendBytes((byte[]) val);
             }
-            case BITMASK: {
-                return appendBitmask((BitSet) val);
-            }
-            case NUMBER: {
-                return appendNumber((BigInteger) val);
-            }
             case DECIMAL: {
                 return appendDecimal((BigDecimal) val);
             }
@@ -353,6 +347,7 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
+    @Deprecated(forRemoval = true)
     public RowAssembler appendNumberNotNull(BigInteger val) throws SchemaMismatchException {
         checkType(NativeTypeSpec.NUMBER);
 
@@ -374,6 +369,7 @@ public class RowAssembler {
         return this;
     }
 
+    @Deprecated(forRemoval = true)
     public RowAssembler appendNumber(BigInteger val) throws SchemaMismatchException {
         return val == null ? appendNull() : appendNumberNotNull(val);
     }
@@ -479,6 +475,7 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
+    @Deprecated(forRemoval = true)
     public RowAssembler appendBitmaskNotNull(BitSet bitSet) throws SchemaMismatchException {
         Column col = columns.get(curCol);
 
@@ -496,10 +493,6 @@ public class RowAssembler {
         shiftColumn();
 
         return this;
-    }
-
-    public RowAssembler appendBitmask(BitSet value) {
-        return value == null ? appendNull() : appendBitmaskNotNull(value);
     }
 
     /**
