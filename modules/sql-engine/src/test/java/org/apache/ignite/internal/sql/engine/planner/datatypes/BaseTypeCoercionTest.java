@@ -58,18 +58,18 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
     static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
         EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
 
-        List<NumericPair> allPairs = args.map(Arguments::get)
+        List<NumericPair> usedPairs = args.map(Arguments::get)
                 .map(arg -> (NumericPair) arg[0])
                 .collect(Collectors.toList());
 
-        allPairs.forEach(remainingPairs::remove);
+        usedPairs.forEach(remainingPairs::remove);
 
         for (NumericPair numericPair : NumericPair.values()) {
-            allPairs.remove(numericPair);
+            usedPairs.remove(numericPair);
         }
 
         assertThat("There are missing pairs", remainingPairs, Matchers.empty());
-        assertThat("There are duplicate pairs. Remove them", allPairs, Matchers.empty());
+        assertThat("There are duplicate pairs. Remove them", usedPairs, Matchers.empty());
     }
 
     static IgniteSchema createSchemaWithTwoColumnTable(NativeType c1, NativeType c2) {
