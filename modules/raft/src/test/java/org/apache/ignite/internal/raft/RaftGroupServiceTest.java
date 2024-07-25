@@ -468,7 +468,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         assertThat(leaderWithTermFuture, willCompleteSuccessfully());
         LeaderWithTerm leaderWithTerm = leaderWithTermFuture.get();
 
-        PeersAndLearners configuration = PeersAndLearners.fromPeers(NODES.subList(0,1), emptyList());
+        PeersAndLearners configuration = PeersAndLearners.fromPeers(NODES.subList(0, 1), emptyList());
         assertThat(service.changePeers(configuration, leaderWithTerm.term()), willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
