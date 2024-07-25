@@ -709,9 +709,14 @@ namespace Apache.Ignite.Tests.Compute
         {
             ITaskExecution<string> taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "+arg");
 
-            string res = await taskExec.GetResultAsync();
+            string nodeNameString = await taskExec.GetResultAsync();
+            string[] nodeNames = nodeNameString.Split(',');
 
-            Assert.AreEqual(PlatformTestNodeRunner + "+arg", res);
+            var expectedNodeNames = (await Client.GetClusterNodesAsync())
+                .Select(x => x.Name + "+arg")
+                .ToList();
+
+            CollectionAssert.AreEquivalent(expectedNodeNames, nodeNames);
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
