@@ -406,7 +406,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         // Since this type implies a local timezone, its explicit indication seems redundant,
                         // so we prohibit the user from explicitly setting a timezone.
                         convert =
-                                Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand);
+                                Expressions.call(
+                                        BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                                        operand,
+                                        Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
                         break;
                     case DATE:
                         convert =

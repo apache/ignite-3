@@ -33,7 +33,6 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 
 class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
     private VolatilePageMemoryStorageEngine engine;
@@ -43,13 +42,13 @@ class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPart
     @BeforeEach
     void setUp(
             @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}") StorageConfiguration storageConfiguration
+            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}") StorageConfiguration storageConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration, ioRegistry);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfig, ioRegistry, clock);
 
         engine.start();
 
@@ -70,11 +69,5 @@ class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPart
                 table,
                 engine == null ? null : engine::stop
         );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void testConcurrentAddAndRemoveEstimatedSize() {
-        super.testConcurrentAddAndRemoveEstimatedSize();
     }
 }

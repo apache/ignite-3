@@ -228,7 +228,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *
      * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
     PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;

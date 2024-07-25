@@ -42,6 +42,7 @@ import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.TupleReader;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -792,14 +793,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Entry<K, V>>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher, "publisher");
 
-        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
-        // columns never change (so they are the same for all schema versions of the table),
-        var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(
-                rowConverter.registry(),
-                tbl.partitions(),
-                marshaller(rowConverter.registry().lastKnownSchemaVersion())
-        );
-
         @SuppressWarnings({"rawtypes", "unchecked"})
         StreamerBatchSender<Entry<K, V>, Integer, Void> batchSender = (partitionId, items, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture) withSchemaSync(
@@ -807,7 +800,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
                         schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId)
                 ));
 
-        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
+        CompletableFuture<Void> future = DataStreamer.streamData(
+                publisher, options, batchSender, streamerPartitioner(), tbl.streamerFlushExecutor());
+
         return convertToPublicFuture(future);
     }
 
@@ -819,9 +814,40 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArg) {
-        // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
-        throw new UnsupportedOperationException("Not implemented yet");
+            @Nullable A receiverArg) {
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(receiver);
+
+        StreamerBatchSender<V1, Integer, R> batchSender = (partitionId, rows, deleted) ->
+                PublicApiThreading.execUserAsyncOperation(() ->
+                        tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
+                                .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
+                                        receiver, receiverArg, rows, node, receiver.units())));
+
+        CompletableFuture<Void> future = DataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options,
+                batchSender,
+                resultSubscriber,
+                streamerPartitioner(),
+                tbl.streamerFlushExecutor());
+
+        return convertToPublicFuture(future);
+    }
+
+    private KeyValuePojoStreamerPartitionAwarenessProvider<K, V> streamerPartitioner() {
+        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+        // columns never change (so they are the same for all schema versions of the table),
+        return new KeyValuePojoStreamerPartitionAwarenessProvider<>(
+                rowConverter.registry(),
+                tbl.partitions(),
+                marshaller(rowConverter.registry().lastKnownSchemaVersion())
+        );
     }
 
     /** {@inheritDoc} */

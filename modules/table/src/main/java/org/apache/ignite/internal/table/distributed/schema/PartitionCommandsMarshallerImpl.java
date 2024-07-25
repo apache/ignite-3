@@ -43,6 +43,8 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public <T> T unmarshall(ByteBuffer raw) {
+        raw = raw.duplicate();
+
         int requiredCatalogVersion = readRequiredCatalogVersion(raw);
 
         T res = super.unmarshall(raw);

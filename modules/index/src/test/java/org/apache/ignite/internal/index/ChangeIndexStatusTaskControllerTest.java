@@ -90,6 +90,8 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
         taskController = new ChangeIndexStatusTaskController(
                 catalogManager, placementDriver, clusterService, changeIndexStatusTaskScheduler
         );
+
+        taskController.start();
     }
 
     @AfterEach

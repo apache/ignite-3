@@ -110,6 +110,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -153,6 +154,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -186,6 +188,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -623,7 +626,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Test checks rebances from [A,B,C] to [A,B] and then again to [A,B,C].
+     * Test checks rebalances from [A,B,C] to [A,B] and then again to [A,B,C].
      * In this case the raft group node and {@link Replica} are started only once on each node.
      *
      * <p>1. We have an in-progress rebalance and current metastore keys:
@@ -1230,6 +1233,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             Path storagePath = dir.resolve("storage");
 
+            LogSyncer logSyncer = logStorageFactory;
+
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
@@ -1237,7 +1242,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureProcessor,
-                            raftManager.getLogSyncer()
+                            logSyncer,
+                            hybridClock
                     ),
                     storageConfiguration
             );
@@ -1346,7 +1352,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     lowWatermark,
                     transactionInflights,
-                    indexMetaStorage
+                    indexMetaStorage,
+                    logSyncer,
+                    new PartitionReplicaLifecycleManager(
+                            catalogManager,
+                            replicaManager,
+                            distributionZoneManager,
+                            metaStorageManager,
+                            clusterService.topologyService(),
+                            lowWatermark,
+                            threadPoolsManager.tableIoExecutor(),
+                            rebalanceScheduler,
+                            threadPoolsManager.partitionOperationsExecutor()
+                    )
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(
@@ -1382,6 +1400,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             });
                 }
             };
+
+            tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 
             indexManager = new IndexManager(
                     schemaManager,

@@ -67,12 +67,10 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnType;
@@ -422,19 +420,6 @@ public class TypeUtils {
 
                 return factory.createSqlType(SqlTypeName.VARBINARY, varlen.length());
             }
-            case BITMASK:
-                assert nativeType instanceof BitmaskNativeType;
-
-                var bitmask = (BitmaskNativeType) nativeType;
-
-                // TODO IGNITE-18431.
-                return factory.createSqlType(SqlTypeName.VARBINARY, bitmask.sizeInBytes());
-            case NUMBER:
-                assert nativeType instanceof NumberNativeType;
-
-                var number = (NumberNativeType) nativeType;
-
-                return factory.createSqlType(SqlTypeName.DECIMAL, number.precision(), 0);
             case DATE:
                 return factory.createSqlType(SqlTypeName.DATE);
             case TIME:
@@ -512,14 +497,10 @@ public class TypeUtils {
                 return NativeTypes.timestamp(precision);
             case UUID:
                 return NativeTypes.UUID;
-            case BITMASK:
-                return NativeTypes.bitmaskOf(length);
             case STRING:
                 return NativeTypes.stringOf(length);
             case BYTE_ARRAY:
                 return NativeTypes.blobOf(length);
-            case NUMBER:
-                return NativeTypes.numberOf(precision);
             // fallthrough
             case PERIOD:
             case DURATION:

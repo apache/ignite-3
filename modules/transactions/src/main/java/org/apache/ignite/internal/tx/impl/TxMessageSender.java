@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
 import java.util.ArrayList;
@@ -104,10 +103,10 @@ public class TxMessageSender {
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
                         .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
-                        .timestampLong(clockService.nowLong())
+                        .timestamp(clockService.now())
                         .txId(txId)
                         .commit(commit)
-                        .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                        .commitTimestamp(commitTimestamp)
                         .build()
         );
     }
@@ -134,8 +133,8 @@ public class TxMessageSender {
                 TX_MESSAGES_FACTORY.txCleanupMessage()
                         .txId(txId)
                         .commit(commit)
-                        .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                        .timestampLong(clockService.nowLong())
+                        .commitTimestamp(commitTimestamp)
+                        .timestamp(clockService.now())
                         .groups(toTablePartitionIdMessages(replicationGroupIds))
                         .build(),
                 transactionConfiguration.rpcTimeout().value());
@@ -162,15 +161,21 @@ public class TxMessageSender {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
+        TablePartitionIdMessage commitPartitionIdMessage = REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
+                .partitionId(commitPartition.partitionId())
+                .tableId(commitPartition.tableId())
+                .build();
+
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                         .txId(txId)
-                        .timestampLong(clockService.nowLong())
+                        .commitPartitionId(commitPartitionIdMessage)
+                        .timestamp(clockService.now())
                         .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toTablePartitionIdMessages(replicationGroupIds))
                         .commit(commit)
-                        .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                        .commitTimestamp(commitTimestamp)
                         .enlistmentConsistencyToken(consistencyToken)
                         .build());
     }
@@ -215,7 +220,7 @@ public class TxMessageSender {
         return messagingService.invoke(
                         primaryConsistentId,
                         TX_MESSAGES_FACTORY.txStateCoordinatorRequest()
-                                .readTimestampLong(timestamp.longValue())
+                                .readTimestamp(timestamp)
                                 .txId(txId)
                                 .build(),
                         transactionConfiguration.rpcTimeout().value())

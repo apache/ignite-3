@@ -59,7 +59,6 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -209,7 +208,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /* Temporary converter to support the zone based partitions in tests. **/
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
-    private Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter = Function.identity();
+    private Function<ReplicaRequest, ReplicationGroupId> groupIdConverter = r -> r.groupId().asReplicationGroupId();
 
     /**
      * Constructor for a replica service.
@@ -247,7 +246,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter
+            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
     ) {
         this(
                 nodeName,
@@ -393,7 +392,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId().asReplicationGroupId());
+        ReplicationGroupId groupId = groupIdConverter.apply(request);
 
         String senderConsistentId = sender.name();
 
@@ -574,7 +573,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
     }
 
-    private CompletableFuture<Boolean> startReplicaInternal(
+    private CompletableFuture<Replica> startReplicaInternal(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
@@ -629,7 +628,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @return Future that promises ready new replica when done.
      */
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
@@ -664,7 +663,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
-     * @param listener Replica listener.
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
      * @param newConfiguration A configuration for new raft group.
      * @param raftGroupListener Raft group listener for raft group starting.
@@ -675,7 +673,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener,
+            Function<RaftGroupService, ReplicaListener> listener,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
@@ -707,7 +705,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 Replica newReplica = new ZonePartitionReplicaImpl(
                         replicaGrpId,
-                        listener,
+                        listener.apply(raftClient),
                         raftClient
                 );
 
@@ -757,7 +755,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     @VisibleForTesting
     @Deprecated
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
             Consumer<RaftGroupService> updateTableRaftService,
@@ -773,8 +771,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     updateTableRaftService.accept(raftClient);
                     return createListener.apply(raftClient);
                 }, replicasCreationExecutor)
-                .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, completedFuture(replicaListener)))
-                .thenApply(r -> true);
+                .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, completedFuture(replicaListener)));
     }
 
     /**
@@ -854,12 +851,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public void resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
-    }
-
-    /** Getter for wrapped write-ahead log syncer. */
-    // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22292
-    public LogSyncer getLogSyncer() {
-        return raftManager.getLogSyncer();
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, SnapshotStorageFactory snapshotFactory) {
@@ -1055,7 +1046,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                             groupId,
                                             clusterNetSvc.topologyService().localMember())
                             )
-                            .timestampLong(clockService.updateClock(requestTimestamp).longValue())
+                            .timestamp(clockService.updateClock(requestTimestamp))
                             .build(),
                     correlationId);
         } else {
@@ -1093,7 +1084,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -1111,7 +1102,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -1269,11 +1260,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
-                            + groupId + "].";
-
-                    context.assertReservation(groupId);
+                            + groupId + ", leaseStartTime=" + parameters.startTime() + "].";
                 } else if (context.reservedForPrimary) {
-                    context.assertReservation(groupId);
+                    context.assertReservation(groupId, parameters.startTime());
 
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
@@ -1296,7 +1285,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        context.assertReservation(parameters.groupId());
+                        context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
@@ -1552,9 +1541,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             leaseStartTime = null;
         }
 
-        void assertReservation(ReplicationGroupId groupId) {
-            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" + groupId + "].";
-            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId=" + groupId + "].";
+        void assertReservation(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
+            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
         }
     }
 

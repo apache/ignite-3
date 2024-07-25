@@ -20,13 +20,11 @@ package org.apache.ignite.internal.sql.engine.framework;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
@@ -201,10 +199,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                 builder.appendDouble((double) value);
                 break;
 
-            case NUMBER:
-                builder.appendNumberNotNull((BigInteger) value);
-                break;
-
             case DECIMAL:
                 builder.appendDecimalNotNull((BigDecimal) value, ((DecimalNativeType) nativeType).scale());
                 break;
@@ -219,10 +213,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
             case STRING:
                 builder.appendStringNotNull((String) value);
-                break;
-
-            case BITMASK:
-                builder.appendBitmaskNotNull((BitSet) value);
                 break;
 
             case DATE:
@@ -259,8 +249,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
             case UUID: return tuple.uuidValue(fieldIndex);
             case STRING: return tuple.stringValue(fieldIndex);
             case BYTES: return tuple.bytesValue(fieldIndex);
-            case BITMASK: return tuple.bitmaskValue(fieldIndex);
-            case NUMBER: return tuple.numberValue(fieldIndex);
             case DATE: return tuple.dateValue(fieldIndex);
             case TIME: return tuple.timeValue(fieldIndex);
             case DATETIME: return tuple.dateTimeValue(fieldIndex);

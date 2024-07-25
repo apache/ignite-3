@@ -120,15 +120,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void exactWithApproxComparison() {
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                "Invalid input syntax for type INTEGER",
-                () -> sql("SELECT '1.1' > 2"));
-
-        assertThrowsSqlException(
-                RUNTIME_ERR,
-                "Invalid input syntax for type INTEGER",
-                () -> sql("SELECT '1.1'::INTEGER > 2"));
+        assertQuery("SELECT '1.1' > 2").returns(false).check();
+        assertQuery("SELECT '1.1'::INTEGER > 2").returns(false).check();
 
         assertQuery("SELECT '1.1' > 2.2").returns(false).check();
 
@@ -151,7 +144,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
 
-        String errMsg = typeName == SqlTypeName.BIGINT ? "BIGINT out of range" : "Invalid input syntax for type " + typeName;
+        String errMsg = typeName + " out of range";
 
         assertThrowsSqlException(
                 RUNTIME_ERR,
@@ -240,7 +233,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ('{}' - '1', '0')", strUpper)).returns(checkReturn).check();
         assertQuery("SELECT * FROM tbl WHERE v NOT IN (? - '1', '0')").withParam(checkReturn).returns(checkReturn).check();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22519 Comparison on BIGINT cast brings overflow
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20889
+        //  Sql. Change type derivation for literals and expressions for overflowed BIGINT
         // BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
         // assertQuery(format("SELECT * FROM tbl WHERE v < {}::DECIMAL(19, 0)", moreThanUpperBoundExact)).returns(checkReturn).check();
 
@@ -605,7 +599,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         return Stream.of(
                 // BIGINT
                 arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 + 1", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 AS BIGINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 * 2", EMPTY_PARAM),
                 arguments(SqlTypeName.BIGINT, "SELECT -9223372036854775808 - 1", EMPTY_PARAM),
                 arguments(SqlTypeName.BIGINT, "SELECT -(-9223372036854775807 - 1)", EMPTY_PARAM),
@@ -672,7 +665,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.1 AS BIGINT)", false),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 - 1 AS BIGINT)", false),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775808.1 AS BIGINT)", false),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 AS BIGINT)", false),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808.1 AS BIGINT)", true),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808 AS BIGINT)", true),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST('9223372036854775808' AS BIGINT)", true),

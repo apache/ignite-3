@@ -23,13 +23,11 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -73,11 +71,9 @@ public class BinaryTupleComparatorTest {
                 NativeTypes.FLOAT,
                 NativeTypes.DOUBLE,
                 NativeTypes.BYTES,
-                NativeTypes.bitmaskOf(42),
                 NativeTypes.decimalOf(20, 3),
                 NativeTypes.UUID,
                 NativeTypes.STRING,
-                NativeTypes.numberOf(20),
                 NativeTypes.timestamp(6),
                 NativeTypes.DATE,
                 NativeTypes.datetime(6)
@@ -185,18 +181,6 @@ public class BinaryTupleComparatorTest {
                 break;
             }
 
-            case BITMASK: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendBitmask(BitSet.valueOf(new byte[] { 1, 2, 3 }))
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendBitmask(BitSet.valueOf(new byte[] {-1, -1, -1}))
-                        .build();
-
-                break;
-            }
-
             case DECIMAL: {
                 tuple1 = new BinaryTupleBuilder(1)
                         .appendDecimal(BigDecimal.valueOf(-1), 0)
@@ -237,18 +221,6 @@ public class BinaryTupleComparatorTest {
 
                 tuple2 = new BinaryTupleBuilder(1)
                         .appendString("foobaz")
-                        .build();
-
-                break;
-            }
-
-            case NUMBER: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendNumber(BigInteger.valueOf(-1))
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendNumber(BigInteger.TEN)
                         .build();
 
                 break;

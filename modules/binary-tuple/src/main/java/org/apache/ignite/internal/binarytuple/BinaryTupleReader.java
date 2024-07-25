@@ -246,6 +246,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Deprecated(forRemoval = true)
     public @Nullable BigInteger numberValue(int index) {
         seek(index);
         return begin == end ? null : numberValue(begin, end);
@@ -311,6 +312,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
+    @Deprecated(forRemoval = true)
     public @Nullable BitSet bitmaskValue(int index) {
         seek(index);
         return begin == end ? null : bitmaskValue(begin, end);

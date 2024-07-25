@@ -238,7 +238,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param lowWatermark A time threshold for the entry. Only entries that have revisions with timestamp higher or equal to the
      *     watermark can be removed.
      */
-    // TODO: IGNITE-16444 Correct compaction for Meta storage.
     // TODO: IGNITE-19417 Provide low-watermark for compaction.
     void compact(HybridTimestamp lowWatermark);
 

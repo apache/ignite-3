@@ -32,7 +32,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
@@ -92,7 +91,6 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
             case INT64:
             case FLOAT:
             case DOUBLE:
-            case NUMBER:
             case DATE:
             case UUID:
             case BOOLEAN:
@@ -112,12 +110,6 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
                 precision = 0;
                 scale = 0;
                 length = varlenNativeType.length();
-                break;
-            case BITMASK:
-                BitmaskNativeType bitmaskNativeType = (BitmaskNativeType) nativeType;
-                precision = 0;
-                scale = 0;
-                length = bitmaskNativeType.bits();
                 break;
             case TIME:
             case DATETIME:

@@ -38,7 +38,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
@@ -53,7 +52,7 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
             @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
-            StorageConfiguration storageConfiguration
+            StorageConfiguration storageConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
@@ -62,12 +61,13 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
                 engineConfig,
-                storageConfiguration,
+                storageConfig,
                 ioRegistry,
                 workDir,
                 null,
                 mock(FailureProcessor.class),
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                clock
         );
 
         engine.start();
@@ -89,11 +89,5 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
                 table,
                 engine == null ? null : engine::stop
         );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22616")
-    @Override
-    public void testConcurrentAddAndRemoveEstimatedSize() {
-        super.testConcurrentAddAndRemoveEstimatedSize();
     }
 }

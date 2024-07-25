@@ -48,6 +48,8 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
 
     private static final int LEASE_START_TIME_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
 
+    private static final int ESTIMATED_SIZE_OFF = LEASE_START_TIME_OFF + Long.BYTES;
+
 
     /** I/O versions. */
     public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(new StoragePartitionMetaIo(1));
@@ -75,6 +77,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         setGcQueueMetaPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
         setLeaseStartTime(pageAddr, HybridTimestamp.MIN_VALUE.longValue());
+        setEstimatedSize(pageAddr, 0);
     }
 
     /**
@@ -246,6 +249,27 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         return getLong(pageAddr, LEASE_START_TIME_OFF);
     }
 
+    /**
+     * Sets the estimated size of this partition.
+     *
+     * @param pageAddr Page address.
+     * @param estimatedSize Estimated size.
+     */
+    public void setEstimatedSize(long pageAddr, long estimatedSize) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, ESTIMATED_SIZE_OFF, estimatedSize);
+    }
+
+    /**
+     * Returns the estimated size of this partition.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getEstimatedSize(long pageAddr) {
+        return getLong(pageAddr, ESTIMATED_SIZE_OFF);
+    }
+
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("TablePartitionMeta [").nl()
@@ -258,6 +282,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
                 .app("gcQueueMetaPageId=").appendHex(getGcQueueMetaPageId(addr)).nl()
                 .app("pageCount=").app(getPageCount(addr)).nl()
                 .app("leaseStartTime=").app(getLeaseStartTime(addr)).nl()
+                .app("estimatedSize=").app(getEstimatedSize(addr)).nl()
                 .app(']');
     }
 }

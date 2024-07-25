@@ -45,10 +45,12 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
      * @param partId Partition id.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Global remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
-     * @param reuseList Reuse list.
-     * @param initNew {@code True} if new tree should be created.
+     * @param reuseList Reuse list, {@code null} if absent.
+     * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating it
+     *      for the first time), {@code false} if not necessary (for example, when restoring a tree).
      * @throws IgniteInternalCheckedException If failed.
      */
     public GcQueue(
@@ -63,7 +65,7 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super(
-                "GarbageCollectionTree_" + grpId,
+                "GarbageCollectionTree",
                 grpId,
                 grpName,
                 partId,

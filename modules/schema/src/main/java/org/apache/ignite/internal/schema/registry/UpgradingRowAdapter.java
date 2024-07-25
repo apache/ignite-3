@@ -331,15 +331,7 @@ public class UpgradingRowAdapter implements Row {
     /** {@inheritDoc} */
     @Override
     public BigInteger numberValue(int colIdx) throws InvalidTypeException {
-        int mappedId = mapColumn(colIdx);
-
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : row.schema().column(mappedId);
-
-        if (NativeTypeSpec.NUMBER != column.type().spec()) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
-
-        return mappedId < 0 ? (BigInteger) column.defaultValue() : row.numberValue(mappedId);
+        throw new UnsupportedOperationException("Number is not supported");
     }
 
     /** {@inheritDoc} */
@@ -387,15 +379,7 @@ public class UpgradingRowAdapter implements Row {
     /** {@inheritDoc} */
     @Override
     public BitSet bitmaskValue(int colIdx) throws InvalidTypeException {
-        int mappedId = mapColumn(colIdx);
-
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : row.schema().column(mappedId);
-
-        if (NativeTypeSpec.BITMASK != column.type().spec()) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
-
-        return mappedId < 0 ? (BitSet) column.defaultValue() : row.bitmaskValue(mappedId);
+        throw new UnsupportedOperationException("Bitmask is not supported");
     }
 
     /** {@inheritDoc} */

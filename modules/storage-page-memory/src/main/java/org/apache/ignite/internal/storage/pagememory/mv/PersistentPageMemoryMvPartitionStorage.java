@@ -451,4 +451,19 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             throw new StorageException("Failed to save free list metadata: [{}]", e, createStorageInfo());
         }
     }
+
+    @Override
+    public long estimatedSize() {
+        return meta.estimatedSize();
+    }
+
+    @Override
+    public void incrementEstimatedSize() {
+        updateMeta((lastCheckpointId, meta) -> meta.incrementEstimatedSize(lastCheckpointId));
+    }
+
+    @Override
+    public void decrementEstimatedSize() {
+        updateMeta((lastCheckpointId, meta) -> meta.decrementEstimatedSize(lastCheckpointId));
+    }
 }

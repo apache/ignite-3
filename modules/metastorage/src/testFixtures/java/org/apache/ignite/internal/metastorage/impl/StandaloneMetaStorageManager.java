@@ -151,11 +151,11 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     }
 
     private static ClusterService mockClusterService() {
-        ClusterService clusterService = mock(ClusterService.class);
+        ClusterService clusterService = mock(ClusterService.class, LENIENT_SETTINGS);
 
         when(clusterService.nodeName()).thenReturn(TEST_NODE_NAME);
 
-        TopologyService topologyService = mock(TopologyService.class);
+        TopologyService topologyService = mock(TopologyService.class, LENIENT_SETTINGS);
         when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, mock(NetworkAddress.class)));
 
         when(clusterService.topologyService()).thenReturn(topologyService);

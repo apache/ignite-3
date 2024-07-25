@@ -132,7 +132,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         PutCommand putCommand = context.commandsFactory().putCommand()
                 .key(ByteBuffer.wrap(key.bytes()))
                 .value(ByteBuffer.wrap(value))
-                .initiatorTimeLong(clusterTime.nowLong())
+                .initiatorTime(clusterTime.now())
                 .build();
 
         return context.raftService().run(putCommand);
@@ -148,7 +148,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
         RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(ByteBuffer.wrap(key.bytes()))
-                .initiatorTimeLong(clusterTime.nowLong()).build();
+                .initiatorTime(clusterTime.now()).build();
 
         return context.raftService().run(removeCommand);
     }
@@ -175,7 +175,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .condition(condition)
                 .success(success)
                 .failure(failure)
-                .initiatorTimeLong(clusterTime.nowLong())
+                .initiatorTime(clusterTime.now())
                 .id(commandIdGenerator.newId())
                 .build();
 
@@ -186,7 +186,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<StatementResult> invoke(Iif iif) {
         MultiInvokeCommand multiInvokeCommand = context.commandsFactory().multiInvokeCommand()
                 .iif(iif)
-                .initiatorTimeLong(clusterTime.nowLong())
+                .initiatorTime(clusterTime.now())
                 .id(commandIdGenerator.newId())
                 .build();
 
@@ -248,7 +248,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      */
     public CompletableFuture<Void> syncTime(HybridTimestamp safeTime, long term) {
         SyncTimeCommand syncTimeCommand = context.commandsFactory().syncTimeCommand()
-                .initiatorTimeLong(safeTime.longValue())
+                .initiatorTime(safeTime)
                 .initiatorTerm(term)
                 .build();
 
@@ -312,7 +312,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return commandsFactory.putAllCommand()
                 .keys(keys)
                 .values(values)
-                .initiatorTimeLong(ts.longValue())
+                .initiatorTime(ts)
                 .build();
     }
 
@@ -330,6 +330,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             list.add(ByteBuffer.wrap(key.bytes()));
         }
 
-        return commandsFactory.removeAllCommand().keys(list).initiatorTimeLong(ts.longValue()).build();
+        return commandsFactory.removeAllCommand().keys(list).initiatorTime(ts).build();
     }
 }

@@ -67,8 +67,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -138,7 +142,10 @@ import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -152,12 +159,17 @@ import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Test class to verify {@link ExecutionServiceImplTest}.
  */
 public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
+    /** Tag allows to skip default cluster setup. */
+    private static final String CUSTOM_CLUSTER_SETUP_TAG = "skipDefaultClusterSetup";
+
     /** Timeout in ms for async operations. */
     private static final long TIMEOUT_IN_MS = 2_000;
 
@@ -170,6 +182,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private static final long SHUTDOWN_TIMEOUT = 5_000;
 
     private static final int CATALOG_VERSION = 1;
+
+    private static final FailureProcessor NOOP_FAILURE_PROCESSOR = new FailureProcessor(new NoOpFailureHandler());
 
     private final List<String> nodeNames = List.of("node_1", "node_2", "node_3");
 
@@ -205,14 +219,27 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private ClusterNode firstNode;
 
     @BeforeEach
-    public void init() {
+    public void init(TestInfo info) {
+        if (info.getTags().stream().anyMatch(CUSTOM_CLUSTER_SETUP_TAG::equals)) {
+            return;
+        }
+
+        setupCluster(EmptyCacheFactory.INSTANCE, name -> new QueryTaskExecutorImpl(name, 4, NOOP_FAILURE_PROCESSOR));
+    }
+
+    private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
+        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
+
         testCluster = new TestCluster();
-        executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
+        executionServices = nodeNames.stream()
+                .map(node -> create(node, mappingCacheFactory, executorsFactory.apply(node)))
+                .collect(Collectors.toList());
+
         prepareService = new PrepareServiceImpl(
                 "test",
                 0,
                 CaffeineCacheFactory.INSTANCE,
-                new DdlSqlToCommandConverter(),
+                converter,
                 PLANNING_TIMEOUT,
                 PLANNING_THREAD_COUNT,
                 new MetricManagerImpl(),
@@ -898,39 +925,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         SqlOperationContext planCtx = operationContext(null).build();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
-        int attempts = 10;
-
-        for (int k = 0; k < attempts; k++) {
-            QueryCancel cancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = cancel.setTimeout(scheduler, deadlineMillis);
-
-            SqlOperationContext execCtx = operationContext(null)
-                    .cancel(cancel)
-                    .build();
-
-            AsyncCursor<InternalSqlRow> cursor;
-            try {
-                cursor = execService.executePlan(plan, execCtx);
-            } catch (QueryCancelledException e) {
-                // This might happen when initialization took longer than a time out,
-                // Retry to get a proper error.
-                continue;
-            }
-
-            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
-
-            timeoutFut.join();
-
-            IgniteTestUtils.assertThrowsWithCause(
-                    batchFut::join,
-                    SqlException.class,
-                    "Query timeout"
-            );
-
-            return;
-        }
-
-        fail("Failed to get query timeout error");
+        awaitExecutionTimeout(execService, plan, deadlineMillis, SqlException.class);
     }
 
     @Test
@@ -974,37 +969,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
         tableRegistry.setGetTableDelay(delay);
 
-        int attempts = 10;
-
-        for (int k = 0; k < attempts; k++) {
-            QueryCancel queryCancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
-
-            SqlOperationContext execCtx = operationContext(null)
-                    .cancel(queryCancel)
-                    .build();
-
-            AsyncCursor<InternalSqlRow> cursor;
-            try {
-                cursor = execService.executePlan(plan, execCtx);
-            } catch (QueryCancelledException e) {
-                continue;
-            }
-
-            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
-
-            timeoutFut.join();
-
-            IgniteTestUtils.assertThrowsWithCause(
-                    batchFut::join,
-                    SqlException.class,
-                    "Query timeout"
-            );
-
-            return;
-        }
-
-        fail("Failed to get query timeout error");
+        awaitExecutionTimeout(execService, plan, deadlineMillis, SqlException.class);
     }
 
     @Test
@@ -1023,37 +988,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
         tableRegistry.setGetTableDelay(delay);
 
-        int attempts = 10;
-
-        for (int k = 0; k < attempts; k++) {
-            QueryCancel queryCancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
-
-            SqlOperationContext execCtx = operationContext(null)
-                    .cancel(queryCancel)
-                    .build();
-
-            AsyncCursor<InternalSqlRow> cursor;
-            try {
-                cursor = execService.executePlan(plan, execCtx);
-            } catch (QueryCancelledException e) {
-                continue;
-            }
-
-            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
-
-            timeoutFut.join();
-
-            IgniteTestUtils.assertThrowsWithCause(
-                    batchFut::join,
-                    SqlException.class,
-                    "Query timeout"
-            );
-
-            return;
-        }
-
-        fail("Failed to get query timeout error");
+        awaitExecutionTimeout(execService, plan, 500, SqlException.class);
     }
 
     @Test
@@ -1076,48 +1011,71 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         DdlCommandHandler ddlCommandHandler = execService.ddlCommandHandler();
         when(ddlCommandHandler.handle(any(CatalogCommand.class))).thenReturn(new CompletableFuture<>());
 
-        int attempts = 10;
+        // DDL handler does convert exceptions to SqlException, so we get QueryCancelledException here.
+        awaitExecutionTimeout(execService, plan, 500, QueryCancelledException.class);
+    }
 
-        for (int k = 0; k < attempts; k++) {
-            QueryCancel queryCancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
+    /**
+     * Test ensures that there are no unexpected errors when a timeout occurs during the mapping phase.
+     *
+     * @throws Throwable If failed.
+     */
+    @Test
+    @Tag(CUSTOM_CLUSTER_SETUP_TAG)
+    public void timeoutFiredOnInitialization() throws Throwable {
+        CountDownLatch mappingsCacheAccessBlock = new CountDownLatch(1);
+        AtomicReference<Throwable> exHolder = new AtomicReference<>();
 
-            SqlOperationContext execCtx = operationContext(null)
-                    .cancel(queryCancel)
-                    .build();
+        setupCluster(
+                new BlockingCacheFactory(mappingsCacheAccessBlock),
+                nodeName -> new TestSingleThreadQueryExecutor(nodeName, exHolder)
+        );
 
-            AsyncCursor<InternalSqlRow> cursor;
-            try {
-                cursor = execService.executePlan(plan, execCtx);
-            } catch (QueryCancelledException e) {
-                continue;
-            }
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", operationContext(null).build());
 
-            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
+        QueryCancel queryCancel = new QueryCancel();
+        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 50);
 
-            timeoutFut.join();
+        SqlOperationContext ctx = operationContext(null)
+                .cancel(queryCancel)
+                .build();
 
-            // DDL handler does convert exceptions to SqlException, so we get QueryCancelledException here.
-            IgniteTestUtils.assertThrowsWithCause(
-                    batchFut::join,
-                    QueryCancelledException.class,
-                    "Query timeout"
-            );
+        CompletableFuture<AsyncDataCursor<InternalSqlRow>> execPlanFut =
+                runAsync(() -> executionServices.get(0).executePlan(plan, ctx));
 
-            return;
+        // Wait until timeout is fired and unblock mapping service.
+        assertThat(timeoutFut, willCompleteSuccessfully());
+
+        mappingsCacheAccessBlock.countDown();
+
+        AsyncDataCursor<InternalSqlRow> cursor = await(execPlanFut);
+        //noinspection ThrowableNotThrown
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> await(cursor.requestNextAsync(9)),
+                SqlException.class,
+                "Query timeout"
+        );
+
+        // Wait until all tasks are processed.
+        for (QueryTaskExecutor exec : executers) {
+            TestSingleThreadQueryExecutor executor = (TestSingleThreadQueryExecutor) exec;
+
+            assertTrue(waitForCondition(executor.queue::isEmpty, 5_000));
         }
 
-        fail("Failed to get query timeout error");
+        // Check for errors.
+        Throwable err = exHolder.get();
+        if (err != null) {
+            throw err;
+        }
     }
 
     /** Creates an execution service instance for the node with given consistent id. */
-    public ExecutionServiceImpl<Object[]> create(String nodeName) {
+    public ExecutionServiceImpl<Object[]> create(String nodeName, CacheFactory mappingCacheFactory, QueryTaskExecutor taskExecutor) {
         if (!nodeNames.contains(nodeName)) {
             throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeNames, nodeName));
         }
 
-        var failureProcessor = new FailureProcessor(new NoOpFailureHandler());
-        var taskExecutor = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
         executers.add(taskExecutor);
 
         var node = testCluster.addNode(nodeName, taskExecutor);
@@ -1147,7 +1105,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
 
-        var mappingService = createMappingService(nodeName, clockService, taskExecutor);
+        var mappingService = createMappingService(nodeName, clockService, taskExecutor, mappingCacheFactory);
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
@@ -1181,7 +1139,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private MappingServiceImpl createMappingService(
             String nodeName,
             ClockService clock,
-            QueryTaskExecutorImpl taskExecutor
+            QueryTaskExecutor taskExecutor,
+            CacheFactory cacheFactory
     ) {
         var targetProvider = new ExecutionTargetProvider() {
             @Override
@@ -1205,7 +1164,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         };
 
         PartitionPruner partitionPruner = (mappedFragments, dynamicParameters) -> mappedFragments;
-        return new MappingServiceImpl(nodeName, clock, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
+        return new MappingServiceImpl(nodeName, clock, targetProvider, cacheFactory, 0, partitionPruner, taskExecutor);
     }
 
     private SqlOperationContext createContext() {
@@ -1260,6 +1219,47 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 );
             }
         }
+    }
+
+    private void awaitExecutionTimeout(
+            ExecutionService execService,
+            QueryPlan plan,
+            long deadlineMillis,
+            Class<? extends RuntimeException> errorClass
+    ) {
+        int attempts = 10;
+
+        for (int k = 0; k < attempts; k++) {
+            QueryCancel queryCancel = new QueryCancel();
+            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
+
+            SqlOperationContext execCtx = operationContext(null)
+                    .cancel(queryCancel)
+                    .build();
+
+            AsyncCursor<InternalSqlRow> cursor;
+            try {
+                cursor = execService.executePlan(plan, execCtx);
+            } catch (QueryCancelledException e) {
+                // This might happen when initialization took longer than a time out,
+                // Retry to get a proper error.
+                continue;
+            }
+
+            CompletableFuture<?> batchFut = cursor.requestNextAsync(1);
+
+            timeoutFut.join();
+
+            IgniteTestUtils.assertThrowsWithCause(
+                    batchFut::join,
+                    errorClass,
+                    "Query timeout"
+            );
+
+            return;
+        }
+
+        fail("Failed to get query timeout error");
     }
 
     static class TestCluster {
@@ -1484,6 +1484,102 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         @Override
         public Inbox<?> inbox(UUID qryId, long exchangeId) {
             return delegate.inbox(qryId, exchangeId);
+        }
+    }
+
+    /** A factory that creates a cache that may block when the {@link Cache#compute(Object, BiFunction)} method is called. */
+    private static class BlockingCacheFactory implements CacheFactory {
+        private final CountDownLatch waitLatch;
+
+        BlockingCacheFactory(CountDownLatch waitLatch) {
+            this.waitLatch = waitLatch;
+        }
+
+        @Override
+        public <K, V> Cache<K, V> create(int size) {
+            return new BlockOnComputeCache<>(waitLatch);
+        }
+
+        @Override
+        public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
+            throw new UnsupportedOperationException();
+        }
+
+        private static class BlockOnComputeCache<K, V> extends EmptyCacheFactory.EmptyCache<K, V> {
+            private final CountDownLatch waitLatch;
+
+            BlockOnComputeCache(CountDownLatch waitLatch) {
+                this.waitLatch = waitLatch;
+            }
+
+            @Override
+            public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+                try {
+                    waitLatch.await();
+
+                    return super.compute(key, remappingFunction);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    /** Query tasks executor with a single thread and the ability to monitor the task queue. */
+    private static class TestSingleThreadQueryExecutor implements QueryTaskExecutor {
+        private final LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
+        private final AtomicInteger threadCounter = new AtomicInteger();
+        private final AtomicReference<Throwable> errHolder;
+        private final ThreadPoolExecutor executor;
+
+        TestSingleThreadQueryExecutor(String nodeName, AtomicReference<Throwable> errHolder) {
+            executor = new ThreadPoolExecutor(
+                    1,
+                    1,
+                    0,
+                    TimeUnit.MILLISECONDS,
+                    queue, task -> new Thread(task, nodeName + "#thread-" + threadCounter.getAndIncrement())
+            );
+            executor.allowCoreThreadTimeOut(false);
+
+            this.errHolder = errHolder;
+        }
+
+        @Override
+        public void execute(Runnable command) {
+            executor.execute(wrapTask(command));
+        }
+
+        @Override
+        public void execute(UUID qryId, long fragmentId, Runnable qryTask) {
+            executor.execute(wrapTask(qryTask));
+        }
+
+        @Override
+        public CompletableFuture<?> submit(UUID qryId, long fragmentId, Runnable qryTask) {
+            return CompletableFuture.runAsync(wrapTask(qryTask), executor);
+        }
+
+        @Override
+        public void start() {
+            // No-op.
+        }
+
+        @Override
+        public void stop() {
+            executor.shutdownNow();
+        }
+
+        private Runnable wrapTask(Runnable task) {
+            return () -> {
+                try {
+                    task.run();
+                } catch (Throwable t) {
+                    if (!errHolder.compareAndSet(null, t)) {
+                        errHolder.get().addSuppressed(t);
+                    }
+                }
+            };
         }
     }
 }

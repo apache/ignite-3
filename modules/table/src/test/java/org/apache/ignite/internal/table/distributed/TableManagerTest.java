@@ -104,6 +104,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -121,6 +122,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
@@ -191,6 +193,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock
     private ReplicaManager replicaMgr;
 
+    /** Raft log syncer. */
+    @Mock
+    private LogSyncer logSyncer;
+
     /** TX manager. */
     @Mock
     private TxManager tm;
@@ -258,6 +264,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private IndexMetaStorage indexMetaStorage;
 
+    /** Partition replica lifecycle manager. */
+    @Mock
+    private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+
     @BeforeEach
     void before() throws NodeStoppingException {
         lowWatermark = new TestLowWatermark();
@@ -285,7 +295,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(trueCompletedFuture());
+                .thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
         when(replicaMgr.weakStartReplica(any(), any(), any())).thenAnswer(inv -> {
             Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
@@ -826,7 +836,9 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
                 mock(TransactionInflights.class),
-                indexMetaStorage
+                indexMetaStorage,
+                logSyncer,
+                partitionReplicaLifecycleManager
         ) {
 
             @Override
@@ -850,6 +862,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 return txStateTableStorage;
             }
         };
+
+        tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
 
         assertThat(startAsync(new ComponentContext(), sm, tableManager), willCompleteSuccessfully());
 
@@ -875,7 +889,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                         storagePath,
                         null,
                         mock(FailureProcessor.class),
-                        mock(LogSyncer.class)
+                        mock(LogSyncer.class),
+                        clock
                 ),
                 storageConfiguration
         );

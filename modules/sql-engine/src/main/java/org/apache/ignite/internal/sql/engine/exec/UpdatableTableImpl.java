@@ -149,13 +149,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             ReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(serializeTablePartitionId(partGroupId))
+                    .tableId(tableId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestTypeInt(RW_UPSERT_ALL.ordinal())
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
                     .build();
@@ -254,13 +255,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             ReadWriteMultiRowReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(serializeTablePartitionId(partGroupId))
+                    .tableId(tableId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestTypeInt(RW_INSERT_ALL.ordinal())
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
                     .build();
@@ -323,13 +325,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             ReplicaRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(serializeTablePartitionId(partGroupId))
+                    .tableId(tableId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestTypeInt(RW_DELETE_ALL.ordinal())
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
                     .build();

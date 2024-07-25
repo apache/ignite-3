@@ -215,6 +215,7 @@
       <Field name="PARTITION_CONF_PREFIX"/>
       <Field name="INDEX_ROW_ID_PREFIX"/>
       <Field name="LEASE_PREFIX"/>
+      <Field name="ESTIMATED_SIZE_PREFIX"/>
     </Or>
   </Match>
   <Match>

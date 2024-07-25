@@ -471,7 +471,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 receiver.units(),
                 receiver.receiverClassName(),
                 receiverArg,
-                receiver.argumentsMarshaler()
+                receiver.argumentMarshaller()
         );
     }
 

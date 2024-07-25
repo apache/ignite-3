@@ -28,14 +28,15 @@ import org.rocksdb.WriteBatchWithIndex;
  */
 class ThreadLocalState {
     /** Write batch instance that will be written at the end of {@link RocksDbMvPartitionStorage#runConsistently(WriteClosure)}. */
-    public final WriteBatchWithIndex batch;
+    final WriteBatchWithIndex batch;
 
     /** Locker instance, used in {@link WriteClosure#execute(Locker)}. */
-    public final LocalLocker locker;
+    final LocalLocker locker;
 
-    public long pendingAppliedIndex;
-    public long pendingAppliedTerm;
-    public byte @Nullable [] pendingGroupConfig;
+    long pendingAppliedIndex;
+    long pendingAppliedTerm;
+    byte @Nullable [] pendingGroupConfig;
+    long pendingEstimatedSizeDiff;
 
     ThreadLocalState(WriteBatchWithIndex batch, LocalLocker locker) {
         this.batch = batch;

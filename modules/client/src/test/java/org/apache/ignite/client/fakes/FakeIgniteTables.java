@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
@@ -68,6 +70,12 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     private final ConcurrentHashMap<Integer, TableViewInternal> tablesById = new ConcurrentHashMap<>();
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
+
+    private final IgniteCompute compute;
+
+    FakeIgniteTables(IgniteCompute compute) {
+        this.compute = compute;
+    }
 
     /**
      * Creates a table.
@@ -170,6 +178,10 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         return table(tableId);
     }
 
+    @Override
+    public void setStreamerReceiverRunner(StreamerReceiverRunner runner) {
+    }
+
     private TableViewInternal getNewTable(String name, int id) {
         Function<Integer, SchemaDescriptor> history;
 
@@ -208,7 +220,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         };
 
         return new TableImpl(
-                new FakeInternalTable(name, id, keyExtractor),
+                new FakeInternalTable(name, id, keyExtractor, compute),
                 schemaReg,
                 new HeapLockManager(),
                 new SchemaVersions() {
@@ -281,9 +293,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         new Column("zstring".toUpperCase(), NativeTypes.STRING, true),
                         new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
                         new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),
-                        new Column("zbitmask".toUpperCase(), NativeTypes.bitmaskOf(16), true),
                         new Column("zdecimal".toUpperCase(), NativeTypes.decimalOf(20, 10), true),
-                        new Column("znumber".toUpperCase(), NativeTypes.numberOf(24), true),
                 });
     }
 

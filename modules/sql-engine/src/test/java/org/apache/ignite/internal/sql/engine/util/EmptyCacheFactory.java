@@ -50,7 +50,8 @@ public class EmptyCacheFactory implements CacheFactory {
         return create(size);
     }
 
-    private static class EmptyCache<K, V> implements Cache<K, V> {
+    /** A cache that keeps no object. */
+    public static class EmptyCache<K, V> implements Cache<K, V> {
         @Override
         public @Nullable V get(K key) {
             return null;
