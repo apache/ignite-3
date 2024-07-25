@@ -64,7 +64,9 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
 
         allPairs.forEach(remainingPairs::remove);
 
-        EnumSet.allOf(NumericPair.class).forEach(allPairs::remove);
+        for (NumericPair numericPair : NumericPair.values()) {
+            allPairs.remove(numericPair);
+        }
 
         assertThat("There are missing pairs", remainingPairs, Matchers.empty());
         assertThat("There are duplicate pairs. Remove them", allPairs, Matchers.empty());
