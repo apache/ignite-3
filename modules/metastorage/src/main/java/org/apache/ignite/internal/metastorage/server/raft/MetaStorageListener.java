@@ -191,13 +191,4 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     @Override
     public void onShutdown() {
     }
-
-    /**
-     * Removes obsolete entries from both volatile and persistent idempotent command cache.
-     */
-    @Deprecated(forRemoval = true)
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
-    public void evictIdempotentCommandsCache() {
-        writeHandler.evictIdempotentCommandsCache();
-    }
 }

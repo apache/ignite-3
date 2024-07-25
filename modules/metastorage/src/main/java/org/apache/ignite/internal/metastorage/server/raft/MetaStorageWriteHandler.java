@@ -39,6 +39,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
@@ -216,6 +217,10 @@ public class MetaStorageWriteHandler {
             storage.advanceSafeTime(command.safeTime());
 
             clo.result(null);
+        } else if (command instanceof EvictIdempotentCommandsCacheCommand) {
+            evictIdempotentCommandsCache(opTime);
+
+            clo.result(null);
         }
     }
 
@@ -377,9 +382,7 @@ public class MetaStorageWriteHandler {
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Call on meta storage compaction.
-    void evictIdempotentCommandsCache() {
-        HybridTimestamp cleanupTimestamp = clusterTime.now();
+    void evictIdempotentCommandsCache(HybridTimestamp cleanupTimestamp) {
         LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}].", cleanupTimestamp);
 
         maxClockSkewMillisFuture.thenAccept(maxClockSkewMillis -> {
@@ -394,7 +397,7 @@ public class MetaStorageWriteHandler {
                         .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
                         .collect(toList());
 
-                storage.removeAll(commandIdStorageKeys, null);
+                storage.removeAll(commandIdStorageKeys, cleanupTimestamp);
 
                 commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
             }

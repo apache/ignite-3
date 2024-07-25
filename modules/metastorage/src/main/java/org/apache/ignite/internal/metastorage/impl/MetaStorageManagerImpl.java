@@ -914,14 +914,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
      */
-    @Deprecated(forRemoval = true)
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
-    public void evictIdempotentCommandsCache() {
-        if (followerListener != null) {
-            followerListener.evictIdempotentCommandsCache();
+    public CompletableFuture<Void> evictIdempotentCommandsCache() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
         }
-        if (learnerListener != null) {
-            learnerListener.evictIdempotentCommandsCache();
+
+        try {
+            return metaStorageSvcFut.thenCompose(svc -> svc.evictIdempotentCommandsCache());
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 }
