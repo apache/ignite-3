@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.eq;
 
 public class ChangePeersRequestProcessorTest extends AbstractCliRequestProcessorTest<ChangePeersRequest> {
     private static final long CURRENT_TERM = 1L;
+
     @Override
     public ChangePeersRequest createRequest(String groupId, PeerId peerId) {
         return msgFactory.changePeersRequest()
