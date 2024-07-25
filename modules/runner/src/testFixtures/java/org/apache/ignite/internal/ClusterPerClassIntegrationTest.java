@@ -103,7 +103,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     protected void beforeAll(TestInfo testInfo) {
         CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
-        if (initialNodes() > 0) {
+        if (initialNodes() > 0 && needInitializeCluster()) {
             CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
         }
     }
@@ -119,6 +119,10 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     protected int[] cmgMetastoreNodes() {
         return new int[] { 0 };
+    }
+
+    protected boolean needInitializeCluster() {
+        return true;
     }
 
     /**
