@@ -760,14 +760,36 @@ namespace Apache.Ignite.Tests.Compute
             var taskExec = await Client.Compute.SubmitMapReduceAsync(task, null);
             var ex = Assert.ThrowsAsync<IgniteException>(async () => await taskExec.GetResultAsync());
 
-            var state = await taskExec.GetStateAsync();
+            var taskState = await taskExec.GetStateAsync();
             var jobStates = await taskExec.GetJobStatesAsync();
 
+            // Result - exception.
             Assert.AreEqual("Custom job error", ex.Message);
             StringAssert.Contains("ItThinClientComputeTest$CustomException", ex.InnerException!.Message);
             Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
 
-            // TODO: Check state.
+            // Failed task state.
+            Assert.IsNotNull(taskState);
+            Assert.IsNotNull(taskState.FinishTime);
+            Assert.AreEqual(TaskStatus.Failed, taskState.Status);
+
+            if (splitOrReduce)
+            {
+                // Exception in split: no jobs were created.
+                Assert.AreEqual(0, taskExec.JobIds.Count);
+                Assert.AreEqual(0, jobStates.Count);
+            }
+            else
+            {
+                // Exception in reduce: all jobs succeeded.
+                Assert.That(taskExec.JobIds.Count, Is.GreaterThan(1));
+
+                foreach (var jobState in jobStates)
+                {
+                    Assert.IsNotNull(jobState);
+                    Assert.AreEqual(JobStatus.Completed, jobState!.Status);
+                }
+            }
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
