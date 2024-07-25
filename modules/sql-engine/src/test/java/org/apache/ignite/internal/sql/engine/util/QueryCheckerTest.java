@@ -70,7 +70,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                     .addColumn("VAL", NativeTypes.INT32)
                     .end()
             .dataProvider(NODE_NAME, "T1", TestBuilders.tableScan(DataProvider.fromCollection(List.of(
-                    new Object[] {1, 1}, new Object[] {2, 2}
+                    new Object[] {1, 1, 1}, new Object[] {2, 2, 1}
             ))))
             .build();
     // @formatter:on
