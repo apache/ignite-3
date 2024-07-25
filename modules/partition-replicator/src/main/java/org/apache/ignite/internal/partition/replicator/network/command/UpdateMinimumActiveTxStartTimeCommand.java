@@ -24,7 +24,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
  * Command to store the minimum starting time among all active RW transactions
- * into transient state of each raft group.
+ * into transient state of each replication group.
  */
 @Transferable(UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND)
 public interface UpdateMinimumActiveTxStartTimeCommand extends WriteCommand {

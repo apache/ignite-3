@@ -292,9 +292,16 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         return catalogCompactionFut.thenApply(ignore -> null);
                     }
 
+                    CompletableFuture<Void> propagateToReplicasFut = propagateTimeToReplicas(minActiveTxStartTime)
+                            .whenComplete((res, ex) -> {
+                                if (ex != null) {
+                                    LOG.warn("Failed to propagate minimum active tx start time to replicas", ex);
+                                }
+                            });
+
                     return CompletableFuture.allOf(
                             catalogCompactionFut,
-                            propagateTimeToReplicas(minActiveTxStartTime)
+                            propagateToReplicasFut
                     );
                 }, executor);
     }
