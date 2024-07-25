@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.catalog.compaction;
 
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
@@ -59,7 +57,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
@@ -67,36 +64,29 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesResponse;
-import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.ClockWaiter;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for class {@link CatalogCompactionRunner}.
  */
-public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
+public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTest {
     private static final LogicalNode NODE1 = new LogicalNode("1", "node1", new NetworkAddress("localhost", 123));
 
     private static final LogicalNode NODE2 = new LogicalNode("2", "node2", new NetworkAddress("localhost", 123));
@@ -109,20 +99,11 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
     private final AtomicReference<ClusterNode> coordinatorNodeHolder = new AtomicReference<>();
 
-    private CatalogManagerImpl catalogManager;
-
     private LogicalTopologyService logicalTopologyService;
 
     private MessagingService messagingService;
 
     private PlacementDriver placementDriver;
-
-    @BeforeEach
-    void setup() {
-        HybridClock clock = new HybridClockImpl();
-
-        catalogManager = createCatalogManager(clock);
-    }
 
     @Test
     public void routineSucceedOnCoordinator() throws InterruptedException {
@@ -201,17 +182,16 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void mustNotPerformWhenAssignmentNodeIsMissing() throws InterruptedException {
-        CreateTableCommandBuilder tabBuilder = CreateTableCommand.builder()
-                .tableName("test")
+        CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
                 .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
                 .colocationColumns(List.of("key2"));
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(tabBuilder.tableName("test1").build()), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(tabBuilder.tableName("test2").build()), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(tabBuilder.tableName("test3").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tableCmdBuilder.tableName("test1").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tableCmdBuilder.tableName("test2").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tableCmdBuilder.tableName("test3").build()), willCompleteSuccessfully());
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clockService.nowLong()));
@@ -323,7 +303,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void compactionAbortedIfAssignmentsNotAvailableForTable() {
-        CreateTableCommandBuilder tabBuilder = CreateTableCommand.builder()
+        CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
                 .tableName("test")
                 .schemaName("PUBLIC")
                 .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
@@ -331,7 +311,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 .colocationColumns(List.of("key2"));
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(tabBuilder.tableName("test1").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tableCmdBuilder.build()), willCompleteSuccessfully());
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clockService.nowLong()));
@@ -424,19 +404,5 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         runner.updateCoordinator(coordinator);
 
         return runner;
-    }
-
-    private static CatalogManagerImpl createCatalogManager(HybridClock clock) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE1.name()));
-        ClockWaiter clockWaiter = new ClockWaiter(NODE1.name(), clock);
-        TestClockService clockService = new TestClockService(clock, clockWaiter);
-
-        CatalogManagerImpl manager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService);
-
-        assertThat(startAsync(new ComponentContext(), metastore, clockWaiter, manager), willCompleteSuccessfully());
-        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
-        awaitDefaultZoneCreation(manager);
-
-        return manager;
     }
 }

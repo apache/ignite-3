@@ -130,9 +130,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     /**
      * Timestamp with minimal starting time among all pending RW transactions in the cluster.
-     * This timestamp is used and updated only when catalog compaction is triggered.
+     * This timestamp is used to prevent the catalog from being removed, which may be used when applying raft commands.
      */
-    private volatile long minimalActiveTxTime = -1;
+    private volatile long minimalActiveTxTime = 0;
 
     /** Constructor. */
     public PartitionListener(
@@ -590,7 +590,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     public @Nullable Long minimalActiveTxTime() {
         long ts = minimalActiveTxTime;
 
-        return ts == -1 ? null : ts;
+        return ts == 0 ? null : ts;
     }
 
     /**

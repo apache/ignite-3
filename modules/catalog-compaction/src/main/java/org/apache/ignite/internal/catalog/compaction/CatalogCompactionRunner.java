@@ -95,7 +95,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private static final long ANSWER_TIMEOUT = 5_000;
 
-    private final CatalogManagerHelper catalogManagerHelper;
+    private final CatalogManagerCompactionHelper catalogManagerHelper;
 
     private final MessagingService messagingService;
 
@@ -164,7 +164,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.localNodeName = localNodeName;
         this.messagingService = messagingService;
         this.logicalTopologyService = logicalTopologyService;
-        this.catalogManagerHelper = new CatalogManagerHelper(catalogManager, clockService);
+        this.catalogManagerHelper = new CatalogManagerCompactionHelper(catalogManager);
         this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
@@ -260,10 +260,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
             return CompletableFutures.nullCompletedFuture();
         }
 
-        return obtainMinimalTimesFromRemotes(topologySnapshot.nodes(), localMinimum)
-                .thenComposeAsync(timesHolder -> {
-                    long minRequiredTime = timesHolder.minRequiredTime;
-                    HybridTimestamp minActiveTxTime = timesHolder.minActiveTxTime;
+        return determineGlobalMinimalRequiredTime(topologySnapshot.nodes(), localMinimum)
+                .thenComposeAsync(timeHolder -> {
+                    long minRequiredTime = timeHolder.minRequiredTime;
+                    HybridTimestamp minActiveTxTime = timeHolder.minActiveTxTime;
                     Catalog catalog = catalogManagerHelper.catalogByTsNullable(minRequiredTime);
 
                     CompletableFuture<Boolean> catalogCompactionFut;
@@ -299,7 +299,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 }, executor);
     }
 
-    private CompletableFuture<TimesHolder> obtainMinimalTimesFromRemotes(
+    CompletableFuture<TimeHolder> determineGlobalMinimalRequiredTime(
             Collection<? extends ClusterNode> nodes,
             long localMinimum
     ) {
@@ -338,7 +338,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         }
                     }
 
-                    return new TimesHolder(minRequiredTime, globalMinActiveTxTime);
+                    return new TimeHolder(minRequiredTime, globalMinActiveTxTime);
                 });
     }
 
@@ -410,7 +410,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     CompletableFuture<Void> propagateMinimalRequiredTimeToReplicas(HybridTimestamp minimalRequiredTime) {
-        Map<Integer, Integer> tablesWithPartitions = catalogManagerHelper.findAllTablesSince(minimalRequiredTime.longValue());
+        Map<Integer, Integer> tablesWithPartitions = catalogManagerHelper.collectTablesWithPartitionsBetween(
+                minimalRequiredTime.longValue(),
+                clockService.nowLong()
+        );
 
         return invokeOnReplicas(
                 tablesWithPartitions.entrySet().iterator(),
@@ -489,11 +492,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
         long time();
     }
 
-    private static class TimesHolder {
+    static class TimeHolder {
         final long minRequiredTime;
-        final HybridTimestamp minActiveTxTime;
+        final @Nullable HybridTimestamp minActiveTxTime;
 
-        private TimesHolder(long minRequiredTime, @Nullable HybridTimestamp minActiveTxTime) {
+        private TimeHolder(long minRequiredTime, @Nullable HybridTimestamp minActiveTxTime) {
             this.minRequiredTime = minRequiredTime;
             this.minActiveTxTime = minActiveTxTime;
         }

@@ -17,34 +17,30 @@
 
 package org.apache.ignite.internal.catalog.compaction;
 
-import java.util.HashMap;
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.hlc.ClockService;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class contains utility methods for interacting with the catalog manager.
  * These methods are only needed for catalog compaction routine.
  */
-class CatalogManagerHelper {
+class CatalogManagerCompactionHelper {
     private final CatalogManagerImpl catalogManager;
 
-    private final ClockService clockService;
-
-    CatalogManagerHelper(CatalogManagerImpl catalogManager, ClockService clockService) {
+    CatalogManagerCompactionHelper(CatalogManagerImpl catalogManager) {
         this.catalogManager = catalogManager;
-        this.clockService = clockService;
     }
 
-    Map<Integer, Integer> findAllTablesSince(long beginTs) {
-        Map<Integer, Integer> tablesWithPartitions = new HashMap<>();
-        int curVer = catalogManager.activeCatalogVersion(beginTs);
-        int lastVer = catalogManager.activeCatalogVersion(clockService.nowLong());
+    Int2IntMap collectTablesWithPartitionsBetween(long minTsInclusive, long maxTsInclusive) {
+        Int2IntMap tablesWithPartitions = new Int2IntOpenHashMap();
+        int curVer = catalogManager.activeCatalogVersion(minTsInclusive);
+        int lastVer = catalogManager.activeCatalogVersion(maxTsInclusive);
 
         do {
             Catalog catalog = catalogManager.catalog(curVer);
