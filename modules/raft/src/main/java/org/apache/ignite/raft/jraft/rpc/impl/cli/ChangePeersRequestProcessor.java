@@ -52,7 +52,6 @@ public class ChangePeersRequestProcessor extends BaseCliRequestProcessor<ChangeP
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ChangePeersRequest request,
         final IgniteCliRpcRequestClosure done) {
-        // TODO sanpwc consider code deduplication with matching ChangePeersAsyncRequestProcessor
         final List<PeerId> oldPeers = ctx.node.listPeers();
         final List<PeerId> oldLearners = ctx.node.listLearners();
 

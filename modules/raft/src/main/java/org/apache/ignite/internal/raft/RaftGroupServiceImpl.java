@@ -333,7 +333,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
 
         return this.<ChangePeersResponse>sendWithRetry(leader, requestFactory)
-                .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
+                .thenAccept(resp -> {
+                    this.peers = parsePeerList(resp.newPeersList());
+                    this.learners = parsePeerList(resp.newLearnersList());
+                });
     }
 
     @Override

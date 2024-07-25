@@ -145,6 +145,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItNodeTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger log = Loggers.forClass(ItNodeTest.class);
 
+    private static final long MISMATCHED_TERM = 10_000;
+
     private static DumpThread dumpThread;
 
     private static class DumpThread extends Thread {
@@ -3213,6 +3215,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         peer = peers.get(2);
         assertTrue(cluster.start(peer));
         done.reset();
+
+        for (NodeImpl node: cluster.getNodes())
+            assertEquals(node.getConf().getConf().getPeers().size(), 1);
+
         // works
         leader.changePeers(conf, leader.getCurrentTerm(), done);
         Status await = done.await();
@@ -3220,8 +3226,28 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         cluster.ensureSame();
         assertEquals(3, cluster.getFsms().size());
+
         for (MockStateMachine fsm : cluster.getFsms())
             assertEquals(10, fsm.getLogs().size());
+
+        for (NodeImpl node: cluster.getNodes())
+            assertEquals(node.getConf().getConf().getPeers().size(), 3);
+
+        // another attempt to change peers with unmatched term
+        Configuration conf2 = new Configuration(List.of(peer0.getPeerId()));
+        leader.changePeers(conf2, MISMATCHED_TERM, done);
+        Status await2 = done.await();
+        assertTrue(await2.isOk(), await.getErrorMsg());
+
+        cluster.ensureSame();
+        assertEquals(3, cluster.getFsms().size());
+
+        for (MockStateMachine fsm : cluster.getFsms())
+            assertEquals(10, fsm.getLogs().size());
+
+        // Verify that configuration wasn't applied because of mismatched term.
+        for (NodeImpl node: cluster.getNodes())
+            assertEquals(node.getConf().getConf().getPeers().size(), 3);
     }
 
     @Test
