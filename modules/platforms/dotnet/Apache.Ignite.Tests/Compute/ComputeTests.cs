@@ -812,11 +812,14 @@ namespace Apache.Ignite.Tests.Compute
         {
             var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
 
+            var state1 = await taskExec.GetStateAsync();
+            Assert.AreEqual(TaskStatus.Executing, state1!.Status);
+
             var cancelRes = await taskExec.CancelAsync();
-            var state = await taskExec.GetStateAsync();
+            var state2 = await taskExec.GetStateAsync();
 
             Assert.IsTrue(cancelRes);
-            Assert.AreEqual(TaskStatus.Failed, state!.Status);
+            Assert.AreEqual(TaskStatus.Failed, state2!.Status);
 
             var ex = Assert.ThrowsAsync<ComputeException>(async () => await taskExec.GetResultAsync());
             StringAssert.Contains("CancellationException", ex.Message);
@@ -825,8 +828,13 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestChangeTaskPriority()
         {
-            await Task.Delay(1);
-            Assert.Fail();
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
+
+            var state = await taskExec.GetStateAsync();
+            Assert.AreEqual(TaskStatus.Executing, state!.Status);
+
+            var changePriorityRes = await taskExec.ChangePriorityAsync(1000);
+            Assert.IsFalse(changePriorityRes);
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
