@@ -93,11 +93,13 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             ensureTimestampStoredInAllReplicas(expectedTime, 2);
         }
 
-        // Latest active catalog contains all required tables.
+        // Latest active catalog does not contain all required tables.
+        // Replicas of dropped tables must also be updated.
         long requiredTime = CLUSTER.aliveNode().clockService().nowLong();
+
         {
-            sql("drop table a");;
-            sql("drop table b");;
+            sql("drop table a");
+            sql("drop table b");
 
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime);
 
@@ -170,7 +172,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         readonlyTx.rollback();
     }
 
-    private void ensureTimestampStoredInAllReplicas(HybridTimestamp expTime, int expTablesCount) throws InterruptedException {
+    private static void ensureTimestampStoredInAllReplicas(HybridTimestamp expTime, int expTablesCount) throws InterruptedException {
         Int2IntMap tablesWithPartitions = catalogManagerHelper().collectTablesWithPartitionsBetween(
                 expTime.longValue(),
                 CLUSTER.aliveNode().clockService().nowLong()
