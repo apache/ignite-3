@@ -3371,7 +3371,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void changePeers(final Configuration newPeersAndLearners, long term, final Closure done) {
+    public void changePeersAndLearners(final Configuration newPeersAndLearners, long term, final Closure done) {
         Requires.requireNonNull(newPeersAndLearners, "Null new configuration");
         Requires.requireTrue(!newPeersAndLearners.isEmpty(), "Empty new configuration");
         this.writeLock.lock();
@@ -3396,7 +3396,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void changePeersAsync(final Configuration newConf, long term, Closure done) {
+    public void changePeersAndLearnersAsync(final Configuration newConf, long term, Closure done) {
         Requires.requireNonNull(newConf, "Null new configuration");
         Requires.requireTrue(!newConf.isEmpty(), "Empty new configuration");
         this.writeLock.lock();

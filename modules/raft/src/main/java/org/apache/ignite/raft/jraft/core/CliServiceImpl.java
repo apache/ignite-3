@@ -42,8 +42,8 @@ import org.apache.ignite.raft.jraft.rpc.CliClientService;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersRequest;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersRequest;
@@ -202,9 +202,9 @@ public class CliServiceImpl implements CliService {
         }
     }
 
-    // TODO refactor addPeer/removePeer/changePeers/transferLeader, remove duplicated code IGNITE-14832
+    // TODO refactor addPeer/removePeer/changePeersAndLearners/transferLeader, remove duplicated code IGNITE-14832
     @Override
-    public Status changePeers(
+    public Status changePeersAndLearners(
             final String groupId,
             final Configuration conf,
             final Configuration newPeersAndLearners,
@@ -220,8 +220,8 @@ public class CliServiceImpl implements CliService {
             return st;
         }
 
-        ChangePeersRequest req = cliOptions.getRaftMessagesFactory()
-            .changePeersRequest()
+        ChangePeersAndLearnersRequest req = cliOptions.getRaftMessagesFactory()
+            .changePeersAndLearnersRequest()
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .newPeersList(newPeersAndLearners.getPeers().stream().map(Object::toString).collect(toList()))
@@ -230,9 +230,9 @@ public class CliServiceImpl implements CliService {
             .build();
 
         try {
-            final Message result = this.cliClientService.changePeers(leaderId, req, null).get();
-            if (result instanceof ChangePeersResponse) {
-                final ChangePeersResponse resp = (ChangePeersResponse) result;
+            final Message result = this.cliClientService.changePeersAndLearners(leaderId, req, null).get();
+            if (result instanceof ChangePeersAndLearnersResponse) {
+                final ChangePeersAndLearnersResponse resp = (ChangePeersAndLearnersResponse) result;
                 recordConfigurationChange(groupId, resp.oldPeersList(), resp.newPeersList());
                 return Status.OK();
             }

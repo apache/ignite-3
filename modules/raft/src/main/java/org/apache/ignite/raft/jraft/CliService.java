@@ -48,15 +48,15 @@ public interface CliService extends Lifecycle<CliOptions> {
     Status removePeer(final String groupId, final Configuration conf, final PeerId peer);
 
     /**
-     * Gracefully change the peers of the replication group.
+     * Gracefully change the peers and learners of the replication group.
      *
      * @param groupId the raft group id
      * @param conf current configuration
      * @param newPeersAndLearners new peers and learners to change
-     * @param term term on which this method was called. If real raft group term will be different - changePeers will be skipped.
+     * @param term term on which this method was called. If real raft group term will be different - configuration update will be skipped.
      * @return operation status
      */
-    Status changePeers(
+    Status changePeersAndLearners(
             final String groupId,
             final Configuration conf,
             final Configuration newPeersAndLearners,

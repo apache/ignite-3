@@ -102,7 +102,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         assertFalse(containsPartition(cluster.node(2)));
 
         // By this we guarantee, that there will no any partition data nodes, which will be available to perform the rebalance.
-        // To run the actual changePeersAsync we need the partition leader, which catch the metastore event about new pending keys.
+        // To run the actual changePeersAndLearnersAsync we need the partition leader, which catch the metastore event about new pending keys.
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(1)).startInhibit();
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(2)).startInhibit();
 
@@ -147,7 +147,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         assertFalse(containsPartition(cluster.node(2)));
 
         // By this we guarantee, that there will no any partition data nodes, which will be available to perform the rebalance.
-        // To run the actual changePeersAsync we need the partition leader, which catch the metastore event about new pending keys.
+        // To run the actual changePeersAndLearnersAsync we need the partition leader, which catch the metastore event about new pending keys.
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(1)).startInhibit();
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(2)).startInhibit();
 
