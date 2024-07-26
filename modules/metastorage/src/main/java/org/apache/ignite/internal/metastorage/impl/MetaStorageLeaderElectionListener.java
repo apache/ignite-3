@@ -79,6 +79,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private final List<ElectionListener> electionListeners;
 
+    private final IdempotentCacheVacuumizer idempotentCacheVacuumizer;
+
     /**
      * Leader term if this node is a leader, {@code null} otherwise.
      *
@@ -94,7 +96,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
             ClusterTimeImpl clusterTime,
             CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture,
-            List<ElectionListener> electionListeners
+            List<ElectionListener> electionListeners,
+            IdempotentCacheVacuumizer idempotentCacheVacuumizer
     ) {
         this.busyLock = busyLock;
         this.nodeName = clusterService.nodeName();
@@ -103,6 +106,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         this.clusterTime = clusterTime;
         this.metaStorageConfigurationFuture = metaStorageConfigurationFuture;
         this.electionListeners = electionListeners;
+        this.idempotentCacheVacuumizer = idempotentCacheVacuumizer;
     }
 
     @Override
@@ -118,11 +122,14 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 logicalTopologyService.addEventListener(logicalTopologyEventListener);
 
                 metaStorageSvcFut
-                        .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) ->
+                        .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
                                 clusterTime.startSafeTimeScheduler(
                                         safeTime -> service.syncTime(safeTime, term),
                                         metaStorageConfiguration
-                                ))
+                                );
+
+                                idempotentCacheVacuumizer.startLocalVacuumizationTriggering();
+                        })
                         .whenComplete((v, e) -> {
                             if (e != null) {
                                 LOG.error("Unable to start Idle Safe Time scheduler", e);
@@ -139,6 +146,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 logicalTopologyService.removeEventListener(logicalTopologyEventListener);
 
                 clusterTime.stopSafeTimeScheduler();
+
+                idempotentCacheVacuumizer.stopLocalVacuumizationTriggering();
 
                 serializationFuture.cancel(false);
 
