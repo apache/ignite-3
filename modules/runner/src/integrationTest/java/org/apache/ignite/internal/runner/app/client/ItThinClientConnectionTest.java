@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests thin client connecting to a real server node.
  */
+@SuppressWarnings("resource")
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     /**
@@ -95,5 +97,17 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     @Test
     void clusterName() {
         assertThat(((TcpIgniteClient) client()).clusterName(), is("cluster"));
+    }
+
+    @Test
+    void testHeartbeatInternalApi() {
+        var client = (TcpIgniteClient) client();
+
+        List<ClientChannel> channels = client.channel().channels();
+
+        for (var channel : channels) {
+            channel.heartbeatAsync(null).join();
+            channel.heartbeatAsync(w -> w.out().packString("foo-bar")).join();
+        }
     }
 }
