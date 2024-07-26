@@ -730,6 +730,17 @@ public final class Commons {
     }
 
     /**
+     * Control possibility to make simple key value plan optimizations.
+     *
+     * <p>Note: this mode is for test purpose only.
+     *
+     * @return A {@code true} if plan optimization is enabled, {@code false} otherwise.
+     */
+    public static boolean simpleKeyValueOptimization() {
+        return IgniteSystemProperties.getBoolean("SIMPLE_KEY_VALUE_OPERATION", true);
+    }
+
+    /**
      * Returns a short version of a rule description.
      *
      * <p>Short description is used to match the rule to disable in DISABLE_RULE hint processor.

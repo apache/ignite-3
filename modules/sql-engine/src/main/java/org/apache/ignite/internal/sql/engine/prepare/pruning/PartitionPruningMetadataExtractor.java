@@ -272,10 +272,21 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         Mappings.TargetMapping mapping = null;
 
         if (projections != null) {
-            projections = replaceInputRefs(projections);
+            List<RexNode> projectionsReplaced = replaceInputRefs(projections);
 
-            mapping = RexUtils.inversePermutation(projections,
-                    table.getRowType(Commons.typeFactory()), true);
+            boolean refFound = !projectionsReplaced.equals(projections);
+
+            if (refFound) {
+                projections = replaceInputRefs(projections);
+
+                mapping = RexUtils.inversePermutation(projections,
+                        table.getRowType(Commons.typeFactory()), true);
+            } else {
+                // no references are found, projections contains materialized data without any refs.
+                expressions = List.of(projections);
+
+                projections = null;
+            }
         }
 
         List<RexNode> andEqNodes = new ArrayList<>();
@@ -293,16 +304,18 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
             List<RexNode> andNodes = new ArrayList<>(keysList.size());
             for (int key : keysList) {
+                RexNode lit = items.get(mapping != null ? mapping.getSourceOpt(key) : key);
+                if (!isValueExpr(lit)) {
+                    return;
+                }
+
                 RexLocalRef ref;
                 if (projections != null) {
                     ref = (RexLocalRef) projections.get(mapping.getSourceOpt(key));
                 } else {
                     ref = rexBuilder.makeLocalRef(rowTypes.getFieldList().get(key).getType(), key);
                 }
-                RexNode lit = items.get(mapping != null ? mapping.getSourceOpt(key) : key);
-                if (!isValueExpr(lit)) {
-                    return;
-                }
+
                 RexNode eq = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, lit);
                 andNodes.add(eq);
             }

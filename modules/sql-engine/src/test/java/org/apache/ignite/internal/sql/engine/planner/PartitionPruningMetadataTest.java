@@ -34,12 +34,14 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadataExtractor;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -125,6 +127,14 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
     /** Basic test cases for partition pruning metadata extractor, insert case. */
     @ParameterizedTest(name = "INSERT: {0}")
     @EnumSource(TestCaseBasicInsert.class)
+    @WithSystemProperty(key = "SIMPLE_KEY_VALUE_OPERATION", value = "false")
+    public void testBasicInsertNoOptimization(TestCaseBasicInsert testCaseSimple) {
+        checkPruningMetadata(testCaseSimple.data, SqlKind.INSERT);
+    }
+
+    /** Basic test cases for partition pruning metadata extractor, insert case. */
+    @ParameterizedTest(name = "INSERT: {0}")
+    @EnumSource(TestCaseBasicInsert.class)
     public void testBasicInsert(TestCaseBasicInsert testCaseSimple) {
         checkPruningMetadata(testCaseSimple.data, SqlKind.INSERT);
     }
@@ -138,21 +148,30 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
     enum TestCaseBasicInsert {
         SIMPLE_1a1("t(C1) VALUES (SELECT 100)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1a11("t VALUES ((SELECT 100), ?)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1a12("t VALUES (?, (SELECT 100))", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1a13("t VALUES (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),
+        SIMPLE_1a14("t VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?2]"),
+        SIMPLE_1a15("t VALUES ('100', 1)", TABLE_C1_NULLABLE_C2, "[c1=100]"),
+        SIMPLE_1a16("t VALUES ('100'::smallint, 1)", TABLE_C1_NULLABLE_C2, "[c1=100]"),
         // values with rex expression case
         SIMPLE_1a2("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
         SIMPLE_1a3("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),
         // union can be used here
         SIMPLE_1a4("t(C1) VALUES (?), (?), (1)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=1]"),
+        SIMPLE_1a41("t VALUES (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),
+        SIMPLE_1a42("t VALUES (?, ?, ?)", TABLE_C1_C2_NULLABLE_C3, "[c1=?0, c2=?1]"),
         // values with projection and rex expression case
         SIMPLE_1a5("t(C2, C1) VALUES (null, 1), (null, 2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
-        SIMPLE_1a6("t(C2, C1) VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]", "[c1=?3]"),
-        SIMPLE_1a7("t(C2, C1) VALUES (?, ?), ((SELECT 1), (SELECT 1))", TABLE_C1_NULLABLE_C2),
-        SIMPLE_1a8("t(C2, C1) VALUES (null, ?), (null, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]"),
+        SIMPLE_1a51("t(C2, C1) VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]", "[c1=?3]"),
+        SIMPLE_1a52("t(C2, C1) VALUES (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]"),
+        SIMPLE_1a53("t(C2, C1) VALUES (?, ?), ((SELECT 1), (SELECT 1))", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1a54("t(C2, C1) VALUES (null, ?), (null, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]"),
 
         SIMPLE_1a9("t(C2, C1) VALUES (?, ?), (?, 1)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=1, c2=?2]"),
-        SIMPLE_1a10("t(C2, C1) VALUES (?, ?), (2, 1)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=1, c2=2]"),
-        SIMPLE_1a11("t(C2, C1) VALUES (?, ?), (2, (SELECT 1))", TABLE_C1_C2_NULLABLE_C3),
-        SIMPLE_1a12("t(C2, C1) VALUES (?, ?), (2, (OCTET_LENGTH('TEST')))", TABLE_C1_C2_NULLABLE_C3),
+        SIMPLE_1a91("t(C2, C1) VALUES (?, ?), (2, 1)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=1, c2=2]"),
+        SIMPLE_1a92("t(C2, C1) VALUES (?, ?), (2, (SELECT 1))", TABLE_C1_C2_NULLABLE_C3),
+        SIMPLE_1a93("t(C2, C1) VALUES (?, ?), (2, (OCTET_LENGTH('TEST')))", TABLE_C1_C2_NULLABLE_C3),
 
         // pure values case
         SIMPLE_1b1("t(C1, C2) VALUES (1, 2), (2, 3)", TABLE_C1, "[c1=1]", "[c1=2]"),
@@ -170,6 +189,8 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         SIMPLE_1j1("t(C4, C2, C3, C1) VALUES (1, 2, 3, 4), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=4, c2=2, c3=3]", "[c1=5, c2=3, c3=4]"),
         SIMPLE_1j2("t(C4, C2, C3, C1) VALUES (?, 1, ?, ?), (?, 1, ?, ?)", TABLE_C1_C2_C3, "[c1=?2, c2=1, c3=?1]", "[c1=?5, c2=1, c3=?4]"),
         SIMPLE_1j3("t(C4, C2, C3, C1) VALUES (?, ?, ?, ?), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=?3, c2=?1, c3=?2]", "[c1=5, c2=3, c3=4]"),
+
+        SIMPLE_1h1(String.format("t(C1) VALUES (%d)", Long.MAX_VALUE), TABLE_C1_NULLABLE_C2),
         ;
 
         private final TestCase data;
@@ -570,6 +591,11 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
             throw new IllegalStateException("Unable to build a physical plan", e);
         }
         log.info("Plan: {}", RelOptUtil.dumpPlan("\n", igniteRel, SqlExplainFormat.TEXT, SqlExplainLevel.NON_COST_ATTRIBUTES));
+
+        // nothing to check here
+        if (igniteRel instanceof IgniteKeyValueModify) {
+            return;
+        }
 
         extractMetadataAndCheck(igniteRel, columnNames, expectedMetadata);
     }
