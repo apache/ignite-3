@@ -123,12 +123,12 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
                 metaStorageSvcFut
                         .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
-                                clusterTime.startSafeTimeScheduler(
-                                        safeTime -> service.syncTime(safeTime, term),
-                                        metaStorageConfiguration
-                                );
+                            clusterTime.startSafeTimeScheduler(
+                                    safeTime -> service.syncTime(safeTime, term),
+                                    metaStorageConfiguration
+                            );
 
-                                idempotentCacheVacuumizer.startLocalVacuumizationTriggering();
+                            idempotentCacheVacuumizer.startLocalVacuumizationTriggering();
                         })
                         .whenComplete((v, e) -> {
                             if (e != null) {
