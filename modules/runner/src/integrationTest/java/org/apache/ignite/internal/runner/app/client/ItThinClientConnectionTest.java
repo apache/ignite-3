@@ -100,10 +100,12 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testHeartbeatInternalApi() {
+    void testHeartbeat() {
         var client = (TcpIgniteClient) client();
 
         List<ClientChannel> channels = client.channel().channels();
+
+        assertEquals(2, channels.size());
 
         for (var channel : channels) {
             channel.heartbeatAsync(null).join();
