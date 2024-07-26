@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -108,8 +109,11 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         assertEquals(2, channels.size());
 
         for (var channel : channels) {
+            assertFalse(channel.closed());
+
             channel.heartbeatAsync(null).join();
             channel.heartbeatAsync(w -> w.out().packString("foo-bar")).join();
+            channel.heartbeatAsync(w -> w.out().writePayload(new byte[]{1, 2, 3})).join();
         }
     }
 }
