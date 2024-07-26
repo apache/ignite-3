@@ -87,6 +87,7 @@ class IdempotentCacheVacuumizer {
      */
     public void startLocalVacuumizationTriggering() {
         triggerVacuumization.set(true);
+        LOG.info("Idempotent cache vacuumizer started.");
     }
 
     /**
@@ -94,12 +95,14 @@ class IdempotentCacheVacuumizer {
      */
     public void suspendLocalVacuumizationTriggering() {
         triggerVacuumization.set(false);
+        LOG.info("Idempotent cache vacuumizer suspended.");
     }
 
     /**
      * Halts local vacuumization triggering.
      */
     public synchronized void shutdown() {
+        LOG.info("Idempotent cache vacuumizer shutdown.");
         if (scheduler != null) {
             suspendLocalVacuumizationTriggering();
             scheduler.shutdownNow();
