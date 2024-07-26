@@ -816,7 +816,10 @@ namespace Apache.Ignite.Tests.Compute
             var state = await taskExec.GetStateAsync();
 
             Assert.IsTrue(cancelRes);
-            Assert.AreEqual(TaskStatus.Canceled, state!.Status);
+            Assert.AreEqual(TaskStatus.Failed, state!.Status);
+
+            var ex = Assert.ThrowsAsync<ComputeException>(async () => await taskExec.GetResultAsync());
+            StringAssert.Contains("CancellationException", ex.Message);
         }
 
         [Test]
