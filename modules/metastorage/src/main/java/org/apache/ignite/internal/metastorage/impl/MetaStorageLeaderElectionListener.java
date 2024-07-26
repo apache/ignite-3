@@ -147,7 +147,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
                 clusterTime.stopSafeTimeScheduler();
 
-                idempotentCacheVacuumizer.stopLocalVacuumizationTriggering();
+                idempotentCacheVacuumizer.suspendLocalVacuumizationTriggering();
 
                 serializationFuture.cancel(false);
 

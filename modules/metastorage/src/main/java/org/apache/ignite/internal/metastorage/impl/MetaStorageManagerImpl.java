@@ -29,10 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -72,7 +70,6 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -184,7 +181,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.metricManager = metricManager;
         this.idempotentCacheTtl = idempotentCacheTtl;
         this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
-        this.idempotentCacheVacumizer = new IdempotentCacheVacuumizer(clusterService.nodeName(), this::evictIdempotentCommandsCache);
+        this.idempotentCacheVacumizer = new IdempotentCacheVacuumizer(
+                clusterService.nodeName(),
+                this::evictIdempotentCommandsCache,
+                1,
+                1,
+                MINUTES);
     }
 
     /**
@@ -456,7 +458,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         busyLock.block();
 
-        idempotentCacheVacumizer.stop();
+        idempotentCacheVacumizer.shutdown();
 
         deployWatchesFuture.cancel(true);
 
