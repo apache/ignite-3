@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.util;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * A {@link Lazy} for {@link Path}.
@@ -44,94 +41,32 @@ public class LazyPath extends Lazy<Path> {
     }
 
     /**
-     * Create a new instance from {@code pathSupplier} if it returns a nonempty value, otherwise use {@code defaultPath}.
-     *
-     * @param pathSupplier Path supplier.
-     * @param defaultPath Default path.
-     */
-    public static LazyPath create(Supplier<String> pathSupplier, Path defaultPath) {
-        return new LazyPath(() -> pathOrDefault(pathSupplier.get(), defaultPath));
-    }
-
-    /**
      * Create a new instance from {@code pathSupplier} if it returns a nonempty value, otherwise use {@code defaultPathSupplier}.
      *
      * @param pathSupplier Path supplier.
      * @param defaultPathSupplier Default path supplier.
      */
     public static LazyPath create(Supplier<String> pathSupplier, Supplier<Path> defaultPathSupplier) {
-        return create(pathSupplier, defaultPathSupplier, false);
-    }
-
-    /**
-     * Create a new instance from {@code pathSupplier} if it returns a nonempty value, otherwise use {@code defaultPathSupplier}. If {code
-     * ensureCreated} is {@code true}, then create the path if it doesn't exist.
-     *
-     * @param pathSupplier Path supplier.
-     * @param defaultPathSupplier Default path supplier.
-     * @param ensureCreated If {@code true}, then create the path if it doesn't exist.
-     */
-    public static LazyPath create(Supplier<String> pathSupplier, Supplier<Path> defaultPathSupplier, boolean ensureCreated) {
-        return new LazyPath(() -> {
-            Path path = pathOrDefault(pathSupplier.get(), defaultPathSupplier);
-
-            return ensureCreated ? ensureCreated(path) : path;
-        });
+        return new LazyPath(() -> pathOrDefault(pathSupplier.get(), defaultPathSupplier));
     }
 
     /**
      * Resolve the other path against this one.
      */
     public LazyPath resolveLazy(Path other) {
-        return resolveLazy(other, false);
+        return new LazyPath(() -> get().resolve(other));
     }
 
     /**
      * Resolve the other path against this one.
      */
     public LazyPath resolveLazy(String other) {
-        return resolveLazy(other, false);
-    }
-
-    /**
-     * Resolve the other path against this one.  If {code ensureCreated} is {@code true}, then create the path if it doesn't exist.
-     */
-    public LazyPath resolveLazy(Path other, boolean ensureCreated) {
-        return new LazyPath(() -> {
-            Path resolved = get().resolve(other);
-
-            return ensureCreated ? ensureCreated(resolved) : resolved;
-        });
-    }
-
-    /**
-     * Resolve the other path against this one. If {code ensureCreated} is {@code true}, then create the path if it doesn't exist.
-     */
-    public LazyPath resolveLazy(String other, boolean ensureCreated) {
-        return new LazyPath(() -> {
-            Path resolved = get().resolve(other);
-
-            return ensureCreated ? ensureCreated(resolved) : resolved;
-        });
+        return new LazyPath(() -> get().resolve(other));
     }
 
     @Override
     public Path get() {
         return super.get();
-    }
-
-    private static Path ensureCreated(Path dir) {
-        try {
-            Files.createDirectories(dir);
-        } catch (IOException e) {
-            throw new IgniteInternalException("Failed to create directory: " + dir + ": " + e.getMessage(), e);
-        }
-
-        return dir;
-    }
-
-    private static Path pathOrDefault(String value, Path defaultPath) {
-        return value.isEmpty() ? defaultPath : Path.of(value);
     }
 
     private static Path pathOrDefault(String value, Supplier<Path> defaultPathSupplier) {

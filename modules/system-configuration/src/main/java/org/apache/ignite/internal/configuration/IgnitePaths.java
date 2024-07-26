@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.configuration;
 
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.LazyPath;
 
 /**
@@ -63,64 +60,83 @@ public class IgnitePaths {
     private static final Path RAFT_LOG_PATH = Paths.get("log");
 
     /**
-     * Path for the metadata.
+     * Path for the raft metadata (snapshots).
      */
     private static final Path METADATA_PATH = Paths.get("meta");
 
+    /**
+     * Directory where partition data is stored. By default "partitions" subfolder of data storage path is used.
+     *
+     * @param systemConfiguration Configuration to read the configured value for this path.
+     * @param workDir Ignite working dir. Will be used as a default place to store partitions dir, if it is not set in the
+     *         configuration.
+     */
     public static LazyPath partitionsBasePath(SystemConfiguration systemConfiguration, Path workDir) {
-        return lazy(systemConfiguration.partitionsBasePath(), () -> workDir.resolve(PARTITIONS_BASE_PATH), true);
+        return lazy(systemConfiguration.partitionsBasePath(), () -> workDir.resolve(PARTITIONS_BASE_PATH));
     }
 
+    /**
+     * Directory where raft metadata is stored. "meta" dir inside "partitions" dir.
+     *
+     * @param partitionsBaseDir Directory where partition data is stored. See
+     *         {@link #partitionsBasePath(SystemConfiguration, Path)}.
+     */
     public static LazyPath partitionsMetaPath(LazyPath partitionsBaseDir) {
-        return partitionsBaseDir.resolveLazy(METADATA_PATH, true);
+        return partitionsBaseDir.resolveLazy(METADATA_PATH);
     }
 
+    /**
+     * Directory where raft log is stored. "log" dir inside "partitions" dir.
+     *
+     * @param partitionsBaseDir Directory where partition data is stored. See
+     *         {@link #partitionsBasePath(SystemConfiguration, Path)}.
+     */
     public static LazyPath partitionsRaftLogPath(LazyPath partitionsBaseDir) {
         return partitionsBaseDir.resolveLazy(RAFT_LOG_PATH);
     }
 
-    public static LazyPath partitionsRaftLogPath(SystemConfiguration systemConfiguration, Path workDir) {
-        return partitionsRaftLogPath(partitionsBasePath(systemConfiguration, workDir));
+    /**
+     * Returns a path to the partitions store directory. "db" dir inside "partitions" dir.
+     *
+     * @param partitionsBaseDir Directory where partition data is stored. See
+     *         {@link #partitionsBasePath(SystemConfiguration, Path)}.
+     */
+    public static LazyPath partitionsStorePath(LazyPath partitionsBaseDir) {
+        return partitionsBaseDir.resolveLazy(STORAGE_PATH);
     }
 
     /**
-     * Returns a path to the partitions store directory. Creates a directory if it doesn't exist.
+     * Path to Metastorage store.
      *
-     * @param partitionsBaseDir Partitions base directory, {@link #partitionsBasePath(SystemConfiguration, Path)}.
-     * @return Partitions store path.
+     * @param workDir Ignite working dir.
      */
-    public static LazyPath partitionsStorePath(LazyPath partitionsBaseDir) {
-        return partitionsBaseDir.resolveLazy(STORAGE_PATH, true);
-    }
-
     public static Path metastorageDbPath(Path workDir) {
         return workDir.resolve(METASTORAGE_DB_PATH);
     }
 
+    /**
+     * Path to CMG store.
+     *
+     * @param workDir Ignite working dir.
+     */
     public static Path cmgDbPath(Path workDir) {
         return workDir.resolve(CMG_DB_PATH);
     }
 
-
+    /**
+     * Path to Vault store.
+     *
+     * @param workDir Ignite working dir.
+     */
     public static Path vaultPath(Path workDir) {
-        return ensureCreated(workDir.resolve(VAULT_DB_PATH));
+        return workDir.resolve(VAULT_DB_PATH);
     }
 
     private IgnitePaths() {
         // No-op.
     }
 
-    private static LazyPath lazy(ConfigurationValue<String> value, Supplier<Path> defaultPath, boolean ensureCreated) {
-        return LazyPath.create(value::value, defaultPath, ensureCreated);
-    }
-
-    private static Path ensureCreated(Path dir) {
-        try {
-            Files.createDirectories(dir);
-        } catch (IOException e) {
-            throw new IgniteInternalException("Failed to create directory: " + dir + ": " + e.getMessage(), e);
-        }
-
-        return dir;
+    private static LazyPath lazy(ConfigurationValue<String> value, Supplier<Path> defaultPath) {
+        return LazyPath.create(value::value, defaultPath);
     }
 }

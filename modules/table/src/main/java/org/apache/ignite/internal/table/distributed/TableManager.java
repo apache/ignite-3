@@ -574,7 +574,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         startVv = new IncrementalVersionedValue<>(registry);
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolveLazy(TX_STATE_DIR, true),
+                storagePath.resolveLazy(TX_STATE_DIR),
                 txStateStorageScheduledPool,
                 txStateStoragePool,
                 logSyncer,

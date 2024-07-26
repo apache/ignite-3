@@ -22,6 +22,8 @@ import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -138,6 +140,10 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
      */
     public void start() {
         try {
+            Path path = dbPath.get();
+
+            Files.createDirectories(path);
+
             flusher = new RocksDbFlusher(
                     busyLock,
                     scheduledExecutor,
@@ -155,7 +161,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
             List<ColumnFamilyDescriptor> cfDescriptors;
 
             try (Options opts = new Options()) {
-                cfDescriptors = RocksDB.listColumnFamilies(opts, dbPath.get().toAbsolutePath().toString())
+                cfDescriptors = RocksDB.listColumnFamilies(opts, path.toAbsolutePath().toString())
                         .stream()
                         .map(nameBytes -> new ColumnFamilyDescriptor(nameBytes, new ColumnFamilyOptions()))
                         .collect(toList());

@@ -39,5 +39,4 @@ public class SystemConfigurationModule implements ConfigurationModule {
     public Collection<RootKey<?, ?>> rootKeys() {
         return Collections.singleton(SystemConfiguration.KEY);
     }
-
 }
