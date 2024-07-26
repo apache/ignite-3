@@ -338,7 +338,7 @@ public class MetricsTests
             RetryPolicy = new RetryNonePolicy()
         };
 
-    private static Guid? GetClientId(IIgniteClient? client) => client?.GetFieldValue<ClientFailoverSocket>("_socket").ClientId;
+    private static Guid? GetClientId(IIgniteClient? client) => ((IgniteClientInternal?)client)?.Socket.ClientId;
 
     private void AssertMetric(string name, int value, int timeoutMs = 1000) =>
         _listener.AssertMetric(name, value, timeoutMs);
