@@ -52,9 +52,21 @@ public class CmgMessageHandler implements NetworkMessageHandler {
 
     private final CmgMessageCallback cmgMessageCallback;
 
+    /**
+     * A queue for incoming messages that buffers them until the parent component is ready to process them.
+     *
+     * <p>This field is set to {@code null} after the {@link #onRecoveryComplete} method has been called to free the used memory.
+     *
+     * <p>Concurrent access is guarded by {@code this}.
+     */
     @Nullable
     private List<NetworkMessageContext> messageQueue = new ArrayList<>();
 
+    /**
+     * A flag indicating if the {@link #onRecoveryComplete} has been called.
+     *
+     * <p>Concurrent access is guarded by {@code this}.
+     */
     private boolean isRecoveryComplete = false;
 
     private static class NetworkMessageContext {

@@ -183,6 +183,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
         );
 
+        cmgMessageHandler = createMessageHandler();
+
+        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, cmgMessageHandler);
+    }
+
+    private CmgMessageHandler createMessageHandler() {
         var messageCallback = new CmgMessageCallback() {
             @Override
             public void onClusterStateMessageReceived(ClusterStateMessage message, ClusterNode sender, @Nullable Long correlationId) {
@@ -204,9 +210,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             }
         };
 
-        cmgMessageHandler = new CmgMessageHandler(busyLock, msgFactory, clusterService, messageCallback);
-
-        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, cmgMessageHandler);
+        return new CmgMessageHandler(busyLock, msgFactory, clusterService, messageCallback);
     }
 
     /** Constructor. */
