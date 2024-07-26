@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,4 +72,13 @@ public interface ClientChannel extends AutoCloseable {
      * @return Protocol context.
      */
     ProtocolContext protocolContext();
+
+    /**
+     * Send heartbeat request.
+     *
+     * @return Future for the operation.
+     */
+    default CompletableFuture<Void> heartbeatAsync() {
+        return serviceAsync(ClientOp.HEARTBEAT, null, null, false);
+    }
 }
