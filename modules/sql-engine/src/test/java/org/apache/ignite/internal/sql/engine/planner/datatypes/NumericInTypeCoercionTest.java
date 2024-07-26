@@ -2257,7 +2257,7 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
             throw new IllegalStateException("Unexpected type: " + secondType);
         }
 
-        sb.append(")");
+        sb.append(')');
 
         // literal 2.3 is converted to 2:INT or 2:BIGINT depending on the left-hand side.
         if ((numericPair.first() == NativeTypes.INT32 || numericPair.first() == NativeTypes.INT64)
