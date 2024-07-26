@@ -73,12 +73,10 @@ public class DataStreamerTests : IgniteTestsBase
         new LocalDateTime(1234, 5, 6, 7, 8, 9),
         Instant.FromUnixTimeSeconds(123456),
         Guid.Empty,
-        new BitArray(new[] { byte.MaxValue }),
         "str123",
         new byte[] { 1, 2, 3 },
         Period.FromDays(999),
         Duration.FromSeconds(12345),
-        new BigInteger(12.34)
     };
 
     private static int _unknownKey = 333000;
@@ -639,7 +637,6 @@ public class DataStreamerTests : IgniteTestsBase
         await CheckReceiverValue(Instant.MinValue, "java.time.Instant", "-9998-01-01T00:00:00Z");
 
         await CheckReceiverValue("str1", "java.lang.String", "str1");
-        await CheckReceiverValue(new BitArray(new[] { false, true, false, true }), "java.util.BitSet", "{1, 3}");
         await CheckReceiverValue(Guid.Empty, "java.util.UUID", "00000000-0000-0000-0000-000000000000");
         await CheckReceiverValue(new byte[] { 1, 2, 3 }, "[B", "[1, 2, 3]");
 

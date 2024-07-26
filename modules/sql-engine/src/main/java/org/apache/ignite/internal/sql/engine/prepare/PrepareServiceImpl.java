@@ -427,15 +427,22 @@ public class PrepareServiceImpl implements PrepareService {
 
                 int catalogVersion = ctx.catalogVersion();
 
+                ExplainablePlan plan;
                 if (optimizedRel instanceof IgniteKeyValueModify) {
-                    return new KeyValueModifyPlan(
+                    plan = new KeyValueModifyPlan(
                             nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
+                    );
+                } else {
+                    plan = new MultiStepPlan(
+                            nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, catalogVersion
                     );
                 }
 
-                return new MultiStepPlan(
-                        nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, catalogVersion
-                );
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
+                }
+
+                return plan;
             }, planningPool));
 
             return planFut.thenApply(Function.identity());

@@ -60,7 +60,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
             @WorkDirectory Path workDir,
             @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default.engine = aipersist")
-            StorageConfiguration storageConfiguration
+            StorageConfiguration storageConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
@@ -69,12 +69,13 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
                 engineConfig,
-                storageConfiguration,
+                storageConfig,
                 ioRegistry,
                 workDir,
                 null,
                 mock(FailureProcessor.class),
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                clock
         );
 
         engine.start();

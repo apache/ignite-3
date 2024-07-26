@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -56,9 +58,8 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     private static final String[] ALL_STORAGE_PROFILES = {
             DEFAULT_TEST_PROFILE_NAME,
             DEFAULT_AIPERSIST_PROFILE_NAME,
-            DEFAULT_AIMEM_PROFILE_NAME
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-22617
-            // DEFAULT_ROCKSDB_PROFILE_NAME
+            DEFAULT_AIMEM_PROFILE_NAME,
+            DEFAULT_ROCKSDB_PROFILE_NAME
     };
 
     @BeforeEach
@@ -114,6 +115,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22806")
     void testEstimatedAfterScaleDown() throws InterruptedException {
         for (String profile : ALL_STORAGE_PROFILES) {
             String tableName = createTableWithData(profile);

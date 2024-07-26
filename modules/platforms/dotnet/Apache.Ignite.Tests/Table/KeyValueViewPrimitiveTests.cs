@@ -18,10 +18,8 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NodaTime;
@@ -380,13 +378,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         var instant = Instant.FromUnixTimeMilliseconds(123456789101112);
         await TestKey(instant, (Instant?)instant, TableTimestampName);
 
-        var bigInteger = new BigInteger(123456789101112);
-        await TestKey(bigInteger, (BigInteger?)bigInteger, TableNumberName);
-
         await TestKey(new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 3, 4 }, TableBytesName);
-
-        var bitArray = new BitArray(new[] { byte.MaxValue });
-        await TestKey(bitArray, bitArray, TableBitmaskName);
     }
 
     [Test]

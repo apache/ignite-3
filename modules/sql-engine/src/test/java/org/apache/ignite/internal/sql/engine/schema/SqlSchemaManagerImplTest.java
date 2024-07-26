@@ -79,6 +79,7 @@ import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.RowTypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
@@ -276,9 +277,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(tableDescriptor, notNullValue());
 
         TableDescriptor descriptor = table.descriptor();
-        assertEquals(tableDescriptor.columns().size(), descriptor.columnsCount(), "column count");
+        assertEquals(tableDescriptor.columns().size(), RowTypeUtils.storedRowsCount(descriptor), "column count");
 
-        for (int i = 0; i < descriptor.columnsCount(); i++) {
+        for (int i = 0; i < tableDescriptor.columns().size(); i++) {
             CatalogTableColumnDescriptor expectedColumnDescriptor = tableDescriptor.columns().get(i);
             ColumnDescriptor actualColumnDescriptor = descriptor.columnDescriptor(i);
 
@@ -749,15 +750,13 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(ColumnType.DOUBLE, -1, -1),
                 Arguments.of(ColumnType.DECIMAL, 4, 0),
                 Arguments.of(ColumnType.DECIMAL, 4, 2),
-                Arguments.of(ColumnType.NUMBER, 4, -1),
                 Arguments.of(ColumnType.STRING, 40, -1),
                 Arguments.of(ColumnType.BYTE_ARRAY, 40, -1),
                 Arguments.of(ColumnType.DATE, -1, -1),
                 Arguments.of(ColumnType.TIME, 2, -1),
                 Arguments.of(ColumnType.DATETIME, 2, -1),
                 Arguments.of(ColumnType.TIMESTAMP, 2, -1),
-                Arguments.of(ColumnType.UUID, -1, -1),
-                Arguments.of(ColumnType.BITMASK, 2, -1)
+                Arguments.of(ColumnType.UUID, -1, -1)
         );
     }
 
@@ -828,7 +827,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             case UUID:
             case BOOLEAN:
                 break;
-            case NUMBER:
             case TIME:
             case DATETIME:
             case TIMESTAMP:
@@ -840,7 +838,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 break;
             case STRING:
             case BYTE_ARRAY:
-            case BITMASK:
                 builder.length(precision);
                 break;
             default:

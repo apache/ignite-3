@@ -275,9 +275,6 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             case UUID:
                 return in.uuidValue(idx);
 
-            case BITMASK:
-                return in.bitmaskValue(idx);
-
             case STRING:
                 return in.stringValue(idx);
 
@@ -289,9 +286,6 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
             case DURATION:
                 return in.durationValue(idx);
-
-            case NUMBER:
-                return in.numberValue(idx);
 
             default:
                 throw new UnsupportedOperationException("Unsupported column type: " + col.type());

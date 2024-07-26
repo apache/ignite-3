@@ -53,14 +53,15 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
      * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @throws IgniteInternalCheckedException If failed.
      */
     private HashIndexTree(
             int grpId,
-            @Nullable String grpName,
+            String grpName,
             int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
@@ -84,7 +85,8 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
      * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param indexDescriptor Index descriptor.
@@ -92,7 +94,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
      */
     private HashIndexTree(
             int grpId,
-            @Nullable String grpName,
+            String grpName,
             int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
@@ -126,7 +128,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
      */
     public static HashIndexTree createNew(
             int grpId,
-            @Nullable String grpName,
+            String grpName,
             int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
@@ -143,7 +145,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
      */
     public static HashIndexTree restoreExisting(
             int grpId,
-            @Nullable String grpName,
+            String grpName,
             int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,

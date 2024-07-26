@@ -172,6 +172,7 @@ public interface InternalTuple {
      * @param col Column index.
      * @return Column value.
      */
+    @Deprecated(forRemoval = true)
     BigInteger numberValue(int col);
 
     /**
@@ -204,6 +205,7 @@ public interface InternalTuple {
      * @param col Column index.
      * @return Column value.
      */
+    @Deprecated(forRemoval = true)
     BitSet bitmaskValue(int col);
 
     /**

@@ -142,7 +142,6 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
                 NativeTypes.STRING,
                 NativeTypes.BYTES,
                 NativeTypes.UUID,
-                NativeTypes.bitmaskOf(8),
                 NativeTypes.DATE,
         };
 
@@ -152,7 +151,6 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
             types2.add(NativeTypes.time(i));
             types2.add(NativeTypes.datetime(i));
             types2.add(NativeTypes.timestamp(i));
-            types2.add(NativeTypes.numberOf(i + 1)); // 0 precision is not allowed.
             types2.add(NativeTypes.decimalOf(i + 10, i));
         }
 

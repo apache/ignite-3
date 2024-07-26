@@ -15,18 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.criteria;
+package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.table.partition.Partition;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
- * Represents a partition reference for criteria query.
+ * Message types used in catalog compaction module.
  */
-// TODO: IGNITE-22153
-public class PartitionCriteria implements Partition, Criteria {
-    @Override
-    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
-        v.visit(this, context);
-    }
+@MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
+public class CatalogCompactionMessageGroup {
+    public static final short GROUP_TYPE = 14;
+
+    /** See {@link CatalogMinimumRequiredTimeRequest} for the details. */
+    public static final short MINIMUM_REQUIRED_TIME_REQUEST = 0;
+
+    /** See {@link CatalogMinimumRequiredTimeResponse} for the details. */
+    public static final short MINIMUM_REQUIRED_TIME_RESPONSE = 1;
 }

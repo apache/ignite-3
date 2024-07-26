@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -78,10 +77,8 @@ public class ClientHandlerTupleTests {
                     new Column("valTimeCol".toUpperCase(), time(NativeTypes.MAX_TIME_PRECISION), true),
                     new Column("valDateTimeCol".toUpperCase(), datetime(NativeTypes.MAX_TIME_PRECISION), true),
                     new Column("valTimeStampCol".toUpperCase(), timestamp(NativeTypes.MAX_TIME_PRECISION), true),
-                    new Column("valBitmask1Col".toUpperCase(), NativeTypes.bitmaskOf(22), true),
                     new Column("valBytesCol".toUpperCase(), BYTES, false),
                     new Column("valStringCol".toUpperCase(), STRING, false),
-                    new Column("valNumberCol".toUpperCase(), NativeTypes.numberOf(20), false),
                     new Column("valDecimalCol".toUpperCase(), NativeTypes.decimalOf(25, 5), false),
             }
     );
@@ -146,7 +143,7 @@ public class ClientHandlerTupleTests {
 
     @Test
     public void testColumnCount() {
-        assertEquals(16, createTuple().columnCount());
+        assertEquals(14, createTuple().columnCount());
         assertEquals(1, createKeyTuple().columnCount());
     }
 
@@ -187,10 +184,8 @@ public class ClientHandlerTupleTests {
                 .set("valDateTimeCol", DATE_TIME)
                 .set("valTimeCol", TIME)
                 .set("valTimeStampCol", TIMESTAMP)
-                .set("valBitmask1Col", IgniteTestUtils.randomBitSet(rnd, 12))
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
-                .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
     }
 }

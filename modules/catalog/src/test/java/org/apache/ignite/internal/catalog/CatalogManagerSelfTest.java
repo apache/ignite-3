@@ -57,11 +57,12 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
+import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommandFailure;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
-import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
@@ -464,35 +465,5 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertEquals(0, manager.activeCatalogVersion(0));
         assertEquals(1, manager.activeCatalogVersion(timestamp));
-    }
-
-    /** Test command that does nothing but increments object id counter of a catalog. */
-    private static class TestCommand implements CatalogCommand {
-
-        private final boolean successful;
-
-        private TestCommand(boolean successful) {
-            this.successful = successful;
-        }
-
-        static TestCommand ok() {
-            return new TestCommand(true);
-        }
-
-        static TestCommand fail() {
-            return new TestCommand(false);
-        }
-
-        @Override
-        public List<UpdateEntry> get(Catalog catalog) {
-            if (!successful) {
-                throw new TestCommandFailure();
-            }
-            return List.of(new ObjectIdGenUpdateEntry(1));
-        }
-    }
-
-    private static class TestCommandFailure extends RuntimeException {
-        private static final long serialVersionUID = -6123535862914825943L;
     }
 }

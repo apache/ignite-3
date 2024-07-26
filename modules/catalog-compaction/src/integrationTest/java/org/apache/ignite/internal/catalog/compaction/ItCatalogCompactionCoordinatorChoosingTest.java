@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -57,7 +57,7 @@ class ItCatalogCompactionCoordinatorChoosingTest extends ClusterPerClassIntegrat
 
         int coordinatorHasNotBeenUpdatedCount = 0;
         for (IgniteImpl node : runningNodes()) {
-            String coordinatorNodeId = ((CatalogManagerImpl) node.catalogManager()).compactionCoordinator();
+            String coordinatorNodeId = node.catalogCompactionRunner().coordinator();
 
             if (coordinatorNodeId == null) {
                 coordinatorHasNotBeenUpdatedCount++;
@@ -78,7 +78,7 @@ class ItCatalogCompactionCoordinatorChoosingTest extends ClusterPerClassIntegrat
             coordinators.clear();
 
             for (IgniteImpl node : runningNodes()) {
-                String nodeViewCoordinatorNodeName = ((CatalogManagerImpl) node.catalogManager()).compactionCoordinator();
+                String nodeViewCoordinatorNodeName = node.catalogCompactionRunner().coordinator();
 
                 if (nodeViewCoordinatorNodeName == null || coordinatorNodeName.equals(nodeViewCoordinatorNodeName)) {
                     return false;
