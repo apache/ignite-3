@@ -218,11 +218,10 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
         Set<ColumnType> unsupportedTypes = Set.of(
                 ColumnType.NULL,
                 ColumnType.NUMBER,
+                ColumnType.BITMASK,
                 // TODO Exclude interval types after https://issues.apache.org/jira/browse/IGNITE-15200
                 ColumnType.PERIOD,
-                ColumnType.DURATION,
-                // TODO Exclude BitMask type after https://issues.apache.org/jira/browse/IGNITE-18431
-                ColumnType.BITMASK
+                ColumnType.DURATION
         );
 
         List<TypeArg> types1 = Arrays.stream(ColumnType.values())

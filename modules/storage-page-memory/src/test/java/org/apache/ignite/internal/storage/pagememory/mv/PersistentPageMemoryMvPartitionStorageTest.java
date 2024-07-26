@@ -56,7 +56,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
-    private StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfig;
 
     @WorkDirectory
     private Path workDir;
@@ -74,12 +74,13 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
                 engineConfig,
-                storageConfiguration,
+                storageConfig,
                 ioRegistry,
                 LazyPath.create(workDir),
                 null,
                 mock(FailureProcessor.class),
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                clock
         );
 
         engine.start();

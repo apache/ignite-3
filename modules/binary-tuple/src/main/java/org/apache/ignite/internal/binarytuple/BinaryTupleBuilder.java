@@ -416,6 +416,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
+    @Deprecated(forRemoval = true)
     public BinaryTupleBuilder appendBitmaskNotNull(BitSet value) {
         putBytesWithEmptyCheck(value.toByteArray());
         return proceed();
@@ -427,6 +428,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
+    @Deprecated(forRemoval = true)
     public BinaryTupleBuilder appendBitmask(BitSet value) {
         return value == null ? appendNull() : appendBitmaskNotNull(value);
     }

@@ -86,6 +86,7 @@ dependencies {
     implementation project(':ignite-eventlog')
     implementation project(':ignite-low-watermark')
     implementation project(':ignite-partition-replicator')
+    implementation project(':ignite-catalog-compaction')
     implementation project(':ignite-system-configuration')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject

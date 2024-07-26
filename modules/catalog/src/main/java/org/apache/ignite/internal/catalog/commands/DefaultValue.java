@@ -19,14 +19,12 @@ package org.apache.ignite.internal.catalog.commands;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.type.NativeType;
@@ -269,9 +267,6 @@ public abstract class DefaultValue {
             case UUID:
                 out.writeUuid((UUID) value);
                 break;
-            case BITMASK:
-                out.writeBitSet((BitSet) value);
-                break;
             case STRING:
                 out.writeUTF((String) value);
                 break;
@@ -285,9 +280,6 @@ public abstract class DefaultValue {
                 break;
             case DURATION:
                 out.writeDuration((Duration) value);
-                break;
-            case NUMBER:
-                out.writeBigInteger((BigInteger) value);
                 break;
             default:
                 throw new IllegalArgumentException("Unexpected column type: " + columnType);
@@ -326,8 +318,6 @@ public abstract class DefaultValue {
                 return in.readInstant();
             case UUID:
                 return in.readUuid();
-            case BITMASK:
-                return in.readBitSet();
             case STRING:
                 return in.readUTF();
             case BYTE_ARRAY:
@@ -337,8 +327,6 @@ public abstract class DefaultValue {
                 return in.readPeriod();
             case DURATION:
                 return in.readDuration();
-            case NUMBER:
-                return in.readBigInteger();
             default:
                 throw new IllegalArgumentException("Unexpected column type: " + columnType);
         }

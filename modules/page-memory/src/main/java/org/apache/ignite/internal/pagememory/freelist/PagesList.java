@@ -179,7 +179,7 @@ public abstract class PagesList extends DataStructure {
     /**
      * Constructor.
      *
-     * @param name Structure name (for debug purpose).
+     * @param pageListNamePrefix Structure name prefix (for debugging purposes).
      * @param grpId Group ID.
      * @param partId Partition ID.
      * @param pageMem Page memory.
@@ -189,7 +189,7 @@ public abstract class PagesList extends DataStructure {
      * @param metaPageId Metadata page ID.
      */
     protected PagesList(
-            String name,
+            String pageListNamePrefix,
             int grpId,
             int partId,
             PageMemory pageMem,
@@ -198,7 +198,7 @@ public abstract class PagesList extends DataStructure {
             int buckets,
             long metaPageId
     ) {
-        super(name, grpId, null, partId, pageMem, lockLsnr, FLAG_AUX);
+        super(pageListNamePrefix, grpId, null, partId, pageMem, lockLsnr, FLAG_AUX);
 
         this.log = log;
 

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
@@ -39,13 +40,11 @@ import org.jetbrains.annotations.Nullable;
  */
 @AutoService(DataStorageModule.class)
 public class PersistentPageMemoryDataStorageModule implements DataStorageModule {
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
@@ -53,13 +52,13 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
             LazyPath storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            HybridClock clock
     ) throws StorageException {
-        PersistentPageMemoryStorageEngineConfiguration engineConfig =
-                ((PersistentPageMemoryStorageEngineExtensionConfiguration) configRegistry
-                        .getConfiguration(StorageConfiguration.KEY).engines()).aipersist();
-
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageConfiguration.KEY);
+
+        PersistentPageMemoryStorageEngineConfiguration engineConfig =
+                ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
 
         assert engineConfig != null;
 
@@ -75,6 +74,8 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
                 storagePath,
                 longJvmPauseDetector,
                 failureProcessor,
-                logSyncer);
+                logSyncer,
+                clock
+        );
     }
 }

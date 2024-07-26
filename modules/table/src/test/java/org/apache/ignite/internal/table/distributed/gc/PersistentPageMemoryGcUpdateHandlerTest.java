@@ -57,7 +57,7 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
             TestInfo testInfo,
             @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
-            StorageConfiguration storageConfiguration
+            StorageConfiguration storageConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -68,12 +68,13 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
         engine = new PersistentPageMemoryStorageEngine(
                 nodeName,
                 engineConfig,
-                storageConfiguration,
+                storageConfig,
                 ioRegistry,
                 LazyPath.create(workDir),
                 new LongJvmPauseDetector(nodeName),
                 mock(FailureProcessor.class),
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                clock
         );
 
         engine.start();

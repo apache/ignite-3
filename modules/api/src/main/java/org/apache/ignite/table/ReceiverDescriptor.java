@@ -20,7 +20,7 @@ package org.apache.ignite.table;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,12 +31,12 @@ public class ReceiverDescriptor<A> {
 
     private final List<DeploymentUnit> units;
 
-    private final @Nullable Marshaler<A, byte[]> argumentMarshaller;
+    private final @Nullable Marshaller<A, byte[]> argumentMarshaller;
 
     private ReceiverDescriptor(
             String receiverClassName,
             List<DeploymentUnit> units,
-            @Nullable Marshaler<A, byte[]> argumentMarshaller
+            @Nullable Marshaller<A, byte[]> argumentMarshaller
     ) {
         Objects.requireNonNull(receiverClassName);
         Objects.requireNonNull(units);
@@ -86,7 +86,7 @@ public class ReceiverDescriptor<A> {
         return new Builder<>(receiverClass.getName());
     }
 
-    public @Nullable Marshaler<A, byte[]> argumentMarshaller() {
+    public @Nullable Marshaller<A, byte[]> argumentMarshaller() {
         return argumentMarshaller;
     }
 
@@ -96,7 +96,7 @@ public class ReceiverDescriptor<A> {
     public static class Builder<A> {
         private final String receiverClassName;
         private List<DeploymentUnit> units;
-        private @Nullable Marshaler<A, byte[]> argumentMarshaller;
+        private @Nullable Marshaller<A, byte[]> argumentMarshaller;
 
 
         private Builder(String receiverClassName) {
@@ -127,7 +127,7 @@ public class ReceiverDescriptor<A> {
             return this;
         }
 
-        public Builder<A> argumentMarshaller(@Nullable Marshaler<A, byte[]> argumentsMarshaller) {
+        public Builder<A> argumentMarshaller(@Nullable Marshaller<A, byte[]> argumentsMarshaller) {
             this.argumentMarshaller = argumentsMarshaller;
             return this;
         }

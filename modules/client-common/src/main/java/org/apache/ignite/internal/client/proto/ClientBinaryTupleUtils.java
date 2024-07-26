@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client.proto;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -28,7 +27,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -38,7 +36,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -93,9 +91,6 @@ public class ClientBinaryTupleUtils {
             case BYTE_ARRAY:
                 return reader.bytesValue(valIdx);
 
-            case BITMASK:
-                return reader.bitmaskValue(valIdx);
-
             case DATE:
                 return reader.dateValue(valIdx);
 
@@ -107,9 +102,6 @@ public class ClientBinaryTupleUtils {
 
             case TIMESTAMP:
                 return reader.timestampValue(valIdx);
-
-            case NUMBER:
-                return reader.numberValue(valIdx);
 
             case BOOLEAN:
                 return reader.byteValue(valIdx) != 0;
@@ -157,9 +149,6 @@ public class ClientBinaryTupleUtils {
             case BYTE_ARRAY:
                 return binTuple::bytesValue;
 
-            case BITMASK:
-                return binTuple::bitmaskValue;
-
             case DATE:
                 return binTuple::dateValue;
 
@@ -171,9 +160,6 @@ public class ClientBinaryTupleUtils {
 
             case TIMESTAMP:
                 return binTuple::timestampValue;
-
-            case NUMBER:
-                return binTuple::numberValue;
 
             case BOOLEAN:
                 return idx -> binTuple.byteValue(idx) != 0;
@@ -195,14 +181,14 @@ public class ClientBinaryTupleUtils {
      * @param builder Builder.
      * @param obj Object.
      */
-    public static <T> void appendObject(BinaryTupleBuilder builder, @Nullable T obj, @Nullable Marshaler<T, byte[]> marshaler) {
+    public static <T> void appendObject(BinaryTupleBuilder builder, @Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller) {
         if (obj == null) {
             builder.appendNull(); // Type.
             builder.appendNull(); // Scale.
             builder.appendNull(); // Value.
-        } else if (marshaler != null) {
+        } else if (marshaller != null) {
             appendTypeAndScale(builder, ColumnType.BYTE_ARRAY);
-            builder.appendBytes(marshaler.marshal(obj));
+            builder.appendBytes(marshaller.marshal(obj));
         } else if (obj instanceof Boolean) {
             appendTypeAndScale(builder, ColumnType.BOOLEAN);
             builder.appendBoolean((Boolean) obj);
@@ -237,9 +223,6 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof byte[]) {
             appendTypeAndScale(builder, ColumnType.BYTE_ARRAY);
             builder.appendBytes((byte[]) obj);
-        } else if (obj instanceof BitSet) {
-            appendTypeAndScale(builder, ColumnType.BITMASK);
-            builder.appendBitmask((BitSet) obj);
         } else if (obj instanceof LocalDate) {
             appendTypeAndScale(builder, ColumnType.DATE);
             builder.appendDate((LocalDate) obj);
@@ -252,9 +235,6 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof Instant) {
             appendTypeAndScale(builder, ColumnType.TIMESTAMP);
             builder.appendTimestamp((Instant) obj);
-        } else if (obj instanceof BigInteger) {
-            appendTypeAndScale(builder, ColumnType.NUMBER);
-            builder.appendNumber((BigInteger) obj);
         } else if (obj instanceof Duration) {
             appendTypeAndScale(builder, ColumnType.DURATION);
             builder.appendDuration((Duration) obj);
@@ -351,9 +331,6 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof byte[]) {
             builder.appendInt(ColumnType.BYTE_ARRAY.id());
             return (T v) -> builder.appendBytes((byte[]) v);
-        } else if (obj instanceof BitSet) {
-            builder.appendInt(ColumnType.BITMASK.id());
-            return (T v) -> builder.appendBitmask((BitSet) v);
         } else if (obj instanceof LocalDate) {
             builder.appendInt(ColumnType.DATE.id());
             return (T v) -> builder.appendDate((LocalDate) v);
@@ -366,9 +343,6 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof Instant) {
             builder.appendInt(ColumnType.TIMESTAMP.id());
             return (T v) -> builder.appendTimestamp((Instant) v);
-        } else if (obj instanceof BigInteger) {
-            builder.appendInt(ColumnType.NUMBER.id());
-            return (T v) -> builder.appendNumber((BigInteger) v);
         } else if (obj instanceof Duration) {
             builder.appendInt(ColumnType.DURATION.id());
             return (T v) -> builder.appendDuration((Duration) v);
@@ -441,10 +415,6 @@ public class ClientBinaryTupleUtils {
                     builder.appendBytesNotNull((byte[]) v);
                     return;
 
-                case BITMASK:
-                    builder.appendBitmaskNotNull((BitSet) v);
-                    return;
-
                 case DATE:
                     builder.appendDateNotNull((LocalDate) v);
                     return;
@@ -459,10 +429,6 @@ public class ClientBinaryTupleUtils {
 
                 case TIMESTAMP:
                     builder.appendTimestampNotNull((Instant) v);
-                    return;
-
-                case NUMBER:
-                    builder.appendNumberNotNull((BigInteger) v);
                     return;
 
                 default:
