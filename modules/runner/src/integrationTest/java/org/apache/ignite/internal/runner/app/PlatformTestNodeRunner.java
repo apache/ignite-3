@@ -54,6 +54,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -61,12 +62,17 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -839,6 +845,24 @@ public class PlatformTestNodeRunner {
             Partition partition = table.partitionManager().partitionAsync(key).join();
 
             return completedFuture(((HashPartition) partition).partitionId());
+        }
+    }
+
+    private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
+            return completedFuture(context.ignite().clusterNodes().stream()
+                    .map(node -> MapReduceJob.<Integer, Void>builder()
+                            .jobDescriptor(JobDescriptor.builder(ItThinClientComputeTest.SleepJob.class).build())
+                            .nodes(Set.of(node))
+                            .args(input)
+                            .build())
+                    .collect(toList()));
+        }
+
+        @Override
+        public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<java.util.UUID, Void> results) {
+            return completedFuture(null);
         }
     }
 }

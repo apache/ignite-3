@@ -642,7 +642,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestChangePriority()
+        public async Task TestChangeJobPriority()
         {
             var jobExecution = await Client.Compute.SubmitAsync(
                 await GetNodeAsync(1),
@@ -793,8 +793,22 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestCancelTask()
+        public async Task TestCancelCompletedTask()
         {
+            ITaskExecution<string> taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "arg");
+
+            await taskExec.GetResultAsync();
+            var cancelRes = await taskExec.CancelAsync();
+            var state = await taskExec.GetStateAsync();
+
+            Assert.IsFalse(cancelRes);
+            Assert.AreEqual(TaskStatus.Completed, state!.Status);
+        }
+
+        [Test]
+        public async Task TestCancelExecutingTask()
+        {
+            // TODO: Sleep task.
             await Task.Delay(1);
             Assert.Fail();
         }
