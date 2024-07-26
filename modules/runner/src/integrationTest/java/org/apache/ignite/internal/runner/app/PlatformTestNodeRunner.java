@@ -848,6 +848,7 @@ public class PlatformTestNodeRunner {
         }
     }
 
+    @SuppressWarnings("unused") // Used by platform tests.
     private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
         @Override
         public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
