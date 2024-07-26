@@ -73,7 +73,7 @@ namespace Apache.Ignite.Tests
 
             var sockets = clientInternal.Socket.GetSockets().ToList();
 
-            var payload = new PooledArrayBuffer();
+            using var payload = new PooledArrayBuffer();
             payload.MessageWriter.Write("foo bar baz");
 
             foreach (var socket in sockets)
