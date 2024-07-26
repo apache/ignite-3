@@ -840,7 +840,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    public static class SleepJob implements ComputeJob<Integer, Void> {
+    private static class SleepJob implements ComputeJob<Integer, Void> {
         @Override
         public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer args) {
             try {

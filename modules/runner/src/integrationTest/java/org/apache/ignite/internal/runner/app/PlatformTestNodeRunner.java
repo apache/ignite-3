@@ -72,7 +72,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
-import org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -854,7 +853,7 @@ public class PlatformTestNodeRunner {
         public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
             return completedFuture(context.ignite().clusterNodes().stream()
                     .map(node -> MapReduceJob.<Integer, Void>builder()
-                            .jobDescriptor(JobDescriptor.builder(ItThinClientComputeTest.SleepJob.class).build())
+                            .jobDescriptor(JobDescriptor.builder(SleepJob.class).build())
                             .nodes(Set.of(node))
                             .args(input)
                             .build())
@@ -864,6 +863,19 @@ public class PlatformTestNodeRunner {
         @Override
         public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<java.util.UUID, Void> results) {
             return completedFuture(null);
+        }
+    }
+
+    private static class SleepJob implements ComputeJob<Integer, Void> {
+        @Override
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer args) {
+            try {
+                Thread.sleep(args);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            return null;
         }
     }
 }
