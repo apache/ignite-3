@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Compute;
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using Ignite.Compute;
 using TaskStatus = Ignite.Compute.TaskStatus;
@@ -34,7 +33,7 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
 
     private readonly Compute _compute;
 
-    private volatile TaskState? _finalStatus;
+    private volatile TaskState? _finalState;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TaskExecution{T}"/> class.
@@ -71,7 +70,7 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
     /// <inheritdoc/>
     public async Task<TaskState?> GetStateAsync()
     {
-        var finalStatus = _finalStatus;
+        var finalStatus = _finalState;
         if (finalStatus != null)
         {
             return finalStatus;
@@ -81,7 +80,7 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
         if (status is { Status: TaskStatus.Completed or TaskStatus.Failed or TaskStatus.Canceled })
         {
             // Can't be transitioned to another state, cache it.
-            _finalStatus = status;
+            _finalState = status;
         }
 
         return status;
@@ -113,6 +112,6 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
     {
         var (_, status) = await _resultTask.ConfigureAwait(false);
 
-        _finalStatus = status;
+        _finalState = status;
     }
 }
