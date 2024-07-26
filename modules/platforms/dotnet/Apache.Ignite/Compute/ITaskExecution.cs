@@ -25,7 +25,7 @@ using System.Threading.Tasks;
 /// <summary>
 /// Compute task control object, provides information about the task execution process and result, allows cancelling the task.
 /// </summary>
-/// <typeparam name="T">Job result type.</typeparam>
+/// <typeparam name="T">Task result type.</typeparam>
 public interface ITaskExecution<T>
 {
     /// <summary>
