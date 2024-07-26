@@ -76,9 +76,11 @@ public interface ClientChannel extends AutoCloseable {
     /**
      * Send heartbeat request.
      *
+     * @param payloadWriter Payload writer or {@code null} for no payload.
+     *     Heartbeat request payload is ignored by the server, but can be used for benchmarking.
      * @return Future for the operation.
      */
-    default CompletableFuture<Void> heartbeatAsync() {
-        return serviceAsync(ClientOp.HEARTBEAT, null, null, false);
+    default CompletableFuture<Void> heartbeatAsync(@Nullable PayloadWriter payloadWriter) {
+        return serviceAsync(ClientOp.HEARTBEAT, payloadWriter, null, false);
     }
 }
