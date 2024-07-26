@@ -70,20 +70,20 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
     /// <inheritdoc/>
     public async Task<TaskState?> GetStateAsync()
     {
-        var finalStatus = _finalState;
-        if (finalStatus != null)
+        var finalState = _finalState;
+        if (finalState != null)
         {
-            return finalStatus;
+            return finalState;
         }
 
-        var status = await _compute.GetTaskStateAsync(Id).ConfigureAwait(false);
-        if (status is { Status: TaskStatus.Completed or TaskStatus.Failed or TaskStatus.Canceled })
+        var state = await _compute.GetTaskStateAsync(Id).ConfigureAwait(false);
+        if (state is { Status: TaskStatus.Completed or TaskStatus.Failed or TaskStatus.Canceled })
         {
             // Can't be transitioned to another state, cache it.
-            _finalState = status;
+            _finalState = state;
         }
 
-        return status;
+        return state;
     }
 
     /// <inheritdoc/>
