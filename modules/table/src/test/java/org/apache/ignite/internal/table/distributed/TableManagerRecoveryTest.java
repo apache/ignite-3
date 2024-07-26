@@ -324,6 +324,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         LazyPath storagePath = LazyPath.create(workDir);
 
+        dsm = createDataStorageManager(mock(ConfigurationRegistry.class), storagePath, storageConfiguration, dataStorageModule, clock);
+
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -337,7 +339,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule, clock),
+                dsm,
                 storagePath,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
