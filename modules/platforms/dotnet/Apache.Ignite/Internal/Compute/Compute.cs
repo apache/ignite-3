@@ -121,7 +121,7 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecuteMapReduce, writer, expectNotifications: true)
                 .ConfigureAwait(false);
 
-            return GetTaskExecution<TResult>(res, readSchema: false);
+            return GetTaskExecution<TResult>(res);
 
             void Write()
             {
@@ -339,14 +339,9 @@ namespace Apache.Ignite.Internal.Compute
             }
         }
 
-        private ITaskExecution<T> GetTaskExecution<T>(PooledBuffer computeExecuteResult, bool readSchema)
+        private ITaskExecution<T> GetTaskExecution<T>(PooledBuffer computeExecuteResult)
         {
             var reader = computeExecuteResult.GetReader();
-
-            if (readSchema)
-            {
-                _ = reader.ReadInt32();
-            }
 
             var taskId = reader.ReadGuid();
 
