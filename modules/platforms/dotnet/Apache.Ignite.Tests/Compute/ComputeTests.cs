@@ -70,6 +70,8 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly TaskDescriptor<string, string> NodeNameTask = new(ItThinClientComputeTest + "$MapReduceNodeNameTask");
 
+        public static readonly TaskDescriptor<int, object?> SleepTask = new(PlatformTestNodeRunner + "$SleepTask");
+
         public static readonly TaskDescriptor<object?, object?> SplitExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnSplitTask");
 
         public static readonly TaskDescriptor<object?, object?> ReduceExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnReduceTask");
@@ -795,7 +797,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestCancelCompletedTask()
         {
-            ITaskExecution<string> taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "arg");
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "arg");
 
             await taskExec.GetResultAsync();
             var cancelRes = await taskExec.CancelAsync();
@@ -808,9 +810,13 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestCancelExecutingTask()
         {
-            // TODO: Sleep task.
-            await Task.Delay(1);
-            Assert.Fail();
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
+
+            var cancelRes = await taskExec.CancelAsync();
+            var state = await taskExec.GetStateAsync();
+
+            Assert.IsTrue(cancelRes);
+            Assert.AreEqual(TaskStatus.Canceled, state!.Status);
         }
 
         [Test]
