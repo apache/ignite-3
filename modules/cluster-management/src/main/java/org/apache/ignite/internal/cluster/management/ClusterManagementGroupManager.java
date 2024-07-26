@@ -192,7 +192,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         var messageCallback = new CmgMessageCallback() {
             @Override
             public void onClusterStateMessageReceived(ClusterStateMessage message, ClusterNode sender, @Nullable Long correlationId) {
-                assert correlationId != null;
+                assert correlationId != null : sender;
 
                 handleClusterState(message, sender, correlationId);
             }
@@ -204,7 +204,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
             @Override
             public void onCmgInitMessageReceived(CmgInitMessage message, ClusterNode sender, @Nullable Long correlationId) {
-                assert correlationId != null;
+                assert correlationId != null : sender;
 
                 handleInit(message, sender, correlationId);
             }
