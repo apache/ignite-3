@@ -38,6 +38,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
@@ -216,6 +217,10 @@ public class MetaStorageWriteHandler {
             storage.advanceSafeTime(command.safeTime());
 
             clo.result(null);
+        } else if (command instanceof EvictIdempotentCommandsCacheCommand) {
+            evictIdempotentCommandsCache(opTime);
+
+            clo.result(null);
         }
     }
 
@@ -377,9 +382,7 @@ public class MetaStorageWriteHandler {
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Call on meta storage compaction.
-    void evictIdempotentCommandsCache() {
-        HybridTimestamp cleanupTimestamp = clusterTime.now();
+    void evictIdempotentCommandsCache(HybridTimestamp cleanupTimestamp) {
         LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}].", cleanupTimestamp);
 
         maxClockSkewMillisFuture.thenAccept(maxClockSkewMillis -> {
@@ -394,10 +397,7 @@ public class MetaStorageWriteHandler {
                         .map(commandId -> ByteUtils.stringToBytes(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()))
                         .collect(toList());
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-22819 Using clusterTime.currentSafeTime() as local operation
-                // TODO timestamp is incorrect. It's not possible to use null, because RocksDB may throw AssertionException, thus locally
-                // TODO triggered processing should be reworked with linearized leader based one.
-                storage.removeAll(commandIdStorageKeys, clusterTime.currentSafeTime());
+                storage.removeAll(commandIdStorageKeys, cleanupTimestamp);
 
                 commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
             }

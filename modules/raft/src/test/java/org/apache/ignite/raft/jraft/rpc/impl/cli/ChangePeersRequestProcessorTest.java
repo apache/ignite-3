@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.eq;
 
 public class ChangePeersRequestProcessorTest extends AbstractCliRequestProcessorTest<ChangePeersRequest> {
+    private static final long CURRENT_TERM = 1L;
 
     @Override
     public ChangePeersRequest createRequest(String groupId, PeerId peerId) {
@@ -39,6 +40,8 @@ public class ChangePeersRequestProcessorTest extends AbstractCliRequestProcessor
             .groupId(groupId)
             .leaderId(peerId.toString())
             .newPeersList(List.of("localhost:8084", "localhost:8085"))
+            .newLearnersList(List.of("localhost:8086", "localhost:8087"))
+            .term(CURRENT_TERM)
             .build();
     }
 
@@ -50,8 +53,13 @@ public class ChangePeersRequestProcessorTest extends AbstractCliRequestProcessor
     @Override
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
         assertEquals(ChangePeersRequest.class.getName(), interest);
-        Mockito.verify(node).changePeers(eq(JRaftUtils.getConfiguration("localhost:8084,localhost:8085")),
-            doneArg.capture());
+
+        Mockito.verify(node).changePeers(
+                eq(JRaftUtils.getConfiguration("localhost:8084,localhost:8085,localhost:8086/learner,localhost:8087/learner")),
+                eq(CURRENT_TERM),
+                doneArg.capture()
+        );
+
         Closure done = doneArg.getValue();
         assertNotNull(done);
         done.run(Status.OK());
@@ -60,6 +68,10 @@ public class ChangePeersRequestProcessorTest extends AbstractCliRequestProcessor
             .as(ChangePeersResponse.class).oldPeersList().toString());
         assertEquals("[localhost:8084, localhost:8085]", this.asyncContext.as(ChangePeersResponse.class)
             .newPeersList().toString());
+        assertEquals("[learner:8081, learner:8082, learner:8083]", this.asyncContext
+                .as(ChangePeersResponse.class).oldLearnersList().toString());
+        assertEquals("[localhost:8086, localhost:8087]", this.asyncContext.as(ChangePeersResponse.class)
+                .newLearnersList().toString());
     }
 
 }

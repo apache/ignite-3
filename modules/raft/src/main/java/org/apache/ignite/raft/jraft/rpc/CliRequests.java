@@ -69,6 +69,11 @@ public final class CliRequests {
         String leaderId();
 
         Collection<String> newPeersList();
+
+        Collection<String> newLearnersList();
+
+        // term is intentionally Long and not long in order to perform nullable (not initialized) check.
+        Long term();
     }
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_RESPONSE)
@@ -77,6 +82,11 @@ public final class CliRequests {
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
+
+        @Nullable
+        Collection<String> oldLearnersList();
+
+        Collection<String> newLearnersList();
     }
 
     @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_ASYNC_REQUEST)
@@ -89,7 +99,8 @@ public final class CliRequests {
 
         Collection<String> newLearnersList();
 
-        long term();
+        // term is intentionally Long and not long in order to perform nullable (not initialized) check.
+        Long term();
     }
 
     @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_ASYNC_RESPONSE)

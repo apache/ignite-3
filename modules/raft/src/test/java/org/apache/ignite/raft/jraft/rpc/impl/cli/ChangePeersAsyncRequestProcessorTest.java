@@ -42,7 +42,7 @@ public class ChangePeersAsyncRequestProcessorTest extends AbstractCliRequestProc
                 .leaderId(peerId.toString())
                 .newPeersList(PEERS)
                 .newLearnersList(LEARNERS)
-                .term(1)
+                .term(1L)
                 .build();
     }
 

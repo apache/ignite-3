@@ -29,10 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -72,7 +70,6 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -145,8 +142,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private volatile MetaStorageListener learnerListener;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
-    private final ScheduledExecutorService idempotentCacheVacumizer;
+    private final IdempotentCacheVacuumizer idempotentCacheVacumizer;
 
     private final List<ElectionListener> electionListeners = new CopyOnWriteArrayList<>(); 
 
@@ -185,8 +181,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.metricManager = metricManager;
         this.idempotentCacheTtl = idempotentCacheTtl;
         this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
-        this.idempotentCacheVacumizer = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(clusterService.nodeName(), "idempotent-cache-vacumizer", LOG));
+        this.idempotentCacheVacumizer = new IdempotentCacheVacuumizer(
+                clusterService.nodeName(),
+                this::evictIdempotentCommandsCache,
+                1,
+                1,
+                MINUTES);
     }
 
     /**
@@ -365,7 +365,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
                         // dependency between these two components.
                         deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration),
-                        electionListeners
+                        electionListeners,
+                        idempotentCacheVacumizer
                 )))
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -457,7 +458,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         busyLock.block();
 
-        idempotentCacheVacumizer.shutdownNow();
+        idempotentCacheVacumizer.shutdown();
 
         deployWatchesFuture.cancel(true);
 
@@ -523,8 +524,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                                 MetaStorageManagerImpl.this.onRevisionApplied(revision);
                             }
                         });
-
-                        idempotentCacheVacumizer.scheduleWithFixedDelay(this::evictIdempotentCommandsCache, 1, 1, MINUTES);
                     }))
                     .whenComplete((v, e) -> {
                         if (e == null) {
@@ -914,14 +913,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
      */
-    @Deprecated(forRemoval = true)
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
-    public void evictIdempotentCommandsCache() {
-        if (followerListener != null) {
-            followerListener.evictIdempotentCommandsCache();
+    public CompletableFuture<Void> evictIdempotentCommandsCache() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
         }
-        if (learnerListener != null) {
-            learnerListener.evictIdempotentCommandsCache();
+
+        try {
+            return metaStorageSvcFut.thenCompose(svc -> svc.evictIdempotentCommandsCache());
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 }

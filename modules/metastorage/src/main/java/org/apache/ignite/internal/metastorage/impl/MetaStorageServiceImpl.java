@@ -36,6 +36,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
@@ -268,6 +269,16 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return context.raftService().run(cmd);
     }
 
+    /**
+     * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     */
+    CompletableFuture<Void> evictIdempotentCommandsCache() {
+        EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand =
+                evictIdempotentCommandsCacheCommand(context.commandsFactory(), clusterTime.now());
+
+        return context.raftService().run(evictIdempotentCommandsCacheCommand);
+    }
+
     @Override
     public void close() {
         context.close();
@@ -331,5 +342,16 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         }
 
         return commandsFactory.removeAllCommand().keys(list).initiatorTime(ts).build();
+    }
+
+    /**
+     * Creates evict idempotent commands cache command.
+     *
+     * @param commandsFactory Commands factory.
+     * @param ts Local time.
+     */
+    private EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand(MetaStorageCommandsFactory commandsFactory,
+            HybridTimestamp ts) {
+        return commandsFactory.evictIdempotentCommandsCacheCommand().initiatorTime(ts).build();
     }
 }
