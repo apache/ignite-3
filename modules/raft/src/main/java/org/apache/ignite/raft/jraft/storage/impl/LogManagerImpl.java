@@ -398,7 +398,7 @@ public class LogManagerImpl implements LogManager {
         return true;
     }
 
-    protected LogId appendToStorage(final List<LogEntry> toAppend) {
+    protected LogId appendToStorage(final List<LogEntry> toAppend, boolean disableBatching) {
         LogId lastId = null;
         if (!this.hasError) {
             final long startMs = Utils.monotonicMs();
@@ -411,7 +411,12 @@ public class LogManagerImpl implements LogManager {
                     writtenSize += entry.getData() != null ? entry.getData().remaining() : 0;
                 }
                 this.nodeMetrics.recordSize("append-logs-bytes", writtenSize);
-                final int nAppent = appendToLogStorage(toAppend);
+                final int nAppent;
+                if (disableBatching && toAppend.size() == 1) {
+                    nAppent = logStorage.appendEntry(toAppend.get(0)) ? 1 : 0;
+                } else {
+                    nAppent = appendToLogStorage(toAppend);
+                }
                 if (nAppent != entriesCount) {
                     LOG.error("**Critical error**, fail to appendEntries, nAppent={}, toAppend={}", nAppent,
                         toAppend.size());
@@ -437,7 +442,7 @@ public class LogManagerImpl implements LogManager {
         protected final int cap;
         protected int size;
         protected int bufferSize;
-        protected final List<LogEntry> toAppend;
+        public final List<LogEntry> toAppend;
         protected LogId lastId;
 
         protected AppendBatcher(final List<StableClosure> storage, final int cap, final List<LogEntry> toAppend,
@@ -451,7 +456,7 @@ public class LogManagerImpl implements LogManager {
 
         protected LogId flush() {
             if (this.size > 0) {
-                this.lastId = appendToStorage(this.toAppend);
+                this.lastId = appendToStorage(this.toAppend, false);
                 for (int i = 0; i < this.size; i++) {
                     this.storage.get(i).getEntries().clear();
                     Status st = null;
