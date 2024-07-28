@@ -56,7 +56,6 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxStartTimeReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -380,7 +379,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         List<CompletableFuture<?>> partitionFutures = new ArrayList<>(zone.partitions());
 
         for (int p = 0; p < zone.partitions(); p++) {
-            ReplicationGroupId replicationGroupId = new TablePartitionId(table.id(), p);
+            TablePartitionId replicationGroupId = new TablePartitionId(table.id(), p);
 
             CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
                     .whenComplete((tokenizedAssignments, ex) -> {
@@ -389,8 +388,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         }
 
                         if (tokenizedAssignments == null) {
-                            throw new IllegalStateException("Cannot get assignments for table " + table.name()
-                                    + " (replication group=" + replicationGroupId + ").");
+                            throwAssignmentsNotReadyException(replicationGroupId);
                         }
 
                         List<String> assignments = tokenizedAssignments.nodes().stream()
@@ -448,8 +446,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             CompletableFuture<Object> fut = placementDriver.getAssignments(replicationGroupId, nowTs)
                     .thenCompose(tokenizedAssignments -> {
-                        if (tokenizedAssignments == null || tokenizedAssignments.nodes().isEmpty()) {
-                            throw new IllegalStateException("Assignments are not available");
+                        if (tokenizedAssignments == null) {
+                            throwAssignmentsNotReadyException(replicationGroupId);
                         }
 
                         Assignment assignment = tokenizedAssignments.nodes().iterator().next();
@@ -490,6 +488,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                     return catalogManagerHelper.compactCatalog(catalog);
                 });
+    }
+
+    private static void throwAssignmentsNotReadyException(TablePartitionId replicationGroupId) {
+        throw new IllegalStateException("Cannot get assignments for table "
+                + "(replication group=" + replicationGroupId + ").");
     }
 
     /** Minimum required time supplier. */
