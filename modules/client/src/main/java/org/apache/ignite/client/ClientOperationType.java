@@ -18,7 +18,6 @@
 package org.apache.ignite.client;
 
 import java.util.Collection;
-import java.util.List;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.sql.BatchedArguments;
