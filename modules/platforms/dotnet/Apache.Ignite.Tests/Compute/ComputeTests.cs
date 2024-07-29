@@ -23,7 +23,6 @@ namespace Apache.Ignite.Tests.Compute
     using System.Globalization;
     using System.Linq;
     using System.Net;
-    using System.Numerics;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Table;
@@ -34,6 +33,7 @@ namespace Apache.Ignite.Tests.Compute
     using NodaTime;
     using NUnit.Framework;
     using Table;
+    using TaskStatus = Ignite.Compute.TaskStatus;
 
     /// <summary>
     /// Tests <see cref="ICompute"/>.
@@ -68,6 +68,14 @@ namespace Apache.Ignite.Tests.Compute
 
         public static readonly JobDescriptor<long, int> PartitionJob = new(PlatformTestNodeRunner + "$PartitionJob");
 
+        public static readonly TaskDescriptor<string, string> NodeNameTask = new(ItThinClientComputeTest + "$MapReduceNodeNameTask");
+
+        public static readonly TaskDescriptor<int, object?> SleepTask = new(PlatformTestNodeRunner + "$SleepTask");
+
+        public static readonly TaskDescriptor<object?, object?> SplitExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnSplitTask");
+
+        public static readonly TaskDescriptor<object?, object?> ReduceExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnReduceTask");
+
         [Test]
         public async Task TestGetClusterNodes()
         {
@@ -78,12 +86,11 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsNotEmpty(res[0].Id);
             Assert.IsNotEmpty(res[1].Id);
 
-            Assert.AreEqual(3344, res[0].Address.Port);
-            Assert.AreEqual(3345, res[1].Address.Port);
+            var addrs = res.Select(x => (IPEndPoint)x.Address).ToArray();
 
-            Assert.AreNotEqual(IPAddress.None, res[0].Address.Address);
-            Assert.AreNotEqual(IPAddress.None, res[1].Address.Address);
-            Assert.AreEqual(res[0].Address.Address, res[1].Address.Address);
+            Assert.AreEqual(3344, addrs[0].Port);
+            Assert.AreEqual(3345, addrs[1].Port);
+            Assert.AreEqual(addrs[0].Address, addrs[1].Address);
         }
 
         [Test]
@@ -618,7 +625,7 @@ namespace Apache.Ignite.Tests.Compute
             var fakeJobExecution = new JobExecution<int>(
                 Guid.NewGuid(), Task.FromException<(int, JobState)>(new Exception("x")), (Compute)Client.Compute);
 
-            var status = await fakeJobExecution.GetStatusAsync();
+            var status = await fakeJobExecution.GetStateAsync();
 
             Assert.IsNull(status);
         }
@@ -636,7 +643,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestChangePriority()
+        public async Task TestChangeJobPriority()
         {
             var jobExecution = await Client.Compute.SubmitAsync(
                 await GetNodeAsync(1),
@@ -702,9 +709,136 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(expected, resVal);
         }
 
+        [Test]
+        public async Task TestMapReduceNodeNameTask()
+        {
+            Instant beforeStart = SystemClock.Instance.GetCurrentInstant();
+
+            ITaskExecution<string> taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "+arg");
+
+            // Result.
+            string nodeNameString = await taskExec.GetResultAsync();
+            string[] nodeNames = nodeNameString.Split(',');
+
+            var expectedNodeNames = (await Client.GetClusterNodesAsync())
+                .Select(x => x.Name + "+arg")
+                .ToList();
+
+            CollectionAssert.AreEquivalent(expectedNodeNames, nodeNames);
+
+            // Execution.
+            Assert.AreNotEqual(Guid.Empty, taskExec.Id);
+            Assert.AreEqual(expectedNodeNames.Count, taskExec.JobIds.Count);
+            CollectionAssert.DoesNotContain(taskExec.JobIds, Guid.Empty);
+
+            // Task state.
+            TaskState? state = await taskExec.GetStateAsync();
+
+            Assert.IsNotNull(state);
+            Assert.AreEqual(TaskStatus.Completed, state.Status);
+            Assert.AreEqual(taskExec.Id, state.Id);
+            Assert.That(state.CreateTime, Is.GreaterThan(beforeStart));
+            Assert.That(state.StartTime, Is.GreaterThan(state.CreateTime));
+            Assert.That(state.FinishTime, Is.GreaterThan(state.StartTime));
+
+            // Job states.
+            IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
+
+            Assert.AreEqual(expectedNodeNames.Count, jobStates.Count);
+
+            foreach (var jobState in jobStates)
+            {
+                Assert.IsNotNull(jobState);
+                Assert.AreEqual(JobStatus.Completed, jobState!.Status);
+            }
+        }
+
+        [Test]
+        public async Task TestExceptionInTask([Values(true, false)] bool splitOrReduce)
+        {
+            TaskDescriptor<object?, object?> task = splitOrReduce ? SplitExceptionTask : ReduceExceptionTask;
+
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(task, null);
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await taskExec.GetResultAsync());
+
+            var taskState = await taskExec.GetStateAsync();
+            var jobStates = await taskExec.GetJobStatesAsync();
+
+            // Result - exception.
+            Assert.AreEqual("Custom job error", ex.Message);
+            StringAssert.Contains("ItThinClientComputeTest$CustomException", ex.InnerException!.Message);
+            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
+
+            // Failed task state.
+            Assert.IsNotNull(taskState);
+            Assert.IsNotNull(taskState.FinishTime);
+            Assert.AreEqual(TaskStatus.Failed, taskState.Status);
+
+            if (splitOrReduce)
+            {
+                // Exception in split: no jobs were created.
+                Assert.AreEqual(0, taskExec.JobIds.Count);
+                Assert.AreEqual(0, jobStates.Count);
+            }
+            else
+            {
+                // Exception in reduce: all jobs succeeded.
+                Assert.That(taskExec.JobIds.Count, Is.GreaterThan(1));
+
+                foreach (var jobState in jobStates)
+                {
+                    Assert.IsNotNull(jobState);
+                    Assert.AreEqual(JobStatus.Completed, jobState!.Status);
+                }
+            }
+        }
+
+        [Test]
+        public async Task TestCancelCompletedTask()
+        {
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "arg");
+
+            await taskExec.GetResultAsync();
+            var cancelRes = await taskExec.CancelAsync();
+            var state = await taskExec.GetStateAsync();
+
+            Assert.IsFalse(cancelRes);
+            Assert.AreEqual(TaskStatus.Completed, state!.Status);
+        }
+
+        [Test]
+        public async Task TestCancelExecutingTask()
+        {
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
+
+            var state1 = await taskExec.GetStateAsync();
+            Assert.AreEqual(TaskStatus.Executing, state1!.Status);
+
+            var cancelRes = await taskExec.CancelAsync();
+            var state2 = await taskExec.GetStateAsync();
+
+            Assert.IsTrue(cancelRes);
+            Assert.AreEqual(TaskStatus.Failed, state2!.Status);
+
+            var ex = Assert.ThrowsAsync<ComputeException>(async () => await taskExec.GetResultAsync());
+            StringAssert.Contains("CancellationException", ex.Message);
+        }
+
+        [Test]
+        public async Task TestChangeTaskPriority()
+        {
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
+
+            var state = await taskExec.GetStateAsync();
+            Assert.AreEqual(TaskStatus.Executing, state!.Status);
+
+            var changePriorityRes = await taskExec.ChangePriorityAsync(1000);
+            Assert.IsFalse(changePriorityRes);
+        }
+
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
         {
-            JobState? state = await jobExecution.GetStatusAsync();
+            JobState? state = await jobExecution.GetStateAsync();
 
             Assert.IsNotNull(state);
             Assert.AreEqual(jobExecution.Id, state!.Id);

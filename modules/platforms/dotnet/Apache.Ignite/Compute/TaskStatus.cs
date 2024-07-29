@@ -15,28 +15,40 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Network
+namespace Apache.Ignite.Compute;
+
+/// <summary>
+/// Compute task status.
+/// </summary>
+public enum TaskStatus
 {
-    using System.Net;
+    /// <summary>
+    /// The task is submitted and waiting for an execution start.
+    /// </summary>
+    Queued,
 
     /// <summary>
-    /// Ignite cluster node.
+    /// The task is being executed.
     /// </summary>
-    public interface IClusterNode
-    {
-        /// <summary>
-        /// Gets the local node id. Changes after node restart.
-        /// </summary>
-        string Id { get; }
+    Executing,
 
-        /// <summary>
-        /// Gets the unique name (consistent id) of the cluster member. Does not change after node restart.
-        /// </summary>
-        string Name { get; }
+    /// <summary>
+    /// The task was unexpectedly terminated during execution.
+    /// </summary>
+    Failed,
 
-        /// <summary>
-        /// Gets the node address.
-        /// </summary>
-        EndPoint Address { get; }
-    }
+    /// <summary>
+    /// The task was executed successfully and the execution result was returned.
+    /// </summary>
+    Completed,
+
+    /// <summary>
+    /// The task has received the cancel command, but is still running.
+    /// </summary>
+    Canceling,
+
+    /// <summary>
+    /// The task was successfully cancelled.
+    /// </summary>
+    Canceled
 }

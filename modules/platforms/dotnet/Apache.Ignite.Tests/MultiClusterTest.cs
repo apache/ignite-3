@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -58,7 +59,8 @@ public class MultiClusterTest
         using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration(server1.Endpoint, server2.Endpoint));
         await client.Tables.GetTablesAsync();
 
-        var primaryServer = client.GetConnections().Single().Node.Address.Port == server1.Port ? server1 : server2;
+        var addr = (IPEndPoint)client.GetConnections().Single().Node.Address;
+        var primaryServer = addr.Port == server1.Port ? server1 : server2;
         var secondaryServer = primaryServer == server1 ? server2 : server1;
 
         primaryServer.Dispose();
