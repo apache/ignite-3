@@ -50,6 +50,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
@@ -359,16 +360,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
-        Objects.requireNonNull(units);
-        Objects.requireNonNull(taskClassName);
+    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        Objects.requireNonNull(taskDescriptor);
 
-        return new TaskExecutionWrapper<>(computeComponent.executeTask(this::submitJob, units, taskClassName, args));
+        return new TaskExecutionWrapper<>(
+                computeComponent.executeTask(this::submitJob, taskDescriptor.units(), taskDescriptor.taskClassName(), arg));
     }
 
     @Override
-    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
-        return sync(executeMapReduceAsync(units, taskClassName, args));
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return sync(executeMapReduceAsync(taskDescriptor, arg));
     }
 
     private <M, T> JobExecution<T> submitJob(MapReduceJob<M, T> runner) {
