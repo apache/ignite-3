@@ -66,7 +66,7 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
         TestIgnitionManager.init(node, initParameters);
 
-        CompletableFuture[] futures = nodesByName.values().stream()
+        CompletableFuture<?>[] futures = nodesByName.values().stream()
                 .map(IgniteServer::waitForInitAsync)
                 .toArray(CompletableFuture[]::new);
 
