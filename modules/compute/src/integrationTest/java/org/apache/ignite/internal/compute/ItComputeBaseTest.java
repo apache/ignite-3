@@ -47,9 +47,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeException;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -61,6 +63,7 @@ import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -423,7 +426,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void submitMapReduce() {
         IgniteImpl entryNode = node(0);
 
-        TaskExecution<Integer> taskExecution = entryNode.compute().submitMapReduce(units(), mapReduceTaskClassName(), units());
+        IgniteCompute igniteCompute = entryNode.compute();
+        List<DeploymentUnit> units = units();
+        @Nullable List<DeploymentUnit> arg = units();
+        TaskExecution<Integer> taskExecution = igniteCompute.submitMapReduce(
+                TaskDescriptor.<List<DeploymentUnit>, Integer>builder(mapReduceTaskClassName()).units(units).build(), arg);
 
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(IgniteImpl::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(taskExecution.resultAsync(), willBe(sumOfNodeNamesLengths));

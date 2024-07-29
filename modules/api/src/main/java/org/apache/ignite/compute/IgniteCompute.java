@@ -176,20 +176,6 @@ public interface IgniteCompute {
     <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg);
 
     /**
-     * Submits a {@link MapReduceTask} of the given class for an execution.
-     *
-     * @param <T> Job argument (T)ype.
-     * @param <R> Job (R)esult type.
-     * @param units Deployment units.
-     * @param taskClassName Map reduce task class name.
-     * @param arg Task argument.
-     * @return Task execution interface.
-     */
-    default <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg) {
-        return submitMapReduce(TaskDescriptor.<T, R>builder(taskClassName).units(units).build(), arg);
-    }
-
-    /**
      * Submits a {@link MapReduceTask} of the given class for an execution. A shortcut for {@code submitMapReduce(...).resultAsync()}.
      *
      * @param <T> Job argument (T)ype.

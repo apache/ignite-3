@@ -140,7 +140,7 @@ public enum ClientOperationType {
     COMPUTE_EXECUTE,
 
     /**
-     * Compute Execute MapReduce ({@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object)}).
+     * Compute Execute MapReduce ({@link org.apache.ignite.compute.IgniteCompute#submitMapReduce}).
      */
     COMPUTE_EXECUTE_MAPREDUCE,
 
