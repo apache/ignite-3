@@ -169,12 +169,25 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
+     * @param taskDescriptor Map reduce task descriptor.
+     * @param arg Task argument.
+     * @return Task execution interface.
+     */
+    <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg);
+
+    /**
+     * Submits a {@link MapReduceTask} of the given class for an execution.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
      * @param units Deployment units.
      * @param taskClassName Map reduce task class name.
      * @param arg Task argument.
      * @return Task execution interface.
      */
-    <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg);
+    default <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg) {
+        return submitMapReduce(TaskDescriptor.<T, R>builder(taskClassName).units(units).build(), arg);
+    }
 
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution. A shortcut for {@code submitMapReduce(...).resultAsync()}.
@@ -187,8 +200,20 @@ public interface IgniteCompute {
      * @return Task result future.
      */
     default <T, R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, @Nullable T arg) {
-        return this.<T, R>submitMapReduce(units, taskClassName, arg).resultAsync();
+        return submitMapReduce(TaskDescriptor.<T, R>builder(taskClassName).units(units).build(), arg).resultAsync();
     }
+
+    /**
+     * Executes a {@link MapReduceTask} of the given class.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param taskDescriptor Map reduce task descriptor.
+     * @param arg Task argument.
+     * @return Task result.
+     * @throws ComputeException If there is any problem executing the task.
+     */
+    <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg);
 
     /**
      * Executes a {@link MapReduceTask} of the given class.
@@ -201,5 +226,7 @@ public interface IgniteCompute {
      * @return Task result.
      * @throws ComputeException If there is any problem executing the task.
      */
-    <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg);
+    default <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg) {
+        return executeMapReduce(TaskDescriptor.<T, R>builder(taskClassName).units(units).build(), arg);
+    }
 }
