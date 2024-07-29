@@ -55,19 +55,15 @@ public class CmgMessageHandler implements NetworkMessageHandler {
     /**
      * A queue for incoming messages that buffers them until the parent component is ready to process them.
      *
-     * <p>This field is set to {@code null} after the {@link #onRecoveryComplete} method has been called to free the used memory.
+     * <p>This field is set to {@code null} after the {@link #onRecoveryComplete} method has been called to free the used memory and to
+     * signal that the parent component recovery has been complete.
      *
-     * <p>Concurrent access is guarded by {@code this}.
+     * <p>Concurrent access is guarded by {@link #messageQueueMux}.
      */
     @Nullable
     private List<NetworkMessageContext> messageQueue = new ArrayList<>();
 
-    /**
-     * A flag indicating if the {@link #onRecoveryComplete} has been called.
-     *
-     * <p>Concurrent access is guarded by {@code this}.
-     */
-    private boolean isRecoveryComplete = false;
+    private final Object messageQueueMux = new Object();
 
     private static class NetworkMessageContext {
         final NetworkMessage message;
@@ -115,10 +111,8 @@ public class CmgMessageHandler implements NetworkMessageHandler {
         }
 
         try {
-            synchronized (this) {
-                if (!isRecoveryComplete) {
-                    assert messageQueue != null;
-
+            synchronized (messageQueueMux) {
+                if (messageQueue != null) {
                     messageQueue.add(new NetworkMessageContext(message, sender, correlationId));
 
                     return;
@@ -147,16 +141,18 @@ public class CmgMessageHandler implements NetworkMessageHandler {
      * Notifies this handler that the CMG local recovery has been complete and we can start processing new messages instead of buffering
      * them.
      */
-    public synchronized void onRecoveryComplete() {
-        assert messageQueue != null;
+    public void onRecoveryComplete() {
+        synchronized (messageQueueMux) {
+            assert messageQueue != null;
 
-        isRecoveryComplete = true;
+            List<NetworkMessageContext> localQueue = messageQueue;
 
-        for (NetworkMessageContext messageContext : messageQueue) {
-            onReceived(messageContext.message, messageContext.sender, messageContext.correlationId);
+            messageQueue = null;
+
+            for (NetworkMessageContext messageContext : localQueue) {
+                onReceived(messageContext.message, messageContext.sender, messageContext.correlationId);
+            }
         }
-
-        messageQueue = null;
     }
 
     private NetworkMessage initFailed(Exception e) {
