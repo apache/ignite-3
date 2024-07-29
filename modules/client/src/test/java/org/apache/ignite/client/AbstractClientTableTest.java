@@ -22,12 +22,10 @@ import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_WITH_DEFAULT_VALUES;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -123,9 +121,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
                 .set("ztimestamp", instant)
                 .set("zstring", name)
                 .set("zbytes", new byte[]{1, 2})
-                .set("zbitmask", BitSet.valueOf(new byte[]{32}))
                 .set("zdecimal", BigDecimal.valueOf(21))
-                .set("znumber", BigInteger.valueOf(22))
                 .set("zuuid", uuid);
 
         if (!skipKey) {
@@ -227,9 +223,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public String zstring;
         public byte[] zbytes;
         public UUID zuuid;
-        public BitSet zbitmask;
         public BigDecimal zdecimal;
-        public BigInteger znumber;
     }
 
     /** Columns of all types. */
@@ -249,9 +243,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public String zstring;
         public byte[] zbytes;
         public UUID zuuid;
-        public BitSet zbitmask;
         public BigDecimal zdecimal;
-        public BigInteger znumber;
     }
 
     /** Columns of all types. */
@@ -269,9 +261,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public String zstring;
         public byte[] zbytes;
         public UUID zuuid;
-        public BitSet zbitmask;
         public BigDecimal zdecimal;
-        public BigInteger znumber;
     }
 
     /** Columns of all types. */
@@ -289,9 +279,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public String zstring;
         public byte[] zbytes;
         public UUID zuuid;
-        public BitSet zbitmask;
         public BigDecimal zdecimal;
-        public BigInteger znumber;
     }
 
     /** Columns with default values. */

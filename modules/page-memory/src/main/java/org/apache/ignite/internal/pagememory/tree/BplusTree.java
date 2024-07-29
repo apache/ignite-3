@@ -222,6 +222,14 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     // TODO: IGNITE-16350 Make it final.
     private IoVersions<? extends BplusMetaIo> metaIos;
 
+    /**
+     * Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it  must be greater than or
+     * equal to the previous value.
+     *
+     * <p>Used to define an inner replace when deleting the rightmost element of a leaf (but strictly not a tree) that was also stored in
+     * the root inner. If, when restoring a tree, the value is less than what was previously in the tree, it can lead to a loop in the tree
+     * when searching through it if there were inner replace.</p>
+     */
     private final AtomicLong globalRmvId;
 
     /** Tree meta data. */
@@ -912,7 +920,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param innerIos Inner IO versions.
@@ -946,7 +955,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param grpName Group name.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      */

@@ -118,6 +118,7 @@ public interface MarshallerWriter {
      *
      * @param val Value.
      */
+    @Deprecated(forRemoval = true)
     void writeBitSet(BitSet val);
 
     /**
@@ -125,6 +126,7 @@ public interface MarshallerWriter {
      *
      * @param val Value.
      */
+    @Deprecated(forRemoval = true)
     void writeBigInt(BigInteger val);
 
     /**

@@ -533,9 +533,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             case UUID:
                 return binaryTuple.uuidValue(binaryTupleIndex);
 
-            case BITMASK:
-                return binaryTuple.bitmaskValue(binaryTupleIndex);
-
             case STRING:
                 return binaryTuple.stringValue(binaryTupleIndex);
 
@@ -547,9 +544,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
             case DURATION:
                 return binaryTuple.durationValue(binaryTupleIndex);
-
-            case NUMBER:
-                return binaryTuple.numberValue(binaryTupleIndex);
 
             default:
                 throw new IllegalStateException("Unsupported type: " + type);

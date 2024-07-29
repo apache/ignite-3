@@ -20,14 +20,12 @@ package org.apache.ignite.internal.util;
 import static org.apache.ignite.internal.util.HashUtils.combine;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -65,8 +63,6 @@ public class HashCalculator {
             appendFloat((float) v);
         } else if (v.getClass() == Double.class) {
             appendDouble((Double) v);
-        } else if (v.getClass() == BigInteger.class) {
-            appendNumber((BigInteger) v);
         } else if (v.getClass() == BigDecimal.class) {
             appendDecimal((BigDecimal) v, scale);
         } else if (v.getClass() == UUID.class) {
@@ -83,8 +79,6 @@ public class HashCalculator {
             appendBytes((byte[]) v);
         } else if (v.getClass() == String.class) {
             appendString((String) v);
-        } else if (v.getClass() == BitSet.class) {
-            appendBitmask((BitSet) v);
         } else {
             throw new IgniteInternalException("Unsupported value type: [cls=" + v.getClass() + ']');
         }
@@ -242,24 +236,6 @@ public class HashCalculator {
     }
 
     /**
-     * Append BigInteger to hash calculation.
-     *
-     * @param v Value to update hash.
-     */
-    public void appendNumber(BigInteger v) {
-        hash = combine(hash, hashNumber(v));
-    }
-
-    /**
-     * Get value hash.
-     *
-     * @param v Value to hash.
-     */
-    public static int hashNumber(BigInteger v) {
-        return hashBytes(v.toByteArray());
-    }
-
-    /**
      * Append UUID to hash calculation.
      *
      * @param v Value to update hash.
@@ -311,24 +287,6 @@ public class HashCalculator {
      */
     public static int hashBytes(byte[] v) {
         return HashUtils.hash32(v);
-    }
-
-    /**
-     * Append BitSet to hash calculation.
-     *
-     * @param v Value to update hash.
-     */
-    public void appendBitmask(BitSet v) {
-        hash = combine(hash, hashBitmask(v));
-    }
-
-    /**
-     * Get value hash.
-     *
-     * @param v Value to hash.
-     */
-    public static int hashBitmask(BitSet v) {
-        return hashBytes(v.toByteArray());
     }
 
     /**

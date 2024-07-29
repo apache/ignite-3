@@ -85,6 +85,10 @@ class GarbageCollector {
     /** GC queue column family. */
     private final ColumnFamilyHandle gcQueueCf;
 
+    enum AddResult {
+        WAS_TOMBSTONE, WAS_VALUE, WAS_EMPTY
+    }
+
     GarbageCollector(PartitionDataHelper helper, RocksDB db, ColumnFamilyHandle gcQueueCf) {
         this.helper = helper;
         this.db = db;
@@ -94,16 +98,15 @@ class GarbageCollector {
     /**
      * Tries adding a row to the GC queue. We put new row's timestamp, because we can remove previous row only if both this row's
      * and previous row's timestamps are below the watermark.
-     * Returns {@code true} if new value and previous value are both tombstones.
      *
      * @param writeBatch Write batch.
      * @param rowId Row id.
      * @param timestamp New row's timestamp.
      * @param isNewValueTombstone If new row is a tombstone.
-     * @return {@code true} if new value and previous value are both tombstones.
+     * @return Enum indicating the type of the previous value that has been replaced.
      * @throws RocksDBException If failed.
      */
-    boolean tryAddToGcQueue(WriteBatchWithIndex writeBatch, RowId rowId, HybridTimestamp timestamp, boolean isNewValueTombstone)
+    AddResult tryAddToGcQueue(WriteBatchWithIndex writeBatch, RowId rowId, HybridTimestamp timestamp, boolean isNewValueTombstone)
             throws RocksDBException {
         ColumnFamilyHandle partCf = helper.partCf;
 
@@ -117,7 +120,7 @@ class GarbageCollector {
             it.seek(keyBuffer);
 
             if (invalid(it)) {
-                return isNewValueTombstone;
+                return AddResult.WAS_EMPTY;
             }
 
             keyBuffer.clear();
@@ -127,19 +130,25 @@ class GarbageCollector {
             RowId readRowId = helper.getRowId(keyBuffer, ROW_ID_OFFSET);
 
             if (!readRowId.equals(rowId)) {
-                return isNewValueTombstone;
+                return AddResult.WAS_EMPTY;
             }
 
             // Found previous value.
             assert keyLen == MAX_KEY_SIZE; // Can not be write-intent.
 
-            if (isNewValueTombstone) {
-                // If new value is a tombstone, lets check if previous value was also a tombstone.
-                int valueSize = it.value(EMPTY_DIRECT_BUFFER);
+            int valueSize = it.value(EMPTY_DIRECT_BUFFER);
 
-                if (valueSize == 0) {
-                    return true;
+            AddResult result;
+
+            if (valueSize == 0) {
+                // Do not add a new tombstone if the existing value is also a tombstone.
+                if (isNewValueTombstone) {
+                    return AddResult.WAS_TOMBSTONE;
                 }
+
+                result = AddResult.WAS_TOMBSTONE;
+            } else {
+                result = AddResult.WAS_VALUE;
             }
 
             keyBuffer.clear();
@@ -147,9 +156,9 @@ class GarbageCollector {
             helper.putGcKey(keyBuffer, rowId, timestamp);
 
             writeBatch.put(gcQueueCf, keyBuffer, EMPTY_DIRECT_BUFFER);
-        }
 
-        return false;
+            return result;
+        }
     }
 
     /**
@@ -157,7 +166,6 @@ class GarbageCollector {
      *
      * @param lowWatermark Low watermark.
      * @return Garbage collected element descriptor.
-     * @throws RocksDBException If failed to collect the garbage.
      */
     @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
         // We retrieve the first element of the GC queue and seek for it in the data CF.

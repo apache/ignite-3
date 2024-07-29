@@ -30,12 +30,10 @@ import org.apache.ignite.internal.systemview.api.ClusterSystemView;
 import org.apache.ignite.internal.systemview.api.NodeSystemView;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewColumn;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnType;
@@ -134,11 +132,6 @@ public class SystemViewUtils {
             case UUID:
             case BOOLEAN:
                 break;
-            case NUMBER:
-                assert type instanceof NumberNativeType : type.getClass().getCanonicalName();
-
-                builder.precision(((NumberNativeType) type).precision());
-                break;
             case DECIMAL:
                 assert type instanceof DecimalNativeType : type.getClass().getCanonicalName();
 
@@ -150,11 +143,6 @@ public class SystemViewUtils {
                 assert type instanceof VarlenNativeType : type.getClass().getCanonicalName();
 
                 builder.length(((VarlenNativeType) type).length());
-                break;
-            case BITMASK:
-                assert type instanceof BitmaskNativeType : type.getClass().getCanonicalName();
-
-                builder.length(((BitmaskNativeType) type).bits());
                 break;
             case TIME:
             case DATETIME:

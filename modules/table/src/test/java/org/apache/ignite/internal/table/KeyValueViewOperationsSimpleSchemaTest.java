@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -479,9 +480,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
                 NativeTypes.DOUBLE,
                 NativeTypes.DATE,
                 NativeTypes.UUID,
-                NativeTypes.numberOf(20),
                 NativeTypes.decimalOf(25, 5),
-                NativeTypes.bitmaskOf(22),
                 NativeTypes.time(0),
                 NativeTypes.datetime(6),
                 NativeTypes.timestamp(6),
@@ -490,7 +489,12 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         );
 
         // Validate all types are tested.
-        assertEquals(Set.of(NativeTypeSpec.values()),
+        Set<NativeTypeSpec> nativeTypes = EnumSet.allOf(NativeTypeSpec.class);
+
+        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
+        nativeTypes.removeAll(unsupported);
+
+        assertEquals(nativeTypes,
                 allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
 
         for (NativeType type : allTypes) {

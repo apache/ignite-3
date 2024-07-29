@@ -578,7 +578,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         storagePath,
                         null,
                         failureProcessor,
-                        logSyncer
+                        logSyncer,
+                        hybridClock
                 ),
                 nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)
         );

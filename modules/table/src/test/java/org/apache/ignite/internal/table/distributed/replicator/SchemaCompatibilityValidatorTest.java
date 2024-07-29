@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.sql.ColumnType.BITMASK;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
@@ -36,7 +35,6 @@ import static org.apache.ignite.sql.ColumnType.INT16;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.INT8;
-import static org.apache.ignite.sql.ColumnType.NUMBER;
 import static org.apache.ignite.sql.ColumnType.PERIOD;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -203,10 +201,6 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         return new Type(DECIMAL, precision, scale, DEFAULT_LENGTH);
     }
 
-    private static Type number(int precision) {
-        return new Type(NUMBER, precision, DEFAULT_SCALE, DEFAULT_LENGTH);
-    }
-
     private static Type string(int length) {
         return new Type(STRING, DEFAULT_PRECISION, DEFAULT_SCALE, length);
     }
@@ -244,20 +238,13 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
             }
         }
 
-        changes.add(new ColumnTypeChange(INT8, number(100)));
-        changes.add(new ColumnTypeChange(INT16, number(100)));
-        changes.add(new ColumnTypeChange(INT32, number(100)));
-        changes.add(new ColumnTypeChange(INT64, number(100)));
         changes.add(new ColumnTypeChange(INT8, decimal(100, 0)));
         changes.add(new ColumnTypeChange(INT16, decimal(100, 0)));
         changes.add(new ColumnTypeChange(INT32, decimal(100, 0)));
         changes.add(new ColumnTypeChange(INT64, decimal(100, 0)));
 
-        changes.add(new ColumnTypeChange(number(10), decimal(100, 0)));
-
         // Decreasing precision.
         changes.add(new ColumnTypeChange(decimal(10, 5), decimal(9, 5)));
-        changes.add(new ColumnTypeChange(number(10), number(9)));
 
         // Decreasing length.
         changes.add(new ColumnTypeChange(string(10), string(9)));
@@ -269,7 +256,6 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         changes.add(new ColumnTypeChange(INT32, string(100)));
         changes.add(new ColumnTypeChange(INT64, string(100)));
         changes.add(new ColumnTypeChange(decimal(10, 0), string(100)));
-        changes.add(new ColumnTypeChange(number(10), string(100)));
         changes.add(new ColumnTypeChange(ColumnType.UUID, string(100)));
 
         // Conversions from STRING.
@@ -278,13 +264,11 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         changes.add(new ColumnTypeChange(string(1), INT32));
         changes.add(new ColumnTypeChange(string(1), INT64));
         changes.add(new ColumnTypeChange(string(1), decimal(10, 0)));
-        changes.add(new ColumnTypeChange(string(1), number(10)));
         changes.add(new ColumnTypeChange(string(36), ColumnType.UUID));
 
         for (ColumnType columnType : ColumnType.values()) {
             addInconvertible(columnType, BOOLEAN, changes);
             addInconvertible(columnType, ColumnType.UUID, changes);
-            addInconvertible(columnType, BITMASK, changes);
             addInconvertible(columnType, BYTE_ARRAY, changes);
             addInconvertible(columnType, PERIOD, changes);
             addInconvertible(columnType, DURATION, changes);
