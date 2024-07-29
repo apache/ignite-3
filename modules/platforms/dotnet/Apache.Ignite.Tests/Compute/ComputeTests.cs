@@ -86,12 +86,11 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsNotEmpty(res[0].Id);
             Assert.IsNotEmpty(res[1].Id);
 
-            Assert.AreEqual(3344, res[0].Address.Port);
-            Assert.AreEqual(3345, res[1].Address.Port);
+            var addrs = res.Select(x => (IPEndPoint)x.Address).ToArray();
 
-            Assert.AreNotEqual(IPAddress.None, res[0].Address.Address);
-            Assert.AreNotEqual(IPAddress.None, res[1].Address.Address);
-            Assert.AreEqual(res[0].Address.Address, res[1].Address.Address);
+            Assert.AreEqual(3344, addrs[0].Port);
+            Assert.AreEqual(3345, addrs[1].Port);
+            Assert.AreEqual(addrs[0].Address, addrs[1].Address);
         }
 
         [Test]
