@@ -258,7 +258,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
         try (var client = getClient(server1)) {
             Object args = "arg1";
-            String res1 = client.compute().executeMapReduce(List.of(), "job", args);
+            String res1 = client.compute().executeMapReduce(TaskDescriptor.<Object, String>builder("job").build(), args);
             assertEquals("s1", res1);
         }
     }

@@ -447,7 +447,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executeMapReduceAsync() {
         IgniteImpl entryNode = node(0);
 
-        CompletableFuture<Integer> future = entryNode.compute().executeMapReduceAsync(units(), mapReduceTaskClassName(), units());
+        CompletableFuture<Integer> future = entryNode.compute().executeMapReduceAsync(
+                TaskDescriptor.<List<DeploymentUnit>, Integer>builder(mapReduceTaskClassName()).units(units()).build(),
+                units());
 
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(IgniteImpl::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(future, willBe(sumOfNodeNamesLengths));
@@ -457,7 +459,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executeMapReduce() {
         IgniteImpl entryNode = node(0);
 
-        int result = entryNode.compute().executeMapReduce(units(), mapReduceTaskClassName(), units());
+        int result = entryNode.compute().executeMapReduce(
+                TaskDescriptor.<List<DeploymentUnit>, Integer>builder(mapReduceTaskClassName()).units(units()).build(),
+                units());
 
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(IgniteImpl::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(result, is(sumOfNodeNamesLengths));
