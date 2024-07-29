@@ -24,31 +24,12 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(MetaStorageMessageGroup.COMPOUND_CONDITION)
 public interface CompoundCondition extends Condition {
-    /**
-     * Returns left condition.
-     *
-     * @return left condition.
-     */
+    /** Left condition. */
     Condition leftCondition();
 
-    /**
-     * Returns right condition.
-     *
-     * @return right condition.
-     */
+    /** Right condition. */
     Condition rightCondition();
 
-    /**
-     * Returns compound condition type.
-     *
-     * @return compound condition type.
-     */
-    int compoundConditionType();
-
-    /**
-     * Returns compound condition type.
-     */
-    default CompoundConditionType type() {
-        return CompoundConditionType.values()[compoundConditionType()];
-    }
+    /** Compound condition type. */
+    CompoundConditionType compoundConditionType();
 }

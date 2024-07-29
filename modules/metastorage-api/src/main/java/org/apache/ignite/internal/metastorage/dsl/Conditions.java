@@ -51,7 +51,7 @@ public final class Conditions {
         public SimpleCondition eq(long rev) {
             return MSG_FACTORY.revisionCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.REV_EQUAL.ordinal())
+                    .conditionType(ConditionType.REV_EQUAL)
                     .revision(rev)
                     .build();
         }
@@ -66,7 +66,7 @@ public final class Conditions {
         public SimpleCondition ne(long rev) {
             return MSG_FACTORY.revisionCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.REV_NOT_EQUAL.ordinal())
+                    .conditionType(ConditionType.REV_NOT_EQUAL)
                     .revision(rev)
                     .build();
         }
@@ -81,7 +81,7 @@ public final class Conditions {
         public SimpleCondition gt(long rev) {
             return MSG_FACTORY.revisionCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.REV_GREATER.ordinal())
+                    .conditionType(ConditionType.REV_GREATER)
                     .revision(rev)
                     .build();
         }
@@ -96,7 +96,7 @@ public final class Conditions {
         public SimpleCondition ge(long rev) {
             return MSG_FACTORY.revisionCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.REV_GREATER_OR_EQUAL.ordinal())
+                    .conditionType(ConditionType.REV_GREATER_OR_EQUAL)
                     .revision(rev)
                     .build();
         }
@@ -111,7 +111,7 @@ public final class Conditions {
         public SimpleCondition lt(long rev) {
             return MSG_FACTORY.revisionCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.REV_LESS.ordinal())
+                    .conditionType(ConditionType.REV_LESS)
                     .revision(rev)
                     .build();
         }
@@ -126,7 +126,7 @@ public final class Conditions {
         public SimpleCondition le(long rev) {
             return MSG_FACTORY.revisionCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.REV_LESS_OR_EQUAL.ordinal())
+                    .conditionType(ConditionType.REV_LESS_OR_EQUAL)
                     .revision(rev)
                     .build();
         }
@@ -152,7 +152,7 @@ public final class Conditions {
         public SimpleCondition eq(byte[] val) {
             return MSG_FACTORY.valueCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.VAL_EQUAL.ordinal())
+                    .conditionType(ConditionType.VAL_EQUAL)
                     .value(ByteBuffer.wrap(val))
                     .build();
         }
@@ -167,7 +167,7 @@ public final class Conditions {
         public SimpleCondition ne(byte[] val) {
             return MSG_FACTORY.valueCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.VAL_NOT_EQUAL.ordinal())
+                    .conditionType(ConditionType.VAL_NOT_EQUAL)
                     .value(ByteBuffer.wrap(val))
                     .build();
         }
@@ -182,7 +182,7 @@ public final class Conditions {
         public SimpleCondition gt(byte[] val) {
             return MSG_FACTORY.valueCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.VAL_GREATER.ordinal())
+                    .conditionType(ConditionType.VAL_GREATER)
                     .value(ByteBuffer.wrap(val))
                     .build();
         }
@@ -197,7 +197,7 @@ public final class Conditions {
         public SimpleCondition ge(byte[] val) {
             return MSG_FACTORY.valueCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.VAL_GREATER_OR_EQUAL.ordinal())
+                    .conditionType(ConditionType.VAL_GREATER_OR_EQUAL)
                     .value(ByteBuffer.wrap(val))
                     .build();
         }
@@ -212,7 +212,7 @@ public final class Conditions {
         public SimpleCondition lt(byte[] val) {
             return MSG_FACTORY.valueCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.VAL_LESS.ordinal())
+                    .conditionType(ConditionType.VAL_LESS)
                     .value(ByteBuffer.wrap(val))
                     .build();
         }
@@ -227,7 +227,7 @@ public final class Conditions {
         public SimpleCondition le(byte[] val) {
             return MSG_FACTORY.valueCondition()
                     .key(ByteBuffer.wrap(key))
-                    .conditionType(ConditionType.VAL_LESS_OR_EQUAL.ordinal())
+                    .conditionType(ConditionType.VAL_LESS_OR_EQUAL)
                     .value(ByteBuffer.wrap(val))
                     .build();
         }
@@ -253,7 +253,7 @@ public final class Conditions {
     public static SimpleCondition tombstone(ByteArray key) {
         return MSG_FACTORY.simpleCondition()
                 .key(ByteBuffer.wrap(key.bytes()))
-                .conditionType(ConditionType.TOMBSTONE.ordinal())
+                .conditionType(ConditionType.TOMBSTONE)
                 .build();
     }
 
@@ -266,7 +266,7 @@ public final class Conditions {
     public static SimpleCondition notTombstone(ByteArray key) {
         return MSG_FACTORY.simpleCondition()
                 .key(ByteBuffer.wrap(key.bytes()))
-                .conditionType(ConditionType.NOT_TOMBSTONE.ordinal())
+                .conditionType(ConditionType.NOT_TOMBSTONE)
                 .build();
     }
 
@@ -279,7 +279,7 @@ public final class Conditions {
     public static SimpleCondition exists(ByteArray key) {
         return MSG_FACTORY.simpleCondition()
                 .key(ByteBuffer.wrap(key.bytes()))
-                .conditionType(ConditionType.KEY_EXISTS.ordinal())
+                .conditionType(ConditionType.KEY_EXISTS)
                 .build();
     }
 
@@ -292,7 +292,7 @@ public final class Conditions {
     public static SimpleCondition notExists(ByteArray key) {
         return MSG_FACTORY.simpleCondition()
                 .key(ByteBuffer.wrap(key.bytes()))
-                .conditionType(ConditionType.KEY_NOT_EXISTS.ordinal())
+                .conditionType(ConditionType.KEY_NOT_EXISTS)
                 .build();
     }
 
@@ -319,7 +319,7 @@ public final class Conditions {
         return MSG_FACTORY.compoundCondition()
                 .leftCondition(leftCond)
                 .rightCondition(rightCond)
-                .compoundConditionType(CompoundConditionType.AND.ordinal())
+                .compoundConditionType(CompoundConditionType.AND)
                 .build();
     }
 
@@ -335,7 +335,7 @@ public final class Conditions {
         return MSG_FACTORY.compoundCondition()
                 .leftCondition(leftCond)
                 .rightCondition(rightCond)
-                .compoundConditionType(CompoundConditionType.OR.ordinal())
+                .compoundConditionType(CompoundConditionType.OR)
                 .build();
     }
 

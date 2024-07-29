@@ -17,10 +17,20 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Type of compound condition.
  */
 public enum CompoundConditionType {
     AND,
-    OR
+    OR;
+
+    /** Cached array with all enum values. */
+    private static final CompoundConditionType[] VALUES = values();
+
+    /** Returns the enumerated value from its ordinal, {@code null} if the ordinal is invalid. */
+    public static @Nullable CompoundConditionType fromOrdinal(int ordinal) {
+        return ordinal < 0 || ordinal >= VALUES.length ? null : VALUES[ordinal];
+    }
 }

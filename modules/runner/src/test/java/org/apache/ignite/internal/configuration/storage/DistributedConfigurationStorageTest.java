@@ -115,7 +115,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
      * Converts a {@link SimpleCondition} to a {@link Condition}.
      */
     private static Condition toServerCondition(SimpleCondition condition) {
-        switch (condition.type()) {
+        switch (condition.conditionType()) {
             case REV_LESS_OR_EQUAL:
                 return new RevisionCondition(
                         RevisionCondition.Type.LESS_OR_EQUAL,
@@ -128,7 +128,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                         toByteArray(condition.key())
                 );
             default:
-                throw new UnsupportedOperationException("Unsupported condition type: " + condition.type());
+                throw new UnsupportedOperationException("Unsupported condition type: " + condition.conditionType());
         }
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Defines possible condition types, which can be applied to a revision.
  */
@@ -67,5 +69,13 @@ public enum ConditionType {
     TOMBSTONE,
 
     /** Not-tombstone condition type for a key. */
-    NOT_TOMBSTONE
+    NOT_TOMBSTONE;
+
+    /** Cached array with all enum values. */
+    private static final ConditionType[] VALUES = values();
+
+    /** Returns the enumerated value from its ordinal, {@code null} if the ordinal is invalid. */
+    public static @Nullable ConditionType fromOrdinal(int ordinal) {
+        return ordinal < 0 || ordinal >= VALUES.length ? null : VALUES[ordinal];
+    }
 }
