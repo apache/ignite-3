@@ -251,6 +251,10 @@ public final class PlannerHelper {
 
         List<RexNode> expressions = new ArrayList<>();
         for (ColumnDescriptor column : descriptor) {
+            if (column.virtual()) {
+                continue;
+            }
+
             RexNode expression = columnToExpression.get(column.name());
 
             if (expression == null) {

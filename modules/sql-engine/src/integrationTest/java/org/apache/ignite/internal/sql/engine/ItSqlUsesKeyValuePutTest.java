@@ -148,6 +148,24 @@ public class ItSqlUsesKeyValuePutTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    void insertExpressionSimpleKey() {
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            assertQuery("INSERT INTO simple_key VALUES (?, CASE WHEN ? % 2 = 0 THEN ? * 3 ELSE ? * 2 END)")
+                    .withParams(i, /* case predicate */ i, /* then branch */ i, /* else branch */ i)
+                    .matches(containsSubPlan("KeyValueModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            assertQuery("SELECT * FROM simple_key WHERE id = ?")
+                    .withParams(i)
+                    .returns(i, i % 2 == 0 ? i * 3 : i * 2)
+                    .check();
+        }
+    }
+
+    @Test
     void insertSimpleKeyWithCast() {
         for (int i = 0; i < TABLE_SIZE; i++) {
             assertQuery("INSERT INTO simple_key VALUES (?, ?)")
