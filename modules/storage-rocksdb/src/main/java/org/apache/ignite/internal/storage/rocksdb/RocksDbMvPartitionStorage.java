@@ -295,8 +295,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
-        return busy(() -> tableStorage.awaitFlush(true));
+    public CompletableFuture<Void> flush(boolean trigger) {
+        return busy(() -> tableStorage.awaitFlush(trigger));
     }
 
     /**
