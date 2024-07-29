@@ -30,13 +30,18 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
+import org.apache.ignite.internal.network.processor.ProcessingException;
+import org.apache.ignite.internal.network.processor.TypeUtils;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
 import org.apache.ignite.internal.network.serialization.MessageMappingException;
 import org.apache.ignite.internal.network.serialization.MessageReader;
@@ -45,23 +50,25 @@ import org.apache.ignite.internal.network.serialization.MessageReader;
  * Class for generating {@link MessageDeserializer} classes.
  */
 public class MessageDeserializerGenerator {
+    private static final String FROM_ORDINAL_METHOD_NAME = "fromOrdinal";
+
     /** Processing environment. */
     private final ProcessingEnvironment processingEnv;
 
-    /**
-     * Message Types declarations for the current module.
-     */
+    /** Wrapper element with {@link MessageGroup}. */
     private final MessageGroupWrapper messageGroup;
 
-    /**
-     * Constructor.
-     *
-     * @param processingEnv Processing environment.
-     * @param messageGroup  Message group.
-     */
+    private final TypeUtils typeUtils;
+
+    private final MessageReaderMethodResolver methodResolver;
+
+    /** Constructor. */
     public MessageDeserializerGenerator(ProcessingEnvironment processingEnv, MessageGroupWrapper messageGroup) {
         this.processingEnv = processingEnv;
         this.messageGroup = messageGroup;
+
+        typeUtils = new TypeUtils(processingEnv);
+        methodResolver = new MessageReaderMethodResolver(processingEnv);
     }
 
     /**
@@ -171,8 +178,6 @@ public class MessageDeserializerGenerator {
      * Helper method for resolving a {@link MessageReader} "read*" call based on the message field type.
      */
     private CodeBlock readMessageCodeBlock(ExecutableElement getter) {
-        var methodResolver = new MessageReaderMethodResolver(processingEnv);
-
         TypeName varType;
 
         if (getter.getAnnotation(Marshallable.class) != null) {
@@ -181,9 +186,33 @@ public class MessageDeserializerGenerator {
             varType = TypeName.get(getter.getReturnType());
         }
 
-        return CodeBlock.builder()
-                .add("$T tmp = reader.", varType)
-                .add(methodResolver.resolveReadMethod(getter))
-                .build();
+        if (typeUtils.isEnum(getter.getReturnType())) {
+            checkFromOrdinalMethodExists(getter.getReturnType());
+
+            return CodeBlock.builder()
+                    .add("int ordinal = reader.readInt($S);", getter.getSimpleName().toString())
+                    .add("\n")
+                    .add("$T tmp = ordinal <= 0 ? null : $T.$L(ordinal - 1)", varType, varType, FROM_ORDINAL_METHOD_NAME)
+                    .build();
+        } else {
+            return CodeBlock.builder()
+                    .add("$T tmp = reader.", varType)
+                    .add(methodResolver.resolveReadMethod(getter))
+                    .build();
+        }
+    }
+
+    private void checkFromOrdinalMethodExists(TypeMirror enumType) {
+        assert typeUtils.isEnum(enumType) : enumType;
+
+        typeUtils.types().asElement(enumType).getEnclosedElements().stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD)
+                .filter(element -> element.getSimpleName().toString().equals(FROM_ORDINAL_METHOD_NAME))
+                .filter(element -> element.getModifiers().contains(Modifier.PUBLIC))
+                .filter(element -> element.getModifiers().contains(Modifier.STATIC))
+                .findAny()
+                .orElseThrow(() -> new ProcessingException(
+                        String.format("Missing public static method \"%s\" for enum %s", FROM_ORDINAL_METHOD_NAME, enumType)
+                ));
     }
 }

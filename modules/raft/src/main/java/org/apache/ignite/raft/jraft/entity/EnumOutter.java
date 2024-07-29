@@ -19,7 +19,7 @@
 
 package org.apache.ignite.raft.jraft.entity;
 
-public final class EnumOutter {
+import org.jetbrains.annotations.Nullable;public final class EnumOutter {
     private EnumOutter() {
     }
 
@@ -44,6 +44,9 @@ public final class EnumOutter {
          */
         ENTRY_TYPE_CONFIGURATION(3),
         ;
+
+        /** Cached array with all enum values. */
+        private static final EntryType[] VALUES = values();
 
         public final int getNumber() {
             return value;
@@ -70,6 +73,11 @@ public final class EnumOutter {
                 default:
                     return null;
             }
+        }
+
+        /** Returns the enumerated value from its ordinal, {@code null} if the ordinal is invalid. */
+        public static @Nullable EntryType fromOrdinal(int ordinal) {
+            return ordinal < 0 || ordinal >= VALUES.length ? null : VALUES[ordinal];
         }
 
         private final int value;

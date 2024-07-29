@@ -31,9 +31,11 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
+import org.apache.ignite.internal.network.processor.TypeUtils;
 import org.apache.ignite.internal.network.serialization.MessageMappingException;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.network.serialization.MessageWriter;
@@ -43,20 +45,22 @@ import org.apache.ignite.internal.network.serialization.MessageWriter;
  */
 public class MessageSerializerGenerator {
     /** Processing environment. */
-    private final ProcessingEnvironment processingEnvironment;
+    private final ProcessingEnvironment processingEnv;
 
-    /** Message group. */
+    /** Wrapper element with {@link MessageGroup}. */
     private final MessageGroupWrapper messageGroup;
 
-    /**
-     * Constructor.
-     *
-     * @param processingEnvironment Processing environment.
-     * @param messageGroup          Message group.
-     */
-    public MessageSerializerGenerator(ProcessingEnvironment processingEnvironment, MessageGroupWrapper messageGroup) {
-        this.processingEnvironment = processingEnvironment;
+    private final TypeUtils typeUtils;
+
+    private final MessageWriterMethodResolver methodResolver;
+
+    /** Constructor. */
+    public MessageSerializerGenerator(ProcessingEnvironment processingEnv, MessageGroupWrapper messageGroup) {
+        this.processingEnv = processingEnv;
         this.messageGroup = messageGroup;
+
+        typeUtils = new TypeUtils(processingEnv);
+        methodResolver = new MessageWriterMethodResolver(processingEnv);
     }
 
     /**
@@ -66,7 +70,7 @@ public class MessageSerializerGenerator {
      * @return {@code TypeSpec} of the generated serializer
      */
     public TypeSpec generateSerializer(MessageClass message) {
-        processingEnvironment.getMessager()
+        processingEnv.getMessager()
                 .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializer for " + message.className());
 
         ClassName serializerClassName = message.serializerClassName();
@@ -140,19 +144,25 @@ public class MessageSerializerGenerator {
         return method.build();
     }
 
-    /**
-     * Helper method for resolving a {@link MessageWriter} "write*" call based on the message field type.
-     */
+    /** Helper method for resolving a {@link MessageWriter} "write*" call based on the message field type. */
     private CodeBlock writeMessageCodeBlock(ExecutableElement getter) {
-        var methodResolver = new MessageWriterMethodResolver(processingEnvironment);
+        CodeBlock.Builder writerMethodCallBuilder = CodeBlock.builder();
 
-        CodeBlock writerMethodCall = CodeBlock.builder()
-                .add("boolean written = writer.")
-                .add(methodResolver.resolveWriteMethod(getter))
-                .build();
+        if (typeUtils.isEnum(getter.getReturnType())) {
+            String fieldName = getter.getSimpleName().toString();
+
+            writerMethodCallBuilder
+                    .add("int ordinal = message.$L() == null ? 0 : message.$L().ordinal() + 1;", fieldName, fieldName)
+                    .add("\n")
+                    .add("boolean written = writer.writeInt($S, ordinal)", fieldName);
+        } else {
+            writerMethodCallBuilder
+                    .add("boolean written = writer.")
+                    .add(methodResolver.resolveWriteMethod(getter));
+        }
 
         return CodeBlock.builder()
-                .addStatement(writerMethodCall)
+                .addStatement(writerMethodCallBuilder.build())
                 .add("\n")
                 .beginControlFlow("if (!written)")
                 .addStatement("return false")
