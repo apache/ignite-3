@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.criteria;
+namespace Apache.Ignite.Compute;
 
-import org.apache.ignite.table.partition.Partition;
-import org.jetbrains.annotations.Nullable;
+using System.Collections.Generic;
 
-/**
- * Represents a partition reference for criteria query.
- */
-// TODO: IGNITE-22153
-public class PartitionCriteria implements Partition, Criteria {
-    @Override
-    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
-        v.visit(this, context);
-    }
-}
+/// <summary>
+/// Compute task descriptor.
+/// </summary>
+/// <param name="TaskClassName">Java class name of the compute task to execute.</param>
+/// <param name="DeploymentUnits">Deployment units.</param>
+/// <typeparam name="TArg">Argument type.</typeparam>
+/// <typeparam name="TResult">Result type.</typeparam>
+public sealed record TaskDescriptor<TArg, TResult>(
+    string TaskClassName,
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null);

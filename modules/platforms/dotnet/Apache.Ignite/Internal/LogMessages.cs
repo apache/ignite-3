@@ -116,7 +116,7 @@ internal static partial class LogMessages
         Message = "Sending request [requestId={RequestId}, op={Op}, remoteAddress={RemoteAddress}]",
         Level = LogLevel.Trace,
         EventId = 1013)]
-    internal static partial void LogSendingRequestTrace(this ILogger logger, long requestId, ClientOp op, IPEndPoint remoteAddress);
+    internal static partial void LogSendingRequestTrace(this ILogger logger, long requestId, ClientOp op, EndPoint remoteAddress);
 
     [LoggerMessage(
         Message = "{Message}",
@@ -141,20 +141,20 @@ internal static partial class LogMessages
         Level = LogLevel.Information,
         EventId = 1017)]
     internal static partial void LogPartitionAssignmentChangeNotificationInfo(
-        this ILogger logger, IPEndPoint remoteAddress, long timestamp);
+        this ILogger logger, EndPoint remoteAddress, long timestamp);
 
     [LoggerMessage(
         Message = "Connection closed with error [remoteAddress={RemoteAddress}]: {Message}",
         Level = LogLevel.Warning,
         EventId = 1018)]
     internal static partial void LogConnectionClosedWithErrorWarn(
-        this ILogger logger, Exception ex, IPEndPoint remoteAddress, string message);
+        this ILogger logger, Exception ex, EndPoint remoteAddress, string message);
 
     [LoggerMessage(
         Message = "Connection closed gracefully [remoteAddress={RemoteAddress}]",
         Level = LogLevel.Debug,
         EventId = 1019)]
-    internal static partial void LogConnectionClosedGracefullyDebug(this ILogger logger, IPEndPoint remoteAddress);
+    internal static partial void LogConnectionClosedGracefullyDebug(this ILogger logger, EndPoint remoteAddress);
 
     [LoggerMessage(
         Message = "Ignite.NET client version {Version} is starting",
@@ -204,5 +204,5 @@ internal static partial class LogMessages
         Level = LogLevel.Trace,
         EventId = 1027)]
     internal static partial void LogReceivedResponseTrace(
-        this ILogger logger, long requestId, ResponseFlags flags, IPEndPoint remoteAddress);
+        this ILogger logger, long requestId, ResponseFlags flags, EndPoint remoteAddress);
 }
