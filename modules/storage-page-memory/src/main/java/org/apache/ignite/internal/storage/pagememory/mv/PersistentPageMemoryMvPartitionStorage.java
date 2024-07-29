@@ -176,7 +176,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
+    public CompletableFuture<Void> flush(boolean trigger) {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
@@ -184,7 +184,16 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
             CheckpointProgress scheduledCheckpoint;
 
-            if (lastCheckpoint != null && meta.metaSnapshot(lastCheckpoint.id()).lastAppliedIndex() == meta.lastAppliedIndex()) {
+            if (!trigger) {
+                throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+                // Scheduling a checkpoint with an "infinite" delay (24+ days to prevent overflow)
+                // so the checkpoint will definitely not be triggered.
+                scheduledCheckpoint = checkpointManager.scheduleCheckpoint(
+                        Integer.MAX_VALUE,
+                        "subscribe to next checkpoint"
+                );
+            } else if (lastCheckpoint != null && meta.metaSnapshot(lastCheckpoint.id()).lastAppliedIndex() == meta.lastAppliedIndex()) {
                 scheduledCheckpoint = lastCheckpoint;
             } else {
                 var persistentTableStorage = (PersistentPageMemoryTableStorage) tableStorage;
@@ -195,7 +204,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 scheduledCheckpoint = checkpointManager.scheduleCheckpoint(checkpointDelayMillis, "Triggered by replicator");
             }
 
-            return scheduledCheckpoint.futureFor(CheckpointState.FINISHED).thenApply(res -> null);
+            return scheduledCheckpoint.futureFor(CheckpointState.FINISHED);
         });
     }
 
