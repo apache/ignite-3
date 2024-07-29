@@ -361,10 +361,16 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             rowsToUpdate = new ArrayList<>();
 
             for (RowT row : rows) {
-                // this check doesn't seem correct because NULL could be a legit value for column,
-                // but this is how it was implemented before, so I just file an issue to deal with this later
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-18883
-                if (handler.get(updateColumnOffset, row) == null) {
+                // Merge operation uses a left join as its input, so in order to distinguish between new rows and modified rows
+                // (WHEN MATCH, WHEN NOT MATCH clauses), we need to check all columns of a destination
+                // table for null values. Because every table has a primary key and this primary key columns can never be null,
+                // a row is new row (it should be inserted) iff all of its columns are NULL.
+                boolean insertRow = true;
+                for (int i = updateColumnOffset; i < updateColumnOffset + mapping.length; i++) {
+                    insertRow = insertRow && handler.get(i, row) == null;
+                }
+
+                if (insertRow) {
                     rowsToInsert.add(row);
                 } else {
                     rowsToUpdate.add(row);
