@@ -17,38 +17,15 @@
 
 namespace Apache.Ignite.Compute;
 
+using System.Collections.Generic;
+
 /// <summary>
-/// Compute job status.
+/// Compute task descriptor.
 /// </summary>
-public enum JobStatus
-{
-    /// <summary>
-    /// The job is submitted and waiting for an execution start.
-    /// </summary>
-    Queued,
-
-    /// <summary>
-    /// The job is being executed.
-    /// </summary>
-    Executing,
-
-    /// <summary>
-    /// The job was unexpectedly terminated during execution.
-    /// </summary>
-    Failed,
-
-    /// <summary>
-    /// The job was executed successfully and the execution result was returned.
-    /// </summary>
-    Completed,
-
-    /// <summary>
-    /// The job has received the cancel command, but is still running.
-    /// </summary>
-    Canceling,
-
-    /// <summary>
-    /// The job was successfully cancelled.
-    /// </summary>
-    Canceled
-}
+/// <param name="TaskClassName">Java class name of the compute task to execute.</param>
+/// <param name="DeploymentUnits">Deployment units.</param>
+/// <typeparam name="TArg">Argument type.</typeparam>
+/// <typeparam name="TResult">Result type.</typeparam>
+public sealed record TaskDescriptor<TArg, TResult>(
+    string TaskClassName,
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null);
