@@ -459,36 +459,27 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE test1 (key1 int PRIMARY KEY, val1 int)");
         sql("CREATE TABLE test2 (key2 int PRIMARY KEY, val2 int)");
 
-        sql("INSERT INTO test1 VALUES (1, 3)");
+        sql("INSERT INTO test1 (key1, val1) VALUES (1, null)");
         sql("INSERT INTO test2 VALUES (2, null)");
         sql("INSERT INTO test2 VALUES (1, 5)");
 
-        sql("MERGE INTO test1 dst USING test2 src ON dst.key1 = src.key2 "
-                + "WHEN MATCHED THEN UPDATE SET val1 = 4 "
-                + "WHEN NOT MATCHED THEN INSERT (key1, val1) VALUES (key2, val2)"
-        );
+        String mergeStmt = "MERGE INTO {} dst USING test2 src ON dst.key1 = src.key2\n"
+                + "WHEN MATCHED THEN UPDATE SET val1 = 4\n"
+                + "WHEN NOT MATCHED THEN INSERT (key1, val1) VALUES (key2, val2)";
+
+        sql(format(mergeStmt, "test1"));
 
         assertQuery("SELECT key1, val1 FROM test1 ORDER BY key1")
                 .returns(1, 4)
                 .returns(2, null)
                 .check();
 
+        sql("CREATE TABLE test3 (val1 int, key1 int PRIMARY KEY)");
+        sql("INSERT INTO test3 (key1, val1) VALUES (1, null)");
 
-        dropAllTables();
+        sql(format(mergeStmt, "test3"));
 
-        sql("CREATE TABLE test1 (val1 int, key1 int PRIMARY KEY)");
-        sql("CREATE TABLE test2 (key2 int PRIMARY KEY, val2 int)");
-
-        sql("INSERT INTO test1 (key1, val1) VALUES (1, null)");
-        sql("INSERT INTO test2 VALUES (2, null)");
-        sql("INSERT INTO test2 VALUES (1, 5)");
-
-        sql("MERGE INTO test1 dst USING test2 src ON dst.key1 = src.key2"
-                + "WHEN MATCHED THEN UPDATE SET val1 = 4"
-                + "WHEN NOT MATCHED THEN INSERT (key1, val1) VALUES (key2, val2)"
-        );
-
-        assertQuery("SELECT key1, val1 FROM test1 ORDER BY key1")
+        assertQuery("SELECT key1, val1 FROM test3 ORDER BY key1")
                 .returns(1, 4)
                 .returns(2, null)
                 .check();
