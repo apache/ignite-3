@@ -34,7 +34,7 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
 
         <!-- Test-only dependency to use as a reference implementation. -->
-        <PackageReference Include="MessagePack" Version="[2.1.90,)" />
+        <PackageReference Include="MessagePack" Version="2.5.171" />
     </ItemGroup>
 
     <ItemGroup>
