@@ -590,8 +590,6 @@ public class IgniteImpl implements Ignite {
                 raftGroupEventsClientListener
         );
 
-        CompletableFuture<LongSupplier> maxClockSkewMillisFuture = new CompletableFuture<>();
-
         metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
                 cmgMgr,
@@ -627,16 +625,13 @@ public class IgniteImpl implements Ignite {
                         name,
                         threadPoolsManager.commonScheduler(),
                         metaStorageMgr::evictIdempotentCommandsCache,
-                        raftConfiguration.retryTimeout().value(),
+                        raftConfiguration.retryTimeout(),
                         clockService,
                         1,
                         1,
                         MINUTES
                 )
         );
-
-        // TODO remove.
-        maxClockSkewMillisFuture.complete(clockService::maxClockSkewMillis);
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 

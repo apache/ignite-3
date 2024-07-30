@@ -86,6 +86,7 @@ public class MetaStorageWriteHandler {
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
 
+    // TODO Seems that we no longer need storing timestamp in the cache, nor we need IdempotentCommandCachedResult
     private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(
