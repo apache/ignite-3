@@ -238,7 +238,7 @@ public class MetaStorageWriteHandler {
             var valueCondition = (SimpleCondition.ValueCondition) condition;
 
             return new ValueCondition(
-                    toValueConditionType(valueCondition.conditionType()),
+                    toValueConditionType(valueCondition.type()),
                     toByteArray(valueCondition.key()),
                     toByteArray(valueCondition.value())
             );
@@ -246,14 +246,14 @@ public class MetaStorageWriteHandler {
             var revisionCondition = (SimpleCondition.RevisionCondition) condition;
 
             return new RevisionCondition(
-                    toRevisionConditionType(revisionCondition.conditionType()),
+                    toRevisionConditionType(revisionCondition.type()),
                     toByteArray(revisionCondition.key()),
                     revisionCondition.revision()
             );
         } else if (condition instanceof SimpleCondition) {
             var simpleCondition = (SimpleCondition) condition;
 
-            switch (simpleCondition.conditionType()) {
+            switch (simpleCondition.type()) {
                 case KEY_EXISTS:
                     return new ExistenceCondition(ExistenceCondition.Type.EXISTS, toByteArray(simpleCondition.key()));
 
@@ -267,7 +267,7 @@ public class MetaStorageWriteHandler {
                     return new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, toByteArray(simpleCondition.key()));
 
                 default:
-                    throw new IllegalArgumentException("Unexpected simple condition type " + simpleCondition.conditionType());
+                    throw new IllegalArgumentException("Unexpected simple condition type " + simpleCondition.type());
             }
         } else if (condition instanceof CompoundCondition) {
             CompoundCondition compoundCondition = (CompoundCondition) condition;
@@ -275,7 +275,7 @@ public class MetaStorageWriteHandler {
             Condition leftCondition = toCondition(compoundCondition.leftCondition());
             Condition rightCondition = toCondition(compoundCondition.rightCondition());
 
-            switch (compoundCondition.compoundConditionType()) {
+            switch (compoundCondition.type()) {
                 case AND:
                     return new AndCondition(leftCondition, rightCondition);
 
@@ -283,7 +283,7 @@ public class MetaStorageWriteHandler {
                     return new OrCondition(leftCondition, rightCondition);
 
                 default:
-                    throw new IllegalArgumentException("Unexpected compound condition type " + compoundCondition.compoundConditionType());
+                    throw new IllegalArgumentException("Unexpected compound condition type " + compoundCondition.type());
             }
         } else {
             throw new IllegalArgumentException("Unknown condition " + condition);

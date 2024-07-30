@@ -36,7 +36,6 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.annotations.Marshallable;
-import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
@@ -55,7 +54,7 @@ public class MessageDeserializerGenerator {
     /** Processing environment. */
     private final ProcessingEnvironment processingEnv;
 
-    /** Wrapper element with {@link MessageGroup}. */
+    /** Message group. */
     private final MessageGroupWrapper messageGroup;
 
     private final TypeUtils typeUtils;
@@ -143,15 +142,25 @@ public class MessageDeserializerGenerator {
             for (int i = 0; i < getters.size(); ++i) {
                 ExecutableElement getter = getters.get(i);
 
-                String name = getter.getSimpleName().toString();
+                String getterName = getter.getSimpleName().toString();
 
                 if (getter.getAnnotation(Marshallable.class) != null) {
-                    name = addByteArrayPostfix(name);
+                    getterName = addByteArrayPostfix(getterName);
+                }
+
+                method.beginControlFlow("case $L:", i);
+
+                if (typeUtils.isEnum(getter.getReturnType())) {
+                    checkFromOrdinalMethodExists(getter.getReturnType());
+
+                    // At the beginning we read the shifted ordinal, shifted by +1 to efficiently transfer null (since we use "var int").
+                    // If we read garbage then we should not convert to an enumeration, the check below does this.
+                    method.addStatement("int ordinalShifted = reader.readInt($S)", getterName);
+                } else {
+                    method.addStatement(readMessageCodeBlock(getter));
                 }
 
                 method
-                        .beginControlFlow("case $L:", i)
-                        .addStatement(readMessageCodeBlock(getter))
                         .addCode("\n")
                         .addCode(CodeBlock.builder()
                                 .beginControlFlow("if (!reader.isLastRead())")
@@ -159,8 +168,21 @@ public class MessageDeserializerGenerator {
                                 .endControlFlow()
                                 .build()
                         )
-                        .addCode("\n")
-                        .addStatement("$N.$N(tmp)", msgField, name)
+                        .addCode("\n");
+
+                if (typeUtils.isEnum(getter.getReturnType())) {
+                    TypeName varType = TypeName.get(getter.getReturnType());
+
+                    method
+                            .addStatement(
+                                    "$T tmp = ordinalShifted == 0 ? null : $T.$L(ordinalShifted - 1)",
+                                    varType, varType, FROM_ORDINAL_METHOD_NAME
+                            )
+                            .addCode("\n");
+                }
+
+                method
+                        .addStatement("$N.$N(tmp)", msgField, getterName)
                         .addStatement("reader.incrementState()")
                         .endControlFlow()
                         .addComment("Falls through");
@@ -186,20 +208,10 @@ public class MessageDeserializerGenerator {
             varType = TypeName.get(getter.getReturnType());
         }
 
-        if (typeUtils.isEnum(getter.getReturnType())) {
-            checkFromOrdinalMethodExists(getter.getReturnType());
-
-            return CodeBlock.builder()
-                    .add("int ordinal = reader.readInt($S);", getter.getSimpleName().toString())
-                    .add("\n")
-                    .add("$T tmp = ordinal <= 0 ? null : $T.$L(ordinal - 1)", varType, varType, FROM_ORDINAL_METHOD_NAME)
-                    .build();
-        } else {
-            return CodeBlock.builder()
-                    .add("$T tmp = reader.", varType)
-                    .add(methodResolver.resolveReadMethod(getter))
-                    .build();
-        }
+        return CodeBlock.builder()
+                .add("$T tmp = reader.", varType)
+                .add(methodResolver.resolveReadMethod(getter))
+                .build();
     }
 
     private void checkFromOrdinalMethodExists(TypeMirror enumType) {

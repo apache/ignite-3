@@ -31,7 +31,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
@@ -47,7 +46,7 @@ public class MessageSerializerGenerator {
     /** Processing environment. */
     private final ProcessingEnvironment processingEnv;
 
-    /** Wrapper element with {@link MessageGroup}. */
+    /** Message Types declarations for the current module. */
     private final MessageGroupWrapper messageGroup;
 
     private final TypeUtils typeUtils;
@@ -151,10 +150,11 @@ public class MessageSerializerGenerator {
         if (typeUtils.isEnum(getter.getReturnType())) {
             String fieldName = getter.getSimpleName().toString();
 
+            // Let's write the shifted ordinal to efficiently transfer null (since we use "var int").
             writerMethodCallBuilder
-                    .add("int ordinal = message.$L() == null ? 0 : message.$L().ordinal() + 1;", fieldName, fieldName)
+                    .add("int ordinalShifted = message.$L() == null ? 0 : message.$L().ordinal() + 1;", fieldName, fieldName)
                     .add("\n")
-                    .add("boolean written = writer.writeInt($S, ordinal)", fieldName);
+                    .add("boolean written = writer.writeInt($S, ordinalShifted)", fieldName);
         } else {
             writerMethodCallBuilder
                     .add("boolean written = writer.")

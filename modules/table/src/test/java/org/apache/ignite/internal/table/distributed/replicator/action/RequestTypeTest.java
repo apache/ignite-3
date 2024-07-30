@@ -21,15 +21,30 @@ package org.apache.ignite.internal.table.distributed.replicator.action;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_SCAN;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_DELETE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_REPLACE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE_IF_EXIST;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.EnumSet;
 import java.util.Set;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.junit.jupiter.api.Test;
 
@@ -60,10 +75,48 @@ class RequestTypeTest {
         }
     }
 
+    /** Checks that the ordinal does not change, since the enum will be transfer in the {@link NetworkMessage}. */
     @Test
     void testFromOrdinal() {
-        for (RequestType requestType : RequestType.values()) {
-            assertEquals(requestType, RequestType.fromOrdinal(requestType.ordinal()));
-        }
+        assertEquals(RW_GET, RequestType.fromOrdinal(0));
+
+        assertEquals(RW_GET_ALL, RequestType.fromOrdinal(1));
+
+        assertEquals(RW_DELETE, RequestType.fromOrdinal(2));
+
+        assertEquals(RW_DELETE_ALL, RequestType.fromOrdinal(3));
+
+        assertEquals(RW_DELETE_EXACT, RequestType.fromOrdinal(4));
+
+        assertEquals(RW_DELETE_EXACT_ALL, RequestType.fromOrdinal(5));
+
+        assertEquals(RW_INSERT, RequestType.fromOrdinal(6));
+
+        assertEquals(RW_INSERT_ALL, RequestType.fromOrdinal(7));
+
+        assertEquals(RW_UPSERT, RequestType.fromOrdinal(8));
+
+        assertEquals(RW_UPSERT_ALL, RequestType.fromOrdinal(9));
+
+        assertEquals(RW_REPLACE, RequestType.fromOrdinal(10));
+
+        assertEquals(RW_REPLACE_IF_EXIST, RequestType.fromOrdinal(11));
+
+        assertEquals(RW_GET_AND_DELETE, RequestType.fromOrdinal(12));
+
+        assertEquals(RW_GET_AND_REPLACE, RequestType.fromOrdinal(13));
+
+        assertEquals(RW_GET_AND_UPSERT, RequestType.fromOrdinal(14));
+
+        assertEquals(RW_SCAN, RequestType.fromOrdinal(15));
+
+        assertEquals(RO_GET, RequestType.fromOrdinal(16));
+
+        assertEquals(RO_GET_ALL, RequestType.fromOrdinal(17));
+
+        assertEquals(RO_SCAN, RequestType.fromOrdinal(18));
+
+        assertThrows(IllegalArgumentException.class, () -> RequestType.fromOrdinal(-1));
+        assertThrows(IllegalArgumentException.class, () -> RequestType.fromOrdinal(19));
     }
 }

@@ -31,5 +31,5 @@ public interface CompoundCondition extends Condition {
     Condition rightCondition();
 
     /** Compound condition type. */
-    CompoundConditionType compoundConditionType();
+    CompoundConditionType type();
 }

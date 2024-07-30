@@ -74,7 +74,8 @@ import org.apache.ignite.internal.network.serialization.MessageSerializer;
  *     <li>{@code Collection} of boxed primitive types or other directly marshallable types;</li>
  *     <li>{@code Map} where both keys and values can be of a directly marshallable type.</li>
  *     <li>{@link HybridTimestamp}.</li>
- *     <li>{@link Enum} that must contain the method "public static @Nullable SomeEnum fromOrdinal(int ordinal)".</li>
+ *     <li>{@link Enum} that must contain the method "public static SomeEnum fromOrdinal(int ordinal) @throws IllegalArgumentException ".
+ *     </li>
  * </ol>
  *
  * <p>After all marked interfaces in a module have been processed, the processor will use the

@@ -15,32 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.disaster;
+package org.apache.ignite.raft.jraft.entity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.junit.jupiter.api.Test;
 
-/** For {@link LocalPartitionStateEnum} testing. */
-public class LocalPartitionStateEnumTest {
+/** For {@link EntryType} testing. */
+public class EntryTypeTest {
     /** Checks that the ordinal does not change, since the enum will be transfer in the {@link NetworkMessage}. */
     @Test
     void testFromOrdinal() {
-        assertEquals(LocalPartitionStateEnum.UNAVAILABLE, LocalPartitionStateEnum.fromOrdinal(0));
+        assertEquals(EntryType.ENTRY_TYPE_UNKNOWN, EntryType.fromOrdinal(0));
 
-        assertEquals(LocalPartitionStateEnum.HEALTHY, LocalPartitionStateEnum.fromOrdinal(1));
+        assertEquals(EntryType.ENTRY_TYPE_NO_OP, EntryType.fromOrdinal(1));
 
-        assertEquals(LocalPartitionStateEnum.INITIALIZING, LocalPartitionStateEnum.fromOrdinal(2));
+        assertEquals(EntryType.ENTRY_TYPE_DATA, EntryType.fromOrdinal(2));
 
-        assertEquals(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, LocalPartitionStateEnum.fromOrdinal(3));
+        assertEquals(EntryType.ENTRY_TYPE_CONFIGURATION, EntryType.fromOrdinal(3));
 
-        assertEquals(LocalPartitionStateEnum.CATCHING_UP, LocalPartitionStateEnum.fromOrdinal(4));
-
-        assertEquals(LocalPartitionStateEnum.BROKEN, LocalPartitionStateEnum.fromOrdinal(5));
-
-        assertThrows(IllegalArgumentException.class, () -> LocalPartitionStateEnum.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> LocalPartitionStateEnum.fromOrdinal(6));
+        assertThrows(IllegalArgumentException.class, () -> EntryType.fromOrdinal(-1));
+        assertThrows(IllegalArgumentException.class, () -> EntryType.fromOrdinal(4));
     }
 }

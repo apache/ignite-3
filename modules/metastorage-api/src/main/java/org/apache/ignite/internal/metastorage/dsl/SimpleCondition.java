@@ -29,7 +29,7 @@ public interface SimpleCondition extends Condition {
     ByteBuffer key();
 
     /** Condition type. */
-    ConditionType conditionType();
+    ConditionType type();
 
     /**
      * Represents a condition on an entry revision.
