@@ -15,28 +15,17 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Network
-{
-    using System.Net;
+namespace Apache.Ignite.Compute;
 
-    /// <summary>
-    /// Ignite cluster node.
-    /// </summary>
-    public interface IClusterNode
-    {
-        /// <summary>
-        /// Gets the local node id. Changes after node restart.
-        /// </summary>
-        string Id { get; }
+using System.Collections.Generic;
 
-        /// <summary>
-        /// Gets the unique name (consistent id) of the cluster member. Does not change after node restart.
-        /// </summary>
-        string Name { get; }
-
-        /// <summary>
-        /// Gets the node address.
-        /// </summary>
-        EndPoint Address { get; }
-    }
-}
+/// <summary>
+/// Compute task descriptor.
+/// </summary>
+/// <param name="TaskClassName">Java class name of the compute task to execute.</param>
+/// <param name="DeploymentUnits">Deployment units.</param>
+/// <typeparam name="TArg">Argument type.</typeparam>
+/// <typeparam name="TResult">Result type.</typeparam>
+public sealed record TaskDescriptor<TArg, TResult>(
+    string TaskClassName,
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null);

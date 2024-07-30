@@ -15,28 +15,22 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Network
-{
-    using System.Net;
+namespace Apache.Ignite.Compute;
 
-    /// <summary>
-    /// Ignite cluster node.
-    /// </summary>
-    public interface IClusterNode
-    {
-        /// <summary>
-        /// Gets the local node id. Changes after node restart.
-        /// </summary>
-        string Id { get; }
+using System;
+using NodaTime;
 
-        /// <summary>
-        /// Gets the unique name (consistent id) of the cluster member. Does not change after node restart.
-        /// </summary>
-        string Name { get; }
-
-        /// <summary>
-        /// Gets the node address.
-        /// </summary>
-        EndPoint Address { get; }
-    }
-}
+/// <summary>
+/// Compute task state.
+/// </summary>
+/// <param name="Id">Task ID.</param>
+/// <param name="Status">Task status.</param>
+/// <param name="CreateTime">Create time.</param>
+/// <param name="StartTime">Start time (<c>null</c> when not yet started).</param>
+/// <param name="FinishTime">Finish time (<c>null</c> when not yet finished).</param>
+public sealed record TaskState(
+    Guid Id,
+    TaskStatus Status,
+    Instant CreateTime,
+    Instant? StartTime,
+    Instant? FinishTime);

@@ -33,6 +33,7 @@ namespace Apache.Ignite.Internal.Compute
     using Proto.MsgPack;
     using Table;
     using Table.Serialization;
+    using TaskStatus = Ignite.Compute.TaskStatus;
 
     /// <summary>
     /// Compute API.
@@ -106,6 +107,34 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
+        public async Task<ITaskExecution<TResult>> SubmitMapReduceAsync<TArg, TResult>(
+            TaskDescriptor<TArg, TResult> taskDescriptor,
+            TArg arg)
+        {
+            IgniteArgumentCheck.NotNull(taskDescriptor);
+            IgniteArgumentCheck.NotNull(taskDescriptor.TaskClassName);
+
+            using var writer = ProtoCommon.GetMessageWriter();
+            Write();
+
+            using PooledBuffer res = await _socket.DoOutInOpAsync(
+                    ClientOp.ComputeExecuteMapReduce, writer, expectNotifications: true)
+                .ConfigureAwait(false);
+
+            return GetTaskExecution<TResult>(res);
+
+            void Write()
+            {
+                var w = writer.MessageWriter;
+
+                WriteUnits(taskDescriptor.DeploymentUnits, writer);
+                w.Write(taskDescriptor.TaskClassName);
+
+                w.WriteObjectAsBinaryTuple(arg);
+            }
+        }
+
+        /// <inheritdoc/>
         public override string ToString() => IgniteToStringBuilder.Build(GetType());
 
         /// <summary>
@@ -133,11 +162,11 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <summary>
-        /// Gets the job status.
+        /// Gets the job state.
         /// </summary>
         /// <param name="jobId">Job ID.</param>
-        /// <returns>Status.</returns>
-        internal async Task<JobState?> GetJobStatusAsync(Guid jobId)
+        /// <returns>State.</returns>
+        internal async Task<JobState?> GetJobStateAsync(Guid jobId)
         {
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(jobId);
@@ -145,7 +174,23 @@ namespace Apache.Ignite.Internal.Compute
             using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeGetStatus, writer).ConfigureAwait(false);
             return Read(res.GetReader());
 
-            JobState? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadJobStatus(reader);
+            JobState? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadJobState(reader);
+        }
+
+        /// <summary>
+        /// Gets the task state.
+        /// </summary>
+        /// <param name="jobId">Job ID.</param>
+        /// <returns>State.</returns>
+        internal async Task<TaskState?> GetTaskStateAsync(Guid jobId)
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(jobId);
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeGetStatus, writer).ConfigureAwait(false);
+            return Read(res.GetReader());
+
+            TaskState? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadTaskState(reader);
         }
 
         /// <summary>
@@ -243,7 +288,7 @@ namespace Apache.Ignite.Internal.Compute
             });
         }
 
-        private static JobState ReadJobStatus(MsgPackReader reader)
+        private static JobState ReadJobState(MsgPackReader reader)
         {
             var id = reader.ReadGuid();
             var state = (JobStatus)reader.ReadInt32();
@@ -252,6 +297,17 @@ namespace Apache.Ignite.Internal.Compute
             var endTime = reader.ReadInstantNullable();
 
             return new JobState(id, state, createTime.GetValueOrDefault(), startTime, endTime);
+        }
+
+        private static TaskState ReadTaskState(MsgPackReader reader)
+        {
+            var id = reader.ReadGuid();
+            var status = (TaskStatus)reader.ReadInt32();
+            var createTime = reader.ReadInstantNullable();
+            var startTime = reader.ReadInstantNullable();
+            var endTime = reader.ReadInstantNullable();
+
+            return new TaskState(id, status, createTime.GetValueOrDefault(), startTime, endTime);
         }
 
         private IJobExecution<T> GetJobExecution<T>(PooledBuffer computeExecuteResult, bool readSchema)
@@ -277,9 +333,42 @@ namespace Apache.Ignite.Internal.Compute
             static (T, JobState) Read(MsgPackReader reader)
             {
                 var res = (T)reader.ReadObjectFromBinaryTuple()!;
-                var status = ReadJobStatus(reader);
+                var status = ReadJobState(reader);
 
                 return (res, status);
+            }
+        }
+
+        private ITaskExecution<T> GetTaskExecution<T>(PooledBuffer computeExecuteResult)
+        {
+            var reader = computeExecuteResult.GetReader();
+
+            var taskId = reader.ReadGuid();
+
+            var jobCount = reader.ReadInt32();
+            List<Guid> jobIds = new(jobCount);
+
+            for (var i = 0; i < jobCount; i++)
+            {
+                jobIds.Add(reader.ReadGuid());
+            }
+
+            var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
+
+            return new TaskExecution<T>(taskId, jobIds, resultTask, this);
+
+            static async Task<(T, TaskState)> GetResult(NotificationHandler handler)
+            {
+                using var notificationRes = await handler.Task.ConfigureAwait(false);
+                return Read(notificationRes.GetReader());
+            }
+
+            static (T, TaskState) Read(MsgPackReader reader)
+            {
+                var res = (T)reader.ReadObjectFromBinaryTuple()!;
+                var state = ReadTaskState(reader);
+
+                return (res, state);
             }
         }
 

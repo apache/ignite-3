@@ -296,7 +296,7 @@ namespace Apache.Ignite.Tests.Transactions
         public async Task TestObservableTimestampIsInitializedFromHandshake()
         {
             using var client = await IgniteClient.StartAsync(new() { Endpoints = { "127.0.0.1:" + ServerPort } });
-            var observableTimestamp = client.GetFieldValue<ClientFailoverSocket>("_socket").ObservableTimestamp;
+            var observableTimestamp = ((IgniteClientInternal)client).Socket.ObservableTimestamp;
 
             Assert.Greater(observableTimestamp, 0);
         }
@@ -313,7 +313,7 @@ namespace Apache.Ignite.Tests.Transactions
 
             Assert.AreEqual(
                 server.ObservableTimestamp,
-                client.GetFieldValue<ClientFailoverSocket>("_socket").ObservableTimestamp,
+                ((IgniteClientInternal)client).Socket.ObservableTimestamp,
                 "Handshake should initialize observable timestamp");
 
             server.ObservableTimestamp = 123;

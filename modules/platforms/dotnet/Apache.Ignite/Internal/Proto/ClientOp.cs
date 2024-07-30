@@ -133,6 +133,9 @@ namespace Apache.Ignite.Internal.Proto
         /** Send streamer batch. */
         StreamerBatchSend = 62,
 
+        /** Execute MapReduce task. */
+        ComputeExecuteMapReduce = 64,
+
         /** Get primary replicas. */
         PrimaryReplicasGet = 65,
 
