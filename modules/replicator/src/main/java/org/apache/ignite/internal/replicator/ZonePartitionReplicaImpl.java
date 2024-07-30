@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -66,6 +67,12 @@ public class ZonePartitionReplicaImpl implements Replica {
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
         return listener.invoke(request, senderId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void updateConfiguration(PeersAndLearners configuration) {
+        raftClient.updateConfiguration(configuration);
     }
 
     @Override

@@ -2104,8 +2104,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             : union(pendingAssignmentsNodes, stableAssignments.nodes());
 
                     replicaMgr.replica(replicaGrpId)
-                            .thenApply(Replica::raftClient)
-                            .thenAccept(raftClient -> raftClient.updateConfiguration(fromAssignments(newAssignments)));
+                            .thenAccept(replica -> replica.updateConfiguration(fromAssignments(newAssignments)));
                 }), ioExecutor);
     }
 
@@ -2497,8 +2496,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             // Update raft client peers and learners according to the actual assignments.
             return replicaMgr.replica(tablePartitionId)
-                    .thenApply(Replica::raftClient)
-                    .thenAccept(raftClient -> raftClient.updateConfiguration(fromAssignments(stableAssignments)));
+                    .thenAccept(replica -> replica.updateConfiguration(fromAssignments(stableAssignments)));
         }));
     }
 

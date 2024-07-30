@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -53,6 +54,13 @@ public interface Replica {
      * @return Response.
      */
     CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId);
+
+    /**
+     * Updates peers and learners lists in raft client.
+     *
+     * @param configuration Peers and learners configuration.
+     */
+    void updateConfiguration(PeersAndLearners configuration);
 
     /**
      * Replica group identity, this id is the same as the considered partition's id.

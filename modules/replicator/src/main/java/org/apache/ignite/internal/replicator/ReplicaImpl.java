@@ -41,6 +41,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
@@ -151,6 +152,12 @@ public class ReplicaImpl implements Replica {
                 replicaGrpId);
 
         return listener.invoke(request, senderId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void updateConfiguration(PeersAndLearners configuration) {
+        raftClient.updateConfiguration(configuration);
     }
 
     @Override
