@@ -27,6 +27,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -93,6 +94,25 @@ public class ItTablePutGetEmbeddedTest extends ClusterPerClassIntegrationTest {
                 assertEquals(i * 10, recordView.get(null, key).intValue(1));
             }
         }
+    }
+
+    @Test
+    public void testSingleColumnTable() {
+        String tableName = "TEST_TABLE_1";
+
+        sql("CREATE TABLE " + tableName + " (id int primary key)");
+        sql("INSERT INTO " + tableName + " (id) VALUES (1)");
+
+
+        KeyValueView<Tuple, Tuple> kvView = tables().table(tableName).keyValueView();
+
+        Tuple key = Tuple.create().set("id", 1);
+        Tuple val = Tuple.create();
+
+        kvView.put(null, key, val);
+        Tuple res = kvView.get(null, key);
+
+        assertEquals(val, res);
     }
 
     private static Stream<Arguments> tableDefinitions() {
