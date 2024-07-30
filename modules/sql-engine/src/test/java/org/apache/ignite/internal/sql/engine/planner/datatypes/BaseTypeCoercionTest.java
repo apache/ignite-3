@@ -23,6 +23,8 @@ import static org.hamcrest.Matchers.instanceOf;
 
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
@@ -56,9 +58,18 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
     static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
         EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
 
-        args.map(Arguments::get).map(arg -> (NumericPair) arg[0]).forEach(remainingPairs::remove);
+        List<NumericPair> usedPairs = args.map(Arguments::get)
+                .map(arg -> (NumericPair) arg[0])
+                .collect(Collectors.toList());
 
-        assertThat(remainingPairs, Matchers.empty());
+        usedPairs.forEach(remainingPairs::remove);
+
+        for (NumericPair numericPair : NumericPair.values()) {
+            usedPairs.remove(numericPair);
+        }
+
+        assertThat("There are missing pairs", remainingPairs, Matchers.empty());
+        assertThat("There are duplicate pairs. Remove them", usedPairs, Matchers.empty());
     }
 
     static IgniteSchema createSchemaWithTwoColumnTable(NativeType c1, NativeType c2) {
