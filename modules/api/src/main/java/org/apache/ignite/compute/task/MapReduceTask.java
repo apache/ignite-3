@@ -21,12 +21,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A map reduce task interface. Implement this interface and pass a name of the implemented class to the
- * {@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object) IgniteCompute#submitMapReduce} method to run this
- * task.
+ * {@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(TaskDescriptor, Object)} method to run this task.
  *
  * @param <I> Split task (I)nput type.
  * @param <M> (M)ap job input type.
