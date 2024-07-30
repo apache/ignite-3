@@ -78,10 +78,24 @@ public static class JobTarget
         return new ColocatedTarget<TKey>(tableName, key);
     }
 
+    /// <summary>
+    /// Single node job target.
+    /// </summary>
+    /// <param name="Data">Cluster node.</param>
     internal sealed record SingleNodeTarget(IClusterNode Data) : IJobTarget<IClusterNode>;
 
+    /// <summary>
+    /// Any node job target.
+    /// </summary>
+    /// <param name="Data">Nodes.</param>
     internal sealed record AnyNodeTarget(IEnumerable<IClusterNode> Data) : IJobTarget<IEnumerable<IClusterNode>>;
 
+    /// <summary>
+    /// Colocated job target.
+    /// </summary>
+    /// <param name="TableName">Table name.</param>
+    /// <param name="Data">Key.</param>
+    /// <typeparam name="TKey">Key type.</typeparam>
     internal sealed record ColocatedTarget<TKey>(string TableName, TKey Data) : IJobTarget<TKey>
         where TKey : notnull;
 }

@@ -33,6 +33,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
 import org.apache.ignite.internal.runner.app.Jobs.ArgumentAndResultMarshallingJob;
 import org.apache.ignite.internal.runner.app.Jobs.ArgumentStringMarshaller;
@@ -250,8 +251,8 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When run job with custom marshaller for string argument.
         var compute = computeClientOn(node);
         String result = compute.executeMapReduce(
-                List.of(), MapReduce.class.getName(), List.of("Input_0", "Input_1")
-        );
+                TaskDescriptor.builder(MapReduce.class).build(),
+                List.of("Input_0", "Input_1"));
 
         // Then both client and server marshaller were called.
         assertEquals("Input"
