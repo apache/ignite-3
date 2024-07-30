@@ -37,9 +37,8 @@ public interface JraftGroupEventsListener {
      *
      * @param peers Collection of peers, which was applied by raft group membership configuration.
      * @param learners Collection of learners, which was applied by raft group membership configuration.
-     * @param term Raft term of the current leader.
      */
-    void onNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners, long term);
+    void onNewPeersConfigurationApplied(Collection<PeerId> peers, Collection<PeerId> learners);
 
     /**
      * Invoked on the leader if membership reconfiguration failed, because of {@link Status}.

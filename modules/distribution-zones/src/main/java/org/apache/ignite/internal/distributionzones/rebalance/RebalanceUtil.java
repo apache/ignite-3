@@ -336,17 +336,6 @@ public class RebalanceUtil {
     }
 
     /**
-     * Key that is needed for skipping stale events of stable key change.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
-     */
-    public static ByteArray stableChangeTriggerKey(TablePartitionId partId) {
-        return new ByteArray("stable.change.trigger." + partId);
-    }
-
-    /**
      * Key that is needed for the rebalance algorithm.
      *
      * @param partId Unique identifier of a partition.

@@ -19,22 +19,17 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stableChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 
@@ -93,9 +88,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** Success code for the MetaStorage stable assignments change. */
     private static final int FINISH_REBALANCE_SUCCESS = 4;
-
-    /** Status for outdated MetaStorage update. */
-    private static final int OUTDATED_INVOKE_STATUS = 5;
 
     /** Failure code for the MetaStorage switch append assignments change. */
     private static final int SWITCH_APPEND_FAIL = -SWITCH_APPEND_SUCCESS;
@@ -211,7 +203,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term) {
+    public void onNewPeersConfigurationApplied(PeersAndLearners configuration) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -225,7 +217,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 try {
                     Set<Assignment> stable = createAssignments(configuration);
 
-                    doStableKeySwitch(stable, tablePartitionId, metaStorageMgr, term);
+                    doStableKeySwitch(stable, tablePartitionId, metaStorageMgr);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -302,8 +294,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private void doStableKeySwitch(
             Set<Assignment> stableFromRaft,
             TablePartitionId tablePartitionId,
-            MetaStorageManager metaStorageMgr,
-            long term
+            MetaStorageManager metaStorageMgr
     ) {
         try {
             ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(tablePartitionId);
@@ -311,7 +302,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(tablePartitionId);
             ByteArray switchReduceKey = switchReduceKey(tablePartitionId);
             ByteArray switchAppendKey = switchAppendKey(tablePartitionId);
-            ByteArray stableChangeTriggerKey = stableChangeTriggerKey(tablePartitionId);
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             Map<ByteArray, Entry> values = metaStorageMgr.getAll(
@@ -320,8 +310,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                             pendingPartAssignmentsKey,
                             stablePartAssignmentsKey,
                             switchReduceKey,
-                            switchAppendKey,
-                            stableChangeTriggerKey
+                            switchAppendKey
                     )
             ).get();
 
@@ -332,14 +321,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Entry plannedEntry = values.get(plannedPartAssignmentsKey);
             Entry switchReduceEntry = values.get(switchReduceKey);
             Entry switchAppendEntry = values.get(switchAppendKey);
-            Entry stableChangeTriggerEntry = values.get(stableChangeTriggerKey);
 
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
             Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
-            long stableChangeTriggerValue = stableChangeTriggerEntry.value() == null
-                    ? 0L : bytesToLongKeepingOrder(stableChangeTriggerEntry.value());
 
             if (!retrievedPending.equals(stableFromRaft)) {
                 return;
@@ -437,15 +423,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             }
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
-            int res = metaStorageMgr.invoke(
-                    iif(or(
-                                    notExists(stableChangeTriggerKey(tablePartitionId)),
-                                    value(stableChangeTriggerKey(tablePartitionId)).lt(longToBytesKeepingOrder(term))
-                            ),
-                            iif(retryPreconditions, successCase, failCase),
-                            ops().yield(OUTDATED_INVOKE_STATUS)
-                    )
-            ).get().getAsInt();
+            int res = metaStorageMgr.invoke(iif(retryPreconditions, successCase, failCase)).get().getAsInt();
 
             if (res < 0) {
                 switch (res) {
@@ -476,8 +454,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 doStableKeySwitch(
                         stableFromRaft,
                         tablePartitionId,
-                        metaStorageMgr,
-                        term
+                        metaStorageMgr
                 );
 
                 return;
@@ -504,13 +481,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     break;
                 case FINISH_REBALANCE_SUCCESS:
                     LOG.info("Rebalance finished [tablePartitionId={}, appliedPeers={}]", tablePartitionId, stableFromRaft);
-                    break;
-
-                case OUTDATED_INVOKE_STATUS:
-                    LOG.debug("Stable switch skipped because event is outdated "
-                                    + "[tablePartitionId={}, stableChangeTriggerKey={}, term={}]",
-                            tablePartitionId, stableChangeTriggerValue, term
-                    );
                     break;
 
                 default:

@@ -213,7 +213,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
     /** {@inheritDoc} */
     @Override
-    public void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term) {
+    public void onNewPeersConfigurationApplied(PeersAndLearners configuration) {
         if (!busyLock.enterBusy()) {
             return;
         }

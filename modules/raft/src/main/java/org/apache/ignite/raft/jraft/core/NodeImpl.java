@@ -467,7 +467,7 @@ public class NodeImpl implements Node, RaftServerService {
 
                     if (listener != null) {
                         if (status.isOk()) {
-                            listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds, node.getCurrentTerm());
+                            listener.onNewPeersConfigurationApplied(resultPeerIds, resultLearnerIds);
                         } else {
                             listener.onReconfigurationError(status, resultPeerIds, resultLearnerIds, node.getCurrentTerm());
                         }
@@ -2686,7 +2686,7 @@ public class NodeImpl implements Node, RaftServerService {
                 JraftGroupEventsListener listener = this.getOptions().getRaftGrpEvtsLsnr();
 
                 if (listener != null) {
-                    listener.onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners(), getCurrentTerm());
+                    listener.onNewPeersConfigurationApplied(newConf.getPeers(), newConf.getLearners());
                 }
 
                 done.run(status);
