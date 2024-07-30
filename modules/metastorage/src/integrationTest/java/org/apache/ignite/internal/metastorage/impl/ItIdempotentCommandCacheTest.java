@@ -359,6 +359,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("idempotentCommandProvider")
+    // TODO sanpwc run multiple times.
     public void testIdempotentCacheRestoreFromSnapshot(IdempotentCommand idempotentCommand, TestInfo testInfo) throws Exception {
         RaftGroupService raftClient = raftClient();
         Node leader = leader(raftClient);
@@ -413,7 +414,10 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             ), willCompleteSuccessfully());
         }
 
-        assertThat(nodes.get(0).metaStorageManager.evictIdempotentCommandsCache(), willCompleteSuccessfully());
+        HybridTimestamp evictionTimestamp = HybridTimestamp.hybridTimestamp(nodes.get(0).clockService.nowLong() -
+                (raftConfiguration.retryTimeout().value() + nodes.get(0).clockService.maxClockSkewMillis()));
+
+        assertThat(nodes.get(0).metaStorageManager.evictIdempotentCommandsCache(evictionTimestamp), willCompleteSuccessfully());
 
         // Run same idempotent command one more time and check that condition **was** re-evaluated and not retrieved from the cache.
         CompletableFuture<Object> commandProcessingResultFuture3 = raftClient().run(idempotentCommand);

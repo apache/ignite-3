@@ -392,6 +392,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
+    public long revisionByTimestamp(HybridTimestamp timestamp) {
+        // TODO sanpwc implement.
+        return 0;
+    }
+
+    @Override
     public void setRecoveryRevisionListener(@Nullable LongConsumer listener) {
         synchronized (mux) {
             this.recoveryRevisionListener = listener;

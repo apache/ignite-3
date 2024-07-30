@@ -1509,7 +1509,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    // TODO sanpwc Javadoc and visibility level.
+    @Override
     public long revisionByTimestamp(HybridTimestamp timestamp) {
         byte[] tsBytes = hybridTsToArray(timestamp);
 

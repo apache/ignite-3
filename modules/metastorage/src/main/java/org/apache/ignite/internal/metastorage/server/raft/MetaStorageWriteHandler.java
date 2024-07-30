@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Arrays.copyOfRange;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.metrics.AtomicDoubleMetric;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -377,32 +380,36 @@ public class MetaStorageWriteHandler {
     void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, HybridTimestamp operationTimestamp) {
         LOG.info("Idempotent command cache cleanup started [evictionTimestamp={}].", evictionTimestamp);
 
-        //TODO call range and then removeAll
-//        maxClockSkewMillisFuture.thenAccept(maxClockSkewMillis -> {
-//            List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
-//                    .filter(entry -> entry.getValue().commandStartTime.getPhysical()
-//                            <= cleanupTimestamp.getPhysical() - (idempotentCacheTtl.value() + maxClockSkewMillis.getAsLong()))
-//                    .map(Map.Entry::getKey)
-//                    .collect(toList());
-//
-//            if (!commandIdsToRemove.isEmpty()) {
-//                List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
-//                        .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
-//                        .collect(toList());
-//
-//                storage.removeAll(commandIdStorageKeys, cleanupTimestamp);
-//
-//                commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
-//            }
-//
-//            LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
-//                            + " removedEntriesCount={}, cacheSize={}].",
-//                    evictionTimestamp,
-//                    clusterTime.now(),
-//                    commandIdsToRemove.size(),
-//                    idempotentCommandCache.size()
-//            );
-//        });
+        long obsoleteRevision = storage.revisionByTimestamp(evictionTimestamp);
+
+        if (obsoleteRevision != -1) {
+            byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
+            byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
+
+            List<byte[]> evictionCandidateKeys = storage.range(keyFrom, keyTo, obsoleteRevision).stream()
+                    // TODO tombstones and emptiness handling?
+                    .map(Entry::key)
+                    .collect(toList());
+
+            storage.removeAll(evictionCandidateKeys, operationTimestamp);
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22828
+            evictionCandidateKeys.forEach(evictionCandidateKeyBytes -> {
+                byte[] commandIdBytes = copyOfRange(evictionCandidateKeyBytes, IDEMPOTENT_COMMAND_PREFIX_BYTES.length,
+                        evictionCandidateKeyBytes.length);
+                CommandId commandId = ByteUtils.fromBytes(commandIdBytes);
+
+                idempotentCommandCache.remove(commandId);
+            });
+
+            LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
+                            + " removedEntriesCount={}, cacheSize={}].",
+                    evictionTimestamp,
+                    clusterTime.now(),
+                    evictionCandidateKeys.size(),
+                    idempotentCommandCache.size()
+            );
+        }
     }
 
     private static class IdempotentCommandCachedResult {
