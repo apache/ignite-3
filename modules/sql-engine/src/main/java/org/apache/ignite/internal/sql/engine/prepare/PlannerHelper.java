@@ -239,7 +239,7 @@ public final class PlannerHelper {
                 continue;
             }
 
-            if (SuqQueryChecker.hasSubQuery(operand)) {
+            if (SubQueryChecker.hasSubQuery(operand)) {
                 // can't deal with sub-query
                 return null;
             }
@@ -326,8 +326,8 @@ public final class PlannerHelper {
         }
     }
 
-    private static class SuqQueryChecker extends SqlShuttle {
-        private static final SuqQueryChecker INSTANCE = new SuqQueryChecker();
+    private static class SubQueryChecker extends SqlShuttle {
+        private static final SubQueryChecker INSTANCE = new SubQueryChecker();
 
         static boolean hasSubQuery(SqlNode node) {
             try {
