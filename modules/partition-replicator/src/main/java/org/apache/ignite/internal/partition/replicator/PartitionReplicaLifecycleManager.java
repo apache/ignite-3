@@ -28,6 +28,8 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.subtract;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener.handleReduceChanged;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
@@ -38,6 +40,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -53,8 +56,8 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,6 +70,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -78,8 +82,9 @@ import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -98,12 +103,12 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.snapshot.FailFastSnapshotStorageFactory;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -169,6 +174,15 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
      */
     private final Executor partitionOperationsExecutor;
 
+    /** Clock service for primary replica awaitings. */
+    private final ClockService clockService;
+
+    /** Placement driver for primary replicas checks. */
+    private final PlacementDriver placementDriver;
+
+    /** A predicate that checks that the given assignment is corresponded to the local node. */
+    private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
+
     /**
      * The constructor.
      *
@@ -180,6 +194,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *     will be executed.
+     * @param clockService Clock service.
+     * @param placementDriver Placement driver.
      */
     public PartitionReplicaLifecycleManager(
             CatalogManager catalogMgr,
@@ -190,7 +206,9 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             LowWatermark lowWatermark,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            ClockService clockService,
+            PlacementDriver placementDriver
     ) {
         this.catalogMgr = catalogMgr;
         this.replicaMgr = replicaMgr;
@@ -201,6 +219,9 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         this.ioExecutor = ioExecutor;
         this.rebalanceScheduler = rebalanceScheduler;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.clockService = clockService;
+
+        this.placementDriver = placementDriver;
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
@@ -746,7 +767,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 ? emptySet()
                 : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
-
         return supplyAsync(() -> {
             Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsKey(zonePartitionId), revision);
 
@@ -769,13 +789,22 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             ZonePartitionId zonePartitionId,
             Set<Assignment> stableAssignments
     ) {
-        // Update raft client peers and learners according to the actual assignments.
-        if (replicaMgr.isReplicaStarted(zonePartitionId)) {
-            replicaMgr.replica(zonePartitionId).join()
-                    .raftClient().updateConfiguration(fromAssignments(stableAssignments));
-        }
+        return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
+            boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
 
-        return nullCompletedFuture();
+            if (!isLocalInStable && !isLeaseholder) {
+                return nullCompletedFuture();
+            }
+
+            assert replicaMgr.isReplicaStarted(zonePartitionId)
+                    : "The local node is outside of the replication group [stable=" + stableAssignments
+                    + ", isLeaseholder=" + isLeaseholder + "].";
+
+            // Update raft client peers and learners according to the actual assignments.
+            return replicaMgr.replica(zonePartitionId)
+                    .thenApply(Replica::raftClient)
+                    .thenAccept(raftClient -> raftClient.updateConfiguration(fromAssignments(stableAssignments)));
+        }));
     }
 
     private CompletableFuture<Void> stopAndDestroyPartitionAndUpdateClients(
@@ -796,10 +825,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
 
         if (shouldStopLocalServices) {
-            return allOf(
-                    clientUpdateFuture,
-                    stopAndDestroyPartition(zonePartitionId)
-            );
+            return clientUpdateFuture.thenCompose(v -> stopAndDestroyPartition(zonePartitionId))
+                    .thenAccept(v -> { });
         } else {
             return clientUpdateFuture;
         }
@@ -844,14 +871,26 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             return handleChangePendingAssignmentEvent(
                     zonePartitionId,
                     stableAssignments,
-                    pendingAssignments
-            ).thenCompose(v -> changePeersOnRebalance(
-                    replicaMgr,
-                    zonePartitionId,
-                    pendingAssignments.nodes(),
-                    stableAssignments == null ? emptySet() : stableAssignments.nodes(),
-                    revision)
-            );
+                    pendingAssignments,
+                    revision
+            ).thenCompose(v -> {
+                boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
+                        zonePartitionId,
+                        stableAssignments,
+                        pendingAssignments,
+                        revision
+                );
+
+                if (!isLocalNodeInStableOrPending) {
+                    return nullCompletedFuture();
+                }
+
+                return changePeersOnRebalance(
+                        replicaMgr,
+                        zonePartitionId,
+                        pendingAssignments.nodes(),
+                        revision);
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -860,7 +899,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
             ZonePartitionId replicaGrpId,
             @Nullable Assignments stableAssignments,
-            Assignments pendingAssignments
+            Assignments pendingAssignments,
+            long revision
     ) {
         boolean pendingAssignmentsAreForced = pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
@@ -912,41 +952,45 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             localServicesStartFuture = nullCompletedFuture();
         }
 
-        return localServicesStartFuture.thenRunAsync(() -> inBusyLock(busyLock, () -> {
-            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
-                return;
-            }
+        return localServicesStartFuture
+                .thenComposeAsync(v -> inBusyLock(busyLock, () -> isLocalNodeIsPrimary(replicaGrpId)), ioExecutor)
+                .thenAcceptAsync(isLeaseholder -> inBusyLock(busyLock, () -> {
+                    boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
+                            replicaGrpId,
+                            stableAssignments,
+                            pendingAssignments,
+                            revision
+                    );
 
-            // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
-            // Union is not required in such a case.
-            Set<Assignment> newAssignments = pendingAssignmentsAreForced || stableAssignments == null
-                    ? pendingAssignmentsNodes
-                    : RebalanceUtil.union(pendingAssignmentsNodes, stableAssignments.nodes());
+                    if (!isLocalNodeInStableOrPending && !isLeaseholder) {
+                        return;
+                    }
 
-            replicaMgr.replica(replicaGrpId).join().raftClient().updateConfiguration(fromAssignments(newAssignments));
-        }), ioExecutor);
+                    assert isLocalNodeInStableOrPending || isLeaseholder
+                            : "The local node is outside of the replication group [inStableOrPending=" + isLocalNodeInStableOrPending
+                            + ", isLeaseholder=" + isLeaseholder + "].";
+
+                    // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
+                    // Union is not required in such a case.
+                    Set<Assignment> newAssignments = pendingAssignmentsAreForced || stableAssignments == null
+                            ? pendingAssignmentsNodes
+                            : union(pendingAssignmentsNodes, stableAssignments.nodes());
+
+                    replicaMgr.replica(replicaGrpId)
+                            .thenApply(Replica::raftClient)
+                            .thenAccept(raftClient -> raftClient.updateConfiguration(fromAssignments(newAssignments)));
+                }), ioExecutor);
     }
 
     private CompletableFuture<Void> changePeersOnRebalance(
             ReplicaManager replicaMgr,
             ZonePartitionId replicaGrpId,
             Set<Assignment> pendingAssignments,
-            Set<Assignment> stableAssignments,
             long revision
     ) {
-        Set<Assignment> union = new HashSet<>();
-        union.addAll(pendingAssignments);
-        union.addAll(stableAssignments);
-
-        if (!union.stream().map(Assignment::consistentId).collect(toSet()).contains(localNode().name())) {
-            return nullCompletedFuture();
-        }
-
-        int partId = replicaGrpId.partitionId();
-
-        RaftGroupService partGrpSvc = replicaMgr.replica(replicaGrpId).join().raftClient();
-
-        return partGrpSvc.refreshAndGetLeaderWithTerm()
+        return replicaMgr.replica(replicaGrpId)
+                .thenApply(Replica::raftClient)
+                .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
                 .exceptionally(throwable -> {
                     throwable = unwrapCause(throwable);
 
@@ -970,7 +1014,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                     // run update of raft configuration if this node is a leader
                     LOG.info("Current node={} is the leader of partition raft group={}. "
                                     + "Initiate rebalance process for partition={}, zoneId={}",
-                            leaderWithTerm.leader(), replicaGrpId, partId, replicaGrpId.zoneId());
+                            leaderWithTerm.leader(), replicaGrpId, replicaGrpId.partitionId(), replicaGrpId.zoneId());
 
                     return metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId))
                             .thenCompose(latestPendingAssignmentsEntry -> {
@@ -983,17 +1027,94 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                                 PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                                CompletableFuture<Void> voidCompletableFuture = partGrpSvc.changePeersAsync(newConfiguration,
+                                CompletableFuture<Void> voidCompletableFuture = raftClient.changePeersAsync(newConfiguration,
                                         leaderWithTerm.term()).exceptionally(e -> {
                                             return null;
                                         });
                                 return voidCompletableFuture;
                             });
-                });
+                }));
     }
 
     private boolean isLocalPeer(Peer peer) {
         return peer.consistentId().equals(localNode().name());
+    }
+
+    private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
+        return assignments.stream().anyMatch(isLocalNodeAssignment);
+    }
+
+    /**
+     * Checks that the local node is primary or not.
+     * <br>
+     * Internally we use there {@link PlacementDriver#getPrimaryReplica} with a penultimate
+     * safe time value, because metastore is waiting for pending or stable assignments events handling over and only then metastore will
+     * increment the safe time. On the other hand placement driver internally is waiting the metastore for given safe time plus
+     * {@link ClockService#maxClockSkewMillis}. So, if given time is just {@link ClockService#now}, then there is a dead lock: metastore
+     * is waiting until assignments handling is over, but internally placement driver is waiting for a non-applied safe time.
+     * <br>
+     * To solve this issue we pass to {@link PlacementDriver#getPrimaryReplica} current time minus the skew, so placement driver could
+     * successfully get primary replica for the time stamp before the handling has began. Also there a corner case for tests that are using
+     * {@code WatchListenerInhibitor#metastorageEventsInhibitor} and it leads to current time equals {@link HybridTimestamp#MIN_VALUE} and
+     * the skew's subtraction will lead to {@link IllegalArgumentException} from {@link HybridTimestamp}. Then, if we got the minimal
+     * possible timestamp, then we also couldn't have any primary replica, then return {@code false}.
+     *
+     * @param replicationGroupId Replication group ID for that we check is the local node a primary.
+     * @return {@code true} is the local node is primary and {@code false} otherwise.
+     */
+    private CompletableFuture<Boolean> isLocalNodeIsPrimary(ReplicationGroupId replicationGroupId) {
+        HybridTimestamp currentSafeTime = metaStorageMgr.clusterTime().currentSafeTime();
+
+        if (HybridTimestamp.MIN_VALUE.equals(currentSafeTime)) {
+            return falseCompletedFuture();
+        }
+
+        long skewMs = clockService.maxClockSkewMillis();
+
+        try {
+            HybridTimestamp previousMetastoreSafeTime = currentSafeTime.subtractPhysicalTime(skewMs);
+
+            return placementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
+                    .thenApply(replicaMeta -> replicaMeta != null
+                            && replicaMeta.getLeaseholderId() != null
+                            && replicaMeta.getLeaseholderId().equals(localNode().name()));
+        } catch (IllegalArgumentException e) {
+            long currentSafeTimeMs = currentSafeTime.longValue();
+
+            throw new AssertionError("Got a negative time [currentSafeTime=" + currentSafeTime
+                    + ", currentSafeTimeMs=" + currentSafeTimeMs
+                    + ", skewMs=" + skewMs
+                    + ", internal=" + (currentSafeTimeMs + ((-skewMs) << LOGICAL_TIME_BITS_SIZE)) + "]", e);
+        }
+    }
+
+    private boolean isNodeInReducedStableOrPendingAssignments(
+            ZonePartitionId replicaGrpId,
+            @Nullable Assignments stableAssignments,
+            Assignments pendingAssignments,
+            long revision
+    ) {
+        Entry reduceEntry  = metaStorageMgr.getLocally(ZoneRebalanceUtil.switchReduceKey(replicaGrpId), revision);
+
+        Assignments reduceAssignments = reduceEntry != null
+                ? Assignments.fromBytes(reduceEntry.value())
+                : null;
+
+        Set<Assignment> reducedStableAssignments = reduceAssignments != null
+                ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
+                : stableAssignments.nodes();
+
+        if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()))) {
+            return false;
+        }
+
+        assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
+                + ", stable=" + stableAssignments
+                + ", pending=" + pendingAssignments
+                + ", reduce=" + reduceAssignments
+                + ", localName=" + localNode().name() + "].";
+
+        return true;
     }
 
     @Nullable

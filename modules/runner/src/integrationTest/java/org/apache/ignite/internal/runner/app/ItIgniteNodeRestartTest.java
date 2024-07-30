@@ -666,7 +666,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         lowWatermark,
                         threadPoolsManager.tableIoExecutor(),
                         rebalanceScheduler,
-                        threadPoolsManager.partitionOperationsExecutor()
+                        threadPoolsManager.partitionOperationsExecutor(),
+                        clockService,
+                        placementDriverManager.placementDriver()
                 )
         );
 
