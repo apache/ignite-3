@@ -15,9 +15,15 @@
  * limitations under the License.
  */
 
+plugins {
+    id "me.champeau.jmh" version "0.7.2"
+    id "io.morethan.jmhreport" version "0.9.6"
+}
+
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+
 
 description = 'ignite-binary-tuple'
 
@@ -26,5 +32,73 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
+
+    testAnnotationProcessor libs.jmh.annotation.processor
+    testImplementation libs.jmh.core
+    testImplementation libs.jackson.core
+    testImplementation libs.jackson.databind
+    testImplementation libs.jackson.datatype.jsr310
+    testImplementation 'com.esotericsoftware:kryo:4.0.1'
+    implementation 'tools.profiler:async-profiler:2.9'
 }
+
+
+tasks.register("runnerPlatformBenchmark", JavaExec) {
+    mainClass = "org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner"
+
+    jvmArgs += defaultJvmArgs
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+
+jmh {
+    //includes = ['some regular expression'] // include pattern (regular expression) for benchmarks to be executed
+//    excludes = ['some regular expression'] // exclude pattern (regular expression) for benchmarks to be executed
+    iterations = 4 // Number of measurement iterations to do.
+    benchmarkMode = [
+            'thrpt'
+    ] // Benchmark mode. Available modes are: [Throughput/thrpt, AverageTime/avgt, SampleTime/sample, SingleShotTime/ss, All/all]
+    //batchSize = 1 // Batch size: number of benchmark method calls per operation. (some benchmark modes can ignore this setting)
+    fork = 0 // How many times to forks a single benchmark. Use 0 to disable forking altogether
+    failOnError = true // Should JMH fail immediately if any benchmark had experienced the unrecoverable error?
+    forceGC = false // Should JMH force GC between iterations?
+    //jvm = 'myjvm' // Custom JVM to use when forking.
+//    jvmArgs = ["-Djava.library.path=${project.projectDir}/src/libasyncProfiler.so"]
+    //jvmArgsAppend = ['Custom JVM args to use when forking (append these)']
+    //jvmArgsPrepend =[ 'Custom JVM args to use when forking (prepend these)']
+    humanOutputFile = project.file("${project.buildDir}/reports/jmh/human.txt") // human-readable output file
+    resultsFile = project.file("${project.buildDir}/reports/jmh/results.json") // results file
+    operationsPerInvocation = 1 // Operations per invocation.
+    benchmarkParameters =  [:] // Benchmark parameters.
+    profilers = ["async:libPath=${project.projectDir}/src/libasyncProfiler.dylib;output=flamegraph"] // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
+    timeOnIteration = '1s' // Time to spend at each measurement iteration.
+    resultFormat = 'JSON' // Result format type (one of CSV, JSON, NONE, SCSV, TEXT)
+    synchronizeIterations = false // Synchronize iterations?
+    threads = 1 // Number of worker threads to run with.
+    //threadGroups = [2,3,4] //Override thread group distribution for asymmetric benchmarks.
+    jmhTimeout = '1s' // Timeout for benchmark iteration.
+    timeUnit = 's' // Output time unit. Available time units are: [m, s, ms, us, ns].
+    verbosity = 'NORMAL' // Verbosity mode. Available modes are: [SILENT, NORMAL, EXTRA]
+    warmup = '1s' // Time to spend at each warmup iteration.
+    warmupBatchSize = 10 // Warmup batch size: number of benchmark method calls per operation.
+    warmupForks = 0 // How many warmup forks to make for a single benchmark. 0 to disable warmup forks.
+    warmupIterations = 1 // Number of warmup iterations to do.
+    //warmupMode = 'INDI' // Warmup mode for warming up selected benchmarks. Warmup modes are: [INDI, BULK, BULK_INDI].
+    //warmupBenchmarks = ['.*Warmup'] // Warmup benchmarks to include in the run in addition to already selected. JMH will not measure these benchmarks, but only use them for the warmup.
+
+    //zip64 = true // Use ZIP64 format for bigger archives
+    //jmhVersion = '1.37' // Specifies JMH version
+    //includeTests = true // Allows to include test sources into generate JMH jar, i.e. use it when benchmarks depend on the test classes.
+    duplicateClassesStrategy = DuplicatesStrategy.FAIL // Strategy to apply when encountring duplicate classes during creation of the fat jar (i.e. while executing jmhJar task)
+}
+
+jmhReport {
+    jmhResultPath = project.file("${project.buildDir}/reports/jmh/results.json")
+    jmhReportOutput = project.file("${project.buildDir}/reports/jmh")
+}
+
+tasks.jmh.finalizedBy tasks.jmhReport
 

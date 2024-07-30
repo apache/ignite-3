@@ -15,18 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.marshalling;
-
-import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.Nullable;
-
-public class TupleMarshalling {
-
-    public static byte @Nullable [] marshal(Tuple tup) {
-        return null;
-    }
-
-    public static @Nullable Tuple unmarshal(byte @Nullable [] raw) {
-        return null;
-    }
+plugins {
+    id "me.champeau.jmh" version "0.7.2"
 }
