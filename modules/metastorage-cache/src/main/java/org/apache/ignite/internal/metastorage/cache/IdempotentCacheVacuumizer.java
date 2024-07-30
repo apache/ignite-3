@@ -15,52 +15,50 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.impl;
+package org.apache.ignite.internal.metastorage.cache;
 
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.metastorage.impl.ElectionListener;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Scheduler that triggers idempotent cache vacuumization with an ability to suspend and resume the triggering. It is valid but not
+ * Scheduler wrapper that triggers idempotent cache vacuumization with an ability to suspend and resume the triggering. It is valid but not
  * effective to have multiple vacuumizers at the same time, meaning that best-effort oneness is preferable. In order to achieve such
  * best-effort oneness it's possible to use meta storage leader collocation: start/resume triggering on leader election if the leader is
  * collocated with a local node, and suspend upon loss of collocation with the leader.
  * In case of exception within vacuumization action, vacuumizer will log an error, stop itself but will not re-throw an exception to the
  * outer environment.
  */
-class IdempotentCacheVacuumizer {
+public class IdempotentCacheVacuumizer implements ElectionListener {
     private static final IgniteLogger LOG = Loggers.forClass(IdempotentCacheVacuumizer.class);
 
-    @Nullable
-    private volatile ScheduledExecutorService scheduler;
-
     private final AtomicBoolean triggerVacuumization;
+
+    private final String nodeName;
 
     /**
      * The constructor.
      *
      * @param nodeName Node name.
-     * @param vacuumizationAction Action to scheduler.
+     * @param scheduler Scheduler to run vacuumization actions.
+     * @param vacuumizationAction Action that will trigger vacuumization process.
      * @param initialDelay The time to delay first execution.
      * @param delay The delay between the termination of one execution and the commencement of the next
      * @param unit The time unit of the initialDelay and delay parameters.
      */
-    IdempotentCacheVacuumizer(
+    public IdempotentCacheVacuumizer(
             String nodeName,
+            ScheduledExecutorService scheduler,
             Runnable vacuumizationAction,
             long initialDelay,
             long delay,
             TimeUnit unit
     ) {
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "idempotent-cache-vacuumizer", LOG));
-
+        this.nodeName = nodeName;
         this.triggerVacuumization = new AtomicBoolean(false);
 
         scheduler.scheduleWithFixedDelay(
@@ -69,10 +67,8 @@ class IdempotentCacheVacuumizer {
                         try {
                             vacuumizationAction.run();
                         } catch (Exception e) {
-                            LOG.error("An exception occurred while executing idempotent cache vacuumization action."
-                                    + " Idempotent cache vacuumizer will be stopped.", e);
-
-                            shutdown();
+                            LOG.warn("An exception occurred while executing idempotent cache vacuumization action."
+                                    + " Idempotent cache vacuumizer will not be stopped.", e);
                         }
                     }
                 },
@@ -82,10 +78,19 @@ class IdempotentCacheVacuumizer {
         );
     }
 
+    @Override
+    public void onLeaderElected(ClusterNode newLeader) {
+        if (newLeader.name().equals(nodeName)) {
+            startLocalVacuumizationTriggering();
+        } else {
+            suspendLocalVacuumizationTriggering();
+        }
+    }
+
     /**
      * Starts local vacuumization triggering. Will take no effect if vacuumizer was previously stopped.
      */
-    public void startLocalVacuumizationTriggering() {
+    void startLocalVacuumizationTriggering() {
         triggerVacuumization.set(true);
         LOG.info("Idempotent cache vacuumizer started.");
     }
@@ -93,21 +98,8 @@ class IdempotentCacheVacuumizer {
     /**
      * Suspends further local vacuumization triggering. Will take no effect if vacuumizer was previously stopped.
      */
-    public void suspendLocalVacuumizationTriggering() {
+    void suspendLocalVacuumizationTriggering() {
         triggerVacuumization.set(false);
         LOG.info("Idempotent cache vacuumizer suspended.");
-    }
-
-    /**
-     * Halts local vacuumization triggering.
-     */
-    public synchronized void shutdown() {
-        LOG.info("Idempotent cache vacuumizer shutdown.");
-        if (scheduler != null) {
-            suspendLocalVacuumizationTriggering();
-            scheduler.shutdownNow();
-
-            scheduler = null;
-        }
     }
 }

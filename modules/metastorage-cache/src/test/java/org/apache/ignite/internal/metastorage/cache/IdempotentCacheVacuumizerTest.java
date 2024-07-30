@@ -15,21 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.impl;
+package org.apache.ignite.internal.metastorage.cache;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for idempotency of {@link IdempotentCacheVacuumizer}.
  */
-public class IdempotentCacheVacuumizerTest {
+public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
     private static final int TOUCH_COUNTER_CHANGE_TIMEOUT_MILLIS = 1_000;
+
+    private ScheduledExecutorService scheduler;
+
+    @BeforeEach
+    public void setup() {
+        scheduler = Executors.newSingleThreadScheduledExecutor();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        scheduler.shutdown();
+    }
 
     /**
      * Check that IdempotentCacheVacuumizer triggers vacuumization action.
@@ -44,10 +61,11 @@ public class IdempotentCacheVacuumizerTest {
      */
     @Test
     public void testIdempotentCacheVacuumizer() throws Exception {
-        AtomicInteger touchCounter =  new AtomicInteger(0);
+        AtomicInteger touchCounter = new AtomicInteger(0);
 
         IdempotentCacheVacuumizer vacuumizer = new IdempotentCacheVacuumizer(
                 "Node1",
+                scheduler,
                 touchCounter::incrementAndGet,
                 0,
                 1,
@@ -85,7 +103,7 @@ public class IdempotentCacheVacuumizerTest {
      * Check that IdempotentCacheVacuumizer doesn't trigger vacuumization action after shutdown.
      * <ol>
      *     <li>Start vacuumization triggering and verify that vacuumization action was called.</li>
-     *     <li>Shutdown the vacuumizer and check that action calls were stopped.</li>
+     *     <li>Shutdown the vacuumizer scheduler and check that action calls were stopped.</li>
      *     <li>Start the vacuumizer and check that it doesn't take any effect.</li>
      *     <li>Suspend vacuumization triggering and check that it doesn't take any effect.</li>
      * </ol>
@@ -94,10 +112,11 @@ public class IdempotentCacheVacuumizerTest {
      */
     @Test
     public void testIdempotentCacheVacuumizerAfterShutdown() throws Exception {
-        AtomicInteger touchCounter =  new AtomicInteger(0);
+        AtomicInteger touchCounter = new AtomicInteger(0);
 
         IdempotentCacheVacuumizer vacuumizer = new IdempotentCacheVacuumizer(
                 "Node1",
+                scheduler,
                 touchCounter::incrementAndGet,
                 0,
                 1,
@@ -111,8 +130,8 @@ public class IdempotentCacheVacuumizerTest {
                 TOUCH_COUNTER_CHANGE_TIMEOUT_MILLIS)
         );
 
-        // Shutdown the vacuumizer and check that action calls were stopped.
-        vacuumizer.shutdown();
+        // Shutdown the vacuumizer scheduler and check that action calls were stopped.
+        scheduler.shutdown();
         int touchCounterAfterShutdown = touchCounter.get();
         Thread.sleep(10);
         assertTrue(touchCounter.get() == touchCounterAfterShutdown || touchCounter.get() == touchCounterAfterShutdown + 1);
@@ -129,13 +148,14 @@ public class IdempotentCacheVacuumizerTest {
     }
 
     /**
-     * Check that IdempotentCacheVacuumizer stops on exception in vacuumization action, but doesn't re-throw it to the outer environment.
+     * Check that IdempotentCacheVacuumizer doesn't stops on exception in vacuumization action doesn't re-throw it to the outer environment
+     * but logs an exception with WARN.
      *
      * @throws Exception if Thread.sleep() was interrupted.
      */
     @Test
     public void testIdempotentCacheExceptionHandling() throws Exception {
-        AtomicInteger touchCounter =  new AtomicInteger(0);
+        AtomicInteger touchCounter = new AtomicInteger(0);
 
         Runnable vacuumizationActionStub = () -> {
             touchCounter.incrementAndGet();
@@ -144,20 +164,20 @@ public class IdempotentCacheVacuumizerTest {
 
         IdempotentCacheVacuumizer vacuumizer = new IdempotentCacheVacuumizer(
                 "Node1",
+                scheduler,
                 vacuumizationActionStub,
                 0,
                 1,
                 TimeUnit.MILLISECONDS
         );
 
-        // Start vacuumization triggering and verify that vacuumization action was called once only.
+        // Start vacuumization triggering and verify that vacuumization actions were not stopped after exception.
         vacuumizer.startLocalVacuumizationTriggering();
+
         assertTrue(waitForCondition(
-                () -> touchCounter.get() == 1,
+                () -> touchCounter.get() > 1,
                 TOUCH_COUNTER_CHANGE_TIMEOUT_MILLIS)
         );
 
-        Thread.sleep(10);
-        assertEquals(1, touchCounter.get());
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -134,6 +135,7 @@ import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventPara
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -622,6 +624,18 @@ public class IgniteImpl implements Ignite {
 
         clockService = new ClockServiceImpl(clock, clockWaiter, new SameValueLongSupplier(() -> schemaSyncConfig.maxClockSkew().value()));
 
+        metaStorageMgr.addElectionListener(
+                new IdempotentCacheVacuumizer(
+                        name,
+                        threadPoolsManager.commonScheduler(),
+                        metaStorageMgr::evictIdempotentCommandsCache,
+                        1,
+                        1,
+                        MINUTES
+                )
+        );
+
+        // TODO remove.
         maxClockSkewMillisFuture.complete(clockService::maxClockSkewMillis);
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);

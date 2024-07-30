@@ -373,6 +373,8 @@ public class MetaStorageWriteHandler {
                         result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entry.value())).build();
                     }
 
+                    // TODO sanpwc remove now. There's no need to store timestamp in idempotent command cache. Actually there's no need in
+                    // TODO IdempotentCommandCachedResult class.
                     idempotentCommandCache.put(commandId, new IdempotentCommandCachedResult(result, now));
                 }
             }
@@ -454,7 +456,7 @@ public class MetaStorageWriteHandler {
 
             // Exceptions are not cached.
             if (!(res instanceof Throwable)) {
-                idempotentCommandCache.put(command.id(), new IdempotentCommandCachedResult(res, command.initiatorTime()));
+                idempotentCommandCache.put(command.id(), new IdempotentCommandCachedResult(res, command.safeTime()));
             }
 
             closure.result(res);

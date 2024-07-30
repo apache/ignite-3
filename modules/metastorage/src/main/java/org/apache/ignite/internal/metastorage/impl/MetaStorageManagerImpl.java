@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -142,8 +141,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private volatile MetaStorageListener learnerListener;
 
-    private final IdempotentCacheVacuumizer idempotentCacheVacumizer;
-
     private final List<ElectionListener> electionListeners = new CopyOnWriteArrayList<>(); 
 
     /**
@@ -181,12 +178,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.metricManager = metricManager;
         this.idempotentCacheTtl = idempotentCacheTtl;
         this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
-        this.idempotentCacheVacumizer = new IdempotentCacheVacuumizer(
-                clusterService.nodeName(),
-                this::evictIdempotentCommandsCache,
-                1,
-                1,
-                MINUTES);
     }
 
     /**
@@ -365,8 +356,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
                         // dependency between these two components.
                         deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration),
-                        electionListeners,
-                        idempotentCacheVacumizer
+                        electionListeners
                 )))
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -457,8 +447,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         busyLock.block();
-
-        idempotentCacheVacumizer.shutdown();
 
         deployWatchesFuture.cancel(true);
 
