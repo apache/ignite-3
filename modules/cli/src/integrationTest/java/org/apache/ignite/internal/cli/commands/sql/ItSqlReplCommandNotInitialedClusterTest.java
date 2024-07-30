@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Replaces;
+import org.apache.ignite.IgniteServer;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
@@ -31,11 +33,6 @@ import org.junit.jupiter.api.Test;
 /** Tests for {@link SqlReplCommand} with not initialized cluster. */
 public class ItSqlReplCommandNotInitialedClusterTest extends CliIntegrationTest {
     private final Session session = new Session();
-
-    @Override
-    protected Class<?> getCommandClass() {
-        return SqlReplCommand.class;
-    }
 
     @Bean
     @Replaces(ReplExecutorProvider.class)
@@ -57,20 +54,40 @@ public class ItSqlReplCommandNotInitialedClusterTest extends CliIntegrationTest 
     @Test
     @DisplayName("Should throw error because cluster not initialized.")
     void nonExistingFile() {
-        execute("CREATE TABLE T(K INT PRIMARY KEY)", "--jdbc-url", JDBC_URL);
+        execute("sql", "--jdbc-url", JDBC_URL, "CREATE TABLE T(K INT PRIMARY KEY)");
 
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Connection refused: no further information:")
         );
 
+        IgniteServer node0 = CLUSTER.startEmbeddedNode(0);
+        IgniteServer node1 = CLUSTER.startEmbeddedNode(1);
+        IgniteServer node2 = CLUSTER.startEmbeddedNode(2);
+
         session.onConnect(SessionInfo
                 .builder()
                 .jdbcUrl(JDBC_URL)
-                .nodeUrl(CLUSTER.node(0).node().address().toString())
+                .nodeUrl(NODE_URL)
                 .build()
         );
 
-        execute("CREATE TABLE T(K INT PRIMARY KEY)", "--jdbc-url", JDBC_URL);
+        execute("sql", "--jdbc-url", JDBC_URL, "CREATE TABLE T(K INT PRIMARY KEY)");
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Probably, you have not initialized the cluster, try to run")
+        );
+
+        node0.initCluster(InitParameters.builder().clusterName("cluster")
+                .cmgNodes(node0, node1, node2)
+                .metaStorageNodes(node0, node1, node2).build());
+
+        execute("sql", "--jdbc-url", JDBC_URL, "CREATE TABLE T(K INT PRIMARY KEY)");
+
+        assertAll(
+                this::assertOutputIsNotEmpty,
+                this::assertErrOutputIsEmpty
+        );
     }
 }
