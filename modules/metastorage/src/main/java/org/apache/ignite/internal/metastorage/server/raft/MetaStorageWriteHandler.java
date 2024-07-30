@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Arrays.copyOfRange;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
@@ -26,13 +25,9 @@ import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.LongSupplier;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -70,7 +65,6 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -91,20 +85,12 @@ public class MetaStorageWriteHandler {
 
     private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
 
-    private final ConfigurationValue<Long> idempotentCacheTtl;
-
-    private final CompletableFuture<LongSupplier> maxClockSkewMillisFuture;
-
     MetaStorageWriteHandler(
             KeyValueStorage storage,
-            ClusterTimeImpl clusterTime,
-            ConfigurationValue<Long> idempotentCacheTtl,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+            ClusterTimeImpl clusterTime
     ) {
         this.storage = storage;
         this.clusterTime = clusterTime;
-        this.idempotentCacheTtl = idempotentCacheTtl;
-        this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
     }
 
     /**
@@ -218,7 +204,8 @@ public class MetaStorageWriteHandler {
 
             clo.result(null);
         } else if (command instanceof EvictIdempotentCommandsCacheCommand) {
-            evictIdempotentCommandsCache(opTime);
+            EvictIdempotentCommandsCacheCommand cmd = (EvictIdempotentCommandsCacheCommand) command;
+            evictIdempotentCommandsCache(cmd.evictionTimestamp(), opTime);
 
             clo.result(null);
         }
@@ -383,35 +370,39 @@ public class MetaStorageWriteHandler {
 
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     *
+     * @param evictionTimestamp Cached entries older than given timestamp will be evicted.
+     * @param operationTimestamp Command operation timestamp.
      */
-    void evictIdempotentCommandsCache(HybridTimestamp cleanupTimestamp) {
-        LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}].", cleanupTimestamp);
+    void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, HybridTimestamp operationTimestamp) {
+        LOG.info("Idempotent command cache cleanup started [evictionTimestamp={}].", evictionTimestamp);
 
-        maxClockSkewMillisFuture.thenAccept(maxClockSkewMillis -> {
-            List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
-                    .filter(entry -> entry.getValue().commandStartTime.getPhysical()
-                            <= cleanupTimestamp.getPhysical() - (idempotentCacheTtl.value() + maxClockSkewMillis.getAsLong()))
-                    .map(Map.Entry::getKey)
-                    .collect(toList());
-
-            if (!commandIdsToRemove.isEmpty()) {
-                List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
-                        .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
-                        .collect(toList());
-
-                storage.removeAll(commandIdStorageKeys, cleanupTimestamp);
-
-                commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
-            }
-
-            LOG.info("Idempotent command cache cleanup finished [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
-                            + " removedEntriesCount={}, cacheSize={}].",
-                    cleanupTimestamp,
-                    clusterTime.now(),
-                    commandIdsToRemove.size(),
-                    idempotentCommandCache.size()
-            );
-        });
+        //TODO call range and then removeAll
+//        maxClockSkewMillisFuture.thenAccept(maxClockSkewMillis -> {
+//            List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
+//                    .filter(entry -> entry.getValue().commandStartTime.getPhysical()
+//                            <= cleanupTimestamp.getPhysical() - (idempotentCacheTtl.value() + maxClockSkewMillis.getAsLong()))
+//                    .map(Map.Entry::getKey)
+//                    .collect(toList());
+//
+//            if (!commandIdsToRemove.isEmpty()) {
+//                List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
+//                        .map(commandId -> ArrayUtils.concat(new byte[]{}, ByteUtils.toBytes(commandId)))
+//                        .collect(toList());
+//
+//                storage.removeAll(commandIdStorageKeys, cleanupTimestamp);
+//
+//                commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
+//            }
+//
+//            LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
+//                            + " removedEntriesCount={}, cacheSize={}].",
+//                    evictionTimestamp,
+//                    clusterTime.now(),
+//                    commandIdsToRemove.size(),
+//                    idempotentCommandCache.size()
+//            );
+//        });
     }
 
     private static class IdempotentCommandCachedResult {

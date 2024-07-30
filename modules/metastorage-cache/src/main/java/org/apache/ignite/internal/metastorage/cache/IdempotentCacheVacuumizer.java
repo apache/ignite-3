@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.metastorage.cache;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.impl.ElectionListener;
@@ -53,7 +58,9 @@ public class IdempotentCacheVacuumizer implements ElectionListener {
     public IdempotentCacheVacuumizer(
             String nodeName,
             ScheduledExecutorService scheduler,
-            Runnable vacuumizationAction,
+            Consumer<HybridTimestamp> vacuumizationAction,
+            long idempotentCacheTtl,
+            ClockService clockService,
             long initialDelay,
             long delay,
             TimeUnit unit
@@ -65,7 +72,8 @@ public class IdempotentCacheVacuumizer implements ElectionListener {
                 () -> {
                     if (triggerVacuumization.get()) {
                         try {
-                            vacuumizationAction.run();
+                            vacuumizationAction.accept(
+                                    hybridTimestamp(clockService.nowLong() - (idempotentCacheTtl + clockService.maxClockSkewMillis())));
                         } catch (Exception e) {
                             LOG.warn("An exception occurred while executing idempotent cache vacuumization action."
                                     + " Idempotent cache vacuumizer will not be stopped.", e);

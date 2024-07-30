@@ -271,10 +271,16 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     *
+     * @param evictionTimestamp Cached entries older than given timestamp will be evicted.
+     * @return Pending operation future.
      */
-    CompletableFuture<Void> evictIdempotentCommandsCache() {
-        EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand =
-                evictIdempotentCommandsCacheCommand(context.commandsFactory(), clusterTime.now());
+    CompletableFuture<Void> evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp) {
+        EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand = evictIdempotentCommandsCacheCommand(
+                context.commandsFactory(),
+                clusterTime.now(),
+                evictionTimestamp
+        );
 
         return context.raftService().run(evictIdempotentCommandsCacheCommand);
     }
@@ -348,10 +354,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * Creates evict idempotent commands cache command.
      *
      * @param commandsFactory Commands factory.
+     * @param evictionTimestamp Cached entries older than given timestamp will be evicted.
      * @param ts Local time.
      */
-    private EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand(MetaStorageCommandsFactory commandsFactory,
-            HybridTimestamp ts) {
-        return commandsFactory.evictIdempotentCommandsCacheCommand().initiatorTime(ts).build();
+    private EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand(
+            MetaStorageCommandsFactory commandsFactory,
+            HybridTimestamp ts,
+            HybridTimestamp evictionTimestamp
+    ) {
+        return commandsFactory.evictIdempotentCommandsCacheCommand().initiatorTime(ts).evictionTimestamp(evictionTimestamp).build();
     }
 }

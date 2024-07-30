@@ -25,6 +25,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,9 +43,12 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
 
     private ScheduledExecutorService scheduler;
 
+    private ClockService clocService;
+
     @BeforeEach
     public void setup() {
         scheduler = Executors.newSingleThreadScheduledExecutor();
+        clocService = new TestClockService(new TestHybridClock(() -> 1L));
     }
 
     @AfterEach
@@ -66,7 +74,9 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
         IdempotentCacheVacuumizer vacuumizer = new IdempotentCacheVacuumizer(
                 "Node1",
                 scheduler,
-                touchCounter::incrementAndGet,
+                ignored -> touchCounter.incrementAndGet(),
+                0,
+                clocService,
                 0,
                 1,
                 TimeUnit.MILLISECONDS
@@ -117,7 +127,9 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
         IdempotentCacheVacuumizer vacuumizer = new IdempotentCacheVacuumizer(
                 "Node1",
                 scheduler,
-                touchCounter::incrementAndGet,
+                ignored -> touchCounter.incrementAndGet(),
+                0,
+                clocService,
                 0,
                 1,
                 TimeUnit.MILLISECONDS
@@ -157,7 +169,7 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
     public void testIdempotentCacheExceptionHandling() throws Exception {
         AtomicInteger touchCounter = new AtomicInteger(0);
 
-        Runnable vacuumizationActionStub = () -> {
+        Consumer<HybridTimestamp> vacuumizationActionStub = ignored -> {
             touchCounter.incrementAndGet();
             throw new IllegalStateException();
         };
@@ -166,6 +178,8 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 "Node1",
                 scheduler,
                 vacuumizationActionStub,
+                0,
+                clocService,
                 0,
                 1,
                 TimeUnit.MILLISECONDS

@@ -196,9 +196,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                    metaStorageConfiguration
             );
 
             clockWaiter = new ClockWaiter(clusterService.nodeName(), clock);

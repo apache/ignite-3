@@ -600,9 +600,7 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH), failureProcessor),
                 clock,
                 topologyAwareRaftGroupServiceFactory,
-                metricManager,
-                raftConfiguration.retryTimeout(),
-                maxClockSkewMillisFuture
+                metricManager
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -629,6 +627,8 @@ public class IgniteImpl implements Ignite {
                         name,
                         threadPoolsManager.commonScheduler(),
                         metaStorageMgr::evictIdempotentCommandsCache,
+                        raftConfiguration.retryTimeout().value(),
+                        clockService,
                         1,
                         1,
                         MINUTES

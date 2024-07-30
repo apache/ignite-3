@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
@@ -411,12 +409,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv1.startRaftNode(
                 raftNodeId1,
                 membersConfiguration,
-                new MetaStorageListener(
-                        mockStorage,
-                        mock(ClusterTimeImpl.class),
-                        raftConfiguration.retryTimeout(),
-                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-                ),
+                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
                 defaults()
         );
 
@@ -425,12 +418,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv2.startRaftNode(
                 raftNodeId2,
                 membersConfiguration,
-                new MetaStorageListener(
-                        mockStorage,
-                        mock(ClusterTimeImpl.class),
-                        raftConfiguration.retryTimeout(),
-                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-                ),
+                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
                 defaults()
         );
 
@@ -439,12 +427,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv3.startRaftNode(
                 raftNodeId3,
                 membersConfiguration,
-                new MetaStorageListener(
-                        mockStorage,
-                        mock(ClusterTimeImpl.class),
-                        raftConfiguration.retryTimeout(),
-                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-                ),
+                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
                 defaults()
         );
 

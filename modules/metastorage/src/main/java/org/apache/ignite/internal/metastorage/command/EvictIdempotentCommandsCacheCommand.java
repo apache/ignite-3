@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
@@ -24,4 +25,6 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(MetastorageCommandsMessageGroup.EVICT_IDEMPOTENT_COMMAND_CACHE)
 public interface EvictIdempotentCommandsCacheCommand extends MetaStorageWriteCommand {
+    /** Cached entries older than given timestamp will be evicted. */
+    HybridTimestamp evictionTimestamp();
 }

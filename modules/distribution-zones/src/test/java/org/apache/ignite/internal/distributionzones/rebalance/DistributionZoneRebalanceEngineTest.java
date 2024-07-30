@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -75,7 +74,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.Node;
@@ -104,7 +102,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -148,9 +145,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     private ScheduledExecutorService rebalanceScheduler;
 
-    @InjectConfiguration
-    private RaftConfiguration raftConfiguration;
-
     @BeforeEach
     public void setUp() {
         String nodeName = "test";
@@ -192,12 +186,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         ClusterTimeImpl clusterTime = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(
-                keyValueStorage,
-                clusterTime,
-                raftConfiguration.retryTimeout(),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-        );
+        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clusterTime);
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
 
