@@ -20,33 +20,25 @@ package org.apache.ignite.internal.rebalance;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -56,9 +48,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -158,98 +148,6 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         );
     }
 
-    /**
-     * Tests functionality of tables counters for partition rebalances per zone. Every partition from zone has tables counter when pending
-     * has changed, and we decrement it every time raft configuration for table's partition is rebalanced, and after this counter equals to
-     * zero rewrite stable.
-     *
-     * @throws Exception If failed
-     */
-    @Test
-    void testRebalanceTablesCounterForZone() throws Exception {
-        cluster.startAndInit(3);
-
-        String zoneName = "ZONE";
-
-        createZone(zoneName, 3, 3);
-
-        Set<Integer> tableIds = new HashSet<>();
-
-        tableIds.add(createTestTable("TEST1", zoneName));
-        tableIds.add(createTestTable("TEST2", zoneName));
-        tableIds.add(createTestTable("TEST3", zoneName));
-
-        Set<String> allNodes = cluster.runningNodes().map(IgniteImpl::name).collect(Collectors.toSet());
-
-        for (Integer tableId : tableIds) {
-            waitForStableAssignmentsInMetastore(allNodes, tableId);
-        }
-
-        AtomicBoolean dropMessages = new AtomicBoolean(true);
-
-        cluster.runningNodes().forEach(
-                n -> n.dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && dropMessages.get())
-        );
-
-        alterZone(zoneName, 2);
-
-        CatalogManager catalogManager = cluster.aliveNode().catalogManager();
-
-        int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneName).id();
-
-        waitForTablesCounterInMetastore(3, zoneId, 0);
-        waitForTablesCounterInMetastore(3, zoneId, 1);
-        waitForTablesCounterInMetastore(3, zoneId, 2);
-
-        dropMessages.set(false);
-
-        for (Integer tableId : tableIds) {
-            waitForStableAssignmentsInMetastore(2, tableId);
-        }
-
-        waitForTablesCounterInMetastore(0, zoneId, 0);
-        waitForTablesCounterInMetastore(0, zoneId, 1);
-        waitForTablesCounterInMetastore(0, zoneId, 2);
-    }
-
-    @Test
-    void testRebalanceTablesCounterForZonePrevCatalogVersion() throws Exception {
-        cluster.startAndInit(3);
-
-        String zoneName = "ZONE";
-
-        createZone(zoneName, 3, 3);
-
-        Set<Integer> tableIds = new HashSet<>();
-
-        tableIds.add(createTestTable("TEST1", zoneName));
-
-        Set<String> allNodes = cluster.runningNodes().map(IgniteImpl::name).collect(Collectors.toSet());
-
-        for (Integer tableId : tableIds) {
-            waitForStableAssignmentsInMetastore(allNodes, tableId);
-        }
-
-        // Block low watermark change with an open ro tx.
-        cluster.aliveNode().transactions().begin(new TransactionOptions().readOnly(true));
-
-        alterZone(zoneName, 2);
-
-        dropTestTable("TEST1");
-
-        CatalogManager catalogManager = cluster.aliveNode().catalogManager();
-
-        int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneName).id();
-
-        for (Integer tableId : tableIds) {
-            waitForStableAssignmentsInMetastore(2, tableId);
-        }
-
-        waitForTablesCounterInMetastore(0, zoneId, 0);
-        waitForTablesCounterInMetastore(0, zoneId, 1);
-        waitForTablesCounterInMetastore(0, zoneId, 2);
-    }
-
     private static Row marshalTuple(TableViewInternal table, Tuple tuple) {
         SchemaRegistry schemaReg = table.schemaView();
         var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
@@ -271,50 +169,6 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
 
             return assignments.equals(expectedNodes);
         }, 30000), "Expected nodes: " + expectedNodes + ", actual nodes: " + lastAssignmentsHolderForLog[0]);
-    }
-
-    private void waitForStableAssignmentsInMetastore(int expectedNodesNumber, int table) throws InterruptedException {
-        Set<String>[] lastAssignmentsHolderForLog = new Set[1];
-
-        assertTrue(waitForCondition(() -> {
-            Set<String> assignments =
-                    await(partitionAssignments(cluster.aliveNode().metaStorageManager(), table, 0))
-                            .stream()
-                            .map(Assignment::consistentId)
-                            .collect(Collectors.toSet());
-
-            lastAssignmentsHolderForLog[0] = assignments;
-
-            return assignments.size() == expectedNodesNumber;
-        }, 30000), "Expected nodes: " + expectedNodesNumber + ", actual nodes size: " + actualSize(lastAssignmentsHolderForLog));
-    }
-
-    private void waitForTablesCounterInMetastore(int expectedTablesNumber, int zoneId, int partitionNumber) throws InterruptedException {
-        Set<Integer>[] lastAssignmentsHolderForLog = new Set[1];
-
-        assertTrue(waitForCondition(() -> {
-            Set<Integer> tablesCounter = await(tablesCounter(cluster.aliveNode().metaStorageManager(), zoneId, partitionNumber));
-
-            lastAssignmentsHolderForLog[0] = tablesCounter;
-
-            return tablesCounter != null && tablesCounter.size() == expectedTablesNumber;
-
-        }, 30000),
-                "Expected tables number: " + expectedTablesNumber + ", actual tables number: " + actualSize(lastAssignmentsHolderForLog));
-    }
-
-    private static String actualSize(Collection<?>[] collection) {
-        return collection[0] == null ? "null" : Integer.toString(collection[0].size());
-    }
-
-    private static CompletableFuture<Set<Integer>> tablesCounter(
-            MetaStorageManager metaStorageManager,
-            int zoneId,
-            int partitionNumber
-    ) {
-        return metaStorageManager
-                .get(tablesCounterKey(zoneId, partitionNumber))
-                .thenApply(e -> (e.value() == null) ? null : fromBytes(e.value()));
     }
 
     private String nodeName(int nodeIndex) {
@@ -344,7 +198,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         });
     }
 
-    private int createTestTable(String tableName, String zoneName) throws InterruptedException {
+    private int createTestTable(String tableName, String zoneName) {
         String sql2 = "create table " + tableName + " (id int primary key, val varchar(20))"
                 + " with primary_zone='" + zoneName + "'";
 

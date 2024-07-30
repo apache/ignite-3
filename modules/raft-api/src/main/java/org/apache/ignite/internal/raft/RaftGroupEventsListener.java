@@ -32,8 +32,9 @@ public interface RaftGroupEventsListener {
      * Invoked on the leader, when new peers' configuration applied to raft group.
      *
      * @param configuration New Raft group configuration.
+     * @param term Raft term of the current leader.
      */
-    default void onNewPeersConfigurationApplied(PeersAndLearners configuration) {}
+    default void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term) {}
 
     /**
      * Invoked on the leader if membership reconfiguration failed, because of {@link Status}.

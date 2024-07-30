@@ -30,6 +30,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
@@ -181,7 +182,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             configurationComplete.countDown();
 
             return null;
-        }).when(eventsListener).onNewPeersConfigurationApplied(any());
+        }).when(eventsListener).onNewPeersConfigurationApplied(any(), anyLong());
 
         CompletableFuture<Void> changePeersFuture = nodes.get(0).raftGroupService
                 .thenCompose(service -> service.refreshAndGetLeaderWithTerm()
