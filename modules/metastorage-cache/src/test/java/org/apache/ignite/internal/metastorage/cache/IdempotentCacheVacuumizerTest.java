@@ -20,12 +20,16 @@ package org.apache.ignite.internal.metastorage.cache;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -34,6 +38,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockSettings;
+import org.mockito.quality.Strictness;
 
 /**
  * Tests for idempotency of {@link IdempotentCacheVacuumizer}.
@@ -41,14 +47,23 @@ import org.junit.jupiter.api.Test;
 public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
     private static final int TOUCH_COUNTER_CHANGE_TIMEOUT_MILLIS = 1_000;
 
+    private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
+
     private ScheduledExecutorService scheduler;
 
     private ClockService clocService;
 
+    private ConfigurationValue<Long> idempotentCacheTtlConfigurationValue;
+
     @BeforeEach
     public void setup() {
         scheduler = Executors.newSingleThreadScheduledExecutor();
+        // TODO sanpwc consider using mock here.
         clocService = new TestClockService(new TestHybridClock(() -> 1L));
+
+        // TODO sanpwc consider rethinking.
+        idempotentCacheTtlConfigurationValue = mock(ConfigurationValue.class, LENIENT_SETTINGS);
+        when(idempotentCacheTtlConfigurationValue.value()).thenReturn(0L);
     }
 
     @AfterEach
@@ -75,7 +90,7 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 "Node1",
                 scheduler,
                 ignored -> touchCounter.incrementAndGet(),
-                0,
+                idempotentCacheTtlConfigurationValue,
                 clocService,
                 0,
                 1,
@@ -128,7 +143,7 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 "Node1",
                 scheduler,
                 ignored -> touchCounter.incrementAndGet(),
-                0,
+                idempotentCacheTtlConfigurationValue,
                 clocService,
                 0,
                 1,
@@ -178,7 +193,7 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 "Node1",
                 scheduler,
                 vacuumizationActionStub,
-                0,
+                idempotentCacheTtlConfigurationValue,
                 clocService,
                 0,
                 1,
