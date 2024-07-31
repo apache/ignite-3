@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.benchmarks;
 
+import io.netty.util.ResourceLeakDetector;
+import io.netty.util.ResourceLeakDetector.Level;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.TestServer;
@@ -109,6 +111,8 @@ public class ClientHeartbeatBenchmark {
      * @throws RunnerException Exception.
      */
     public static void main(String[] args) throws RunnerException {
+        ResourceLeakDetector.setLevel(Level.DISABLED);
+
         Options opt = new OptionsBuilder()
                 .include(ClientHeartbeatBenchmark.class.getSimpleName())
                 .mode(Mode.Throughput)
