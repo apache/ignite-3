@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import java.util.Arrays;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -100,13 +101,19 @@ public enum ColumnType {
 
     private final int id;
 
-    private static final Int2ObjectMap<ColumnType> VALS = new Int2ObjectOpenHashMap<>();
+    private static ColumnType[] VALS;
 
     static {
+        int maxId = Arrays.stream(values()).mapToInt(ColumnType::id).max().orElse(0);
+        ColumnType[] vals = new ColumnType[maxId + 1];
+
         for (ColumnType columnType : values()) {
-            ColumnType existing = VALS.put(columnType.id, columnType);
+            ColumnType existing = vals[columnType.id];
             assert existing == null : "Found duplicate id " + columnType.id;
+            vals[columnType.id] = columnType;
         }
+
+        VALS = vals;
     }
 
     ColumnType(int id, Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined) {
@@ -146,6 +153,6 @@ public enum ColumnType {
 
     /** Returns corresponding {@code ColumnType} by given id, {@code null} for unknown id. */
     public static @Nullable ColumnType getById(int id) {
-        return VALS.get(id);
+        return id >= 0 && id < VALS.length ? VALS[id] : null;
     }
 }
