@@ -334,7 +334,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 payloadWriter.accept(payloadCh);
             }
 
-            // TODO: Reuse promise instead of addListener.
+            // TODO: Reuse promise instead of addListener? Removing callbacks improves heartbeat bench by 2%, not worth it.
+            // TODO: Benchmark from .NET and compare. Is the bottleneck in Java client or server?
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
                     String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
