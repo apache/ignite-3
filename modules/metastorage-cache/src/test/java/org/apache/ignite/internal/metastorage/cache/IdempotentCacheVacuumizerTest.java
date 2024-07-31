@@ -58,10 +58,8 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setup() {
         scheduler = Executors.newSingleThreadScheduledExecutor();
-        // TODO sanpwc consider using mock here.
         clocService = new TestClockService(new TestHybridClock(() -> 1L));
 
-        // TODO sanpwc consider rethinking.
         idempotentCacheTtlConfigurationValue = mock(ConfigurationValue.class, LENIENT_SETTINGS);
         when(idempotentCacheTtlConfigurationValue.value()).thenReturn(0L);
     }

@@ -393,8 +393,16 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public long revisionByTimestamp(HybridTimestamp timestamp) {
-        // TODO sanpwc implement.
-        return 0;
+        synchronized (mux) {
+            Map.Entry<Long, Long> revisionEntry = tsToRevMap.floorEntry(timestamp.longValue());
+
+            if (revisionEntry == null) {
+                // Nothing to compact yet.
+                return -1;
+            }
+
+            return revisionEntry.getValue();
+        }
     }
 
     @Override
@@ -499,14 +507,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new TreeMap<>();
 
-            Map.Entry<Long, Long> revisionEntry = tsToRevMap.floorEntry(lowWatermark.longValue());
+            long maxRevision = revisionByTimestamp(lowWatermark);
 
-            if (revisionEntry == null) {
-                // Nothing to compact yet.
+            if (maxRevision == -1) {
                 return;
             }
-
-            long maxRevision = revisionEntry.getValue();
 
             keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx, maxRevision));
 
