@@ -334,6 +334,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 payloadWriter.accept(payloadCh);
             }
 
+            // TODO: Reuse promise instead of addListener.
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
                     String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";

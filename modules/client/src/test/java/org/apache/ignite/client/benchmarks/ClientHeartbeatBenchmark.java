@@ -112,8 +112,8 @@ public class ClientHeartbeatBenchmark {
                 .addProfiler("jfr")
                 .warmupIterations(3)
                 .warmupTime(TimeValue.seconds(3))
-                .measurementIterations(5)
-                .measurementTime(TimeValue.seconds(5))
+                .measurementIterations(3)
+                .measurementTime(TimeValue.seconds(15))
                 .forks(1)
                 .build();
 
