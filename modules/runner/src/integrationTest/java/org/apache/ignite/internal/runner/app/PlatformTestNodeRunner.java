@@ -370,7 +370,6 @@ public class PlatformTestNodeRunner {
                 List.of(keyCol)
         );
 
-        // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
         createTable(
                 ignite.catalogManager(),
                 SqlCommon.DEFAULT_SCHEMA_NAME,
