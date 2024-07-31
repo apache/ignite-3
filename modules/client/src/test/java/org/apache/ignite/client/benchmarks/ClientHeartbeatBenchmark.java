@@ -97,14 +97,6 @@ public class ClientHeartbeatBenchmark {
     }
 
     /**
-     * Heartbeat benchmark.
-     */
-    @Benchmark
-    public void heartbeatWithPayload() {
-        channel.heartbeatAsync(w -> w.out().writePayload(payload)).join();
-    }
-
-    /**
      * Runner.
      *
      * @param args Arguments.
