@@ -24,6 +24,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -97,10 +98,11 @@ public class ClientHeartbeatBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(ClientHeartbeatBenchmark.class.getSimpleName())
+                .mode(Mode.AverageTime)
                 .addProfiler("gc")
                 .warmupIterations(3)
-                .warmupTime(TimeValue.seconds(5))
-                .measurementIterations(3)
+                .warmupTime(TimeValue.seconds(3))
+                .measurementIterations(5)
                 .measurementTime(TimeValue.seconds(5))
                 .forks(1)
                 .build();
