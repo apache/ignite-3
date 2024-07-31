@@ -34,7 +34,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="JetBrains.Annotations" Version="2023.3.0" PrivateAssets="all" />
+    <PackageReference Include="JetBrains.Annotations" Version="2024.2.0" PrivateAssets="all" />
     <PackageReference Include="NodaTime" Version="[3.*,)" />
     <PackageReference Include="Remotion.Linq" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[6.*,)" />
