@@ -36,8 +36,7 @@ import org.apache.ignite.network.ClusterNode;
  * effective to have multiple vacuumizers at the same time, meaning that best-effort oneness is preferable. In order to achieve such
  * best-effort oneness it's possible to use meta storage leader collocation: start/resume triggering on leader election if the leader is
  * collocated with a local node, and suspend upon loss of collocation with the leader.
- * In case of exception within vacuumization action, vacuumizer will log an error, stop itself but will not re-throw an exception to the
- * outer environment.
+ * In case of exception within vacuumization action, vacuumizer will just log a warning without suspending the scheduler.
  */
 public class IdempotentCacheVacuumizer implements ElectionListener {
     private static final IgniteLogger LOG = Loggers.forClass(IdempotentCacheVacuumizer.class);
@@ -55,7 +54,7 @@ public class IdempotentCacheVacuumizer implements ElectionListener {
      * @param idempotentCacheTtl Idempotent cache ttl.
      * @param clockService Clock service.
      * @param initialDelay The time to delay first execution.
-     * @param delay The delay between the termination of one execution and the commencement of the next
+     * @param delay The delay between the termination of one execution and the commencement of the next.
      * @param unit The time unit of the initialDelay and delay parameters.
      */
     public IdempotentCacheVacuumizer(

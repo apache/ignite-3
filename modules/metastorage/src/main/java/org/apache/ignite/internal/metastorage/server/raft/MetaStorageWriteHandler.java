@@ -387,8 +387,6 @@ public class MetaStorageWriteHandler {
                     .map(Entry::key)
                     .collect(toList());
 
-            storage.removeAll(evictionCandidateKeys, operationTimestamp);
-
             // TODO https://issues.apache.org/jira/browse/IGNITE-22828
             evictionCandidateKeys.forEach(evictionCandidateKeyBytes -> {
                 byte[] commandIdBytes = copyOfRange(evictionCandidateKeyBytes, IDEMPOTENT_COMMAND_PREFIX_BYTES.length,
@@ -397,6 +395,8 @@ public class MetaStorageWriteHandler {
 
                 idempotentCommandCache.remove(commandId);
             });
+
+            storage.removeAll(evictionCandidateKeys, operationTimestamp);
 
             LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
                             + " removedEntriesCount={}, cacheSize={}].",
