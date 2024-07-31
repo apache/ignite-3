@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link LocalPartitionStateEnum} testing. */
 public class LocalPartitionStateEnumTest {
-    /** Checks that the ordinal does not change, since the enum will be transfer in the {@link NetworkMessage}. */
+    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
     void testFromOrdinal() {
         assertEquals(LocalPartitionStateEnum.UNAVAILABLE, LocalPartitionStateEnum.fromOrdinal(0));

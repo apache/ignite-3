@@ -36,7 +36,7 @@ class OperationTypeTest {
         assertEquals(2, OperationType.REMOVE.ordinal());
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transfer in the {@link NetworkMessage}. */
+    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
     void testFromOrdinal() {
         assertEquals(OperationType.NO_OP, OperationType.fromOrdinal(0));

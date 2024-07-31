@@ -123,7 +123,7 @@ public class TxStateTest {
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABANDONED));
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transfer in the {@link NetworkMessage}. */
+    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
     void testFromOrdinal() {
         assertEquals(TxState.PENDING, TxState.fromOrdinal(0));

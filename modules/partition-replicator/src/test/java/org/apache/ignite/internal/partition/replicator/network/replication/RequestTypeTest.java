@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link RequestType} testing. */
 public class RequestTypeTest {
-    /** Checks that the ordinal does not change, since the enum will be transfer in the {@link NetworkMessage}. */
+    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
     void testFromOrdinal() {
         assertEquals(RequestType.RW_GET, RequestType.fromOrdinal(0));

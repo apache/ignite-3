@@ -62,7 +62,7 @@ class ConditionTypeTest {
         assertEquals(15, ConditionType.NOT_TOMBSTONE.ordinal());
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transfer in the {@link NetworkMessage}. */
+    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
     void testFromOrdinal() {
         assertEquals(ConditionType.REV_EQUAL, ConditionType.fromOrdinal(0));
