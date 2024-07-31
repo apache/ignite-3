@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.metastorage.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.apache.ignite.internal.metastorage.dsl.ConditionType;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -59,5 +60,44 @@ class ConditionTypeTest {
         assertEquals(14, ConditionType.TOMBSTONE.ordinal());
 
         assertEquals(15, ConditionType.NOT_TOMBSTONE.ordinal());
+    }
+
+    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @Test
+    void testFromOrdinal() {
+        assertEquals(ConditionType.REV_EQUAL, ConditionType.fromOrdinal(0));
+
+        assertEquals(ConditionType.REV_NOT_EQUAL, ConditionType.fromOrdinal(1));
+
+        assertEquals(ConditionType.REV_GREATER, ConditionType.fromOrdinal(2));
+
+        assertEquals(ConditionType.REV_LESS, ConditionType.fromOrdinal(3));
+
+        assertEquals(ConditionType.REV_LESS_OR_EQUAL, ConditionType.fromOrdinal(4));
+
+        assertEquals(ConditionType.REV_GREATER_OR_EQUAL, ConditionType.fromOrdinal(5));
+
+        assertEquals(ConditionType.VAL_EQUAL, ConditionType.fromOrdinal(6));
+
+        assertEquals(ConditionType.VAL_NOT_EQUAL, ConditionType.fromOrdinal(7));
+
+        assertEquals(ConditionType.VAL_GREATER, ConditionType.fromOrdinal(8));
+
+        assertEquals(ConditionType.VAL_LESS, ConditionType.fromOrdinal(9));
+
+        assertEquals(ConditionType.VAL_LESS_OR_EQUAL, ConditionType.fromOrdinal(10));
+
+        assertEquals(ConditionType.VAL_GREATER_OR_EQUAL, ConditionType.fromOrdinal(11));
+
+        assertEquals(ConditionType.KEY_EXISTS, ConditionType.fromOrdinal(12));
+
+        assertEquals(ConditionType.KEY_NOT_EXISTS, ConditionType.fromOrdinal(13));
+
+        assertEquals(ConditionType.TOMBSTONE, ConditionType.fromOrdinal(14));
+
+        assertEquals(ConditionType.NOT_TOMBSTONE, ConditionType.fromOrdinal(15));
+
+        assertThrows(IllegalArgumentException.class, () -> ConditionType.fromOrdinal(-1));
+        assertThrows(IllegalArgumentException.class, () -> ConditionType.fromOrdinal(16));
     }
 }

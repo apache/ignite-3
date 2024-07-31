@@ -25,20 +25,11 @@ import org.jetbrains.annotations.Nullable;
 
 /** Message for transferring a {@link TransactionMeta}. */
 public interface TransactionMetaMessage extends NetworkMessage {
-    /** Ordinal of {@link TxState} value. */
-    int txStateInt();
+    /** Transaction state. */
+    TxState txState();
 
     /** Commit timestamp. */
     @Nullable HybridTimestamp commitTimestamp();
-
-    /** Transaction state. */
-    default TxState txState() {
-        TxState state = TxState.fromOrdinal(txStateInt());
-
-        assert state != null : txStateInt();
-
-        return state;
-    }
 
     /** Converts to {@link TransactionMeta}. */
     default TransactionMeta asTransactionMeta() {
