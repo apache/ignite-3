@@ -113,6 +113,7 @@ public class ClientHeartbeatBenchmark {
                 .include(ClientHeartbeatBenchmark.class.getSimpleName())
                 .mode(Mode.Throughput)
                 .addProfiler("gc")
+                .addProfiler("jfr")
                 .warmupIterations(3)
                 .warmupTime(TimeValue.seconds(3))
                 .measurementIterations(5)
