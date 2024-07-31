@@ -58,8 +58,19 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
 
     @Test
     @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
+    void testCustomLogPath() {
+        Path partitionsLogPath = workDir.resolve("partitions_log");
+        assertThat(systemConfiguration.partitionsLogPath().update(partitionsLogPath.toString()), willCompleteSuccessfully());
+
+        server = startServer(systemConfiguration);
+
+        assertTrue(Files.exists(partitionsLogPath));
+    }
+
+    @Test
+    @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
     void testDefaultFactory() {
-        Path partitionsPath = workDir.resolve("partitions");
+        Path partitionsPath = workDir.resolve("custom_partitions");
         assertThat(systemConfiguration.partitionsBasePath().update(partitionsPath.toString()), willCompleteSuccessfully());
 
         server = startServer(systemConfiguration);
@@ -70,7 +81,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     @Test
     @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
     void testLogitFactory() {
-        Path partitionsPath = workDir.resolve("partitions");
+        Path partitionsPath = workDir.resolve("custom_partitions");
         assertThat(systemConfiguration.partitionsBasePath().update(partitionsPath.toString()), willCompleteSuccessfully());
 
         server = startServer(systemConfiguration);

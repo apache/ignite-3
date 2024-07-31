@@ -60,7 +60,12 @@ public class IgnitePaths {
     public static ComponentWorkingDir partitionsPath(SystemConfiguration systemConfiguration, Path workDir) {
         LazyPath basePath = lazy(systemConfiguration.partitionsBasePath(), () -> workDir.resolve(PARTITIONS_BASE_PATH));
 
-        return new ComponentWorkingDir(basePath);
+        return new ComponentWorkingDir(basePath) {
+            @Override
+            public LazyPath raftLogPath() {
+                return lazy(systemConfiguration.partitionsLogPath(), () -> super.raftLogPath().get());
+            }
+        };
     }
 
     /**

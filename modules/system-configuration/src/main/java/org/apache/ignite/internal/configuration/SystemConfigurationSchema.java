@@ -39,4 +39,8 @@ public class SystemConfigurationSchema {
      */
     @Value(hasDefault = true)
     public String partitionsBasePath = "";
+
+    /** Directory where log is stored. By default "log" subfolder of partition base path is used. */
+    @Value(hasDefault = true)
+    public String partitionsLogPath = "";
 }
