@@ -37,6 +37,19 @@ import org.openjdk.jmh.runner.options.TimeValue;
 
 /**
  * Heartbeat (ping) benchmark - measures the simplest client-server interaction.
+ *
+ * <p>Results on i9-12900H, openjdk 11.0.23, Ubuntu 22.04:
+ * Benchmark                                                          Mode  Cnt      Score       Error   Units
+ * ClientHeartbeatBenchmark.heartbeat                                thrpt    5  16274.873 ±  1306.424   ops/s
+ * ClientHeartbeatBenchmark.heartbeat:gc.alloc.rate                  thrpt    5    750.803 ±   851.850  MB/sec
+ * ClientHeartbeatBenchmark.heartbeat:gc.alloc.rate.norm             thrpt    5  48292.682 ± 53619.130    B/op
+ * ClientHeartbeatBenchmark.heartbeat:gc.count                       thrpt    5    122.000              counts
+ * ClientHeartbeatBenchmark.heartbeat:gc.time                        thrpt    5     60.000                  ms
+ * ClientHeartbeatBenchmark.heartbeatWithPayload                     thrpt    5  15878.426 ±   511.951   ops/s
+ * ClientHeartbeatBenchmark.heartbeatWithPayload:gc.alloc.rate       thrpt    5    742.915 ±   821.941  MB/sec
+ * ClientHeartbeatBenchmark.heartbeatWithPayload:gc.alloc.rate.norm  thrpt    5  49020.734 ± 53618.819    B/op
+ * ClientHeartbeatBenchmark.heartbeatWithPayload:gc.count            thrpt    5    120.000              counts
+ * ClientHeartbeatBenchmark.heartbeatWithPayload:gc.time             thrpt    5     62.000                  ms
  */
 @State(Scope.Benchmark)
 public class ClientHeartbeatBenchmark {
@@ -98,7 +111,7 @@ public class ClientHeartbeatBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(ClientHeartbeatBenchmark.class.getSimpleName())
-                .mode(Mode.AverageTime)
+                .mode(Mode.Throughput)
                 .addProfiler("gc")
                 .warmupIterations(3)
                 .warmupTime(TimeValue.seconds(3))
