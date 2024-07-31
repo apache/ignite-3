@@ -22,6 +22,12 @@ using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Internal;
 
+/// <summary>
+/// Results on i9-12900H, .NET SDK 6.0.3224, Ubuntu 22.04:
+/// | Method    | Mean     | Error    | StdDev   |
+/// |---------- |---------:|---------:|---------:|
+/// | Heartbeat | 15.62 us | 0.386 us | 1.121 us |.
+/// </summary>
 [SimpleJob]
 public class HeartbeatBenchmark
 {
