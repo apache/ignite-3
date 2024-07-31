@@ -392,27 +392,31 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return;
         }
 
+        NetworkMessage payload;
         Long correlationId = null;
         if (message instanceof InvokeRequest) {
             InvokeRequest invokeRequest = (InvokeRequest) message;
+            payload = invokeRequest.message();
             correlationId = invokeRequest.correlationId();
+        } else {
+            payload = message;
         }
 
-        Iterator<HandlerContext> handlerContexts = getHandlerContexts(message.groupType()).iterator();
+        Iterator<HandlerContext> handlerContexts = getHandlerContexts(payload.groupType()).iterator();
         if (!handlerContexts.hasNext()) {
             // No need to handle this.
             return;
         }
 
         HandlerContext firstHandlerContext = handlerContexts.next();
-        Executor firstHandlerExecutor = chooseExecutorFor(message, inNetworkObject, firstHandlerContext.executorChooser());
+        Executor firstHandlerExecutor = chooseExecutorFor(payload, inNetworkObject, firstHandlerContext.executorChooser());
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {
             long startedNanos = System.nanoTime();
 
             try {
-                handleStartingWithFirstHandler(message, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
+                handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
                 logAndRethrowIfError(inNetworkObject, e);
             } finally {
