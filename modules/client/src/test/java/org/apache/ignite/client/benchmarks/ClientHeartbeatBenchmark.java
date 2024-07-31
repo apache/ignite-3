@@ -20,6 +20,7 @@ package org.apache.ignite.client.benchmarks;
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.ResourceLeakDetector.Level;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.TestServer;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -103,7 +104,8 @@ public class ClientHeartbeatBenchmark {
 
         Options opt = new OptionsBuilder()
                 .include(ClientHeartbeatBenchmark.class.getSimpleName())
-                .mode(Mode.Throughput)
+                .mode(Mode.SampleTime)
+                .timeUnit(TimeUnit.MICROSECONDS)
                 .addProfiler("gc")
                 .addProfiler("jfr")
                 .warmupIterations(3)
@@ -111,6 +113,7 @@ public class ClientHeartbeatBenchmark {
                 .measurementIterations(3)
                 .measurementTime(TimeValue.seconds(15))
                 .forks(1)
+                .threads(10)
                 .build();
 
         new Runner(opt).run();
