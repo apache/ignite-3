@@ -82,6 +82,8 @@ public class ClientHeartbeatBenchmark {
                 .build();
 
         channel = client.channel().channels().get(0);
+
+        ResourceLeakDetector.setLevel(Level.DISABLED);
     }
 
     /**
@@ -108,8 +110,6 @@ public class ClientHeartbeatBenchmark {
      * @throws RunnerException Exception.
      */
     public static void main(String[] args) throws RunnerException {
-        ResourceLeakDetector.setLevel(Level.DISABLED);
-
         Options opt = new OptionsBuilder()
                 .include(ClientHeartbeatBenchmark.class.getSimpleName())
                 .mode(Mode.SampleTime)

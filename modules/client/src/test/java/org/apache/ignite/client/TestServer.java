@@ -26,7 +26,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 
 import io.netty.util.ResourceLeakDetector;
-import io.netty.util.ResourceLeakDetector.Level;
 import java.io.IOError;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -164,7 +163,7 @@ public class TestServer implements AutoCloseable {
             @Nullable HybridClock clock,
             boolean enableRequestHandling
     ) {
-        ResourceLeakDetector.setLevel(Level.DISABLED);
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         cfg = new ConfigurationRegistry(
