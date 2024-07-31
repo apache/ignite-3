@@ -185,8 +185,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             CheckpointProgress scheduledCheckpoint;
 
             if (!trigger) {
-                throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
-
                 // Scheduling a checkpoint with an "infinite" delay (24+ days to prevent overflow)
                 // so the checkpoint will definitely not be triggered.
                 scheduledCheckpoint = checkpointManager.scheduleCheckpoint(
