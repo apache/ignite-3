@@ -18,7 +18,7 @@
 namespace Apache.Ignite.Compute;
 
 /// <summary>
-/// Compute job state.
+/// Compute job status.
 /// </summary>
 public enum JobStatus
 {

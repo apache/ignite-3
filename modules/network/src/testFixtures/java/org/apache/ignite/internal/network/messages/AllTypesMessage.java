@@ -127,4 +127,6 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
     String sensitiveString();
 
     @Nullable HybridTimestamp hybridTs();
+
+    @Nullable TestEnum testEnum();
 }

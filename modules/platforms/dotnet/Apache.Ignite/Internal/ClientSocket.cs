@@ -138,7 +138,7 @@ namespace Apache.Ignite.Internal
 
             // ReSharper disable once AsyncVoidLambda (timer callback)
             _heartbeatTimer = new Timer(
-                callback: async _ => await SendHeartbeatAsync().ConfigureAwait(false),
+                callback: async _ => await HeartbeatAsync().ConfigureAwait(false),
                 state: null,
                 dueTime: _heartbeatInterval,
                 period: TimeSpan.FromMilliseconds(-1));
@@ -279,6 +279,32 @@ namespace Apache.Ignite.Internal
         public void Dispose()
         {
             Dispose(null);
+        }
+
+        /// <summary>
+        /// Sends heartbeat message.
+        /// </summary>
+        /// <param name="payload">Optional payload. Ignored by the server, can be used for benchmarking.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Any heartbeat exception should cause this instance to be disposed with an error.")]
+        internal async Task HeartbeatAsync(PooledArrayBuffer? payload = null)
+        {
+            try
+            {
+                using var buf = await DoOutInOpAsync(ClientOp.Heartbeat, payload)
+                    .WaitAsync(_socketTimeout)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                var message = "Heartbeat failed: " + e.Message;
+                _logger.LogHeartbeatError(e, message);
+
+                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
+            }
         }
 
         /// <summary>
@@ -863,28 +889,6 @@ namespace Apache.Ignite.Internal
                 _logger.LogPartitionAssignmentChangeNotificationInfo(ConnectionContext.ClusterNode.Address, timestamp);
 
                 _listener.OnAssignmentChanged(timestamp);
-            }
-        }
-
-        /// <summary>
-        /// Sends heartbeat message.
-        /// </summary>
-        [SuppressMessage(
-            "Microsoft.Design",
-            "CA1031:DoNotCatchGeneralExceptionTypes",
-            Justification = "Any heartbeat exception should cause this instance to be disposed with an error.")]
-        private async Task SendHeartbeatAsync()
-        {
-            try
-            {
-                using var buf = await DoOutInOpAsync(ClientOp.Heartbeat).WaitAsync(_socketTimeout).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                var message = "Heartbeat failed: " + e.Message;
-                _logger.LogHeartbeatError(e, message);
-
-                Dispose(new IgniteClientConnectionException(ErrorGroups.Client.Connection, message, e));
             }
         }
 

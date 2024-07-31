@@ -730,14 +730,15 @@ public final class Commons {
     }
 
     /**
-     * Control possibility to make simple key value plan optimizations.
+     * Checks whether a fast path optimizations are enabled or not.
      *
-     * <p>Note: this mode is for test purpose only.
+     * <p>Note: for test purpose only.
      *
-     * @return A {@code true} if plan optimization is enabled, {@code false} otherwise.
+     * @return A {@code true} if fast path optimizations are enabled, {@code false} otherwise.
      */
-    public static boolean simpleKeyValueOptimization() {
-        return IgniteSystemProperties.getBoolean("SIMPLE_KEY_VALUE_OPERATION", true);
+    public static boolean fastQueryOptimizationEnabled() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+        return IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
     }
 
     /**
