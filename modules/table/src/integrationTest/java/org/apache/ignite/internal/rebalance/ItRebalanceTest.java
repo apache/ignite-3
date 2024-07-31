@@ -187,17 +187,6 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         });
     }
 
-    private void alterZone(String zoneName, int replicas) {
-        String sql1 = String.format("alter zone %s set "
-                + "replicas=%d, "
-                + "data_nodes_auto_adjust_scale_up=0, "
-                + "data_nodes_auto_adjust_scale_down=0", zoneName, replicas);
-
-        cluster.doInSession(0, session -> {
-            executeUpdate(sql1, session);
-        });
-    }
-
     private int createTestTable(String tableName, String zoneName) {
         String sql2 = "create table " + tableName + " (id int primary key, val varchar(20))"
                 + " with primary_zone='" + zoneName + "'";
@@ -211,13 +200,5 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         return catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
                 .filter(t -> t.name().equals(tableName))
                 .findFirst().get().id();
-    }
-
-    private void dropTestTable(String tableName) {
-        String sql2 = "drop table if exists " + tableName;
-
-        cluster.doInSession(1, session -> {
-            executeUpdate(sql2, session);
-        });
     }
 }

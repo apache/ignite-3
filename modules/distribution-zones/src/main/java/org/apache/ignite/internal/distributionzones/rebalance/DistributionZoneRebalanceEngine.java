@@ -36,8 +36,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -51,7 +49,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -251,29 +248,6 @@ public class DistributionZoneRebalanceEngine {
                 parameters.zoneDescriptor(),
                 parameters.causalityToken(),
                 parameters.catalogVersion()
-        );
-    }
-
-    static CompletableFuture<Set<Assignment>> calculateAssignments(
-            TablePartitionId tablePartitionId,
-            CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager,
-            int catalogVersion
-    ) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tablePartitionId.tableId(), catalogVersion);
-
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
-
-        return distributionZoneManager.dataNodes(
-                zoneDescriptor.updateToken(),
-                catalogVersion,
-                tableDescriptor.zoneId()
-        ).thenApply(dataNodes ->
-                AffinityUtils.calculateAssignmentForPartition(
-                        dataNodes,
-                        tablePartitionId.partitionId(),
-                        zoneDescriptor.replicas()
-                )
         );
     }
 
