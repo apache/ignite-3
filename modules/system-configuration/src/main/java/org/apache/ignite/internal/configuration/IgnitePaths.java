@@ -50,59 +50,17 @@ public class IgnitePaths {
     private static final Path CMG_DB_PATH = Paths.get("cmg");
 
     /**
-     * Path for the persistent storage.
-     */
-    private static final Path STORAGE_PATH = Paths.get("db");
-
-    /**
-     * Path for the raft log.
-     */
-    private static final Path RAFT_LOG_PATH = Paths.get("log");
-
-    /**
-     * Path for the raft metadata (snapshots).
-     */
-    private static final Path METADATA_PATH = Paths.get("meta");
-
-    /**
      * Directory where partition data is stored. By default "partitions" subfolder of data storage path is used.
      *
-     * @param systemConfiguration Configuration to read the configured value for this path.
+     * @param systemConfiguration System configuration.
      * @param workDir Ignite working dir. Will be used as a default place to store partitions dir, if it is not set in the
      *         configuration.
+     * @return Working dir subtree structure representation for partitions.
      */
-    public static LazyPath partitionsBasePath(SystemConfiguration systemConfiguration, Path workDir) {
-        return lazy(systemConfiguration.partitionsBasePath(), () -> workDir.resolve(PARTITIONS_BASE_PATH));
-    }
+    public static ComponentWorkingDir partitionsPath(SystemConfiguration systemConfiguration, Path workDir) {
+        LazyPath basePath = lazy(systemConfiguration.partitionsBasePath(), () -> workDir.resolve(PARTITIONS_BASE_PATH));
 
-    /**
-     * Directory where raft metadata is stored. "meta" dir inside "partitions" dir.
-     *
-     * @param partitionsBaseDir Directory where partition data is stored. See
-     *         {@link #partitionsBasePath(SystemConfiguration, Path)}.
-     */
-    public static LazyPath partitionsMetaPath(LazyPath partitionsBaseDir) {
-        return partitionsBaseDir.resolveLazy(METADATA_PATH);
-    }
-
-    /**
-     * Directory where raft log is stored. "log" dir inside "partitions" dir.
-     *
-     * @param partitionsBaseDir Directory where partition data is stored. See
-     *         {@link #partitionsBasePath(SystemConfiguration, Path)}.
-     */
-    public static LazyPath partitionsRaftLogPath(LazyPath partitionsBaseDir) {
-        return partitionsBaseDir.resolveLazy(RAFT_LOG_PATH);
-    }
-
-    /**
-     * Returns a path to the partitions store directory. "db" dir inside "partitions" dir.
-     *
-     * @param partitionsBaseDir Directory where partition data is stored. See
-     *         {@link #partitionsBasePath(SystemConfiguration, Path)}.
-     */
-    public static LazyPath partitionsStorePath(LazyPath partitionsBaseDir) {
-        return partitionsBaseDir.resolveLazy(STORAGE_PATH);
+        return new ComponentWorkingDir(basePath);
     }
 
     /**

@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.raft.server;
 
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsBasePath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsMetaPath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsRaftLogPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -80,15 +79,15 @@ public class TestJraftServerFactory {
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
-        LazyPath partitionsBasePath = partitionsBasePath(systemConfiguration, dataPath);
+        ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dataPath);
 
         LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 service.nodeName(),
-                partitionsRaftLogPath(partitionsBasePath)
+                partitionsWorkDir.raftLogPath()
         );
         return new JraftServerImpl(
                 service,
-                partitionsMetaPath(partitionsBasePath),
+                partitionsWorkDir.metaPath(),
                 opts,
                 raftGroupEventsClientListener,
                 defaultLogStorageFactory

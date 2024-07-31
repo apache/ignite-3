@@ -21,10 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgDbPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastorageDbPath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsBasePath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsMetaPath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsRaftLogPath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsStorePath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -98,6 +95,7 @@ import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
 import org.apache.ignite.internal.compute.loader.JobClassLoaderFactory;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -497,16 +495,16 @@ public class IgniteImpl implements Ignite {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        LazyPath partitionsBasePath = partitionsBasePath(systemConfiguration, workDir);
+        ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
         logStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsRaftLogPath(partitionsBasePath));
+                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
         raftMgr = new Loza(
                 clusterSvc,
                 metricManager,
                 raftConfiguration,
-                partitionsMetaPath(partitionsBasePath),
+                partitionsWorkDir.metaPath(),
                 clock,
                 raftGroupEventsClientListener,
                 logStorageFactory
@@ -675,7 +673,7 @@ public class IgniteImpl implements Ignite {
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
         );
 
-        LazyPath storagePath = partitionsStorePath(partitionsBasePath);
+        LazyPath storagePath = partitionsWorkDir.dbPath();
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 

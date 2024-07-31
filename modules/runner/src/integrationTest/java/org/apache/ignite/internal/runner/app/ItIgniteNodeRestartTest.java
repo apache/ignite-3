@@ -24,8 +24,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsBasePath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsRaftLogPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -104,6 +103,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -367,10 +367,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        LazyPath partitionsBasePath = partitionsBasePath(systemConfiguration, dir);
+        ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dir);
 
         LogStorageFactory logStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsRaftLogPath(partitionsBasePath));
+                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
         var raftMgr = TestLozaFactory.create(
                 clusterSvc,

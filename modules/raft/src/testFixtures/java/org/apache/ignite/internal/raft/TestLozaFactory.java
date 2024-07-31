@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.raft;
 
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsMetaPath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsRaftLogPath;
-
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -75,17 +73,17 @@ public class TestLozaFactory {
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
-        LazyPath partitionsBaseDir = LazyPath.create(dataPath);
+        ComponentWorkingDir partitionsBaseDir = new ComponentWorkingDir(dataPath);
 
         LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
                 clusterNetSvc.nodeName(),
-                partitionsRaftLogPath(partitionsBaseDir)
+                partitionsBaseDir.raftLogPath()
         );
         return new Loza(
                 clusterNetSvc,
                 new NoOpMetricManager(),
                 raftConfig,
-                partitionsMetaPath(partitionsBaseDir),
+                partitionsBaseDir.metaPath(),
                 clock,
                 raftGroupEventsClientListener,
                 logStorageFactory) {
