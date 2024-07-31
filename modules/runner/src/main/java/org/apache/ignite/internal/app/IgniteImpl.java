@@ -620,19 +620,6 @@ public class IgniteImpl implements Ignite {
 
         clockService = new ClockServiceImpl(clock, clockWaiter, new SameValueLongSupplier(() -> schemaSyncConfig.maxClockSkew().value()));
 
-        metaStorageMgr.addElectionListener(
-                new IdempotentCacheVacuumizer(
-                        name,
-                        threadPoolsManager.commonScheduler(),
-                        metaStorageMgr::evictIdempotentCommandsCache,
-                        raftConfiguration.retryTimeout(),
-                        clockService,
-                        1,
-                        1,
-                        MINUTES
-                )
-        );
-
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
         placementDriverMgr = new PlacementDriverManager(
@@ -1124,6 +1111,19 @@ public class IgniteImpl implements Ignite {
                     clusterSvc.updateMetadata(
                             new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
 
+                    // Instantiate and register idempotentCacheVacuumizer. Should be registered after configuration start.
+                    metaStorageMgr.addElectionListener(
+                            new IdempotentCacheVacuumizer(
+                                    name,
+                                    threadPoolsManager.commonScheduler(),
+                                    metaStorageMgr::evictIdempotentCommandsCache,
+                                    nodeCfgMgr.configurationRegistry().getConfiguration(RaftConfiguration.KEY).retryTimeout(),
+                                    clockService,
+                                    1,
+                                    1,
+                                    MINUTES
+                            )
+                    );
                 } catch (Throwable e) {
                     startupExecutor.shutdownNow();
 
