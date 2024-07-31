@@ -453,7 +453,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         try {
             // writeAndFlush releases pooled buffer.
-            ctx.writeAndFlush(buf);
+            ctx.writeAndFlush(buf, ctx.voidPromise());
         } catch (Throwable t) {
             buf.release();
             throw t;
