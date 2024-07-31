@@ -64,7 +64,6 @@ import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
-import org.apache.ignite.internal.metrics.AtomicDoubleMetric;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -87,7 +86,7 @@ public class MetaStorageWriteHandler {
     private final ClusterTimeImpl clusterTime;
 
     // TODO Seems that we no longer need storing timestamp in the cache, nor we need IdempotentCommandCachedResult
-    private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
+    private final Map<CommandId, @Nullable Serializable> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(
             KeyValueStorage storage,
@@ -109,10 +108,10 @@ public class MetaStorageWriteHandler {
             IdempotentCommand idempotentCommand = ((IdempotentCommand) command);
             CommandId commandId = idempotentCommand.id();
 
-            IdempotentCommandCachedResult cachedResult = idempotentCommandCache.get(commandId);
+            Serializable cachedResult = idempotentCommandCache.get(commandId);
 
             if (cachedResult != null) {
-                clo.result(cachedResult.result);
+                clo.result(cachedResult);
 
                 return;
             } else {
@@ -364,9 +363,7 @@ public class MetaStorageWriteHandler {
                         result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entry.value())).build();
                     }
 
-                    // TODO sanpwc remove now. There's no need to store timestamp in idempotent command cache. Actually there's no need in
-                    // TODO IdempotentCommandCachedResult class.
-                    idempotentCommandCache.put(commandId, new IdempotentCommandCachedResult(result, now));
+                    idempotentCommandCache.put(commandId, result);
                 }
             }
         }
@@ -413,18 +410,6 @@ public class MetaStorageWriteHandler {
         }
     }
 
-    private static class IdempotentCommandCachedResult {
-        @Nullable
-        final Serializable result;
-
-        final HybridTimestamp commandStartTime;
-
-        IdempotentCommandCachedResult(@Nullable Serializable result, HybridTimestamp commandStartTime) {
-            this.result = result;
-            this.commandStartTime = commandStartTime;
-        }
-    }
-
     private class ResultCachingClosure implements CommandClosure<WriteCommand> {
         CommandClosure<WriteCommand> closure;
 
@@ -455,7 +440,7 @@ public class MetaStorageWriteHandler {
 
             // Exceptions are not cached.
             if (!(res instanceof Throwable)) {
-                idempotentCommandCache.put(command.id(), new IdempotentCommandCachedResult(res, command.safeTime()));
+                idempotentCommandCache.put(command.id(), res);
             }
 
             closure.result(res);
