@@ -35,7 +35,7 @@ public final class Operations {
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
     /** No-op operation singleton. */
-    private static final Operation NO_OP = MSG_FACTORY.operation().operationType(OperationType.NO_OP.ordinal()).build();
+    private static final Operation NO_OP = MSG_FACTORY.operation().type(OperationType.NO_OP).build();
 
     /** Operations. */
     private final List<Operation> operations;
@@ -118,7 +118,7 @@ public final class Operations {
     public static Operation remove(ByteArray key) {
         return MSG_FACTORY.operation()
                 .key(ByteBuffer.wrap(key.bytes()))
-                .operationType(OperationType.REMOVE.ordinal())
+                .type(OperationType.REMOVE)
                 .build();
     }
 
@@ -155,7 +155,7 @@ public final class Operations {
         return MSG_FACTORY.operation()
                 .key(key)
                 .value(value)
-                .operationType(OperationType.PUT.ordinal())
+                .type(OperationType.PUT)
                 .build();
     }
 

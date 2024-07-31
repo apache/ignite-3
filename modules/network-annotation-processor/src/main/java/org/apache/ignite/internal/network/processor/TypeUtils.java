@@ -23,6 +23,7 @@ import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.PrimitiveType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -152,5 +153,23 @@ public class TypeUtils {
         return elements
                 .getTypeElement(cls.getCanonicalName())
                 .asType();
+    }
+
+    /**
+     * Returns {@code true} if the type is an {@link Enum}.
+     *
+     * @param type Type mirror.
+     */
+    public boolean isEnum(TypeMirror type) {
+        return isSubType(type, Enum.class);
+    }
+
+    /**
+     * Returns primitive type mirror.
+     *
+     * @param kind Type kind.
+     */
+    public PrimitiveType getPrimitiveType(TypeKind kind) {
+        return types.getPrimitiveType(kind);
     }
 }
