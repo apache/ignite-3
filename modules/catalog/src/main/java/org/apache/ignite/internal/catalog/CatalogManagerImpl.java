@@ -343,25 +343,20 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     /**
-     * Trim all catalog versions up to the given catalog (exclusively).
-     *
-     * @param catalog Earliest observable catalog.
-     * @return Operation future, which is completing with {@code true} if a new snapshot has been successfully written, {@code false}
-     *         otherwise if a snapshot with the same or greater version already exists.
-     */
-    public CompletableFuture<Boolean> compactCatalog(Catalog catalog) {
-        return updateLog.saveSnapshot(new SnapshotEntry(catalog));
-    }
-
-    /**
      * Cleanup outdated catalog versions, which can't be observed after given timestamp (inclusively), and compact underlying update log.
      *
-     * @param timestamp Earliest observable timestamp.
+     * @param version Earliest observable version.
      * @return Operation future, which is completing with {@code true} if a new snapshot has been successfully written, {@code false}
      *         otherwise if a snapshot with the same or greater version already exists.
      */
-    CompletableFuture<Boolean> compactCatalog(long timestamp) {
-        return compactCatalog(catalogAt(timestamp));
+    public CompletableFuture<Boolean> compactCatalog(int version) {
+        Catalog catalog = catalog(version);
+
+        if (catalog == null) {
+            throw new IllegalArgumentException("Catalog version not found: " + version);
+        }
+
+        return updateLog.saveSnapshot(new SnapshotEntry(catalog));
     }
 
     private CompletableFuture<Void> initCatalog(Catalog emptyCatalog) {

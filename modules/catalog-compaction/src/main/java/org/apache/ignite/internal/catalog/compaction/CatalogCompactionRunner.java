@@ -486,7 +486,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         return CompletableFutures.falseCompletedFuture();
                     }
 
-                    return catalogManagerHelper.compactCatalog(catalog);
+                    return catalogManagerHelper.compactCatalog(catalog.version());
                 });
     }
 

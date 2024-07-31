@@ -69,7 +69,7 @@ class CatalogManagerCompactionFacade {
         }
     }
 
-    CompletableFuture<Boolean> compactCatalog(Catalog catalog) {
-        return catalogManager.compactCatalog(catalog);
+    CompletableFuture<Boolean> compactCatalog(int version) {
+        return catalogManager.compactCatalog(version);
     }
 }
