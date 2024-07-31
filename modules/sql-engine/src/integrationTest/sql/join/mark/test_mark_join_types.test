@@ -1,7 +1,6 @@
 # name: test/sql/join/mark/test_mark_join_types.test
 # description: Test mark join with different types
 # group: [mark]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-17268
 
 statement ok
 PRAGMA enable_verification
@@ -10,7 +9,10 @@ PRAGMA enable_verification
 # tests for tinyint
 
 statement ok
-create table a as select i::tinyint AS i from range(1, 101, 1) t1(i) order by random()
+create table a(i tinyint)
+
+statement ok
+insert into a select x i from table(system_range(1, 100, 1)) order by rand()
 
 # range joins
 query I
@@ -107,12 +109,15 @@ select * from (select * from a where i > 90) a WHERE i <> ANY((SELECT 96::tinyin
 99
 100
 
+statement ok
+drop table a
+
 # tests for smallint
 statement ok
-begin transaction
+create table a(i smallint)
 
 statement ok
-create table a as select i::smallint AS i from range(1, 101, 1) t1(i) order by random()
+insert into a select x i from table(system_range(1, 100, 1)) order by rand()
 
 # range joins
 query I
@@ -210,14 +215,14 @@ select * from (select * from a where i > 90) a WHERE i <> ANY((SELECT 96::smalli
 100
 
 statement ok
-rollback
+drop table a
 
 # tests for integer
 statement ok
-begin transaction
+create table a(i integer)
 
 statement ok
-create table a as select i::integer AS i from range(1, 101, 1) t1(i) order by random()
+insert into a select x i from table(system_range(1, 100, 1)) order by rand()
 
 # range joins
 query I
@@ -315,14 +320,14 @@ select * from (select * from a where i > 90) a WHERE i <> ANY((SELECT 96::intege
 100
 
 statement ok
-rollback
+drop table a
 
 # tests for bigint
 statement ok
-begin transaction
+create table a(i bigint)
 
 statement ok
-create table a as select i::bigint AS i from range(1, 101, 1) t1(i) order by random()
+insert into a select x i from table(system_range(1, 100, 1)) order by rand()
 
 # range joins
 query I
@@ -420,14 +425,14 @@ select * from (select * from a where i > 90) a WHERE i <> ANY((SELECT 96::bigint
 100
 
 statement ok
-rollback
+drop table a
 
 # tests for real
 statement ok
-begin transaction
+create table a(i real)
 
 statement ok
-create table a as select i::real AS i from range(1, 101, 1) t1(i) order by random()
+insert into a select x i from table(system_range(1, 100, 1)) order by rand()
 
 # range joins
 query I
@@ -525,14 +530,14 @@ select * from (select * from a where i > 90) a WHERE i <> ANY((SELECT 96::real))
 100.000000
 
 statement ok
-rollback
+drop table a
 
 # tests for double
 statement ok
-begin transaction
+create table a(i double)
 
 statement ok
-create table a as select i::double AS i from range(1, 101, 1) t1(i) order by random()
+insert into a select x i from table(system_range(1, 100, 1)) order by rand()
 
 # range joins
 query I
@@ -630,12 +635,9 @@ select * from (select * from a where i > 90) a WHERE i <> ANY((SELECT 96::double
 100.000000
 
 statement ok
-rollback
+drop table a
 
 # strings
-statement ok
-begin transaction
-
 statement ok
 create table a (i VARCHAR)
 
@@ -672,7 +674,3 @@ query I
 select count(*) from a WHERE i = ANY((SELECT 'a'))
 ----
 1
-
-statement ok
-rollback
-

@@ -1,0 +1,19 @@
+# name: test/sql/aggregate/aggregates/test_group_by_many_groups.test
+# description: Test GROUP BY with many groups
+# group: [aggregates]
+
+statement ok
+CREATE TABLE integers(i INT, j INT);
+
+statement ok
+INSERT INTO integers SELECT x as i, 1 as j FROM table(system_range(0, 9999, 1));
+
+statement ok
+INSERT INTO integers SELECT x as i, 2 as j FROM table(system_range(0, 9999, 1));
+
+query RR
+SELECT SUM(i), SUM(sums) FROM (SELECT i, SUM(j) AS sums FROM integers GROUP BY i) tbl1
+----
+49995000
+30000
+
