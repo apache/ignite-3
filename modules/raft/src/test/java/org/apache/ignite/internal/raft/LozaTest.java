@@ -27,13 +27,13 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -58,20 +58,19 @@ public class LozaTest extends IgniteAbstractTest {
      * Checks that the all API methods throw the exception ({@link NodeStoppingException})
      * when Loza is closed.
      *
-     * @throws Exception If fail.
      */
     @Test
-    public void testLozaStop() throws Exception {
+    public void testLozaStop() {
         Mockito.doReturn("test_node").when(clusterNetSvc).nodeName();
         Mockito.doReturn(mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
-        Loza loza = new Loza(clusterNetSvc, new NoOpMetricManager(), raftConfiguration, workDir, new HybridClockImpl());
+        Loza loza = TestLozaFactory.create(clusterNetSvc, raftConfiguration, workDir, new HybridClockImpl());
 
-        assertThat(loza.startAsync(), willCompleteSuccessfully());
+        assertThat(loza.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         loza.beforeNodeStop();
-        assertThat(loza.stopAsync(), willCompleteSuccessfully());
+        assertThat(loza.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         TestReplicationGroupId raftGroupId = new TestReplicationGroupId("test_raft_group");
 

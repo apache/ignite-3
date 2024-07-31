@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.HashUtils;
 
 /**
@@ -57,5 +58,10 @@ public class HashIndexRow extends HashIndexRowKey {
      */
     public RowId rowId() {
         return rowId;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(HashIndexRow.class, this, super.toString());
     }
 }

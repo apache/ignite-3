@@ -29,13 +29,14 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNodeResolver;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Manager responsible from cleaning up the transaction resources.
@@ -105,7 +106,7 @@ public class ResourceVacuumManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (resourceVacuumIntervalMilliseconds > 0) {
             resourceVacuumExecutor.scheduleAtFixedRate(
                     this::runVacuumOperations,
@@ -128,7 +129,7 @@ public class ResourceVacuumManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
 
         shutdownAndAwaitTermination(resourceVacuumExecutor, 10, TimeUnit.SECONDS);

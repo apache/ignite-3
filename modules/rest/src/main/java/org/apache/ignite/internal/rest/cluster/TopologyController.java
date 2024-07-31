@@ -26,20 +26,21 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.cluster.ClusterNode;
 import org.apache.ignite.internal.rest.api.cluster.NetworkAddress;
 import org.apache.ignite.internal.rest.api.cluster.NodeMetadata;
 import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Cluster topology endpoint implementation.
  */
 @Controller("/management/v1/cluster/topology")
-public class TopologyController implements TopologyApi {
-    private final TopologyService topologyService;
+public class TopologyController implements TopologyApi, ResourceHolder {
+    private TopologyService topologyService;
 
-    private final ClusterManagementGroupManager cmgManager;
+    private ClusterManagementGroupManager cmgManager;
 
     public TopologyController(TopologyService topologyService, ClusterManagementGroupManager cmgManager) {
         this.topologyService = topologyService;
@@ -83,5 +84,11 @@ public class TopologyController implements TopologyApi {
             return null;
         }
         return new NodeMetadata(metadata.restHost(), metadata.httpPort(), metadata.httpsPort());
+    }
+
+    @Override
+    public void cleanResources() {
+        topologyService = null;
+        cmgManager = null;
     }
 }

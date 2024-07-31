@@ -36,15 +36,16 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataRequest;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotRequestMessage;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotRequestMessage;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -103,20 +104,20 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor = new ThreadPoolExecutor(
                 0, 4, 0L, MILLISECONDS,
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "outgoing-snapshots", LOG, STORAGE_READ)
         );
 
-        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
+        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
 
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         // At this moment, all RAFT groups should already be stopped, so all snapshots are already closed and finished.
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
@@ -193,13 +194,13 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
 
     private static @Nullable NetworkMessage handleSnapshotRequestMessage(NetworkMessage networkMessage, OutgoingSnapshot outgoingSnapshot) {
         switch (networkMessage.messageType()) {
-            case TableMessageGroup.SNAPSHOT_META_REQUEST:
+            case PartitionReplicationMessageGroup.SNAPSHOT_META_REQUEST:
                 return outgoingSnapshot.handleSnapshotMetaRequest((SnapshotMetaRequest) networkMessage);
 
-            case TableMessageGroup.SNAPSHOT_MV_DATA_REQUEST:
+            case PartitionReplicationMessageGroup.SNAPSHOT_MV_DATA_REQUEST:
                 return outgoingSnapshot.handleSnapshotMvDataRequest((SnapshotMvDataRequest) networkMessage);
 
-            case TableMessageGroup.SNAPSHOT_TX_DATA_REQUEST:
+            case PartitionReplicationMessageGroup.SNAPSHOT_TX_DATA_REQUEST:
                 return outgoingSnapshot.handleSnapshotTxDataRequest((SnapshotTxDataRequest) networkMessage);
 
             default:

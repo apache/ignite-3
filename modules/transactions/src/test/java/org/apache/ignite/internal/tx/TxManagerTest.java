@@ -67,6 +67,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -86,10 +87,10 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -168,14 +169,14 @@ public class TxManagerTest extends IgniteAbstractTest {
                 lowWatermark
         );
 
-        assertThat(txManager.startAsync(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void tearDown() {
         txManager.beforeNodeStop();
 
-        assertThat(txManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -327,7 +328,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(failedFuture(
-                        new MismatchingTransactionOutcomeException(
+                        new MismatchingTransactionOutcomeInternalException(
                                 "Test exception",
                                 new TransactionResult(TxState.ABORTED, null
                                 )
@@ -342,7 +343,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::commit);
 
-        assertInstanceOf(MismatchingTransactionOutcomeException.class, ExceptionUtils.unwrapCause(transactionException.getCause()));
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, transactionException);
 
         tx.commitAsync().get(3, TimeUnit.SECONDS);
         tx.rollbackAsync().get(3, TimeUnit.SECONDS);
@@ -355,7 +356,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(failedFuture(
-                        new MismatchingTransactionOutcomeException(
+                        new MismatchingTransactionOutcomeInternalException(
                                 "Test exception",
                                 new TransactionResult(TxState.ABORTED, null
                                 )
@@ -370,7 +371,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::rollback);
 
-        assertInstanceOf(MismatchingTransactionOutcomeException.class, ExceptionUtils.unwrapCause(transactionException.getCause()));
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, transactionException);
 
         tx.commitAsync().get(3, TimeUnit.SECONDS);
         tx.rollbackAsync().get(3, TimeUnit.SECONDS);
@@ -582,7 +583,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
-                .thenReturn(failedFuture(new MismatchingTransactionOutcomeException(
+                .thenReturn(failedFuture(new MismatchingTransactionOutcomeInternalException(
                         "TX already finished.",
                         new TransactionResult(TxState.ABORTED, null)
                 )));

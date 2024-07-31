@@ -24,11 +24,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,6 +38,9 @@ import org.jetbrains.annotations.Nullable;
  * Defines key/value storage interface.
  */
 public interface KeyValueStorage extends ManuallyCloseable {
+    byte[] INVOKE_RESULT_TRUE_BYTES = {ByteUtils.booleanToByte(true)};
+    byte[] INVOKE_RESULT_FALSE_BYTES = {ByteUtils.booleanToByte(false)};
+
     /**
      * Starts the given storage, allocating the necessary resources.
      */
@@ -142,20 +147,28 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param success Success operations.
      * @param failure Failure operations.
      * @param opTs Operation's timestamp.
+     * @param commandId Command Id.
      * @return Result of test condition.
      */
-    boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure, HybridTimestamp opTs);
+    boolean invoke(
+            Condition condition,
+            Collection<Operation> success,
+            Collection<Operation> failure,
+            HybridTimestamp opTs,
+            CommandId commandId
+    );
 
     /**
      * Invoke, which supports nested conditional statements with left and right branches of execution.
      *
      * @param iif {@link If} statement to invoke
      * @param opTs Operation's timestamp.
+     * @param commandId Command Id.
      * @return execution result
      * @see If
      * @see StatementResult
      */
-    StatementResult invoke(If iif, HybridTimestamp opTs);
+    StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId);
 
     /**
      * Returns cursor by entries which correspond to the given keys range.
@@ -225,7 +238,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param lowWatermark A time threshold for the entry. Only entries that have revisions with timestamp higher or equal to the
      *     watermark can be removed.
      */
-    // TODO: IGNITE-16444 Correct compaction for Meta storage.
     // TODO: IGNITE-19417 Provide low-watermark for compaction.
     void compact(HybridTimestamp lowWatermark);
 

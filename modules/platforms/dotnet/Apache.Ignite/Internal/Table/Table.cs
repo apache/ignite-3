@@ -33,6 +33,7 @@ namespace Apache.Ignite.Internal.Table
     using Proto.MsgPack;
     using Serialization;
     using Sql;
+    using Transactions;
 
     /// <summary>
     /// Table API.
@@ -109,6 +110,8 @@ namespace Apache.Ignite.Internal.Table
 
             KeyValueBinaryView = new KeyValueView<IIgniteTuple, IIgniteTuple>(
                 new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer, _sql));
+
+            PartitionManager = new PartitionManager(this);
         }
 
         /// <inheritdoc/>
@@ -119,6 +122,9 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
+
+        /// <inheritdoc/>
+        public IPartitionManager PartitionManager { get; }
 
         /// <summary>
         /// Gets the associated socket.
@@ -189,7 +195,9 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Preferred node.</returns>
         internal async ValueTask<PreferredNode> GetPreferredNode(int colocationHash, ITransaction? transaction)
         {
-            if (transaction != null)
+            // This check is not accurate when the same lazy tx is used from multiple threads.
+            // But it is only an optimization to skip the calculation below: preferredNode is ignored when tx is started anyway.
+            if (LazyTransaction.IsStarted(transaction))
             {
                 return default;
             }

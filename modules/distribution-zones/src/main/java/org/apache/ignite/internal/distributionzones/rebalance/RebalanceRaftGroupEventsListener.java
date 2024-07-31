@@ -36,8 +36,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
@@ -68,12 +69,13 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
  * Listener for the raft group events, which must provide correct error handling of rebalance process
  * and start new rebalance after the current one finished.
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this class and use {@link ZoneRebalanceRaftGroupEventsListener} instead
+ *  after switching to zone-based replication.
  */
 public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener {
     /** Ignite logger. */
@@ -259,11 +261,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             Set<Integer> counter = fromBytes(counterEntry.value());
 
-            assert !counter.isEmpty();
-
             if (!counter.contains(tablePartitionId.tableId())) {
                 // Count down for this table has already been processed, just skip.
                 // For example, this can happen when leader re-election happened during the rebalance process.
+                LOG.info("Counter count down skipped, because the counter doesn't contain the tableId=" + tablePartitionId.tableId());
+
                 return;
             }
 
@@ -310,6 +312,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
             LOG.warn("Unable to count down partitions counter in metastore: " + tablePartitionId, e);
+        } catch (Throwable e) {
+            // TODO: IGNITE-14693
+            LOG.error("Unable to count down partitions counter in metastore: " + tablePartitionId, e);
+
+            throw e;
         }
     }
 
@@ -405,7 +412,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     )
             ).get();
 
-            Set<Assignment> calculatedAssignments = calculateAssignments(tablePartitionId, catalogService, distributionZoneManager).get();
+            // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+            //  in the catalog. Better to take the version from Assignments.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
+            Set<Assignment> calculatedAssignments =
+                    calculateAssignments(tablePartitionId, catalogService, distributionZoneManager, catalogVersion).get();
 
             Entry stableEntry = values.get(stablePartAssignmentsKey);
             Entry pendingEntry = values.get(pendingPartAssignmentsKey);
@@ -418,7 +430,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
             Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
-            long stableChangeTriggerValue = stableChangeTriggerEntry.value() == null ? 0L : bytesToLong(stableChangeTriggerEntry.value());
+            long stableChangeTriggerValue = stableChangeTriggerEntry.value() == null
+                    ? 0L : bytesToLongKeepingOrder(stableChangeTriggerEntry.value());
 
             if (!retrievedPending.equals(stableFromRaft)) {
                 return;
@@ -519,7 +532,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             int res = metaStorageMgr.invoke(
                     iif(or(
                                     notExists(stableChangeTriggerKey(tablePartitionId)),
-                                    value(stableChangeTriggerKey(tablePartitionId)).lt(ByteUtils.longToBytes(revision))
+                                    value(stableChangeTriggerKey(tablePartitionId)).lt(longToBytesKeepingOrder(revision))
                             ),
                             iif(retryPreconditions, successCase, failCase),
                             ops().yield(OUTDATED_INVOKE_STATUS)

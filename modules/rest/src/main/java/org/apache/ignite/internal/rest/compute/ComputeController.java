@@ -26,34 +26,35 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.compute.ComputeApi;
 import org.apache.ignite.internal.rest.api.compute.JobState;
 import org.apache.ignite.internal.rest.api.compute.JobStatus;
 import org.apache.ignite.internal.rest.api.compute.UpdateJobPriorityBody;
 import org.apache.ignite.internal.rest.compute.exception.ComputeJobNotFoundException;
-import org.apache.ignite.internal.rest.compute.exception.ComputeJobStateException;
+import org.apache.ignite.internal.rest.compute.exception.ComputeJobStatusException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * REST controller for compute operations.
  */
 @Controller
-public class ComputeController implements ComputeApi {
-    private final IgniteComputeInternal compute;
+public class ComputeController implements ComputeApi, ResourceHolder {
+    private IgniteComputeInternal compute;
 
     public ComputeController(IgniteComputeInternal compute) {
         this.compute = compute;
     }
 
     @Override
-    public CompletableFuture<Collection<JobStatus>> jobStatuses() {
-        return compute.statusesAsync()
-                .thenApply(statuses -> statuses.stream().map(ComputeController::toJobStatus).collect(toList()));
+    public CompletableFuture<Collection<JobState>> jobStates() {
+        return compute.statesAsync()
+                .thenApply(states -> states.stream().map(ComputeController::toJobState).collect(toList()));
     }
 
     @Override
-    public CompletableFuture<JobStatus> jobStatus(UUID jobId) {
-        return jobStatus0(jobId);
+    public CompletableFuture<JobState> jobState(UUID jobId) {
+        return jobState0(jobId);
     }
 
     @Override
@@ -72,30 +73,35 @@ public class ComputeController implements ComputeApi {
         if (result == null) {
             return failedFuture(new ComputeJobNotFoundException(jobId.toString()));
         } else if (!result) {
-            return jobStatus0(jobId).thenCompose(status -> failedFuture(new ComputeJobStateException(jobId.toString(), status.state())));
+            return jobState0(jobId).thenCompose(state -> failedFuture(new ComputeJobStatusException(jobId.toString(), state.status())));
         } else {
             return nullCompletedFuture();
         }
     }
 
-    private CompletableFuture<JobStatus> jobStatus0(UUID jobId) {
-        return compute.statusAsync(jobId)
-                .thenApply(status -> {
-                    if (status == null) {
+    private CompletableFuture<JobState> jobState0(UUID jobId) {
+        return compute.stateAsync(jobId)
+                .thenApply(state -> {
+                    if (state == null) {
                         throw new ComputeJobNotFoundException(jobId.toString());
                     } else {
-                        return toJobStatus(status);
+                        return toJobState(state);
                     }
                 });
     }
 
-    private static JobStatus toJobStatus(org.apache.ignite.compute.JobStatus jobStatus) {
-        return new JobStatus(
-                jobStatus.id(),
-                JobState.valueOf(jobStatus.state().toString()),
-                jobStatus.createTime(),
-                jobStatus.startTime(),
-                jobStatus.finishTime()
+    private static JobState toJobState(org.apache.ignite.compute.JobState jobState) {
+        return new JobState(
+                jobState.id(),
+                JobStatus.valueOf(jobState.status().toString()),
+                jobState.createTime(),
+                jobState.startTime(),
+                jobState.finishTime()
         );
+    }
+
+    @Override
+    public void cleanResources() {
+        compute = null;
     }
 }

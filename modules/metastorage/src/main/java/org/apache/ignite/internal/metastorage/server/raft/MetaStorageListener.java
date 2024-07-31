@@ -18,13 +18,18 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
@@ -60,9 +65,19 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
      *
      * @param storage Storage.
      */
-    public MetaStorageListener(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
+    public MetaStorageListener(
+            KeyValueStorage storage,
+            ClusterTimeImpl clusterTime,
+            ConfigurationValue<Long> idempotentCacheTtl,
+            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+    ) {
         this.storage = storage;
-        this.writeHandler = new MetaStorageWriteHandler(storage, clusterTime);
+        this.writeHandler = new MetaStorageWriteHandler(
+                storage,
+                clusterTime,
+                idempotentCacheTtl,
+                maxClockSkewMillisFuture
+        );
     }
 
     @Override
@@ -77,16 +92,16 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                     GetCommand getCmd = (GetCommand) command;
 
                     Entry e = getCmd.revision() == MetaStorageManager.LATEST_REVISION
-                            ? storage.get(getCmd.key())
-                            : storage.get(getCmd.key(), getCmd.revision());
+                            ? storage.get(toByteArray(getCmd.key()))
+                            : storage.get(toByteArray(getCmd.key()), getCmd.revision());
 
                     clo.result(e);
                 } else if (command instanceof GetAllCommand) {
                     GetAllCommand getAllCmd = (GetAllCommand) command;
 
                     Collection<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
-                            ? storage.getAll(getAllCmd.keys())
-                            : storage.getAll(getAllCmd.keys(), getAllCmd.revision());
+                            ? storage.getAll(toByteArrayList(getAllCmd.keys()))
+                            : storage.getAll(toByteArrayList(getAllCmd.keys()), getAllCmd.revision());
 
                     clo.result((Serializable) entries);
                 } else if (command instanceof GetRangeCommand) {
@@ -95,20 +110,22 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                     byte[] previousKey = rangeCmd.previousKey();
 
                     byte[] keyFrom = previousKey == null
-                            ? rangeCmd.keyFrom()
+                            ? toByteArray(rangeCmd.keyFrom())
                             : requireNonNull(storage.nextKey(previousKey));
 
-                    clo.result(handlePaginationCommand(keyFrom, rangeCmd.keyTo(), rangeCmd));
+                    byte @Nullable [] keyTo = rangeCmd.keyTo() == null ? null : toByteArray(rangeCmd.keyTo());
+
+                    clo.result(handlePaginationCommand(keyFrom, keyTo, rangeCmd));
                 } else if (command instanceof GetPrefixCommand) {
                     var prefixCmd = (GetPrefixCommand) command;
 
                     byte[] previousKey = prefixCmd.previousKey();
 
-                    byte[] keyFrom = previousKey == null
-                            ? prefixCmd.prefix()
-                            : requireNonNull(storage.nextKey(previousKey));
+                    byte[] prefix = toByteArray(prefixCmd.prefix());
 
-                    byte[] keyTo = storage.nextKey(prefixCmd.prefix());
+                    byte[] keyFrom = previousKey == null ? prefix : requireNonNull(storage.nextKey(previousKey));
+
+                    byte[] keyTo = storage.nextKey(prefix);
 
                     clo.result(handlePaginationCommand(keyFrom, keyTo, prefixCmd));
                 } else if (command instanceof GetCurrentRevisionCommand) {
@@ -167,10 +184,20 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     @Override
     public boolean onSnapshotLoad(Path path) {
         storage.restoreSnapshot(path);
+        writeHandler.onSnapshotLoad();
         return true;
     }
 
     @Override
     public void onShutdown() {
+    }
+
+    /**
+     * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     */
+    @Deprecated(forRemoval = true)
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
+    public void evictIdempotentCommandsCache() {
+        writeHandler.evictIdempotentCommandsCache();
     }
 }

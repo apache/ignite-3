@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -36,11 +36,13 @@ import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
+import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -125,6 +127,19 @@ public class TableTestUtils {
     public static void dropIndex(CatalogManager catalogManager, String schemaName, String indexName) {
         assertThat(
                 catalogManager.execute(DropIndexCommand.builder().schemaName(schemaName).indexName(indexName).build()),
+                willCompleteSuccessfully()
+        );
+    }
+
+    /**
+     * Drops the index created using {@link #createSimpleHashIndex(CatalogManager, String, String)}.
+     *
+     * @param catalogManager Catalog manager.
+     * @param indexName Index name.
+     */
+    public static void dropSimpleIndex(CatalogManager catalogManager, String indexName) {
+        assertThat(
+                catalogManager.execute(DropIndexCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build()),
                 willCompleteSuccessfully()
         );
     }
@@ -292,10 +307,10 @@ public class TableTestUtils {
     }
 
     /**
-     * Creates a simple table in {@link CatalogService#DEFAULT_SCHEMA_NAME} and single
+     * Creates a simple table in {@link SqlCommon#DEFAULT_SCHEMA_NAME} and single
      * {@link #COLUMN_NAME column} of type {@link ColumnType#INT32} in default distribution zone.
      *
-     * @param catalogManager Catalog name.
+     * @param catalogManager Catalog manager.
      * @param tableName Table name.
      */
     public static void createSimpleTable(CatalogManager catalogManager, String tableName) {
@@ -312,7 +327,7 @@ public class TableTestUtils {
     /**
      * Creates a simple index on the table from {@link #createSimpleTable(CatalogManager, String)}.
      *
-     * @param catalogManager Catalog name.
+     * @param catalogManager Catalog manager.
      * @param tableName Table name.
      * @param indexName Index name.
      */
@@ -375,5 +390,22 @@ public class TableTestUtils {
      */
     public static void addColumnToSimpleTable(CatalogManager catalogManager, String tableName, String columnName, ColumnType columnType) {
         addColumnToTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName, columnName, columnType);
+    }
+
+    /**
+     * Renames a simple table created using {@link #createSimpleTable(CatalogManager, String)}.
+     *
+     * @param catalogManager Catalog manager.
+     * @param tableName Old table name.
+     * @param newTableName New table name.
+     */
+    public static void renameSimpleTable(CatalogManager catalogManager, String tableName, String newTableName) {
+        CatalogCommand command = RenameTableCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .newTableName(newTableName)
+                .build();
+
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
     }
 }

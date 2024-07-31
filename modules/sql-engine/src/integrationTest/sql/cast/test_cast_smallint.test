@@ -1,0 +1,150 @@
+# name: test/sql/cast/test_cast_smallint.test
+# description: CAST SMALLINT
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+statement ok
+SELECT CAST('100' AS SMALLINT);
+
+query I
+SELECT CAST('100.1' AS SMALLINT);
+----
+100
+
+query I
+SELECT CAST(1e1 AS SMALLINT);
+----
+10
+
+query I
+SELECT CAST('1e2' AS SMALLINT);
+----
+100
+
+# overflow
+statement error
+SELECT CAST(1e6 AS SMALLINT);
+
+# overflow
+statement error
+SELECT CAST(-1e6 AS SMALLINT);
+
+query T
+SELECT CAST(100::TINYINT AS SMALLINT);
+----
+100
+
+query T
+SELECT CAST(100::INT AS SMALLINT);
+----
+100
+
+query T
+SELECT CAST(100::BIGINT AS SMALLINT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL AS SMALLINT);
+----
+100
+
+query T
+SELECT CAST(100::DECIMAL(3) AS SMALLINT);
+----
+100
+
+query T
+SELECT CAST(100.1::DECIMAL(4, 1) AS SMALLINT);
+----
+100
+
+query T
+SELECT CAST(100.1::REAL AS SMALLINT);
+----
+100
+
+query T
+SELECT CAST(100.1::FLOAT AS SMALLINT);
+----
+100
+
+query T
+SELECT CAST(100.1::DOUBLE AS SMALLINT);
+----
+100
+
+statement error: Invalid input string for type SMALLINT: "100x"
+SELECT CAST('100x' AS SMALLINT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type SMALLINT
+SELECT CAST(x'00' AS SMALLINT);
+
+statement error: Cast function cannot convert value of type DATE to type SMALLINT
+SELECT CAST('2000-01-01'::DATE AS SMALLINT);
+
+statement error: Cast function cannot convert value of type TIME(0) to type SMALLINT
+SELECT CAST('00:00:00'::TIME AS SMALLINT);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type SMALLINT
+SELECT CAST('2000-01-01 00:00:00'::TIMESTAMP AS SMALLINT);
+
+statement error: Cast function cannot convert value of type UUID to type SMALLINT
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS SMALLINT);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type SMALLINT
+SELECT CAST(x'00'::BINARY AS SMALLINT);
+
+statement error: Cast function cannot convert value of type VARBINARY to type SMALLINT
+SELECT CAST(x'00'::VARBINARY AS SMALLINT);
+
+query T
+SELECT CAST(INTERVAL 11 YEAR AS SMALLINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MONTH AS SMALLINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 DAYS AS SMALLINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 HOURS AS SMALLINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 MINUTES AS SMALLINT);
+----
+11
+
+query T
+SELECT CAST(INTERVAL 11 SECONDS AS SMALLINT);
+----
+11
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type SMALLINT
+SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS SMALLINT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type SMALLINT
+SELECT CAST(INTERVAL '0 01:02' DAYS TO MINUTES AS SMALLINT);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type SMALLINT
+SELECT CAST(INTERVAL '0 01:02:03' DAYS TO SECONDS AS SMALLINT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type SMALLINT
+SELECT CAST(INTERVAL '00:01' HOURS TO MINUTES AS SMALLINT);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type SMALLINT
+SELECT CAST(INTERVAL '00:01:02' HOURS TO SECONDS AS SMALLINT);
+
+statement error: Cast function cannot convert value of type INTERVAL MINUTE TO SECOND to type SMALLINT
+SELECT CAST(INTERVAL '00:01' MINUTES TO SECONDS AS SMALLINT);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type SMALLINT
+SELECT CAST(INTERVAL '1-1' YEARS TO MONTHS AS SMALLINT);

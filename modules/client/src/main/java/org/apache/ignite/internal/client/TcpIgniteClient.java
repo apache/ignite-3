@@ -17,24 +17,25 @@
 
 package org.apache.ignite.internal.client;
 
-import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.IgniteCatalog;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.client.compute.ClientCompute;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
@@ -43,7 +44,7 @@ import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -195,13 +196,9 @@ public class TcpIgniteClient implements IgniteClient {
             List<ClusterNode> res = new ArrayList<>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                int fieldCnt = r.in().unpackInt();
-                assert fieldCnt == 4;
+                ClusterNode clusterNode = unpackClusterNode(r);
 
-                res.add(new ClientClusterNode(
-                        r.in().unpackString(),
-                        r.in().unpackString(),
-                        new NetworkAddress(r.in().unpackString(), r.in().unpackInt())));
+                res.add(clusterNode);
             }
 
             return res;
@@ -209,8 +206,8 @@ public class TcpIgniteClient implements IgniteClient {
     }
 
     @Override
-    public IgniteCatalog catalog(Options options) {
-        return new IgniteCatalogSqlImpl(sql(), options);
+    public IgniteCatalog catalog() {
+        return new IgniteCatalogSqlImpl(sql(), tables);
     }
 
     /** {@inheritDoc} */
@@ -219,7 +216,7 @@ public class TcpIgniteClient implements IgniteClient {
         ch.close();
 
         if (metricManager != null) {
-            metricManager.stopAsync().join();
+            metricManager.stopAsync(new ComponentContext()).join();
         }
     }
 
@@ -256,6 +253,15 @@ public class TcpIgniteClient implements IgniteClient {
     }
 
     /**
+     * Returns the underlying channel.
+     *
+     * @return Channel.
+     */
+    public ReliableChannel channel() {
+        return ch;
+    }
+
+    /**
      * Sends ClientMessage request to server side asynchronously and returns result future.
      *
      * @param opCode Operation code.
@@ -265,5 +271,23 @@ public class TcpIgniteClient implements IgniteClient {
      */
     public <T extends ClientMessage> CompletableFuture<T> sendRequestAsync(int opCode, PayloadWriter writer, PayloadReader<T> reader) {
         return ch.serviceAsync(opCode, writer, reader);
+    }
+
+    /**
+     * Tries to unpack {@link ClusterNode} instance from input channel.
+     *
+     * @param r Payload input channel.
+     * @return Cluster node or {@code null} if message doesn't contain cluster node.
+     */
+    public static ClusterNode unpackClusterNode(PayloadInputChannel r) {
+        ClientMessageUnpacker in = r.in();
+
+        int fieldCnt = r.in().unpackInt();
+        assert fieldCnt == 4;
+
+        return new ClientClusterNode(
+                in.unpackString(),
+                in.unpackString(),
+                new NetworkAddress(in.unpackString(), in.unpackInt()));
     }
 }

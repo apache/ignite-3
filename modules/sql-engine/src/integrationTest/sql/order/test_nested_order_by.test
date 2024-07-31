@@ -1,0 +1,43 @@
+# name: test/sql/order/test_nested_order_by.test
+# description: F855 (Nested <order by clause> in <query expression>)
+# group: [order]
+
+statement ok
+CREATE TABLE t(c varchar, i int);
+
+statement ok
+INSERT INTO t SELECT x, 0 - x FROM table(system_range(0, 3));
+
+statement ok
+INSERT INTO t VALUES(NULL, NULL);
+
+query II rowsort
+SELECT * FROM (SELECT * FROM t ORDER BY i NULLS LAST) AS temp ORDER BY c;
+----
+0	0
+1	-1
+2	-2
+3	-3
+NULL	NULL
+
+query II rowsort
+SELECT * FROM (SELECT * FROM t ORDER BY i NULLS FIRST) AS temp ORDER BY c;
+----
+NULL	NULL
+0	0
+1	-1
+2	-2
+3	-3
+
+query II rowsort
+SELECT * FROM (SELECT * FROM t ORDER BY i NULLS FIRST LIMIT 2 OFFSET 1) AS temp ORDER BY c;
+----
+2	-2
+3	-3
+
+query II rowsort
+SELECT * FROM (SELECT * FROM (VALUES ROW(1, 100), ROW(2, 200)) as temp(x, y) ORDER BY x) ORDER BY y;
+----
+1	100
+2	200
+

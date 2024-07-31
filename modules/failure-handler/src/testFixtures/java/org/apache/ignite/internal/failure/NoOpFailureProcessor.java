@@ -25,17 +25,8 @@ import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 public class NoOpFailureProcessor extends FailureProcessor {
     /**
      * Creates a new instance of no-op failure processor.
-     *
-     * @param nodeName Name of the node.
-     */
-    public NoOpFailureProcessor(String nodeName) {
-        super(nodeName, new NoOpFailureHandler());
-    }
-
-    /**
-     * Creates a new instance of no-op failure processor.
      */
     public NoOpFailureProcessor() {
-        super("ignored-node-name", new NoOpFailureHandler());
+        super(new NoOpFailureHandler());
     }
 }

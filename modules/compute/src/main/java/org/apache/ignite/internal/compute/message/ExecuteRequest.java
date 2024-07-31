@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.message;
 
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -27,7 +28,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, List, String, Object...)}.
+ * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, JobDescriptor, Object...)}.
  */
 @Transferable(value = ComputeMessageTypes.EXECUTE_REQUEST)
 public interface ExecuteRequest extends NetworkMessage {
@@ -59,5 +60,6 @@ public interface ExecuteRequest extends NetworkMessage {
      * @return arguments
      */
     @Marshallable
-    Object @Nullable [] args();
+    @Nullable
+    Object input();
 }

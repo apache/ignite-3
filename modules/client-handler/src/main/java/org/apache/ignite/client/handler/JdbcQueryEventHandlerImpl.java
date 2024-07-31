@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNKNOWN;
-import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.sql.engine.SqlQueryType.DML;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -27,16 +26,11 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.sql.Statement;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
@@ -57,8 +51,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -67,21 +59,14 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc query event handler implementation.
  */
-public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(JdbcQueryEventHandlerImpl.class);
-
+public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQueryEventHandler {
     /** {@link SqlQueryType}s allowed in JDBC select statements. **/
     private static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(SqlQueryType.QUERY, SqlQueryType.EXPLAIN);
 
@@ -94,11 +79,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** Jdbc metadata info. */
     private final JdbcMetadataCatalog meta;
 
-    /** Current JDBC cursors. */
-    private final ClientResourceRegistry resources;
-
     /** Ignite transactions API. */
-    private final IgniteTransactions igniteTransactions;
+    private final IgniteTransactionsImpl igniteTransactions;
 
     /**
      * Constructor.
@@ -112,11 +94,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             QueryProcessor processor,
             JdbcMetadataCatalog meta,
             ClientResourceRegistry resources,
-            IgniteTransactions igniteTransactions
+            IgniteTransactionsImpl igniteTransactions
     ) {
+        super(resources);
+
         this.processor = processor;
         this.meta = meta;
-        this.resources = resources;
         this.igniteTransactions = igniteTransactions;
     }
 
@@ -159,27 +142,32 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
-        SqlProperties properties = createProperties(req.getStmtType(), req.multiStatement(), connectionContext.timeZoneId());
+
+        JdbcStatementType reqStmtType = req.getStmtType();
+        boolean multiStatement = req.multiStatement();
+        ZoneId timeZoneId = connectionContext.timeZoneId();
+        long timeoutMillis = req.queryTimeoutMillis();
+
+        SqlProperties properties = createProperties(reqStmtType, multiStatement, timeZoneId, timeoutMillis);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
-                igniteTransactions,
+                igniteTransactions.observableTimestampTracker(),
                 tx,
                 req.sqlQuery(),
                 req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
         );
 
-        return result.thenCompose(cursor -> createJdbcResult(new JdbcQueryCursor<>(req.maxRows(), cursor), req))
-                .exceptionally(t -> {
-                    LOG.info("Exception while executing query [query=" + req.sqlQuery() + "]", ExceptionUtils.unwrapCause(t));
-
-                    String msg = getErrorMessage(t);
-
-                    return new JdbcQuerySingleResult(Response.STATUS_FAILED, msg);
-                });
+        return result.thenCompose(cursor -> createJdbcResult(new JdbcQueryCursor<>(req.maxRows(), cursor), req.pageSize()))
+                .exceptionally(t -> createErrorResult("Exception while executing query [query=" + req.sqlQuery() + "]", t, null));
     }
 
-    private static SqlProperties createProperties(JdbcStatementType stmtType, boolean multiStatement, ZoneId timeZoneId) {
+    private static SqlProperties createProperties(
+            JdbcStatementType stmtType, 
+            boolean multiStatement, 
+            ZoneId timeZoneId,
+            long queryTimeoutMillis
+    ) {
         Set<SqlQueryType> allowedTypes;
 
         switch (stmtType) {
@@ -199,6 +187,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, allowedTypes)
                 .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
+                .set(QueryProperty.QUERY_TIMEOUT, queryTimeoutMillis)
                 .build();
     }
 
@@ -216,14 +205,19 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         var queries = req.queries();
         var counters = new IntArrayList(req.queries().size());
         var tail = CompletableFuture.completedFuture(counters);
+        long queryTimeoutMillis = req.queryTimeoutMillis();
 
         for (String query : queries) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, query, OBJECT_EMPTY_ARRAY)
-                    .thenApply(cnt -> {
-                        list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(
+                    connectionContext,
+                    tx, query,
+                    OBJECT_EMPTY_ARRAY,
+                    queryTimeoutMillis
+            ).thenApply(cnt -> {
+                list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
-                        return list;
-                    }));
+                return list;
+            }));
         }
 
         return tail.handle((ignored, t) -> {
@@ -249,9 +243,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         var argList = req.getArgs();
         var counters = new IntArrayList(req.getArgs().size());
         var tail = CompletableFuture.completedFuture(counters);
+        long timeoutMillis = req.queryTimeoutMillis();
 
         for (Object[] args : argList) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, req.getQuery(), args)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, req.getQuery(), args, timeoutMillis)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -272,17 +267,18 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             JdbcConnectionContext context,
             @Nullable InternalTransaction tx,
             String sql,
-            Object[] arg
-    ) {
+            Object[] arg,
+            long timeoutMillis) {
+
         if (!context.valid()) {
             return CompletableFuture.failedFuture(new IgniteInternalException(CONNECTION_ERR, "Connection is closed"));
         }
 
-        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE, false, context.timeZoneId());
+        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE, false, context.timeZoneId(), timeoutMillis);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
-                igniteTransactions,
+                igniteTransactions.observableTimestampTracker(),
                 tx,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
@@ -348,110 +344,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
             return new JdbcFinishTxResult();
         });
-    }
-
-    /**
-     * Get a message of given exception for further sending to the client.
-     *
-     * @param t Throwable.
-     * @return String filled with exception message.
-     */
-    @Nullable private String getErrorMessage(Throwable t) {
-        Throwable cause = ExceptionUtils.unwrapCause(t);
-        return cause.getMessage();
-    }
-
-    /**
-     * Creates jdbc result for the cursor.
-     *
-     * @param cur Sql cursor for query.
-     * @param req Execution request.
-     * @return JdbcQuerySingleResult filled with first batch of data.
-     */
-    private CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<InternalSqlRow> cur, JdbcQueryExecuteRequest req) {
-        return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
-            boolean hasNext = batch.hasMore();
-
-            long cursorId;
-            try {
-                cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
-            } catch (IgniteInternalCheckedException e) {
-                cur.closeAsync();
-
-                return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                        "Unable to store query cursor.");
-            }
-
-            switch (cur.queryType()) {
-                case EXPLAIN:
-                case QUERY: {
-                    List<ColumnMetadata> columns = cur.metadata().columns();
-
-                    return buildSingleRequest(batch, columns, cursorId, !hasNext);
-                }
-                case DML: {
-                    if (!validateDmlResult(cur.metadata(), hasNext)) {
-                        return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                                "Unexpected result for DML [query=" + req.sqlQuery() + ']');
-                    }
-
-                    long updCount = (long) batch.items().get(0).get(0);
-
-                    return new JdbcQuerySingleResult(cursorId, updCount);
-                }
-                case DDL:
-                case TX_CONTROL:
-                    return new JdbcQuerySingleResult(cursorId, 0);
-                default:
-                    return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
-                            "Query type is not supported yet [queryType=" + cur.queryType() + ']');
-            }
-        });
-    }
-
-    static JdbcQuerySingleResult buildSingleRequest(
-            BatchedResult<InternalSqlRow> batch,
-            List<ColumnMetadata> columns,
-            long cursorId,
-            boolean hasNext
-    ) {
-        List<BinaryTupleReader> rows = new ArrayList<>(batch.items().size());
-        for (InternalSqlRow item : batch.items()) {
-            rows.add(item.asBinaryTuple());
-        }
-
-        int[] decimalScales = new int[columns.size()];
-        List<ColumnType> schema = new ArrayList<>(columns.size());
-
-        int countOfDecimal = 0;
-        for (ColumnMetadata column : columns) {
-            schema.add(column.type());
-            if (column.type() == ColumnType.DECIMAL) {
-                decimalScales[countOfDecimal++] = column.scale();
-            }
-        }
-        decimalScales = Arrays.copyOf(decimalScales, countOfDecimal);
-
-        return new JdbcQuerySingleResult(cursorId, rows, schema, decimalScales, hasNext);
-    }
-
-    /**
-     * Validate dml result. Check if it stores only one value of Long type.
-     *
-     * @param meta Fetched data from cursor.
-     * @param next  HasNext flag.
-     * @return Boolean value indicates if data is valid or not.
-     */
-    private boolean validateDmlResult(ResultSetMetadata meta, boolean next) {
-        if (next) {
-            return false;
-        }
-
-        if (meta.columns().size() != 1) {
-            return false;
-        }
-
-        return meta.columns().get(0).type() == ColumnType.INT64;
     }
 
     static class JdbcConnectionContext {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.Objects.hash;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -35,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -126,6 +128,7 @@ public class LeaseUpdater {
      * @param topologyService Topology service.
      * @param leaseTracker Lease tracker.
      * @param clockService Clock service.
+     * @param assignmentsTracker Assignments tracker.
      */
     LeaseUpdater(
             String nodeName,
@@ -133,7 +136,8 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
-            ClockService clockService
+            ClockService clockService,
+            AssignmentsTracker assignmentsTracker
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
@@ -142,7 +146,7 @@ public class LeaseUpdater {
         this.clockService = clockService;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
-        this.assignmentsTracker = new AssignmentsTracker(msManager);
+        this.assignmentsTracker = assignmentsTracker;
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
 
@@ -219,7 +223,7 @@ public class LeaseUpdater {
     private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
         Lease deniedLease = lease.denyLease(redirectProposal);
 
-        leaseNegotiator.onLeaseRemoved(grpId);
+        leaseNegotiator.cancelAgreement(grpId);
 
         Leases leasesCurrent = leaseTracker.leasesCurrent();
 
@@ -342,7 +346,7 @@ public class LeaseUpdater {
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
-            Map<ReplicationGroupId, Set<Assignment>> currentAssignments = assignmentsTracker.assignments();
+            Map<ReplicationGroupId, TokenizedAssignments> currentAssignments = assignmentsTracker.assignments();
             Set<ReplicationGroupId> currentAssignmentsReplicationGroupIds = currentAssignments.keySet();
 
             // Remove all expired leases that are no longer present in assignments.
@@ -352,9 +356,9 @@ public class LeaseUpdater {
             int currentAssignmentsSize = currentAssignments.size();
             int activeLeasesCount = 0;
 
-            for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
+            for (Map.Entry<ReplicationGroupId, TokenizedAssignments> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
-                Set<Assignment> assignments = entry.getValue();
+                Set<Assignment> assignments = entry.getValue().nodes();
 
                 Lease lease = leaseTracker.getLease(grpId);
 
@@ -368,7 +372,17 @@ public class LeaseUpdater {
                     agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
 
                     if (agreement.isAccepted()) {
-                        publishLease(grpId, lease, renewedLeases);
+                        Lease negotiatedLease = agreement.getLease();
+
+                        // Lease information is taken from lease tracker, where it appears on meta storage watch updates, so it can contain
+                        // stale leases, if watch processing was delayed for some reason. It is ok: negotiated lease is guaranteed to be
+                        // already written to meta storage before negotiation begins, and in this case its start time would be
+                        // greater than lease's.
+                        assert negotiatedLease.getStartTime().longValue() >= lease.getStartTime().longValue()
+                                : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
+                                    + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
+
+                        publishLease(grpId, negotiatedLease, renewedLeases);
 
                         continue;
                     } else if (agreement.isDeclined()) {
@@ -446,11 +460,15 @@ public class LeaseUpdater {
                 if (e != null) {
                     LOG.error("Lease update invocation failed", e);
 
+                    cancelAgreements(toBeNegotiated.keySet());
+
                     return;
                 }
 
                 if (!success) {
-                    LOG.debug("Lease update invocation failed");
+                    LOG.warn("Lease update invocation failed because of concurrent update.");
+
+                    cancelAgreements(toBeNegotiated.keySet());
 
                     return;
                 }
@@ -462,6 +480,18 @@ public class LeaseUpdater {
                     leaseNegotiator.negotiate(lease, force);
                 }
             });
+        }
+
+        /**
+         * Cancel all the given agreements. This should be done if the new leases that were to be negotiated had been not written to meta
+         * storage.
+         *
+         * @param groupIds Group ids.
+         */
+        private void cancelAgreements(Collection<ReplicationGroupId> groupIds) {
+            for (ReplicationGroupId groupId : groupIds) {
+                leaseNegotiator.cancelAgreement(groupId);
+            }
         }
 
         /**
@@ -483,6 +513,9 @@ public class LeaseUpdater {
             Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
             renewedLeases.put(grpId, renewedLease);
+
+            // Lease agreement should be created synchronously before negotiation begins.
+            leaseNegotiator.createAgreement(grpId, renewedLease);
 
             leaseUpdateStatistics.onLeaseCreate();
         }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.streamer;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,28 +28,40 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
+import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -290,8 +303,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
-    @Disabled("IGNITE-21992 Data Streamer removal does not work for a new key in the same batch")
-    public void testSameItemInsertUpdateRemove(int pageSize) {
+    public void testSameItemInsertRemove(int pageSize) {
         RecordView<Tuple> view = defaultTable().recordView();
         CompletableFuture<Void> streamerFut;
         int key = 333000;
@@ -306,6 +318,27 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         assertNull(view.get(null, tupleKey(key)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    public void testSameItemInsertRemoveInsertUpdate(int pageSize) {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+        int key = 333001;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamerFut = view.streamData(publisher, DataStreamerOptions.builder().pageSize(pageSize).build());
+
+            publisher.submit(DataStreamerItem.of(tuple(key, "foo")));
+            publisher.submit(DataStreamerItem.removed(tupleKey(key)));
+            publisher.submit(DataStreamerItem.of(tuple(key, "bar")));
+            publisher.submit(DataStreamerItem.of(tuple(key, "baz")));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertEquals("baz", view.get(null, tupleKey(key)).stringValue("name"));
     }
 
     @SuppressWarnings("resource")
@@ -333,6 +366,122 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverRecordBinaryView(boolean returnResults) {
+        testWithReceiver(defaultTable().recordView(), Function.identity(), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverKvBinaryView(boolean returnResults) {
+        testWithReceiver(defaultTable().keyValueView(), t -> Map.entry(t, t), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverRecordPojoView(boolean returnResults) {
+        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+
+        testWithReceiver(view, t -> new PersonPojo(t.intValue(0)), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverKvPojoView(boolean returnResults) {
+        KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
+
+        testWithReceiver(view, t -> Map.entry(t.intValue(0), new PersonValPojo()), returnResults);
+    }
+
+    private static <T> void testWithReceiver(DataStreamerTarget<T> target, Function<Tuple, T> keyFunc, boolean returnResults) {
+        CompletableFuture<Void> streamerFut;
+
+        var resultSubscriber = returnResults ? new TestSubscriber<String>() : null;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = target.streamData(
+                    publisher,
+                    keyFunc,
+                    t -> t.stringValue(1),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    resultSubscriber,
+                    DataStreamerOptions.builder().retryLimit(0).build(),
+                    "arg1"
+            );
+
+            // Same ID goes to the same partition.
+            publisher.submit(tuple(1, "val1"));
+            publisher.submit(tuple(1, "val2"));
+            publisher.submit(tuple(1, "val3"));
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+
+        if (returnResults) {
+            assertEquals(1, resultSubscriber.items.size());
+            assertEquals("Received: 3 items, arg1 arg", resultSubscriber.items.iterator().next());
+        }
+    }
+
+    @Test
+    public void testReceiverIsExecutedOnTargetNode() {
+        // Await primary replicas before streaming.
+        Table table = defaultTable();
+        RecordView<Tuple> view = table.recordView();
+        Map<Partition, ClusterNode> primaryReplicas = table.partitionManager().primaryReplicasAsync().join();
+
+        CompletableFuture<Void> streamerFut;
+        int count = 10;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    t -> t,
+                    t -> t.intValue(0),
+                    ReceiverDescriptor.builder(NodeNameReceiver.class).build(),
+                    null, null, null
+            );
+
+            for (int i = 0; i < count; i++) {
+                publisher.submit(tupleKey(i));
+            }
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+
+        for (int i = 0; i < count; i++) {
+            var expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
+            var actualNode = view.get(null, tupleKey(i)).stringValue("name");
+
+            assertEquals(expectedNode.name(), actualNode);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testReceiverException(boolean async) {
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    t -> t,
+                    t -> 0,
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    null,
+                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
+                    async ? "throw-async" : "throw");
+
+            publisher.submit(tupleKey(1));
+        }
+
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        assertEquals(
+                "Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: test",
+                ex.getCause().getMessage());
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
@@ -397,6 +546,68 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         PersonValPojo(String name) {
             this.name = name;
+        }
+    }
+
+    @SuppressWarnings("resource")
+    private static class TestReceiver implements DataStreamerReceiver<String, Object, String> {
+        @Override
+        public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object arg) {
+            if ("throw".equals(arg)) {
+                throw new ArithmeticException("test");
+            }
+
+            if ("throw-async".equals(arg)) {
+                return CompletableFuture.failedFuture(new ArithmeticException("test"));
+            }
+
+            assertEquals(3, page.size());
+            assertEquals("val1", page.get(0));
+            assertEquals("val2", page.get(1));
+            assertEquals("val3", page.get(2));
+
+            assertNotNull(ctx.ignite().tables().table(TABLE_NAME));
+
+            assertEquals("arg1", arg);
+
+            return CompletableFuture.completedFuture(List.of("Received: " + page.size() + " items, " + arg + " arg"));
+        }
+    }
+
+    @SuppressWarnings("resource")
+    private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Object, Void> {
+        @Override
+        public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object arg) {
+            var nodeName = ctx.ignite().name();
+            RecordView<Tuple> view = ctx.ignite().tables().table(TABLE_NAME).recordView();
+
+            for (Integer id : page) {
+                view.upsert(null, tuple(id, nodeName));
+            }
+
+            return null;
+        }
+    }
+
+    private static class TestSubscriber<T> implements Subscriber<T> {
+        Set<T> items = Collections.synchronizedSet(new HashSet<>());
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            subscription.request(Long.MAX_VALUE);
+        }
+
+        @Override
+        public void onNext(T item) {
+            items.add(item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+        }
+
+        @Override
+        public void onComplete() {
         }
     }
 }

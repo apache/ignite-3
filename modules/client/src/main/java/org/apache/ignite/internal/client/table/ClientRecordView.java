@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
@@ -33,7 +36,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
@@ -41,6 +43,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -125,6 +128,29 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 (s, w) -> ser.writeRec(tx, key, s, w, TuplePart.KEY),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), key),
+                tx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<R> keys) {
+        return sync(containsAllAsync(tx, keys));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<R> keys) {
+        checkKeysForNulls(keys);
+
+        if (keys.isEmpty()) {
+            return trueCompletedFuture();
+        }
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                (s, w) -> ser.writeRecs(tx, keys, s, w, TuplePart.KEY),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keys.iterator().next()),
                 tx);
     }
 
@@ -408,7 +434,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<R, Integer> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
+        StreamerBatchSender<R, Integer, Void> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
                 (s, w) -> ser.writeStreamerRecs(partition, items, deleted, s, w),
                 r -> null,
@@ -419,18 +445,42 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
+    @Override
+    public <E, V, R1, A> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            Function<E, R> keyFunc,
+            Function<E, V> payloadFunc,
+            ReceiverDescriptor<A> receiver,
+            @Nullable Flow.Subscriber<R1> resultSubscriber,
+            @Nullable DataStreamerOptions options,
+            A receiverArg) {
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(receiver);
+
+        return ClientDataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options == null ? DataStreamerOptions.DEFAULT : options,
+                new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper()),
+                tbl,
+                resultSubscriber,
+                receiver.units(),
+                receiver.receiverClassName(),
+                receiverArg,
+                receiver.argumentMarshaller()
+        );
+    }
+
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
         String[] cols = columnNames(schema.columns());
         Marshaller marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY_AND_VAL, true);
 
-        return (row) -> {
-            try {
-                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, cols)), null);
-            } catch (MarshallerException e) {
-                throw new org.apache.ignite.lang.MarshallerException(e);
-            }
-        };
+        return (row) -> (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, cols)), null);
     }
 }

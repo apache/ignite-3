@@ -22,34 +22,30 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.internal.table.partition.HashPartition;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -60,6 +56,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Integration tests for DDL statements that affect tables.
+ *
+ * <p>SQL F031-01 feature. CREATE TABLE statement to create persistent base tables
  */
 public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @AfterEach
@@ -104,7 +102,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void emptyPk() {
         assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
+                STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \")\"",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY ())")
         );
@@ -119,7 +117,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void tableWithInvalidColumns() {
         assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
+                STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \")\"",
                 () -> sql("CREATE TABLE T0()")
         );
@@ -133,12 +131,30 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void pkWithFunctionalDefault() {
-        sql("create table t (id varchar default gen_random_uuid primary key, val int)");
+        sql("create table t (id uuid default rand_uuid primary key, val int)");
         sql("insert into t (val) values (1), (2)");
 
         var result = sql("select * from t");
 
         assertThat(result, hasSize(2)); // both rows are inserted without conflict
+    }
+
+    @Test
+    public void pkWithInvalidFunctionalDefault() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional default contains unsupported function: [col=ID, functionName=INVALID_FUNC]",
+                () -> sql("create table t (id varchar default invalid_func primary key, val int)")
+        );
+    }
+
+    @Test
+    public void pkWithNotMatchingFunctionalDefault() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional default type mismatch: [col=ID, functionName=RAND_UUID, expectedType=UUID, actualType=STRING]",
+                () ->  sql("create table tdd(id varchar default rand_uuid, val int, primary key (id) )")
+        );
     }
 
     @Test
@@ -169,7 +185,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Check implicit colocation columns configuration (defined by PK)..
+     * Check implicit colocation columns configuration (defined by PK).
      */
     @Test
     public void implicitColocationColumns() {
@@ -182,128 +198,74 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         assertEquals("ID0", colocationColumns.get(1).name());
     }
 
-    /** Test correct mapping schema after alter columns. */
     @Test
-    public void testDropAndAddColumns() {
-        sql("CREATE TABLE my (c1 INT PRIMARY KEY, c2 INT, c3 VARCHAR)");
-
-        sql("INSERT INTO my VALUES (1, 2, '3')");
-
-        List<List<Object>> res = sql("SELECT c1, c3 FROM my");
-
-        assertFalse(res.isEmpty());
-
-        sql("ALTER TABLE my DROP COLUMN c2");
-
-        res = sql("SELECT c1, c3 FROM my");
-
-        assertFalse(res.isEmpty());
-
-        sql("ALTER TABLE my ADD COLUMN (c2 INT, c4 VARCHAR)");
-
-        sql("INSERT INTO my VALUES (2, '2', 2, '3')");
-
-        res = sql("SELECT c2, c4 FROM my WHERE c1=2");
-
-        assertEquals(2, res.get(0).get(0));
-
-        sql("ALTER TABLE my DROP COLUMN c4");
-        sql("ALTER TABLE my ADD COLUMN (c4 INT)");
-        sql("INSERT INTO my VALUES (3, '2', 3, 3)");
-
-        res = sql("SELECT c4 FROM my WHERE c1=3");
-
-        assertEquals(3, res.get(0).get(0));
-
-        // Checking the correctness of reading a row created on a different version of the schema.
-        sql("ALTER TABLE my ADD COLUMN (c5 VARCHAR, c6 BOOLEAN)");
-        sql("ALTER TABLE my DROP COLUMN c4");
-        assertQuery("SELECT * FROM my WHERE c1=3")
-                .returns(3, "2", 3, null, null)
-                .check();
-    }
-
-    /** Test that adding nullable column via ALTER TABLE ADD name type NULL works. */
-    @Test
-    public void testNullableColumn() {
-        sql("CREATE TABLE my (c1 INT PRIMARY KEY, c2 INT)");
-        sql("INSERT INTO my VALUES (1, 1)");
-        sql("ALTER TABLE my ADD COLUMN c3 INT NULL");
-        sql("INSERT INTO my VALUES (2, 2, NULL)");
-
-        assertQuery("SELECT * FROM my ORDER by c1 ASC")
-                .returns(1, 1, null)
-                .returns(2, 2, null)
-                .check();
-    }
-
-    /**
-     * Adds columns of all supported types and checks that the row
-     * created on the old schema version is read correctly.
-     */
-    @Test
-    public void testDropAndAddColumnsAllTypes() {
-        List<NativeType> allTypes = SchemaTestUtils.ALL_TYPES;
-
-        Set<NativeTypeSpec> unsupportedTypes = Set.of(
-                // TODO https://issues.apache.org/jira/browse/IGNITE-18431
-                NativeTypeSpec.BITMASK
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void reservedColumnNames() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__p_key' is reserved name.",
+                () -> sql("CREATE TABLE T0(\"__p_key\" INT PRIMARY KEY, VAL INT)")
         );
 
-        // List of columns for 'ADD COLUMN' statement.
-        IgniteStringBuilder addColumnsList = new IgniteStringBuilder();
-        // List of columns for 'DROP COLUMN' statement.
-        IgniteStringBuilder dropColumnsList = new IgniteStringBuilder();
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__part' is reserved name.",
+                () -> sql("CREATE TABLE T0(\"__part\" INT PRIMARY KEY, VAL INT)")
+        );
 
-        for (int i = 0; i < allTypes.size(); i++) {
-            NativeType type = allTypes.get(i);
+        sql("CREATE TABLE T0(id INT PRIMARY KEY)");
 
-            if (unsupportedTypes.contains(type.spec())) {
-                continue;
-            }
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__p_key' is reserved name.",
+                () -> sql("ALTER TABLE T0 ADD COLUMN \"__p_key\" INT")
+        );
 
-            RelDataType relDataType = TypeUtils.native2relationalType(Commons.typeFactory(), type);
-
-            if (addColumnsList.length() > 0) {
-                addColumnsList.app(',');
-                dropColumnsList.app(',');
-            }
-
-            addColumnsList.app("c").app(i).app(' ').app(relDataType.getSqlTypeName().getSpaceName());
-            dropColumnsList.app("c").app(i);
-        }
-
-        sql("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
-        sql("INSERT INTO test VALUES (0, 1)");
-        sql(format("ALTER TABLE test ADD COLUMN ({})", addColumnsList.toString()));
-
-        List<List<Object>> res = sql("SELECT * FROM test");
-        assertThat(res.size(), is(1));
-        assertThat(res.get(0).size(), is(allTypes.size() - unsupportedTypes.size() + /* initial columns */ 2));
-
-        sql(format("ALTER TABLE test DROP COLUMN ({})", dropColumnsList.toString()));
-        assertQuery("SELECT * FROM test")
-                .returns(0, 1)
-                .check();
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Column '__part' is reserved name.",
+                () -> sql("ALTER TABLE T0 ADD COLUMN \"__part\" INT")
+        );
     }
 
     /**
-     * Checks that schema version is updated even if column names are intersected.
+     * Check implicit partition column configuration (defined by PK).
      */
-    // Need to be removed after https://issues.apache.org/jira/browse/IGNITE-19082
     @Test
-    public void checkSchemaUpdatedWithEqAlterColumn() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+    public void implicitPartitionColumn() throws Exception {
+        sql("CREATE TABLE T0(ID BIGINT PRIMARY KEY, VAL VARCHAR)");
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        List<Column> columns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().columns();
 
-        int tableVersionBefore = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
+        assertEquals(2, columns.size());
+        assertEquals("ID", columns.get(0).name());
+        assertEquals("VAL", columns.get(1).name());
 
-        sql("ALTER TABLE TEST ADD COLUMN (VAL1 INT)");
+        Tuple key1 = Tuple.create().set("id", 101L);
+        Tuple key2 = Tuple.create().set("id", 102L);
 
-        int tableVersionAfter = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
+        // Add data
+        sql("insert into t0 values (101, 'v1')");
 
-        assertEquals(tableVersionBefore + 1, tableVersionAfter);
+        Table table = CLUSTER.node(0).tables().table("T0");
+        table.keyValueView().put(null, Tuple.create().set("id", 102L), Tuple.create().set("val", "v2"));
+
+        assertEquals(Tuple.create().set("val", "v1"), table.keyValueView().get(null, Tuple.create().set("id", 101L)));
+
+        assertQuery("SELECT * FROM t0")
+                .returns(101L, "v1")
+                .returns(102L, "v2")
+                .check();
+
+        assertQuery("SELECT \"__part\" FROM t0")
+                .returns(partitionForKey(table, key1))
+                .returns(partitionForKey(table, key2))
+                .check();
+
+        assertQuery("SELECT \"__part\", id FROM t0")
+                .returns(partitionForKey(table, key1), 101L)
+                .returns(partitionForKey(table, key2), 102L)
+                .check();
     }
 
     /**
@@ -333,16 +295,36 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void literalAsColumDefault() {
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
+        sql("CREATE TABLE T0("
+                + "id BIGINT DEFAULT 1 PRIMARY KEY, "
+                + "valdate DATE DEFAULT DATE '2001-12-21',"
+                + "valtime TIME DEFAULT TIME '11:22:33.444',"
+                + "valts TIMESTAMP DEFAULT TIMESTAMP '2001-12-21 11:22:33.444',"
+                + "valstr VARCHAR DEFAULT 'string',"
+                + "valbin VARBINARY DEFAULT x'ff'"
+                + ")");
+
+        List<Column> columns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().columns();
+
+        assertEquals(6, columns.size());
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
     public void doNotAllowFunctionsInNonPkColumns() {
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Functional defaults are not supported for non-primary key columns",
-                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)")
+                () -> sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val UUID DEFAULT rand_uuid)")
         );
     }
 
     @ParameterizedTest
     @MethodSource("reservedSchemaNames")
+    @SuppressWarnings("ThrowableNotThrown")
     public void testItIsNotPossibleToCreateTablesInSystemSchema(String schema) {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
@@ -483,6 +465,89 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("DROP ZONE ZONE1");
     }
 
+    @Test
+    public void testStringZeroLength() {
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "CHAR datatype is not supported in table",
+                () -> sql("CREATE TABLE TEST(ID CHAR(0) PRIMARY KEY, VAL0 INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'STRING' must be at least 1",
+                () -> sql("CREATE TABLE TEST(ID VARCHAR(0) PRIMARY KEY, VAL0 INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
+                () -> sql("CREATE TABLE TEST(ID BINARY(0) PRIMARY KEY, VAL0 INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
+                () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
+        );
+    }
+
+    @Test
+    public void quotedTableName() {
+        sql("CREATE TABLE \"table Test\" (key INT PRIMARY KEY, \"Col 1\" INT)");
+        sql("CREATE TABLE \"table\"\"Test\"\"\" (key INT PRIMARY KEY, \"Col\"\"1\"\"\" INT)");
+
+        sql("INSERT INTO \"table Test\" VALUES (1, 1)");
+        sql("INSERT INTO \"table\"\"Test\"\"\" VALUES (1, 2)");
+
+        IgniteImpl node = CLUSTER.node(0);
+
+        assertThrows(IllegalArgumentException.class, () -> node.tables().table("table Test"));
+        assertThrows(IllegalArgumentException.class, () -> node.tables().table("table\"Test\""));
+        assertThrows(IllegalArgumentException.class, () -> node.tables().table("table\"\"Test\"\""));
+
+        Table table = node.tables().table("\"table Test\"");
+        assertNotNull(table);
+        assertThat(table.keyValueView().get(null, Tuple.create().set("key", 1)), equalTo(Tuple.create().set("\"Col 1\"", 1)));
+
+        table = node.tables().table("\"table\"\"Test\"\"\"");
+        assertNotNull(table);
+        assertThat(table.keyValueView().get(null, Tuple.create().set("key", 1)), equalTo(Tuple.create().set("\"Col\"\"1\"\"\"", 2)));
+
+        sql("DROP TABLE \"table Test\"");
+        sql("DROP TABLE \"table\"\"Test\"\"\"");
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @Test
+    public void testCreateTableDoesNotAllowIntervals() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR, 
+                "Type INTERVAL YEAR cannot be used in a column definition [column=ID]", 
+                () -> sql("CREATE TABLE test(id INTERVAL YEAR PRIMARY KEY, val INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Type INTERVAL YEAR cannot be used in a column definition [column=P]",
+                () -> sql("CREATE TABLE test(id INTEGER PRIMARY KEY, p INTERVAL YEAR)")
+        );
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @Test
+    public void testAlterTableDoesNotAllowIntervals() {
+        sql("CREATE TABLE test(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Type INTERVAL YEAR cannot be used in a column definition [column=P]",
+                () -> sql("ALTER TABLE TEST ADD COLUMN p INTERVAL YEAR")
+        );
+    }
+
     private static CatalogZoneDescriptor getDefaultZone(IgniteImpl node) {
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()));
@@ -490,5 +555,9 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         assert catalog != null;
 
         return Objects.requireNonNull(catalog.defaultZone());
+    }
+
+    private static int partitionForKey(Table table, Tuple keyTuple) throws Exception {
+        return ((HashPartition) table.partitionManager().partitionAsync(keyTuple).get()).partitionId();
     }
 }

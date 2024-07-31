@@ -25,9 +25,13 @@ import io.netty.buffer.ByteBufUtil;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.sql.BatchedArguments;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -595,7 +599,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(Object[] vals) {
+    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals, @Nullable Marshaller<Object, byte[]> marshaller) {
         assert !closed : "Packer is closed";
 
         if (vals == null) {
@@ -615,10 +619,43 @@ public class ClientMessagePacker implements AutoCloseable {
         var builder = new BinaryTupleBuilder(vals.length * 3);
 
         for (Object arg : vals) {
-            ClientBinaryTupleUtils.appendObject(builder, arg);
+            ClientBinaryTupleUtils.appendObject(builder, arg, marshaller);
         }
 
         packBinaryTuple(builder);
+    }
+
+    /**
+     * Packs batched arguments into binary tuples.
+     *
+     * @param batchedArguments Batched arguments.
+     */
+    public void packBatchedArgumentsAsBinaryTupleArray(BatchedArguments batchedArguments) {
+        assert !closed : "Packer is closed";
+
+        if (batchedArguments == null || batchedArguments.isEmpty()) {
+            packNil();
+
+            return;
+        }
+
+        int rowLen = batchedArguments.get(0).size();
+
+        packInt(rowLen);
+        packInt(batchedArguments.size());
+        packBoolean(false); // unused now, but we will need it in case of arguments load by pages.
+
+        for (List<Object> values : batchedArguments) {
+            // Builder with inline schema.
+            // Every element in vals is represented by 3 tuple elements: type, scale, value.
+            var builder = new BinaryTupleBuilder(rowLen * 3);
+
+            for (Object value : values) {
+                ClientBinaryTupleUtils.appendObject(builder, value, null);
+            }
+
+            packBinaryTuple(builder);
+        }
     }
 
     /**
@@ -626,7 +663,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param val Object array.
      */
-    public void packObjectAsBinaryTuple(Object val) {
+    public <T> void packObjectAsBinaryTuple(@Nullable T val, @Nullable Marshaller<T, byte[]> marshaller) {
         assert !closed : "Packer is closed";
 
         if (val == null) {
@@ -637,8 +674,8 @@ public class ClientMessagePacker implements AutoCloseable {
 
         // Builder with inline schema.
         // Value is represented by 3 tuple elements: type, scale, value.
-        var builder = new BinaryTupleBuilder(3, 3);
-        ClientBinaryTupleUtils.appendObject(builder, val);
+        var builder = new BinaryTupleBuilder(3, 3, false);
+        ClientBinaryTupleUtils.appendObject(builder, val, marshaller);
 
         packBinaryTuple(builder);
     }
@@ -704,6 +741,19 @@ public class ClientMessagePacker implements AutoCloseable {
         } else {
             packLong(instant.getEpochSecond());
             packInt(instant.getNano());
+        }
+    }
+
+    /**
+     * Packs deployment units.
+     *
+     * @param units Units.
+     */
+    public void packDeploymentUnits(List<DeploymentUnit> units) {
+        packInt(units.size());
+        for (DeploymentUnit unit : units) {
+            packString(unit.name());
+            packString(unit.version().render());
         }
     }
 

@@ -20,7 +20,7 @@
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/utility.h"
 
-#include "ignite/common/server_version.h"
+#include "ignite/common/detail/server_version.h"
 
 #include <iomanip>
 
@@ -604,7 +604,9 @@ void connection_info::rebuild() {
     // the form ##.##.####, where the first two digits are the major version, the next two digits are the minor version,
     // and the last four digits are the release version. The driver must render the DBMS product version in this form
     // but can also append the DBMS product-specific version. For example, "04.01.0000 Rdb 4.1".
-    m_str_params[SQL_DBMS_VER] = server_version().to_string(); // default: 00.00.0000. Will be updated after handshake.
+    //
+    // Default: 00.00.0000. The value will be updated after handshake.
+    m_str_params[SQL_DBMS_VER] = detail::server_version().to_string();
 #endif // SQL_DBMS_VER
 
 #ifdef SQL_COLUMN_ALIAS
@@ -1304,7 +1306,7 @@ void connection_info::rebuild() {
     //     field.
     //
     // SQL_PARC_NO_BATCH = There is only one row count available, which is the cumulative row count
-    //     resulting from the execution of the statement for the entire array of m_parameters. This is
+    //     resulting from the execution of the statement for the entire array of parameters. This is
     //     conceptually equivalent to treating the statement together with the complete parameter array as
     //     one atomic unit. Errors are handled the same as if one statement were executed.
     m_int_params[SQL_PARAM_ARRAY_ROW_COUNTS] = SQL_PARC_BATCH;
@@ -1319,12 +1321,12 @@ void connection_info::rebuild() {
     //     the array.
     //
     // SQL_PAS_NO_BATCH = There is only one result set available, which represents the cumulative result set
-    //     resulting from the execution of the statement for the complete array of m_parameters. This is
+    //     resulting from the execution of the statement for the complete array of parameters. This is
     //     conceptually equivalent to treating the statement together with the complete parameter array as
     //     one atomic unit.
     //
     // SQL_PAS_NO_SELECT = A driver does not allow a result - set generating statement to be executed with
-    //     an array of m_parameters.
+    //     an array of parameters.
     m_int_params[SQL_PARAM_ARRAY_SELECTS] = SQL_PAS_NO_SELECT;
 #endif // SQL_PARAM_ARRAY_SELECTS
 

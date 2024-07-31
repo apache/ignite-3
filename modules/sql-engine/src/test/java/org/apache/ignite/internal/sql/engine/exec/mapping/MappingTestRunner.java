@@ -36,9 +36,11 @@ import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
@@ -169,7 +171,7 @@ final class MappingTestRunner {
             ResultSetMetadataImpl resultSetMetadata = new ResultSetMetadataImpl(Collections.emptyList());
             ParameterMetadata parameterMetadata = new ParameterMetadata(Collections.emptyList());
             MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel,
-                    resultSetMetadata, parameterMetadata);
+                    resultSetMetadata, parameterMetadata, schema.catalogVersion());
 
             String actualText = produceMapping(testDef.nodeName, targetProvider, snapshot, multiStepPlan);
 
@@ -188,13 +190,17 @@ final class MappingTestRunner {
         }
     }
 
-    private String produceMapping(String nodeName,
+    private String produceMapping(
+            String nodeName,
             ExecutionTargetProvider targetProvider,
             LogicalTopologySnapshot snapshot,
-            MultiStepPlan plan) {
+            MultiStepPlan plan
+    ) {
 
         PartitionPruner partitionPruner = new PartitionPrunerImpl();
-        MappingServiceImpl mappingService = new MappingServiceImpl(nodeName,
+        MappingServiceImpl mappingService = new MappingServiceImpl(
+                nodeName,
+                new TestClockService(new TestHybridClock(System::currentTimeMillis)),
                 targetProvider,
                 EmptyCacheFactory.INSTANCE,
                 0,

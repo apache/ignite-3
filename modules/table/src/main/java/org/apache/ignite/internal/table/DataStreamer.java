@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.table;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
@@ -27,6 +29,7 @@ import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,12 +39,39 @@ class DataStreamer {
     static <R> CompletableFuture<Void> streamData(
             Publisher<DataStreamerItem<R>> publisher,
             @Nullable DataStreamerOptions options,
-            StreamerBatchSender<R, Integer> batchSender,
+            StreamerBatchSender<R, Integer, Void> batchSender,
             StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
             ScheduledExecutorService flushExecutor) {
-        StreamerOptions streamerOpts = streamerOptions(options);
-        StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(
+        return streamData(
+                publisher,
+                DataStreamerItem::get,
+                DataStreamerItem::get,
+                x -> x.operationType() == DataStreamerOperationType.REMOVE,
+                options,
                 batchSender,
+                null,
+                partitionAwarenessProvider,
+                flushExecutor);
+    }
+
+    // T = key, E = element, V = payload, R = result.
+    static <T, E, V, R> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            Function<E, T> keyFunc,
+            Function<E, V> payloadFunc,
+            Function<E, Boolean> deleteFunc,
+            @Nullable DataStreamerOptions options,
+            StreamerBatchSender<V, Integer, R> batchSender,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
+            ScheduledExecutorService flushExecutor) {
+        StreamerOptions streamerOpts = streamerOptions(options);
+        StreamerSubscriber<T, E, V, R, Integer> subscriber = new StreamerSubscriber<>(
+                batchSender,
+                resultSubscriber,
+                keyFunc,
+                payloadFunc,
+                deleteFunc,
                 partitionAwarenessProvider,
                 streamerOpts,
                 flushExecutor,

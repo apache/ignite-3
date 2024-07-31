@@ -104,8 +104,6 @@ public interface StorageIndexDescriptor {
                 return NativeTypes.DOUBLE;
             case DECIMAL:
                 return NativeTypes.decimalOf(column.precision(), column.scale());
-            case NUMBER:
-                return NativeTypes.numberOf(column.precision());
             case DATE:
                 return NativeTypes.DATE;
             case TIME:
@@ -116,8 +114,6 @@ public interface StorageIndexDescriptor {
                 return NativeTypes.timestamp(column.precision());
             case UUID:
                 return NativeTypes.UUID;
-            case BITMASK:
-                return NativeTypes.bitmaskOf(column.length());
             case STRING:
                 return NativeTypes.stringOf(column.length());
             case BYTE_ARRAY:

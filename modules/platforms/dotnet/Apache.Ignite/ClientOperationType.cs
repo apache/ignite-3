@@ -117,9 +117,14 @@ namespace Apache.Ignite
         TupleContainsKey,
 
         /// <summary>
-        /// Compute (<see cref="ICompute.SubmitAsync{T}"/>, <see cref="ICompute.SubmitBroadcast{T}"/>).
+        /// Compute (<see cref="ICompute.SubmitAsync{TTarget,TArg,TResult}"/>, <see cref="ICompute.SubmitBroadcast{TArg,TResult}"/>).
         /// </summary>
         ComputeExecute,
+
+        /// <summary>
+        /// Compute (<see cref="ICompute.SubmitMapReduceAsync{TArg,TResult}"/>).
+        /// </summary>
+        ComputeExecuteMapReduce,
 
         /// <summary>
         /// SQL (<see cref="ISql.ExecuteAsync"/>, <see cref="ISql.ExecuteAsync{T}"/>).
@@ -132,7 +137,7 @@ namespace Apache.Ignite
         SqlExecuteScript,
 
         /// <summary>
-        /// Get status of a compute job (<see cref="IJobExecution{T}.GetStatusAsync"/>).
+        /// Get status of a compute job (<see cref="IJobExecution{T}.GetStateAsync"/>).
         /// </summary>
         ComputeGetStatus,
 
@@ -147,8 +152,18 @@ namespace Apache.Ignite
         ComputeChangePriority,
 
         /// <summary>
+        /// Get primary replicas (<see cref="IPartitionManager.GetPrimaryReplicasAsync"/>).
+        /// </summary>
+        PrimaryReplicasGet,
+
+        /// <summary>
         /// Send data streamer batch (<see cref="IDataStreamerTarget{T}"/>).
         /// </summary>
-        StreamerBatchSend
+        StreamerBatchSend,
+
+        /// <summary>
+        /// Send data streamer batch with receiver (<see cref="IDataStreamerTarget{T}"/>).
+        /// </summary>
+        StreamerWithReceiverBatchSend
     }
 }

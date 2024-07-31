@@ -80,6 +80,7 @@ public enum ColumnType {
     UUID(13, UUID.class, false, false, false),
 
     /** Bit mask. */
+    @Deprecated(forRemoval = true)
     BITMASK(14, BitSet.class, false, false, true),
 
     /** String. */
@@ -95,6 +96,7 @@ public enum ColumnType {
     DURATION(18, Duration.class, true, false, false),
 
     /** Number. */
+    @Deprecated(forRemoval = true)
     NUMBER(19, BigInteger.class, true, false, false);
 
     private final Class<?> javaClass;
@@ -114,6 +116,8 @@ public enum ColumnType {
     }
 
     ColumnType(int id, Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined) {
+        assert !lengthDefined || (!precisionDefined && !scaleDefined);
+
         javaClass = clazz;
         this.precisionAllowed = precisionDefined;
         this.scaleAllowed = scaleDefined;

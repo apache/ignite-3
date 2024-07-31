@@ -108,7 +108,7 @@ public class CreateSystemViewCommand implements CatalogCommand {
         CatalogSchemaDescriptor systemSchema = schemaOrThrow(catalog, CatalogManager.SYSTEM_SCHEMA_NAME);
 
         List<CatalogTableColumnDescriptor> viewColumns = columns.stream().map(CatalogUtils::fromParams).collect(toList());
-        CatalogSystemViewDescriptor descriptor = new CatalogSystemViewDescriptor(id, name, viewColumns, systemViewType);
+        CatalogSystemViewDescriptor descriptor = new CatalogSystemViewDescriptor(id, systemSchema.id(), name, viewColumns, systemViewType);
 
         CatalogSystemViewDescriptor existingSystemView = systemSchema.systemView(name);
 
@@ -121,7 +121,7 @@ public class CreateSystemViewCommand implements CatalogCommand {
         }
 
         return List.of(
-                new NewSystemViewEntry(descriptor, systemSchema.name()),
+                new NewSystemViewEntry(descriptor),
                 new ObjectIdGenUpdateEntry(1)
         );
     }

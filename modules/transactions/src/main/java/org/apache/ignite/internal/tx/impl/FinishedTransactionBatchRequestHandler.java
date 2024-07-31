@@ -57,12 +57,12 @@ public class FinishedTransactionBatchRequestHandler {
     public void start() {
         messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
             if (msg instanceof FinishedTransactionsBatchMessage) {
-                processTxCleanup((FinishedTransactionsBatchMessage) msg);
+                processFinishedTransactionsBatchMessage((FinishedTransactionsBatchMessage) msg);
             }
         });
     }
 
-    private void processTxCleanup(FinishedTransactionsBatchMessage closeCursorsMessage) {
+    private void processFinishedTransactionsBatchMessage(FinishedTransactionsBatchMessage closeCursorsMessage) {
         asyncExecutor.execute(() -> closeCursorsMessage.transactions().forEach(resourcesRegistry::close));
     }
 

@@ -36,6 +36,7 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
@@ -103,20 +104,14 @@ public class LogManagerImpl implements LogManager {
         LAST_LOG_ID // get last log id
     }
 
-    public static class StableClosureEvent implements NodeIdAware {
-        /** Raft node id. */
-        NodeId nodeId;
-
+    public static class StableClosureEvent extends NodeIdAware {
         StableClosure done;
         EventType type;
 
         @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
+        public void reset() {
+            super.reset();
 
-        void reset() {
-            this.nodeId = null;
             this.done = null;
             this.type = null;
         }
@@ -219,6 +214,7 @@ public class LogManagerImpl implements LogManager {
         this.shutDownLatch = new CountDownLatch(1);
         Utils.runInThread(nodeOptions.getCommonExecutor(), () -> this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
+
             event.nodeId = this.nodeId;
             event.type = EventType.SHUTDOWN;
         }));
@@ -336,6 +332,7 @@ public class LogManagerImpl implements LogManager {
             // publish event out of lock
             this.diskQueue.publishEvent((event, sequence) -> {
               event.reset();
+
               event.nodeId = this.nodeId;
               event.type = EventType.OTHER;
               event.done = done;
@@ -362,6 +359,7 @@ public class LogManagerImpl implements LogManager {
         }
         this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();
+
             event.nodeId = this.nodeId;
             event.type = type;
             event.done = done;

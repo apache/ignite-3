@@ -26,7 +26,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 /**
  * Storage profile configuration for {@link RocksDbStorageEngine}.
  */
-@PolymorphicConfigInstance("rocksDb")
+@PolymorphicConfigInstance("rocksdb")
 public class RocksDbProfileConfigurationSchema extends StorageProfileConfigurationSchema {
     /** Size of the rocksdb offheap cache. */
     @Value(hasDefault = true)
@@ -36,9 +36,4 @@ public class RocksDbProfileConfigurationSchema extends StorageProfileConfigurati
     @Value(hasDefault = true)
     @Range(min = 1)
     public long writeBufferSize = 64 * 1024 * 1024;
-
-    /** The cache is sharded to 2^numShardBits shards, by hash of the key. */
-    @Range(min = -1)
-    @Value(hasDefault = true)
-    public int numShardBits = -1;
 }

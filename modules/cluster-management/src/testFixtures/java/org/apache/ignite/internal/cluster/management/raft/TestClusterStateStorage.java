@@ -40,6 +40,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,7 +60,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
@@ -149,7 +150,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

@@ -33,10 +33,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
@@ -53,12 +53,13 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -115,11 +116,11 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeLocally(
+    public <I, R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            I arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -131,7 +132,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             CompletableFuture<JobExecutionInternal<R>> future =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
                             .thenApply(context -> {
-                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, args);
+                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, arg);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -148,11 +149,11 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public <R> TaskExecution<R> executeTask(
-            JobSubmitter jobSubmitter,
+    public <I, M, T, R> TaskExecution<R> executeTask(
+            JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            Object... args
+            I input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingTaskExecution<>(
@@ -161,10 +162,10 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            CompletableFuture<TaskExecutionInternal<R>> taskFuture =
+            CompletableFuture<TaskExecutionInternal<I, M, T, R>> taskFuture =
                     mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), taskClassName)
                             .thenApply(context -> {
-                                TaskExecutionInternal<R> execution = execTask(context, jobSubmitter, taskClassName, args);
+                                TaskExecutionInternal<I, M, T, R> execution = execTask(context, jobSubmitter, taskClassName, input);
                                 execution.resultAsync().whenComplete((r, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -172,8 +173,8 @@ public class ComputeComponentImpl implements ComputeComponent {
 
             inFlightFutures.registerFuture(taskFuture);
 
-            DelegatingTaskExecution<R> result = new DelegatingTaskExecution<>(taskFuture);
-            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
+            DelegatingTaskExecution<I, M, T, R> result = new DelegatingTaskExecution<>(taskFuture);
+            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, new TaskToJobExecutionWrapper<>(result)));
             return result;
         } finally {
             busyLock.leaveBusy();
@@ -182,21 +183,21 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeRemotely(
+    public <T, R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
                     failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
-            );
+           );
         }
 
         try {
-            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, args);
+            CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, arg);
             CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
 
             inFlightFutures.registerFuture(jobIdFuture);
@@ -211,18 +212,18 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public <R> JobExecution<R> executeRemotelyWithFailover(
+    public <T, R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            Object... args
+            T arg
     ) {
-        JobExecution<R> result = new ComputeJobFailover<R>(
+        JobExecution<R> result = (JobExecution<R>) new ComputeJobFailover<>(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
-                jobClassName, options, args
+                jobClassName, options, arg
         ).failSafeExecute();
 
         result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
@@ -230,17 +231,17 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     @Override
-    public CompletableFuture<Collection<JobStatus>> statusesAsync() {
-        return messaging.broadcastStatusesAsync();
+    public CompletableFuture<Collection<JobState>> statesAsync() {
+        return messaging.broadcastStatesAsync();
     }
 
     @Override
-    public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
-        return executionManager.statusAsync(jobId).thenCompose(jobStatus -> {
-            if (jobStatus != null) {
-                return completedFuture(jobStatus);
+    public CompletableFuture<@Nullable JobState> stateAsync(UUID jobId) {
+        return executionManager.stateAsync(jobId).thenCompose(state -> {
+            if (state != null) {
+                return completedFuture(state);
             }
-            return messaging.broadcastStatusAsync(jobId);
+            return messaging.broadcastStateAsync(jobId);
         });
     }
 
@@ -266,7 +267,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor.start();
         messaging.start(this::executeLocally);
         executionManager.start();
@@ -276,7 +277,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -292,23 +293,24 @@ public class ComputeComponentImpl implements ComputeComponent {
         return nullCompletedFuture();
     }
 
-    private <R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, Object... args) {
+
+    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, T args) {
         try {
-            return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), args);
+            return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), args);
         } catch (Throwable e) {
             context.close();
             throw e;
         }
     }
 
-    private <R> TaskExecutionInternal<R> execTask(
+    private <I, M, T, R> TaskExecutionInternal<I, M, T, R> execTask(
             JobContext context,
-            JobSubmitter jobSubmitter,
+            JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
-            Object... args
+            I input
     ) {
         try {
-            return executor.executeTask(jobSubmitter, taskClass(context.classLoader(), taskClassName), args);
+            return executor.executeTask(jobSubmitter, taskClass(context.classLoader(), taskClassName), input);
         } catch (Throwable e) {
             context.close();
             throw e;

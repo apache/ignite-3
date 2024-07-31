@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -75,19 +76,25 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -108,19 +115,23 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     @Spy
     private final ClockWaiter clockWaiter = new ClockWaiter(NODE_NAME, clock);
 
-    private ClockService clockService;
-
-    private CatalogManager catalogManager;
+    private final MetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
 
     private final ExecutorService executor = spy(newSingleThreadExecutor());
 
     private final ClusterService clusterService = createClusterService();
+
+    private ClockService clockService;
+
+    private CatalogManager catalogManager;
 
     @Mock
     private PlacementDriver placementDriver;
 
     @Mock(strictness = LENIENT)
     private LogicalTopologyService logicalTopologyService;
+
+    private IndexMetaStorage indexMetaStorage;
 
     private ChangeIndexStatusTask task;
 
@@ -130,9 +141,16 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     void setUp() {
         clockService = new TestClockService(clock, clockWaiter);
 
-        catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter, clock);
+        catalogManager = createTestCatalogManager(metastore, clockWaiter, clock);
 
-        assertThat(startAsync(clockWaiter, catalogManager), willCompleteSuccessfully());
+        indexMetaStorage = new IndexMetaStorage(catalogManager, new TestLowWatermark(), metastore);
+
+        assertThat(
+                startAsync(new ComponentContext(), clockWaiter, metastore, catalogManager, indexMetaStorage),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 
         awaitDefaultZoneCreation(catalogManager);
 
@@ -160,6 +178,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
                 clusterService,
                 logicalTopologyService,
                 clockService,
+                indexMetaStorage,
                 executor,
                 busyLock
         ) {
@@ -173,10 +192,14 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         closeAll(
-                catalogManager::beforeNodeStop,
+                indexMetaStorage == null ? null : indexMetaStorage::beforeNodeStop,
+                catalogManager == null ? null : catalogManager::beforeNodeStop,
+                metastore::beforeNodeStop,
                 clockWaiter::beforeNodeStop,
-                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                () -> assertThat(clockWaiter.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(
+                        stopAsync(new ComponentContext(), indexMetaStorage, catalogManager, metastore, clockWaiter),
+                        willCompleteSuccessfully()
+                ),
                 task == null ? null : task::stop,
                 () -> shutdownAndAwaitTermination(executor, 1, SECONDS)
         );

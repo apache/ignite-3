@@ -24,10 +24,11 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql2rel.InitializerContext;
@@ -66,8 +67,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         Map<String, ColumnDescriptor> descriptorsMap = newHashMap(columnDescriptors.size());
 
-        RelDataTypeFactory factory = Commons.typeFactory();
+        IgniteTypeFactory factory = Commons.typeFactory();
         RelDataTypeFactory.Builder typeBuilder = new RelDataTypeFactory.Builder(factory);
+
         for (ColumnDescriptor descriptor : columnDescriptors) {
             typeBuilder.add(descriptor.name(), deriveLogicalType(factory, descriptor));
             descriptorsMap.put(descriptor.name(), descriptor);
@@ -75,7 +77,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         this.descriptors = columnDescriptors.toArray(DUMMY);
         this.descriptorsMap = descriptorsMap;
-
         this.rowType = typeBuilder.build();
     }
 
@@ -93,6 +94,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public ColumnStrategy generationStrategy(RelOptTable tbl, int colIdx) {
+        if (descriptors[colIdx].virtual()) {
+            return ColumnStrategy.VIRTUAL;
+        }
         if (descriptors[colIdx].defaultStrategy() != DefaultValueStrategy.DEFAULT_NULL) {
             return ColumnStrategy.DEFAULT;
         }
@@ -121,9 +125,13 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
                 return rexBuilder.makeLiteral(internalValue, relDataType, false);
             }
             case DEFAULT_COMPUTED: {
+                if (descriptor.virtual()) {
+                    return rexBuilder.makeInputRef(tbl.getRowType().getFieldList().get(colIdx).getType(), colIdx);
+                }
+
                 assert descriptor.key() : "DEFAULT_COMPUTED is only supported for primary key columns. Column: " + descriptor.name();
 
-                return rexBuilder.makeCall(IgniteSqlOperatorTable.GEN_RANDOM_UUID);
+                return rexBuilder.makeCall(IgniteSqlOperatorTable.RAND_UUID);
             }
             default:
                 throw new IllegalStateException("Unknown default strategy: " + descriptor.defaultStrategy());
@@ -136,9 +144,14 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         if (usedColumns == null || usedColumns.cardinality() == descriptors.length) {
             return rowType;
         } else {
-            return new RelDataTypeFactory.Builder(factory).addAll(rowType.getFieldList().stream()
-                    .filter(field -> usedColumns.get(field.getIndex()))
-                    .collect(Collectors.toList())).build();
+            Builder builder = new Builder(factory);
+
+            List<RelDataTypeField> fieldList = rowType.getFieldList();
+            for (int i : usedColumns) {
+                builder.add(fieldList.get(i));
+            }
+
+            return builder.build();
         }
     }
 

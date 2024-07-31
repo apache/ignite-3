@@ -20,17 +20,20 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.IntFunction;
@@ -38,20 +41,25 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyEventHandler;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.message.DataPresence;
+import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
+import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
-import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Code specific to recovering a partition replicator group node. This includes a case when we lost metadata
@@ -62,13 +70,15 @@ class PartitionReplicatorNodeRecovery {
 
     private static final long PEERS_IN_TOPOLOGY_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
 
-    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
 
     private final MetaStorageManager metaStorageManager;
 
     private final MessagingService messagingService;
 
     private final TopologyService topologyService;
+
+    private final Executor storageAccessExecutor;
 
     /** Obtains a TableImpl instance by a table ID. */
     private final IntFunction<TableViewInternal> tableById;
@@ -77,11 +87,13 @@ class PartitionReplicatorNodeRecovery {
             MetaStorageManager metaStorageManager,
             MessagingService messagingService,
             TopologyService topologyService,
+            Executor storageAccessExecutor,
             IntFunction<TableViewInternal> tableById
     ) {
         this.metaStorageManager = metaStorageManager;
         this.messagingService = messagingService;
         this.topologyService = topologyService;
+        this.storageAccessExecutor = storageAccessExecutor;
         this.tableById = tableById;
     }
 
@@ -93,46 +105,65 @@ class PartitionReplicatorNodeRecovery {
     }
 
     private void addMessageHandler() {
-        messagingService.addMessageHandler(TableMessageGroup.class, (message, sender, correlationId) -> {
+        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, (message, sender, correlationId) -> {
             if (message instanceof HasDataRequest) {
                 // This message queries if a node has any data for a specific partition of a table
                 assert correlationId != null;
 
                 HasDataRequest msg = (HasDataRequest) message;
 
-                int tableId = msg.tableId();
-                int partitionId = msg.partitionId();
-
-                boolean storageHasData = false;
-
-                TableViewInternal table = tableById.apply(tableId);
-
-                if (table != null) {
-                    MvTableStorage storage = table.internalTable().storage();
-
-                    MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
-
-                    // If node's recovery process is incomplete (no partition storage), then we consider this node's
-                    // partition storage empty.
-                    if (mvPartition != null) {
-                        storageHasData = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null;
-                    }
-                }
-
-                messagingService.respond(sender, TABLE_MESSAGES_FACTORY.hasDataResponse().result(storageHasData).build(), correlationId);
+                storageAccessExecutor.execute(() -> handleHasDataRequest(msg, sender, correlationId));
             }
         });
     }
 
+    private void handleHasDataRequest(HasDataRequest msg, ClusterNode sender, Long correlationId) {
+        int tableId = msg.tableId();
+        int partitionId = msg.partitionId();
+
+        DataPresence dataPresence = DataPresence.UNKNOWN;
+
+        TableViewInternal table = tableById.apply(tableId);
+
+        if (table != null) {
+            MvTableStorage storage = table.internalTable().storage();
+
+            MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
+
+            if (mvPartition != null) {
+                try {
+                    dataPresence = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null
+                            ? DataPresence.HAS_DATA : DataPresence.EMPTY;
+                } catch (StorageClosedException | StorageRebalanceException ignored) {
+                    // Ignoring so we'll return UNKNOWN for storageHasData meaning that we have no idea.
+                }
+            }
+        }
+
+        messagingService.respond(
+                sender,
+                TABLE_MESSAGES_FACTORY.hasDataResponse().presenceString(dataPresence.name()).build(),
+                correlationId
+        );
+    }
+
     /**
-     * Returns a future that completes with a decision: should we start the corresponding group locally or not.
+     * Initiates group reentry (that is, exits the group and then enters it again) if there is a possibility that
+     * this node lost its Raft metastorage state. This trick allows to solve the double-voting problem (this node
+     * could vote for one candidate, then do a restart (losing its Raft metastorage, including votedFor field), then
+     * vote for another candidate in the same term. As a result of removing itself and adding self back, the term
+     * will be incremented, so the possible old vote will be invalidated.
+     *
+     * <p>The possibility of losing the Raft metastorage state is detected by checking if the partition storage is
+     * volatile (and hence Raft metastorage is also volatile).
      *
      * @param tablePartitionId ID of the table partition.
      * @param internalTable Table we are working with.
      * @param newConfiguration New configuration that is going to be applied if we'll start the group.
      * @param localMemberAssignment Assignment of this node in this group.
+     * @return A future that completes with a decision: should we start the corresponding group locally or not.
      */
-    CompletableFuture<Boolean> shouldStartGroup(
+    CompletableFuture<Boolean> initiateGroupReentryIfNeeded(
             TablePartitionId tablePartitionId,
             InternalTable internalTable,
             PeersAndLearners newConfiguration,
@@ -163,15 +194,15 @@ class PartitionReplicatorNodeRecovery {
 
         // No majority and not a full partition restart - need to 'remove, then add' nodes
         // with current partition.
-        return waitForPeersAndQueryDataNodesCount(tableId, partId, newConfiguration.peers())
-                .thenApply(dataNodesCount -> {
-                    boolean fullPartitionRestart = dataNodesCount == 0;
+        return waitForPeersAndQueryDataNodesCounts(tableId, partId, newConfiguration.peers())
+                .thenApply(dataNodesCounts -> {
+                    boolean fullPartitionRestart = dataNodesCounts.emptyNodes == newConfiguration.peers().size();
 
                     if (fullPartitionRestart) {
                         return true;
                     }
 
-                    boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
+                    boolean majorityAvailable = dataNodesCounts.nonEmptyNodes >= (newConfiguration.peers().size() / 2) + 1;
 
                     if (majorityAvailable) {
                         RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager);
@@ -193,13 +224,13 @@ class PartitionReplicatorNodeRecovery {
      * @param tblId Table id.
      * @param partId Partition id.
      * @param peers Raft peers.
-     * @return A future that will hold the quantity of data nodes.
+     * @return A future that will hold the counts of data nodes.
      */
-    private CompletableFuture<Long> waitForPeersAndQueryDataNodesCount(int tblId, int partId, Collection<Peer> peers) {
+    private CompletableFuture<DataNodesCounts> waitForPeersAndQueryDataNodesCounts(int tblId, int partId, Collection<Peer> peers) {
         HasDataRequest request = TABLE_MESSAGES_FACTORY.hasDataRequest().tableId(tblId).partitionId(partId).build();
 
         return allPeersAreInTopology(peers)
-                .thenCompose(unused -> queryDataNodesCount(peers, request));
+                .thenCompose(unused -> queryDataNodesCounts(peers, request));
     }
 
     private CompletableFuture<?> allPeersAreInTopology(Collection<Peer> peers) {
@@ -274,9 +305,9 @@ class PartitionReplicatorNodeRecovery {
                 .thenCompose(identity());
     }
 
-    private CompletableFuture<Long> queryDataNodesCount(Collection<Peer> peers, HasDataRequest request) {
+    private CompletableFuture<DataNodesCounts> queryDataNodesCounts(Collection<Peer> peers, HasDataRequest request) {
         //noinspection unchecked
-        CompletableFuture<Boolean>[] requestFutures = peers.stream()
+        CompletableFuture<DataPresence>[] presenceFutures = peers.stream()
                 .map(Peer::consistentId)
                 .map(topologyService::getByConsistentId)
                 .filter(Objects::nonNull)
@@ -285,12 +316,36 @@ class PartitionReplicatorNodeRecovery {
                         .thenApply(response -> {
                             assert response instanceof HasDataResponse : response;
 
-                            return ((HasDataResponse) response).result();
+                            return ((HasDataResponse) response).presence();
                         })
-                        .exceptionally(unused -> false))
+                        .exceptionally(unused -> DataPresence.UNKNOWN))
                 .toArray(CompletableFuture[]::new);
 
-        return allOf(requestFutures)
-                .thenApply(unused -> Arrays.stream(requestFutures).filter(CompletableFuture::join).count());
+        return allOf(presenceFutures)
+                .thenApply(unused -> {
+                    List<DataPresence> hasDataFlags = Arrays.stream(presenceFutures)
+                            .map(CompletableFuture::join)
+                            .collect(toList());
+
+                    long nodesSurelyHavingData = hasDataFlags.stream().filter(presence -> presence == DataPresence.HAS_DATA).count();
+                    long nodesSurelyEmpty = hasDataFlags.stream().filter(presence -> presence == DataPresence.EMPTY).count();
+                    return new DataNodesCounts(nodesSurelyHavingData, nodesSurelyEmpty);
+                });
+    }
+
+    /**
+     * It is not guaranteed that {@link #nonEmptyNodes} plus {@link #emptyNodes} gives the replicator group size
+     * as for some nodes we don't know at the moment whether they have data or not.
+     */
+    private static class DataNodesCounts {
+        /** Number of nodes that reported that they have some data for the partition of interest. */
+        private final long nonEmptyNodes;
+        /* Number of nodes that reported that they don't have any data for the partition of interest. */
+        private final long emptyNodes;
+
+        private DataNodesCounts(long nonEmptyNodes, long emptyNodes) {
+            this.nonEmptyNodes = nonEmptyNodes;
+            this.emptyNodes = emptyNodes;
+        }
     }
 }

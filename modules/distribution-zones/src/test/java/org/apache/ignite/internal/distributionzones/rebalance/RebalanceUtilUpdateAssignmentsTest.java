@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.affinity.Assignments.toBytes;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -34,6 +37,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
@@ -41,6 +45,10 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -50,6 +58,7 @@ import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
@@ -57,10 +66,12 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -74,7 +85,7 @@ import org.mockito.quality.Strictness;
 /**
  * Tests for updating assignment in the meta storage.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtilUpdateAssignmentsTest.class);
@@ -96,6 +107,11 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             null,
             DEFAULT_STORAGE_PROFILE
     );
+
+    private final HybridClock clock = new HybridClockImpl();
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     private static final int partNum = 2;
     private static final int replicas = 2;
@@ -120,7 +136,14 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, mock(ClusterTimeImpl.class));
+        ClusterTimeImpl clusterTime = new ClusterTimeImpl("node", new IgniteSpinBusyLock(), clock);
+
+        MetaStorageListener metaStorageListener = new MetaStorageListener(
+                keyValueStorage,
+                clusterTime,
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+        );
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
 
@@ -132,7 +155,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                     long commandIndex = raftIndex.incrementAndGet();
 
                     if (cmd instanceof MetaStorageWriteCommand) {
-                        ((MetaStorageWriteCommand) cmd).safeTimeLong(10);
+                        ((MetaStorageWriteCommand) cmd).safeTime(hybridTimestamp(10));
                     }
 
                     CompletableFuture<Serializable> res = new CompletableFuture<>();
@@ -170,10 +193,16 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
+                    .iif(iif)
+                    .id(commandIdGenerator.newId())
+                    .initiatorTime(clusterTime.now())
+                    .build();
 
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());

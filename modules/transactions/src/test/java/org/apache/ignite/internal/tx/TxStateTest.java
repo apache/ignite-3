@@ -19,17 +19,16 @@ package org.apache.ignite.internal.tx;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayContaining;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
 
-/**
- * Check {@link TxState} correctly validates transaction state changes.
- */
+/** For {@link TxState} testing. */
 public class TxStateTest {
-
     @Test
     void testStates() {
         assertThat(TxState.values(),
@@ -122,5 +121,22 @@ public class TxStateTest {
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABORTED));
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.COMMITTED));
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABANDONED));
+    }
+
+    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @Test
+    void testFromOrdinal() {
+        assertEquals(TxState.PENDING, TxState.fromOrdinal(0));
+
+        assertEquals(TxState.FINISHING, TxState.fromOrdinal(1));
+
+        assertEquals(TxState.ABORTED, TxState.fromOrdinal(2));
+
+        assertEquals(TxState.COMMITTED, TxState.fromOrdinal(3));
+
+        assertEquals(TxState.ABANDONED, TxState.fromOrdinal(4));
+
+        assertThrows(IllegalArgumentException.class, () -> TxState.fromOrdinal(-1));
+        assertThrows(IllegalArgumentException.class, () -> TxState.fromOrdinal(5));
     }
 }

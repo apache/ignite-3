@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,29 +45,22 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
     UUID txId();
 
     /**
+     * Returns commit partition id.
+     *
+     * @return Commit partition id.
+     */
+    TablePartitionIdMessage commitPartitionId();
+
+    /**
      * Returns {@code True} if a commit request.
      *
      * @return {@code True} to commit.
      */
     boolean commit();
 
-    /**
-     * Transaction commit timestamp.
-     */
-    long commitTimestampLong();
+    /** Transaction commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
 
-    /**
-     * Transaction commit timestamp.
-     */
-    default @Nullable HybridTimestamp commitTimestamp() {
-        return nullableHybridTimestamp(commitTimestampLong());
-    }
-
-    /**
-     * Returns enlisted partition groups aggregated by expected primary replica nodes.
-     *
-     * @return Enlisted partition groups aggregated by expected primary replica nodes.
-     */
-    @Marshallable
-    Map<ReplicationGroupId, String> groups();
+    /** Enlisted partition groups aggregated by expected primary replica nodes. */
+    Map<TablePartitionIdMessage, String> groups();
 }

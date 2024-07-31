@@ -80,10 +80,22 @@ public class RowAssembler {
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
     public RowAssembler(int schemaVersion, List<Column> columns, int totalValueSize) {
+        this(schemaVersion, columns, totalValueSize, true);
+    }
+
+    /**
+     * Create a builder.
+     *
+     * @param schemaVersion Version of the schema.
+     * @param columns List of columns to serialize. Values must be appended in the same order.
+     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
+     * @param exactEstimate Whether the total size is exact estimate or approximate.
+     */
+    public RowAssembler(int schemaVersion, List<Column> columns, int totalValueSize, boolean exactEstimate) {
         this.schemaVersion = schemaVersion;
         this.columns = columns;
 
-        builder = new BinaryTupleBuilder(columns.size(), totalValueSize);
+        builder = new BinaryTupleBuilder(columns.size(), totalValueSize, exactEstimate);
         curCol = 0;
     }
 
@@ -143,12 +155,6 @@ public class RowAssembler {
             case BYTES: {
                 return appendBytes((byte[]) val);
             }
-            case BITMASK: {
-                return appendBitmask((BitSet) val);
-            }
-            case NUMBER: {
-                return appendNumber((BigInteger) val);
-            }
             case DECIMAL: {
                 return appendDecimal((BigDecimal) val);
             }
@@ -165,8 +171,8 @@ public class RowAssembler {
      */
     public RowAssembler appendNull() throws SchemaMismatchException {
         if (!columns.get(curCol).nullable()) {
-            throw new SchemaMismatchException(
-                    "Failed to set column (null was passed, but column is not nullable): " + columns.get(curCol));
+            String name = columns.get(curCol).name();
+            throw new SchemaMismatchException(Column.nullConstraintViolationMessage(name));
         }
 
         builder.appendNull();
@@ -341,6 +347,7 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
+    @Deprecated(forRemoval = true)
     public RowAssembler appendNumberNotNull(BigInteger val) throws SchemaMismatchException {
         checkType(NativeTypeSpec.NUMBER);
 
@@ -362,6 +369,7 @@ public class RowAssembler {
         return this;
     }
 
+    @Deprecated(forRemoval = true)
     public RowAssembler appendNumber(BigInteger val) throws SchemaMismatchException {
         return val == null ? appendNull() : appendNumberNotNull(val);
     }
@@ -467,6 +475,7 @@ public class RowAssembler {
      * @return {@code this} for chaining.
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
+    @Deprecated(forRemoval = true)
     public RowAssembler appendBitmaskNotNull(BitSet bitSet) throws SchemaMismatchException {
         Column col = columns.get(curCol);
 
@@ -484,10 +493,6 @@ public class RowAssembler {
         shiftColumn();
 
         return this;
-    }
-
-    public RowAssembler appendBitmask(BitSet value) {
-        return value == null ? appendNull() : appendBitmaskNotNull(value);
     }
 
     /**

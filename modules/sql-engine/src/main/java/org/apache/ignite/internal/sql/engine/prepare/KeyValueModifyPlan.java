@@ -49,20 +49,20 @@ import org.jetbrains.annotations.Nullable;
  */
 public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     private final PlanId id;
-    private final int schemaVersion;
+    private final int catalogVersion;
     private final IgniteKeyValueModify modifyNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
 
     KeyValueModifyPlan(
             PlanId id,
-            int schemaVersion,
+            int catalogVersion,
             IgniteKeyValueModify modifyNode,
             ResultSetMetadata meta,
             ParameterMetadata parameterMetadata
     ) {
         this.id = id;
-        this.schemaVersion = schemaVersion;
+        this.catalogVersion = catalogVersion;
         this.modifyNode = modifyNode;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
@@ -115,13 +115,13 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public <RowT> AsyncCursor<InternalSqlRow> execute(
             ExecutionContext<RowT> ctx,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             ExecutableTableRegistry tableRegistry,
             @Nullable QueryPrefetchCallback firstPageReadyCallback
     ) {
         IgniteTable sqlTable = table();
 
-        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(schemaVersion, sqlTable.id())
+        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(catalogVersion, sqlTable.id())
                 .thenCompose(execTable -> {
                     List<RexNode> expressions = modifyNode.expressions();
 
@@ -141,6 +141,12 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
             result.whenCompleteAsync((res, err) -> firstPageReadyCallback.onPrefetchComplete(err), executor);
         }
 
+        ctx.scheduleTimeout(result);
+
         return new AsyncWrapper<>(result, Runnable::run);
+    }
+
+    public int catalogVersion() {
+        return catalogVersion;
     }
 }

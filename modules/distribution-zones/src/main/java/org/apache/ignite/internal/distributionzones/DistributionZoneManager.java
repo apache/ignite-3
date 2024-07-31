@@ -57,9 +57,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -104,6 +104,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -251,7 +252,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             registerCatalogEventListenersOnStartManagerBusy();
 
@@ -268,15 +269,18 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
+            // TODO: IGNITE-22679 CatalogManagerImpl initializes versions in a separate thread, not safe to make this call directly.
+            int catalogVersion = catalogManager.latestCatalogVersion();
+
             return allOf(
-                    createOrRestoreZonesStates(recoveryRevision),
-                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
-            ).thenCompose((notUsed) -> rebalanceEngine.start());
+                    createOrRestoreZonesStates(recoveryRevision, catalogVersion),
+                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
+            ).thenComposeAsync((notUsed) -> rebalanceEngine.startAsync(catalogVersion), componentContext.executor());
         });
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -610,7 +614,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 // Very first start of the cluster, so we just initialize zonesLogicalTopologyVersionKey
                 updateCondition = notExists(zonesLogicalTopologyVersionKey());
             } else {
-                updateCondition = value(zonesLogicalTopologyVersionKey()).lt(longToBytes(newTopology.version()));
+                updateCondition = value(zonesLogicalTopologyVersionKey()).lt(longToBytesKeepingOrder(newTopology.version()));
             }
 
             Iif iff = iif(
@@ -813,7 +817,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         puts[0] = put(zonesNodesAttributes(), toBytes(nodesAttributes()));
 
-        puts[1] = put(zonesRecoverableStateRevision(), longToBytes(revision));
+        puts[1] = put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision));
 
         puts[2] = put(zonesLastHandledTopology(), toBytes(newLogicalTopology));
 
@@ -1399,9 +1403,7 @@ public class DistributionZoneManager implements IgniteComponent {
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
     }
 
-    private CompletableFuture<Void> createOrRestoreZonesStates(long recoveryRevision) {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
+    private CompletableFuture<Void> createOrRestoreZonesStates(long recoveryRevision, int catalogVersion) {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         // TODO: IGNITE-20287 Clean up abandoned resources for dropped tables from vault and metastore
@@ -1419,7 +1421,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
      * @return Future that represents the pending completion of the operations.
      */
-    private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision) {
+    private CompletableFuture<Void> restoreLogicalTopologyChangeEventAndStartTimers(long recoveryRevision, int catalogVersion) {
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), recoveryRevision);
 
         if (topologyEntry.value() != null) {
@@ -1427,12 +1429,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
             long topologyRevision = topologyEntry.revision();
 
-            // It is safe to get the latest version of the catalog as we are in the starting process.
-            int catalogVersion = catalogManager.latestCatalogVersion();
-
             Entry lastUpdateRevisionEntry = metaStorageManager.getLocally(zonesRecoverableStateRevision(), recoveryRevision);
 
-            if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLong(lastUpdateRevisionEntry.value())) {
+            if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLongKeepingOrder(lastUpdateRevisionEntry.value())) {
                 return onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, catalogVersion);
             } else {
                 return restoreTimers(catalogVersion);

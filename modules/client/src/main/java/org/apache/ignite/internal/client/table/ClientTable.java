@@ -54,6 +54,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,6 +87,8 @@ public class ClientTable implements Table {
 
     private volatile PartitionAssignment partitionAssignment = null;
 
+    private final ClientPartitionManager clientPartitionManager;
+
     /**
      * Constructor.
      *
@@ -94,7 +97,12 @@ public class ClientTable implements Table {
      * @param id Table id.
      * @param name Table name.
      */
-    public ClientTable(ReliableChannel ch, MarshallersProvider marshallers, int id, String name) {
+    public ClientTable(
+            ReliableChannel ch,
+            MarshallersProvider marshallers,
+            int id,
+            String name
+    ) {
         assert ch != null;
         assert marshallers != null;
         assert name != null && !name.isEmpty();
@@ -105,6 +113,7 @@ public class ClientTable implements Table {
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
         this.sql = new ClientSql(ch, marshallers);
+        clientPartitionManager = new ClientPartitionManager(this);
     }
 
     /**
@@ -129,6 +138,11 @@ public class ClientTable implements Table {
     @Override
     public String name() {
         return name;
+    }
+
+    @Override
+    public PartitionManager partitionManager() {
+        return clientPartitionManager;
     }
 
     /** {@inheritDoc} */

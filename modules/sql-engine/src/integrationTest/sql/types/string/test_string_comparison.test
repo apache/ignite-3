@@ -1,0 +1,43 @@
+# name: test/sql/types/string/test_string_comparison.test
+# feature: E021-12 (Character comparison)
+# group: [string]
+
+query TT
+SELECT 'a'::varchar(1) < 'a'::varchar(2), 'a'::varchar(2) > 'a'::varchar(1) 
+----
+false	false
+
+query TT
+SELECT 'a'::varchar(1) <= 'a'::varchar(2), 'a'::varchar(2) >= 'a'::varchar(1) 
+----
+true	true
+
+query TT
+SELECT 'a'::varchar(1) = 'a'::varchar(2), 'a'::varchar(1) != 'a'::varchar(2) 
+----
+true	false
+
+query TT
+SELECT 'a'::varchar(2) = 'a'::varchar(1), 'a'::varchar(1) != 'a'::varchar(2) 
+----
+true	false
+
+query TT
+SELECT 'a'::varchar(1) <= 'a'::varchar(2), 'a'::varchar(2) >= 'a'::varchar(1)  
+----
+true	true
+
+query TTTT
+SELECT 'b'::varchar > 'a'::varchar, 'b'::varchar >= 'a'::varchar, 'b'::varchar < 'a'::varchar, 'b'::varchar != 'a'::varchar
+----
+true	true	false	true
+
+query TTTT
+SELECT 'a '::varchar > 'a'::varchar, 'a '::varchar >= 'a'::varchar, 'a '::varchar < 'a'::varchar, 'a '::varchar != 'a'::varchar
+----
+true	true	false	true
+
+query TTTT
+SELECT ' a'::varchar > 'a'::varchar, ' a'::varchar >= 'a'::varchar, ' a'::varchar < 'a'::varchar, ' a'::varchar != 'a'::varchar
+----
+false	false	true	true

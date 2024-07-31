@@ -17,26 +17,34 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -44,27 +52,34 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 /**
  * Tests to verify {@link PrepareServiceImpl}.
  */
-@SuppressWarnings("DataFlowIssue")
 public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     private static final List<PrepareService> createdServices = new ArrayList<>();
+
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     @AfterEach
     public void stopServices() throws Exception {
@@ -73,6 +88,11 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         }
 
         createdServices.clear();
+    }
+
+    @AfterEach
+    public void stopScheduler() {
+        scheduler.shutdownNow();
     }
 
     @Test
@@ -187,7 +207,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 "Ambiguous operator <UNKNOWN> + <UNKNOWN>. Dynamic parameter requires adding explicit type cast",
                 () -> {
                     ParsedResult parsedResult = parse("SELECT ? + ?");
-                    BaseQueryContext context = createContext();
+                    SqlOperationContext context = createContext();
                     await(service.prepareAsync(parsedResult, context));
                 }
         );
@@ -202,14 +222,15 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 .distribution(IgniteDistributions.single())
                 .build();
 
-        PrepareService service = createPlannerService();
-
         IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(table));
+
+        PrepareService service = createPlannerService(schema);
+
         Object paramValue = SqlTestUtils.generateValueByType(nativeType.spec().asColumnType());
 
         QueryPlan queryPlan = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE c = ?"),
-                createContext(schema, paramValue)
+                createContext(paramValue)
         ));
 
         ParameterType parameterType = queryPlan.parameterMetadata().parameterTypes().get(0);
@@ -219,6 +240,73 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         assertEquals(precision, parameterType.precision(), "Precision does not match: " + parameterType);
         assertEquals(scale, parameterType.scale(), "Scale does not match: " + parameterType);
         assertTrue(parameterType.nullable(), "Nullabilty does not match: " + parameterType);
+    }
+
+    @Test
+    public void timeoutedPlanShouldBeRemovedFromCache() throws InterruptedException {
+        IgniteTable igniteTable = TestBuilders.table()
+                .name("T")
+                .addColumn("C", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        // Create a proxy.
+        IgniteTable spyTable = Mockito.spy(igniteTable);
+
+        // Override and slowdown a method, which is called by Planner, to emulate long planning.
+        Mockito.doAnswer(inv -> {
+            try {
+                Thread.sleep(300);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            // Call original method.
+            return igniteTable.getRowType(inv.getArgument(0), inv.getArgument(1));
+        }).when(spyTable).getRowType(any(), any());
+
+        IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(igniteTable));
+        Cache<Object, Object> cache = CaffeineCacheFactory.INSTANCE.create(100);
+
+        CacheFactory cacheFactory = new CacheFactory() {
+            @Override
+            public <K, V> Cache<K, V> create(int size) {
+                return (Cache<K, V>) cache;
+            }
+
+            @Override
+            public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
+                return (Cache<K, V>) cache;
+            }
+        };
+
+        PrepareServiceImpl service = createPlannerService(schema, cacheFactory, 100);
+
+        StringBuilder stmt = new StringBuilder();
+        for (int i = 0; i < 100; i++) {
+            if (i > 0) {
+                stmt.append("UNION");
+                stmt.append(System.lineSeparator());
+            }
+            stmt.append("SELECT * FROM t WHERE c = ").append(i);
+            stmt.append(System.lineSeparator());
+        }
+
+        ParsedResult parsedResult = parse(stmt.toString());
+
+        SqlOperationContext context = operationContext().build();
+
+        Throwable err = assertThrowsWithCause(
+                () -> service.prepareAsync(parsedResult, context).get(),
+                SqlException.class
+        );
+
+        Throwable cause = ExceptionUtils.unwrapCause(err);
+        SqlException sqlErr = assertInstanceOf(SqlException.class, cause, "Unexpected error. Root error: " + err);
+        assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code(), "Unexpected error: " + sqlErr);
+
+        // Cache invalidate does not immediately remove the entry, so we need to wait some time to ensure it is removed.
+        boolean empty = IgniteTestUtils.waitForCondition(() -> cache.size() == 0, 1000);
+        assertTrue(empty, "Cache is not empty: " + cache.size());
     }
 
     private static Stream<Arguments> parameterTypes() {
@@ -248,36 +336,18 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return new ParserServiceImpl().parse(query);
     }
 
-    private static BaseQueryContext createContext(Object... params) {
-        return BaseQueryContext.builder()
-                .queryId(UUID.randomUUID())
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(wrap(createSchema()))
-                                .build()
-                )
-                .parameters(params)
-                .build();
+    private static SqlOperationContext createContext(Object... params) {
+        return operationContext(params).build();
     }
 
-    private static BaseQueryContext createContext(IgniteSchema schema, Object... params) {
-        return BaseQueryContext.builder()
+    private static SqlOperationContext.Builder operationContext(Object... params) {
+        return SqlOperationContext.builder()
                 .queryId(UUID.randomUUID())
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(wrap(schema))
-                                .build()
-                )
+                .timeZoneId(ZoneId.systemDefault())
+                .operationTime(new HybridClockImpl().now())
+                .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .parameters(params)
-                .build();
-    }
-
-    private static SchemaPlus wrap(IgniteSchema schema) {
-        var schemaPlus = Frameworks.createRootSchema(false);
-
-        schemaPlus.add(schema.getName(), schema);
-
-        return schemaPlus.getSubSchema(schema.getName());
+                .cancel(new QueryCancel());
     }
 
     private static IgniteSchema createSchema() {
@@ -292,8 +362,17 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private static PrepareService createPlannerService() {
-        PrepareService service = new PrepareServiceImpl("test", 1_000, CaffeineCacheFactory.INSTANCE,
-                mock(DdlSqlToCommandConverter.class), 5_000, 2, mock(MetricManagerImpl.class));
+        return createPlannerService(createSchema());
+    }
+
+    private static PrepareService createPlannerService(IgniteSchema schema) {
+        return createPlannerService(schema, CaffeineCacheFactory.INSTANCE, 1000);
+    }
+
+    private static PrepareServiceImpl createPlannerService(IgniteSchema schema, CacheFactory cacheFactory, int timeoutMillis) {
+        PrepareServiceImpl service = new PrepareServiceImpl("test", 1000, cacheFactory,
+                mock(DdlSqlToCommandConverter.class), timeoutMillis, 2, mock(MetricManagerImpl.class),
+                new PredefinedSchemaManager(schema));
 
         createdServices.add(service);
 

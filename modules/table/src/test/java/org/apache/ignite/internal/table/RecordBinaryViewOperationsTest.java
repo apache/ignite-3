@@ -368,6 +368,51 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     }
 
     @Test
+    public void testContainsAll() {
+        SchemaDescriptor schema = schemaDescriptor();
+        RecordView<Tuple> recordView = createTable(schema).recordView();
+
+        long firstKey = 101L;
+        Tuple firstKeyTuple = Tuple.create()
+                .set("id", firstKey);
+        Tuple firstValTuple = Tuple.create()
+                .set("id", firstKey)
+                .set("val", 201L);
+
+        long secondKey = 102L;
+        Tuple secondKeyTuple = Tuple.create()
+                .set("id", secondKey);
+        Tuple secondValTuple = Tuple.create()
+                .set("id", secondKey)
+                .set("val", 202L);
+
+        long thirdKey = 103L;
+        Tuple thirdKeyTuple = Tuple.create()
+                .set("id", thirdKey);
+        Tuple thirdValTuple = Tuple.create()
+                .set("id", thirdKey)
+                .set("val", 203L);
+
+        List<Tuple> recs = List.of(firstValTuple, secondValTuple, thirdValTuple);
+
+        recordView.insertAll(null, recs);
+
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstKeyTuple, null, thirdKeyTuple)));
+
+        assertTrue(recordView.containsAll(null, List.of()));
+        assertTrue(recordView.containsAll(null, List.of(firstKeyTuple)));
+        assertTrue(recordView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, thirdKeyTuple)));
+
+        long missedKey = 0L;
+        Tuple missedKeyTuple = Tuple.create()
+                .set("id", missedKey);
+
+        assertFalse(recordView.containsAll(null, List.of(missedKeyTuple)));
+        assertFalse(recordView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, missedKeyTuple)));
+    }
+
+    @Test
     public void upsertAllAfterInsertAll() {
         SchemaDescriptor schema = schemaDescriptor();
 

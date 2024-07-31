@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.annotations.Table;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -211,7 +212,7 @@ public class TableDefinition {
     public static class Builder {
         private String tableName;
 
-        private String schemaName;
+        private String schemaName = Table.DEFAULT_SCHEMA;
 
         private boolean ifNotExists;
 
@@ -452,6 +453,10 @@ public class TableDefinition {
             Objects.requireNonNull(columnNames, "Index columns array must not be null.");
             for (String column : columnNames) {
                 Objects.requireNonNull(column, "Index column must not be null.");
+
+                if (column.isBlank()) {
+                    throw new IllegalArgumentException("Index column must not be blank.");
+                }
             }
 
             return index(null, IndexType.DEFAULT, mapToSortedColumns(columnNames));
@@ -488,6 +493,10 @@ public class TableDefinition {
             Objects.requireNonNull(columns, "Index columns list must not be null.");
             for (ColumnSorted column : columns) {
                 Objects.requireNonNull(column, "Index column must not be null.");
+            }
+
+            if (columns.isEmpty()) {
+                throw new IllegalArgumentException("Index columns list must not be empty.");
             }
 
             indexes.add(new IndexDefinition(indexName, type, columns));

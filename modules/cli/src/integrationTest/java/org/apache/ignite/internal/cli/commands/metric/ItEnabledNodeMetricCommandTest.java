@@ -20,9 +20,11 @@ package org.apache.ignite.internal.cli.commands.metric;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
+import java.util.Arrays;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCallInput;
+import org.apache.ignite.rest.client.model.MetricSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,20 +39,25 @@ class ItEnabledNodeMetricCommandTest extends CliIntegrationTest {
 
     @BeforeAll
     void beforeAll() {
-        var inputEnable = NodeMetricSourceEnableCallInput.builder()
-                .endpointUrl(NODE_URL)
-                .srcName("jvm")
-                .enable(true)
-                .build();
+        // Disable all metrics except "jvm".
+        Arrays.stream(ALL_METRIC_SOURCES).map(MetricSource::getName).forEach(name -> {
+            if ("jvm".equals(name)) {
+                return;
+            }
 
-        nodeMetricSourceEnableCall.execute(inputEnable);
+            nodeMetricSourceEnableCall.execute(NodeMetricSourceEnableCallInput.builder()
+                    .endpointUrl(NODE_URL)
+                    .srcName(name)
+                    .enable(false)
+                    .build());
+        });
     }
 
     @Test
     @DisplayName("Should display enabled jvm metric source when valid node-url is given")
     void nodeMetricSourcesList() {
         // When list node metric sources with valid url
-        execute("node", "metric", "source", "list", "--plain", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "list", "--plain", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -68,7 +75,7 @@ class ItEnabledNodeMetricCommandTest extends CliIntegrationTest {
     @DisplayName("Should display node metrics list when valid node-url is given")
     void nodeMetricEnableNonexistent() {
         // When list node metric with valid url
-        execute("node", "metric", "list", "--plain", "--node-url", NODE_URL);
+        execute("node", "metric", "list", "--plain", "--url", NODE_URL);
 
         // Then
         assertAll(

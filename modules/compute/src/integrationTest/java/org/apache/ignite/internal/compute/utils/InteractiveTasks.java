@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.utils;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -27,10 +28,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.compute.task.ComputeJobRunner;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 
@@ -59,16 +62,16 @@ public final class InteractiveTasks {
     private static final BlockingQueue<Object> GLOBAL_CHANNEL = new LinkedBlockingQueue<>();
 
     /**
-     * This counter indicated how many {@link GlobalInteractiveMapReduceTask#split(TaskExecutionContext, Object...)} methods are running
-     * now. This counter increased each time the {@link GlobalInteractiveMapReduceTask#split(TaskExecutionContext, Object...)} is called and
-     * decreased when the method is finished (whatever the result is). Checked in {@link #clearState}.
+     * This counter indicated how many {@link GlobalInteractiveMapReduceTask#splitAsync(TaskExecutionContext, Object...)} methods are
+     * running now. This counter increased each time the {@link GlobalInteractiveMapReduceTask#splitAsync(TaskExecutionContext, Object...)}
+     * is called and decreased when the method is finished (whatever the result is). Checked in {@link #clearState}.
      */
     private static final AtomicInteger RUNNING_GLOBAL_SPLIT_CNT = new AtomicInteger(0);
 
     /**
-     * This counter indicated how many {@link GlobalInteractiveMapReduceTask#reduce(Map)} methods are running now. This counter increased
-     * each time the {@link GlobalInteractiveMapReduceTask#reduce(Map)} is called and decreased when the method is finished (whatever the
-     * result is). Checked in {@link #clearState}.
+     * This counter indicates how many {@link GlobalInteractiveMapReduceTask#reduceAsync(TaskExecutionContext, Map)} methods are running
+     * now. This counter is increased every time the {@link GlobalInteractiveMapReduceTask#reduceAsync(TaskExecutionContext, Map)} is called
+     * and decreased when the method is finished (whatever the result is). Checked in {@link #clearState}.
      */
     private static final AtomicInteger RUNNING_GLOBAL_REDUCE_CNT = new AtomicInteger(0);
 
@@ -118,31 +121,26 @@ public final class InteractiveTasks {
         /**
          * Ask reduce method to return a concatenation of jobs results.
          */
-        REDUCE_RETURN
-    }
+        REDUCE_RETURN,
 
-    private static Signal listenSignal() {
-        try {
-            return GLOBAL_SIGNALS.take();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        /**
+         * Ask the task to check for cancellation flag and finish if it's set.
+         */
+        CHECK_CANCEL
     }
 
     /**
      * If any of the args are strings, convert them to signals and offer them to the job.
      *
-     * @param args Job args.
+     * @param arg Job args.
      */
-    private static void offerArgsAsSignals(Object... args) {
-        for (Object arg : args) {
-            if (arg instanceof String) {
-                String signal = (String) arg;
-                try {
-                    GLOBAL_SIGNALS.offer(Signal.valueOf(signal));
-                } catch (IllegalArgumentException ignored) {
-                    // Ignore non-signal strings
-                }
+    private static void offerArgsAsSignals(Object arg) {
+        if (arg instanceof String) {
+            String signal = (String) arg;
+            try {
+                GLOBAL_SIGNALS.offer(Signal.valueOf(signal));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore non-signal strings
             }
         }
     }
@@ -150,12 +148,34 @@ public final class InteractiveTasks {
     /**
      * Interactive map reduce task that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<List<String>> {
+    private static class GlobalInteractiveMapReduceTask implements MapReduceTask<String, Object, Object, List<String>> {
+        // When listening for signal is interrupted, if this flag is true, then corresponding method will throw exception,
+        // otherwise it will clean the interrupted status.
+        private boolean throwExceptionOnInterruption = true;
+
+        private static final String NO_INTERRUPT_ARG_NAME = "NO_INTERRUPT";
+
+        private Signal listenSignal() {
+            try {
+                return GLOBAL_SIGNALS.take();
+            } catch (InterruptedException e) {
+                if (throwExceptionOnInterruption) {
+                    throw new RuntimeException(e);
+                } else {
+                    Thread.currentThread().interrupt();
+                    return Signal.CHECK_CANCEL;
+                }
+            }
+        }
+
         @Override
-        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+        public CompletableFuture<List<MapReduceJob<Object, Object>>> splitAsync(TaskExecutionContext context, String args) {
             RUNNING_GLOBAL_SPLIT_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
+            if (NO_INTERRUPT_ARG_NAME.equals(args)) {
+                throwExceptionOnInterruption = false;
+            }
 
             try {
                 while (true) {
@@ -167,12 +187,17 @@ public final class InteractiveTasks {
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case SPLIT_RETURN_ALL_NODES:
-                            return context.ignite().clusterNodes().stream().map(node ->
-                                    ComputeJobRunner.builder()
-                                            .jobClassName(InteractiveJobs.interactiveJobName())
+                            return completedFuture(context.ignite().clusterNodes().stream().map(node ->
+                                    MapReduceJob.builder()
+                                            .jobDescriptor(JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build())
                                             .nodes(Set.of(node))
                                             .build()
-                            ).collect(toList());
+                            ).collect(toList()));
+                        case CHECK_CANCEL:
+                            if (context.isCancelled()) {
+                                throw new RuntimeException("Task is cancelled");
+                            }
+                            break;
                         default:
                             throw new IllegalStateException("Unexpected value: " + receivedSignal);
                     }
@@ -183,7 +208,7 @@ public final class InteractiveTasks {
         }
 
         @Override
-        public List<String> reduce(Map<UUID, ?> results) {
+        public CompletableFuture<List<String>> reduceAsync(TaskExecutionContext context, Map<UUID, Object> results) {
             RUNNING_GLOBAL_REDUCE_CNT.incrementAndGet();
             try {
                 while (true) {
@@ -195,9 +220,14 @@ public final class InteractiveTasks {
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case REDUCE_RETURN:
-                            return results.values().stream()
+                            return completedFuture(results.values().stream()
                                     .map(String.class::cast)
-                                    .collect(toList());
+                                    .collect(toList()));
+                        case CHECK_CANCEL:
+                            if (context.isCancelled()) {
+                                throw new RuntimeException("Task is cancelled");
+                            }
+                            break;
                         default:
                             throw new IllegalStateException("Unexpected value: " + receivedSignal);
                     }

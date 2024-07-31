@@ -49,6 +49,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -68,7 +70,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  * <p>To avoid errors when using indexes while applying replication log during node recovery, the registration of indexes was moved to the
  * start of the tables.</p>
  */
-// TODO: IGNITE-19082 Delete this class
 public class IndexManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
@@ -126,7 +127,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         LOG.debug("Index manager is about to start");
 
         recoverDestructionQueue();
@@ -141,7 +142,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         LOG.debug("Index manager is about to stop");
 
         if (!stopGuard.compareAndSet(false, true)) {
@@ -171,8 +172,8 @@ public class IndexManager implements IgniteComponent {
      * @return Future with multi-version table storage, completes with {@code null} if the table does not exist according to the passed
      *      parameters.
      */
-    CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
-        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table.internalTable().storage());
+    CompletableFuture<@Nullable MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
+        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table == null ? null : table.internalTable().storage());
     }
 
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {

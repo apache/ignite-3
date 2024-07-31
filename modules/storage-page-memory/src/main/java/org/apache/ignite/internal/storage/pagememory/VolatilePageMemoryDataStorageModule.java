@@ -25,7 +25,7 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
@@ -40,13 +40,11 @@ import org.jetbrains.annotations.Nullable;
  */
 @AutoService(DataStorageModule.class)
 public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
@@ -54,11 +52,13 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            HybridClock clock
     ) throws StorageException {
+        StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageConfiguration.KEY);
+
         VolatilePageMemoryStorageEngineConfiguration engineConfig =
-                ((VolatilePageMemoryStorageEngineExtensionConfiguration) configRegistry
-                        .getConfiguration(StorageConfiguration.KEY).engines()).aimem();
+                ((VolatilePageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aimem();
 
         assert engineConfig != null;
 
@@ -66,7 +66,12 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig,
-                configRegistry.getConfiguration(StorageConfiguration.KEY), ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        return new VolatilePageMemoryStorageEngine(
+                igniteInstanceName,
+                engineConfig,
+                storageConfig,
+                ioRegistry,
+                clock
+        );
     }
 }

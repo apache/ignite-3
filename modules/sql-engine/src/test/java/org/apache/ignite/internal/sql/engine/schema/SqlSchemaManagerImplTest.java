@@ -74,10 +74,12 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.RowTypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
@@ -106,12 +108,12 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
         sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 200);
 
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void cleanup() {
-        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -174,7 +176,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
-        assertThat(schema.version(), equalTo(versionAfter));
+        assertThat(schema.catalogVersion(), equalTo(versionAfter));
 
         CatalogSchemaDescriptor schemaDescriptor = catalogManager.schema(PUBLIC_SCHEMA_NAME, versionAfter);
 
@@ -275,9 +277,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(tableDescriptor, notNullValue());
 
         TableDescriptor descriptor = table.descriptor();
-        assertEquals(tableDescriptor.columns().size(), descriptor.columnsCount(), "column count");
+        assertEquals(tableDescriptor.columns().size(), RowTypeUtils.storedRowsCount(descriptor), "column count");
 
-        for (int i = 0; i < descriptor.columnsCount(); i++) {
+        for (int i = 0; i < tableDescriptor.columns().size(); i++) {
             CatalogTableColumnDescriptor expectedColumnDescriptor = tableDescriptor.columns().get(i);
             ColumnDescriptor actualColumnDescriptor = descriptor.columnDescriptor(i);
 
@@ -320,8 +322,8 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                         .defaultValue(DefaultValue.constant(null)).build(),
                                 ColumnParams.builder().name("C3").type(ColumnType.INT32)
                                         .defaultValue(DefaultValue.constant(1)).build(),
-                                ColumnParams.builder().name("C4").type(ColumnType.STRING).length(256)
-                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.GEN_RANDOM_UUID.name())).build()
+                                ColumnParams.builder().name("C4").type(ColumnType.UUID)
+                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.RAND_UUID.name())).build()
                         ))
                         .primaryKey(primaryKey("C1", "C4"))
                         .zone("Default")
@@ -371,8 +373,8 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 ColumnParams.builder().name("C1").type(ColumnType.INT32).nullable(false).build(),
                                 ColumnParams.builder().name("C2").type(ColumnType.INT32)
                                         .defaultValue(DefaultValue.constant(null)).build(),
-                                ColumnParams.builder().name("C3").type(ColumnType.STRING).length(256)
-                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.GEN_RANDOM_UUID.name())).build(),
+                                ColumnParams.builder().name("C3").type(ColumnType.UUID)
+                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.RAND_UUID.name())).build(),
                                 ColumnParams.builder().name("C4").type(ColumnType.INT8).nullable(true).build()
                         ))
                         .primaryKey(primaryKey)
@@ -748,15 +750,13 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(ColumnType.DOUBLE, -1, -1),
                 Arguments.of(ColumnType.DECIMAL, 4, 0),
                 Arguments.of(ColumnType.DECIMAL, 4, 2),
-                Arguments.of(ColumnType.NUMBER, 4, -1),
                 Arguments.of(ColumnType.STRING, 40, -1),
                 Arguments.of(ColumnType.BYTE_ARRAY, 40, -1),
                 Arguments.of(ColumnType.DATE, -1, -1),
                 Arguments.of(ColumnType.TIME, 2, -1),
                 Arguments.of(ColumnType.DATETIME, 2, -1),
                 Arguments.of(ColumnType.TIMESTAMP, 2, -1),
-                Arguments.of(ColumnType.UUID, -1, -1),
-                Arguments.of(ColumnType.BITMASK, 2, -1)
+                Arguments.of(ColumnType.UUID, -1, -1)
         );
     }
 
@@ -827,7 +827,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             case UUID:
             case BOOLEAN:
                 break;
-            case NUMBER:
             case TIME:
             case DATETIME:
             case TIMESTAMP:
@@ -839,7 +838,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 break;
             case STRING:
             case BYTE_ARRAY:
-            case BITMASK:
                 builder.length(precision);
                 break;
             default:

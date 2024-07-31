@@ -17,18 +17,17 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.NodeNotFoundException;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -58,13 +57,15 @@ public class ClientComputeExecuteRequest {
     ) {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
 
-        List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
+        List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String jobClassName = in.unpackString();
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-        Object[] args = unpackArgs(in);
+        Object arg = unpackPayload(in);
 
-        JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
-        sendResultAndStatus(execution, notificationSender);
+        JobExecution<Object> execution = compute.executeAsyncWithFailover(
+                candidates, deploymentUnits, jobClassName, options, null, null, arg
+        );
+        sendResultAndState(execution, notificationSender);
 
         //noinspection DataFlowIssue
         return execution.idAsync().thenAccept(out::packUuid);
@@ -96,12 +97,15 @@ public class ClientComputeExecuteRequest {
         return nodes;
     }
 
-    static CompletableFuture<Object> sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
+    static CompletableFuture<Object> sendResultAndState(
+            JobExecution<Object> execution,
+            NotificationSender notificationSender
+    ) {
         return execution.resultAsync().whenComplete((val, err) ->
-                execution.statusAsync().whenComplete((status, errStatus) ->
+                execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            w.packObjectAsBinaryTuple(val);
-                            packJobStatus(w, status);
+                            w.packObjectAsBinaryTuple(val, null);
+                            packJobState(w, state);
                         }, err)));
     }
 
@@ -111,24 +115,7 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    static Object[] unpackArgs(ClientMessageUnpacker in) {
-        return in.unpackObjectArrayFromBinaryTuple();
-    }
-
-    /**
-     * Unpacks deployment units.
-     *
-     * @param in Unpacker.
-     * @return Deployment units.
-     */
-    static List<DeploymentUnit> unpackDeploymentUnits(ClientMessageUnpacker in) {
-        int size = in.tryUnpackNil() ? 0 : in.unpackInt();
-        List<DeploymentUnit> res = new ArrayList<>(size);
-
-        for (int i = 0; i < size; i++) {
-            res.add(new DeploymentUnit(in.unpackString(), in.unpackString()));
-        }
-
-        return res;
+    static Object unpackPayload(ClientMessageUnpacker in) {
+        return in.unpackObjectFromBinaryTuple();
     }
 }

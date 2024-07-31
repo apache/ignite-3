@@ -37,7 +37,7 @@ public sealed class IgniteProxy : IgniteServerBase
 
     private readonly ConcurrentQueue<ClientOp> _ops = new();
 
-    public IgniteProxy(IPEndPoint targetEndpoint, string nodeName)
+    public IgniteProxy(EndPoint targetEndpoint, string nodeName)
     {
         TargetEndpoint = targetEndpoint;
         NodeName = nodeName;
@@ -48,7 +48,7 @@ public sealed class IgniteProxy : IgniteServerBase
 
     public string NodeName { get; private init; }
 
-    public IPEndPoint TargetEndpoint { get; private init; }
+    public EndPoint TargetEndpoint { get; private init; }
 
     internal IList<ClientOp> ClientOps => _ops.ToList();
 

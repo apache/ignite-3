@@ -48,9 +48,12 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.SingleClusterNodeResolver;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -71,6 +74,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -86,8 +90,6 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.SingleClusterNodeResolver;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -174,9 +176,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestLowWatermark()
             );
 
-            assertThat(txManager.startAsync(), willCompleteSuccessfully());
+            assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            closeables.add(() -> assertThat(txManager.stopAsync(), willCompleteSuccessfully()));
+            closeables.add(() -> assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
             TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 
@@ -260,7 +262,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(TransactionInflights.class),
                     3_000,
                     0,
-                    null
+                    null,
+                    mock(StreamerReceiverRunner.class)
             );
             this.dataAmount = dataAmount;
 

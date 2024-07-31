@@ -17,33 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateLiteralOrValueExpr;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.util.DateString;
-import org.apache.calcite.util.TimeString;
-import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
@@ -57,9 +47,8 @@ import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -108,7 +97,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
 
-        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 4, 2, 4);
+        NativeType nativeType = getNativeType(columnType);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -131,12 +120,20 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         expectPartitionsPruned(table, columns, new Object[0], group, val);
     }
 
+    private static NativeType getNativeType(ColumnType columnType) {
+        SqlTypeName sqlTypeName = SqlTestUtils.columnType2SqlTypeName(columnType);
+        int precision = IgniteTypeSystem.INSTANCE.getMaxPrecision(sqlTypeName);
+        int scale = IgniteTypeSystem.INSTANCE.getMaxScale(sqlTypeName);
+
+        return TypeUtils.columnType2NativeType(columnType, precision, scale, precision);
+    }
+
     @ParameterizedTest
     @MethodSource("columnTypes")
     public void testDynamicParam(ColumnType columnType) {
         IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
 
-        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 4, 2, 4);
+        NativeType nativeType = getNativeType(columnType);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -254,71 +251,6 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         assert val != null;
 
         return val;
-    }
-
-    private static RexNode generateLiteralOrValueExpr(ColumnType type, Object value) {
-        RexBuilder rexBuilder = Commons.rexBuilder();
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
-        switch (type) {
-            case NULL:
-                return rexBuilder.makeNullLiteral(typeFactory.createSqlType(SqlTypeName.NULL));
-            case BOOLEAN:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.BOOLEAN));
-            case INT8:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.TINYINT));
-            case INT16:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.SMALLINT));
-            case INT32:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.INTEGER));
-            case INT64:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.BIGINT));
-            case FLOAT:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.REAL));
-            case DOUBLE:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DOUBLE));
-            case DECIMAL:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL));
-            case DATE:
-                LocalDate localDate = (LocalDate) value;
-                int epochDay = (int) localDate.toEpochDay();
-
-                return rexBuilder.makeDateLiteral(DateString.fromDaysSinceEpoch(epochDay));
-            case TIME:
-                LocalTime time = (LocalTime) value;
-                int millisOfDay = (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay());
-
-                return rexBuilder.makeTimeLiteral(TimeString.fromMillisOfDay(millisOfDay), 6);
-            case DATETIME:
-                LocalDateTime localDateTime = (LocalDateTime) value;
-                Instant instant1 = localDateTime.toInstant(ZoneOffset.UTC);
-                TimestampString timestampString = TimestampString.fromMillisSinceEpoch(instant1.toEpochMilli());
-
-                return rexBuilder.makeTimestampWithLocalTimeZoneLiteral(timestampString, 6);
-            case TIMESTAMP:
-                Instant instant = (Instant) value;
-
-                return rexBuilder.makeTimestampLiteral(TimestampString.fromMillisSinceEpoch(instant.toEpochMilli()), 6);
-            case UUID:
-                RexLiteral uuidStr = rexBuilder.makeLiteral(value.toString(), typeFactory.createSqlType(SqlTypeName.VARCHAR));
-                IgniteCustomType uuidType = typeFactory.createCustomType(UuidType.NAME);
-
-                return rexBuilder.makeCast(uuidType, uuidStr);
-            case BITMASK:
-                throw new IllegalArgumentException("Not supported: " + type);
-            case STRING:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.VARCHAR));
-            case BYTE_ARRAY:
-                byte[] bytes = (byte[]) value;
-                ByteString byteStr = new ByteString(bytes);
-                return rexBuilder.makeLiteral(byteStr, typeFactory.createSqlType(SqlTypeName.VARBINARY));
-            case PERIOD:
-            case DURATION:
-            case NUMBER:
-                throw new IllegalArgumentException("Not supported: " + type);
-            default:
-                throw new IllegalArgumentException("Unexpected type: " + type);
-        }
     }
 
     private static RexNode newDynamicParam(TableDescriptor descriptor, int paramIndex) {

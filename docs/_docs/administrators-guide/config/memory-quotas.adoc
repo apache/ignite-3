@@ -1,0 +1,49 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Memory Quotas Configuration
+
+Memory quotas can be used to prevent Ignite nodes from running out of memory when executing SQL queries that return large result sets. A query loads objects from caches into memory. If there are too many objects, the objects are too large, or multiple large queries are executed on the node at the same time, the JVM can run out of memory. When memory quotas are configured, the SQL engine imposes a limit on the heap memory available to queries.
+
+Quotas are configured for each node individually. You can have different limits on different nodes, depending on the amount of RAM available to the nodes. Additionally, you can set a cluster-wide limit to how much of the memory quota can be used up by a single SQL query.
+
+
+Memory quota size can be configured in:
+
+- Kilobytes - append 'K' or 'k', for example: 10k, 400K;
+- Megabytes - append 'M' or 'm', for example: 60m, 420M;
+- Gigabytes - append 'G' or 'g', for example: 7g, 2G;
+- Percent of heap - append the '%' sign, for example: 45%, 80%.
+
+== Node-Wide Memory Quota
+
+By default, a quota for SQL queries is set to 60% of the heap memory available to the node. You can change this limit by setting the `sql.nodeMemoryQuota` node configuration property. To disable the memory quota, set it to 0. You can use the CLI tool to set it:
+
+[source, bash]
+----
+node config update --url http://localhost:10300 {sql.nodeMemoryQuota:"1000M"}
+----
+
+If the node memory quota is exceeded, the query is interrupted and the `SQL query ran out of memory: Node quota was exceeded` error is returned.
+
+== Query-Wide Memory Quota
+
+By default, each individual query can use the entire memory quota. This may be undesirable in environments that run multiple large queries in parallel. You can use the `sql.statementMemoryQuota` cluster configuration property to limit the amount of memory that can be allocated to a single query.
+
+[source, bash]
+----
+cluster config update --url http://localhost:10300 {sql.statementMemoryQuota:"10M"}
+----
+
+If the statement memory quota is exceeded, the query is interrupted and the `SQL query ran out of memory: Statement quota was exceeded` error is returned.

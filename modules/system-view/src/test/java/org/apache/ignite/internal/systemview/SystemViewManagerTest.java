@@ -39,10 +39,12 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.only;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -54,12 +56,14 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.systemview.api.SystemView;
@@ -74,8 +78,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.Mock;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -86,8 +89,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     private static final String LOCAL_NODE_NAME = "LOCAL_NODE_NAME";
 
-    @Mock
-    private CatalogManager catalog;
+    private final CatalogManager catalog = Mockito.mock(CatalogManager.class);
 
     private SystemViewManagerImpl viewMgr;
 
@@ -111,7 +113,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void registerAfterStartFails() {
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThrows(IllegalStateException.class, () -> viewMgr.register(() -> List.of(dummyView("test"))));
         verifyNoInteractions(catalog);
@@ -119,24 +121,27 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void startAfterStartFails() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
+        when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test")));
 
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        verify(catalog, only()).execute(anyList());
+        verify(catalog, times(1)).execute(anyList());
+        reset(catalog);
 
-        assertThrows(IllegalStateException.class, viewMgr::startAsync);
+        assertThrows(IllegalStateException.class, () -> viewMgr.startAsync(new ComponentContext()));
 
-        assertThrows(IllegalStateException.class, viewMgr::startAsync);
+        assertThrows(IllegalStateException.class, () -> viewMgr.startAsync(new ComponentContext()));
 
         verifyNoMoreInteractions(catalog);
     }
 
     @Test
     public void registrationCompletesWithoutViews() {
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         verifyNoMoreInteractions(catalog);
 
@@ -144,37 +149,48 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @EnumSource(NativeTypeSpec.class)
+    @MethodSource("nativeTypeSpecs")
     public void registerAllColumnTypes(NativeTypeSpec typeSpec) {
         NativeType type = SchemaTestUtils.specToType(typeSpec);
 
-        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
+        when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test", type)));
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        verify(catalog, only()).execute(anyList());
+        verify(catalog, times(1)).execute(anyList());
         assertTrue(viewMgr.completeRegistration().isDone());
+    }
+
+    private static Stream<NativeTypeSpec> nativeTypeSpecs() {
+        return Stream.of(NativeTypeSpec.values())
+                .filter(t -> t != NativeTypeSpec.BITMASK && t != NativeTypeSpec.NUMBER);
     }
 
     @Test
     public void managerStartsSuccessfullyEvenIfCatalogRespondsWithError() {
         CatalogValidationException expected = new CatalogValidationException("Expected exception.");
 
-        Mockito.when(catalog.execute(anyList())).thenReturn(failedFuture(expected));
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
+        when(catalog.execute(anyList())).thenReturn(failedFuture(expected));
 
         viewMgr.register(() -> List.of(dummyView("test")));
 
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        verify(catalog, only()).execute(anyList());
+        verify(catalog, times(1)).execute(anyList());
 
         assertThat(viewMgr.completeRegistration(), willBe(nullValue()));
     }
 
     @Test
     public void nodeAttributesUpdatedAfterStart() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
+        when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         String name1 = "view1";
         String name2 = "view2";
@@ -183,10 +199,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(viewMgr.nodeAttributes(), aMapWithSize(0));
 
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
-
-        verify(catalog, only()).execute(anyList());
-        verifyNoMoreInteractions(catalog);
+        assertThat(viewMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(viewMgr.nodeAttributes(), is(Map.of(NODE_ATTRIBUTES_KEY, String.join(NODE_ATTRIBUTES_LIST_SEPARATOR, name1.toUpperCase(
                 Locale.ROOT), name2.toUpperCase(Locale.ROOT)))));
@@ -194,22 +207,22 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void registrationFutureCompletesWhenComponentStops() {
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(viewMgr.completeRegistration(), willThrowFast(NodeStoppingException.class));
     }
 
     @Test
     public void startAfterStopFails() {
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         //noinspection ThrowableNotThrown
-        assertThrowsWithCause(viewMgr::startAsync, NodeStoppingException.class);
+        assertThrowsWithCause(() -> viewMgr.startAsync(new ComponentContext()), NodeStoppingException.class);
     }
 
     @Test
     public void registerAfterStopFails() {
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         //noinspection ThrowableNotThrown
         assertThrowsWithCause(() -> viewMgr.register(() -> List.of(dummyView("test"))), NodeStoppingException.class);
@@ -217,8 +230,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void stopAfterStopDoesNothing() {
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -251,7 +264,9 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void viewScanTest() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
+        when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         String nodeView = "NODE_VIEW";
         String clusterView = "CLUSTER_VIEW";
@@ -284,7 +299,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
                         .build()
         ));
 
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         {
             DrainAllSubscriber<InternalTuple> subs = new DrainAllSubscriber<>();

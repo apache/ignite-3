@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.metrics.sources;
 
+import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.HashMap;
+import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
@@ -32,7 +34,6 @@ import org.jetbrains.annotations.Nullable;
  * Metric source, which provides JVM metrics like memory usage, gc stats etc.
  */
 public class JvmMetricSource implements MetricSource {
-
     /** Source name. */
     private static final String SOURCE_NAME = "jvm";
 
@@ -42,16 +43,20 @@ public class JvmMetricSource implements MetricSource {
     /** JVM standard MXBean to provide information about memory usage. */
     private final MemoryMXBean memoryMxBean;
 
-    /** True, if source is enabled, false otherwise. */
+    private final List<GarbageCollectorMXBean> gcMxBeans;
+
+    /** Enablement status. Accessed from different threads under synchronization on this object. */
     private boolean enabled;
 
     /**
      * Constructor.
      *
      * @param memoryMxBean MXBean implementation to receive memory info.
+     * @param gcMxBeans MXBean implementation to receive GC info.
      */
-    JvmMetricSource(MemoryMXBean memoryMxBean) {
+    JvmMetricSource(MemoryMXBean memoryMxBean, List<GarbageCollectorMXBean> gcMxBeans) {
         this.memoryMxBean = memoryMxBean;
+        this.gcMxBeans = List.copyOf(gcMxBeans);
     }
 
     /**
@@ -59,17 +64,20 @@ public class JvmMetricSource implements MetricSource {
      */
     public JvmMetricSource() {
         memoryMxBean = ManagementFactory.getMemoryMXBean();
+        gcMxBeans = ManagementFactory.getGarbageCollectorMXBeans();
     }
 
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return SOURCE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public synchronized @Nullable MetricSet enable() {
+        if (enabled) {
+            return null;
+        }
+
         var metrics = new HashMap<String, Metric>();
 
         CachedMemoryUsage heapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
@@ -117,18 +125,39 @@ public class JvmMetricSource implements MetricSource {
                         () -> nonHeapMemoryUsage.get().getMax()
                 ));
 
+        metrics.put(
+                "gc.CollectionTime",
+                new LongGauge(
+                        "gc.CollectionTime",
+                        "Approximate total time spent on garbage collection in milliseconds, summed across all collectors.",
+                        this::totalCollectionTime
+                )
+        );
+
         enabled = true;
 
         return new MetricSet(SOURCE_NAME, metrics);
     }
 
-    /** {@inheritDoc} */
+    private long totalCollectionTime() {
+        long total = 0;
+
+        for (GarbageCollectorMXBean gcMxBean : gcMxBeans) {
+            long time = gcMxBean.getCollectionTime();
+
+            if (time > 0) {
+                total += time;
+            }
+        }
+
+        return total;
+    }
+
     @Override
     public synchronized void disable() {
         enabled = false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public synchronized boolean enabled() {
         return enabled;

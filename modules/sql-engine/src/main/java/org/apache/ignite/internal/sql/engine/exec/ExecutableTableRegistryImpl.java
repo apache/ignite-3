@@ -74,8 +74,8 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId) {
-        IgniteTable sqlTable = sqlSchemaManager.table(schemaVersion, tableId);
+    public CompletableFuture<ExecutableTable> getTable(int catalogVersion, int tableId) {
+        IgniteTable sqlTable = sqlSchemaManager.table(catalogVersion, tableId);
 
         return tableCache.computeIfAbsent(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
     }
@@ -89,7 +89,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
                     SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
                     TableRowConverterFactory converterFactory = new TableRowConverterFactoryImpl(
-                            sqlTable.keyColumns(), schemaRegistry, schemaDescriptor
+                            tableDescriptor, schemaRegistry, schemaDescriptor
                     );
 
                     InternalTable internalTable = table.internalTable();

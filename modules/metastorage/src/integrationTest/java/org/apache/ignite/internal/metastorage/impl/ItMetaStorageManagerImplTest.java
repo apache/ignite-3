@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
@@ -72,6 +74,7 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -97,10 +100,12 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     private MetaStorageManagerImpl metaStorageManager;
 
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration RaftConfiguration raftConfiguration,
             @InjectConfiguration("mock.idleSyncTimeInterval = 100") MetaStorageConfiguration metaStorageConfiguration
     ) {
         var addr = new NetworkAddress("localhost", 10_000);
@@ -111,7 +116,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        raftManager = new Loza(clusterService, new NoOpMetricManager(), raftConfiguration, workDir.resolve("loza"), clock,
+        raftManager = TestLozaFactory.create(clusterService, raftConfiguration, workDir.resolve("loza"), clock,
                 raftGroupEventsClientListener);
 
         var logicalTopologyService = mock(LogicalTopologyService.class);
@@ -130,7 +135,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         storage = new RocksDbKeyValueStorage(
                 clusterService.nodeName(),
                 workDir.resolve("metastorage"),
-                new NoOpFailureProcessor(clusterService.nodeName()));
+                new NoOpFailureProcessor());
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
@@ -140,11 +145,14 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 storage,
                 clock,
                 topologyAwareRaftGroupServiceFactory,
-                metaStorageConfiguration
+                new NoOpMetricManager(),
+                metaStorageConfiguration,
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
 
         assertThat(
-                startAsync(clusterService, raftManager, metaStorageManager)
+                startAsync(new ComponentContext(), clusterService, raftManager, metaStorageManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
@@ -156,7 +164,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+                Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
         ));
     }
 
@@ -197,10 +205,10 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testMetaStorageStopClosesRaftService() throws Exception {
+    void testMetaStorageStopClosesRaftService() {
         MetaStorageServiceImpl svc = metaStorageManager.metaStorageService().join();
 
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Entry> fut = svc.get(ByteArray.fromString("ignored"));
 
@@ -208,8 +216,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testMetaStorageStopBeforeRaftServiceStarted() throws Exception {
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()); // Close MetaStorage that is created in setUp.
+    void testMetaStorageStopBeforeRaftServiceStarted() {
+        // Close MetaStorage that is created in setUp.
+        assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -225,10 +234,13 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 raftManager,
                 storage,
                 new HybridClockImpl(),
-                mock(TopologyAwareRaftGroupServiceFactory.class)
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                new NoOpMetricManager(),
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
 
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Unblock the future so raft service can be initialized. Although the future should be cancelled already by the
         // stop method.
@@ -262,7 +274,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
      * Tests that idle safe time propagation does not advance safe time while watches of a normal command are being executed.
      */
     @Test
-    void testIdleSafeTimePropagationAndNormalSafeTimePropagationInteraction(TestInfo testInfo) throws Exception {
+    void testIdleSafeTimePropagationAndNormalSafeTimePropagationInteraction(TestInfo testInfo) {
         var key = new ByteArray("foo");
         byte[] value = "bar".getBytes(UTF_8);
 

@@ -18,16 +18,18 @@
 package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
+import org.intellij.lang.annotations.MagicConstant;
 
 /** Common exception for disaster recovery. */
 public class DisasterRecoveryException extends IgniteInternalException {
     private static final long serialVersionUID = -3565357739782565015L;
 
-    public DisasterRecoveryException(int code, Throwable cause) {
+    public DisasterRecoveryException(@MagicConstant(valuesFromClass = DisasterRecovery.class) int code, Throwable cause) {
         super(code, cause);
     }
 
-    public DisasterRecoveryException(int code, String message) {
+    public DisasterRecoveryException(@MagicConstant(valuesFromClass = DisasterRecovery.class) int code, String message) {
         super(code, message);
     }
 }

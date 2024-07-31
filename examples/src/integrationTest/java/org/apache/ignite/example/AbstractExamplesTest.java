@@ -23,12 +23,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -45,32 +42,27 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
     /** Empty argument to invoke an example. */
     protected static final String[] EMPTY_ARGS = new String[0];
 
-    /** Started ignite instance. */
-    protected IgniteImpl ignite;
+    /** Started embedded node. */
+    private IgniteServer node;
 
     /**
      * Starts a node.
      */
     @BeforeEach
     public void startNode() throws Exception {
-        CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
+        node = IgniteServer.start(
                 TEST_NODE_NAME,
                 configFile(),
                 workDir
         );
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(TEST_NODE_NAME)
-                .metaStorageNodeNames(List.of(TEST_NODE_NAME))
+                .metaStorageNodeNames(TEST_NODE_NAME)
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
-
-        assertThat(igniteFuture, willCompleteSuccessfully());
-
-        // We can call without a timeout, since the future is guaranteed to be completed above.
-        ignite = (IgniteImpl) igniteFuture.join();
+        CompletableFuture<Void> initFuture = node.initClusterAsync(initParameters);
+        assertThat(initFuture, willCompleteSuccessfully());
     }
 
     /**
@@ -78,7 +70,7 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
      */
     @AfterEach
     public void stopNode() {
-        IgnitionManager.stop(TEST_NODE_NAME);
+        node.shutdown();
     }
 
     /**

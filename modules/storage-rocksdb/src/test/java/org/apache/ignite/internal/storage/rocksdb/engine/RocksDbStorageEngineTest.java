@@ -36,7 +36,7 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
     @InjectConfiguration("mock.flushDelayMillis = 0")
     private RocksDbStorageEngineConfiguration engineConfiguration;
 
-    @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
+    @InjectConfiguration("mock.profiles.default.engine = rocksdb")
     StorageConfiguration storageConfiguration;
 
     @WorkDirectory

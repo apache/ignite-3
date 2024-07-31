@@ -100,7 +100,6 @@ public class RenameIndexEntry implements UpdateEntry {
                 index.tableId(),
                 index.unique(),
                 index.status(),
-                index.txWaitCatalogVersion(),
                 index.columns()
         );
     }
@@ -112,7 +111,6 @@ public class RenameIndexEntry implements UpdateEntry {
                 index.tableId(),
                 index.unique(),
                 index.status(),
-                index.txWaitCatalogVersion(),
                 index.columns()
         );
     }

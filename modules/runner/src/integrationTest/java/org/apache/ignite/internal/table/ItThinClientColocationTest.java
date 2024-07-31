@@ -37,7 +37,6 @@ import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -59,9 +58,8 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("nativeTypes")
-    public void testClientAndServerColocationHashesAreSame(NativeType type)
-            throws TupleMarshallerException {
-        var columnName = "col1";
+    public void testClientAndServerColocationHashesAreSame(NativeType type) {
+        var columnName = "COL1";
 
         TupleMarshaller serverMarshaller = tupleMarshaller(type, columnName);
         ClientSchema clientSchema = clientSchema(type, columnName);
@@ -144,7 +142,6 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
                 NativeTypes.STRING,
                 NativeTypes.BYTES,
                 NativeTypes.UUID,
-                NativeTypes.bitmaskOf(8),
                 NativeTypes.DATE,
         };
 
@@ -154,7 +151,6 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
             types2.add(NativeTypes.time(i));
             types2.add(NativeTypes.datetime(i));
             types2.add(NativeTypes.timestamp(i));
-            types2.add(NativeTypes.numberOf(i + 1)); // 0 precision is not allowed.
             types2.add(NativeTypes.decimalOf(i + 10, i));
         }
 

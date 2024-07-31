@@ -54,6 +54,14 @@ public:
         , m_magnitude(mag, len, sign, big_endian) {}
 
     /**
+     * Constructs a big decimal from the byte array.
+     *
+     * @param data Bytes of the decimal. Scale in little byte order, magnitude as a @ref big_integer.
+     * @param size The number of bytes.
+     */
+    big_decimal(const std::byte *data, std::size_t size);
+
+    /**
      * Integer constructor.
      *
      * @param val Integer value.
@@ -67,7 +75,7 @@ public:
      * @param val Integer value.
      * @param scale Scale.
      */
-    big_decimal(int64_t val, int32_t scale)
+    big_decimal(int64_t val, int16_t scale)
         : m_scale(scale)
         , m_magnitude(val) {}
 
@@ -77,9 +85,19 @@ public:
      * @param val big_integer value.
      * @param scale Scale.
      */
-    big_decimal(big_integer val, int32_t scale)
+    big_decimal(const big_integer &val, int16_t scale)
         : m_scale(scale)
-        , m_magnitude(std::move(val)) {}
+        , m_magnitude(val) {}
+
+    /**
+     * big_integer constructor with scale.
+     *
+     * @param val big_integer value.
+     * @param scale Scale.
+     */
+    big_decimal(big_integer &&val, int16_t scale)
+        : m_scale(scale)
+        , m_magnitude(std::forward<big_integer>(val)) {}
 
     /**
      * String constructor.
@@ -100,6 +118,44 @@ public:
     explicit big_decimal(const std::string &val)
         : m_magnitude(0) {
         assign_string(val);
+    }
+
+    /**
+     * From double.
+     *
+     * @param val Double value.
+     * @return An instance of big_decimal from double.
+     */
+    static big_decimal from_double(double val) {
+        big_decimal res;
+        res.assign_double(val);
+        return res;
+    }
+
+    /**
+     * Get number of bytes required to store this decimal as byte array.
+     *
+     * @return Number of bytes required to store this decimal as byte array.
+     */
+    [[nodiscard]] std::size_t byte_size() const noexcept;
+
+    /**
+     * Store this decimal as a byte array.
+     *
+     * @param data Destination byte array. Its size must be at least as large as the value returned by @ref
+     * byte_size();
+     */
+    void store_bytes(std::byte *data) const;
+
+    /**
+     * Convert value to bytes.
+     *
+     * @return Vector of bytes.
+     */
+    [[nodiscard]] std::vector<std::byte> to_bytes() const {
+        std::vector<std::byte> bytes(byte_size());
+        store_bytes(bytes.data());
+        return bytes;
     }
 
     /**
@@ -178,11 +234,11 @@ public:
      *
      * @param other Other instance.
      */
-    void swap(big_decimal &second) {
+    friend void swap(big_decimal &lhs, big_decimal &rhs) {
         using std::swap;
 
-        swap(m_scale, second.m_scale);
-        m_magnitude.swap(second.m_magnitude);
+        swap(lhs.m_scale, rhs.m_scale);
+        swap(lhs.m_magnitude, rhs.m_magnitude);
     }
 
     /**
@@ -241,6 +297,38 @@ public:
 
         m_scale = 0;
     }
+
+    /**
+     * Add another big decimal to this.
+     *
+     * @param other Addendum. Can be *this.
+     * @param res Result placed there. Can be *this.
+     */
+    void add(const big_decimal &other, big_decimal &res) const;
+
+    /**
+     * Subtract another big decimal from this.
+     *
+     * @param other Subtrahend. Can be *this.
+     * @param res  Result placed there. Can be *this.
+     */
+    void subtract(const big_decimal &other, big_decimal &res) const;
+
+    /**
+     * Muitiply this to another big decimal.
+     *
+     * @param other Another instance. Can be *this.
+     * @param res Result placed there. Can be *this.
+     */
+    void multiply(const big_decimal &other, big_decimal &res) const;
+
+    /**
+     * Divide this to another big decimal.
+     *
+     * @param divisor Divisor. Can be *this.
+     * @param res Result placed there. Can be *this.
+     */
+    void divide(const big_decimal &other, big_decimal &res) const;
 
     /**
      * Reverses sign of this value.
@@ -367,6 +455,58 @@ inline bool operator>(const big_decimal &lhs, const big_decimal &rhs) noexcept {
  */
 inline bool operator>=(const big_decimal &lhs, const big_decimal &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
+}
+
+/**
+ * @brief Sum operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs + rhs.
+ */
+inline big_decimal operator+(const big_decimal &lhs, const big_decimal &rhs) noexcept {
+    big_decimal res;
+    lhs.add(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Subtract operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs - rhs.
+ */
+inline big_decimal operator-(const big_decimal &lhs, const big_decimal &rhs) noexcept {
+    big_decimal res;
+    lhs.subtract(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Multiply operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs * rhs.
+ */
+inline big_decimal operator*(const big_decimal &lhs, const big_decimal &rhs) noexcept {
+    big_decimal res;
+    lhs.multiply(rhs, res);
+    return res;
+}
+
+/**
+ * @brief Divide operator.
+ *
+ * @param lhs First value.
+ * @param rhs Second value.
+ * @return New value that holds result of lhs / rhs.
+ */
+inline big_decimal operator/(const big_decimal &lhs, const big_decimal &rhs) noexcept {
+    big_decimal res;
+    lhs.divide(rhs, res);
+    return res;
 }
 
 } // namespace ignite

@@ -37,7 +37,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -58,6 +57,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -96,8 +96,6 @@ public class TestServer implements AutoCloseable {
 
     private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
 
-    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
-
     /**
      * Constructor.
      *
@@ -115,7 +113,6 @@ public class TestServer implements AutoCloseable {
                 null,
                 null,
                 UUID.randomUUID(),
-                null,
                 null,
                 null
         );
@@ -143,7 +140,8 @@ public class TestServer implements AutoCloseable {
                 clusterId,
                 securityConfiguration,
                 port,
-                null
+                null,
+                true
         );
     }
 
@@ -162,7 +160,8 @@ public class TestServer implements AutoCloseable {
             UUID clusterId,
             @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
-            @Nullable HybridClock clock
+            @Nullable HybridClock clock,
+            boolean enableRequestHandling
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -174,15 +173,20 @@ public class TestServer implements AutoCloseable {
                 new TestConfigurationValidator()
         );
 
-        assertThat(cfg.startAsync(), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+
+        assertThat(cfg.startAsync(componentContext), willCompleteSuccessfully());
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
-                local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
+                local -> local
+                        .changePort(port != null ? port : getFreePort())
+                        .changeIdleTimeout(idleTimeout)
+                        .changeSendServerExceptionStackTraceToClient(true)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
 
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
         if (nodeName == null) {
             nodeName = "server-1";
@@ -198,8 +202,6 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteComputeInternal compute = new FakeCompute(nodeName);
-
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
 
@@ -211,10 +213,10 @@ public class TestServer implements AutoCloseable {
             authenticationManager = new DummyAuthenticationManager();
         } else {
             authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
-            assertThat(authenticationManager.startAsync(), willCompleteSuccessfully());
+            assertThat(authenticationManager.startAsync(componentContext), willCompleteSuccessfully());
         }
 
-        ClusterTag tag = msgFactory.clusterTag()
+        ClusterTag tag = new CmgMessagesFactory().clusterTag()
                 .clusterName("Test Server")
                 .clusterId(clusterId)
                 .build();
@@ -228,7 +230,6 @@ public class TestServer implements AutoCloseable {
                 shouldDropConnection,
                 responseDelay,
                 clusterService,
-                compute,
                 tag,
                 metrics,
                 authenticationManager,
@@ -239,7 +240,7 @@ public class TestServer implements AutoCloseable {
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
                         (IgniteTransactionsImpl) ignite.transactions(),
-                        compute,
+                        (IgniteComputeInternal) ignite.compute(),
                         clusterService,
                         bootstrapFactory,
                         () -> CompletableFuture.completedFuture(tag),
@@ -254,7 +255,11 @@ public class TestServer implements AutoCloseable {
                         new TestLowWatermark()
                 );
 
-        module.startAsync().join();
+        module.startAsync(componentContext).join();
+
+        if (enableRequestHandling) {
+            enableClientRequestHandling();
+        }
     }
 
     /**
@@ -318,9 +323,16 @@ public class TestServer implements AutoCloseable {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        assertThat(stopAsync(module, authenticationManager, bootstrapFactory, cfg), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), module, authenticationManager, bootstrapFactory, cfg), willCompleteSuccessfully());
 
         generator.close();
+    }
+
+    /** Enables request handling. */
+    void enableClientRequestHandling() {
+        if (module instanceof ClientHandlerModule) {
+            ((ClientHandlerModule) module).enable();
+        }
     }
 
     private ClusterNode getClusterNode(String name) {

@@ -47,11 +47,13 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -61,7 +63,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -98,7 +99,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setUp() {
         metaStorageManager = StandaloneMetaStorageManager.create();
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
         metaStorageManager.deployWatches();
 
         pdLogicalTopologyService = mock(LogicalTopologyService.class);
@@ -157,7 +158,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 pdLogicalTopologyService,
                 leaseTracker,
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(new HybridClockImpl()),
+                new AssignmentsTracker(metaStorageManager)
         );
     }
 

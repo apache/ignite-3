@@ -82,6 +82,11 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT OCTET_LENGTH(NULL)").returns(NULL_RESULT).check();
     }
 
+    /**
+     * SQL F051-06 feature. Basic date and time. CURRENT_DATE.
+     * SQL F051-07 feature. Basic date and time. LOCALTIME.
+     * SQL F051-08 feature. Basic date and time. LOCALTIMESTAMP.
+     */
     @ParameterizedTest(name = "use default time zone: {0}")
     @ValueSource(booleans = {true, false})
     public void testCurrentDateTimeTimeStamp(boolean useDefaultTimeZone) {
@@ -169,10 +174,25 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
 
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
 
+        assertEquals(0, sql("SELECT * FROM table(system_range(1, null))").size());
+
         assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "Increment can't be 0",
                 () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
+
+        assertQuery("SELECT (SELECT * FROM table(system_range(4, 1)))")
+                .returns(null)
+                .check();
+
+        assertQuery("SELECT (SELECT * FROM table(system_range(1, 1)))")
+                .returns(1L)
+                .check();
+
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Subquery returned more than 1 value",
+                () -> sql("SELECT (SELECT * FROM table(system_range(1, 10)))"));
     }
 
     @Test
@@ -336,7 +356,8 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT TYPEOF('abcd' || COALESCE('efg', ?))").withParams("2").returns("VARCHAR").check();
 
         // An expression that produces an error
-        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "", () -> sql("SELECT typeof(CAST('NONE' as INTEGER))"));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Invalid input string for type INTEGER: \"NONE\"",
+                () -> sql("SELECT typeof(CAST('NONE' as INTEGER))"));
 
         assertThrowsWithCause(() -> sql("SELECT TYPEOF()"), SqlValidatorException.class, "Invalid number of arguments");
 
@@ -361,10 +382,19 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT SUBSTRING(s from i for l) from (values ('abc', null, 2)) as t (s, i, l);").returns(null).check();
 
-        assertQuery("SELECT SUBSTRING('1234567', 2.1, 3.1);").returns("234").check();
-        assertQuery("SELECT SUBSTRING('1234567', 2.1, 3);").returns("234").check();
-        assertQuery("SELECT SUBSTRING('1234567', 2, 3.1);").returns("234").check();
-        assertQuery("SELECT SUBSTRING('1234567', 2.1);").returns("234567").check();
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)> FOR <DECIMAL(2, 1)>)'",
+                () -> sql("SELECT SUBSTRING('1234567', 2.1, 3.1)"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)> FOR <INTEGER>)'",
+                () -> sql("SELECT SUBSTRING('1234567', 2.1, 3)"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <INTEGER> FOR <DECIMAL(2, 1)>)'",
+                () -> sql("SELECT SUBSTRING('1234567', 2, 3.1)"));
+        // Uncomment after IGNITE-22417
+        //        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+        //                "Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)>)'",
+        //                () -> sql("SELECT SUBSTRING('1234567', 2.1)"));
 
         // type coercion
         assertQuery("SELECT SUBSTRING('1234567', 2, '1');").returns("2").check();
@@ -375,8 +405,6 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery(String.format("SELECT SUBSTRING('1234567', %d::BIGINT)", 1)).returns("1234567").check();
         assertQuery(String.format("SELECT SUBSTRING('1234567', %d)", Long.MIN_VALUE)).returns("1234567").check();
         assertQuery(String.format("SELECT SUBSTRING('1234567', %d)", Integer.MIN_VALUE)).returns("1234567").check();
-        assertQuery(String.format("SELECT SUBSTRING('1234567', %d, %d)", Integer.MIN_VALUE, 10L + Integer.MAX_VALUE))
-                .returns("1234567").check();
         assertQuery(String.format("SELECT SUBSTRING('1234567', %d, %d)", -1, 5)).returns("123").check();
 
         assertThrowsSqlException(Sql.RUNTIME_ERR, "negative substring length", () -> sql("SELECT SUBSTRING('1234567', 1, -1)"));

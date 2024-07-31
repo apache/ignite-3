@@ -24,20 +24,32 @@ import static org.apache.calcite.sql.type.SqlTypeName.TINYINT;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.sql.SqlException;
 
 /** Math operations with overflow checking. */
 public class IgniteMath {
-    private static final BigDecimal UPPER_LONG = BigDecimal.valueOf(Long.MAX_VALUE);
-    private static final BigDecimal LOWER_LONG = BigDecimal.valueOf(Long.MIN_VALUE);
+    private static final BigDecimal UPPER_LONG_BIG_DECIMAL = BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.ONE);
+    private static final BigDecimal LOWER_LONG_BIG_DECIMAL = BigDecimal.valueOf(Long.MIN_VALUE).subtract(BigDecimal.ONE);
+    private static final Double UPPER_LONG_DOUBLE = (double) Long.MAX_VALUE + 1;
+    private static final Double LOWER_LONG_DOUBLE = (double) Long.MIN_VALUE - 1;
+    private static final Float UPPER_LONG_FLOAT = (float) Long.MAX_VALUE + 1;
+    private static final Float LOWER_LONG_FLOAT = (float) Long.MIN_VALUE - 1;
+
+    private static final BigDecimal UPPER_DOUBLE_BIG_DECIMAL = new BigDecimal(String.valueOf(Double.MAX_VALUE));
+    private static final BigDecimal LOWER_DOUBLE_BIG_DECIMAL = UPPER_DOUBLE_BIG_DECIMAL.negate();
+    private static final BigDecimal UPPER_FLOAT_BIG_DECIMAL = new BigDecimal(String.valueOf(Float.MAX_VALUE));
+    private static final BigDecimal LOWER_FLOAT_BIG_DECIMAL = UPPER_FLOAT_BIG_DECIMAL.negate();
+
+    private static final double UPPER_FLOAT_DOUBLE = Float.MAX_VALUE;
+    private static final double LOWER_FLOAT_DOUBLE = -Float.MAX_VALUE;
 
     /** Returns the sum of its arguments, throwing an exception if the result overflows an {@code long}. */
     public static long addExact(long x, long y) {
         long r = x + y;
 
         if (((x ^ r) & (y ^ r)) < 0) {
-            throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
+            throw outOfRangeForTypeException(BIGINT);
         }
 
         return r;
@@ -48,7 +60,7 @@ public class IgniteMath {
         int r = x + y;
 
         if (((x ^ r) & (y ^ r)) < 0) {
-            throw new SqlException(RUNTIME_ERR, INTEGER.getName() + " out of range");
+            throw outOfRangeForTypeException(INTEGER);
         }
 
         return r;
@@ -59,7 +71,7 @@ public class IgniteMath {
         int r = x + y;
 
         if (r != (short) r) {
-            throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
+            throw outOfRangeForTypeException(SMALLINT);
         }
 
         return (short) r;
@@ -70,7 +82,7 @@ public class IgniteMath {
         int r = x + y;
 
         if (r != (byte) r) {
-            throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
+            throw outOfRangeForTypeException(TINYINT);
         }
 
         return (byte) r;
@@ -81,7 +93,7 @@ public class IgniteMath {
         long res = -x;
 
         if (x != 0 && x == res) {
-            throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
+            throw outOfRangeForTypeException(BIGINT);
         }
 
         return res;
@@ -92,7 +104,7 @@ public class IgniteMath {
         int res = -x;
 
         if (x != 0 && x == res) {
-            throw new SqlException(RUNTIME_ERR, INTEGER.getName() + " out of range");
+            throw outOfRangeForTypeException(INTEGER);
         }
 
         return res;
@@ -103,7 +115,7 @@ public class IgniteMath {
         int res = -x;
 
         if (res > Short.MAX_VALUE) {
-            throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
+            throw outOfRangeForTypeException(SMALLINT);
         }
 
         return (short) res;
@@ -114,7 +126,7 @@ public class IgniteMath {
         int res = -x;
 
         if (res > Byte.MAX_VALUE) {
-            throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
+            throw outOfRangeForTypeException(TINYINT);
         }
 
         return (byte) res;
@@ -125,7 +137,7 @@ public class IgniteMath {
         long r = x - y;
 
         if (((x ^ y) & (x ^ r)) < 0) {
-            throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
+            throw outOfRangeForTypeException(BIGINT);
         }
 
         return r;
@@ -136,7 +148,7 @@ public class IgniteMath {
         int r = x - y;
 
         if (((x ^ y) & (x ^ r)) < 0) {
-            throw new SqlException(RUNTIME_ERR, INTEGER.getName() + " out of range");
+            throw outOfRangeForTypeException(INTEGER);
         }
 
         return r;
@@ -147,7 +159,7 @@ public class IgniteMath {
         int r = x - y;
 
         if (r != (short) r) {
-            throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
+            throw outOfRangeForTypeException(SMALLINT);
         }
 
         return (short) r;
@@ -158,7 +170,7 @@ public class IgniteMath {
         int r = x - y;
 
         if (r != (byte) r) {
-            throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
+            throw outOfRangeForTypeException(TINYINT);
         }
 
         return (byte) r;
@@ -171,7 +183,7 @@ public class IgniteMath {
         long ay = Math.abs(y);
 
         if ((ax | ay) >>> 31 != 0 && ((y != 0 && r / y != x) || (x == Long.MIN_VALUE && y == -1))) {
-            throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
+            throw outOfRangeForTypeException(BIGINT);
         }
 
         return r;
@@ -182,7 +194,7 @@ public class IgniteMath {
         long r = (long) x * (long) y;
 
         if ((int) r != r) {
-            throw new SqlException(RUNTIME_ERR, INTEGER.getName() + " out of range");
+            throw outOfRangeForTypeException(INTEGER);
         }
 
         return (int) r;
@@ -193,7 +205,7 @@ public class IgniteMath {
         int r = x * y;
 
         if (r != (short) r) {
-            throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
+            throw outOfRangeForTypeException(SMALLINT);
         }
 
         return (short) r;
@@ -204,7 +216,7 @@ public class IgniteMath {
         int r = x * y;
 
         if (r != (byte) r) {
-            throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
+            throw outOfRangeForTypeException(TINYINT);
         }
 
         return (byte) r;
@@ -262,61 +274,209 @@ public class IgniteMath {
         throw new SqlException(RUNTIME_ERR, "Division by zero");
     }
 
+    /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
+    public static long convertToLongExact(Number x) {
+        checkNumberLongBounds(BIGINT, x);
+
+        return x.longValue();
+    }
+
+    /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
+    public static long convertToLongExact(double x) {
+        if (x >= UPPER_LONG_DOUBLE || x <= LOWER_LONG_DOUBLE) {
+            throw outOfRangeForTypeException(BIGINT);
+        }
+
+        return (long) x;
+    }
+
+    /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
+    public static long convertToLongExact(String x) {
+        try {
+            BigDecimal decimal = new BigDecimal(x.strip());
+            return convertToLongExact(decimal);
+        } catch (NumberFormatException ex1) {
+            throw invalidInputStringForTypeException(BIGINT, x);
+        }
+    }
+
     /** Cast value to {@code int}, throwing an exception if the result overflows an {@code int}. */
     public static int convertToIntExact(long x) {
         if ((int) x != x) {
-            throw new SqlException(RUNTIME_ERR, INTEGER.getName() + " out of range");
+            throw outOfRangeForTypeException(INTEGER);
         }
 
         return (int) x;
     }
 
-    /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
-    public static long convertToLongExact(BigDecimal x) {
-        if (x.compareTo(UPPER_LONG) > 0 || x.compareTo(LOWER_LONG) < 0) {
-            throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
+    /** Cast value to {@code int}, throwing an exception if the result overflows an {@code int}. */
+    public static int convertToIntExact(double x) {
+        if (x >= (long) Integer.MAX_VALUE + 1 || x <= (long) Integer.MIN_VALUE - 1) {
+            throw outOfRangeForTypeException(INTEGER);
         }
-        return x.longValue();
+
+        return (int) x;
     }
 
-    /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
-    public static long convertToLongExact(String x) {
-        BigDecimal decimal = new BigDecimal(x);
-        if (UPPER_LONG.compareTo(decimal.setScale(0, RoundingMode.HALF_UP)) < 0
-                || LOWER_LONG.compareTo(decimal.setScale(0, RoundingMode.HALF_UP)) > 0) {
-            throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
+    /** Cast value to {@code int}, throwing an exception if the result overflows an {@code int}. */
+    public static int convertToIntExact(float x) {
+        if (x >= (long) Integer.MAX_VALUE + 1 || x <= (long) Integer.MIN_VALUE - 1) {
+            throw outOfRangeForTypeException(INTEGER);
         }
 
-        return decimal.longValue();
+        return (int) x;
+    }
+
+    /** Cast value to {@code int}, throwing an exception if the result overflows an {@code int}. */
+    public static int convertToIntExact(Number x) {
+        checkNumberLongBounds(INTEGER, x);
+        return convertToIntExact(x.longValue());
+    }
+
+    /** Cast value to {@code int}, throwing an exception if the result overflows an {@code int}. */
+    public static int convertToIntExact(String x) {
+        try {
+            BigDecimal decimal = new BigDecimal(x.strip());
+            return convertToIntExact(decimal);
+        } catch (NumberFormatException ex1) {
+            throw invalidInputStringForTypeException(INTEGER, x);
+        }
     }
 
     /** Cast value to {@code short}, throwing an exception if the result overflows an {@code short}. */
     public static short convertToShortExact(long x) {
         if ((short) x != x) {
-            throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
+            throw outOfRangeForTypeException(SMALLINT);
         }
 
         return (short) x;
     }
 
-    /** Cast value to {@code byte}, throwing an exception if the result overflows an {@code byte}. */
-    public static short convertToShortExact(BigDecimal x) {
-        long num = x.longValue();
-        return convertToShortExact(num);
+    /** Cast value to {@code short}, throwing an exception if the result overflows an {@code short}. */
+    public static short convertToShortExact(Number x) {
+        checkNumberLongBounds(SMALLINT, x);
+        return convertToShortExact(x.longValue());
+    }
+
+    /** Cast value to {@code short}, throwing an exception if the result overflows an {@code short}. */
+    public static short convertToShortExact(double x) {
+        if (x >= Short.MAX_VALUE + 1 || x <= Short.MIN_VALUE - 1) {
+            throw outOfRangeForTypeException(SMALLINT);
+        }
+
+        return (short) x;
+    }
+
+    /** Cast value to {@code short}, throwing an exception if the result overflows an {@code short}. */
+    public static short convertToShortExact(String x) {
+        try {
+            BigDecimal decimal = new BigDecimal(x.strip());
+            return convertToShortExact(decimal);
+        } catch (NumberFormatException ex1) {
+            throw invalidInputStringForTypeException(SMALLINT, x);
+        }
     }
 
     /** Cast value to {@code byte}, throwing an exception if the result overflows an {@code byte}. */
-    public static byte convertToByteExact(long x) {
-        if ((byte) x != x) {
-            throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
+    public static byte convertToByteExact(double x) {
+        if (x >= Byte.MAX_VALUE + 1 || x <= Byte.MIN_VALUE - 1) {
+            throw outOfRangeForTypeException(TINYINT);
         }
 
         return (byte) x;
     }
 
     /** Cast value to {@code byte}, throwing an exception if the result overflows an {@code byte}. */
-    public static byte convertToByteExact(BigDecimal x) {
-        long num = x.longValue();
-        return convertToByteExact(num);
+    public static byte convertToByteExact(Number x) {
+        checkNumberLongBounds(TINYINT, x);
+        return convertToByteExact(x.longValue());
+    }
+
+    /** Cast value to {@code byte}, throwing an exception if the result overflows an {@code byte}. */
+    public static byte convertToByteExact(long x) {
+        if ((byte) x != x) {
+            throw outOfRangeForTypeException(TINYINT);
+        }
+
+        return (byte) x;
+    }
+
+    /** Cast value to {@code byte}, throwing an exception if the result overflows an {@code byte}. */
+    public static byte convertToByteExact(String x) {
+        try {
+            BigDecimal decimal = new BigDecimal(x.strip());
+            return convertToByteExact(decimal);
+        } catch (NumberFormatException ex1) {
+            throw invalidInputStringForTypeException(TINYINT, x);
+        }
+    }
+
+    /** Cast value to {@code float}, throwing an exception if the result overflows. */
+    public static float convertToFloatExact(Number x) {
+        if (x instanceof BigDecimal) {
+            BigDecimal value = (BigDecimal) x;
+
+            if (value.compareTo(UPPER_FLOAT_BIG_DECIMAL) > 0) {
+                throw outOfRangeForTypeException(SqlTypeName.REAL);
+            }
+            if (value.compareTo(LOWER_FLOAT_BIG_DECIMAL) < 0) {
+                throw outOfRangeForTypeException(SqlTypeName.REAL);
+            }
+
+            return value.floatValue();
+        } else {
+            double v = x.doubleValue();
+            if (v > UPPER_FLOAT_DOUBLE || v < LOWER_FLOAT_DOUBLE) {
+                throw outOfRangeForTypeException(SqlTypeName.REAL);
+            }
+
+            return x.floatValue();
+        }
+    }
+
+    /** Cast value to {@code double}, throwing an exception if the result overflows. */
+    public static double convertToDoubleExact(Number x) {
+        if (x instanceof BigDecimal) {
+            BigDecimal value = (BigDecimal) x;
+            if (value.compareTo(UPPER_DOUBLE_BIG_DECIMAL) > 0) {
+                throw outOfRangeForTypeException(SqlTypeName.DOUBLE);
+            }
+
+            if (value.compareTo(LOWER_DOUBLE_BIG_DECIMAL) < 0) {
+                throw outOfRangeForTypeException(SqlTypeName.DOUBLE);
+            }
+
+            return value.doubleValue();
+        } else {
+            return x.doubleValue();
+        }
+    }
+
+    private static void checkNumberLongBounds(SqlTypeName type, Number x) {
+        if (x instanceof BigDecimal) {
+            if ((((BigDecimal) x).compareTo(UPPER_LONG_BIG_DECIMAL) < 0 && ((BigDecimal) x).compareTo(LOWER_LONG_BIG_DECIMAL) > 0)) {
+                return;
+            }
+        } else if (x instanceof Double) {
+            if ((((Double) x).compareTo(UPPER_LONG_DOUBLE) < 0 && ((Double) x).compareTo(LOWER_LONG_DOUBLE) > 0)) {
+                return;
+            }
+        } else if (x instanceof Float) {
+            if ((((Float) x).compareTo(UPPER_LONG_FLOAT) < 0 && ((Float) x).compareTo(LOWER_LONG_FLOAT) > 0)) {
+                return;
+            }
+        } else {
+            return;
+        }
+
+        throw outOfRangeForTypeException(type);
+    }
+
+    private static RuntimeException outOfRangeForTypeException(SqlTypeName type) {
+        return new SqlException(RUNTIME_ERR, type.getName() + " out of range");
+    }
+
+    private static RuntimeException invalidInputStringForTypeException(SqlTypeName type, String value) {
+        return new SqlException(RUNTIME_ERR, "Invalid input string for type " + type.getName() + ": \"" + value + "\"");
     }
 }

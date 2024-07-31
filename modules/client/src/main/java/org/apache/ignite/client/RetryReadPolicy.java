@@ -31,6 +31,7 @@ public class RetryReadPolicy extends RetryLimitPolicy {
         switch (context.operation()) {
             case TABLES_GET:
             case TUPLE_CONTAINS_KEY:
+            case TUPLE_CONTAINS_ALL_KEYS:
             case TUPLE_GET_ALL:
             case TUPLE_GET:
             case TABLE_GET:
@@ -39,7 +40,8 @@ public class RetryReadPolicy extends RetryLimitPolicy {
 
             case TUPLE_UPSERT:
             case COMPUTE_EXECUTE:
-            case COMPUTE_GET_STATUS:
+            case COMPUTE_EXECUTE_MAPREDUCE:
+            case COMPUTE_GET_STATE:
             case COMPUTE_CANCEL:
             case COMPUTE_CHANGE_PRIORITY:
             case TUPLE_GET_AND_DELETE:
@@ -59,6 +61,8 @@ public class RetryReadPolicy extends RetryLimitPolicy {
             case SQL_CURSOR_NEXT_PAGE:
             case SQL_EXECUTE_SCRIPT:
             case STREAMER_BATCH_SEND:
+            case PRIMARY_REPLICAS_GET:
+            case STREAMER_WITH_RECEIVER_BATCH_SEND:
                 return false;
 
             default:

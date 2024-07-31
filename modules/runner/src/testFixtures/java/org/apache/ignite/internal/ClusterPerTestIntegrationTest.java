@@ -30,34 +30,36 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract integration test that starts and stops a cluster per test method.
  */
 @SuppressWarnings("ALL")
-public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
             + "  storage.profiles: {"
             + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n"
-            + "  clientConnector: { port:{} },\n"
+            + "  clientConnector.port: {},\n"
             + "  rest.port: {},\n"
             + "  compute.threadPoolSize: 1\n"
             + "}";

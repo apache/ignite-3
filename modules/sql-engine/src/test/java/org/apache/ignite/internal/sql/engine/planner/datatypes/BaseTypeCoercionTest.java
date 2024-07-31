@@ -22,6 +22,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
 import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
@@ -43,6 +46,7 @@ import org.apache.ignite.internal.type.NativeType;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.params.provider.Arguments;
 
 abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
@@ -51,12 +55,44 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
         return Arrays.stream(NumericPair.values()).map(Arguments::of);
     }
 
+    static void checkIncludesAllNumericTypePairs(Stream<Arguments> args) {
+        EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
+
+        List<NumericPair> usedPairs = args.map(Arguments::get)
+                .map(arg -> (NumericPair) arg[0])
+                .collect(Collectors.toList());
+
+        usedPairs.forEach(remainingPairs::remove);
+
+        for (NumericPair numericPair : NumericPair.values()) {
+            usedPairs.remove(numericPair);
+        }
+
+        assertThat("There are missing pairs", remainingPairs, Matchers.empty());
+        assertThat("There are duplicate pairs. Remove them", usedPairs, Matchers.empty());
+    }
+
     static IgniteSchema createSchemaWithTwoColumnTable(NativeType c1, NativeType c2) {
         return createSchema(
                 TestBuilders.table()
                         .name("T")
                         .distribution(IgniteDistributions.single())
                         .addColumn("C1", c1)
+                        .addColumn("C2", c2)
+                        .build()
+        );
+    }
+
+    static IgniteSchema createSchemaWithTwoSingleColumnTable(NativeType c1, NativeType c2) {
+        return createSchema(
+                TestBuilders.table()
+                        .name("T1")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", c1)
+                        .build(),
+                TestBuilders.table()
+                        .name("T2")
+                        .distribution(IgniteDistributions.single())
                         .addColumn("C2", c2)
                         .build()
         );
@@ -156,13 +192,19 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
      */
     static class TestCaseBuilder {
         private final TypePair pair;
-        private Matcher<RexNode> firstOpMatcher;
+        private Matcher<?> firstOpMatcher;
 
         private TestCaseBuilder(TypePair pair) {
             this.pair = pair;
         }
 
-        TestCaseBuilder firstOpMatches(Matcher<RexNode> operandMatcher) {
+        Arguments opMatches(Matcher<?> operandMatcher) {
+            firstOpMatcher = operandMatcher;
+
+            return Arguments.of(pair, firstOpMatcher);
+        }
+
+        TestCaseBuilder firstOpMatches(Matcher<?> operandMatcher) {
             firstOpMatcher = operandMatcher;
 
             return this;
@@ -174,7 +216,7 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
             return this;
         }
 
-        Arguments secondOpMatches(Matcher<RexNode> operandMatcher) {
+        Arguments secondOpMatches(Matcher<?> operandMatcher) {
             return Arguments.of(pair, firstOpMatcher, operandMatcher);
         }
 

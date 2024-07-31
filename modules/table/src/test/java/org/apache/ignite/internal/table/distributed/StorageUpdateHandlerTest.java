@@ -33,6 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -51,7 +52,6 @@ import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +61,7 @@ import org.junit.jupiter.api.Test;
 public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
     private static final HybridClock CLOCK = new HybridClockImpl();
 
-    protected static final int PARTITION_ID = 0;
+    private static final int PARTITION_ID = 0;
 
     private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(SCHEMA_DESCRIPTOR);
 
@@ -78,12 +78,8 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
 
     private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
 
-    private TestHashIndexStorage pkInnerStorage;
-    private TestSortedIndexStorage sortedInnerStorage;
-    private TestHashIndexStorage hashInnerStorage;
     private TestMvPartitionStorage storage;
     private StorageUpdateHandler storageUpdateHandler;
-    private IndexUpdateHandler indexUpdateHandler;
     private LockByRowId lock;
 
     @InjectConfiguration
@@ -96,7 +92,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         int sortedIndexId = 3;
         int hashIndexId = 4;
 
-        pkInnerStorage = new TestHashIndexStorage(
+        var pkInnerStorage = new TestHashIndexStorage(
                 PARTITION_ID,
                 new StorageHashIndexDescriptor(
                         pkIndexId,
@@ -108,13 +104,13 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 )
         );
 
-        TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
+        var pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
                 pkInnerStorage,
                 PK_INDEX_BINARY_TUPLE_CONVERTER
         );
 
-        sortedInnerStorage = new TestSortedIndexStorage(
+        var sortedInnerStorage = new TestSortedIndexStorage(
                 PARTITION_ID,
                 new StorageSortedIndexDescriptor(
                         sortedIndexId,
@@ -126,13 +122,13 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 )
         );
 
-        TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
+        var sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 sortedIndexId,
                 sortedInnerStorage,
                 USER_INDEX_BINARY_TUPLE_CONVERTER
         );
 
-        hashInnerStorage = new TestHashIndexStorage(
+        var hashInnerStorage = new TestHashIndexStorage(
                 PARTITION_ID,
                 new StorageHashIndexDescriptor(
                         hashIndexId,
@@ -144,7 +140,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 )
         );
 
-        TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
+        var hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
                 hashInnerStorage,
                 USER_INDEX_BINARY_TUPLE_CONVERTER
@@ -159,9 +155,9 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 hashIndexId, hashIndexStorage
         );
 
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
+        var partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
 
-        indexUpdateHandler = spy(new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes)));
+        var indexUpdateHandler = new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes));
 
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
@@ -201,8 +197,6 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
 
         storageUpdateHandler.handleUpdateAll(txUuid, rowsToUpdate, partitionId, true, null, null, null);
 
-        assertEquals(3, storage.rowsCount());
-
         // We have three writes to the storage.
         verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
 
@@ -211,8 +205,6 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         verify(lock, times(3)).lock(any());
 
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
-
-        assertEquals(3, storage.rowsCount());
 
         // Those writes resulted in three commits.
         verify(storage, times(3)).commitWrite(any(), any());

@@ -23,18 +23,25 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
@@ -88,6 +95,10 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Meta Storage manager. */
     private final MetaStorageManager metastore;
 
+    private final AssignmentsTracker assignmentsTracker;
+
+    private final PlacementDriver placementDriver;
+
     /**
      * Constructor.
      *
@@ -123,18 +134,23 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.leaseTracker = new LeaseTracker(metastore, clusterService.topologyService(), clockService);
 
+        this.assignmentsTracker = new AssignmentsTracker(metastore);
+
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
                 clusterService,
                 metastore,
                 logicalTopologyService,
                 leaseTracker,
-                clockService
+                clockService,
+                assignmentsTracker
         );
+
+        this.placementDriver = createPlacementDriver();
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         inBusyLock(busyLock, () -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {
@@ -187,7 +203,7 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -240,7 +256,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
     /** Returns placement driver service. */
     public PlacementDriver placementDriver() {
-        return leaseTracker;
+        return placementDriver;
     }
 
     private void recoverInternalComponentsBusy() {
@@ -251,5 +267,51 @@ public class PlacementDriverManager implements IgniteComponent {
         long recoveryRevision = recoveryFinishedFuture.join();
 
         leaseTracker.startTrack(recoveryRevision);
+    }
+
+    private PlacementDriver createPlacementDriver() {
+        return new PlacementDriver() {
+            @Override
+            public CompletableFuture<TokenizedAssignments> getAssignments(
+                    ReplicationGroupId replicationGroupId,
+                    HybridTimestamp timestamp
+            ) {
+                return assignmentsTracker.getAssignments(replicationGroupId, timestamp);
+            }
+
+            @Override
+            public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
+                    ReplicationGroupId groupId,
+                    HybridTimestamp timestamp,
+                    long timeout,
+                    TimeUnit unit) {
+                return leaseTracker.awaitPrimaryReplica(
+                        groupId,
+                        timestamp,
+                        timeout,
+                        unit
+                );
+            }
+
+            @Override
+            public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+                return leaseTracker.getPrimaryReplica(replicationGroupId, timestamp);
+            }
+
+            @Override
+            public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId replicationGroupId) {
+                return leaseTracker.previousPrimaryExpired(replicationGroupId);
+            }
+
+            @Override
+            public void listen(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
+                leaseTracker.listen(evt, listener);
+            }
+
+            @Override
+            public void removeListener(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
+                leaseTracker.removeListener(evt, listener);
+            }
+        };
     }
 }

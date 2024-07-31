@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
@@ -65,7 +66,8 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType
+;import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.Ballot;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -118,7 +120,6 @@ import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotExecutor;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -259,22 +260,16 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Node service event.
      */
-    public static class LogEntryAndClosure implements NodeIdAware {
-        /** Raft node id. */
-        NodeId nodeId;
-
+    public static class LogEntryAndClosure extends NodeIdAware {
         LogEntry entry;
         Closure done;
         long expectedTerm;
         CountDownLatch shutdownLatch;
 
         @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
-
         public void reset() {
-            this.nodeId = null;
+            super.reset();
+
             this.entry = null;
             this.done = null;
             this.expectedTerm = 0;
@@ -722,7 +717,7 @@ public class NodeImpl implements Node, RaftServerService {
         electionRound = 0;
 
         if (electionAdjusted) {
-            LOG.info("Election timeout was reset to initial value due to successful leader election.");
+            LOG.info("Election timeout was reset to initial value.");
             resetElectionTimeoutMs(initialElectionTimeout);
             electionAdjusted = false;
         }
@@ -1849,6 +1844,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
             event.reset();
+
             event.nodeId = getNodeId();
             event.done = task.getDone();
             event.entry = entry;
@@ -2164,7 +2160,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(this.currTerm);
 
                 if (request.timestamp() != null) {
-                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2185,7 +2181,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(request.term() + 1);
 
                 if (request.timestamp() != null) {
-                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2218,7 +2214,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .lastLogIndex(lastLogIndex);
 
                 if (request.timestamp() != null) {
-                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2232,7 +2228,7 @@ public class NodeImpl implements Node, RaftServerService {
                     .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
                 if (request.timestamp() != null) {
-                    respBuilder.timestampLong(clock.update(request.timestamp()).longValue());
+                    respBuilder.timestamp(clock.update(request.timestamp()));
                 }
                 doUnlock = false;
                 this.writeLock.unlock();
@@ -2253,7 +2249,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(this.currTerm);
 
                 if (request.timestamp() != null) {
-                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2262,7 +2258,7 @@ public class NodeImpl implements Node, RaftServerService {
             // Parse request
             long index = prevLogIndex;
             final List<LogEntry> entries = new ArrayList<>(entriesCount);
-            ByteBuffer allData = request.data() != null ? request.data().asReadOnlyByteBuffer() : ByteString.EMPTY.asReadOnlyByteBuffer();
+            ByteBuffer allData = request.data() != null ? request.data().asReadOnlyBuffer() : EMPTY_BYTE_BUFFER.asReadOnlyBuffer();
 
             final Collection<RaftOutter.EntryMeta> entriesList = request.entriesList();
             for (RaftOutter.EntryMeta entry : entriesList) {
@@ -3128,6 +3124,8 @@ public class NodeImpl implements Node, RaftServerService {
                     Utils.runInThread(this.getOptions().getCommonExecutor(),
                         () -> this.applyQueue.publishEvent((event, sequence) -> {
                             event.nodeId = getNodeId();
+                            event.handler = null;
+                            event.evtType = DisruptorEventType.REGULAR;
                             event.shutdownLatch = latch;
                         }));
                 }
@@ -3447,6 +3445,7 @@ public class NodeImpl implements Node, RaftServerService {
             this.conf.setConf(newConf);
             this.conf.getOldConf().reset();
             stepDown(this.currTerm + 1, false, new Status(RaftError.ESETPEER, "Raft node set peer normally"));
+            resetElectionTimeoutToInitial();
             return Status.OK();
         }
         finally {

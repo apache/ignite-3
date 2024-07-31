@@ -19,6 +19,7 @@ package org.apache.ignite.sql;
 
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * SQL exception base class.
@@ -60,7 +61,7 @@ public class SqlException extends IgniteException {
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlException(int code, Throwable cause) {
+    public SqlException(int code, @Nullable Throwable cause) {
         super(code, cause);
     }
 
@@ -71,7 +72,7 @@ public class SqlException extends IgniteException {
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlException(UUID traceId, int code, Throwable cause) {
+    public SqlException(UUID traceId, int code, @Nullable Throwable cause) {
         super(traceId, code, cause);
     }
 
@@ -82,7 +83,7 @@ public class SqlException extends IgniteException {
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlException(int code, String message, Throwable cause) {
+    public SqlException(int code, String message, @Nullable Throwable cause) {
         super(code, message, cause);
     }
 
@@ -94,7 +95,7 @@ public class SqlException extends IgniteException {
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlException(UUID traceId, int code, String message, Throwable cause) {
+    public SqlException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

@@ -26,27 +26,7 @@ import org.apache.ignite.table.RecordView;
 /**
  * This example demonstrates the usage of the {@link RecordView} API with user-defined POJOs.
  *
- * <p>To run the example, do the following:
- * <ol>
- *     <li>Import the examples project into your IDE.</li>
- *     <li>
- *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
- *         {@code ignite bootstrap}
- *     </li>
- *     <li>
- *         Start an Ignite node using the CLI tool:<br>
- *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.conf my-first-node}
- *     </li>
- *     <li>
- *         Cluster initialization using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
- *     </li>
- *     <li>Run the example in the IDE.</li>
- *     <li>
- *         Stop the Ignite node using the CLI tool:<br>
- *         {@code ignite node stop my-first-node}
- *     </li>
- * </ol>
+ * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class RecordViewPojoExample {
     /**

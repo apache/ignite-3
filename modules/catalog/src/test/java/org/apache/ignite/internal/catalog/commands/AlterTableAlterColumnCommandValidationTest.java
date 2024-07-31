@@ -19,10 +19,14 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.sql.ColumnType.DURATION;
+import static org.apache.ignite.sql.ColumnType.PERIOD;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -305,8 +309,10 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Include DURATION and PERIOD types after these types are supported.
     @ParameterizedTest
-    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"DECIMAL", "NULL"})
+    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"DECIMAL", "NULL", "DURATION", "PERIOD"})
     void precisionCannotBeChangedIfTypeIsNotDecimal(ColumnType type) {
         String tableName = "TEST";
         String columnName = "VAL";
@@ -420,8 +426,10 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Include DURATION and PERIOD types after these types are supported.
     @ParameterizedTest
-    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY", "NULL"})
+    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY", "NULL", "DURATION", "PERIOD"})
     void lengthCannotBeChangedForNonVariableTypes(ColumnType type) {
         String tableName = "TEST";
         String columnName = "VAL";
@@ -531,6 +539,130 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
+    @Test
+    void functionalDefaultCannotBeAppliedToValueColumn() {
+        String tableName = "TEST";
+        String columnName = "VAL";
+        String columnName2 = "VAL2";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(
+                        ColumnParams.builder()
+                                .name("ID")
+                                .type(ColumnType.INT64)
+                                .build(),
+                        ColumnParams.builder()
+                                .name(columnName)
+                                .type(ColumnType.UUID)
+                                .build(),
+                        ColumnParams.builder()
+                                .name(columnName2)
+                                .type(ColumnType.UUID)
+                                .defaultValue(DefaultValue.constant(UUID.randomUUID()))
+                                .build())
+                )
+                .primaryKey(primaryKey("ID"))
+        );
+
+        AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
+
+        // Set functional default for a column without any default.
+        {
+            CatalogCommand command = builder
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(tableName)
+                    .columnName(columnName)
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("rand_uuid"))
+                    .build();
+
+            assertThrowsWithCause(
+                    () -> command.get(catalog),
+                    CatalogValidationException.class,
+                    "Functional defaults are not supported for non-primary key columns"
+            );
+        }
+
+        // Change column default to a functional default.
+        {
+            CatalogCommand command = builder
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(tableName)
+                    .columnName(columnName2)
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("rand_uuid"))
+                    .build();
+
+            assertThrowsWithCause(
+                    () -> command.get(catalog),
+                    CatalogValidationException.class,
+                    "Functional defaults are not supported for non-primary key columns"
+            );
+        }
+    }
+
+    @Test
+    void invalidFunctionalDefaultCannotBeAppliedToPkColumn() {
+        String tableName = "TEST";
+        String columnName = "ID";
+        String columnName2 = "ID2";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(
+                        ColumnParams.builder()
+                                .name(columnName)
+                                .type(ColumnType.STRING)
+                                .length(10)
+                                .build(),
+                        ColumnParams.builder()
+                                .name(columnName2)
+                                .type(ColumnType.STRING)
+                                .defaultValue(DefaultValue.constant(1))
+                                .length(10)
+                                .build(),
+                        ColumnParams.builder()
+                                .name("VAL")
+                                .type(ColumnType.INT64)
+                                .build())
+                )
+                .primaryKey(primaryKey("ID", "ID2"))
+        );
+
+        AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
+
+        // Set functional default for a column without any default.
+        {
+            CatalogCommand command = builder
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(tableName)
+                    .columnName(columnName)
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("invalid_func"))
+                    .build();
+
+            assertThrowsWithCause(
+                    () -> command.get(catalog),
+                    CatalogValidationException.class,
+                    "Functional default contains unsupported function: [col=ID, functionName=invalid_func]"
+            );
+        }
+
+        // Change column default to a functional default.
+        {
+            CatalogCommand command = builder
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(tableName)
+                    .columnName(columnName2)
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("invalid_func"))
+                    .build();
+
+            assertThrowsWithCause(
+                    () -> command.get(catalog),
+                    CatalogValidationException.class,
+                    "Functional default contains unsupported function: [col=ID2, functionName=invalid_func]"
+            );
+        }
+    }
+
     @ParameterizedTest
     @MethodSource("reservedSchemaNames")
     void exceptionIsThrownIfSchemaIsReserved(String schema) {
@@ -546,10 +678,63 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         );
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"PERIOD", "DURATION"}, mode = Mode.INCLUDE)
+    void rejectIntervalTypes(ColumnType columnType) {
+        String error = format("Column of type '{}' cannot be persisted [col=P]", columnType);
+
+        {
+            ColumnParams val = ColumnParams.builder()
+                    .name("P")
+                    .type(columnType)
+                    .precision(2)
+                    .nullable(false)
+                    .build();
+
+            AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                    .tableName("T")
+                    .schemaName(SCHEMA_NAME)
+                    .columns(List.of(val));
+
+            assertThrows(
+                    CatalogValidationException.class,
+                    builder::build,
+                    error
+            );
+        }
+
+        {
+            ColumnParams val = ColumnParams.builder()
+                    .name("P")
+                    .type(columnType)
+                    .precision(2)
+                    .nullable(true)
+                    .build();
+
+            AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                    .tableName("T")
+                    .schemaName(SCHEMA_NAME)
+                    .columns(List.of(val));
+
+            assertThrows(
+                    CatalogValidationException.class,
+                    builder::build,
+                    error
+            );
+        }
+    }
+
     private static Stream<Arguments> invalidTypeConversionPairs() {
         List<Arguments> arguments = new ArrayList<>();
         for (ColumnType from : ColumnType.values()) {
             for (ColumnType to : ColumnType.values()) {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+                //  Remove this after interval type support is added.
+                if (from == DURATION || to == DURATION || from == PERIOD || to == PERIOD) {
+                    continue;
+                }
                 if (from != to && !CatalogUtils.isSupportedColumnTypeChange(from, to) && from != ColumnType.NULL) {
                     arguments.add(Arguments.of(from, to));
                 }

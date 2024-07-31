@@ -63,3 +63,5 @@ SELECT 1::bigint::VARBINARY
 statement error
 SELECT 1::decimal::VARBINARY
 
+statement error
+select CAST(x'Aa' AS integer);

@@ -31,17 +31,17 @@ class ItNodeMetricCommandTest extends CliIntegrationTest {
     @DisplayName("Should display disabled jvm metric source when valid node-url is given")
     void nodeMetricList() {
         // When list node metric with valid url
-        execute("node", "metric", "source", "list", "--plain", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "list", "--plain", "--url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Set name\tEnabled" + NL),
-                () -> assertOutputContains("jvm\tdisabled" + NL),
-                () -> assertOutputContains("client.handler\tdisabled" + NL),
-                () -> assertOutputContains("sql.client\tdisabled" + NL),
-                () -> assertOutputContains("sql.plan.cache\tdisabled" + NL)
+                () -> assertOutputContains("jvm\tenabled" + NL),
+                () -> assertOutputContains("client.handler\tenabled" + NL),
+                () -> assertOutputContains("sql.client\tenabled" + NL),
+                () -> assertOutputContains("sql.plan.cache\tenabled" + NL)
         );
     }
 
@@ -49,7 +49,7 @@ class ItNodeMetricCommandTest extends CliIntegrationTest {
     @DisplayName("Should display error message when enabling nonexistent metric source and valid node-url is given")
     void nodeMetricEnableNonexistent() {
         // When list node metric with valid url
-        execute("node", "metric", "source", "enable", "no.such.metric", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "enable", "no.such.metric", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -63,7 +63,7 @@ class ItNodeMetricCommandTest extends CliIntegrationTest {
     @DisplayName("Should display error message when disabling nonexistent metric source and valid node-url is given")
     void nodeMetricDisableNonexistent() {
         // When list node metric with valid url
-        execute("node", "metric", "source", "disable", "no.such.metric", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "disable", "no.such.metric", "--url", NODE_URL);
 
         // Then
         assertAll(

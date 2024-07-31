@@ -26,6 +26,7 @@ namespace Apache.Ignite.Internal.Sql
     using Ignite.Table;
     using Ignite.Transactions;
     using Linq;
+    using NodaTime;
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -157,7 +158,7 @@ namespace Apache.Ignite.Internal.Sql
         {
             IgniteArgumentCheck.NotNull(statement);
 
-            Transaction? tx = transaction.ToInternal();
+            Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _socket, default).ConfigureAwait(false);
 
             using var bufferWriter = ProtoCommon.GetMessageWriter();
             WriteStatement(bufferWriter, statement, args, tx, writeTx: true);
@@ -231,13 +232,15 @@ namespace Apache.Ignite.Internal.Sql
 
             if (writeTx)
             {
-                w.WriteTx(tx);
+                w.WriteTx(tx?.Id);
             }
 
             w.Write(statement.Schema);
             w.Write(statement.PageSize);
             w.Write((long)statement.Timeout.TotalMilliseconds);
             w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
+            w.Write(statement.TimeZoneId);
+
             WriteProperties(statement, ref w);
             w.Write(statement.Query);
             w.WriteObjectCollectionAsBinaryTuple(args);

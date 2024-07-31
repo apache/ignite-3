@@ -38,12 +38,12 @@ public interface IJobExecution<T>
     Task<T> GetResultAsync();
 
     /// <summary>
-    /// Gets the job execution status. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
+    /// Gets the job execution state. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
     /// </summary>
     /// <returns>
-    /// Job execution status. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
+    /// Job execution state. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
     /// </returns>
-    Task<JobStatus?> GetStatusAsync();
+    Task<JobState?> GetStateAsync();
 
     /// <summary>
     /// Cancels the job execution.

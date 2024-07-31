@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
@@ -53,25 +52,26 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test for checking that catalog descriptors entities' "update token" are updated after general catalog operations.
  */
 public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManagerTest {
-    private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = "TEST_ZONE_NAME";
     private static final String TABLE_NAME_2 = "myTable2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
 
     @Test
     public void testEmptyCatalog() {
-        CatalogSchemaDescriptor defaultSchema = manager.schema(DEFAULT_SCHEMA_NAME, 0);
+        CatalogSchemaDescriptor defaultSchema = manager.schema(SqlCommon.DEFAULT_SCHEMA_NAME, 1);
 
         assertNotNull(defaultSchema);
         assertNull(manager.catalog(0).defaultZone());
-        assertSame(defaultSchema, manager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong()));
-        assertSame(defaultSchema, manager.schema(0));
+        assertSame(defaultSchema, manager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong()));
+        assertSame(defaultSchema, manager.schema(1));
         assertSame(defaultSchema, manager.activeSchema(clock.nowLong()));
 
         Catalog catalogWithDefaultZone = manager.catalog(1);
@@ -89,7 +89,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertThrows(IllegalStateException.class, () -> manager.activeSchema(-1L));
 
         // Validate default schema.
-        assertEquals(INITIAL_CAUSALITY_TOKEN, defaultSchema.updateToken());
+        assertEquals(1, defaultSchema.updateToken());
     }
 
     @Test
@@ -108,8 +108,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
-        assertSame(schema, manager.activeSchema(123L));
-        assertEquals(INITIAL_CAUSALITY_TOKEN, schema.updateToken());
+        assertEquals(1, schema.updateToken());
 
         assertNull(schema.table(TABLE_NAME));
         assertNull(manager.table(TABLE_NAME, 123L));

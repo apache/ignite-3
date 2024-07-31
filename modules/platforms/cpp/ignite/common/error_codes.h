@@ -50,7 +50,9 @@ enum class group : underlying_t {
     CATALOG = 0x11,
     PLACEMENTDRIVER = 0x12,
     WORKERS = 0x13,
-    RECOVERY = 0x14
+    RECOVERY = 0x14,
+    EMBEDDED = 0x15,
+    MARSHALLING = 0x16
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -67,6 +69,8 @@ enum class code : underlying_t {
     NODE_LEFT = 0x10005,
     CURSOR_ALREADY_CLOSED = 0x10006,
     RESOURCE_CLOSING = 0x10007,
+    USER_OBJECT_SERIALIZATION = 0x10008,
+    NULLABLE_VALUE = 0x10009,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
@@ -77,6 +81,7 @@ enum class code : underlying_t {
     TABLE_STOPPING = 0x20005,
     TABLE_DEFINITION = 0x20006,
     SCHEMA_VERSION_MISMATCH = 0x20007,
+    UNSUPPORTED_PARTITION_TYPE = 0x20008,
 
     // Client group. Group code: 3
     CONNECTION = 0x30001,
@@ -91,16 +96,15 @@ enum class code : underlying_t {
     HANDSHAKE_HEADER = 0x3000a,
 
     // Sql group. Group code: 4
-    QUERY_NO_RESULT_SET = 0x40002,
-    SCHEMA_NOT_FOUND = 0x40003,
-    STMT_PARSE = 0x40005,
-    STMT_VALIDATION = 0x40006,
-    CONSTRAINT_VIOLATION = 0x40007,
-    EXECUTION_CANCELLED = 0x40008,
-    RUNTIME = 0x40009,
-    PLANNING_TIMEOUT = 0x4000a,
-    MAPPING = 0x4000b,
-    TX_CONTROL_INSIDE_EXTERNAL_TX = 0x4000c,
+    QUERY_NO_RESULT_SET = 0x40001,
+    SCHEMA_NOT_FOUND = 0x40002,
+    STMT_PARSE = 0x40003,
+    STMT_VALIDATION = 0x40004,
+    CONSTRAINT_VIOLATION = 0x40005,
+    EXECUTION_CANCELLED = 0x40006,
+    RUNTIME = 0x40007,
+    MAPPING = 0x40008,
+    TX_CONTROL_INSIDE_EXTERNAL_TX = 0x40009,
 
     // MetaStorage group. Group code: 5
     STARTING_STORAGE = 0x50001,
@@ -184,16 +188,17 @@ enum class code : underlying_t {
     CLASS_LOADER = 0x100002,
     CLASS_INITIALIZATION = 0x100003,
     QUEUE_OVERFLOW = 0x100004,
-    COMPUTE_JOB_STATE_TRANSITION = 0x100005,
+    COMPUTE_JOB_STATUS_TRANSITION = 0x100005,
     CANCELLING = 0x100006,
     RESULT_NOT_FOUND = 0x100007,
-    FAIL_TO_GET_JOB_STATUS = 0x100008,
+    FAIL_TO_GET_JOB_STATE = 0x100008,
     COMPUTE_JOB_FAILED = 0x100009,
     CHANGE_JOB_PRIORITY_NO_JOB = 0x10000a,
     CHANGE_JOB_PRIORITY_JOB_EXECUTING = 0x10000b,
     PRIMARY_REPLICA_RESOLVE = 0x10000c,
     CHANGE_JOB_PRIORITY = 0x10000d,
     NODE_NOT_FOUND = 0x10000e,
+    MARSHALLING_TYPE_MISMATCH = 0x10000f,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,
@@ -209,7 +214,18 @@ enum class code : underlying_t {
     // DisasterRecovery group. Group code: 20
     ILLEGAL_PARTITION_ID = 0x140001,
     NODES_NOT_FOUND = 0x140002,
-    PARTITION_STATE = 0x140003
+    PARTITION_STATE = 0x140003,
+    CLUSTER_NOT_IDLE = 0x140004,
+
+    // Embedded group. Group code: 21
+    CLUSTER_NOT_INITIALIZED = 0x150001,
+    CLUSTER_INIT_FAILED = 0x150002,
+    NODE_NOT_STARTED = 0x150003,
+    NODE_START = 0x150004,
+
+    // Marshalling group. Group code: 22
+    COMMON = 0x160001,
+    UNSUPPORTED_OBJECT_TYPE = 0x160002
 };
 
 } // namespace error

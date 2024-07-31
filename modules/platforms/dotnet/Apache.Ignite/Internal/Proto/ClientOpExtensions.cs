@@ -54,6 +54,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.TupleContainsKey => ClientOperationType.TupleContainsKey,
                 ClientOp.ComputeExecute => ClientOperationType.ComputeExecute,
                 ClientOp.ComputeExecuteColocated => ClientOperationType.ComputeExecute,
+                ClientOp.ComputeExecuteMapReduce => ClientOperationType.ComputeExecuteMapReduce,
                 ClientOp.ComputeGetStatus => ClientOperationType.ComputeGetStatus,
                 ClientOp.ComputeCancel => ClientOperationType.ComputeCancel,
                 ClientOp.ComputeChangePriority => ClientOperationType.ComputeChangePriority,
@@ -69,6 +70,8 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.PartitionAssignmentGet => null,
                 ClientOp.SqlParamMeta => null,
                 ClientOp.StreamerBatchSend => ClientOperationType.StreamerBatchSend,
+                ClientOp.PrimaryReplicasGet => ClientOperationType.PrimaryReplicasGet,
+                ClientOp.StreamerWithReceiverBatchSend => ClientOperationType.StreamerBatchSend,
 
                 // Do not return null from default arm intentionally so we don't forget to update this when new ClientOp values are added.
                 // ReSharper disable once PatternIsRedundant

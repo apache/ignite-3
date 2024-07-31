@@ -26,10 +26,13 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener.doStableKeySwitch;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.catalogVersionKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterPrefixKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -40,6 +43,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -99,6 +103,16 @@ public class DistributionZoneRebalanceEngine {
     /** Executor for scheduling rebalances. */
     private final ScheduledExecutorService rebalanceScheduler;
 
+    /** Zone rebalance manager. */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 this class will replace DistributionZoneRebalanceEngine
+    // TODO: after switching to zone-based replication
+    private final DistributionZoneRebalanceEngineV2 distributionZoneRebalanceEngineV2;
+
+    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    public static final boolean ENABLED = getBoolean(FEATURE_FLAG_NAME, false);
+
     /**
      * Constructor.
      *
@@ -122,12 +136,18 @@ public class DistributionZoneRebalanceEngine {
         this.dataNodesListener = createDistributionZonesDataNodesListener();
         this.partitionsCounterListener = createPartitionsCounterListener();
         this.rebalanceScheduler = rebalanceScheduler;
+        this.distributionZoneRebalanceEngineV2 = new DistributionZoneRebalanceEngineV2(
+                busyLock,
+                metaStorageManager,
+                distributionZoneManager,
+                catalogService
+        );
     }
 
     /**
      * Starts the rebalance engine by registering corresponding meta storage and configuration listeners.
      */
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync(int catalogVersion) {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
                 @Override
@@ -148,7 +168,12 @@ public class DistributionZoneRebalanceEngine {
 
             long recoveryRevision = recoveryFinishFuture.join();
 
-            return rebalanceTriggersRecovery(recoveryRevision);
+            if (ENABLED) {
+                return rebalanceTriggersRecovery(recoveryRevision, catalogVersion)
+                        .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
+            } else {
+                return rebalanceTriggersRecovery(recoveryRevision, catalogVersion);
+            }
         });
     }
 
@@ -160,15 +185,15 @@ public class DistributionZoneRebalanceEngine {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21058 At the moment this method produce many metastore multi-invokes
     // TODO: which can be avoided by the local logic, which mirror the logic of metastore invokes.
     // TODO: And then run the remote invoke, only if needed.
-    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
+    private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision, int catalogVersion) {
         if (recoveryRevision > 0) {
-            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
+            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogVersion)
                     .stream()
                     .map(zoneDesc ->
                             recalculateAssignmentsAndScheduleRebalance(
                                     zoneDesc,
                                     recoveryRevision,
-                                    catalogService.latestCatalogVersion()
+                                    catalogVersion
                             )
                     )
                     .collect(Collectors.toUnmodifiableList());
@@ -185,6 +210,10 @@ public class DistributionZoneRebalanceEngine {
     public void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
+        }
+
+        if (ENABLED) {
+            distributionZoneRebalanceEngineV2.stop();
         }
 
         metaStorageManager.unregisterWatch(dataNodesListener);
@@ -205,6 +234,8 @@ public class DistributionZoneRebalanceEngine {
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
+                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+                    //  in the catalog. Better to store this version when writing datanodes.
                     int catalogVersion = catalogService.latestCatalogVersion();
 
                     CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
@@ -263,15 +294,27 @@ public class DistributionZoneRebalanceEngine {
                         return nullCompletedFuture();
                     }
 
-                    int zoneId = RebalanceUtil.extractZoneIdFromTablesCounter(event.entryEvent().newEntry().key());
-
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-21254 tables here must be the same as they were on rebalance start
-                    List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogService.latestCatalogVersion(), catalogService);
-
                     rebalanceScheduler.schedule(() -> {
                         if (!busyLock.enterBusy()) {
                             return;
                         }
+
+                        int zoneId = RebalanceUtil.extractZoneIdFromTablesCounter(event.entryEvent().newEntry().key());
+
+                        int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
+
+                        int catalogVersion;
+
+                        try {
+                            catalogVersion = getCatalogVersionForCounter(zoneId, partId, event.revision());
+                        } catch (ExecutionException | InterruptedException e) {
+                            LOG.error("Failed to get catalog version for [zoneId={}, partitionId={}]", e, zoneId, partId);
+
+                            busyLock.leaveBusy();
+                            return;
+                        }
+
+                        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogService);
 
                         LOG.debug("Started to update stable keys for tables from the zone [zoneId = {}, tables = [{}]]",
                                 zoneId,
@@ -280,8 +323,6 @@ public class DistributionZoneRebalanceEngine {
 
                         try {
                             Map<ByteArray, TablePartitionId> partitionTablesKeys = new HashMap<>();
-
-                            int partId = extractPartitionNumber(event.entryEvent().newEntry().key());
 
                             for (CatalogTableDescriptor table : tables) {
                                 TablePartitionId replicaGrpId = new TablePartitionId(table.id(), partId);
@@ -323,6 +364,20 @@ public class DistributionZoneRebalanceEngine {
         };
     }
 
+    @Deprecated // Will be removed when IGNITE-22115 is merged.
+    private int getCatalogVersionForCounter(int zoneId, int partId, long revision) throws ExecutionException, InterruptedException {
+        Entry entry = metaStorageManager.getLocally(catalogVersionKey(zoneId, partId), revision);
+
+        assert entry.value() != null : "Failed to find catalog version for table counters.";
+
+        int storedCatalogVersion = bytesToInt(entry.value());
+
+        // Wait for the catalog to catch up.
+        catalogService.catalogReadyFuture(storedCatalogVersion).get();
+
+        return storedCatalogVersion;
+    }
+
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
         return recalculateAssignmentsAndScheduleRebalance(
                 parameters.zoneDescriptor(),
@@ -334,10 +389,9 @@ public class DistributionZoneRebalanceEngine {
     static CompletableFuture<Set<Assignment>> calculateAssignments(
             TablePartitionId tablePartitionId,
             CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            int catalogVersion
     ) {
-        int catalogVersion = catalogService.latestCatalogVersion();
-
         CatalogTableDescriptor tableDescriptor = catalogService.table(tablePartitionId.tableId(), catalogVersion);
 
         CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);

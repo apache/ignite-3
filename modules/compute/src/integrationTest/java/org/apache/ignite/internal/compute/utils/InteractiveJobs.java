@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.utils;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -25,6 +26,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -153,7 +155,7 @@ public final class InteractiveJobs {
     /**
      * Interactive job that communicates via {@link #GLOBAL_CHANNEL} and {@link #GLOBAL_SIGNALS}.
      */
-    private static class GlobalInteractiveJob implements ComputeJob<String> {
+    public static class GlobalInteractiveJob implements ComputeJob<String, String> {
         private static Signal listenSignal() {
             try {
                 return GLOBAL_SIGNALS.take();
@@ -163,7 +165,7 @@ public final class InteractiveJobs {
         }
 
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String args) {
             RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
             offerArgsAsSignals(args);
@@ -178,9 +180,9 @@ public final class InteractiveJobs {
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case RETURN:
-                            return "Done";
+                            return completedFuture("Done");
                         case RETURN_WORKER_NAME:
-                            return context.ignite().name();
+                            return completedFuture(context.ignite().name());
                         case GET_WORKER_NAME:
                             GLOBAL_CHANNEL.add(context.ignite().name());
                             break;
@@ -196,18 +198,16 @@ public final class InteractiveJobs {
         /**
          * If any of the args are strings, convert them to signals and offer them to the job.
          *
-         * @param args Job args.
+         * @param arg Job args.
          */
-        private static void offerArgsAsSignals(Object[] args) {
-            for (Object arg : args) {
-                if (arg instanceof String) {
-                    String signal = (String) arg;
-                    try {
-                        GLOBAL_SIGNALS.offer(Signal.valueOf(signal));
-                    } catch (IllegalArgumentException ignored) {
-                        // Ignore non-signal strings
-                    }
-                }
+        private static void offerArgsAsSignals(String arg) {
+            if (arg == null) {
+                return;
+            }
+            try {
+                GLOBAL_SIGNALS.offer(Signal.valueOf(arg));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore non-signal strings
             }
         }
     }
@@ -216,7 +216,7 @@ public final class InteractiveJobs {
      * Interactive job that communicates via {@link #NODE_CHANNELS} and {@link #NODE_SIGNALS}. Also, keeps track of how many times it was
      * executed via {@link #RUNNING_INTERACTIVE_JOBS_CNT}.
      */
-    private static class InteractiveJob implements ComputeJob<String> {
+    private static class InteractiveJob implements ComputeJob<Object[], String> {
         private static Signal listenSignal(BlockingQueue<Signal> channel) {
             try {
                 return channel.take();
@@ -226,7 +226,7 @@ public final class InteractiveJobs {
         }
 
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... args) {
             RUNNING_INTERACTIVE_JOBS_CNT.incrementAndGet();
 
             try {
@@ -244,9 +244,9 @@ public final class InteractiveJobs {
                             NODE_CHANNELS.get(workerNodeName).offer(ACK);
                             break;
                         case RETURN:
-                            return "Done";
+                            return completedFuture("Done");
                         case RETURN_WORKER_NAME:
-                            return workerNodeName;
+                            return completedFuture(workerNodeName);
                         case GET_WORKER_NAME:
                             NODE_CHANNELS.get(workerNodeName).add(workerNodeName);
                             break;
@@ -411,6 +411,10 @@ public final class InteractiveJobs {
          */
         public String name() {
             return GlobalInteractiveJob.class.getName();
+        }
+
+        public Class<GlobalInteractiveJob> jobClass() {
+            return GlobalInteractiveJob.class;
         }
     }
 }

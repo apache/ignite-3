@@ -31,10 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.lang.IgniteException;
@@ -133,9 +131,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.ztimestamp);
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
-        assertEquals(BitSet.valueOf(new byte[]{32}), res.zbitmask);
         assertEquals(21, res.zdecimal.longValue());
-        assertEquals(22, res.znumber.longValue());
         assertEquals(uuid, res.zuuid);
     }
 
@@ -163,9 +159,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         val.ztimestamp = instant;
         val.zstring = "119";
         val.zbytes = new byte[]{120};
-        val.zbitmask = BitSet.valueOf(new byte[]{121});
         val.zdecimal = BigDecimal.valueOf(122);
-        val.znumber = BigInteger.valueOf(123);
         val.zuuid = uuid;
 
         pojoView.upsert(null, val);
@@ -186,9 +180,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
-        assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
         assertEquals(122, ((BigDecimal) res.value("zdecimal")).longValue());
-        assertEquals(BigInteger.valueOf(123), res.value("znumber"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
 
@@ -289,6 +281,47 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertTrue(recordView.contains(null, new PersonPojo(DEFAULT_ID, "")));
         assertFalse(recordView.contains(null, new PersonPojo(DEFAULT_ID - 1, DEFAULT_NAME)));
     }
+
+    @Test
+    public void testContainsAll() {
+        RecordView<PersonPojo> recordView = defaultTable().recordView(PersonPojo.class);
+
+        long firstKey = 101L;
+        PersonPojo firstPerson = new PersonPojo(firstKey, "201");
+
+        long secondKey = 102L;
+        PersonPojo secondPerson = new PersonPojo(secondKey, "202");
+
+        long thirdKey = 103L;
+        PersonPojo thirdPerson = new PersonPojo(thirdKey, "203");
+
+        List<PersonPojo> recs = List.of(firstPerson, secondPerson, thirdPerson);
+
+        recordView.insertAll(null, recs);
+
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstPerson, null, thirdPerson)));
+
+        assertTrue(recordView.containsAll(null, List.of()));
+        assertTrue(recordView.containsAll(null, List.of(firstPerson)));
+        assertTrue(recordView.containsAll(null, List.of(firstPerson, secondPerson, thirdPerson)));
+        assertTrue(recordView.containsAll(null, List.of(
+                new PersonPojo(firstKey, " "),
+                new PersonPojo(secondKey, " "),
+                new PersonPojo(thirdKey, " ")
+        )));
+
+        long zeroKey = 0L;
+        PersonPojo missedPojo = new PersonPojo(zeroKey, DEFAULT_NAME);
+
+        assertFalse(recordView.containsAll(null, List.of(missedPojo)));
+        assertFalse(recordView.containsAll(null, List.of(firstPerson, secondPerson, missedPojo)));
+        assertFalse(recordView.containsAll(null, List.of(
+                new PersonPojo(firstKey, " "),
+                new PersonPojo(secondKey, " "),
+                new PersonPojo(zeroKey, " ")
+        )));
+    }    
 
     @Test
     public void testUpsertAll() {
@@ -527,7 +560,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         var ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, pojo));
 
-        assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Column 'STRNONNULL' does not allow NULLs"));
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientRecordView"))));
     }
 }

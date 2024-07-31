@@ -23,15 +23,16 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -51,7 +52,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
     public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction transaction,
             String qry,
             Object... params
@@ -80,12 +81,12 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 }

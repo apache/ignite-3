@@ -38,6 +38,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
@@ -106,11 +107,9 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
             new Column("timestampCol".toUpperCase(), timestamp(6), true),
 
             new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
-            new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
             new Column("stringCol".toUpperCase(), STRING, true),
             new Column("nullBytesCol".toUpperCase(), BYTES, true),
             new Column("bytesCol".toUpperCase(), BYTES, true),
-            new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
             new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
     };
 
@@ -365,6 +364,42 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
     }
 
     @Test
+    public void testContainsAll() {
+        RecordView<TestObjectWithAllTypes> recordView = recordView();
+
+        TestObjectWithAllTypes firstKey = key(rnd);
+        TestObjectWithAllTypes firstVal = randomObject(rnd, firstKey);
+
+        TestObjectWithAllTypes secondKey = key(rnd);
+        TestObjectWithAllTypes secondVal = randomObject(rnd, secondKey);
+
+        TestObjectWithAllTypes thirdKey = key(rnd);
+        TestObjectWithAllTypes thirdVal = randomObject(rnd, thirdKey);
+
+        List<TestObjectWithAllTypes> recs = List.of(firstVal, secondVal, thirdVal);
+
+        recordView.insertAll(null, recs);
+
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstKey, null, thirdKey)));
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstVal, null, thirdVal)));
+
+        assertTrue(recordView.containsAll(null, List.of()));
+        assertTrue(recordView.containsAll(null, List.of(firstKey)));
+        assertTrue(recordView.containsAll(null, List.of(firstVal)));
+        assertTrue(recordView.containsAll(null, List.of(firstKey, secondKey, thirdKey)));
+        assertTrue(recordView.containsAll(null, List.of(firstVal, secondVal, thirdVal)));
+
+        TestObjectWithAllTypes missedKey = key(rnd);
+        TestObjectWithAllTypes missedVal = randomObject(rnd, missedKey);
+
+        assertFalse(recordView.containsAll(null, List.of(missedKey)));
+        assertFalse(recordView.containsAll(null, List.of(missedVal)));
+        assertFalse(recordView.containsAll(null, List.of(firstKey, secondKey, missedKey)));
+        assertFalse(recordView.containsAll(null, List.of(firstVal, secondVal, missedVal)));
+    }
+
+    @Test
     void retriesOnInternalSchemaVersionMismatchException() throws Exception {
         RecordView<TestObjectWithAllTypes> view = recordView();
 
@@ -398,7 +433,11 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
+
+        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
+
         Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+                .filter(t -> !unsupported.contains(t))
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);

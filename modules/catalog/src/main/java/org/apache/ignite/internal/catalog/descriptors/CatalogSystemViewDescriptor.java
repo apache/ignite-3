@@ -35,6 +35,8 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
     public static final CatalogObjectSerializer<CatalogSystemViewDescriptor> SERIALIZER = new SystemViewDescriptorSerializer();
 
+    private final int schemaId;
+
     private final List<CatalogTableColumnDescriptor> columns;
 
     private final SystemViewType systemViewType;
@@ -43,18 +45,26 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
      * Constructor.
      *
      * @param id View id.
+     * @param schemaId Schema id.
      * @param name View name.
      * @param columns View columns.
      * @param systemViewType View type.
      */
-    public CatalogSystemViewDescriptor(int id, String name, List<CatalogTableColumnDescriptor> columns, SystemViewType systemViewType) {
-        this(id, name, columns, systemViewType, INITIAL_CAUSALITY_TOKEN);
+    public CatalogSystemViewDescriptor(
+            int id,
+            int schemaId,
+            String name,
+            List<CatalogTableColumnDescriptor> columns,
+            SystemViewType systemViewType
+    ) {
+        this(id, schemaId, name, columns, systemViewType, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
      * Constructor.
      *
      * @param id View id.
+     * @param schemaId Schema id.
      * @param name View name.
      * @param columns View columns.
      * @param systemViewType View type.
@@ -62,6 +72,7 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
      */
     public CatalogSystemViewDescriptor(
             int id,
+            int schemaId,
             String name,
             List<CatalogTableColumnDescriptor> columns,
             SystemViewType systemViewType,
@@ -69,8 +80,18 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
     ) {
         super(id, Type.SYSTEM_VIEW, name, causalityToken);
 
+        this.schemaId = schemaId;
         this.columns = Objects.requireNonNull(columns, "columns");
         this.systemViewType = Objects.requireNonNull(systemViewType, "viewType");
+    }
+
+    /**
+     * Returns a schema id of this view.
+     *
+     * @return A schema id.
+     */
+    public int schemaId() {
+        return schemaId;
     }
 
     /**
@@ -101,13 +122,13 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
             return false;
         }
         CatalogSystemViewDescriptor that = (CatalogSystemViewDescriptor) o;
-        return Objects.equals(columns, that.columns) && systemViewType == that.systemViewType;
+        return schemaId == that.schemaId && Objects.equals(columns, that.columns) && systemViewType == that.systemViewType;
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(columns, systemViewType);
+        return Objects.hash(schemaId, columns, systemViewType);
     }
 
     /** {@inheritDoc} */
@@ -116,6 +137,7 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
         return S.toString(
                 CatalogSystemViewDescriptor.class, this,
                 "id", id(),
+                "schemaId", schemaId,
                 "name", name(),
                 "columns", columns,
                 "systemViewType", systemViewType()
@@ -147,12 +169,13 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
 
         /** Returns system view type by identifier. */
         private static SystemViewType forId(int id) {
-            if (id == 0) {
-                return NODE;
-            } else {
-                assert id == 1;
-
-                return CLUSTER;
+            switch (id) {
+                case 0:
+                    return NODE;
+                case 1:
+                    return CLUSTER;
+                default:
+                    throw new IllegalArgumentException("Unknown system view type id: " + id);
             }
         }
     }
@@ -164,6 +187,7 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
         @Override
         public CatalogSystemViewDescriptor readFrom(IgniteDataInput input) throws IOException {
             int id = input.readInt();
+            int schemaId = input.readInt();
             String name = input.readUTF();
             long updateToken = input.readLong();
             List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, input);
@@ -171,12 +195,13 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
             byte sysViewTypeId = input.readByte();
             SystemViewType sysViewType = SystemViewType.forId(sysViewTypeId);
 
-            return new CatalogSystemViewDescriptor(id, name, columns, sysViewType, updateToken);
+            return new CatalogSystemViewDescriptor(id, schemaId, name, columns, sysViewType, updateToken);
         }
 
         @Override
         public void writeTo(CatalogSystemViewDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeInt(descriptor.id());
+            output.writeInt(descriptor.schemaId);
             output.writeUTF(descriptor.name());
             output.writeLong(descriptor.updateToken());
             writeList(descriptor.columns(), CatalogTableColumnDescriptor.SERIALIZER, output);

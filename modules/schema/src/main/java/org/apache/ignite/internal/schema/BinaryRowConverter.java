@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.schema;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
@@ -128,8 +126,6 @@ public class BinaryRowConverter implements ColumnsExtractor {
                 return builder.appendFloat((float) value);
             case DOUBLE:
                 return builder.appendDouble((double) value);
-            case NUMBER:
-                return builder.appendNumberNotNull((BigInteger) value);
             case DECIMAL:
                 return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
             case UUID:
@@ -138,8 +134,6 @@ public class BinaryRowConverter implements ColumnsExtractor {
                 return builder.appendBytesNotNull((byte[]) value);
             case STRING:
                 return builder.appendStringNotNull((String) value);
-            case BITMASK:
-                return builder.appendBitmaskNotNull((BitSet) value);
             case DATE:
                 return builder.appendDateNotNull((LocalDate) value);
             case TIME:

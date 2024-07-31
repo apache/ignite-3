@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
@@ -50,6 +51,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -103,6 +105,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -224,8 +227,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
-        when(cmgManager.startAsync()).thenReturn(nullCompletedFuture());
-        when(cmgManager.stopAsync()).thenReturn(nullCompletedFuture());
+
+        when(cmgManager.startAsync(any())).thenReturn(nullCompletedFuture());
+        when(cmgManager.stopAsync(any())).thenReturn(nullCompletedFuture());
 
         metastore = spy(StandaloneMetaStorageManager.create(
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
@@ -282,11 +286,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         components.add(nodeCfgMgr);
 
         // Start.
-
-        assertThat(vault.startAsync(), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+        assertThat(vault.startAsync(componentContext), willCompleteSuccessfully());
         vault.putName(name);
 
-        assertThat(nodeCfgMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(nodeCfgMgr.startAsync(componentContext), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -303,7 +307,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         for (IgniteComponent component : otherComponents) {
             // TODO: IGNITE-22119 required to be able to wait on this future.
-            component.startAsync();
+            component.startAsync(componentContext);
 
             components.add(component);
         }
@@ -839,10 +843,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             byte[] keyScaleDownBytes = zoneScaleDownChangeTriggerKeyPrefix().bytes();
             byte[] keyGlobalStateBytes = zonesRecoverableStateRevision().bytes();
 
-            boolean isScaleUpKey = iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), keyScaleUpBytes));
-            boolean isScaleDownKey = iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), keyScaleDownBytes));
+            boolean isScaleUpKey = iif1.andThen().update().operations().stream()
+                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleUpBytes));
+            boolean isScaleDownKey = iif1.andThen().update().operations().stream()
+                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleDownBytes));
             boolean isGlobalStateChangeKey = iif1.andThen().update().operations().stream()
-                    .anyMatch(op -> startsWith(op.key(), keyGlobalStateBytes));
+                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyGlobalStateBytes));
 
             return isScaleUpKey && startScaleUpBlocking
                     || isScaleDownKey && startScaleDownBlocking

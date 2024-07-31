@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.raft.storage.logit;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.FeatureChecker;
@@ -77,7 +81,14 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        ExecutorServiceHelper.shutdownAndAwaitTermination(checkpointExecutor);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -87,11 +98,6 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         Path storagePath = resolveLogStoragePath(groupId);
 
         return new LogitLogStorage(storagePath, storeOptions, raftOptions, checkpointExecutor);
-    }
-
-    @Override
-    public void close() {
-        ExecutorServiceHelper.shutdownAndAwaitTermination(checkpointExecutor);
     }
 
     @Override

@@ -251,6 +251,7 @@ sql_result data_query::next_result_set() {
 sql_result data_query::make_request_execute() {
     auto &schema = m_connection.get_schema();
 
+    bool single = m_params.get_param_set_size() <= 1;
     auto success = m_diag.catch_errors([&] {
         auto tx = m_connection.get_transaction_id();
         if (!tx && !m_connection.is_auto_commit()) {
@@ -261,10 +262,9 @@ sql_result data_query::make_request_execute() {
             assert(tx);
         }
 
-        bool single = m_params.get_param_set_size() <= 1;
         auto client_op = single ? protocol::client_operation::SQL_EXEC : protocol::client_operation::SQL_EXEC_BATCH;
 
-        auto response = m_connection.sync_request(client_op, [&](protocol::writer &writer) {
+        auto res = m_connection.sync_request_nothrow(client_op, [&](protocol::writer &writer) {
             if (tx)
                 writer.write(*tx);
             else
@@ -274,6 +274,13 @@ sql_result data_query::make_request_execute() {
             writer.write(m_connection.get_configuration().get_page_size().get_value());
             writer.write(std::int64_t(m_connection.get_timeout()) * 1000);
             writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
+
+            auto timezone = m_connection.get_configuration().get_timezone();
+            if (timezone.is_set()) {
+                writer.write(timezone.get_value());
+            } else {
+                writer.write_nil();
+            }
 
             // Properties are not used for now.
             writer.write(0);
@@ -294,8 +301,23 @@ sql_result data_query::make_request_execute() {
             writer.write(m_connection.get_observable_timestamp());
         });
 
+        // Check error
+        if (res.second) {
+            auto err = std::move(*res.second);
+            if (!single) {
+                auto affected_rows = err.get_cause()->get_extra<std::vector<std::int64_t>>(
+                    protocol::error_extensions::SQL_UPDATE_COUNTERS);
+                if (affected_rows) {
+                    process_affected_rows(*affected_rows);
+                }
+            }
+
+            throw odbc_error{std::move(err)};
+        }
+
         m_connection.mark_transaction_non_empty();
 
+        auto &response = res.first;
         auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
         m_query_id = reader->read_object_nullable<std::int64_t>();
 
@@ -315,38 +337,34 @@ sql_result data_query::make_request_execute() {
             m_executed = true;
         } else {
             auto affected_rows = reader->read_int64_array();
-            auto status_ptr = m_params.get_params_status_ptr();
-
-            m_rows_affected = 0;
-            for (auto &ar : affected_rows) {
-                m_rows_affected += ar;
-            }
-            m_params.set_params_processed(affected_rows.size());
-
-            if (status_ptr) {
-                for (auto i = 0; i < m_params.get_param_set_size(); i++) {
-                    status_ptr[i] = (std::size_t(i) < affected_rows.size()) ? SQL_PARAM_SUCCESS : SQL_PARAM_ERROR;
-                }
-            }
-
-            // Batch query, set attribute if it's set
-            if (auto affected = m_params.get_params_processed_ptr(); affected) {
-                *affected = m_rows_affected;
-            }
-
-            m_executed = true;
-
-            // Check error if this is a batch query
-            if (auto error_code = reader->read_int16_nullable(); error_code) {
-                auto error_message = reader->read_string();
-                throw odbc_error(error_code_to_sql_state(error::code(error_code.value())), error_message);
-            } else {
-                reader->skip(); // error message
-            }
+            process_affected_rows(affected_rows);
         }
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
+}
+
+void data_query::process_affected_rows(const std::vector<std::int64_t> &affected_rows) {
+    auto status_ptr = m_params.get_params_status_ptr();
+
+    m_rows_affected = 0;
+    for (auto &ar : affected_rows) {
+        m_rows_affected += ar;
+    }
+    m_params.set_params_processed(affected_rows.size());
+
+    if (status_ptr) {
+        for (auto i = 0; i < m_params.get_param_set_size(); i++) {
+            status_ptr[i] = (size_t(i) < affected_rows.size()) ? SQL_PARAM_SUCCESS : SQL_PARAM_ERROR;
+        }
+    }
+
+    // Batch query, set attribute if it's set
+    if (auto affected = m_params.get_params_processed_ptr(); affected) {
+        *affected = m_rows_affected;
+    }
+
+    m_executed = true;
 }
 
 sql_result data_query::make_request_close() {

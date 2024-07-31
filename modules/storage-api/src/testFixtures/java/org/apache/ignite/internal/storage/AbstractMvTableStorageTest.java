@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -62,6 +63,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -87,6 +89,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -364,7 +367,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -374,7 +376,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 false,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -417,7 +418,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of("STRKEY")
         );
 
@@ -427,7 +427,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 catalogTableDescriptor.id(),
                 true,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of("STRKEY")
         );
 
@@ -504,6 +503,68 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(getAll(storage2.get(tuple)), contains(rowId2));
     }
 
+    @Test
+    public void testPutIndexAndVersionRowToMemory() {
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+
+        // Should be large enough to exceed inline size.
+        byte[] bytes = new byte[100];
+        new Random().nextBytes(bytes);
+        String str = new String(bytes);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(10, "foo"), new TestValue(20, str));
+
+        var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        IndexRow indexRow = serializer.serializeRow(new Object[]{str}, new RowId(PARTITION_ID));
+        partitionStorage.runConsistently(locker -> {
+            indexStorage.put(indexRow);
+
+            return null;
+        });
+
+        partitionStorage.runConsistently(locker -> {
+            RowId rowId = new RowId(PARTITION_ID);
+            locker.tryLock(rowId);
+
+            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+
+            return null;
+        });
+    }
+
+    @Test
+    public void testPutIndexAndVersionRowToMemoryFragmented() {
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+
+        // Should be large enough to exceed memory page size.
+        byte[] bytes = new byte[16385];
+        new Random().nextBytes(bytes);
+        String str = new String(bytes);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(10, "foo"), new TestValue(20, str));
+
+        var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        IndexRow indexRow = serializer.serializeRow(new Object[]{str}, new RowId(PARTITION_ID));
+        partitionStorage.runConsistently(locker -> {
+            indexStorage.put(indexRow);
+
+            return null;
+        });
+
+        partitionStorage.runConsistently(locker -> {
+            RowId rowId = new RowId(PARTITION_ID);
+            locker.tryLock(rowId);
+
+            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+
+            return null;
+        });
+    }
+
     private static void checkStorageDestroyed(IndexStorage storage) {
         assertThrows(StorageDestroyedException.class, () -> storage.get(mock(BinaryTuple.class)));
 
@@ -551,8 +612,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageDestroyedException.class, () -> storage.scanVersions(rowId));
 
         assertThrows(StorageDestroyedException.class, () -> storage.closestRowId(rowId));
-
-        assertThrows(StorageDestroyedException.class, storage::rowsCount);
     }
 
     @Test
@@ -992,7 +1051,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 false,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -1002,7 +1060,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of("STRKEY")
         );
 
@@ -1012,7 +1069,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
                 List.of(pkColumnName)
         );
 
@@ -1333,6 +1389,145 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
     }
 
+    @Test
+    public void testEstimatedSizeAfterRebalance() {
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        List<TestRow> rowsBeforeRebalance = IntStream.range(0, 2)
+                .mapToObj(i -> new TestRow(
+                        new RowId(PARTITION_ID),
+                        binaryRow(new TestKey(i, "0"), new TestValue(i, "0"))
+                ))
+                .collect(toList());
+
+        fillStorages(mvPartitionStorage, null, null, rowsBeforeRebalance);
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(2L));
+
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+        List<TestRow> rowsAfterRebalance = IntStream.range(2, 5)
+                .mapToObj(i -> new TestRow(
+                        new RowId(PARTITION_ID),
+                        binaryRow(new TestKey(i, "0"), new TestValue(i, "0"))
+                ))
+                .collect(toList());
+
+        fillStorages(mvPartitionStorage, null, null, rowsAfterRebalance);
+
+        assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, 42, 42, BYTE_EMPTY_ARRAY), willCompleteSuccessfully());
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(3L));
+    }
+
+    @Test
+    public void testEstimatedSizeAfterAbortRebalance() {
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        List<TestRow> rowsBeforeRebalance = IntStream.range(0, 2)
+                .mapToObj(i -> new TestRow(
+                        new RowId(PARTITION_ID),
+                        binaryRow(new TestKey(i, "0"), new TestValue(i, "0"))
+                ))
+                .collect(toList());
+
+        fillStorages(mvPartitionStorage, null, null, rowsBeforeRebalance);
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(2L));
+
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+        List<TestRow> rowsAfterRebalance = IntStream.range(2, 5)
+                .mapToObj(i -> new TestRow(
+                        new RowId(PARTITION_ID),
+                        binaryRow(new TestKey(i, "0"), new TestValue(i, "0"))
+                ))
+                .collect(toList());
+
+        fillStorages(mvPartitionStorage, null, null, rowsAfterRebalance);
+
+        assertThat(tableStorage.abortRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(0L));
+    }
+
+    @Test
+    public void testEstimatedSizeAfterRestart() throws Exception {
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        List<TestRow> rows = List.of(
+                new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0"))),
+                new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(1, "1"), new TestValue(1, "1")))
+        );
+
+        fillStorages(mvPartitionStorage, null, null, rows);
+
+        assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(2L));
+
+        // Restart storages.
+        tableStorage.close();
+
+        tableStorage = createMvTableStorage();
+
+        mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(tableStorage.isVolatile() ? 0L : 2L));
+    }
+
+    /**
+     * Tests that correct estimated size is saved on disk when multiple threads modify the same partition storage.
+     */
+    @Test
+    public void testEstimatedSizeAfterRestartConcurrent() throws Exception {
+        assumeFalse(tableStorage.isVolatile());
+
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        var rowId1 = new RowId(PARTITION_ID);
+        var rowId2 = new RowId(PARTITION_ID);
+
+        List<TestRow> rows = List.of(
+                new TestRow(rowId1, binaryRow(new TestKey(0, "0"), new TestValue(0, "0"))),
+                new TestRow(rowId2, binaryRow(new TestKey(1, "1"), new TestValue(1, "1")))
+        );
+
+        fillStorages(mvPartitionStorage, null, null, rows);
+
+        MvPartitionStorage finalStorage = mvPartitionStorage;
+
+        runRace(
+                () -> finalStorage.runConsistently(locker -> {
+                    locker.lock(rowId1);
+
+                    finalStorage.addWriteCommitted(rowId1, null, clock.now());
+
+                    return null;
+                }),
+                () -> finalStorage.runConsistently(locker -> {
+                    locker.lock(rowId2);
+
+                    finalStorage.addWriteCommitted(rowId2, null, clock.now());
+
+                    return null;
+                })
+        );
+
+        assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(0L));
+
+        // Restart storages.
+        tableStorage.close();
+
+        tableStorage = createMvTableStorage();
+
+        mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(mvPartitionStorage.estimatedSize(), is(0L));
+    }
+
     private void startRebalanceWithChecks(
             int partitionId,
             MvPartitionStorage mvPartitionStorage,
@@ -1409,7 +1604,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             assertThrows(StorageRebalanceException.class, () -> storage.scanVersions(rowId));
             assertThrows(StorageRebalanceException.class, () -> storage.scan(clock.now()));
             assertThrows(StorageRebalanceException.class, () -> storage.closestRowId(rowId));
-            assertThrows(StorageRebalanceException.class, storage::rowsCount);
 
             return null;
         });
@@ -1454,7 +1648,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         return getOrCreateMvPartition(tableStorage, partitionId);
     }
 
-    void testNextRowIdToBuildAfterOperation(Operation operation) throws Exception {
+    private void testNextRowIdToBuildAfterOperation(Operation operation) throws Exception {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         IndexStorage hashIndexStorage = getOrCreateIndex(PARTITION_ID, hashIdx, false);
@@ -1502,6 +1696,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(recreatedPkIndexStorage.getNextRowIdToBuild(), is(equalTo(rowId2)));
     }
 
+    @FunctionalInterface
     private interface Operation {
         void doOperation() throws Exception;
     }

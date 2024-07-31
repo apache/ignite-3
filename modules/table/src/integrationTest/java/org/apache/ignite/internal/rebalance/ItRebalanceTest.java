@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -50,24 +50,27 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test suite for the rebalance.
  */
-@SuppressWarnings("resource")
-public class ItRebalanceTest extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+public class ItRebalanceTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
@@ -188,7 +191,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                 n -> n.dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && dropMessages.get())
         );
 
-        alterZone(zoneName, 3, 2);
+        alterZone(zoneName, 2);
 
         CatalogManager catalogManager = cluster.aliveNode().catalogManager();
 
@@ -209,7 +212,45 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         waitForTablesCounterInMetastore(0, zoneId, 2);
     }
 
-    private static Row marshalTuple(TableViewInternal table, Tuple tuple) throws TupleMarshallerException {
+    @Test
+    void testRebalanceTablesCounterForZonePrevCatalogVersion() throws Exception {
+        cluster.startAndInit(3);
+
+        String zoneName = "ZONE";
+
+        createZone(zoneName, 3, 3);
+
+        Set<Integer> tableIds = new HashSet<>();
+
+        tableIds.add(createTestTable("TEST1", zoneName));
+
+        Set<String> allNodes = cluster.runningNodes().map(IgniteImpl::name).collect(Collectors.toSet());
+
+        for (Integer tableId : tableIds) {
+            waitForStableAssignmentsInMetastore(allNodes, tableId);
+        }
+
+        // Block low watermark change with an open ro tx.
+        cluster.aliveNode().transactions().begin(new TransactionOptions().readOnly(true));
+
+        alterZone(zoneName, 2);
+
+        dropTestTable("TEST1");
+
+        CatalogManager catalogManager = cluster.aliveNode().catalogManager();
+
+        int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneName).id();
+
+        for (Integer tableId : tableIds) {
+            waitForStableAssignmentsInMetastore(2, tableId);
+        }
+
+        waitForTablesCounterInMetastore(0, zoneId, 0);
+        waitForTablesCounterInMetastore(0, zoneId, 1);
+        waitForTablesCounterInMetastore(0, zoneId, 2);
+    }
+
+    private static Row marshalTuple(TableViewInternal table, Tuple tuple) {
         SchemaRegistry schemaReg = table.schemaView();
         var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
 
@@ -245,7 +286,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
             lastAssignmentsHolderForLog[0] = assignments;
 
             return assignments.size() == expectedNodesNumber;
-        }, 30000), "Expected nodes: " + expectedNodesNumber + ", actual nodes size: " + lastAssignmentsHolderForLog[0].size());
+        }, 30000), "Expected nodes: " + expectedNodesNumber + ", actual nodes size: " + actualSize(lastAssignmentsHolderForLog));
     }
 
     private void waitForTablesCounterInMetastore(int expectedTablesNumber, int zoneId, int partitionNumber) throws InterruptedException {
@@ -258,7 +299,12 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
             return tablesCounter != null && tablesCounter.size() == expectedTablesNumber;
 
-        }, 30000), "Expected tables number: " + expectedTablesNumber + ", actual tables number: " + lastAssignmentsHolderForLog[0].size());
+        }, 30000),
+                "Expected tables number: " + expectedTablesNumber + ", actual tables number: " + actualSize(lastAssignmentsHolderForLog));
+    }
+
+    private static String actualSize(Collection<?>[] collection) {
+        return collection[0] == null ? "null" : Integer.toString(collection[0].size());
     }
 
     private static CompletableFuture<Set<Integer>> tablesCounter(
@@ -287,11 +333,11 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         });
     }
 
-    private void alterZone(String zoneName, int partitions, int replicas) {
+    private void alterZone(String zoneName, int replicas) {
         String sql1 = String.format("alter zone %s set "
-                + "partitions=%d, replicas=%d, "
+                + "replicas=%d, "
                 + "data_nodes_auto_adjust_scale_up=0, "
-                + "data_nodes_auto_adjust_scale_down=0", zoneName, partitions, replicas);
+                + "data_nodes_auto_adjust_scale_down=0", zoneName, replicas);
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql1, session);
@@ -311,5 +357,13 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         return catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
                 .filter(t -> t.name().equals(tableName))
                 .findFirst().get().id();
+    }
+
+    private void dropTestTable(String tableName) {
+        String sql2 = "drop table if exists " + tableName;
+
+        cluster.doInSession(1, session -> {
+            executeUpdate(sql2, session);
+        });
     }
 }

@@ -83,7 +83,7 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
         // Then
         assertThat(initResponse.statusCode(), is(HttpStatus.OK.getCode()));
         // And
-        assertThat(startingNodes.get(0), willCompleteSuccessfully());
+        assertThat(nodes.get(0).waitForInitAsync(), willCompleteSuccessfully());
 
         // When get cluster state
         HttpResponse<String> stateResponse = send(get("/management/v1/cluster/state"));

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/common/bytes.h>
+#include "ignite/common/detail/bytes.h"
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_error.h>
 #include <ignite/common/primitive.h>
@@ -38,6 +38,15 @@ struct msgpack_object;
 namespace ignite::protocol {
 
 class reader;
+
+/**
+ * Error data extensions. When the server returns an error response, it may contain additional data in a map.
+ * Keys are defined here.
+ */
+namespace error_extensions {
+constexpr const char* EXPECTED_SCHEMA_VERSION = "expected-schema-ver";
+constexpr const char* SQL_UPDATE_COUNTERS = "sql-update-counters";
+};
 
 /** Magic bytes. */
 static constexpr std::array<std::byte, 4> MAGIC_BYTES = {

@@ -30,8 +30,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
@@ -45,9 +45,8 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
@@ -66,7 +65,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private final CheckpointTimeoutLock checkpointTimeoutLock;
 
     /** Partition meta instance. */
-    private volatile PartitionMeta meta;
+    private volatile StoragePartitionMeta meta;
 
     /** Checkpoint listener. */
     private final CheckpointListener checkpointListener;
@@ -82,8 +81,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param tableStorage Table storage.
      * @param partitionId Partition id.
      * @param meta Partition meta.
-     * @param rowVersionFreeList Free list for {@link RowVersion}.
-     * @param indexFreeList Free list fot {@link IndexColumns}.
+     * @param freeList Free list.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
@@ -91,9 +89,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
             int partitionId,
-            PartitionMeta meta,
-            RowVersionFreeList rowVersionFreeList,
-            IndexColumnsFreeList indexFreeList,
+            StoragePartitionMeta meta,
+            FreeListImpl freeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
@@ -106,8 +103,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                         tableStorage,
                         partitionId,
                         versionChainTree,
-                        rowVersionFreeList,
-                        indexFreeList,
+                        freeList,
                         indexMetaTree,
                         gcQueue
                 ),
@@ -136,7 +132,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         }, dataRegion);
 
         blobStorage = new BlobStorage(
-                rowVersionFreeList,
+                freeList,
                 dataRegion.pageMemory(),
                 tableStorage.getTableId(),
                 partitionId,
@@ -237,11 +233,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     /**
-     * Closure interface for {@link #update(UUID, PartitionMeta)}.
+     * Closure interface for {@link #update(UUID, StoragePartitionMeta)}.
      */
     @FunctionalInterface
     private interface MetaUpdateClosure {
-        void update(UUID lastCheckpointId, PartitionMeta meta);
+        void update(UUID lastCheckpointId, StoragePartitionMeta meta);
     }
 
     /**
@@ -361,8 +357,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         RenewablePartitionStorageState localState = renewableState;
 
-        resourcesToClose.add(localState.rowVersionFreeList()::close);
-        resourcesToClose.add(localState.indexFreeList()::close);
+        resourcesToClose.add(localState.freeList()::close);
         resourcesToClose.add(blobStorage::close);
 
         return resourcesToClose;
@@ -378,14 +373,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         if (executor == null) {
             busySafe(() -> {
-                saveRowVersionFreeListMetadataBusy(localState);
-
-                saveIndexFreeListMetadataBusy(localState);
+                saveFreeListMetadataBusy(localState);
             });
         } else {
-            executor.execute(() -> busySafe(() -> saveRowVersionFreeListMetadataBusy(localState)));
-
-            executor.execute(() -> busySafe(() -> saveIndexFreeListMetadataBusy(localState)));
+            executor.execute(() -> busySafe(() -> saveFreeListMetadataBusy(localState)));
         }
     }
 
@@ -400,17 +391,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * Updates the internal data structures of the storage and its indexes on rebalance or cleanup.
      *
      * @param meta Partition meta.
-     * @param rowVersionFreeList Free list for {@link RowVersion}.
-     * @param indexFreeList Free list fot {@link IndexColumns}.
+     * @param freeList Free list.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
      * @throws StorageException If failed.
      */
     public void updateDataStructures(
-            PartitionMeta meta,
-            RowVersionFreeList rowVersionFreeList,
-            IndexColumnsFreeList indexFreeList,
+            StoragePartitionMeta meta,
+            FreeListImpl freeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue
@@ -420,7 +409,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.meta = meta;
 
         this.blobStorage = new BlobStorage(
-                rowVersionFreeList,
+                freeList,
                 tableStorage.dataRegion().pageMemory(),
                 tableStorage.getTableId(),
                 partitionId,
@@ -429,8 +418,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         updateRenewableState(
                 versionChainTree,
-                rowVersionFreeList,
-                indexFreeList,
+                freeList,
                 indexMetaTree,
                 gcQueue
         );
@@ -441,8 +429,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         RenewablePartitionStorageState localState = renewableState;
 
         return List.of(
-                localState.rowVersionFreeList()::close,
-                localState.indexFreeList()::close,
+                localState.freeList()::close,
                 localState.versionChainTree()::close,
                 localState.indexMetaTree()::close,
                 localState.gcQueue()::close,
@@ -457,19 +444,26 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         committedGroupConfigurationBusy(config);
     }
 
-    private void saveRowVersionFreeListMetadataBusy(RenewablePartitionStorageState localState) {
+    private void saveFreeListMetadataBusy(RenewablePartitionStorageState localState) {
         try {
-            localState.rowVersionFreeList().saveMetadata();
+            localState.freeList().saveMetadata();
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to save RowVersionFreeList metadata: [{}]", e, createStorageInfo());
+            throw new StorageException("Failed to save free list metadata: [{}]", e, createStorageInfo());
         }
     }
 
-    private void saveIndexFreeListMetadataBusy(RenewablePartitionStorageState localState) {
-        try {
-            localState.indexFreeList().saveMetadata();
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to save IndexColumnsFreeList metadata: [{}]", e, createStorageInfo());
-        }
+    @Override
+    public long estimatedSize() {
+        return meta.estimatedSize();
+    }
+
+    @Override
+    public void incrementEstimatedSize() {
+        updateMeta((lastCheckpointId, meta) -> meta.incrementEstimatedSize(lastCheckpointId));
+    }
+
+    @Override
+    public void decrementEstimatedSize() {
+        updateMeta((lastCheckpointId, meta) -> meta.decrementEstimatedSize(lastCheckpointId));
     }
 }

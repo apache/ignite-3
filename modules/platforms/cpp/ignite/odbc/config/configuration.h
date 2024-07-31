@@ -43,11 +43,14 @@ public:
         /** Default value for TCP port attribute. */
         static inline const std::uint16_t port{10800};
 
-        /** Default value for address attribute. */
+        /** Default value for Address attribute. */
         static inline const std::vector<end_point> address{{host, port}};
 
-        /** Default value for Driver attribute. */
+        /** Default value for Schema attribute. */
         static inline const std::string schema{"PUBLIC"};
+
+        /** Default value for Timezone attribute. */
+        static inline const std::string timezone{};
     };
 
     // Default.
@@ -66,6 +69,13 @@ public:
     [[nodiscard]] const value_with_default<std::vector<end_point>> &get_address() const { return m_end_points; }
 
     /**
+     * Set addresses.
+     *
+     * @param addr Addresses.
+     */
+    void set_address(std::string addr) { m_end_points = {parse_address(addr), true}; }
+
+    /**
      * Get fetch results page size.
      *
      * @return Fetch results page size.
@@ -73,11 +83,25 @@ public:
     [[nodiscard]] const value_with_default<std::int32_t> &get_page_size() const { return m_page_size; }
 
     /**
+     * Set fetch results page size.
+     *
+     * @param page_size Fetch results page size.
+     */
+    void set_page_size(std::int32_t page_size) { m_page_size = {page_size, true}; }
+
+    /**
      * Get schema.
      *
      * @return Schema.
      */
     [[nodiscard]] const value_with_default<std::string> &get_schema() const { return m_schema; }
+
+    /**
+     * Set schema.
+     *
+     * @param schema Schema.
+     */
+    void set_schema(std::string schema) { m_schema = {std::move(schema), true}; }
 
     /**
      * Get authentication type.
@@ -94,11 +118,32 @@ public:
     [[nodiscard]] const value_with_default<std::string> &get_auth_identity() const { return m_auth_identity; };
 
     /**
+     * Set identity.
+     *
+     * @param identity Identity.
+     */
+    void set_auth_identity(std::string identity) { m_auth_identity = {std::move(identity), true}; }
+
+    /**
      * Get secret.
      *
      * @return Secret.
      */
     [[nodiscard]] const value_with_default<std::string> &get_auth_secret() const { return m_auth_secret; };
+
+    /**
+     * Set secret.
+     *
+     * @param secret Secret.
+     */
+    void set_auth_secret(std::string secret) { m_auth_secret = {std::move(secret), true}; }
+
+    /**
+     * Get Timezone.
+     *
+     * @return Timezone.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_timezone() const { return m_timezone; };
 
     /**
      * Fill from configuration params.
@@ -126,6 +171,9 @@ private:
 
     /** Secret. */
     value_with_default<std::string> m_auth_secret{"", false};
+
+    /** Timezone. */
+    value_with_default<std::string> m_timezone{"", false};
 };
 
 } // namespace ignite

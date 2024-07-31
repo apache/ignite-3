@@ -18,15 +18,27 @@
 package org.apache.ignite.internal.failure;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
 
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
+import org.apache.ignite.internal.failure.handlers.StopNodeOrHaltFailureHandler;
+import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerView;
+import org.apache.ignite.internal.failure.handlers.configuration.NoOpFailureHandlerConfigurationSchema;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeFailureHandlerConfigurationSchema;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -45,11 +57,14 @@ public class FailureProcessor implements IgniteComponent {
     private static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed accordingly to a configured handler "
             + "[hnd={}, failureCtx={}]";
 
-    /** Handler. */
-    private final FailureHandler handler;
+    /** Failure processor configuration. */
+    private final FailureProcessorConfiguration configuration;
 
-    /** Node name. */
-    private final String nodeName;
+    /** Handler. */
+    private volatile FailureHandler handler;
+
+    /** Node stopper. */
+    private final NodeStopper nodeStopper;
 
     /** Interceptor of fail handler. Main purpose to make testing easier. */
     private @Nullable FailureHandler interceptor;
@@ -60,34 +75,34 @@ public class FailureProcessor implements IgniteComponent {
     /**
      * Creates a new instance of a failure processor.
      *
-     * @param nodeName Node name.
      * @param handler Handler.
      */
-    public FailureProcessor(String nodeName, FailureHandler handler) {
-        this.nodeName = nodeName;
+    public FailureProcessor(FailureHandler handler) {
+        this.nodeStopper = () -> {};
         this.handler = handler;
+        this.configuration = null;
     }
 
     /**
      * Creates a new instance of a failure processor.
-     * The {@link StopNodeFailureHandler} will be used as a handler.
      *
-     * @param nodeName Node name.
+     * @param nodeStopper Node stopper.
+     * @param configuration Failure processor configuration.
      */
-    public FailureProcessor(String nodeName) {
-        this.nodeName = nodeName;
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21456
-        this.handler = new NoOpFailureHandler();
+    public FailureProcessor(NodeStopper nodeStopper, FailureProcessorConfiguration configuration) {
+        this.nodeStopper = nodeStopper;
+        this.configuration = configuration;
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-20450
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        initFailureHandler();
+
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
@@ -122,7 +137,7 @@ public class FailureProcessor implements IgniteComponent {
         assert handler != null : "Failure handler is not initialized.";
 
         if (interceptor != null) {
-            interceptor.onFailure(nodeName, failureCtx);
+            interceptor.onFailure(failureCtx);
         }
 
         // Node already terminating, no reason to process more errors.
@@ -130,13 +145,13 @@ public class FailureProcessor implements IgniteComponent {
             return false;
         }
 
-        if (failureTypeIgnored(failureCtx, handler)) {
+        if (handler.ignoredFailureTypes().contains(failureCtx.type())) {
             LOG.warn(IGNORED_FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx);
         } else {
             LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx);
         }
 
-        boolean invalidated = handler.onFailure(nodeName, failureCtx);
+        boolean invalidated = handler.onFailure(failureCtx);
 
         if (invalidated) {
             this.failureCtx = failureCtx;
@@ -145,24 +160,68 @@ public class FailureProcessor implements IgniteComponent {
         return invalidated;
     }
 
-    /**
-     * Returns {@code true} if the given failure type is ignored by the given handler.
-     *
-     * @param failureCtx Failure context.
-     * @param handler Handler.
-     */
-    private static boolean failureTypeIgnored(FailureContext failureCtx, FailureHandler handler) {
-        return handler instanceof AbstractFailureHandler
-                && ((AbstractFailureHandler) handler).ignoredFailureTypes().contains(failureCtx.type());
+    private void initFailureHandler() {
+        if (configuration == null) {
+            assert this.handler != null : "Failure handler is not initialized.";
+
+            return;
+        }
+
+        AbstractFailureHandler hnd;
+
+        FailureHandlerView handlerView = configuration.handler().value();
+
+        switch (handlerView.type()) {
+            case NoOpFailureHandlerConfigurationSchema.TYPE:
+                hnd = new NoOpFailureHandler();
+                break;
+
+            case StopNodeFailureHandlerConfigurationSchema.TYPE:
+                hnd = new StopNodeFailureHandler(nodeStopper);
+                break;
+
+            case StopNodeOrHaltFailureHandlerConfigurationSchema.TYPE:
+                hnd = new StopNodeOrHaltFailureHandler(nodeStopper, (StopNodeOrHaltFailureHandlerView) handlerView);
+                break;
+
+            default:
+                throw new IgniteException(
+                        COMPONENT_NOT_STARTED_ERR,
+                        "Unknown failure handler type: " + handlerView.type());
+        }
+
+        String[] ignoredFailureTypes = handlerView.ignoredFailureTypes();
+
+        Set<FailureType> ignoredFailureTypesSet = EnumSet.noneOf(FailureType.class);
+        for (String ignoredFailureType : ignoredFailureTypes) {
+            for (FailureType type : FailureType.values()) {
+                if (type.typeName().equals(ignoredFailureType)) {
+                    ignoredFailureTypesSet.add(type);
+                }
+            }
+        }
+
+        hnd.ignoredFailureTypes(ignoredFailureTypesSet);
+
+        handler = hnd;
     }
 
     /**
-     * Set FailHander interceptor to provide ability tщ test scenarios related to fail handler.
+     * Set FailureHandler interceptor to provide ability to test scenarios related to failure handler.
      *
      * @param interceptor Interceptor of fails.
      */
     @TestOnly
     public synchronized void setInterceptor(@Nullable FailureHandler interceptor) {
         this.interceptor = interceptor;
+    }
+
+    /**
+     * Returns failure handler.
+     *
+     * @return Failure handler.
+     */
+    FailureHandler handler() {
+        return handler;
     }
 }

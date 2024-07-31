@@ -27,6 +27,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.VarlenNativeType;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.TestFactory;
 /**
  * Test cases for dynamic parameters.
  */
+@WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
 public class DynamicParametersTest extends AbstractPlannerTest {
 
     /**
@@ -131,16 +133,16 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 sql("SELECT ? IN ('1', 2)", 2)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("OR(=(?0, 1), =(?0, 2))"),
-
-                sql("SELECT (?,?) IN ((1,2))", 1, 2)
-                        .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
-                        .project("AND(=(?0, 1), =(?1, 2))"),
-
-                sql("SELECT (?,?) IN ((1,2))", "1", "2").fails(requireExplicitCast),
-                sql("SELECT (?,?) IN (('1', 2))", 1, "2").fails(requireExplicitCast),
-                sql("SELECT (?,?) IN ((1, '2'))", "1", "2").fails(requireExplicitCast)
+                        .project("OR(=(?0, 1), =(?0, 2))")
         );
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
+        // sql("SELECT (?,?) IN ((1,2))", 1, 2)
+        //        .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
+        //        .project("AND(=(?0, 1), =(?1, 2))"),
+
+        // sql("SELECT (?,?) IN ((1,2))", "1", "2").fails(requireExplicitCast),
+        // sql("SELECT (?,?) IN (('1', 2))", 1, "2").fails(requireExplicitCast),
+        // sql("SELECT (?,?) IN ((1, '2'))", "1", "2").fails(requireExplicitCast)
     }
 
     /** CASE expression. */

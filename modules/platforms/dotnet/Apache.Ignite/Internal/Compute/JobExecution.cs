@@ -27,11 +27,11 @@ using Ignite.Compute;
 /// <typeparam name="T">Job result type.</typeparam>
 internal sealed record JobExecution<T> : IJobExecution<T>
 {
-    private readonly Task<(T Result, JobStatus Status)> _resultTask;
+    private readonly Task<(T Result, JobState Status)> _resultTask;
 
     private readonly Compute _compute;
 
-    private volatile JobStatus? _finalStatus;
+    private volatile JobState? _finalStatus;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="JobExecution{T}"/> class.
@@ -39,7 +39,7 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     /// <param name="id">Job id.</param>
     /// <param name="resultTask">Result task.</param>
     /// <param name="compute">Compute.</param>
-    public JobExecution(Guid id, Task<(T Result, JobStatus Status)> resultTask, Compute compute)
+    public JobExecution(Guid id, Task<(T Result, JobState Status)> resultTask, Compute compute)
     {
         Id = id;
         _resultTask = resultTask;
@@ -60,7 +60,7 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     }
 
     /// <inheritdoc/>
-    public async Task<JobStatus?> GetStatusAsync()
+    public async Task<JobState?> GetStateAsync()
     {
         var finalStatus = _finalStatus;
         if (finalStatus != null)
@@ -68,8 +68,8 @@ internal sealed record JobExecution<T> : IJobExecution<T>
             return finalStatus;
         }
 
-        var status = await _compute.GetJobStatusAsync(Id).ConfigureAwait(false);
-        if (status is { State: JobState.Completed or JobState.Failed or JobState.Canceled })
+        var status = await _compute.GetJobStateAsync(Id).ConfigureAwait(false);
+        if (status is { Status: JobStatus.Completed or JobStatus.Failed or JobStatus.Canceled })
         {
             // Can't be transitioned to another state, cache it.
             _finalStatus = status;

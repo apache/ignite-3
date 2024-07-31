@@ -46,14 +46,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,20 +83,22 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     void setUp() {
         catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
 
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 
         taskController = new ChangeIndexStatusTaskController(
                 catalogManager, placementDriver, clusterService, changeIndexStatusTaskScheduler
         );
+
+        taskController.start();
     }
 
     @AfterEach
     void tearDown() throws Exception {
         closeAllManually(
                 catalogManager::beforeNodeStop,
-                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 taskController
         );
     }

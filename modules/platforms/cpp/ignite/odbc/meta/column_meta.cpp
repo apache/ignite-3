@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "ignite/common/utils.h"
+#include "ignite/common/detail/utils.h"
 
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/meta/column_meta.h"

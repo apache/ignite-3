@@ -52,7 +52,7 @@ class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionSt
             @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
-            StorageConfiguration storageConfiguration
+            StorageConfiguration storageConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
@@ -61,12 +61,13 @@ class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionSt
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
                 engineConfig,
-                storageConfiguration,
+                storageConfig,
                 ioRegistry,
                 workDir,
                 null,
                 mock(FailureProcessor.class),
-                mock(LogSyncer.class)
+                mock(LogSyncer.class),
+                clock
         );
 
         engine.start();

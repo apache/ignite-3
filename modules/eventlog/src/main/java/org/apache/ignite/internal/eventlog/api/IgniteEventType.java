@@ -25,12 +25,20 @@ import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
  * event type is used to filter the events in the event log.
  */
 public enum IgniteEventType {
-    USER_AUTHENTICATED,
-    CONNECTION_CLOSED;
+    USER_AUTHENTICATION_SUCCESS,
+    USER_AUTHENTICATION_FAILURE,
+    CLIENT_CONNECTION_ESTABLISHED,
+    CLIENT_CONNECTION_CLOSED;
 
     static {
         // Without the following line, the IgniteEventType enum will not be registered in the EventTypeRegistry
         // and the EventTypeRegistry will not be able to validate the event types.
         Arrays.stream(values()).forEach(type -> EventTypeRegistry.register(type.name()));
+    }
+
+    /**
+     * Registers all event types through the static initialization block once.
+     */
+    public static void initialize() {
     }
 }

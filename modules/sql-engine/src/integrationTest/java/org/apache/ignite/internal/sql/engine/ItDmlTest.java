@@ -21,7 +21,11 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -32,17 +36,20 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.handlers.FailureHandler;
+import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -193,6 +200,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testNullDefault() {
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         sql("CREATE TABLE test_null_def (id INTEGER PRIMARY KEY, col INTEGER DEFAULT NULL)");
 
         sql("INSERT INTO test_null_def VALUES(1, DEFAULT)");
@@ -247,6 +255,35 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT * FROM test2 ORDER BY k1")
                 .returns(222, 222, 1, 300, "1")
+                .returns(333, 333, 0, 100, "")
+                .returns(444, 444, 2, 200, null)
+                .check();
+
+        // ---- all fields covered on NOT MATCHED but columns in different order
+        clearAndPopulateMergeTable2();
+
+        sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
+                + "WHEN MATCHED THEN UPDATE SET b = src.b, a = src.a "
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, c, a, b) VALUES (src.k1, src.k2, src.c, src.a, src.b)";
+
+        sql(sql);
+
+        assertQuery("SELECT * FROM test2 ORDER BY k1")
+                .returns(222, 222, 1, 300, "1")
+                .returns(333, 333, 0, 100, "")
+                .returns(444, 444, 2, 200, null)
+                .check();
+
+        // ---- all fields covered on NOT MATCHED but columns in different order and with filter
+        clearAndPopulateMergeTable2();
+
+        sql = "MERGE INTO test2 dst USING (SELECT * FROM test1 WHERE a = 0) src ON dst.a = src.a "
+                + "WHEN MATCHED THEN UPDATE SET b = src.b, a = src.a "
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, c, a, b) VALUES (src.k1, src.k2, src.c, src.a, src.b)";
+
+        sql(sql);
+
+        assertQuery("SELECT * FROM test2 ORDER BY k1")
                 .returns(333, 333, 0, 100, "")
                 .returns(444, 444, 2, 200, null)
                 .check();
@@ -421,10 +458,10 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
      * Test verifies that scan is executed within provided transaction.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15081")
     public void scanExecutedWithinGivenTransaction() {
         sql("CREATE TABLE test (id int primary key, val int)");
 
+        Transaction olderTx = CLUSTER.aliveNode().transactions().begin();
         Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
         sql(tx, "INSERT INTO test VALUES (0, 0)");
@@ -432,16 +469,24 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         // just inserted row should be visible within the same transaction
         assertEquals(1, sql(tx, "select * from test").size());
 
-        Transaction anotherTx = CLUSTER.aliveNode().transactions().begin();
-
         // just inserted row should not be visible until related transaction is committed
-        assertEquals(0, sql(anotherTx, "select * from test").size());
+        assertEquals(0,
+                sql(CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true)), "select * from test").size());
+
+        CompletableFuture<Integer> selectFut = runAsync(() -> sql(olderTx, "select * from test").size());
+
+        assertFalse(selectFut.isDone());
 
         tx.commit();
 
-        assertEquals(1, sql(anotherTx, "select * from test").size());
+        assertThat(selectFut, willCompleteSuccessfully());
 
-        anotherTx.commit();
+        assertEquals(1, selectFut.join());
+
+        assertEquals(1,
+                sql(CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true)), "select * from test").size());
+
+        olderTx.commit();
     }
 
     @Test
@@ -457,15 +502,25 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 .returns(3)
                 .check();
 
-        var pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
+        Set<?> pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
 
         assertEquals(3, pkVals.size());
     }
 
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void invalidAliases() {
+        sql("CREATE TABLE T(VAL INT)");
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __p_key is reserved name",
+                () -> sql("select val as \"__p_key\" from t"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __part is reserved name",
+                () -> sql("select val as \"__part\" from t"));
+    }
+
     private static Stream<DefaultValueArg> defaultValueArgs() {
-        return Stream.of(
+        Stream<DefaultValueArg> vals = Stream.of(
                 new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
-                new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
 
                 new DefaultValueArg("BIGINT", "10", 10L),
                 new DefaultValueArg("INTEGER", "10", 10),
@@ -474,9 +529,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 new DefaultValueArg("DOUBLE", "10.01", 10.01d),
                 new DefaultValueArg("FLOAT", "10.01", 10.01f),
                 new DefaultValueArg("DECIMAL(4, 2)", "10.01", new BigDecimal("10.01")),
-                new DefaultValueArg("CHAR(2)", "'10'", "10"),
                 new DefaultValueArg("VARCHAR", "'10'", "10"),
-                new DefaultValueArg("VARCHAR NOT NULL", "'10'", "10"),
                 new DefaultValueArg("VARCHAR(2)", "'10'", "10"),
 
                 // TODO: IGNITE-17373
@@ -492,15 +545,15 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 // new DefaultValueArg("TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP '2021-01-01 01:01:01'"
                 //         , LocalDateTime.parse("2021-01-01T01:01:01")),
 
-                new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3})
-
-                // TODO: IGNITE-17374
-                // new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
+                new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3}),
+                new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
         );
+        return vals.flatMap(arg -> Stream.of(arg, new DefaultValueArg(arg.sqlType + " NOT NULL", arg.sqlVal, arg.expectedVal)));
     }
 
     @Test
     public void testInsertDefaultValue() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
         checkWrongDefault("VARCHAR(1)", "10");
@@ -521,10 +574,10 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testInsertDefaultNullValue() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         checkDefaultValue(defaultValueArgs()
                 .filter(a -> !a.sqlType.endsWith("NOT NULL"))
-                // TODO: uncomment after https://issues.apache.org/jira/browse/IGNITE-21243
-                // .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
                 .collect(Collectors.toList()));
     }
 
@@ -545,7 +598,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             sql(createStatement);
             sql("INSERT INTO test (id) VALUES (0)");
 
-            var expectedVals = args.stream()
+            List<Object> expectedVals = args.stream()
                     .map(a -> a.expectedVal)
                     .collect(Collectors.toList());
 
@@ -555,7 +608,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 columnEnumerationBuilder.append(", col_").append(i);
             }
 
-            var columnEnumeration = columnEnumerationBuilder.toString();
+            String columnEnumeration = columnEnumerationBuilder.toString();
 
             checkQueryResult("SELECT " + columnEnumeration + " FROM test", expectedVals);
 
@@ -571,11 +624,58 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
         var expectedMessage = "Column 'KEY' does not allow NULLs";
 
-        assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                expectedMessage,
+                () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+    }
+
+    // UPDATE set x = DEFAULT is not supported in parser
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21462")
+    @Test
+    public void testUpdateAllowsDefault() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
+        for (DefaultValueArg arg : defaultValueArgs().collect(Collectors.toList())) {
+            try {
+                sql(format("CREATE TABLE test (id INT PRIMARY KEY, val %s DEFAULT %s)", arg.sqlType, arg.sqlVal));
+                sql("INSERT INTO test (id, val) VALUES (1, NULL)");
+
+                sql("UPDATE test SET val = DEFAULT WHERE id = 1");
+                assertQuery("SELECT val FROM test WHERE id = 1").returns(arg.expectedVal).check();
+            } finally {
+                sql("DROP TABLE IF EXISTS test");
+            }
+        }
+    }
+
+    @Test
+    public void testDropDefault() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
+        // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
+        for (DefaultValueArg arg : defaultValueArgs().collect(Collectors.toList())) {
+            try {
+                sql(format("CREATE TABLE test (id INT PRIMARY KEY, val {} DEFAULT {})", arg.sqlType, arg.sqlVal));
+                sql("INSERT INTO test (id) VALUES (1)");
+                assertQuery("SELECT val FROM test WHERE id = 1").returns(arg.expectedVal).check();
+
+                sql("ALTER TABLE test ALTER COLUMN val DROP DEFAULT");
+
+                if (arg.sqlType.endsWith("NOT NULL")) {
+                    assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, "Column 'VAL' does not allow NULL",
+                            () -> sql("INSERT INTO test (id) VALUES (2)"));
+                } else {
+                    sql("INSERT INTO test (id) VALUES (2)");
+                    assertQuery("SELECT val FROM test WHERE id = 2").returns(null).check();
+                }
+            } finally {
+                sql("DROP TABLE IF EXISTS test");
+            }
+        }
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {
@@ -613,6 +713,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testInsertMultipleDefaults() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, col1 INTEGER DEFAULT 200, col2 INTEGER DEFAULT 300)");
 
         sql("INSERT INTO integers (i) VALUES (0)");
@@ -641,6 +742,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void testInsertMultipleDefaultsWithImplicitPk() {
+        // SQL Standard 2016 feature F221 - Explicit defaults
         sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 100)");
 
         sql("INSERT INTO integers VALUES (1, DEFAULT)");
@@ -825,7 +927,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         );
     }
 
-    private class InterceptFailHandler implements FailureHandler {
+    private class InterceptFailHandler extends AbstractFailureHandler {
         ArrayList<FailureContext> interceptedFailsList = new ArrayList<>();
 
         public ArrayList<FailureContext> getFails() {
@@ -833,7 +935,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         }
 
         @Override
-        public boolean onFailure(String nodeName, FailureContext failureCtx) {
+        public boolean handle(FailureContext failureCtx) {
             interceptedFailsList.add(failureCtx);
 
             return false;

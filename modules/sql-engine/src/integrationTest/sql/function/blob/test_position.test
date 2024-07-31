@@ -1,0 +1,59 @@
+# name: sql/function/blob/test_position.test
+# description: BLOB functions tests
+# feature: T021(BINARY and VARBINARY data types)
+# feature: SQL E021-11(POSITION function)
+# group: [blob]
+
+#sql standard, 6.30 <numeric value function> If <binary position expression> is specified
+query T
+SELECT POSITION(x'03' IN x'0B03');
+----
+2
+
+query T
+SELECT POSITION(x'b0' IN x'0B03B0');
+----
+3
+
+query T
+SELECT POSITION(x'b0' IN x'0B03B0B0');
+----
+3
+
+query T
+SELECT POSITION(x'b0' IN x'0B03B0B0');
+----
+3
+
+query T
+SELECT POSITION(x'b0' IN x'0B03B0B0' FROM 4);
+----
+4
+
+query T
+SELECT POSITION(x'b0' IN x'0B03B0B0' FROM 100);
+----
+0
+
+query T
+SELECT POSITION(x'' IN x'0B03B0B0');
+----
+1
+
+query T
+SELECT POSITION(null IN x'0B03B0B0');
+----
+null
+
+statement error
+SELECT POSITION('a' IN x'0B03B0B0');
+
+#Update error message
+#https://issues.apache.org/jira/browse/IGNITE-22418 parser does not expect USING clause
+statement error
+SELECT POSITION(x'03' IN x'0B03' USING CHARACTERS);
+
+#Update error message
+#https://issues.apache.org/jira/browse/IGNITE-22418 parser does not expect USING clause
+statement error
+SELECT POSITION(x'03' IN x'0B03' USING OCTETS);

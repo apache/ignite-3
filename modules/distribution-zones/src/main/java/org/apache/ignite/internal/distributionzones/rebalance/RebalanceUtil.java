@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -33,10 +34,10 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -58,14 +58,13 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Util class for methods needed for the rebalance process.
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this class and use {@link ZoneRebalanceUtil} instead
+ *  after switching to zone-based replication.
  */
 public class RebalanceUtil {
 
@@ -74,8 +73,7 @@ public class RebalanceUtil {
 
     /**
      * Status values for methods like
-     * {@link #updatePendingAssignmentsKeys(CatalogTableDescriptor, TablePartitionId, Collection, int, long, MetaStorageManager, int, Set)}
-     * or {@link #manualPartitionUpdate(TablePartitionId, Collection, Set, int, long, MetaStorageManager, Set)}.
+     * {@link #updatePendingAssignmentsKeys(CatalogTableDescriptor, TablePartitionId, Collection, int, long, MetaStorageManager, int, Set)}.
      */
     public enum UpdateStatus {
         /**
@@ -188,16 +186,16 @@ public class RebalanceUtil {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
         }
 
-        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
+        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(longToBytesKeepingOrder(revision))),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
+                                put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
-                                        put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
+                                        put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
                                         ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
@@ -282,9 +280,10 @@ public class RebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager
     ) {
-        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
+        CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
                 tableDescriptor.id(),
+                Set.of(),
                 zoneDescriptor.partitions()
         );
 
@@ -313,119 +312,6 @@ public class RebalanceUtil {
         return futures;
     }
 
-
-    /**
-     * Sets force assignments for the zone/table if it's required. The condition for force reassignment is the absence of stable
-     * assignments' majority within the set of currently alive nodes. In this case we calculate new assignments that include all alive
-     * stable nodes, and try to save ot with a {@link Assignments#force()} flag enabled.
-     *
-     * @param tableDescriptor Table descriptor.
-     * @param zoneDescriptor Zone descriptor.
-     * @param dataNodes Current DZ data nodes.
-     * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
-     * @param revision Meta-storage revision to be associated with reassignment.
-     * @param metaStorageManager Meta-storage manager.
-     * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
-     */
-    public static CompletableFuture<?>[] forceAssignmentsUpdate(
-            CatalogTableDescriptor tableDescriptor,
-            CatalogZoneDescriptor zoneDescriptor,
-            Set<String> dataNodes,
-            Set<String> aliveNodesConsistentIds,
-            long revision,
-            MetaStorageManager metaStorageManager
-    ) {
-        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
-                metaStorageManager,
-                tableDescriptor.id(),
-                zoneDescriptor.partitions()
-        );
-
-        CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
-
-        Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
-
-        for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
-
-            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
-                    tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
-                            replicaGrpId,
-                            aliveDataNodes,
-                            aliveNodesConsistentIds,
-                            zoneDescriptor.replicas(),
-                            revision,
-                            metaStorageManager,
-                            tableAssignments.get(replicaGrpId.partitionId()).nodes()
-                    )).thenAccept(res -> {
-                        LOG.info("Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res));
-                    }
-            );
-        }
-
-        return futures;
-    }
-
-    private static CompletableFuture<Integer> manualPartitionUpdate(
-            TablePartitionId partId,
-            Collection<String> aliveDataNodes,
-            Set<String> aliveNodesConsistentIds,
-            int replicas,
-            long revision,
-            MetaStorageManager metaStorageMgr,
-            Set<Assignment> currentAssignments
-    ) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21303
-        //  This is a naive approach that doesn't exclude nodes in error state, if they exist.
-        Set<Assignment> partAssignments = new HashSet<>();
-        for (Assignment currentAssignment : currentAssignments) {
-            if (aliveNodesConsistentIds.contains(currentAssignment.consistentId())) {
-                partAssignments.add(currentAssignment);
-            }
-        }
-
-        if (partAssignments.size() >= (replicas / 2 + 1)) {
-            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
-        }
-
-        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
-
-        for (Assignment calcAssignment : calcAssignments) {
-            if (partAssignments.size() == replicas) {
-                break;
-            }
-
-            partAssignments.add(calcAssignment);
-        }
-
-        if (currentAssignments.equals(calcAssignments)) {
-            return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
-        }
-
-        byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
-        byte[] revisionBytes = ByteUtils.longToBytes(revision);
-
-        ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
-        ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
-
-        Iif iif = iif(
-                notExists(partChangeTriggerKey).or(value(partChangeTriggerKey).lt(revisionBytes)),
-                iif(
-                        value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
-                        ops(
-                                put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                put(partChangeTriggerKey, revisionBytes),
-                                remove(partAssignmentsPlannedKey)
-                        ).yield(PENDING_KEY_UPDATED.ordinal()),
-                        ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal())
-                ),
-                ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
-        );
-
-        return metaStorageMgr.invoke(iif).thenApply(StatementResult::getAsInt);
-    }
-
     /** Key prefix for pending assignments. */
     public static final String PENDING_ASSIGNMENTS_PREFIX = "assignments.pending.";
 
@@ -440,6 +326,9 @@ public class RebalanceUtil {
 
     /** Key prefix for counter of rebalances of tables from a zone that are associated with the specified partition. */
     private static final String TABLES_COUNTER_PREFIX = "tables.counter.";
+
+    /** Key prefix for catalog version of tables at the time of setting the counter. */
+    private static final String TABLE_CATALOG_PREFIX = "tables.catalog.version.";
 
     /** Key prefix for a raft configuration that was applied during rebalance of the specified partition form a table. */
     private static final String RAFT_CONF_APPLIED_PREFIX = "assignments.raft.conf.applied.";
@@ -533,6 +422,17 @@ public class RebalanceUtil {
     }
 
     /**
+     * ByteArray key for catalog version of a table .
+     *
+     * @param zoneId Identifier of a zone.
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     */
+    public static ByteArray catalogVersionKey(int zoneId, int partId) {
+        return new ByteArray(TABLE_CATALOG_PREFIX + zoneId + "_part_" + partId);
+    }
+
+    /**
      * ByteArray prefix for counter of rebalances of tables from a zone that are associated with the specified partition.
      *
      * @return Prefix for a counter of rebalances of tables partition.
@@ -620,7 +520,7 @@ public class RebalanceUtil {
      * @return Result of the subtraction.
      */
     public static <T> Set<T> subtract(Set<T> minuend, Set<T> subtrahend) {
-        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(Collectors.toSet());
+        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(toSet());
     }
 
     /**
@@ -646,7 +546,7 @@ public class RebalanceUtil {
      * @return Result of the intersection.
      */
     public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
-        return op1.stream().filter(op2::contains).collect(Collectors.toSet());
+        return op1.stream().filter(op2::contains).collect(toSet());
     }
 
     /**
@@ -689,47 +589,53 @@ public class RebalanceUtil {
     }
 
     /**
-     * Returns table assignments for all table partitions from meta storage.
+     * Returns table assignments for table partitions from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
-     * @param numberOfPartitions Number of partitions.
+     * @param partitionIds IDs of partitions to get assignments for. If empty, get all partition assignments.
+     * @param numberOfPartitions Number of partitions. Ignored if partition IDs are specified.
      * @return Future with table assignments as a value.
      */
-    static CompletableFuture<List<Assignments>> tableAssignments(
+    public static CompletableFuture<Map<Integer, Assignments>> tableAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
+            Set<Integer> partitionIds,
             int numberOfPartitions
     ) {
-        Map<ByteArray, Integer> partitionKeysToPartitionNumber = new HashMap<>();
+        IntStream partitionIdsStream = partitionIds.isEmpty()
+                ? IntStream.range(0, numberOfPartitions)
+                : partitionIds.stream().mapToInt(Integer::intValue);
 
-        for (int i = 0; i < numberOfPartitions; i++) {
-            partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new TablePartitionId(tableId, i)), i);
-        }
+        Map<ByteArray, Integer> partitionKeysToPartitionNumber = partitionIdsStream.collect(
+                HashMap::new,
+                (map, partId) -> map.put(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)), partId),
+                Map::putAll
+        );
 
         return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
                 .thenApply(entries -> {
                     if (entries.isEmpty()) {
-                        return emptyList();
+                        return Map.of();
                     }
 
-                    Assignments[] result = new Assignments[numberOfPartitions];
+                    Map<Integer, Assignments> result = new HashMap<>();
                     int numberOfMsPartitions = 0;
 
                     for (var mapEntry : entries.entrySet()) {
                         Entry entry = mapEntry.getValue();
 
                         if (!entry.empty() && !entry.tombstone()) {
-                            result[partitionKeysToPartitionNumber.get(mapEntry.getKey())] = Assignments.fromBytes(entry.value());
+                            result.put(partitionKeysToPartitionNumber.get(mapEntry.getKey()), Assignments.fromBytes(entry.value()));
                             numberOfMsPartitions++;
                         }
                     }
 
-                    assert numberOfMsPartitions == 0 || numberOfMsPartitions == numberOfPartitions
+                    assert numberOfMsPartitions == 0 || numberOfMsPartitions == entries.size()
                             : "Invalid number of stable partition entries received from meta storage [received="
-                            + numberOfMsPartitions + ", numberOfPartitions=" + numberOfPartitions + ", tableId=" + tableId + "].";
+                            + numberOfMsPartitions + ", numberOfPartitions=" + entries.size() + ", tableId=" + tableId + "].";
 
-                    return numberOfMsPartitions == 0 ? emptyList() : Arrays.asList(result);
+                    return numberOfMsPartitions == 0 ? Map.of() : result;
                 });
     }
 
@@ -756,6 +662,6 @@ public class RebalanceUtil {
 
                     return Assignments.fromBytes(e.value());
                 })
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 }

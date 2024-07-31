@@ -101,8 +101,13 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected long[] executeBatch(IgniteSql sql, String query, BatchedArguments args) {
-        return await(sql.executeBatchAsync(null, query, args));
+    protected long[] executeBatch(String query, BatchedArguments args) {
+        return await(igniteSql().executeBatchAsync(null, query, args));
+    }
+
+    @Override
+    protected long[] executeBatch(Statement statement, BatchedArguments args) {
+        return await(igniteSql().executeBatchAsync(null, statement, args));
     }
 
     @Override

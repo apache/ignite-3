@@ -52,7 +52,8 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
             AggregateCall call,
             RelDataType inRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
 
@@ -66,16 +67,22 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         agg.register(scan);
 
-        RelCollation collation = createOutCollation(grpSets);
+        if (group) {
+            RelCollation collation = createOutCollation(grpSets);
 
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
-        // Create sort node on the top to check sorted results
-        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+            // Create sort node on the top to check sorted results
+            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
-        sort.register(agg);
+            sort.register(agg);
 
-        return sort;
+            return sort;
+        } else {
+            agg.register(scan);
+
+            return agg;
+        }
     }
 
     private RelCollation createOutCollation(List<ImmutableBitSet> grpSets) {
@@ -102,7 +109,8 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
             RelDataType inRowType,
             RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
 
@@ -140,11 +148,15 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
-        // Create sort node on the top to check sorted results
-        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+        if (group) {
+            // Create sort node on the top to check sorted results
+            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
-        sort.register(aggRdc);
+            sort.register(aggRdc);
 
-        return sort;
+            return sort;
+        } else {
+            return aggRdc;
+        }
     }
 }

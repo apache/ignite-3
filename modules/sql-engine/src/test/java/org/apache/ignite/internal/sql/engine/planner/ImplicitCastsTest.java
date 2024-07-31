@@ -51,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.DynamicTest;
@@ -62,6 +63,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Type coercion related tests that ensure that the necessary casts are placed where it is necessary.
  */
+@WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
 public class ImplicitCastsTest extends AbstractPlannerTest {
     private static IgniteTable tableWithColumn(String tableName, String columnName, RelDataType columnType) {
         return TestBuilders.table()
@@ -479,7 +481,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                         .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t3", "str_col", NativeTypes.stringOf(36))
                         .sql("INSERT INTO t3 VALUES('1111'::UUID)")
-                        .project("CAST(CAST(_UTF-8'1111'):UUID NOT NULL):VARCHAR(36) CHARACTER SET \"UTF-8\" NOT NULL"),
+                        .project("CAST(CAST(_UTF-8'1111'):UUID NOT NULL):VARCHAR CHARACTER SET \"UTF-8\" NOT NULL"),
 
                 checkStatement(setup)
                         .table("t3", "str_col", NativeTypes.stringOf(36))

@@ -17,7 +17,15 @@
 
 package org.apache.ignite.internal.cli.commands;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static java.util.stream.Collectors.toList;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -30,10 +38,16 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
+import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeAll;
 import org.mockito.ArgumentCaptor;
 import picocli.CommandLine;
 
@@ -51,6 +65,11 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
 
     private int exitCode = Integer.MIN_VALUE;
 
+    @BeforeAll
+    static void setDumbTerminal() {
+        System.setProperty("org.jline.terminal.dumb", "true");
+    }
+
     protected abstract Class<?> getCommandClass();
 
     protected void execute(String argsLine) {
@@ -60,19 +79,28 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
     protected void execute(String... args) {
         // Create command just before execution as some tests could register singletons which should be used by the command
         CommandLine cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
+        cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
 
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
+        CommandLineContextProvider.setCmd(cmd);
 
         exitCode = cmd.execute(args);
     }
 
     protected void assertExitCodeIs(int expectedExitCode) {
-        assertThat(exitCode)
-                .as("Expected exit code to be: " + expectedExitCode + " but was " + exitCode)
-                .isEqualTo(expectedExitCode);
+        assertThat("Unexpected exit code", exitCode, is(expectedExitCode));
+    }
+
+    protected void assertExitCodeIsError() {
+        assertExitCodeIs(errorExitCode());
+    }
+
+    // REPL mode has no exit code for error, override this method in tests for repl commands.
+    protected int errorExitCode() {
+        return 1;
     }
 
     protected void assertExitCodeIsZero() {
@@ -80,51 +108,62 @@ public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
     }
 
     protected void assertOutputIsNotEmpty() {
-        assertThat(sout.toString())
-                .as("Expected command output not to be empty")
-                .isNotEmpty();
+        assertThat("Unexpected command output", sout.toString(), is(not(emptyString())));
     }
 
     protected void assertOutputIs(String expectedOutput) {
-        assertThat(sout.toString())
-                .as("Expected command output to be: " + expectedOutput + " but was " + sout.toString())
-                .isEqualTo(expectedOutput);
+        assertEqualsIgnoreLineSeparators("Unexpected command output", sout.toString(), expectedOutput);
     }
 
     protected void assertOutputContains(String... expectedOutput) {
-        assertThat(sout.toString())
-                .as("Expected command output to contain: " + Arrays.toString(expectedOutput) + " but was " + sout.toString())
-                .contains(expectedOutput);
+        List<Matcher<? super String>> matchers = Arrays.stream(expectedOutput).map(Matchers::containsString).collect(toList());
+        assertThat("Unexpected command output", sout.toString(), allOf(matchers));
     }
 
     protected void assertOutputIsEmpty() {
-        assertThat(sout.toString())
-                .as("Expected command output to be empty")
-                .isEmpty();
+        assertThat("Unexpected command output", sout.toString(), is(emptyString()));
     }
 
     protected void assertErrOutputIsNotEmpty() {
-        assertThat(serr.toString())
-                .as("Expected command error output not to be empty")
-                .isNotEmpty();
+        assertThat("Unexpected command error output", serr.toString(), is(not(emptyString())));
     }
 
     protected void assertErrOutputIsEmpty() {
-        assertThat(serr.toString())
-                .as("Expected command error output to be empty")
-                .isEmpty();
+        assertThat("Unexpected command error output", serr.toString(), is(emptyString()));
     }
 
     protected void assertErrOutputIs(String expectedErrOutput) {
-        assertThat(serr.toString())
-                .as("Expected command error output to be equal to: " + expectedErrOutput)
-                .isEqualTo(expectedErrOutput);
+        assertEqualsIgnoreLineSeparators("Unexpected command error output", serr.toString(), expectedErrOutput);
     }
 
     protected void assertErrOutputContains(String expectedErrOutput) {
-        assertThat(serr.toString())
-                .as("Expected command error output to contain: " + expectedErrOutput + " but was " + serr.toString())
-                .contains(expectedErrOutput);
+        assertThat("Unexpected command error output", serr.toString(), containsString(expectedErrOutput));
+    }
+
+    /**
+     * Asserts that the command's exit code is zero, output is equal to the expected output and the error output is empty.
+     *
+     * @param expectedOutput Expected command output.
+     */
+    protected void assertSuccessfulOutputIs(String expectedOutput) {
+        log.info(sout.toString());
+        log.info(serr.toString());
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputIs(expectedOutput),
+                this::assertErrOutputIsEmpty
+        );
+    }
+
+    /**
+     * Asserts that {@code expected} and {@code actual} are equals ignoring differences in line separators.
+     *
+     * @param reason Description of the assertion.
+     * @param exp Expected result.
+     * @param actual Actual result.
+     */
+    private static void assertEqualsIgnoreLineSeparators(String reason, String exp, String actual) {
+        assertThat(reason, exp.lines().collect(toList()), contains(actual.lines().toArray(String[]::new)));
     }
 
     protected <IT extends CallInput, OT, T extends Call<IT, OT>> T registerMockCall(Class<T> callClass) {

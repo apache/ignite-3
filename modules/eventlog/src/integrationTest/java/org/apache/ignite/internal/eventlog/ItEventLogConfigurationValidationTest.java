@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.eventlog;
 
-import static org.apache.ignite.internal.eventlog.api.IgniteEventType.CONNECTION_CLOSED;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.CLIENT_CONNECTION_CLOSED;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -44,7 +44,7 @@ class ItEventLogConfigurationValidationTest extends ClusterPerClassIntegrationTe
                 () -> eventLogConfiguration().change(
                         c -> c.changeChannels().create(
                                 "testChannel2",
-                                chC -> chC.changeEvents(CONNECTION_CLOSED.name()))
+                                chC -> chC.changeEvents(CLIENT_CONNECTION_CLOSED.name()))
                 ).get()
         );
     }

@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -28,6 +30,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
@@ -43,6 +46,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -78,7 +82,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
@@ -98,7 +102,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
-        Objects.requireNonNull(keys);
+        Objects.requireNonNull(keys, "keys");
 
         if (keys.isEmpty()) {
             return emptyMapCompletedFuture();
@@ -142,7 +146,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, Tuple key, Tuple defaultValue) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
@@ -162,7 +166,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, Tuple key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
@@ -174,14 +178,37 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public void put(@Nullable Transaction tx, Tuple key, Tuple val) {
+    public boolean containsAll(@Nullable Transaction tx, Collection<Tuple> keys) {
+        return sync(containsAllAsync(tx, keys));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
+        checkKeysForNulls(keys);
+
+        if (keys.isEmpty()) {
+            return trueCompletedFuture();
+        }
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                (s, w) -> ser.writeTuples(tx, keys, s, w, true),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()),
+                tx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void put(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
         sync(putAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> putAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
+    public CompletableFuture<Void> putAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
@@ -200,7 +227,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<Tuple, Tuple> pairs) {
-        Objects.requireNonNull(pairs);
+        Objects.requireNonNull(pairs, "pairs");
 
         if (pairs.isEmpty()) {
             return nullCompletedFuture();
@@ -223,8 +250,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(val, "val");
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
@@ -264,8 +291,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
+    public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, Tuple key, @Nullable Tuple val) {
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
@@ -290,7 +317,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
@@ -303,8 +330,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(val, "val");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
@@ -323,7 +350,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
-        Objects.requireNonNull(keys);
+        Objects.requireNonNull(keys, "keys");
 
         if (keys.isEmpty()) {
             return emptyCollectionCompletedFuture();
@@ -347,7 +374,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
@@ -393,7 +420,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
@@ -406,7 +433,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, Tuple oldVal, Tuple newVal) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
@@ -428,8 +455,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(val, "val");
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
@@ -466,14 +493,14 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     public CompletableFuture<Void> streamData(
             Publisher<DataStreamerItem<Entry<Tuple, Tuple>>> publisher,
             @Nullable DataStreamerOptions options) {
-        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(publisher, "publisher");
 
         var provider = new KeyValueTupleStreamerPartitionAwarenessProvider(tbl);
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
+        StreamerBatchSender<Entry<Tuple, Tuple>, Integer, Void> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
                 (s, w) -> ser.writeStreamerKvTuples(partition, items, deleted, s, w),
                 r -> null,
@@ -482,6 +509,37 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 null);
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <E, V, R, A> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            Function<E, Entry<Tuple, Tuple>> keyFunc,
+            Function<E, V> payloadFunc,
+            ReceiverDescriptor<A> receiver,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            @Nullable DataStreamerOptions options,
+            A receiverArg) {
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(receiver);
+
+        return ClientDataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options == null ? DataStreamerOptions.DEFAULT : options,
+                new KeyValueTupleStreamerPartitionAwarenessProvider(tbl),
+                tbl,
+                resultSubscriber,
+                receiver.units(),
+                receiver.receiverClassName(),
+                receiverArg,
+                receiver.argumentMarshaller()
+        );
     }
 
     /** {@inheritDoc} */

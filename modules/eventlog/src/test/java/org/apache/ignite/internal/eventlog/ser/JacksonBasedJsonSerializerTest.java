@@ -34,12 +34,12 @@ class JacksonBasedJsonSerializerTest {
     private static Stream<Arguments> events() {
         return Stream.of(
                 Arguments.of(
-                        IgniteEvents.CONNECTION_CLOSED.builder()
+                        IgniteEvents.CLIENT_CONNECTION_CLOSED.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
                                 .build(),
-                        "{\"type\":\"CONNECTION_CLOSED\","
+                        "{\"type\":\"CLIENT_CONNECTION_CLOSED\","
                                 + "\"timestamp\":1234567890,"
                                 + "\"productVersion\":\"3.0.0\","
                                 + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
@@ -47,12 +47,12 @@ class JacksonBasedJsonSerializerTest {
                                 + "}"
                 ),
                 Arguments.of(
-                        IgniteEvents.USER_AUTHENTICATED.builder()
+                        IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
                                 .build(),
-                        "{\"type\":\"USER_AUTHENTICATED\","
+                        "{\"type\":\"CLIENT_CONNECTION_ESTABLISHED\","
                                 + "\"timestamp\":1234567890,"
                                 + "\"productVersion\":\"3.0.0\","
                                 + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
@@ -60,13 +60,39 @@ class JacksonBasedJsonSerializerTest {
                                 + "}"
                 ),
                 Arguments.of(
-                        IgniteEvents.USER_AUTHENTICATED.builder()
+                        IgniteEvents.USER_AUTHENTICATION_FAILURE.builder()
+                                .productVersion("3.0.0")
+                                .timestamp(1234567890)
+                                .user(EventUser.of("test_user", "test_provider"))
+                                .build(),
+                        "{\"type\":\"USER_AUTHENTICATION_FAILURE\","
+                                + "\"timestamp\":1234567890,"
+                                + "\"productVersion\":\"3.0.0\","
+                                + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
+                                + "\"fields\":{}"
+                                + "}"
+                ),
+                Arguments.of(
+                        IgniteEvents.USER_AUTHENTICATION_SUCCESS.builder()
+                                .productVersion("3.0.0")
+                                .timestamp(1234567890)
+                                .user(EventUser.of("test_user", "test_provider"))
+                                .build(),
+                        "{\"type\":\"USER_AUTHENTICATION_SUCCESS\","
+                                + "\"timestamp\":1234567890,"
+                                + "\"productVersion\":\"3.0.0\","
+                                + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
+                                + "\"fields\":{}"
+                                + "}"
+                ),
+                Arguments.of(
+                        IgniteEvents.USER_AUTHENTICATION_SUCCESS.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
                                 .fields(Map.of("ip", "127.0.0.1", "id", "123"))
                                 .build(),
-                        "{\"type\":\"USER_AUTHENTICATED\","
+                        "{\"type\":\"USER_AUTHENTICATION_SUCCESS\","
                                 + "\"timestamp\":1234567890,"
                                 + "\"productVersion\":\"3.0.0\","
                                 + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
@@ -89,7 +115,7 @@ class JacksonBasedJsonSerializerTest {
                                 + "}"
                 ),
                 Arguments.of(
-                        IgniteEvents.USER_AUTHENTICATED.builder()
+                        IgniteEvents.USER_AUTHENTICATION_SUCCESS.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
@@ -99,7 +125,7 @@ class JacksonBasedJsonSerializerTest {
                                         "message", new Message(1, "foo")
                                 ))
                                 .build(),
-                        "{\"type\":\"USER_AUTHENTICATED\","
+                        "{\"type\":\"USER_AUTHENTICATION_SUCCESS\","
                                 + "\"timestamp\":1234567890,"
                                 + "\"productVersion\":\"3.0.0\","
                                 + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"

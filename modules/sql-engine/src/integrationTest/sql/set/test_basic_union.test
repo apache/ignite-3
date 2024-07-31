@@ -1,0 +1,137 @@
+# name: test/sql/set/basic_union.test
+# description: UNION DISTINCT table operator
+# feature: E071-01 UNION DISTINCT table operator
+# feature: E071-02 UNION ALL table operator
+# [group] Set operations
+
+statement ok
+CREATE TABLE a(i INTEGER);
+
+statement ok
+INSERT INTO a(i) VALUES (100), (NULL);
+
+query I
+SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123;
+----
+123
+123
+
+query I
+SELECT 123 UNION ALL SELECT 123 UNION ALL SELECT 123;
+----
+123
+123
+123
+
+query I
+SELECT x FROM table(system_range(123, 123)) UNION DISTINCT SELECT x FROM table(system_range(123, 123)) UNION ALL SELECT 123;
+----
+123
+123
+
+query I
+SELECT x FROM table(system_range(123, 123)) UNION ALL SELECT x FROM table(system_range(123, 123)) UNION ALL SELECT 123;
+----
+123
+123
+123
+
+query I
+SELECT NULL UNION DISTINCT SELECT NULL
+----
+NULL
+
+query I
+SELECT NULL UNION ALL SELECT NULL
+----
+NULL
+NULL
+
+query I
+SELECT 'a' UNION DISTINCT SELECT NULL
+----
+a
+NULL
+
+query II
+SELECT NULL, NULL UNION DISTINCT SELECT NULL, NULL FROM a
+----
+NULL	NULL
+
+query II
+SELECT NULL, NULL UNION ALL SELECT NULL, NULL FROM a
+----
+NULL	NULL
+NULL	NULL
+NULL	NULL
+
+query II rowsort
+SELECT 1, 2 UNION DISTINCT SELECT i, i FROM a
+----
+NULL	NULL
+100	100
+1	2
+
+query II rowsort
+SELECT 1, 2 UNION ALL SELECT i, i FROM a
+----
+NULL	NULL
+100	100
+1	2
+
+#Mixed types
+
+query I
+SELECT 1.1 AS two UNION SELECT 2 ORDER BY 1;
+----
+1.1
+2
+
+query I
+SELECT 1 AS two UNION SELECT 2.2 ORDER BY 1;
+----
+1
+2.2
+
+query I
+SELECT 1 AS one UNION SELECT 1.0::FLOAT ORDER BY 1;
+----
+1
+
+query I
+SELECT 1.1::FLOAT AS two UNION SELECT 2 UNION SELECT 2.0::FLOAT ORDER BY 1;
+----
+1.1
+2
+
+query I
+SELECT 1.1::FLOAT AS two UNION SELECT 2 UNION ALL SELECT 2.0::FLOAT ORDER BY 1;
+----
+1.1
+2
+2
+
+# Implicit type coercion for set operation should not happen 
+
+statement error: Type mismatch in column 1 of UNION
+SELECT '2000-11-02' UNION SELECT '2000-11-02'::DATE
+
+statement error: Type mismatch in column 1 of UNION
+SELECT 1 UNION SELECT 'abc'
+
+statement error: Type mismatch in column 1 of UNION
+SELECT '1' UNION SELECT 1
+
+statement error: Type mismatch in column 1 of UNION ALL
+SELECT 1 UNION ALL SELECT 'abc'
+
+statement error: Column count mismatch in UNION ALL
+SELECT 1, 2 UNION ALL SELECT 1, 2, 3
+
+statement error: Type mismatch in column 1 of UNION ALL
+SELECT 'abcd' UNION ALL SELECT '2000-11-02'::DATE
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22358
+statement error: Type mismatch in column 1 of UNION ALL
+SELECT 1 UNION ALL SELECT '2000-11-02'::DATE

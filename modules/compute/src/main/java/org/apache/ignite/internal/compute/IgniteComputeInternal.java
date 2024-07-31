@@ -23,12 +23,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -46,7 +47,9 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options.
-     * @param args Arguments of the job.
+     * @param argumentMarshaller Marshaller for the job argument.
+     * @param resultMarshaller Marshaller for the job result.
+     * @param payload Arguments of the job.
      * @return CompletableFuture Job result.
      */
     <R> JobExecution<R> executeAsyncWithFailover(
@@ -54,7 +57,9 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
+            @Nullable Marshaller<R, byte[]> resultMarshaller,
+            Object payload
     );
 
     /**
@@ -66,7 +71,9 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options job execution options (priority, max retries).
-     * @param args Arguments of the job.
+     * @param argumentMarshaller Marshaller for the job argument.
+     * @param resultMarshaller Marshaller for the job result.
+     * @param payload Arguments of the job.
      * @param <R> Job result type.
      * @return Job execution object.
      */
@@ -76,7 +83,9 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args);
+            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
+            @Nullable Marshaller<R, byte[]> resultMarshaller,
+            Object payload);
 
     /**
      * Wraps the given future into a job execution object.
@@ -90,19 +99,19 @@ public interface IgniteComputeInternal extends IgniteCompute {
     }
 
     /**
-     * Retrieves the current status of all jobs on all nodes in the cluster.
+     * Retrieves the current state of all jobs on all nodes in the cluster.
      *
-     * @return The collection of job statuses.
+     * @return The collection of job states.
      */
-    CompletableFuture<Collection<JobStatus>> statusesAsync();
+    CompletableFuture<Collection<JobState>> statesAsync();
 
     /**
-     * Gets job status by id.
+     * Gets job state by id.
      *
      * @param jobId Job id.
-     * @return Job status or {@code null} if there's no status registered for this id.
+     * @return Job state or {@code null} if there's no state registered for this id.
      */
-    CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId);
+    CompletableFuture<@Nullable JobState> stateAsync(UUID jobId);
 
     /**
      * Cancels compute job.

@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.http.HttpResponse;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.DisplayName;
@@ -41,10 +42,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
-    /** <a href="https://semver.org">semver</a> compatible regex. */
-    private static final String IGNITE_SEMVER_REGEX =
-            "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+))?";
-
     @Test
     @DisplayName("Node configuration is available when the cluster in not initialized")
     void nodeConfiguration() throws Exception {
@@ -116,7 +113,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // Then.
         assertThat(response.statusCode(), is(200));
         // And version is a semver.
-        assertThat(response.body(), matchesRegex(IGNITE_SEMVER_REGEX));
+        assertThat(response.body(), matchesRegex(IgniteProductVersion.VERSION_PATTERN));
     }
 
     @Test
@@ -149,7 +146,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         );
 
         // And cluster is not initialized.
-        startingNodes.forEach(it -> assertThat(it, willTimeoutFast()));
+        nodes.forEach(node -> assertThat(node.waitForInitAsync(), willTimeoutFast()));
     }
 
     @Test
@@ -182,6 +179,6 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         );
 
         // And cluster is not initialized.
-        startingNodes.forEach(it -> assertThat(it, willTimeoutFast()));
+        nodes.forEach(node -> assertThat(node.waitForInitAsync(), willTimeoutFast()));
     }
 }

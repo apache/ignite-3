@@ -25,7 +25,9 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import java.util.Arrays;
 import java.util.List;
@@ -33,6 +35,17 @@ import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
+import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
+import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
+import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
+import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
+import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.Matchers;
@@ -40,6 +53,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /**
  * Tests the conversion of a sql zone definition to a command.
@@ -61,52 +75,64 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
-        assertThat(cmd, Matchers.instanceOf(CreateZoneCommand.class));
+        NewZoneEntry newZoneEntry = invokeAndGetFirstEntry(cmd, NewZoneEntry.class);
 
-        CreateZoneCommand zoneCmd = (CreateZoneCommand) cmd;
-
-        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(newZoneEntry.descriptor().name(), equalTo("TEST"));
     }
 
     @Test
     public void testCreateZoneWithOptions() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test with "
-                + "partitions=2, "
-                + "replicas=3, "
-                + "affinity_function='rendezvous', "
-                + "data_nodes_filter='\"attr1\" && \"attr2\"', "
-                + "data_nodes_auto_adjust_scale_up=100, "
-                + "data_nodes_auto_adjust_scale_down=200, "
-                + "data_nodes_auto_adjust=300, "
-                + "storage_profiles='lru_rocks, segmented_aipersist' "
-        );
+        // Check non-conflicting options.
+        {
+            SqlNode node = parse("CREATE ZONE test with "
+                    + "partitions=2, "
+                    + "replicas=3, "
+                    + "affinity_function='rendezvous', "
+                    + "data_nodes_filter='$[?(@.region == \"US\")]', "
+                    + "data_nodes_auto_adjust=300, "
+                    + "storage_profiles='lru_rocks, segmented_aipersist' "
+            );
 
-        assertThat(node, instanceOf(SqlDdl.class));
+            assertThat(node, instanceOf(SqlDdl.class));
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+            CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+            CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
-        CreateZoneCommand createZone = (CreateZoneCommand) cmd;
+            assertThat(desc.partitions(), equalTo(2));
+            assertThat(desc.replicas(), equalTo(3));
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22162
+            // assertThat(desc.affinity(), equalTo("rendezvous"));
+            assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
+            assertThat(desc.dataNodesAutoAdjust(), equalTo(300));
 
-        assertThat(createZone.partitions(), equalTo(2));
-        assertThat(createZone.replicas(), equalTo(3));
-        assertThat(createZone.affinity(), equalTo("rendezvous"));
-        assertThat(createZone.nodeFilter(), equalTo("\"attr1\" && \"attr2\""));
-        assertThat(createZone.dataNodesAutoAdjustScaleUp(), equalTo(100));
-        assertThat(createZone.dataNodesAutoAdjustScaleDown(), equalTo(200));
-        assertThat(createZone.dataNodesAutoAdjust(), equalTo(300));
-        assertThat(createZone.storageProfiles(), equalTo("lru_rocks, segmented_aipersist"));
+            List<CatalogStorageProfileDescriptor> storageProfiles = desc.storageProfiles().profiles();
+            assertThat(storageProfiles, hasSize(2));
+            assertThat(storageProfiles.get(0).storageProfile(), equalTo("lru_rocks"));
+            assertThat(storageProfiles.get(1).storageProfile(), equalTo("segmented_aipersist"));
+        }
+
+        // Check remaining options.
+        {
+            SqlNode node = parse("CREATE ZONE test with "
+                    + "data_nodes_auto_adjust_scale_up=100, "
+                    + "data_nodes_auto_adjust_scale_down=200, "
+                    + "storage_profiles='lru_rocks'");
+
+            assertThat(node, instanceOf(SqlDdl.class));
+
+            CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+            CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
+
+            assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(100));
+            assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(200));
+        }
 
         // Check option validation.
-        node = parse("CREATE ZONE test with partitions=-1");
-        expectOptionValidationError((SqlDdl) node, "PARTITION");
-
-        node = parse("CREATE ZONE test with replicas=-1");
-        expectOptionValidationError((SqlDdl) node, "REPLICAS");
-
-        node = parse("CREATE ZONE test with storage_profiles='' ");
-        expectOptionValidationError((SqlDdl) node, "STORAGE_PROFILES");
+        expectOptionValidationError("CREATE ZONE test with partitions=-1", "PARTITION");
+        expectOptionValidationError("CREATE ZONE test with replicas=-1", "REPLICAS");
+        expectOptionValidationError("CREATE ZONE test with storage_profiles='' ", "STORAGE_PROFILES");
     }
 
     @Test
@@ -122,7 +148,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(ex.getMessage(), containsString(STORAGE_PROFILES + " option cannot be null"));
 
-        SqlNode newNode =  parse("CREATE ZONE test with replicas=1");
+        SqlNode newNode = parse("CREATE ZONE test with replicas=1");
 
         assertThat(newNode, instanceOf(SqlDdl.class));
 
@@ -147,25 +173,32 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     public void testRenameZoneCommand() throws SqlParseException {
         SqlNode node = parse("ALTER ZONE test RENAME TO test2");
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
-        assertThat(cmd, Matchers.instanceOf(AlterZoneRenameCommand.class));
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
-        AlterZoneRenameCommand zoneCmd = (AlterZoneRenameCommand) cmd;
-        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
-        assertThat(zoneCmd.newZoneName(), equalTo("TEST2"));
-        assertThat(zoneCmd.ifExists(), is(false));
+        assertThat(cmd, instanceOf(RenameZoneCommand.class));
+
+        Mockito.when(catalog.zone("TEST")).thenReturn(mock(CatalogZoneDescriptor.class));
+
+        AlterZoneEntry entry = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class);
+
+        assertThat(entry.descriptor().name(), equalTo("TEST2"));
+        assertThat(((RenameZoneCommand) cmd).ifExists(), is(false));
     }
 
     @Test
     public void testRenameZoneIfExistCommand() throws SqlParseException {
         SqlNode node = parse("ALTER ZONE IF EXISTS test RENAME TO test2");
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
-        assertThat(cmd, Matchers.instanceOf(AlterZoneRenameCommand.class));
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(RenameZoneCommand.class));
 
-        AlterZoneRenameCommand zoneCmd = (AlterZoneRenameCommand) cmd;
-        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
-        assertThat(zoneCmd.newZoneName(), equalTo("TEST2"));
+        RenameZoneCommand zoneCmd = (RenameZoneCommand) cmd;
+
+        Mockito.when(catalog.zone("TEST")).thenReturn(mock(CatalogZoneDescriptor.class));
+
+        AlterZoneEntry entry = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class);
+
+        assertThat(entry.descriptor().name(), equalTo("TEST2"));
         assertThat(zoneCmd.ifExists(), is(true));
     }
 
@@ -173,59 +206,98 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     public void testAlterZoneCommand() throws SqlParseException {
         SqlNode node = parse("ALTER ZONE test SET replicas=3");
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
-        assertThat(cmd, Matchers.instanceOf(AlterZoneSetCommand.class));
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneCommand.class));
 
-        AlterZoneSetCommand zoneCmd = (AlterZoneSetCommand) cmd;
-        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
-        assertThat(zoneCmd.ifExists(), is(false));
+        CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
+
+        Mockito.when(zoneMock.name()).thenReturn("TEST");
+        Mockito.when(zoneMock.filter()).thenReturn("");
+
+        Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
+
+        assertThat(desc.name(), equalTo("TEST"));
+        assertThat(desc.replicas(), is(3));
+        assertThat(((AlterZoneCommand) cmd).ifExists(), is(false));
     }
 
     @Test
     public void testAlterZoneIfExistsCommand() throws SqlParseException {
         SqlNode node = parse("ALTER ZONE IF EXISTS test SET replicas=3");
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
-        assertThat(cmd, Matchers.instanceOf(AlterZoneSetCommand.class));
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
-        AlterZoneSetCommand zoneCmd = (AlterZoneSetCommand) cmd;
-        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
-        assertThat(zoneCmd.ifExists(), is(true));
+        assertThat(cmd, Matchers.instanceOf(AlterZoneCommand.class));
+        assertThat(((AlterZoneCommand) cmd).ifExists(), is(true));
     }
 
     @Test
     public void testAlterZoneSetCommand() throws SqlParseException {
-        SqlNode node = parse("ALTER ZONE test SET "
-                + "replicas=3, "
-                + "partitions=8, "
-                + "data_nodes_filter='\"attr1\" && \"attr2\"', "
-                + "data_nodes_auto_adjust_scale_up=100, "
-                + "data_nodes_auto_adjust_scale_down=200, "
-                + "data_nodes_auto_adjust=300");
+        // Check non-conflicting options.
+        {
+            SqlNode node = parse("ALTER ZONE test SET "
+                    + "replicas=3, "
+                    + "data_nodes_filter='$[?(@.region == \"US\")]', "
+                    + "data_nodes_auto_adjust=300");
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
-        assertThat(cmd, Matchers.instanceOf(AlterZoneSetCommand.class));
+            CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+            assertThat(cmd, Matchers.instanceOf(AlterZoneCommand.class));
 
-        AlterZoneSetCommand zoneCmd = (AlterZoneSetCommand) cmd;
-        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+            CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
+            Mockito.when(zoneMock.name()).thenReturn("TEST");
+            Mockito.when(zoneMock.filter()).thenReturn("");
 
-        assertThat(zoneCmd.replicas(), equalTo(3));
-        assertThat(zoneCmd.partitions(), equalTo(8));
-        assertThat(zoneCmd.nodeFilter(), equalTo("\"attr1\" && \"attr2\""));
-        assertThat(zoneCmd.dataNodesAutoAdjustScaleUp(), equalTo(100));
-        assertThat(zoneCmd.dataNodesAutoAdjustScaleDown(), equalTo(200));
-        assertThat(zoneCmd.dataNodesAutoAdjust(), equalTo(300));
+            Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+
+            CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
+
+            assertThat(desc.name(), equalTo("TEST"));
+
+            assertThat(desc.replicas(), equalTo(3));
+            assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
+            assertThat(desc.dataNodesAutoAdjust(), equalTo(300));
+        }
+
+        // Check remaining options.
+        {
+            SqlNode node = parse("ALTER ZONE test SET "
+                    + "data_nodes_auto_adjust_scale_up=100, "
+                    + "data_nodes_auto_adjust_scale_down=200");
+
+            CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+            assertThat(cmd, Matchers.instanceOf(AlterZoneCommand.class));
+
+            CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
+            Mockito.when(zoneMock.name()).thenReturn("TEST");
+            Mockito.when(zoneMock.filter()).thenReturn("");
+
+            Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+
+            CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
+
+            assertThat(desc.name(), equalTo("TEST"));
+
+            assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(100));
+            assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(200));
+        }
     }
 
     @Test
     public void testAlterZoneSetDefault() throws SqlParseException {
         SqlNode node = parse("ALTER ZONE test SET DEFAULT");
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
         assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCommand.class));
 
+        CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
+        Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
+
+        SetDefaultZoneEntry entry = invokeAndGetFirstEntry(cmd, SetDefaultZoneEntry.class);
+
         AlterZoneSetDefaultCommand zoneCmd = (AlterZoneSetDefaultCommand) cmd;
-        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(entry.zoneId(), is(zoneMock.id()));
         assertThat(zoneCmd.ifExists(), is(false));
     }
 
@@ -233,21 +305,15 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     public void testAlterZoneSetDefaultIfExists() throws SqlParseException {
         SqlNode node = parse("ALTER ZONE IF EXISTS test SET DEFAULT");
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
         assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCommand.class));
 
-        AlterZoneSetDefaultCommand zoneCmd = (AlterZoneSetDefaultCommand) cmd;
-        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
-        assertThat(zoneCmd.ifExists(), is(true));
+        assertThat(((AlterZoneSetDefaultCommand) cmd).ifExists(), is(true));
     }
 
     @Test
     public void testAlterZoneCommandWithInvalidOptions() throws SqlParseException {
-        SqlNode node = parse("ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=-100");
-
-        assertThat(node, instanceOf(SqlDdl.class));
-
-        expectOptionValidationError((SqlDdl) node, "DATA_NODES_AUTO_ADJUST");
+        expectOptionValidationError("ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=-100", "DATA_NODES_AUTO_ADJUST");
     }
 
     @Test
@@ -265,13 +331,16 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(DropZoneCommand.class));
 
-        DropZoneCommand zoneCmd = (DropZoneCommand) cmd;
+        CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
+        Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
 
-        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        DropZoneEntry entry = invokeAndGetFirstEntry(cmd, DropZoneEntry.class);
+
+        assertThat(entry.zoneId(), is(zoneMock.id()));
     }
 
     @ParameterizedTest
@@ -322,7 +391,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         return STRING_OPTIONS.stream();
     }
 
-    private void expectOptionValidationError(SqlDdl node, String invalidOption) {
+    private void expectOptionValidationError(String sql, String invalidOption) throws SqlParseException {
+        SqlDdl node = (SqlDdl) parse(sql);
         IgniteException ex = assertThrows(
                 IgniteException.class,
                 () -> converter.convert(node, createContext())

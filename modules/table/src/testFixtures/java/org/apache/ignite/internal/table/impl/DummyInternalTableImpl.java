@@ -51,11 +51,15 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.SingleClusterNodeResolver;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
@@ -81,11 +85,13 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -109,10 +115,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.SingleClusterNodeResolver;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -255,7 +258,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionInflights,
                 3_000,
                 0,
-                null
+                null,
+                mock(StreamerReceiverRunner.class)
         );
 
         RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
@@ -405,7 +409,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPlacementDriver(LOCAL_NODE),
                 mock(ClusterNodeResolver.class),
                 resourcesRegistry,
-                schemaManager
+                schemaManager,
+                mock(IndexMetaStorage.class)
         );
 
         partitionListener = new PartitionListener(
@@ -417,7 +422,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 schemaManager,
-                CLOCK_SERVICE
+                CLOCK_SERVICE,
+                mock(IndexMetaStorage.class)
         );
     }
 
@@ -487,7 +493,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLowWatermark()
         );
 
-        assertThat(txManager.startAsync(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return txManager;
     }

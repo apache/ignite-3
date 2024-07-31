@@ -34,14 +34,8 @@ set(SOURCES
     transaction_test.cpp
 )
 
-add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} ignite-test-common ignite-client ${ODBC_LIBRARY} GTest::GTest)
+ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client ${ODBC_LIBRARY})
 
 if (WIN32)
     remove_definitions(-DUNICODE=1)
-else()
-    add_definitions(-DBOOST_TEST_DYN_LINK)
 endif()
-
-set(TEST_TARGET IgniteOdbcTest)
-add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})

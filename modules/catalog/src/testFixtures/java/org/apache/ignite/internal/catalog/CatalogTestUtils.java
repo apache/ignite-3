@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -43,7 +42,9 @@ import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
@@ -55,9 +56,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
@@ -82,9 +85,12 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(metastore.startAsync(), clockWaiter.startAsync(), super.startAsync())
-                        .thenCompose(unused -> metastore.deployWatches());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(
+                        metastore.startAsync(componentContext),
+                        clockWaiter.startAsync(componentContext),
+                        super.startAsync(componentContext)
+                ).thenComposeAsync(unused -> metastore.deployWatches(), componentContext.executor());
             }
 
             @Override
@@ -96,8 +102,12 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync, metastore::stopAsync);
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext),
+                        () -> metastore.stopAsync(componentContext)
+                );
             }
         };
     }
@@ -116,8 +126,9 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(metastore.startAsync(), super.startAsync()).thenCompose(unused -> metastore.deployWatches());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(metastore.startAsync(componentContext), super.startAsync(componentContext))
+                        .thenComposeAsync(unused -> metastore.deployWatches(), componentContext.executor());
             }
 
             @Override
@@ -128,10 +139,30 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, metastore::stopAsync);
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> metastore.stopAsync(componentContext)
+                );
             }
         };
+    }
+
+    /**
+     * Creates a test implementation of {@link CatalogManager}.
+     *
+     * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals it needs, may change in the future.
+     *
+     * @param metastore Meta Storage.
+     * @param clockWaiter Clock waiter.
+     * @param clock Hybrid clock.
+     */
+    public static CatalogManager createTestCatalogManager(
+            MetaStorageManager metastore,
+            ClockWaiter clockWaiter,
+            HybridClock clock
+    ) {
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter));
     }
 
     /**
@@ -148,8 +179,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(clockWaiter.startAsync(), super.startAsync());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
             }
 
             @Override
@@ -160,8 +191,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync);
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext)
+                );
             }
         };
     }
@@ -194,8 +228,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(updateLog, new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(clockWaiter.startAsync(), super.startAsync());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
             }
 
             @Override
@@ -206,8 +240,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync);
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext)
+                );
             }
         };
     }
@@ -230,8 +267,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new TestUpdateLog(clock), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(clockWaiter.startAsync(), super.startAsync());
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
             }
 
             @Override
@@ -242,8 +279,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync);
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext)
+                );
             }
         };
     }
@@ -282,11 +322,11 @@ public class CatalogTestUtils {
         }
     }
 
-    static ColumnParams columnParams(String name, ColumnType type) {
+    public static ColumnParams columnParams(String name, ColumnType type) {
         return columnParams(name, type, DEFAULT_NULLABLE);
     }
 
-    static ColumnParams columnParams(String name, ColumnType type, boolean nullable) {
+    public static ColumnParams columnParams(String name, ColumnType type, boolean nullable) {
         return columnParamsBuilder(name, type, nullable).build();
     }
 
@@ -323,15 +363,23 @@ public class CatalogTestUtils {
     }
 
     static CatalogCommand dropTableCommand(String tableName) {
-        return DropTableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
+        return DropTableCommand.builder().schemaName(SqlCommon.DEFAULT_SCHEMA_NAME).tableName(tableName).build();
     }
 
     static CatalogCommand dropColumnParams(String tableName, String... columns) {
-        return AlterTableDropColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(Set.of(columns)).build();
+        return AlterTableDropColumnCommand.builder()
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(Set.of(columns))
+                .build();
     }
 
     static CatalogCommand addColumnParams(String tableName, ColumnParams... columns) {
-        return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(List.of(columns)).build();
+        return AlterTableAddColumnCommand.builder()
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columns))
+                .build();
     }
 
     /**
@@ -385,7 +433,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Void> startAsync() throws IgniteInternalException {
+        public CompletableFuture<Void> startAsync(ComponentContext componentContext) throws IgniteInternalException {
             if (onUpdateHandler == null) {
                 throw new IgniteInternalException(
                         Common.INTERNAL_ERR,
@@ -399,7 +447,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Void> stopAsync() {
+        public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
             return nullCompletedFuture();
         }
     }
@@ -512,5 +560,36 @@ public class CatalogTestUtils {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /** Test command that does nothing but increments object id counter of a catalog. */
+    public static class TestCommand implements CatalogCommand {
+
+        private final boolean successful;
+
+        private TestCommand(boolean successful) {
+            this.successful = successful;
+        }
+
+        public static TestCommand ok() {
+            return new TestCommand(true);
+        }
+
+        public static TestCommand fail() {
+            return new TestCommand(false);
+        }
+
+        @Override
+        public List<UpdateEntry> get(Catalog catalog) {
+            if (!successful) {
+                throw new TestCommandFailure();
+            }
+            return List.of(new ObjectIdGenUpdateEntry(1));
+        }
+    }
+
+    /** Test command failure. */
+    public static class TestCommandFailure extends RuntimeException {
+        private static final long serialVersionUID = -6123535862914825943L;
     }
 }

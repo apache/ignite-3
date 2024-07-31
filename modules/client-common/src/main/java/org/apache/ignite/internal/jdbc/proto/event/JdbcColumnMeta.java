@@ -33,16 +33,14 @@ import static java.sql.Types.TINYINT;
 import static java.sql.Types.VARBINARY;
 import static java.sql.Types.VARCHAR;
 
-import java.math.BigDecimal;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
-import java.util.Date;
 import java.util.Objects;
-import java.util.UUID;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * JDBC column metadata.
@@ -64,19 +62,13 @@ public class JdbcColumnMeta extends Response {
     private String colName;
 
     /** Data type. */
-    private int dataType;
-
-    /** Data type name. */
-    private String dataTypeName;
+    private ColumnType columnType;
 
     /** Precision. */
     private int precision;
 
     /** Scale. */
     private int scale;
-
-    /** Data type class. */
-    private String dataTypeCls;
 
     /**
      * Default constructor is used for serialization.
@@ -88,10 +80,10 @@ public class JdbcColumnMeta extends Response {
      * Constructor.
      *
      * @param label Column label.
-     * @param cls   Type.
+     * @param columnType Type.
      */
-    public JdbcColumnMeta(String label, Class<?> cls) {
-        this(label, null, null, null, cls, -1, -1, true);
+    public JdbcColumnMeta(String label, ColumnType columnType) {
+        this(label, null, null, null, columnType, -1, -1, true);
     }
 
     /**
@@ -101,62 +93,24 @@ public class JdbcColumnMeta extends Response {
      * @param schemaName Schema.
      * @param tblName    Table.
      * @param colName    Column.
-     * @param cls        Type.
+     * @param columnType Type.
      * @param nullable   Nullable flag.
      * @param precision  Column precision.
      * @param scale      Column scale.
      */
-    public JdbcColumnMeta(String label, String schemaName, String tblName, String colName, Class<?> cls, int precision, int scale,
-            boolean nullable) {
-        this(label, schemaName, tblName, colName, cls.getName(), precision, scale, nullable);
-    }
-
-    /**
-     * Constructor with nullable flag.
-     *
-     * @param label        Column label.
-     * @param schemaName   Schema.
-     * @param tblName      Table.
-     * @param colName      Column.
-     * @param javaTypeName Java type name.
-     * @param nullable     Nullable flag.
-     * @param precision    Column precision.
-     * @param scale        Column scale.
-     */
-    public JdbcColumnMeta(String label, String schemaName, String tblName, String colName, String javaTypeName, int precision, int scale,
-            boolean nullable) {
-        this(label, schemaName, tblName, colName, type(javaTypeName), typeName(javaTypeName), javaTypeName, precision, scale, nullable);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param label        Column label.
-     * @param schemaName   Schema.
-     * @param tblName      Table.
-     * @param colName      Column.
-     * @param dataType     JDBC datatype id.
-     * @param dataTypeName JDBC datatype name.
-     * @param javaTypeName Java type name.
-     * @param precision    Column precision.
-     * @param scale        Column scale.
-     * @param nullable     Nullable flag.
-     */
-    public JdbcColumnMeta(String label, String schemaName, String tblName, String colName, int dataType, String dataTypeName,
-            String javaTypeName, int precision, int scale, boolean nullable) {
+    public JdbcColumnMeta(
+            String label, String schemaName, String tblName, String colName, ColumnType columnType,
+            int precision, int scale, boolean nullable
+    ) {
         this.label = label;
         this.schemaName = schemaName;
         this.tblName = tblName;
         this.colName = colName;
         this.nullable = nullable;
 
-        this.dataType = dataType;
-        this.dataTypeName = dataTypeName;
-        this.dataTypeCls = javaTypeName;
+        this.columnType = columnType;
         this.precision = precision;
         this.scale = scale;
-
-        hasResults = true;
     }
 
     /**
@@ -195,13 +149,18 @@ public class JdbcColumnMeta extends Response {
         return colName != null ? colName : label;
     }
 
+    /** Gets column type. */
+    public ColumnType columnType() {
+        return columnType;
+    }
+
     /**
      * Gets data type id.
      *
      * @return Column's data type.
      */
     public int dataType() {
-        return dataType;
+        return typeId(columnType);
     }
 
     /**
@@ -210,7 +169,7 @@ public class JdbcColumnMeta extends Response {
      * @return Column's data type name.
      */
     public String dataTypeName() {
-        return dataTypeName;
+        return typeName(columnType);
     }
 
     /**
@@ -255,7 +214,7 @@ public class JdbcColumnMeta extends Response {
      * @return Data type class.
      */
     public String dataTypeClass() {
-        return dataTypeCls;
+        return JdbcConverterUtils.columnTypeToJdbcClass(columnType).getName();
     }
 
     /** {@inheritDoc} */
@@ -263,7 +222,7 @@ public class JdbcColumnMeta extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
@@ -272,9 +231,7 @@ public class JdbcColumnMeta extends Response {
         ClientMessageUtils.writeStringNullable(packer, tblName);
         ClientMessageUtils.writeStringNullable(packer, colName);
 
-        packer.packInt(dataType);
-        packer.packString(dataTypeName);
-        packer.packString(dataTypeCls);
+        packer.packInt(columnType.id());
         packer.packBoolean(nullable);
         packer.packInt(precision);
         packer.packInt(scale);
@@ -285,7 +242,7 @@ public class JdbcColumnMeta extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
@@ -294,9 +251,7 @@ public class JdbcColumnMeta extends Response {
         tblName = ClientMessageUtils.readStringNullable(unpacker);
         colName = ClientMessageUtils.readStringNullable(unpacker);
 
-        dataType = unpacker.unpackInt();
-        dataTypeName = unpacker.unpackString();
-        dataTypeCls = unpacker.unpackString();
+        columnType = ColumnType.getById(unpacker.unpackInt());
         nullable = unpacker.unpackBoolean();
         precision = unpacker.unpackInt();
         scale = unpacker.unpackInt();
@@ -315,14 +270,12 @@ public class JdbcColumnMeta extends Response {
 
         JdbcColumnMeta meta = (JdbcColumnMeta) o;
         return nullable == meta.nullable
-                && dataType == meta.dataType
+                && columnType == meta.columnType
                 && precision == meta.precision
                 && scale == meta.scale
                 && Objects.equals(schemaName, meta.schemaName)
                 && Objects.equals(tblName, meta.tblName)
-                && Objects.equals(colName, meta.colName)
-                && Objects.equals(dataTypeCls, meta.dataTypeCls)
-                && Objects.equals(dataTypeName, meta.dataTypeName);
+                && Objects.equals(colName, meta.colName);
     }
 
     /** {@inheritDoc} */
@@ -332,9 +285,7 @@ public class JdbcColumnMeta extends Response {
         result = 31 * result + (schemaName != null ? schemaName.hashCode() : 0);
         result = 31 * result + (tblName != null ? tblName.hashCode() : 0);
         result = 31 * result + (colName != null ? colName.hashCode() : 0);
-        result = 31 * result + (dataTypeCls != null ? dataTypeCls.hashCode() : 0);
-        result = 31 * result + dataType;
-        result = 31 * result + (dataTypeName != null ? dataTypeName.hashCode() : 0);
+        result = 31 * result + columnType.id();
         result = 31 * result + precision;
         result = 31 * result + scale;
         return result;
@@ -347,88 +298,64 @@ public class JdbcColumnMeta extends Response {
     }
 
     /**
-     * Converts Java class name to type from {@link Types}.
+     * Converts column type to SQL type name.
      *
-     * @param cls Java class name.
-     * @return Type from {@link Types}.
+     * @param columnType Column type.
+     * @return SQL type name.
      */
-    private static int type(String cls) {
-        if (Boolean.class.getName().equals(cls) || boolean.class.getName().equals(cls)) {
-            return BOOLEAN;
-        } else if (Byte.class.getName().equals(cls) || byte.class.getName().equals(cls)) {
-            return TINYINT;
-        } else if (Short.class.getName().equals(cls) || short.class.getName().equals(cls)) {
-            return SMALLINT;
-        } else if (Integer.class.getName().equals(cls) || int.class.getName().equals(cls)) {
-            return INTEGER;
-        } else if (Long.class.getName().equals(cls) || long.class.getName().equals(cls)) {
-            return BIGINT;
-        } else if (Float.class.getName().equals(cls) || float.class.getName().equals(cls)) {
-            return REAL;
-        } else if (Double.class.getName().equals(cls) || double.class.getName().equals(cls)) {
-            return DOUBLE;
-        } else if (String.class.getName().equals(cls)) {
-            return VARCHAR;
-        } else if (byte[].class.getName().equals(cls)) {
-            return VARBINARY;
-        } else if (Time.class.getName().equals(cls)) {
-            return TIME;
-        } else if (Timestamp.class.getName().equals(cls)) {
-            return TIMESTAMP;
-        } else if (Date.class.getName().equals(cls) || java.sql.Date.class.getName().equals(cls)) {
-            return DATE;
-        } else if (BigDecimal.class.getName().equals(cls)) {
-            return DECIMAL;
-        } else if (Void.class.getName().equals(cls)) {
-            return NULL;
-        } else {
-            // IgniteCustomType: All custom data types are Types.OTHER.
-            // But every custom type may have a designated name (see typeName method).
-            return OTHER;
+    private static String typeName(ColumnType columnType) {
+        switch (columnType) {
+            case BOOLEAN: return "BOOLEAN";
+            case INT8: return "TINYINT";
+            case INT16: return "SMALLINT";
+            case INT32: return "INTEGER";
+            case INT64: return "BIGINT";
+            case FLOAT: return "REAL";
+            case DOUBLE: return "DOUBLE";
+            case STRING: return "VARCHAR";
+            case BYTE_ARRAY: return "VARBINARY";
+            case TIME: return "TIME";
+            case DATETIME: return "TIMESTAMP";
+            case TIMESTAMP: return "TIMESTAMP WITH LOCAL TIME ZONE";
+            case DATE: return "DATE";
+            case DECIMAL: return "DECIMAL";
+            case NULL: return "NULL";
+            case UUID: return "UUID";
+            case PERIOD:
+            case DURATION:
+                // IgniteCustomType: JDBC spec allows database dependent type name. See DatabaseMetadata::getColumns (TYPE_NAME column);
+                // So include JDBC TYPE_NAME of your type otherwise its type name is going to be OTHER.
+                return "OTHER";
+            default:
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Unknown column type: " + columnType);
         }
     }
 
-    /**
-     * Converts Java class name to SQL type name.
-     *
-     * @param cls Java class name.
-     * @return SQL type name.
-     */
-    private static String typeName(String cls) {
-        if (Boolean.class.getName().equals(cls) || boolean.class.getName().equals(cls)) {
-            return "BOOLEAN";
-        } else if (Byte.class.getName().equals(cls) || byte.class.getName().equals(cls)) {
-            return "TINYINT";
-        } else if (Short.class.getName().equals(cls) || short.class.getName().equals(cls)) {
-            return "SMALLINT";
-        } else if (Integer.class.getName().equals(cls) || int.class.getName().equals(cls)) {
-            return "INTEGER";
-        } else if (Long.class.getName().equals(cls) || long.class.getName().equals(cls)) {
-            return "BIGINT";
-        } else if (Float.class.getName().equals(cls) || float.class.getName().equals(cls)) {
-            return "REAL";
-        } else if (Double.class.getName().equals(cls) || double.class.getName().equals(cls)) {
-            return "DOUBLE";
-        } else if (String.class.getName().equals(cls)) {
-            return "VARCHAR";
-        } else if (byte[].class.getName().equals(cls)) {
-            return "VARBINARY";
-        } else if (Time.class.getName().equals(cls)) {
-            return "TIME";
-        } else if (Timestamp.class.getName().equals(cls)) {
-            return "TIMESTAMP";
-        } else if (Date.class.getName().equals(cls) || java.sql.Date.class.getName().equals(cls)) {
-            return "DATE";
-        } else if (BigDecimal.class.getName().equals(cls)) {
-            return "DECIMAL";
-        } else if (Void.class.getName().equals(cls)) {
-            return "NULL";
-        } else if (UUID.class.getName().equals(cls)) {
-            return "UUID";
-        } else {
-            // IgniteCustomType: JDBC spec allows database dependent type name. See DatabaseMetadata::getColumns (TYPE_NAME column);
-            // So include JDBC TYPE_NAME of your type otherwise its type name is going to be OTHER.
-            return "OTHER";
+    private static int typeId(ColumnType columnType) {
+        switch (columnType) {
+            case BOOLEAN: return BOOLEAN;
+            case INT8: return TINYINT;
+            case INT16: return SMALLINT;
+            case INT32: return INTEGER;
+            case INT64: return BIGINT;
+            case FLOAT: return REAL;
+            case DOUBLE: return DOUBLE;
+            case STRING: return VARCHAR;
+            case BYTE_ARRAY: return VARBINARY;
+            case TIME: return TIME;
+            case DATETIME: return TIMESTAMP;
+            case DATE: return DATE;
+            case DECIMAL: return DECIMAL;
+            case NULL: return NULL;
+            case UUID:
+            case PERIOD:
+            case DURATION:
+            case TIMESTAMP:
+                // IgniteCustomType: JDBC spec allows database dependent type name. See DatabaseMetadata::getColumns (TYPE_NAME column);
+                // So include JDBC TYPE_NAME of your type otherwise its type name is going to be OTHER.
+                return OTHER;
+            default:
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Unknown column type: " + columnType);
         }
     }
 }

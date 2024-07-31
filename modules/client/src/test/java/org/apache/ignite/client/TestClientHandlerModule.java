@@ -49,6 +49,7 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -111,7 +112,6 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param shouldDropConnection Connection drop condition.
      * @param responseDelay Response delay, in milliseconds.
      * @param clusterService Cluster service.
-     * @param compute Compute.
      * @param clusterTag Cluster tag.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
@@ -125,7 +125,6 @@ public class TestClientHandlerModule implements IgniteComponent {
             Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             ClusterService clusterService,
-            IgniteComputeInternal compute,
             ClusterTag clusterTag,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
@@ -141,7 +140,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.shouldDropConnection = shouldDropConnection;
         this.responseDelay = responseDelay;
         this.clusterService = clusterService;
-        this.compute = compute;
+        this.compute = (IgniteComputeInternal) ignite.compute();
         this.clusterTag = clusterTag;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
@@ -152,7 +151,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
         }
@@ -168,7 +167,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (channel != null) {
             try {
                 channel.close().await();

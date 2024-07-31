@@ -38,11 +38,13 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -50,7 +52,6 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -75,7 +76,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TransactionInflights.class),
                 3_000,
                 0,
-                null
+                null,
+                mock(StreamerReceiverRunner.class)
         );
 
         // Let's check the empty table.
@@ -125,6 +127,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TransactionInflights.class),
                 3_000,
                 0,
+                null,
                 null
         );
 

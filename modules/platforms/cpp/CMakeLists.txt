@@ -23,7 +23,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
-option(ENABLE_CONAN "Use Conan package manager to get dependencies" ON)
+option(USE_LOCAL_DEPS "Use local dependencies." OFF)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
@@ -32,55 +32,15 @@ option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
 option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
-set(conan_packages
-    msgpack-c/4.0.0
-)
-
-if (${ENABLE_TESTS})
-    list(APPEND conan_packages
-        gtest/1.12.1
-    )
-endif()
-
-# Install required libraries.
-if (${ENABLE_CONAN})
-    include(conan)
-
-    if (is_multi_config)
-        # These settings are for multi-config generators like Visual Studio.
-        message(STATUS "Using a multi-config generator")
-
-        conan_cmake_configure(REQUIRES ${conan_packages}
-                              GENERATORS cmake_find_package_multi)
-
-        foreach(TYPE ${CMAKE_CONFIGURATION_TYPES})
-            conan_cmake_autodetect(conan_settings BUILD_TYPE ${TYPE})
-
-            conan_cmake_install(PATH_OR_REFERENCE .
-                                BUILD missing
-                                REMOTE conancenter
-                                SETTINGS ${conan_settings})
-        endforeach()
-    else()
-        # These settings are for single-config generators like makefiles, ninja.
-        message(STATUS "Using a single-config generator")
-
-        conan_cmake_configure(REQUIRES ${conan_packages}
-                              GENERATORS cmake_find_package)
-
-        conan_cmake_autodetect(conan_settings)
-
-        conan_cmake_install(PATH_OR_REFERENCE .
-                            BUILD missing
-                            REMOTE conancenter
-                            SETTINGS ${conan_settings})
-    endif()
+include(dependencies)
+if(${INSTALL_IGNITE_FILES})
+    set(CMAKE_INSTALL_PREFIX ${IGNITE_INSTALL_DESTINATION})
 endif()
 
 # Configure build paths.
@@ -105,7 +65,9 @@ else()
 endif()
 
 set(IGNITE_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
-message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
+if(${INSTALL_IGNITE_FILES})
+    message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
+endif()
 message(STATUS "IGNITE_INCLUDEDIR=${IGNITE_INCLUDEDIR}")
 include(ignite_install_headers)
 
@@ -146,7 +108,6 @@ endif()
 
 # Setup gtest for unit & integration tests.
 if (${ENABLE_TESTS})
-    find_package(GTest REQUIRED)
     include(GoogleTest)
     enable_testing()
 endif()

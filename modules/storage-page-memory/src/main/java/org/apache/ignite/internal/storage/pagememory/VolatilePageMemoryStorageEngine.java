@@ -27,26 +27,23 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
+import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 
-/**
- * Storage engine implementation based on {@link PageMemory} for in-memory case.
- */
-public class VolatilePageMemoryStorageEngine implements StorageEngine {
+/** Storage engine implementation based on {@link VolatilePageMemory}. */
+public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "aimem";
 
@@ -61,13 +58,11 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private final String igniteInstanceName;
 
-    private final StorageConfiguration storageConfiguration;
+    private final StorageConfiguration storageConfig;
 
     private final VolatilePageMemoryStorageEngineConfiguration engineConfig;
 
     private final PageIoRegistry ioRegistry;
-
-    private final PageEvictionTracker pageEvictionTracker;
 
     private final Map<String, VolatilePageMemoryDataRegion> regions = new ConcurrentHashMap<>();
 
@@ -76,21 +71,25 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     /**
      * Constructor.
      *
+     * @param igniteInstanceName Ignite instance name.
      * @param engineConfig PageMemory storage engine configuration.
+     * @param storageConfig Storage engine and storage profiles configurations.
      * @param ioRegistry IO registry.
-     * @param pageEvictionTracker Eviction tracker to use.
+     * @param clock Hybrid Logical Clock.
      */
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            StorageConfiguration storageConfiguration,
+            StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
-            PageEvictionTracker pageEvictionTracker) {
+            HybridClock clock
+    ) {
+        super(clock);
+
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
-        this.storageConfiguration = storageConfiguration;
+        this.storageConfig = storageConfig;
         this.ioRegistry = ioRegistry;
-        this.pageEvictionTracker = pageEvictionTracker;
     }
 
     @Override
@@ -100,7 +99,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-        storageConfiguration.profiles().value().stream().forEach(p -> {
+        storageConfig.profiles().value().stream().forEach(p -> {
             if (p instanceof VolatilePageMemoryProfileView) {
                 addDataRegion(p.name());
             }
@@ -150,7 +149,13 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
-        return new VolatilePageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, dataRegion, destructionExecutor);
+        return new VolatilePageMemoryTableStorage(
+                tableDescriptor,
+                indexDescriptorSupplier,
+                this,
+                dataRegion,
+                destructionExecutor
+        );
     }
 
     @Override
@@ -165,15 +170,14 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      */
     private void addDataRegion(String name) {
         VolatilePageMemoryProfileConfiguration storageProfileConfiguration =
-                (VolatilePageMemoryProfileConfiguration) storageConfiguration.profiles().get(name);
+                (VolatilePageMemoryProfileConfiguration) storageConfig.profiles().get(name);
 
         int pageSize = engineConfig.pageSize().value();
 
         VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(
                 storageProfileConfiguration,
                 ioRegistry,
-                pageSize,
-                pageEvictionTracker
+                pageSize
         );
 
         dataRegion.start();

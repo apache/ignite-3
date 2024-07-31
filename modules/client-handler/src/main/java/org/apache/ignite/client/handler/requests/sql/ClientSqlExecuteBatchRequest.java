@@ -29,9 +29,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.SqlBatchException;
 
 /**
  * Client SQL execute batch request.
@@ -57,7 +55,7 @@ public class ClientSqlExecuteBatchRequest {
         InternalTransaction tx = readTx(in, out, resources);
         ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
-        BatchedArguments arguments = in.unpackObjectArrayFromBinaryTupleArray();
+        BatchedArguments arguments = in.unpackBatchedArgumentsFromBinaryTupleArray();
 
         if (arguments == null) {
             // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
@@ -69,7 +67,7 @@ public class ClientSqlExecuteBatchRequest {
 
         return IgniteSqlImpl.executeBatchCore(
                 sql,
-                        transactions,
+                        transactions.observableTimestampTracker(),
                         tx,
                         statement,
                         arguments,
@@ -78,52 +76,18 @@ public class ClientSqlExecuteBatchRequest {
                         () -> {},
                         cursor -> 0,
                         cursorId -> {})
-                .handle((affectedRows, ex) -> {
+                .thenApply((affectedRows) -> {
                     out.meta(transactions.observableTimestamp());
 
-                    if (ex != null) {
-                        var cause = ExceptionUtils.unwrapCause(ex.getCause());
+                    out.packNil(); // resourceId
 
-                        if (cause instanceof SqlBatchException) {
-                            var exBatch = ((SqlBatchException) cause);
+                    out.packBoolean(false); // has row set
+                    out.packBoolean(false); // has more pages
+                    out.packBoolean(false); // was applied
 
-                            writeBatchResult(out, exBatch.updateCounters(), exBatch.errorCode(), exBatch.getMessage());
-                            return null;
-                        }
+                    out.packLongArray(affectedRows); // affected rows
 
-                        affectedRows = ArrayUtils.LONG_EMPTY_ARRAY;
-                    }
-
-                    writeBatchResult(out, affectedRows);
                     return null;
                 });
-    }
-
-    private static void writeBatchResult(
-            ClientMessagePacker out,
-            long[] affectedRows,
-            Short errorCode,
-            String errorMessage) {
-        out.packNil(); // resourceId
-
-        out.packBoolean(false); // has row set
-        out.packBoolean(false); // has more pages
-        out.packBoolean(false); // was applied
-        out.packLongArray(affectedRows); // affected rows
-        out.packShort(errorCode); // error code
-        out.packString(errorMessage); // error message
-    }
-
-    private static void writeBatchResult(
-            ClientMessagePacker out,
-            long[] affectedRows) {
-        out.packNil(); // resourceId
-
-        out.packBoolean(false); // has row set
-        out.packBoolean(false); // has more pages
-        out.packBoolean(false); // was applied
-        out.packLongArray(affectedRows); // affected rows
-        out.packNil(); // error code
-        out.packNil(); // error message
     }
 }

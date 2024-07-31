@@ -65,6 +65,7 @@ import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventPara
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessageGroup;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
@@ -115,13 +116,13 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(lowWatermark.stopAsync(), willCompleteSuccessfully());
+        assertThat(lowWatermark.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
     void testStartWithEmptyVault() {
         // Let's check the start with no low watermark in vault.
-        assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
+        assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
         lowWatermark.scheduleUpdates();
 
         verify(lwmChangedListener, never()).notify(any());
@@ -136,7 +137,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY))
                 .thenReturn(new VaultEntry(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermark)));
 
-        assertThat(this.lowWatermark.startAsync(), willCompleteSuccessfully());
+        assertThat(this.lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
 
@@ -216,7 +217,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
                 return onLwmChangedFinishFuture;
             });
 
-            assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
+            assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
             lowWatermark.scheduleUpdates();
 
             // Let's check that it hasn't been called more than once.
@@ -241,7 +242,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     void testHandleGetLowWatermarkMessage() {
         verify(messagingService, never()).addMessageHandler(eq(LowWatermarkMessageGroup.class), any());
 
-        assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
+        assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         verify(messagingService).addMessageHandler(eq(LowWatermarkMessageGroup.class), any());
 
@@ -274,7 +275,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testUpdateLowWatermark() {
-        assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
+        assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<HybridTimestamp> updateLowWatermarkFuture0 = listenUpdateLowWatermark();
 
@@ -303,7 +304,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testGetLowWatermarkFromListener() {
-        assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
+        assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         HybridTimestamp newLwm = clockService.now();
 

@@ -26,12 +26,14 @@ import org.apache.ignite.internal.eventlog.event.EventUser;
  * <p>If you want to create an instance of the Event with the specified type, use the {@link #create} method.
  *
  * <p>For example, to create an event of the type USER_AUTHENTICATED:
- * <pre>{@code IgniteEvents.USER_AUTHENTICATED.create(EventUser.system());}</pre>
+ * <pre>{@code IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.system());}</pre>
  */
 public final class IgniteEvents implements EventFactory {
-    public static final IgniteEvents USER_AUTHENTICATED = new IgniteEvents(IgniteEventType.USER_AUTHENTICATED.name());
+    public static final IgniteEvents USER_AUTHENTICATION_SUCCESS = new IgniteEvents(IgniteEventType.USER_AUTHENTICATION_SUCCESS.name());
+    public static final IgniteEvents USER_AUTHENTICATION_FAILURE = new IgniteEvents(IgniteEventType.USER_AUTHENTICATION_FAILURE.name());
 
-    public static final IgniteEvents CONNECTION_CLOSED = new IgniteEvents(IgniteEventType.CONNECTION_CLOSED.name());
+    public static final IgniteEvents CLIENT_CONNECTION_ESTABLISHED = new IgniteEvents(IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.name());
+    public static final IgniteEvents CLIENT_CONNECTION_CLOSED = new IgniteEvents(IgniteEventType.CLIENT_CONNECTION_CLOSED.name());
 
     private final String type;
 
@@ -45,7 +47,6 @@ public final class IgniteEvents implements EventFactory {
                 .type(type)
                 .user(user)
                 .timestamp(System.currentTimeMillis())
-                .productVersion("3.0.0")
                 .build();
     }
 

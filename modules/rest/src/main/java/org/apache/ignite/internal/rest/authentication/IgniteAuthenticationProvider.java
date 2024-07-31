@@ -22,6 +22,7 @@ import io.micronaut.security.authentication.AuthenticationProvider;
 import io.micronaut.security.authentication.AuthenticationRequest;
 import io.micronaut.security.authentication.AuthenticationResponse;
 import io.micronaut.security.authentication.UsernamePasswordCredentials;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
@@ -33,8 +34,8 @@ import reactor.core.publisher.FluxSink;
 /**
  * Implementation of {@link AuthenticationProvider}. Delegates authentication to {@link AuthenticationManager}.
  */
-public class IgniteAuthenticationProvider implements AuthenticationProvider {
-    private final AuthenticationManager authenticationManager;
+public class IgniteAuthenticationProvider implements AuthenticationProvider, ResourceHolder {
+    private AuthenticationManager authenticationManager;
 
     IgniteAuthenticationProvider(AuthenticationManager authenticationManager) {
         this.authenticationManager = authenticationManager;
@@ -68,5 +69,10 @@ public class IgniteAuthenticationProvider implements AuthenticationProvider {
         } else {
             throw new IllegalArgumentException("Unsupported authentication request type: " + authenticationRequest.getClass());
         }
+    }
+
+    @Override
+    public void cleanResources() {
+        authenticationManager = null;
     }
 }

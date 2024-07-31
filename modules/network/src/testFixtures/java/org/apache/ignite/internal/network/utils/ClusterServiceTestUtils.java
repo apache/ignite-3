@@ -32,6 +32,7 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
@@ -143,7 +144,7 @@ public class ClusterServiceTestUtils {
                 serializationRegistry,
                 staleIds,
                 new NoOpCriticalWorkerRegistry(),
-                new FailureProcessor(nodeName, new NoOpFailureHandler())
+                new FailureProcessor(new NoOpFailureHandler())
         );
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
@@ -160,8 +161,8 @@ public class ClusterServiceTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> startAsync() {
-                nodeConfigurationMgr.startAsync().join();
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                nodeConfigurationMgr.startAsync(componentContext).join();
 
                 NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry()
                         .getConfiguration(NetworkConfiguration.KEY);
@@ -177,12 +178,12 @@ public class ClusterServiceTestUtils {
                                 )
                 ).join();
 
-                return IgniteUtils.startAsync(bootstrapFactory, clusterSvc);
+                return IgniteUtils.startAsync(componentContext, bootstrapFactory, clusterSvc);
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(clusterSvc, bootstrapFactory, nodeConfigurationMgr);
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return IgniteUtils.stopAsync(componentContext, clusterSvc, bootstrapFactory, nodeConfigurationMgr);
             }
         };
     }

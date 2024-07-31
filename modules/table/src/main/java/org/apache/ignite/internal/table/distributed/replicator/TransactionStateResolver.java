@@ -29,11 +29,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -41,11 +43,11 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,7 +55,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TransactionStateResolver {
     /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-20408 after this ticket this resolver will be no longer needed, as
     // TODO we will store coordinator as ClusterNode in local tx state map.
@@ -110,9 +115,9 @@ public class TransactionStateResolver {
 
                 processTxStateRequest(req)
                         .thenAccept(txStateMeta -> {
-                            NetworkMessage response = FACTORY.txStateResponse()
-                                    .txStateMeta(txStateMeta)
-                                    .timestampLong(clockService.nowLong())
+                            NetworkMessage response = TX_MESSAGES_FACTORY.txStateResponse()
+                                    .txStateMeta(toTransactionMetaMessage(txStateMeta))
+                                    .timestamp(clockService.now())
                                     .build();
 
                             messagingService.respond(sender, response, correlationId);
@@ -218,7 +223,7 @@ public class TransactionStateResolver {
             txMessageSender.resolveTxStateFromCoordinator(coordinator.name(), txId, timestamp)
                     .whenComplete((response, e) -> {
                         if (e == null) {
-                            txMetaFuture.complete(response.txStateMeta());
+                            txMetaFuture.complete(asTransactionMeta(response.txStateMeta()));
                         } else {
                             resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
                         }
@@ -291,7 +296,7 @@ public class TransactionStateResolver {
      * @param request Request.
      * @return Future that should be completed with transaction state meta.
      */
-    private CompletableFuture<TransactionMeta> processTxStateRequest(TxStateCoordinatorRequest request) {
+    private CompletableFuture<@Nullable TransactionMeta> processTxStateRequest(TxStateCoordinatorRequest request) {
         clockService.updateClock(request.readTimestamp());
 
         UUID txId = request.txId();
@@ -307,5 +312,13 @@ public class TransactionStateResolver {
         } else {
             return completedFuture(txStateMeta);
         }
+    }
+
+    private static @Nullable TransactionMetaMessage toTransactionMetaMessage(@Nullable TransactionMeta transactionMeta) {
+        return transactionMeta == null ? null : transactionMeta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY);
+    }
+
+    private static @Nullable TransactionMeta asTransactionMeta(@Nullable TransactionMetaMessage transactionMetaMessage) {
+        return transactionMetaMessage == null ? null : transactionMetaMessage.asTransactionMeta();
     }
 }

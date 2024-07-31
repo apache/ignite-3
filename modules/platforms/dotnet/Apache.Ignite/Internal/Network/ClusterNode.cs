@@ -18,8 +18,10 @@
 namespace Apache.Ignite.Internal.Network
 {
     using System;
+    using System.Diagnostics;
     using System.Net;
     using Ignite.Network;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Cluster node.
@@ -33,7 +35,7 @@ namespace Apache.Ignite.Internal.Network
         /// <param name="name">Name.</param>
         /// <param name="endpoint">Endpoint.</param>
         /// <param name="metricsContext">Metrics context.</param>
-        internal ClusterNode(string id, string name, IPEndPoint endpoint, MetricsContext? metricsContext = null)
+        internal ClusterNode(string id, string name, EndPoint endpoint, MetricsContext? metricsContext = null)
         {
             Id = id;
             Name = name;
@@ -48,7 +50,7 @@ namespace Apache.Ignite.Internal.Network
         public string Name { get; }
 
         /// <inheritdoc/>
-        public IPEndPoint Address { get; }
+        public EndPoint Address { get; }
 
         /// <summary>
         /// Gets the metric tags.
@@ -74,5 +76,27 @@ namespace Apache.Ignite.Internal.Network
 
         /// <inheritdoc/>
         public override int GetHashCode() => HashCode.Combine(Id, Name, Address);
+
+        /// <summary>
+        /// Read node from reader.
+        /// </summary>
+        /// <param name="r">Reader.</param>
+        /// <returns>Cluster node.</returns>
+        internal static ClusterNode Read(ref MsgPackReader r)
+        {
+            var fieldCount = r.ReadInt32();
+            Debug.Assert(fieldCount == 4, "fieldCount == 4");
+
+            var id = r.ReadString();
+            var name = r.ReadString();
+            var addr = r.ReadString();
+            var port = r.ReadInt32();
+
+            EndPoint endPoint = IPAddress.TryParse(addr, out var ip)
+                ? new IPEndPoint(ip, port)
+                : new DnsEndPoint(addr, port);
+
+            return new ClusterNode(id, name, endPoint);
+        }
     }
 }

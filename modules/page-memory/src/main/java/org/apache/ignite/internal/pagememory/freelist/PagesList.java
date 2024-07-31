@@ -48,11 +48,10 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
@@ -160,7 +159,7 @@ public abstract class PagesList extends DataStructure {
             decrementBucketSize(oldBucket);
 
             // Recalculate bucket because page free space can be changed concurrently.
-            int freeSpace = ((AbstractDataPageIo<Storable>) iox).getFreeSpace(pageAddr);
+            int freeSpace = ((DataPageIo) iox).getFreeSpace(pageAddr);
 
             int newBucket = getBucketIndex(freeSpace);
 
@@ -180,7 +179,7 @@ public abstract class PagesList extends DataStructure {
     /**
      * Constructor.
      *
-     * @param name Structure name (for debug purpose).
+     * @param pageListNamePrefix Structure name prefix (for debugging purposes).
      * @param grpId Group ID.
      * @param partId Partition ID.
      * @param pageMem Page memory.
@@ -190,7 +189,7 @@ public abstract class PagesList extends DataStructure {
      * @param metaPageId Metadata page ID.
      */
     protected PagesList(
-            String name,
+            String pageListNamePrefix,
             int grpId,
             int partId,
             PageMemory pageMem,
@@ -199,7 +198,7 @@ public abstract class PagesList extends DataStructure {
             int buckets,
             long metaPageId
     ) {
-        super(name, grpId, null, partId, pageMem, lockLsnr, FLAG_AUX);
+        super(pageListNamePrefix, grpId, null, partId, pageMem, lockLsnr, FLAG_AUX);
 
         this.log = log;
 
@@ -919,7 +918,7 @@ public abstract class PagesList extends DataStructure {
         } else {
             incrementBucketSize(bucket);
 
-            AbstractDataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
+            DataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
             dataIo.setFreeListPageId(dataAddr, pageId);
         }
 
@@ -945,7 +944,7 @@ public abstract class PagesList extends DataStructure {
         if (pagesCache.add(dataId)) {
             incrementBucketSize(bucket);
 
-            AbstractDataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
+            DataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
 
             if (dataIo.getFreeListPageId(dataAddr) != 0L) {
                 dataIo.setFreeListPageId(dataAddr, 0L);
@@ -980,7 +979,7 @@ public abstract class PagesList extends DataStructure {
             int bucket,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
-        AbstractDataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
+        DataPageIo dataIo = pageMem.ioRegistry().resolve(dataAddr);
 
         // Attempt to add page failed: the node page is full.
         if (isReuseBucket(bucket)) {
@@ -1378,6 +1377,8 @@ public abstract class PagesList extends DataStructure {
         try {
             long pageAddr = pageMem.writeLock(grpId, pageId, page);
 
+            assert pageAddr != 0;
+
             try {
                 return initReusedPage(pageId, pageAddr, partitionId(pageId), flag, initIo);
             } finally {
@@ -1445,7 +1446,7 @@ public abstract class PagesList extends DataStructure {
     protected final boolean removeDataPage(
             final long dataId,
             final long dataAddr,
-            AbstractDataPageIo dataIo,
+            DataPageIo dataIo,
             int bucket,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {

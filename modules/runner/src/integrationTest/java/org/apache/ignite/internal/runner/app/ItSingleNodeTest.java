@@ -19,12 +19,11 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema.DEFAULT_PORT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -47,40 +46,31 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
 
     private String nodeName;
 
+    private IgniteServer node;
+
     private Ignite ignite;
 
     @BeforeEach
-    void setUp(TestInfo testInfo) throws Exception {
+    void setUp(TestInfo testInfo) {
         nodeName = testNodeName(testInfo, 0);
 
-        CompletableFuture<Ignite> igniteFuture = startNodeAsync();
+        node = TestIgnitionManager.start(nodeName, NODE_CONFIG, workDir.resolve(nodeName));
 
         InitParameters parameters = new InitParametersBuilder()
                 .clusterName("cluster")
-                .destinationNodeName(nodeName)
-                .metaStorageNodeNames(List.of(nodeName))
+                .metaStorageNodes(node)
                 .build();
 
-        IgnitionManager.init(parameters);
+        node.initCluster(parameters);
 
-        ignite = igniteFuture.get(30, TimeUnit.SECONDS);
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+
+        ignite = node.api();
     }
 
     @AfterEach
     void tearDown() {
-        stopNode();
-    }
-
-    private CompletableFuture<Ignite> startNodeAsync() {
-        return TestIgnitionManager.start(nodeName, NODE_CONFIG, workDir.resolve(nodeName));
-    }
-
-    private Ignite startNode() throws Exception {
-        return startNodeAsync().get(30, TimeUnit.SECONDS);
-    }
-
-    private void stopNode() {
-        IgnitionManager.stop(nodeName);
+        node.shutdown();
     }
 
     /**
@@ -88,7 +78,7 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20911")
     @Test
-    void testManyPutsAfterRestart() throws Exception {
+    void testManyPutsAfterRestart() {
         String sqlCreate = "CREATE TABLE " + TABLE_NAME + "(\n"
                 + "    key int PRIMARY KEY,\n"
                 + "    field1   int\n"
@@ -96,8 +86,12 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
 
         ignite.sql().execute(null, sqlCreate);
 
-        stopNode();
-        ignite = startNode();
+        node.shutdown();
+
+        node = TestIgnitionManager.start(nodeName, NODE_CONFIG, workDir.resolve(nodeName));
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+
+        ignite = node.api();
 
         KeyValueView<Tuple, Tuple> keyValueView = ignite.tables().table(TABLE_NAME).keyValueView();
 

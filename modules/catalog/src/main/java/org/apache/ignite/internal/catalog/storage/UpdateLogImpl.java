@@ -26,7 +26,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToIntKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -37,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogMarshallerException;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -44,6 +47,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -58,7 +62,6 @@ import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.MarshallerException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -97,7 +100,7 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(Common.NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -126,7 +129,7 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -174,7 +177,7 @@ public class UpdateLogImpl implements UpdateLog {
             Iif iif = iif(versionAsExpected, appendUpdateEntryAndBumpVersion, ops().yield(false));
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
-        } catch (MarshallerException ex) {
+        } catch (CatalogMarshallerException ex) {
             LOG.warn("Failed to append update log.", ex);
 
             // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
@@ -205,13 +208,16 @@ public class UpdateLogImpl implements UpdateLog {
                 return falseCompletedFuture();
             }
 
+            // We need to keep order for the comparison to work correctly.
+            byte[] snapshotVersionValue = intToBytesKeepingOrder(snapshotVersion);
+
             Condition versionIsRecent = or(
                     notExists(CatalogKey.snapshotVersion()),
-                    value(CatalogKey.snapshotVersion()).lt(intToBytes(snapshotVersion))
+                    value(CatalogKey.snapshotVersion()).lt(snapshotVersionValue)
             );
             Update saveSnapshotAndDropOutdatedUpdates = ops(Stream.concat(
                     Stream.of(
-                            put(CatalogKey.snapshotVersion(), intToBytes(snapshotVersion)),
+                            put(CatalogKey.snapshotVersion(), snapshotVersionValue),
                             put(CatalogKey.update(snapshotVersion), marshaller.marshall(update))
                     ),
                     IntStream.range(oldSnapshotVersion, snapshotVersion).mapToObj(ver -> Operations.remove(CatalogKey.update(ver)))
@@ -220,7 +226,7 @@ public class UpdateLogImpl implements UpdateLog {
             Iif iif = iif(versionIsRecent, saveSnapshotAndDropOutdatedUpdates, ops().yield(false));
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
-        } catch (MarshallerException ex) {
+        } catch (CatalogMarshallerException ex) {
             LOG.warn("Failed to append update log.", ex);
 
             // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
@@ -239,7 +245,7 @@ public class UpdateLogImpl implements UpdateLog {
 
         Entry earliestVersion = metastore.getLocally(CatalogKey.snapshotVersion(), recoveryRevision);
 
-        int ver = earliestVersion.empty() ? 1 : bytesToInt(Objects.requireNonNull(earliestVersion.value()));
+        int ver = earliestVersion.empty() ? 1 : bytesToIntKeepingOrder(Objects.requireNonNull(earliestVersion.value()));
 
         recoverUpdates(handler, recoveryRevision, ver);
     }
@@ -312,7 +318,7 @@ public class UpdateLogImpl implements UpdateLog {
                     UpdateLogEvent update = marshaller.unmarshall(payload);
 
                     handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
-                } catch (MarshallerException ex) {
+                } catch (CatalogMarshallerException ex) {
                     LOG.warn("Failed to deserialize update.", ex);
 
                     // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.

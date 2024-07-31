@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
@@ -25,19 +26,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 @Transferable(MetaStorageMessageGroup.SIMPLE_CONDITION)
 public interface SimpleCondition extends Condition {
     /** Entry key. */
-    byte[] key();
+    ByteBuffer key();
 
     /** Condition type. */
-    int conditionType();
-
-    /**
-     * Returns condition type.
-     *
-     * @return Condition type.
-     */
-    default ConditionType type() {
-        return ConditionType.values()[conditionType()];
-    }
+    ConditionType type();
 
     /**
      * Represents a condition on an entry revision.
@@ -54,6 +46,6 @@ public interface SimpleCondition extends Condition {
     @Transferable(MetaStorageMessageGroup.VALUE_CONDITION)
     interface ValueCondition extends SimpleCondition {
         /** The value as the condition argument. */
-        byte[] value();
+        ByteBuffer value();
     }
 }

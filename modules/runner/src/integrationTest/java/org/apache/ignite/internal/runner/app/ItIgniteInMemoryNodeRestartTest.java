@@ -32,12 +32,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -82,9 +81,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     public void afterEach() throws Exception {
         var closeables = new ArrayList<AutoCloseable>();
 
-        for (String name : CLUSTER_NODES_NAMES) {
-            if (name != null) {
-                closeables.add(() -> IgnitionManager.stop(name));
+        for (IgniteServer node : IGNITE_SERVERS) {
+            if (node != null) {
+                closeables.add(node::shutdown);
             }
         }
 
@@ -104,24 +103,24 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
      */
     private static IgniteImpl startNode(int idx, String nodeName, @Nullable String cfgString, Path workDir) {
         assertTrue(CLUSTER_NODES.size() == idx || CLUSTER_NODES.get(idx) == null);
+        assertTrue(IGNITE_SERVERS.size() == idx || IGNITE_SERVERS.get(idx) == null);
 
-        CLUSTER_NODES_NAMES.add(idx, nodeName);
+        IgniteServer node = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
-        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+        IGNITE_SERVERS.add(idx, node);
 
         if (CLUSTER_NODES.isEmpty()) {
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(nodeName))
+                    .metaStorageNodes(node)
                     .clusterName("cluster")
                     .build();
 
-            TestIgnitionManager.init(initParameters);
+            TestIgnitionManager.init(node, initParameters);
         }
 
-        assertThat(future, willCompleteSuccessfully());
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-        Ignite ignite = future.join();
+        Ignite ignite = node.api();
 
         CLUSTER_NODES.add(idx, ignite);
 
@@ -146,13 +145,13 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     /** {@inheritDoc} */
     @Override
     protected void stopNode(int idx) {
-        Ignite node = CLUSTER_NODES.get(idx);
+        IgniteServer node = IGNITE_SERVERS.get(idx);
 
         if (node != null) {
-            IgnitionManager.stop(node.name());
+            node.shutdown();
 
             CLUSTER_NODES.set(idx, null);
-            CLUSTER_NODES_NAMES.set(idx, null);
+            IGNITE_SERVERS.set(idx, null);
         }
     }
 
@@ -220,7 +219,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         List<String> partitionAssignments = assignments.get(0);
 
-        return partitionAssignments.contains(restartingNodeConsistentId);
+        return !assignments.isEmpty()
+                && partitionAssignments != null
+                && partitionAssignments.contains(restartingNodeConsistentId);
     }
 
     private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {

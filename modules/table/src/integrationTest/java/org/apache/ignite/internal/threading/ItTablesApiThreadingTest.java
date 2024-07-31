@@ -29,12 +29,11 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.PublicApiThreadingTests;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-@SuppressWarnings("resource")
 class ItTablesApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 

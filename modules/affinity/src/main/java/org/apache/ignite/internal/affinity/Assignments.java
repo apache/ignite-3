@@ -108,6 +108,22 @@ public class Assignments implements Serializable {
     }
 
     /**
+     * Adds an assignment to this collection of assignments.
+     *
+     * @param assignment Assignment to add.
+     */
+    public void add(Assignment assignment) {
+        nodes.add(assignment);
+    }
+
+    /**
+     * Returns {@code true} if this collection has no assignments, {@code false} if it has some assignments.
+     */
+    public boolean isEmpty() {
+        return nodes.isEmpty();
+    }
+
+    /**
      * Serializes the instance into an array of bytes.
      */
     public byte[] toBytes() {
@@ -135,6 +151,26 @@ public class Assignments implements Serializable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Assignments that = (Assignments) o;
+        return force == that.force && nodes.equals(that.nodes);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = nodes.hashCode();
+        result = 31 * result + Boolean.hashCode(force);
+        return result;
     }
 
     /**

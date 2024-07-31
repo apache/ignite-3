@@ -51,18 +51,17 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -308,9 +307,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // Tx.commit should throw MismatchingTransactionOutcomeException.
         TransactionException transactionException = assertThrows(TransactionException.class, context.tx::commit);
 
-        Throwable cause = ExceptionUtils.unwrapCause(transactionException.getCause());
-
-        assertInstanceOf(MismatchingTransactionOutcomeException.class, cause);
+        assertInstanceOf(MismatchingTransactionOutcomeException.class, transactionException);
     }
 
     private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx, Table publicTable) {
@@ -325,7 +322,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 asList(new TablePartitionId(tableImpl.tableId(), 0)),
                 null
         );
-        bypassingThreadAssertions(() -> storage.put(tx.id(), txMetaToSet));
+        bypassingThreadAssertions(() -> storage.putForRebalance(tx.id(), txMetaToSet));
     }
 
     @Test
@@ -350,7 +347,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                     return false;
                 }
 
-                CleanupReplicatedInfo result = message.result();
+                CleanupReplicatedInfoMessage result = message.result();
 
                 if (result != null) {
                     cleanupReplicatedFuture.complete(null);

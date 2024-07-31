@@ -56,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
@@ -78,9 +79,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(int schemaVersion) {
+    public SchemaPlus schema(int catalogVersion) {
         return schemaCache.get(
-                schemaVersion,
+                catalogVersion,
                 version -> createRootSchema(catalogManager.catalog(version))
         );
     }
@@ -96,19 +97,19 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> schemaReadyFuture(int version) {
+    public CompletableFuture<Void> schemaReadyFuture(int catalogVersion) {
         // SqlSchemaManager creates SQL schema lazily on-demand, thus waiting for Catalog version is enough.
-        if (catalogManager.latestCatalogVersion() >= version) {
+        if (catalogManager.latestCatalogVersion() >= catalogVersion) {
             return nullCompletedFuture();
         }
 
-        return catalogManager.catalogReadyFuture(version);
+        return catalogManager.catalogReadyFuture(catalogVersion);
     }
 
     @Override
-    public IgniteTable table(int schemaVersion, int tableId) {
-        return tableCache.get(tableCacheKey(schemaVersion, tableId), key -> {
-            SchemaPlus rootSchema = schemaCache.get(schemaVersion);
+    public IgniteTable table(int catalogVersion, int tableId) {
+        return tableCache.get(tableCacheKey(catalogVersion, tableId), key -> {
+            SchemaPlus rootSchema = schemaCache.get(catalogVersion);
 
             if (rootSchema != null) {
                 for (String name : rootSchema.getSubSchemaNames()) {
@@ -128,10 +129,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 }
             }
 
-            Catalog catalog = catalogManager.catalog(schemaVersion);
+            Catalog catalog = catalogManager.catalog(catalogVersion);
 
             if (catalog == null) {
-                throw new IgniteInternalException(Common.INTERNAL_ERR, "Catalog of given version not found: " + schemaVersion);
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Catalog of given version not found: " + catalogVersion);
             }
 
             CatalogTableDescriptor tableDescriptor = catalog.table(tableId);
@@ -144,8 +145,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         });
     }
 
-    private static long tableCacheKey(int schemaVersion, int tableId) {
-        long cacheKey = schemaVersion;
+    private static long tableCacheKey(int catalogVersion, int tableId) {
+        long cacheKey = catalogVersion;
         cacheKey <<= 32;
         return cacheKey | tableId;
     }
@@ -213,41 +214,58 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     private static TableDescriptor createTableDescriptorForTable(CatalogTableDescriptor descriptor) {
-        List<ColumnDescriptor> colDescriptors = new ArrayList<>();
-
         List<CatalogTableColumnDescriptor> columns = descriptor.columns();
-        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>();
+
+        List<ColumnDescriptor> colDescriptors = new ArrayList<>(columns.size() + 1);
+        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(columns.size() + 1);
+
         for (int i = 0; i < columns.size(); i++) {
             CatalogTableColumnDescriptor col = columns.get(i);
             boolean key = descriptor.isPrimaryKeyColumn(col.name());
-            CatalogColumnDescriptor columnDescriptor = createColumnDescriptor(col, key, i);
+            ColumnDescriptor columnDescriptor = createColumnDescriptor(col, key, i);
 
             columnToIndex.put(col.name(), i);
-
             colDescriptors.add(columnDescriptor);
+        }
+
+        if (Commons.implicitPkEnabled()) {
+            int implicitPkColIdx = columnToIndex.getOrDefault(Commons.IMPLICIT_PK_COL_NAME, -1);
+
+            if (implicitPkColIdx != -1) {
+                colDescriptors.set(implicitPkColIdx, injectDefault(colDescriptors.get(implicitPkColIdx)));
+            }
         }
 
         List<Integer> colocationColumns = descriptor.colocationColumns().stream()
                 .map(columnToIndex::getInt)
                 .collect(Collectors.toList());
 
+        // Add virtual column.
+        ColumnDescriptorImpl partVirtualColumn = createPartitionVirtualColumn(columns.size());
+        colDescriptors.add(partVirtualColumn);
+        columnToIndex.put(partVirtualColumn.name(), partVirtualColumn.logicalIndex());
+
         // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         int tableId = descriptor.id();
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, tableId, tableId);
 
-        if (Commons.implicitPkEnabled()) {
-            colDescriptors = colDescriptors.stream()
-                    .map(column -> {
-                        if (Commons.IMPLICIT_PK_COL_NAME.equals(column.name())) {
-                            return injectDefault(column);
-                        }
-
-                        return column;
-                    })
-                    .collect(Collectors.toList());
-        }
-
         return new TableDescriptorImpl(colDescriptors, distribution);
+    }
+
+    private static ColumnDescriptorImpl createPartitionVirtualColumn(int logicalIndex) {
+        return new ColumnDescriptorImpl(
+                Commons.PART_COL_NAME,
+                false,
+                true,
+                true,
+                true,
+                logicalIndex,
+                NativeTypes.INT32,
+                DefaultValueStrategy.DEFAULT_COMPUTED,
+                () -> {
+                    throw new AssertionError("Partition virtual column is generated by a function");
+                }
+        );
     }
 
     private static ColumnDescriptor injectDefault(ColumnDescriptor desc) {
@@ -257,6 +275,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 desc.name(),
                 desc.key(),
                 true,
+                false,
                 desc.nullable(),
                 desc.logicalIndex(),
                 desc.physicalType(),

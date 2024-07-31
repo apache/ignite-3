@@ -105,9 +105,6 @@ public class ClientOp {
     /** Get primary key metadata. */
     public static final int JDBC_PK_META = 41;
 
-    /** Get query metadata. */
-    public static final int JDBC_QUERY_META = 42;
-
     /** Begin transaction. */
     public static final int TX_BEGIN = 43;
 
@@ -156,8 +153,8 @@ public class ClientOp {
     /** JDBC get more results command. */
     public static final int JDBC_MORE_RESULTS = 58;
 
-    /** Get compute job status. */
-    public static final int COMPUTE_GET_STATUS = 59;
+    /** Get compute job state. */
+    public static final int COMPUTE_GET_STATE = 59;
 
     /** Cancel compute job. */
     public static final int COMPUTE_CANCEL = 60;
@@ -170,4 +167,24 @@ public class ClientOp {
 
     /** Execute SQL query with the parameters batch. */
     public static final int SQL_EXEC_BATCH = 63;
+
+    /** Execute MapReduce task. */
+    public static final int COMPUTE_EXECUTE_MAPREDUCE = 64;
+
+    /** Get all primary replicas mapping to cluster nodes. */
+    public static final int PRIMARY_REPLICAS_GET = 65;
+
+    /** Send streamer batch with receiver. */
+    public static final int STREAMER_WITH_RECEIVER_BATCH_SEND = 66;
+
+    /** Check if all tuples with the given keys collection exist. */
+    public static final int TUPLE_CONTAINS_ALL_KEYS = 67;
+
+    /** Reserved for extensions: min. */
+    @SuppressWarnings("unused")
+    public static final int RESERVED_EXTENSION_RANGE_START = 1000;
+
+    /** Reserved for extensions: max. */
+    @SuppressWarnings("unused")
+    public static final int RESERVED_EXTENSION_RANGE_END = 2000;
 }

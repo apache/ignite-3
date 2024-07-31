@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.calcite.DataContext;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
@@ -94,6 +96,8 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private SharedState sharedState = new SharedState();
 
+    private final @Nullable CompletableFuture<Void> timeoutFut;
+
     /**
      * Constructor.
      *
@@ -106,6 +110,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
+     * @param timeoutFut Timeout future.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -117,7 +122,8 @@ public class ExecutionContext<RowT> implements DataContext {
             RowHandler<RowT> handler,
             Map<String, Object> params,
             TxAttributes txAttributes,
-            ZoneId timeZoneId
+            ZoneId timeZoneId,
+            @Nullable CompletableFuture<Void> timeoutFut
     ) {
         this.executor = executor;
         this.qryId = qryId;
@@ -128,6 +134,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
+        this.timeoutFut = timeoutFut;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -380,6 +387,23 @@ public class ExecutionContext<RowT> implements DataContext {
 
     public boolean isCancelled() {
         return cancelFlag.get();
+    }
+
+    /**
+     * Schedules a timeout task that is going to complete the given future exceptionally with a {@link QueryCancelledException},
+     * if timeout is set of this context.
+     */
+    public void scheduleTimeout(CompletableFuture<?> fut) {
+        if (timeoutFut == null) {
+            return;
+        }
+
+        Executor executor = task -> execute(task::run, (err) -> {});
+
+        timeoutFut.thenAcceptAsync(
+                (r) -> fut.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG)),
+                executor
+        );
     }
 
     /** Creates {@link PartitionProvider} for the given source table. */

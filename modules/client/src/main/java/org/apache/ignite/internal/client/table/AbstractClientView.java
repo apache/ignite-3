@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.client.table;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.Arrays;
@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.apache.ignite.internal.client.sql.ClientSql;
-import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
+import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
@@ -134,7 +134,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                 .thenCompose((schema) -> {
                     SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
 
-                    Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
+                    Statement statement = new StatementBuilderImpl().query(ser.toString()).pageSize(opts0.pageSize()).build();
 
                     return sql.executeAsync(tx, statement, ser.getArguments())
                             .<AsyncCursor<T>>thenApply(resultSet -> {

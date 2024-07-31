@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -40,14 +41,12 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -66,8 +65,17 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.SingleClusterNodeResolver;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
@@ -75,6 +83,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -82,17 +91,9 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
-import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
@@ -114,7 +115,6 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
@@ -147,7 +147,11 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     private static final Int2ObjectMap<Set<Command>> CMDS_MAP = new Int2ObjectOpenHashMap<>();
 
     /** Message factory to create messages - RAFT commands.  */
-    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
@@ -205,7 +209,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }
         };
 
-        assertThat(txManager.startAsync(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
@@ -243,7 +247,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             ReplicaRequest request = invocation.getArgument(1);
             var commitPartId = new TablePartitionId(2, 0);
 
-            RaftGroupService r = groupRafts.get(request.groupId());
+            RaftGroupService r = groupRafts.get(request.groupId().asReplicationGroupId());
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
                 ReadWriteMultiRowReplicaRequest multiRowReplicaRequest = (ReadWriteMultiRowReplicaRequest) request;
@@ -251,35 +255,26 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 Map<UUID, TimedBinaryRowMessage> rows = multiRowReplicaRequest.binaryTuples().stream()
                         .collect(
                                 toMap(tupleBuffer -> TestTransactionIds.newTransactionId(),
-                                        tupleBuffer -> MSG_FACTORY.timedBinaryRowMessage()
+                                        tupleBuffer -> PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                                 .binaryRowMessage(binaryRowMessage(tupleBuffer, multiRowReplicaRequest))
                                                 .build())
                         );
 
-                return r.run(MSG_FACTORY.updateAllCommand()
-                                .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
-                                        .tableId(commitPartId.tableId())
-                                        .partitionId(commitPartId.partitionId())
-                                        .build()
-                                )
-                            .messageRowsToUpdate(rows)
-                            .txId(UUID.randomUUID())
-                            .txCoordinatorId(node.id())
-                            .build());
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+                        .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
+                        .messageRowsToUpdate(rows)
+                        .txId(UUID.randomUUID())
+                        .txCoordinatorId(node.id())
+                        .build());
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
 
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
-                return r.run(MSG_FACTORY.updateCommand()
-                        .tablePartitionId(
-                                MSG_FACTORY.tablePartitionIdMessage()
-                                        .tableId(commitPartId.tableId())
-                                        .partitionId(commitPartId.partitionId())
-                                        .build()
-                        )
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                        .tablePartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
                         .rowUuid(UUID.randomUUID())
-                        .messageRowToUpdate(MSG_FACTORY.timedBinaryRowMessage()
+                        .messageRowToUpdate(PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                                 .binaryRowMessage(binaryRowMessage(singleRowReplicaRequest.binaryTuple(), singleRowReplicaRequest))
                                 .build())
                         .txId(TestTransactionIds.newTransactionId())
@@ -304,12 +299,13 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 transactionInflights,
                 3_000,
                 0,
-                null
+                null,
+                mock(StreamerReceiverRunner.class)
         );
     }
 
     private static BinaryRowMessage binaryRowMessage(ByteBuffer tupleBuffer, SchemaVersionAwareReplicaRequest request) {
-        return MSG_FACTORY.binaryRowMessage()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.binaryRowMessage()
                 .schemaVersion(request.schemaVersion())
                 .binaryTuple(tupleBuffer)
                 .build();
@@ -318,7 +314,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     @AfterAll
     static void afterAllTests() {
         if (txManager != null) {
-            assertThat(txManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -351,10 +347,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 return "str_" + i;
             case BYTES:
                 return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
-            case BITMASK:
-                return BitSet.valueOf(new byte[]{(byte) i, (byte) (i + 1)});
-            case NUMBER:
-                return BigInteger.valueOf(i);
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(i);
             case TIME:
@@ -375,9 +367,13 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> twoColumnsParameters() {
         List<Arguments> args = new ArrayList<>();
+        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
 
         for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
             for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
+                if (unsupported.contains(t0) || unsupported.contains(t1)) {
+                    continue;
+                }
                 args.add(Arguments.of(t0, t1));
             }
         }
@@ -390,8 +386,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
      */
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumnsInsert(NativeTypeSpec t0, NativeTypeSpec t1)
-            throws TupleMarshallerException {
+    public void colocationTwoColumnsInsert(NativeTypeSpec t0, NativeTypeSpec t1) {
         init(t0, t1);
 
         for (int i = 0; i < KEYS; ++i) {
@@ -414,8 +409,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
      */
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumnsInsertAll(NativeTypeSpec t0, NativeTypeSpec t1)
-            throws TupleMarshallerException {
+    public void colocationTwoColumnsInsertAll(NativeTypeSpec t0, NativeTypeSpec t1) {
         int keysCount = t0 == NativeTypeSpec.BOOLEAN && t0 == t1 ? 2 : KEYS;
 
         init(t0, t1);

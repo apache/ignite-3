@@ -21,10 +21,13 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using System.Runtime.CompilerServices;
     using System.Threading;
+    using System.Threading.Channels;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
+    using Ignite.Compute;
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
@@ -300,9 +303,120 @@ namespace Apache.Ignite.Internal.Table
             await DataStreamer.StreamDataAsync(
                 data,
                 _table,
-                writer: _ser,
+                writer: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 cancellationToken).ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
+            IAsyncEnumerable<TSource> data,
+            Func<TSource, T> keySelector,
+            Func<TSource, TPayload> payloadSelector,
+            ReceiverDescriptor<TArg, TResult> receiver,
+            TArg receiverArg,
+            DataStreamerOptions? options,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            where TPayload : notnull
+        {
+            options ??= DataStreamerOptions.Default;
+
+            // Validate before using for channel capacity.
+            DataStreamer.ValidateOptions(options);
+
+            // Double the page size to read the next page while the previous one is being consumed.
+            var resultChannelCapacity = options.PageSize * 2;
+
+            Channel<TResult> resultChannel = Channel.CreateBounded<TResult>(new BoundedChannelOptions(resultChannelCapacity)
+            {
+                // Backpressure - streamer will wait for results to be consumed before streaming more.
+                FullMode = BoundedChannelFullMode.Wait,
+
+                // One reader: resulting IAsyncEnumerable.
+                SingleReader = true,
+
+                // Many writers: batches may complete in parallel.
+                SingleWriter = false
+            });
+
+            // Stream in background.
+            var streamTask = Stream();
+
+            // Result async enumerable is returned immediately. It will be completed when the streaming completes.
+            var reader = resultChannel.Reader;
+
+            try
+            {
+                while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    while (reader.TryRead(out var item))
+                    {
+                        yield return item;
+                    }
+                }
+            }
+            finally
+            {
+                // Consumer has stopped reading, complete the channel.
+                resultChannel.Writer.TryComplete();
+
+                // Wait for the streamer to complete even if the result consumer has stopped reading.
+                await streamTask.ConfigureAwait(false);
+            }
+
+            [SuppressMessage(
+                "Design",
+                "CA1031:Do not catch general exception types",
+                Justification = "All exceptions should be propagated to the result channel.")]
+            async Task Stream()
+            {
+                try
+                {
+                    await DataStreamerWithReceiver.StreamDataAsync(
+                        data,
+                        _table,
+                        keySelector,
+                        payloadSelector,
+                        keyWriter: _ser.Handler,
+                        options,
+                        resultChannel,
+                        receiver.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                        receiver.ReceiverClassName,
+                        receiverArg,
+                        cancellationToken).ConfigureAwait(false);
+
+                    resultChannel.Writer.Complete();
+                }
+                catch (Exception e)
+                {
+                    resultChannel.Writer.TryComplete(e);
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task StreamDataAsync<TSource, TPayload, TArg>(
+            IAsyncEnumerable<TSource> data,
+            Func<TSource, T> keySelector,
+            Func<TSource, TPayload> payloadSelector,
+            ReceiverDescriptor<TArg> receiver,
+            TArg receiverArg,
+            DataStreamerOptions? options,
+            CancellationToken cancellationToken = default)
+            where TPayload : notnull
+        {
+            await DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, TArg, object>(
+                data,
+                _table,
+                keySelector,
+                payloadSelector,
+                keyWriter: _ser.Handler,
+                options ?? DataStreamerOptions.Default,
+                resultChannel: null,
+                receiver.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                receiver.ReceiverClassName,
+                receiverArg,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         /// <inheritdoc/>
         public override string ToString() =>
@@ -405,11 +519,21 @@ namespace Apache.Ignite.Internal.Table
             try
             {
                 schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
-                var tx = transaction.ToInternal();
+
+                LazyTransaction? lazyTx = LazyTransaction.Get(transaction);
+                var txId = lazyTx?.Id;
 
                 using var writer = ProtoCommon.GetMessageWriter();
-                var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);
+                var (colocationHash, txIdPos) = _ser.Write(writer, txId, schema, record, keyOnly);
                 var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                var tx = await LazyTransaction.EnsureStartedAsync(transaction, _table.Socket, preferredNode)
+                    .ConfigureAwait(false);
+
+                if (tx != null && txId == LazyTransaction.TxIdPlaceholder)
+                {
+                    writer.WriteLongBigEndian(tx.Id, txIdPos + 1);
+                }
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
             }
@@ -446,11 +570,21 @@ namespace Apache.Ignite.Internal.Table
             try
             {
                 schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
-                var tx = transaction.ToInternal();
+
+                LazyTransaction? lazyTx = LazyTransaction.Get(transaction);
+                var txId = lazyTx?.Id;
 
                 using var writer = ProtoCommon.GetMessageWriter();
-                var colocationHash = _ser.WriteTwo(writer, tx, schema, record, record2, keyOnly);
+                var (colocationHash, txIdPos) = _ser.WriteTwo(writer, txId, schema, record, record2, keyOnly);
                 var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                var tx = await LazyTransaction.EnsureStartedAsync(transaction, _table.Socket, preferredNode)
+                    .ConfigureAwait(false);
+
+                if (tx != null && txId == LazyTransaction.TxIdPlaceholder)
+                {
+                    writer.WriteLongBigEndian(tx.Id, txIdPos + 1);
+                }
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
             }
@@ -493,11 +627,21 @@ namespace Apache.Ignite.Internal.Table
             try
             {
                 schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
-                var tx = transaction.ToInternal();
+
+                LazyTransaction? lazyTx = LazyTransaction.Get(transaction);
+                var txId = lazyTx?.Id;
 
                 using var writer = ProtoCommon.GetMessageWriter();
-                var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly);
+                var (colocationHash, txIdPos) = _ser.WriteMultiple(writer, txId, schema, iterator, keyOnly);
                 var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                var tx = await LazyTransaction.EnsureStartedAsync(transaction, _table.Socket, preferredNode)
+                    .ConfigureAwait(false);
+
+                if (tx != null && txId == LazyTransaction.TxIdPlaceholder)
+                {
+                    writer.WriteLongBigEndian(tx.Id, txIdPos + 1);
+                }
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
             }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.benchmark;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -28,10 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -62,9 +58,13 @@ public class AbstractMultiNodeBenchmark {
 
     protected static final String FIELD_VAL = "a".repeat(100);
 
+    protected static final String FIELD_VAL_WITH_SPACES = FIELD_VAL + "   ";
+
     protected static final String TABLE_NAME = "USERTABLE";
 
     protected static final String ZONE_NAME = TABLE_NAME + "_ZONE";
+
+    private final List<IgniteServer> igniteServers = new ArrayList<>();
 
     protected static IgniteImpl clusterNode;
 
@@ -87,7 +87,7 @@ public class AbstractMultiNodeBenchmark {
 
             getAllFromCursor(
                     await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createZoneStatement
+                            SqlPropertiesHelper.emptyProperties(), clusterNode.observableTimeTracker(), null, createZoneStatement
                     ))
             );
 
@@ -133,7 +133,7 @@ public class AbstractMultiNodeBenchmark {
 
         getAllFromCursor(
                 await(clusterNode.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
+                        SqlPropertiesHelper.emptyProperties(), clusterNode.observableTimeTracker(), null, createTableStatement
                 ))
         );
     }
@@ -149,7 +149,7 @@ public class AbstractMultiNodeBenchmark {
         batchSize = Math.min(size, batchSize);
         List<Tuple> batch = new ArrayList<>(batchSize);
         for (int i = 0; i < size; i++) {
-            batch.add(Tuple.create(payload).set("ycsb_key", i));
+            batch.add(Tuple.copy(payload).set("ycsb_key", i));
 
             if (batch.size() == batchSize) {
                 view.insertAll(null, batch);
@@ -172,20 +172,13 @@ public class AbstractMultiNodeBenchmark {
      */
     @TearDown
     public final void nodeTearDown() throws Exception {
-        List<AutoCloseable> closeables = IntStream.range(0, nodes())
-                .mapToObj(i -> nodeName(BASE_PORT + i))
-                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(igniteServers.stream().map(node -> node::shutdown));
     }
 
     private void startCluster() throws Exception {
         Path workDir = workDir();
 
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
-
-        List<CompletableFuture<Ignite>> futures = new ArrayList<>();
 
         @Language("HOCON")
         String configTemplate = "{\n"
@@ -207,26 +200,23 @@ public class AbstractMultiNodeBenchmark {
             String config = IgniteStringFormatter.format(configTemplate, port, connectNodeAddr,
                     BASE_CLIENT_PORT + i, BASE_REST_PORT + i);
 
-            futures.add(TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
+            igniteServers.add(TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
         }
 
         String metaStorageNodeName = nodeName(BASE_PORT);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .metaStorageNodeNames(metaStorageNodeName)
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(igniteServers.get(0), initParameters);
 
-        for (CompletableFuture<Ignite> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
+        for (IgniteServer node : igniteServers) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
             if (clusterNode == null) {
-                clusterNode = (IgniteImpl) await(future);
-            } else {
-                await(future);
+                clusterNode = (IgniteImpl) node.api();
             }
         }
     }

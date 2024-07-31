@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.util.CompletableFutures.allOf;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
@@ -38,8 +38,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TransactionResult;
+import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -192,6 +193,13 @@ public class TransactionInflights {
         abstract boolean isReadyToFinish();
     }
 
+    /**
+     * Transaction inflights for read-only transactions are needed because of different finishing protocol which doesn't directly close
+     * transaction resources (cursors, etc.). The finish of read-only transaction is a local operation, which is followed by the resources
+     * vacuum that is made in background, see {@link FinishedReadOnlyTransactionTracker}. Before sending
+     * {@link FinishedTransactionsBatchMessage}, the trackers needs to be sure that all operations (i.e. inflights) of the corresponding
+     * transaction are finished.
+     */
     private static class ReadOnlyTxContext extends TxContext {
         private volatile boolean markedFinished;
 
@@ -258,7 +266,7 @@ public class TransactionInflights {
                 Throwable unwrappedReadyToFinishException = unwrapCause(readyToFinishException);
 
                 if (commit && unwrappedReadyToFinishException instanceof PrimaryReplicaExpiredException) {
-                    finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeException(
+                    finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeInternalException(
                             TX_PRIMARY_REPLICA_EXPIRED_ERR,
                             "Failed to commit the transaction.",
                             new TransactionResult(ABORTED, null),
@@ -292,7 +300,7 @@ public class TransactionInflights {
                             });
                 }
 
-                return allOf(futures)
+                return allOfToList(futures)
                         .thenCompose(unused -> waitNoInflights());
             } else {
                 return nullCompletedFuture();

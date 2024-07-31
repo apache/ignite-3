@@ -118,9 +118,11 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODE_STOPPING:
         case error::code::COMPONENT_NOT_STARTED:
         case error::code::ILLEGAL_ARGUMENT:
+        case error::code::USER_OBJECT_SERIALIZATION:
         case error::code::SSL_CONFIGURATION:
         case error::code::NODE_LEFT:
         case error::code::INTERNAL:
+        case error::code::NULLABLE_VALUE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Table group. Group code: 2
@@ -135,6 +137,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TABLE_STOPPING:
         case error::code::TABLE_DEFINITION:
         case error::code::SCHEMA_VERSION_MISMATCH:
+        case error::code::UNSUPPORTED_PARTITION_TYPE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Client group. Group code: 3
@@ -155,8 +158,6 @@ sql_state error_code_to_sql_state(error::code code) {
         // Sql group. Group code: 4
         case error::code::SCHEMA_NOT_FOUND:
             return sql_state::S3F000_INVALID_SCHEMA_NAME;
-        case error::code::PLANNING_TIMEOUT:
-            return sql_state::SHYT00_TIMEOUT_EXPIRED;
         case error::code::EXECUTION_CANCELLED:
             return sql_state::SHY008_OPERATION_CANCELED;
         case error::code::TX_CONTROL_INSIDE_EXTERNAL_TX:
@@ -270,10 +271,10 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CLASS_LOADER:
         case error::code::CLASS_INITIALIZATION:
         case error::code::QUEUE_OVERFLOW:
-        case error::code::COMPUTE_JOB_STATE_TRANSITION:
+        case error::code::COMPUTE_JOB_STATUS_TRANSITION:
         case error::code::CANCELLING:
         case error::code::RESULT_NOT_FOUND:
-        case error::code::FAIL_TO_GET_JOB_STATUS:
+        case error::code::FAIL_TO_GET_JOB_STATE:
         case error::code::COMPUTE_JOB_FAILED:
         case error::code::CHANGE_JOB_PRIORITY_NO_JOB:
         case error::code::PRIMARY_REPLICA_RESOLVE:
@@ -301,6 +302,20 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODES_NOT_FOUND:
         case error::code::ILLEGAL_PARTITION_ID:
         case error::code::PARTITION_STATE:
+        case error::code::CLUSTER_NOT_IDLE:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // Embedded group. Group code: 21
+        case error::code::CLUSTER_NOT_INITIALIZED:
+        case error::code::CLUSTER_INIT_FAILED:
+        case error::code::NODE_NOT_STARTED:
+        case error::code::NODE_START:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // Marshalling group. Group code: 22
+        case error::code::COMMON:
+        case error::code::UNSUPPORTED_OBJECT_TYPE:
+        case error::code::MARSHALLING_TYPE_MISMATCH:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

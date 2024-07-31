@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static org.apache.ignite.internal.metastorage.command.GetAllCommand.getAllCommand;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -70,6 +72,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     private final ClusterTime clusterTime;
 
+    private final CommandIdGenerator commandIdGenerator;
+
     /**
      * Constructor.
      *
@@ -79,7 +83,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             String nodeName,
             RaftGroupService metaStorageRaftGrpSvc,
             IgniteSpinBusyLock busyLock,
-            ClusterTime clusterTime
+            ClusterTime clusterTime,
+            Supplier<String> nodeIdSupplier
     ) {
         this.context = new MetaStorageServiceContext(
                 metaStorageRaftGrpSvc,
@@ -90,6 +95,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         );
 
         this.clusterTime = clusterTime;
+        this.commandIdGenerator = new CommandIdGenerator(nodeIdSupplier);
     }
 
     public RaftGroupService raftGroupService() {
@@ -103,7 +109,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
-        GetCommand getCommand = context.commandsFactory().getCommand().key(key.bytes()).revision(revUpperBound).build();
+        GetCommand getCommand = context.commandsFactory().getCommand().key(ByteBuffer.wrap(key.bytes())).revision(revUpperBound).build();
 
         return context.raftService().run(getCommand);
     }
@@ -124,9 +130,9 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Void> put(ByteArray key, byte[] value) {
         PutCommand putCommand = context.commandsFactory().putCommand()
-                .key(key.bytes())
-                .value(value)
-                .initiatorTimeLong(clusterTime.nowLong())
+                .key(ByteBuffer.wrap(key.bytes()))
+                .value(ByteBuffer.wrap(value))
+                .initiatorTime(clusterTime.now())
                 .build();
 
         return context.raftService().run(putCommand);
@@ -141,8 +147,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
-        RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(key.bytes())
-                .initiatorTimeLong(clusterTime.nowLong()).build();
+        RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(ByteBuffer.wrap(key.bytes()))
+                .initiatorTime(clusterTime.now()).build();
 
         return context.raftService().run(removeCommand);
     }
@@ -169,7 +175,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .condition(condition)
                 .success(success)
                 .failure(failure)
-                .initiatorTimeLong(clusterTime.nowLong())
+                .initiatorTime(clusterTime.now())
+                .id(commandIdGenerator.newId())
                 .build();
 
         return context.raftService().run(invokeCommand);
@@ -179,7 +186,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<StatementResult> invoke(Iif iif) {
         MultiInvokeCommand multiInvokeCommand = context.commandsFactory().multiInvokeCommand()
                 .iif(iif)
-                .initiatorTimeLong(clusterTime.nowLong())
+                .initiatorTime(clusterTime.now())
+                .id(commandIdGenerator.newId())
                 .build();
 
         return context.raftService().run(multiInvokeCommand);
@@ -208,8 +216,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             boolean includeTombstones
     ) {
         Function<byte[], ReadCommand> getRangeCommand = prevKey -> context.commandsFactory().getRangeCommand()
-                .keyFrom(keyFrom.bytes())
-                .keyTo(keyTo == null ? null : keyTo.bytes())
+                .keyFrom(ByteBuffer.wrap(keyFrom.bytes()))
+                .keyTo(keyTo == null ? null : ByteBuffer.wrap(keyTo.bytes()))
                 .revUpperBound(revUpperBound)
                 .includeTombstones(includeTombstones)
                 .previousKey(prevKey)
@@ -222,7 +230,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public Publisher<Entry> prefix(ByteArray prefix, long revUpperBound) {
         Function<byte[], ReadCommand> getPrefixCommand = prevKey -> context.commandsFactory().getPrefixCommand()
-                .prefix(prefix.bytes())
+                .prefix(ByteBuffer.wrap(prefix.bytes()))
                 .revUpperBound(revUpperBound)
                 .includeTombstones(false)
                 .previousKey(prevKey)
@@ -240,7 +248,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      */
     public CompletableFuture<Void> syncTime(HybridTimestamp safeTime, long term) {
         SyncTimeCommand syncTimeCommand = context.commandsFactory().syncTimeCommand()
-                .initiatorTimeLong(safeTime.longValue())
+                .initiatorTime(safeTime)
                 .initiatorTerm(term)
                 .build();
 
@@ -287,27 +295,24 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         int size = vals.size();
 
-        List<byte[]> keys = new ArrayList<>(size);
-
-        List<byte[]> values = new ArrayList<>(size);
+        var keys = new ArrayList<ByteBuffer>(size);
+        var values = new ArrayList<ByteBuffer>(size);
 
         for (Map.Entry<ByteArray, byte[]> e : vals.entrySet()) {
             byte[] key = e.getKey().bytes();
-
             byte[] val = e.getValue();
 
             assert key != null : "Key could not be null.";
             assert val != null : "Value could not be null.";
 
-            keys.add(key);
-
-            values.add(val);
+            keys.add(ByteBuffer.wrap(key));
+            values.add(ByteBuffer.wrap(val));
         }
 
         return commandsFactory.putAllCommand()
                 .keys(keys)
                 .values(values)
-                .initiatorTimeLong(ts.longValue())
+                .initiatorTime(ts)
                 .build();
     }
 
@@ -319,12 +324,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * @param ts Local time.
      */
     private RemoveAllCommand removeAllCommand(MetaStorageCommandsFactory commandsFactory, Set<ByteArray> keys, HybridTimestamp ts) {
-        List<byte[]> list = new ArrayList<>(keys.size());
+        var list = new ArrayList<ByteBuffer>(keys.size());
 
         for (ByteArray key : keys) {
-            list.add(key.bytes());
+            list.add(ByteBuffer.wrap(key.bytes()));
         }
 
-        return commandsFactory.removeAllCommand().keys(list).initiatorTimeLong(ts.longValue()).build();
+        return commandsFactory.removeAllCommand().keys(list).initiatorTime(ts).build();
     }
 }

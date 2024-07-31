@@ -41,6 +41,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.NodeFinderFactory;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
@@ -65,7 +67,6 @@ import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
-import org.apache.ignite.network.TopologyEventHandler;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
@@ -132,7 +133,7 @@ public class ScaleCubeClusterServiceFactory {
             private volatile CompletableFuture<Void> shutdownFuture;
 
             @Override
-            public CompletableFuture<Void> startAsync() {
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
@@ -214,7 +215,7 @@ public class ScaleCubeClusterServiceFactory {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 ConnectionManager localConnectionMgr = connectionMgr;
 
                 if (localConnectionMgr != null) {
@@ -253,7 +254,7 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public void beforeNodeStop() {
-                this.stopAsync().join();
+                this.stopAsync(new ComponentContext()).join();
             }
 
             @Override

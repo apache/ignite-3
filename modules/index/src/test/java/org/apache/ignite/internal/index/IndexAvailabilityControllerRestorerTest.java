@@ -52,16 +52,17 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,7 +94,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        assertThat(startAsync(metaStorageManager, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
 
         deployWatches();
 
@@ -102,10 +103,14 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     @AfterEach
     void tearDown() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
+
         closeAll(
                 controller == null ? null : controller::close,
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully())
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                metaStorageManager == null ? null :
+                        () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully())
         );
     }
 
@@ -191,9 +196,12 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     private void stopAndRestartComponentsNoDeployWatches() throws Exception {
         awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
+        ComponentContext componentContext = new ComponentContext();
         closeAll(
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully())
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                metaStorageManager == null ? null :
+                        () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully())
         );
 
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
@@ -202,7 +210,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = spy(createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 
-        assertThat(startAsync(metaStorageManager, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
     }
 
     private void deployWatches() throws Exception {
@@ -222,7 +230,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         assertThat(metastoreRecoveryFuture, willBe(greaterThan(0L)));
 
-        controller.recover(metastoreRecoveryFuture.join());
+        controller.start(metastoreRecoveryFuture.join());
     }
 
     private void setLocalNodeToClusterService(ClusterNode clusterNode) {

@@ -37,6 +37,7 @@ import java.net.Socket;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -76,8 +77,8 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
-        assertThat(serverModule.stopAsync(), willCompleteSuccessfully());
+    public void tearDown() {
+        assertThat(serverModule.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         testServer.tearDown();
     }
 

@@ -37,11 +37,13 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -77,6 +79,7 @@ public class IndexBuildingManager implements IgniteComponent {
             CatalogManager catalogManager,
             MetaStorageManager metaStorageManager,
             IndexManager indexManager,
+            IndexMetaStorage indexMetaStorage,
             PlacementDriver placementDriver,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
@@ -116,6 +119,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 logicalTopologyService,
                 clockService,
                 placementDriver,
+                indexMetaStorage,
                 executor
         );
 
@@ -128,7 +132,7 @@ public class IndexBuildingManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -136,14 +140,18 @@ public class IndexBuildingManager implements IgniteComponent {
 
             long recoveryRevision = recoveryFinishedFuture.join();
 
-            indexAvailabilityController.recover(recoveryRevision);
+            indexAvailabilityController.start(recoveryRevision);
+
+            changeIndexStatusTaskController.start();
+
+            indexBuildController.start();
 
             return nullCompletedFuture();
         });
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

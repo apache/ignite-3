@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -26,12 +29,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.TupleReader;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -51,6 +56,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -141,6 +147,36 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             BinaryRowEx keyRow = marshalKey(keyRec, schemaVersion);
 
             return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<R> keys) {
+        return sync(containsAllAsync(tx, keys));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<R> keys) {
+        checkKeysForNulls(keys);
+
+        if (keys.isEmpty()) {
+            return trueCompletedFuture();
+        }
+
+        return doOperation(tx, (schemaVersion) -> {
+            Collection<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
+
+            return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> {
+                for (BinaryRow row : rows) {
+                    if (row == null) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
         });
     }
 
@@ -386,17 +422,21 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * @param schemaVersion Schema version.
      * @return Marshaller.
      */
-    private RecordMarshaller<R> marshaller(int schemaVersion) {
+    private RecordMarshaller<R> marshaller(int schemaVersion) throws MarshallerException {
         RecordMarshaller<R> marsh = this.marsh;
 
         if (marsh != null && marsh.schemaVersion() == schemaVersion) {
             return marsh;
         }
 
-        SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+        try {
+            SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
 
-        marsh = marshallerFactory.apply(schema);
-        this.marsh = marsh;
+            marsh = marshallerFactory.apply(schema);
+            this.marsh = marsh;
+        } catch (Exception ex) {
+            throw new MarshallerException(ex.getMessage(), ex);
+        }
 
         return marsh;
     }
@@ -407,15 +447,12 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * @param rec Record object.
      * @param schemaVersion Version with which to marshal.
      * @return Binary row.
+     * @throws MarshallerException If failed to marshal row.
      */
     private BinaryRowEx marshal(R rec, int schemaVersion) {
-        try {
-            RecordMarshaller<R> marsh = marshaller(schemaVersion);
+        RecordMarshaller<R> marsh = marshaller(schemaVersion);
 
-            return marsh.marshal(rec);
-        } catch (Exception e) {
-            throw new MarshallerException(e);
-        }
+        return marsh.marshal(rec);
     }
 
     /**
@@ -424,42 +461,35 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * @param recs Records collection.
      * @param schemaVersion Version with which to marshal.
      * @return Binary rows collection.
+     * @throws MarshallerException If failed to marshal rows.
      */
     private Collection<BinaryRowEx> marshal(Collection<R> recs, int schemaVersion) {
-        try {
-            RecordMarshaller<R> marsh = marshaller(schemaVersion);
+        RecordMarshaller<R> marsh = marshaller(schemaVersion);
 
-            List<BinaryRowEx> rows = new ArrayList<>(recs.size());
+        List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
-            for (R rec : recs) {
-                Row row = marsh.marshal(Objects.requireNonNull(rec));
+        for (R rec : recs) {
+            BinaryRowEx row = marsh.marshal(Objects.requireNonNull(rec));
 
-                rows.add(row);
-            }
-
-            return rows;
-        } catch (Exception e) {
-            throw new MarshallerException(e);
+            rows.add(row);
         }
+
+        return rows;
     }
 
     private Collection<BinaryRowEx> marshal(Collection<R> recs, int schemaVersion, @Nullable BitSet deleted) {
-        try {
-            RecordMarshaller<R> marsh = marshaller(schemaVersion);
+        RecordMarshaller<R> marsh = marshaller(schemaVersion);
 
-            List<BinaryRowEx> rows = new ArrayList<>(recs.size());
+        List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
-            for (R rec : recs) {
-                boolean isDeleted = deleted != null && deleted.get(rows.size());
-                Row row = isDeleted ? marsh.marshalKey(rec) : marsh.marshal(rec);
+        for (R rec : recs) {
+            boolean isDeleted = deleted != null && deleted.get(rows.size());
+            BinaryRowEx row = isDeleted ? marsh.marshalKey(rec) : marsh.marshal(rec);
 
-                rows.add(row);
-            }
-
-            return rows;
-        } catch (Exception e) {
-            throw new MarshallerException(e);
+            rows.add(row);
         }
+
+        return rows;
     }
 
     /**
@@ -470,13 +500,9 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * @return Binary row.
      */
     private BinaryRowEx marshalKey(R rec, int schemaVersion) {
-        try {
-            RecordMarshaller<R> marsh = marshaller(schemaVersion);
+        RecordMarshaller<R> marsh = marshaller(schemaVersion);
 
-            return marsh.marshalKey(rec);
-        } catch (Exception e) {
-            throw new MarshallerException(e);
-        }
+        return marsh.marshalKey(rec);
     }
 
     /**
@@ -487,21 +513,17 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * @return Binary rows collection.
      */
     private Collection<BinaryRowEx> marshalKeys(Collection<R> recs, int schemaVersion) {
-        try {
-            RecordMarshaller<R> marsh = marshaller(schemaVersion);
+        RecordMarshaller<R> marsh = marshaller(schemaVersion);
 
-            List<BinaryRowEx> rows = new ArrayList<>(recs.size());
+        List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
-            for (R rec : recs) {
-                Row row = marsh.marshalKey(Objects.requireNonNull(rec));
+        for (R rec : recs) {
+            BinaryRowEx row = marsh.marshalKey(Objects.requireNonNull(rec));
 
-                rows.add(row);
-            }
-
-            return rows;
-        } catch (Exception e) {
-            throw new MarshallerException(e);
+            rows.add(row);
         }
+
+        return rows;
     }
 
     /**
@@ -518,13 +540,9 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         Row row = rowConverter.resolveRow(binaryRow, targetSchemaVersion);
 
-        try {
-            RecordMarshaller<R> marshaller = marshaller(row.schemaVersion());
+        RecordMarshaller<R> marshaller = marshaller(row.schemaVersion());
 
-            return marshaller.unmarshal(row);
-        } catch (Exception e) {
-            throw new MarshallerException(e);
-        }
+        return marshaller.unmarshal(row);
     }
 
     /**
@@ -541,26 +559,22 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             return Collections.emptyList();
         }
 
-        try {
-            RecordMarshaller<R> marsh = marshaller(targetSchemaVersion);
+        RecordMarshaller<R> marsh = marshaller(targetSchemaVersion);
 
-            var recs = new ArrayList<R>(rows.size());
-            List<Row> resolvedRows = keyOnly
-                    ? rowConverter.resolveKeys(rows, targetSchemaVersion)
-                    : rowConverter.resolveRows(rows, targetSchemaVersion);
+        var recs = new ArrayList<R>(rows.size());
+        List<Row> resolvedRows = keyOnly
+                ? rowConverter.resolveKeys(rows, targetSchemaVersion)
+                : rowConverter.resolveRows(rows, targetSchemaVersion);
 
-            for (Row row : resolvedRows) {
-                if (row != null) {
-                    recs.add(marsh.unmarshal(row));
-                } else if (addNull) {
-                    recs.add(null);
-                }
+        for (Row row : resolvedRows) {
+            if (row != null) {
+                recs.add(marsh.unmarshal(row));
+            } else if (addNull) {
+                recs.add(null);
             }
-
-            return recs;
-        } catch (Exception e) {
-            throw new MarshallerException(e);
         }
+
+        return recs;
     }
 
     /** {@inheritDoc} */
@@ -568,24 +582,61 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<R>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
-        // columns never change (so they are the same for all schema versions of the table),
-        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(
-                rowConverter.registry(),
-                tbl.partitions(),
-                marshaller(rowConverter.registry().lastKnownSchemaVersion())
-        );
-
-        StreamerBatchSender<R, Integer> batchSender = (partitionId, items, deleted) ->
-                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        StreamerBatchSender<R, Integer, Void> batchSender = (partitionId, items, deleted) ->
+                PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture) withSchemaSync(
                         null,
                         schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId)
                 ));
 
         CompletableFuture<Void> future = DataStreamer.streamData(
-                publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
+                publisher, options, batchSender, streamerPartitioner(), tbl.streamerFlushExecutor());
 
         return convertToPublicFuture(future);
+    }
+
+    @Override
+    public <E, V, R1, A> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            Function<E, R> keyFunc,
+            Function<E, V> payloadFunc,
+            ReceiverDescriptor<A> receiver,
+            @Nullable Flow.Subscriber<R1> resultSubscriber,
+            @Nullable DataStreamerOptions options,
+            @Nullable A receiverArg) {
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(receiver);
+
+        StreamerBatchSender<V, Integer, R1> batchSender = (partitionId, rows, deleted) ->
+                PublicApiThreading.execUserAsyncOperation(() ->
+                        tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
+                                .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
+                                        receiver, receiverArg, rows, node, receiver.units())));
+
+        CompletableFuture<Void> future = DataStreamer.<R, E, V, R1>streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options,
+                batchSender,
+                resultSubscriber,
+                streamerPartitioner(),
+                tbl.streamerFlushExecutor());
+
+        return convertToPublicFuture(future);
+    }
+
+    private PojoStreamerPartitionAwarenessProvider<R> streamerPartitioner() {
+        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+        // columns never change (so they are the same for all schema versions of the table),
+        return new PojoStreamerPartitionAwarenessProvider<>(
+                rowConverter.registry(),
+                tbl.partitions(),
+                marshaller(rowConverter.registry().lastKnownSchemaVersion())
+        );
     }
 
     /** {@inheritDoc} */
@@ -595,12 +646,6 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         Marshaller marsh = marshallers.getRowMarshaller(marshallerSchema, mapper, false, true);
         List<Column> cols = schema.columns();
 
-        return (row) -> {
-            try {
-                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(cols))), null);
-            } catch (org.apache.ignite.internal.marshaller.MarshallerException e) {
-                throw new MarshallerException(e);
-            }
-        };
+        return (row) -> (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, columnNames(cols))), null);
     }
 }

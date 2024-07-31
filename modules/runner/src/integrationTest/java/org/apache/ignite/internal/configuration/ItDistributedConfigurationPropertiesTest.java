@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.configuration;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -53,8 +55,11 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -65,6 +70,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -131,6 +137,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private final CompletableFuture<Void> deployWatchesFut;
 
+        private final FailureProcessor failureProcessor;
+
         /** Flag that disables storage updates. */
         private volatile boolean receivesUpdates = true;
 
@@ -156,9 +164,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            raftManager = new Loza(
+            raftManager = TestLozaFactory.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     workDir, clock,
                     raftGroupEventsClientListener
@@ -173,6 +180,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new TestConfigurationValidator()
             );
 
+            this.failureProcessor = new NoOpFailureProcessor();
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -181,7 +190,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration),
+                    failureProcessor
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -201,7 +211,10 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new SimpleInMemoryKeyValueStorage(name()),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
-                    metaStorageConfiguration
+                    new NoOpMetricManager(),
+                    metaStorageConfiguration,
+                    raftConfiguration.retryTimeout(),
+                    completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();
@@ -235,11 +248,14 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
          */
         CompletableFuture<Void> start() {
             assertThat(
-                    startAsync(vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    startAsync(new ComponentContext(),
+                            vaultManager, clusterService, raftManager, failureProcessor, cmgManager, metaStorageManager),
                     willCompleteSuccessfully()
             );
 
-            return CompletableFuture.runAsync(() -> assertThat(distributedCfgManager.startAsync(), willCompleteSuccessfully()));
+            return CompletableFuture.runAsync(() ->
+                    assertThat(distributedCfgManager.startAsync(new ComponentContext()), willCompleteSuccessfully())
+            );
         }
 
         /**
@@ -256,6 +272,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             var components = List.of(
                     distributedCfgManager,
                     cmgManager,
+                    failureProcessor,
                     metaStorageManager,
                     raftManager,
                     clusterService,
@@ -266,7 +283,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 igniteComponent.beforeNodeStop();
             }
 
-            assertThat(stopAsync(components), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
 
             generator.close();
         }

@@ -34,14 +34,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyEventHandler;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -179,13 +180,13 @@ public class TestCluster {
         }
 
         void start() {
-            assertThat(startAsync(components), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
         }
 
         void stop() throws Exception {
             closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
-                    Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+                    Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
             ));
         }
     }

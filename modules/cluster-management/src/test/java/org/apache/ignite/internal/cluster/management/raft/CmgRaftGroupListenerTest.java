@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -86,14 +87,17 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(storage.startAsync(), willCompleteSuccessfully());
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
+        var clusterStateStorageMgr = new ClusterStateStorageManager(storage);
+        var validationManager = new ValidationManager(clusterStateStorageMgr, logicalTopology);
+
+        listener = new CmgRaftGroupListener(clusterStateStorageMgr, logicalTopology, validationManager, onLogicalTopologyChanged);
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
@@ -105,11 +109,11 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
         listener.onWrite(iterator(msgFactory.joinRequestCommand().node(node).version(state.version()).clusterTag(clusterTag).build()));
 
-        assertThat(listener.storage().getValidatedNodes(), contains(new LogicalNode(node.asClusterNode())));
+        assertThat(listener.storageManager().getValidatedNodes(), contains(new LogicalNode(node.asClusterNode())));
 
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
-        assertThat(listener.storage().getValidatedNodes(), is(empty()));
+        assertThat(listener.storageManager().getValidatedNodes(), is(empty()));
     }
 
     @Test
@@ -175,7 +179,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
                 .build();
 
         listener.onWrite(iterator(msgFactory.updateClusterStateCommand().clusterState(clusterStateToUpdate).build()));
-        ClusterState updatedClusterState = listener.storage().getClusterState();
+        ClusterState updatedClusterState = listener.storageManager().getClusterState();
         assertAll(
                 () -> assertNull(updatedClusterState.initialClusterConfiguration()),
                 () -> assertEquals(updatedClusterState.cmgNodes(), clusterState.cmgNodes()),

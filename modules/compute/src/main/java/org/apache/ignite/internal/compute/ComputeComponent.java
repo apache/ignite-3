@@ -21,10 +21,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
@@ -37,18 +37,19 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Executes a job of the given class on the current node.
      *
+     *
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> executeLocally(
+    <T, R> JobExecution<R> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     );
 
     /**
@@ -56,16 +57,16 @@ public interface ComputeComponent extends IgniteComponent {
      *
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    default <R> JobExecution<R> executeLocally(
+    default <T, R> JobExecution<R> executeLocally(
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     ) {
-        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, args);
+        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, arg);
     }
 
     /**
@@ -75,16 +76,16 @@ public interface ComputeComponent extends IgniteComponent {
      * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> executeRemotely(
+    <T, R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     );
 
     /**
@@ -93,17 +94,17 @@ public interface ComputeComponent extends IgniteComponent {
      * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    default <R> JobExecution<R> executeRemotely(
+    default <T, R> JobExecution<R> executeRemotely(
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            T arg
     ) {
-        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
+        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, arg);
     }
 
     /**
@@ -115,17 +116,17 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
+     * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> executeRemotelyWithFailover(
+    <T, R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            Object... args
+            T arg
     );
 
     /**
@@ -134,32 +135,32 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobSubmitter Function which submits a job with specified parameters for the execution.
      * @param units Deployment units which will be loaded for execution.
      * @param taskClassName Name of the task class.
-     * @param args Task args.
+     * @param arg Task args.
      * @param <R> Task result type.
      * @return Task execution object.
      */
-    <R> TaskExecution<R> executeTask(
-            JobSubmitter jobSubmitter,
+    <I, M, T, R> TaskExecution<R> executeTask(
+            JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            Object... args
+            I arg
     );
 
     /**
-     * Retrieves the current status of all jobs on all nodes in the cluster.
+     * Retrieves the current state of all jobs on all nodes in the cluster.
      *
-     * @return The collection of job statuses.
+     * @return The collection of job states.
      */
-    CompletableFuture<Collection<JobStatus>> statusesAsync();
+    CompletableFuture<Collection<JobState>> statesAsync();
 
     /**
-     * Retrieves the current status of the job on any node in the cluster. The job status may be deleted and thus return {@code null} if the
-     * time for retaining job status has been exceeded.
+     * Retrieves the current state of the job on any node in the cluster. The job state may be deleted and thus return {@code null} if the
+     * time for retaining job state has been exceeded.
      *
      * @param jobId Job id.
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     * @return The current state of the job, or {@code null} if the job state no longer exists due to exceeding the retention time limit.
      */
-    CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId);
+    CompletableFuture<@Nullable JobState> stateAsync(UUID jobId);
 
     /**
      * Cancels the job running on any node in the cluster.

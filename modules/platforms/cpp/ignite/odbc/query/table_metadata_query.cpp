@@ -192,16 +192,13 @@ sql_result table_metadata_query::make_request_get_tables_meta() {
             });
 
         protocol::reader reader{response.get_bytes_view()};
-        m_has_result_set = reader.read_bool();
 
         auto status = reader.read_int32();
         auto err_msg = reader.read_string_nullable();
         if (err_msg)
             throw odbc_error(response_status_to_sql_state(status), *err_msg);
 
-        if (m_has_result_set) {
-            m_meta = read_table_meta_vector(reader);
-        }
+        m_meta = read_table_meta_vector(reader);
 
         m_executed = true;
     });

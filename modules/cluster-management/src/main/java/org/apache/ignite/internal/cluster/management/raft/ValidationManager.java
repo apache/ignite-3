@@ -40,24 +40,20 @@ import org.jetbrains.annotations.Nullable;
  * After the node finishes local recovery procedures, it sends a {@link JoinReadyCommand} containing the validation token. If the local
  * token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
-class ValidationManager {
-    private final RaftStorageManager storage;
+public class ValidationManager {
+    protected final ClusterStateStorageManager storageManager;
 
-    private final LogicalTopology logicalTopology;
+    protected final LogicalTopology logicalTopology;
 
-    ValidationManager(RaftStorageManager storage, LogicalTopology logicalTopology) {
-        this.storage = storage;
+    public ValidationManager(ClusterStateStorageManager storageManager, LogicalTopology logicalTopology) {
+        this.storageManager = storageManager;
         this.logicalTopology = logicalTopology;
     }
 
     /**
      * Validates a given {@code state} against the {@code nodeState} received from an {@link InitCmgStateCommand}.
      */
-    static ValidationResult validateState(@Nullable ClusterState state, ClusterNode node, ClusterState nodeState) {
-        if (state == null) {
-            return ValidationResult.errorResult("Cluster has not been initialized yet");
-        }
-
+    static ValidationResult validateState(ClusterState state, ClusterNode node, ClusterState nodeState) {
         if (!state.cmgNodes().equals(nodeState.cmgNodes())) {
             return ValidationResult.errorResult(String.format(
                     "CMG node names do not match. CMG nodes: %s, nodes stored in CMG: %s",
@@ -94,9 +90,13 @@ class ValidationManager {
     /**
      * Validates a given node and saves it in the set of validated nodes.
      *
-     * @return {@code null} in case of successful validation or a {@link ValidationErrorResponse} otherwise.
+     * @param state Cluster state.
+     * @param node Node that wishes to join the logical topology.
+     * @param version Version of the Ignite node.
+     * @param clusterTag Cluster tag.
+     * @return A {@link ValidationErrorResponse} with validation results.
      */
-    ValidationResult validateNode(
+    protected ValidationResult validateNode(
             @Nullable ClusterState state,
             LogicalNode node,
             IgniteProductVersion version,
@@ -124,17 +124,17 @@ class ValidationManager {
     }
 
     boolean isNodeValidated(LogicalNode node) {
-        return storage.isNodeValidated(node) || logicalTopology.isNodeInLogicalTopology(node);
+        return storageManager.isNodeValidated(node) || logicalTopology.isNodeInLogicalTopology(node);
     }
 
     void putValidatedNode(LogicalNode node) {
-        storage.putValidatedNode(node);
+        storageManager.putValidatedNode(node);
 
         logicalTopology.onNodeValidated(node);
     }
 
     void removeValidatedNodes(Collection<LogicalNode> nodes) {
-        Set<String> validatedNodeIds = storage.getValidatedNodes().stream()
+        Set<String> validatedNodeIds = storageManager.getValidatedNodes().stream()
                 .map(ClusterNode::id)
                 .collect(toSet());
 
@@ -143,7 +143,7 @@ class ValidationManager {
                 .filter(node -> validatedNodeIds.contains(node.id()))
                 .sorted(Comparator.comparing(ClusterNode::id))
                 .forEach(node -> {
-                    storage.removeValidatedNode(node);
+                    storageManager.removeValidatedNode(node);
 
                     logicalTopology.onNodeInvalidated(node);
                 });
@@ -153,18 +153,21 @@ class ValidationManager {
      * Removes the node from the list of validated nodes thus completing the validation procedure.
      *
      * @param node Node that wishes to join the logical topology.
+     * @return A {@link ValidationErrorResponse} with validation results.
      */
-    void completeValidation(LogicalNode node) {
+    protected ValidationResult completeValidation(LogicalNode node) {
         // Remove all other versions of this node, if they were validated at some point, but not removed from the physical topology.
-        storage.getValidatedNodes().stream()
+        storageManager.getValidatedNodes().stream()
                 .filter(n -> n.name().equals(node.name()) && !n.id().equals(node.id()))
                 .sorted(Comparator.comparing(ClusterNode::id))
                 .forEach(nodeVersion -> {
-                    storage.removeValidatedNode(nodeVersion);
+                    storageManager.removeValidatedNode(nodeVersion);
 
                     logicalTopology.onNodeInvalidated(nodeVersion);
                 });
 
-        storage.removeValidatedNode(node);
+        storageManager.removeValidatedNode(node);
+
+        return ValidationResult.successfulResult();
     }
 }

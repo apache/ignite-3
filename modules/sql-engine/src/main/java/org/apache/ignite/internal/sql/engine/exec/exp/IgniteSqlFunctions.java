@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
@@ -27,30 +25,14 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.ResolverStyle;
 import java.util.TimeZone;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.DateTimeUtils;
-import org.apache.calcite.config.CalciteConnectionConfig;
-import org.apache.calcite.linq4j.AbstractEnumerable;
-import org.apache.calcite.linq4j.Enumerable;
-import org.apache.calcite.linq4j.Enumerator;
-import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.function.NonDeterministic;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.runtime.SqlFunctions;
-import org.apache.calcite.schema.ScannableTable;
-import org.apache.calcite.schema.Schema;
-import org.apache.calcite.schema.Statistic;
-import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
@@ -64,51 +46,13 @@ import org.jetbrains.annotations.Nullable;
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
-    private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
     private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
-
-    private static final BigDecimal MAX_INT = new BigDecimal(Integer.MAX_VALUE);
-    private static final BigDecimal MIN_INT = new BigDecimal(Integer.MIN_VALUE);
-
-    static {
-        ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
-                .parseCaseInsensitive()
-                .append(ISO_LOCAL_DATE)
-                .appendLiteral(' ')
-                .append(ISO_LOCAL_TIME)
-                .toFormatter();
-    }
 
     /**
      * Default constructor.
      */
     private IgniteSqlFunctions() {
         // No-op.
-    }
-
-    /** SQL SYSTEM_RANGE(start, end) table function. */
-    public static ScannableTable systemRange(Object rangeStart, Object rangeEnd) {
-        return new RangeTable(rangeStart, rangeEnd, 1L);
-    }
-
-    /** SQL SYSTEM_RANGE(start, end, increment) table function. */
-    public static ScannableTable systemRange(Object rangeStart, Object rangeEnd, Object increment) {
-        return new RangeTable(rangeStart, rangeEnd, increment);
-    }
-
-    /** Just a stub. Validates Date\Time literal, still use calcite implementation for numeric representation.
-     * Otherwise need to fix {@code DateTimeUtils#unixTimestampToString} usage additionally.
-     */
-    public static long timestampStringToNumeric(String dtStr) {
-        dtStr = dtStr.trim();
-        // "YYYY-MM-dd HH:mm:ss.ninenanos"
-        if (dtStr.length() > 29) {
-            dtStr = dtStr.substring(0, 29);
-        }
-
-        LocalDateTime.parse(dtStr, ISO_LOCAL_DATE_TIME_EX.withResolverStyle(ResolverStyle.STRICT));
-
-        return DateTimeUtils.timestampStringToUnixDate(dtStr);
     }
 
     /** CAST(DECIMAL AS VARCHAR). */
@@ -227,70 +171,6 @@ public class IgniteSqlFunctions {
         BigDecimal roundedValue = b0.setScale(b1, RoundingMode.HALF_UP);
         // Pad with zeros to match the original scale
         return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
-    }
-
-    /** Returns {@link Integer} bounded value. */
-    private static int normalizeRegardingInt(BigDecimal num) {
-        int res;
-
-        if (num.compareTo(MAX_INT) >= 0) {
-            res = Integer.MAX_VALUE;
-        } else if (num.compareTo(MIN_INT) <= 0) {
-            res = Integer.MIN_VALUE;
-        } else {
-            res = num.intValue();
-        }
-
-        return res;
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, int s) {
-        if (s <= 1) {
-            return c;
-        }
-
-        return SqlFunctions.substring(c, s);
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, BigDecimal s) {
-        if (s.compareTo(BigDecimal.ONE) <= 0) {
-            return c;
-        }
-
-        int s0 = normalizeRegardingInt(s);
-        return SqlFunctions.substring(c, s0);
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, int s, int l) {
-        return SqlFunctions.substring(c, s, l);
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, int s, BigDecimal l) {
-        if (s < 0) {
-            if (l.signum() > 0) {
-                l = l.add(BigDecimal.valueOf(s));
-                return substring(c, 0, l);
-            }
-        }
-        int l0 = normalizeRegardingInt(l);
-        return SqlFunctions.substring(c, s, l0);
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, BigDecimal s, BigDecimal l) {
-        if (s.signum() < 0) {
-            if (l.signum() > 0) {
-                l = l.add(s);
-                return substring(c, 0, l);
-            }
-        }
-        int s0 = normalizeRegardingInt(s);
-        int l0 = normalizeRegardingInt(l);
-        return SqlFunctions.substring(c, s0, l0);
     }
 
     // TRUNCATE function
@@ -556,10 +436,10 @@ public class IgniteSqlFunctions {
         return leastOrGreatest(false, arg0, arg1);
     }
 
-    /** Generates a random UUID and converts it to string. **/
+    /** Generates a random UUID. **/
     @NonDeterministic
-    public static String genRandomUuid() {
-        return UUID.randomUUID().toString();
+    public static UUID randUuid() {
+        return UUID.randomUUID();
     }
 
     /** Returns the second argument and ignores the first. */
@@ -656,120 +536,6 @@ public class IgniteSqlFunctions {
             return least ? arg0 : arg1;
         } else {
             return least ? arg1 : arg0;
-        }
-    }
-
-    /**
-     * Dummy table to implement the SYSTEM_RANGE function.
-     */
-    private static class RangeTable implements ScannableTable {
-        /** Start of the range. */
-        private final Object rangeStart;
-
-        /** End of the range. */
-        private final Object rangeEnd;
-
-        /** Increment. */
-        private final Object increment;
-
-        /**
-         * Note: {@code Object} arguments required here due to: 1. {@code NULL} arguments need to be supported, so we
-         * can't use {@code long} arguments type. 2. {@code Integer} and other numeric classes can be converted to
-         * {@code long} type by java, but can't be converted to {@code Long} type, so we can't use {@code Long}
-         * arguments type either. Instead, we accept {@code Object} arguments type and try to convert valid types to
-         * {@code long}.
-         */
-        RangeTable(Object rangeStart, Object rangeEnd, Object increment) {
-            this.rangeStart = rangeStart;
-            this.rangeEnd = rangeEnd;
-            this.increment = increment;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-            return typeFactory.builder().add("X", SqlTypeName.BIGINT).build();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Enumerable<@Nullable Object[]> scan(DataContext root) {
-            if (rangeStart == null || rangeEnd == null || increment == null) {
-                return Linq4j.emptyEnumerable();
-            }
-
-            long rangeStart = convertToLongArg(this.rangeStart, "rangeStart");
-            long rangeEnd = convertToLongArg(this.rangeEnd, "rangeEnd");
-            long increment = convertToLongArg(this.increment, "increment");
-
-            if (increment == 0L) {
-                throw new IllegalArgumentException("Increment can't be 0");
-            }
-
-            return new AbstractEnumerable<>() {
-                @Override
-                public Enumerator<@Nullable Object[]> enumerator() {
-                    return new Enumerator<>() {
-                        long cur = rangeStart - increment;
-
-                        @Override
-                        public Object[] current() {
-                            return new Object[]{cur};
-                        }
-
-                        @Override
-                        public boolean moveNext() {
-                            cur += increment;
-
-                            return increment > 0L ? cur <= rangeEnd : cur >= rangeEnd;
-                        }
-
-                        @Override
-                        public void reset() {
-                            cur = rangeStart - increment;
-                        }
-
-                        @Override
-                        public void close() {
-                            // No-op.
-                        }
-                    };
-                }
-            };
-        }
-
-        private long convertToLongArg(Object val, String name) {
-            if (val instanceof Byte || val instanceof Short || val instanceof Integer || val instanceof Long) {
-                return ((Number) val).longValue();
-            }
-
-            throw new IllegalArgumentException("Unsupported argument type [arg=" + name
-                    + ", type=" + val.getClass().getSimpleName() + ']');
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Statistic getStatistic() {
-            throw new UnsupportedOperationException();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Schema.TableType getJdbcTableType() {
-            return Schema.TableType.TABLE;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isRolledUp(String column) {
-            return false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean rolledUpColumnValidInsideAgg(String column, SqlCall call,
-                SqlNode parent, CalciteConnectionConfig cfg) {
-            return true;
         }
     }
 

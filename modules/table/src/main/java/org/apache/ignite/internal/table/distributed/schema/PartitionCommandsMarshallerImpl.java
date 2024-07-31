@@ -19,8 +19,8 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
-import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.internal.util.VarIntUtils;
 
 /**
@@ -43,6 +43,8 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public <T> T unmarshall(ByteBuffer raw) {
+        raw = raw.duplicate();
+
         int requiredCatalogVersion = readRequiredCatalogVersion(raw);
 
         T res = super.unmarshall(raw);

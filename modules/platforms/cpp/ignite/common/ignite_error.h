@@ -23,6 +23,8 @@
 #include <exception>
 #include <optional>
 #include <string>
+#include <any>
+#include <map>
 
 namespace ignite {
 
@@ -60,18 +62,6 @@ public:
     explicit ignite_error(error::code code, std::string message) noexcept
         : m_status_code(code)
         , m_message(std::move(message)) {} // NOLINT(bugprone-throw-keyword-missing)
-
-    /**
-     * Constructor.
-     *
-     * @param statusCode Status code.
-     * @param message Message.
-     * @param ver Version.
-     */
-    explicit ignite_error(error::code code, std::string message, std::optional<std::int32_t> ver) noexcept
-        : m_status_code(code)
-        , m_message(std::move(message)) // NOLINT(bugprone-throw-keyword-missing)
-        , m_version(ver) {}
 
     /**
      * Constructor.
@@ -118,12 +108,30 @@ public:
     [[nodiscard]] std::int32_t get_flags() const noexcept { return m_flags; }
 
     /**
-     * Get expected schema version.
-     * Internal method.
+     * Add an extra information.
      *
-     * @return Expected schema version.
+     * @tparam T Extra type.
+     * @param key Key.
+     * @param value value.
      */
-    [[nodiscard]] std::optional<std::int32_t> get_schema_version() const noexcept { return m_version; }
+    template<typename T>
+    void add_extra(std::string key, T value) {
+        m_extras.emplace(std::pair{std::move(key), std::any{std::move(value)}});
+    }
+
+    /**
+     * Get an extra information by the key.
+     *
+     * @return Extra.
+     */
+    template<typename T>
+    [[nodiscard]] std::optional<T> get_extra(const std::string &key) const noexcept {
+        auto it = m_extras.find(key);
+        if (it == m_extras.end())
+            return {};
+
+        return std::any_cast<T>(it->second);
+    }
 
 private:
     /** Status code. */
@@ -138,8 +146,8 @@ private:
     /** Flags. */
     std::int32_t m_flags{0};
 
-    /** Schema version. */
-    std::optional<std::int32_t> m_version{};
+    /** Extras. */
+    std::map<std::string, std::any> m_extras;
 };
 
 } // namespace ignite

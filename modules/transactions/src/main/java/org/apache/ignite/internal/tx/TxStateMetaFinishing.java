@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxStateMetaFinishingMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,6 +59,23 @@ public class TxStateMetaFinishing extends TxStateMeta {
     @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         throw new UnsupportedOperationException("Can't get commit timestamp from FINISHING transaction state meta.");
+    }
+
+    @Override
+    public TxStateMetaFinishingMessage toTransactionMetaMessage(
+            ReplicaMessagesFactory replicaMessagesFactory,
+            TxMessagesFactory txMessagesFactory
+    ) {
+        TablePartitionId commitPartitionId = commitPartitionId();
+
+        return txMessagesFactory.txStateMetaFinishingMessage()
+                .txState(txState())
+                .txCoordinatorId(txCoordinatorId())
+                .commitPartitionId(commitPartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, commitPartitionId))
+                .commitTimestamp(commitTimestamp())
+                .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
+                .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
+                .build();
     }
 
     @Override

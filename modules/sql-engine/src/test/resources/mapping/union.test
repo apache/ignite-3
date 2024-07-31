@@ -37,14 +37,25 @@ Fragment#0 root
 Fragment#1
   targetNodes: [N1]
   executionNodes: [N1]
-  tables: [T1_N1, T2_N1]
+  remoteFragments: [2]
+  exchangeSourceNodes: {2=[N1]}
+  tables: [T2_N1]
   partitions: {N1=[0:1]}
   tree:
     Sender(targetFragment=0, exchange=1, distribution=single)
       ColocatedHashAggregate
         UnionAll
-          TableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
+          Receiver(sourceFragment=2, exchange=2, distribution=affinity[table: T2_N1, columns: [ID]])
           TableScan(name=PUBLIC.T2_N1, source=3, partitions=1, distribution=affinity[table: T2_N1, columns: [ID]])
+
+Fragment#2
+  targetNodes: [N1]
+  executionNodes: [N1]
+  tables: [T1_N1]
+  partitions: {N1=[0:1]}
+  tree:
+    Sender(targetFragment=1, exchange=2, distribution=affinity[table: T2_N1, columns: [ID]])
+      TableScan(name=PUBLIC.T1_N1, source=4, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
 ---
 
 N1
@@ -86,12 +97,23 @@ Fragment#0 root
 Fragment#1
   targetNodes: [N1]
   executionNodes: [N1, N2]
-  tables: [T1_N1N2, T2_N1N2]
+  remoteFragments: [2]
+  exchangeSourceNodes: {2=[N1, N2]}
+  tables: [T2_N1N2]
   partitions: {N1=[0:2], N2=[1:2]}
   tree:
     Sender(targetFragment=0, exchange=1, distribution=single)
       ColocatedHashAggregate
         UnionAll
-          TableScan(name=PUBLIC.T1_N1N2, source=2, partitions=2, distribution=affinity[table: T1_N1N2, columns: [ID]])
+          Receiver(sourceFragment=2, exchange=2, distribution=affinity[table: T2_N1N2, columns: [ID]])
           TableScan(name=PUBLIC.T2_N1N2, source=3, partitions=2, distribution=affinity[table: T2_N1N2, columns: [ID]])
+
+Fragment#2
+  targetNodes: [N1, N2]
+  executionNodes: [N1, N2]
+  tables: [T1_N1N2]
+  partitions: {N1=[0:2], N2=[1:2]}
+  tree:
+    Sender(targetFragment=1, exchange=2, distribution=affinity[table: T2_N1N2, columns: [ID]])
+      TableScan(name=PUBLIC.T1_N1N2, source=4, partitions=2, distribution=affinity[table: T1_N1N2, columns: [ID]])
 ---

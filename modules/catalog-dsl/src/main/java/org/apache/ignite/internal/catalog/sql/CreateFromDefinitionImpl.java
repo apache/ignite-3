@@ -25,8 +25,6 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.Options;
-import org.apache.ignite.catalog.Query;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.IndexDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
@@ -34,18 +32,29 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.IgniteSql;
 
-class CreateFromDefinitionImpl extends AbstractCatalogQuery {
+class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
     private CreateZoneImpl createZone;
+
+    private String zoneName;
 
     private CreateTableImpl createTable;
 
-    CreateFromDefinitionImpl(IgniteSql sql, Options options) {
-        super(sql, options);
+    private String tableName;
+
+    CreateFromDefinitionImpl(IgniteSql sql) {
+        super(sql);
     }
 
-    Query from(ZoneDefinition def) {
-        createZone = new CreateZoneImpl(sql, options);
-        createZone.name(def.zoneName());
+    @Override
+    protected TableZoneId result() {
+        return new TableZoneId(tableName, zoneName);
+    }
+
+    CreateFromDefinitionImpl from(ZoneDefinition def) {
+        createZone = new CreateZoneImpl(sql);
+        String zoneName = def.zoneName();
+        this.zoneName = zoneName;
+        createZone.name(zoneName);
         createZone.storageProfiles(def.storageProfiles());
         if (def.ifNotExists()) {
             createZone.ifNotExists();
@@ -78,9 +87,11 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery {
         return this;
     }
 
-    Query from(TableDefinition def) {
-        createTable = new CreateTableImpl(sql, options);
-        createTable.name(def.schemaName(), def.tableName());
+    CreateFromDefinitionImpl from(TableDefinition def) {
+        createTable = new CreateTableImpl(sql);
+        String tableName = def.tableName();
+        this.tableName = tableName;
+        createTable.name(def.schemaName(), tableName);
         if (def.ifNotExists()) {
             createTable.ifNotExists();
         }

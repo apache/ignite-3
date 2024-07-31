@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
@@ -76,6 +77,7 @@ import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -187,7 +189,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         addCatalogZoneEventListeners();
 
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
@@ -597,6 +599,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsOfDifferentTimersValue")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22833")
     void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) {
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -1607,7 +1610,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             byte[] zoneDataNodes = zoneDataNodesKey().bytes();
 
-            return iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), zoneDataNodes));
+            return iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(toByteArray(op.key()), zoneDataNodes));
         }));
     }
 }

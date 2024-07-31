@@ -51,7 +51,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -71,7 +71,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     private JdbcMetadataCatalog catalog;
 
     @Mock
-    private IgniteTransactions igniteTransactions;
+    private IgniteTransactionsImpl igniteTransactions;
 
     private ClientResourceRegistry resourceRegistry;
 
@@ -107,7 +107,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_FAILED));
-        assertThat(result.hasResults(), is(false));
+        assertThat(result.success(), is(false));
         assertThat(result.err(), containsString("Unable to connect"));
     }
 
@@ -126,7 +126,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         });
 
         CompletableFuture<JdbcBatchExecuteResult> fut = IgniteTestUtils.runAsync(() ->
-                eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("x", List.of("QUERY"), false)).get()
+                eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("x", List.of("QUERY"), false, 0)).get()
         );
 
         assertThat(registryCloseLatch.await(timeout, TimeUnit.SECONDS), is(true));
@@ -137,7 +137,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         JdbcBatchExecuteResult res = fut.get();
 
         assertThat(res.status(), is(STATUS_FAILED));
-        assertThat(res.hasResults(), is(false));
+        assertThat(res.success(), is(false));
         assertThat(res.err(), containsString("Connection is closed"));
     }
 
@@ -150,7 +150,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         long connectionId = acquireConnectionId();
 
-        await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1"), false)));
+        await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1"), false, 0)));
 
         verify(igniteTransactions).begin();
         verify(tx, times(0)).rollbackAsync();
@@ -176,24 +176,25 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         String schema = "schema";
         JdbcStatementType type = JdbcStatementType.SELECT_STATEMENT_TYPE;
 
-        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 1", null, false, false)));
+        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 1", null, false, false, 0)));
         verify(igniteTransactions, times(1)).begin();
-        await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1", "UPDATE 2"), false)));
+        await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1", "UPDATE 2"), false, 0)));
         verify(igniteTransactions, times(1)).begin();
 
         await(eventHandler.finishTxAsync(connectionId, false));
         verify(tx).rollbackAsync();
 
-        await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1", "UPDATE 2"), false)));
+        await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 1", "UPDATE 2"), false, 0)));
         verify(igniteTransactions, times(2)).begin();
-        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 2", null, false, false)));
+        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(type, schema, 1024, 1, "SELECT 2", null, false, false, 0)));
         verify(igniteTransactions, times(2)).begin();
-        await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 3", "UPDATE 4"), false)));
+        await(eventHandler.batchAsync(connectionId, new JdbcBatchExecuteRequest("schema", List.of("UPDATE 3", "UPDATE 4"), false, 0)));
         verify(igniteTransactions, times(2)).begin();
 
         await(eventHandler.finishTxAsync(connectionId, true));
         verify(tx).commitAsync();
 
+        verify(igniteTransactions, times(5)).observableTimestampTracker();
         verifyNoMoreInteractions(igniteTransactions);
         verify(queryProcessor, times(5)).queryAsync(any(), any(), any(), any(), any(Object[].class));
     }
@@ -203,7 +204,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_SUCCESS));
-        assertThat(result.hasResults(), is(true));
+        assertThat(result.success(), is(true));
 
         return result.connectionId();
     }

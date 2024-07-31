@@ -23,12 +23,14 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -58,6 +60,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -65,14 +68,13 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -529,7 +531,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         ErrorTimestampAwareReplicaResponse errorResponse = (ErrorTimestampAwareReplicaResponse) response;
 
-        assertInstanceOf(MismatchingTransactionOutcomeException.class, ExceptionUtils.unwrapCause(errorResponse.throwable()));
+        assertInstanceOf(MismatchingTransactionOutcomeInternalException.class, ExceptionUtils.unwrapCause(errorResponse.throwable()));
 
         assertEquals(TxState.ABORTED, txStoredState(commitPartNode, orphanTx.id()));
     }
@@ -645,7 +647,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 rwTx1Id
         );
 
-        assertThat(finish2, willThrow(MismatchingTransactionOutcomeException.class));
+        assertThat(finish2, willThrow(MismatchingTransactionOutcomeInternalException.class));
     }
 
     @Test
@@ -789,7 +791,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         cancelLease(commitPartNode, tblReplicationGrp);
 
-        assertThat(commitFut, willThrow(MismatchingTransactionOutcomeException.class, 30, SECONDS));
+        TransactionException txEx = assertWillThrow(commitFut, TransactionException.class, 30, SECONDS);
+        assertThat(txEx.getCause(), instanceOf(MismatchingTransactionOutcomeInternalException.class));
 
         RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
 

@@ -28,9 +28,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Named;
@@ -226,7 +226,7 @@ public class ItRecordViewKeyPositionsTest extends BaseSqlIntegrationTest {
 
         @Override
         Tuple toValue(Tuple record) {
-            return Tuple.create(record);
+            return Tuple.copy(record);
         }
     }
 

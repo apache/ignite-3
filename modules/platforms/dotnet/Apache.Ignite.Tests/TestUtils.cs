@@ -24,8 +24,12 @@ namespace Apache.Ignite.Tests
     using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Threading.Tasks;
+    using Ignite.Transactions;
+    using Internal;
     using Internal.Buffers;
     using Internal.Common;
+    using Internal.Proto;
+    using Internal.Transactions;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 
@@ -77,6 +81,9 @@ namespace Apache.Ignite.Tests
         public static void SetFieldValue(this object obj, string fieldName, object? value) =>
             GetNonPublicField(obj, fieldName).SetValue(obj, value);
 
+        public static bool IsRecordClass(this Type type) =>
+            type.GetMethods().Any(m => m.Name == "<Clone>$" && m.ReturnType == type);
+
         public static ILoggerFactory GetConsoleLoggerFactory(LogLevel minLevel) => new ConsoleLogger(minLevel);
 
         public static void CheckByteArrayPoolLeak(int timeoutMs = 1000)
@@ -95,6 +102,12 @@ namespace Apache.Ignite.Tests
                 });
 #endif
         }
+
+        internal static async Task ForceLazyTxStart(ITransaction tx, IIgnite client, PreferredNode preferredNode = default) =>
+            await LazyTransaction.EnsureStartedAsync(
+                tx,
+                ((IgniteClientInternal)client).Socket,
+                preferredNode);
 
         private static FieldInfo GetNonPublicField(object obj, string fieldName)
         {

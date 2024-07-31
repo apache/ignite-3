@@ -64,6 +64,9 @@ public enum TxState {
             { false,  false,  true,  true,  true,  true }
     };
 
+    /** Cached array with all enum values. */
+    private static final TxState[] VALUES = values();
+
     /**
      * Checks whether the state is final, i.e. no transition from this state is allowed.
      *
@@ -88,5 +91,19 @@ public enum TxState {
         int afterOrd = after.ordinal() + 1;
 
         return TRANSITION_MATRIX[beforeOrd][afterOrd];
+    }
+
+    /**
+     * Returns the enumerated value from its ordinal.
+     *
+     * @param ordinal Ordinal of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     */
+    public static TxState fromOrdinal(int ordinal) throws IllegalArgumentException {
+        if (ordinal < 0 || ordinal >= VALUES.length) {
+            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+        }
+
+        return VALUES[ordinal];
     }
 }

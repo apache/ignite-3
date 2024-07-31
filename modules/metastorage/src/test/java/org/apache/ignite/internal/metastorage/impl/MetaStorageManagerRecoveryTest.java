@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -37,19 +38,22 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NodeMetadata;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -62,6 +66,9 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
 
     private MetaStorageManagerImpl metaStorageManager;
 
@@ -86,7 +93,10 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
                 kvs,
                 clock,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                metaStorageConfiguration
+                new NoOpMetricManager(),
+                metaStorageConfiguration,
+                raftConfiguration.retryTimeout(),
+                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
         );
     }
 
@@ -136,13 +146,13 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<Void> startAsync() {
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return nullCompletedFuture();
             }
         };
     }
 
-    private ClusterManagementGroupManager clusterManagementManager() {
+    private static ClusterManagementGroupManager clusterManagementManager() {
         ClusterManagementGroupManager mock = mock(ClusterManagementGroupManager.class);
 
         when(mock.metaStorageNodes())
@@ -157,7 +167,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         createMetaStorage(targetRevision);
 
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 
@@ -175,7 +185,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     void testRecoverClean() throws Exception {
         createMetaStorage(0);
 
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 

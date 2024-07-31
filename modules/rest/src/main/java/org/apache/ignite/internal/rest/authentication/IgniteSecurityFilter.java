@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.authentication;
 
 import io.micronaut.context.annotation.Replaces;
+import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.MutableHttpResponse;
 import io.micronaut.http.annotation.Filter;
@@ -28,6 +29,7 @@ import io.micronaut.security.filters.AuthenticationFetcher;
 import io.micronaut.security.filters.SecurityFilter;
 import io.micronaut.security.rules.SecurityRule;
 import java.util.Collection;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.reactivestreams.Publisher;
 
 /**
@@ -35,10 +37,11 @@ import org.reactivestreams.Publisher;
  */
 @Replaces(SecurityFilter.class)
 @Filter(Filter.MATCH_ALL_PATTERN)
-public class IgniteSecurityFilter implements HttpServerFilter {
+@Requires(property = "micronaut.security.enabled", value = "true", defaultValue = "true")
+public class IgniteSecurityFilter implements HttpServerFilter, ResourceHolder {
     private final SecurityFilter securityFilter;
 
-    private final IgniteAuthenticationProvider igniteAuthenticationProvider;
+    private IgniteAuthenticationProvider igniteAuthenticationProvider;
 
     /**
      * Constructor.
@@ -70,5 +73,10 @@ public class IgniteSecurityFilter implements HttpServerFilter {
     @Override
     public int getOrder() {
         return securityFilter.getOrder();
+    }
+
+    @Override
+    public void cleanResources() {
+        igniteAuthenticationProvider = null;
     }
 }

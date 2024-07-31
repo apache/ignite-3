@@ -69,7 +69,16 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataRequest;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse.ResponseEntry;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDataRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -81,7 +90,6 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -92,25 +100,20 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAcces
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxMetaMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -139,9 +142,13 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private static final HybridClock CLOCK = new HybridClockImpl();
 
-    private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory TABLE_MSG_FACTORY = new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
+
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
@@ -278,7 +285,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
             assertEquals(snapshotId, snapshotTxDataRequest.id());
 
-            List<TxMeta> txMetas = txIds.stream().map(outgoingTxStatePartitionStorage::get).collect(toList());
+            List<TxMetaMessage> txMetas = txIds.stream()
+                    .map(outgoingTxStatePartitionStorage::get)
+                    .map(txMeta -> txMeta.toTransactionMetaMessage(REPLICA_MESSAGES_FACTORY, TX_MESSAGES_FACTORY))
+                    .collect(toList());
 
             return completedFuture(TABLE_MSG_FACTORY.snapshotTxDataResponse().txIds(txIds).txMeta(txMetas).finish(true).build());
         });
@@ -392,7 +402,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.put(txIds.get(i), new TxMeta(txState,  List.of(new TablePartitionId(tableId, PARTITION_ID)), CLOCK.now()));
+            storage.putForRebalance(txIds.get(i), new TxMeta(txState,  List.of(new TablePartitionId(tableId, PARTITION_ID)), CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);

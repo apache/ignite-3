@@ -24,14 +24,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
@@ -44,6 +41,7 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
@@ -51,6 +49,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -141,6 +140,11 @@ public class TableImpl implements TableViewInternal {
         return tbl;
     }
 
+    @Override
+    public PartitionManager partitionManager() {
+        return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
+    }
+
     @Override public String name() {
         return tbl.name();
     }
@@ -166,7 +170,7 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<R>(tbl, schemaReg, schemaVersions, sql, marshallers, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, sql, marshallers, recMapper);
     }
 
     @Override
@@ -188,15 +192,11 @@ public class TableImpl implements TableViewInternal {
     public int partition(Tuple key) {
         Objects.requireNonNull(key);
 
-        try {
-            // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
-            // columns never change (so they are the same for all schema versions of the table),
-            Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
+        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+        // columns never change (so they are the same for all schema versions of the table),
+        Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
-            return tbl.partition(keyRow);
-        } catch (TupleMarshallerException e) {
-            throw new IgniteInternalException(e);
-        }
+        return tbl.partition(keyRow);
     }
 
     @Override
@@ -204,13 +204,8 @@ public class TableImpl implements TableViewInternal {
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
 
-        BinaryRowEx keyRow;
         var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, keyMapper, keyMapper);
-        try {
-            keyRow = marshaller.marshal(key);
-        } catch (MarshallerException e) {
-            throw new IgniteInternalException("Cannot marshal key", e);
-        }
+        BinaryRowEx keyRow = marshaller.marshal(key);
 
         return tbl.partition(keyRow);
     }

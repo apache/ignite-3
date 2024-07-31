@@ -43,8 +43,10 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -57,13 +59,14 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
  */
-@SuppressWarnings("resource")
+@ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
+public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractTest {
     /** Test default table name. */
     protected static final String DEFAULT_TABLE_NAME = "person";
 
@@ -71,17 +74,15 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
             + "  storage.profiles: {"
             + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n"
-            + "  clientConnector: { port:{} },\n"
+            + "  clientConnector.port: {},\n"
             + "  rest.port: {},\n"
             + "  compute.threadPoolSize: 1\n"
             + "}";

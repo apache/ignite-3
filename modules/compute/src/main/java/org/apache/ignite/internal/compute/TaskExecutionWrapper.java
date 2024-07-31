@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.compute.ComputeUtils.convertToComputeFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.TaskState;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,16 +32,35 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-class TaskExecutionWrapper<R> extends JobExecutionWrapper<R> implements TaskExecution<R> {
+class TaskExecutionWrapper<R> implements TaskExecution<R> {
     private final TaskExecution<R> delegate;
 
     TaskExecutionWrapper(TaskExecution<R> delegate) {
-        super(delegate);
         this.delegate = delegate;
     }
 
     @Override
-    public CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
-        return convertToPublicFuture(delegate.statusesAsync());
+    public CompletableFuture<List<@Nullable JobState>> statesAsync() {
+        return convertToPublicFuture(delegate.statesAsync());
+    }
+
+    @Override
+    public CompletableFuture<R> resultAsync() {
+        return convertToComputeFuture(delegate.resultAsync());
+    }
+
+    @Override
+    public CompletableFuture<@Nullable TaskState> stateAsync() {
+        return convertToPublicFuture(delegate.stateAsync());
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> cancelAsync() {
+        return convertToPublicFuture(delegate.cancelAsync());
+    }
+
+    @Override
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+        return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
     }
 }

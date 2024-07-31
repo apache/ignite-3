@@ -17,22 +17,27 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -116,6 +121,29 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key),
+                tx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<Tuple> keys) {
+        return sync(containsAllAsync(tx, keys));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
+        checkKeysForNulls(keys);
+
+        if (keys.isEmpty()) {
+            return trueCompletedFuture();
+        }
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                (s, w) -> ser.writeTuples(tx, keys, s, w, true),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()),
                 tx);
     }
 
@@ -403,7 +431,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items, deleted) -> tbl.doSchemaOutOpAsync(
+        StreamerBatchSender<Tuple, Integer, Void> batchSender = (partitionId, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
                 (s, w) -> ser.writeStreamerTuples(partitionId, items, deleted, s, w),
                 r -> null,
@@ -412,5 +440,36 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 null);
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <E, V, R, A> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            Function<E, Tuple> keyFunc,
+            Function<E, V> payloadFunc,
+            ReceiverDescriptor<A> receiver,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            @Nullable DataStreamerOptions options,
+            A receiverArg) {
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(receiver);
+
+        return ClientDataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options == null ? DataStreamerOptions.DEFAULT : options,
+                new TupleStreamerPartitionAwarenessProvider(tbl),
+                tbl,
+                resultSubscriber,
+                receiver.units(),
+                receiver.receiverClassName(),
+                receiverArg,
+                receiver.argumentMarshaller()
+        );
     }
 }

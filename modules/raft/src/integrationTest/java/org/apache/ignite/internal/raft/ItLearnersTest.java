@@ -52,7 +52,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -110,7 +110,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             Path raftDir = workDir.resolve(clusterService.nodeName());
 
-            loza = new Loza(clusterService, new NoOpMetricManager(), raftConfiguration, raftDir, new HybridClockImpl());
+            loza = TestLozaFactory.create(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
         }
 
         String consistentId() {
@@ -122,17 +122,20 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(clusterService, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, loza), willCompleteSuccessfully());
         }
 
         @Override
         public void close() throws Exception {
+            ComponentContext componentContext = new ComponentContext();
+
             closeAll(
                     loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
                     loza == null ? null : loza::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
-                    loza == null ? null : () -> assertThat(loza.stopAsync(), willCompleteSuccessfully()),
-                    clusterService == null ? null : () -> assertThat(clusterService.stopAsync(), willCompleteSuccessfully())
+                    loza == null ? null : () -> assertThat(loza.stopAsync(componentContext), willCompleteSuccessfully()),
+                    clusterService == null ? null :
+                            () -> assertThat(clusterService.stopAsync(componentContext), willCompleteSuccessfully())
             );
         }
     }

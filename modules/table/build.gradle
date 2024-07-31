@@ -23,7 +23,6 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-api')
@@ -47,6 +46,9 @@ dependencies {
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-workers')
     implementation project(':ignite-low-watermark')
+    implementation project(':ignite-system-view-api')
+    implementation project(':ignite-metrics')
+    implementation project(':ignite-partition-replicator')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -62,6 +64,7 @@ dependencies {
     testImplementation project(':ignite-page-memory')
     testImplementation project(':ignite-storage-rocksdb')
     testImplementation project(':ignite-placement-driver-api')
+    testImplementation project(':ignite-placement-driver')
     testImplementation project(':ignite-system-view-api')
     testImplementation project(':ignite-failure-handler')
     testImplementation(testFixtures(project(':ignite-api')))
@@ -72,6 +75,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-marshaller-common')))
+    testImplementation(testFixtures(project(':ignite-network-api')))
     testImplementation(testFixtures(project(':ignite-network')))
     testImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testImplementation(testFixtures(project(':ignite-distribution-zones')))
@@ -99,17 +103,19 @@ dependencies {
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-affinity')
     testFixturesImplementation project(':ignite-configuration-api')
+    testFixturesImplementation project(':ignite-partition-replicator')
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
-    testFixturesImplementation(testFixtures(project(':ignite-api')))
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
     testFixturesImplementation(testFixtures(project(':ignite-transactions')))
     testFixturesImplementation(testFixtures(project(':ignite-cluster-management')))
+    testFixturesImplementation(testFixtures(project(':ignite-network-api')))
     testFixturesImplementation(testFixtures(project(':ignite-network')))
     testFixturesImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testFixturesImplementation(testFixtures(project(':ignite-low-watermark')))
     testFixturesImplementation(testFixtures(project(':ignite-failure-handler')))
     testFixturesImplementation(testFixtures(project(':ignite-metrics')))
+    testFixturesImplementation(testFixtures(project(':ignite-raft')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
@@ -139,12 +145,15 @@ dependencies {
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-system-view')
+    integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation(testFixtures(project))
-    integrationTestImplementation(testFixtures(project(':ignite-api')))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
+    integrationTestImplementation(testFixtures(project(':ignite-network-api')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
     integrationTestImplementation(testFixtures(project(':ignite-raft')))
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
@@ -157,6 +166,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-low-watermark')))
     integrationTestImplementation(testFixtures(project(':ignite-failure-handler')))
     integrationTestImplementation(testFixtures(project(':ignite-metrics')))
+    integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core

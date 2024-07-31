@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
 
+import it.unimi.dsi.fastutil.ints.Int2LongFunction;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -41,12 +42,7 @@ class PartitionedTarget extends AbstractTarget {
     }
 
     @Override
-    boolean finalised() {
-        return finalised;
-    }
-
-    @Override
-    public ExecutionTarget finalise() {
+    ExecutionTarget finalise() {
         if (finalised) {
             return this;
         }
@@ -65,6 +61,56 @@ class PartitionedTarget extends AbstractTarget {
         assert other instanceof AbstractTarget : other == null ? "<null>" : other.getClass().getCanonicalName();
 
         return ((AbstractTarget) other).colocate(this);
+    }
+
+    @Override
+    public ExecutionTarget trimTo(ExecutionTarget other) {
+        assert other instanceof AbstractTarget : other == null ? "<null>" : other.getClass().getCanonicalName();
+
+        if (finalised) {
+            return this;
+        }
+
+        long[] newPartitionsNodes = new long[partitionsNodes.length];
+        boolean changed = false;
+        Int2LongFunction partitionNodesResolver = partitionNodeResolver(other);
+
+        for (int i = 0; i < partitionsNodes.length; i++) {
+            long newNodes = partitionsNodes[i] & partitionNodesResolver.get(i);
+
+            if (newNodes == 0) {
+                newNodes = partitionsNodes[i];
+            }
+
+            if (newNodes != partitionsNodes[i]) {
+                changed = true;
+            }
+
+            newPartitionsNodes[i] = newNodes;
+        }
+
+        if (changed) {
+            return new PartitionedTarget(false, newPartitionsNodes, enlistmentConsistencyTokens);
+        }
+
+        return this;
+    }
+
+    private Int2LongFunction partitionNodeResolver(ExecutionTarget other) {
+        Int2LongFunction partitionNodesResolver;
+
+        if (other instanceof PartitionedTarget 
+                && ((PartitionedTarget) other).partitionsNodes.length == partitionsNodes.length) {
+            PartitionedTarget otherPartitioned = (PartitionedTarget) other;
+
+            partitionNodesResolver = partId -> otherPartitioned.partitionsNodes[partId];
+        } else {
+            long otherNodes = ((AbstractTarget) other).nodes;
+
+            partitionNodesResolver = partId -> otherNodes;
+        }
+
+        return partitionNodesResolver;
     }
 
     @Override

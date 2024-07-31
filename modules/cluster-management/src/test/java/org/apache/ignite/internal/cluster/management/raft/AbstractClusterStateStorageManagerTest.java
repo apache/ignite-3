@@ -34,6 +34,7 @@ import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -43,10 +44,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Tests for {@link RaftStorageManager}.
+ * Tests for {@link ClusterStateStorageManager}.
  */
 public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstractTest {
-    private RaftStorageManager storageManager;
+    private ClusterStateStorageManager storageManager;
 
     private ClusterStateStorage storage;
 
@@ -58,14 +59,14 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
     void setUp(TestInfo testInfo) {
         storage = clusterStateStorage(testNodeName(testInfo, 0));
 
-        assertThat(storage.startAsync(), willCompleteSuccessfully());
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        storageManager = new RaftStorageManager(storage);
+        storageManager = new ClusterStateStorageManager(storage);
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

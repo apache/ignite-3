@@ -17,17 +17,20 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** A compute job without default constructor. */
-public class NonEmptyConstructorJob implements ComputeJob<String> {
+public class NonEmptyConstructorJob implements ComputeJob<Void, String> {
     private NonEmptyConstructorJob(String s) {
     }
 
     /** {@inheritDoc} */
     @Override
-    public String execute(JobExecutionContext context, Object... args) {
-        return "";
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
+        return completedFuture("");
     }
 }

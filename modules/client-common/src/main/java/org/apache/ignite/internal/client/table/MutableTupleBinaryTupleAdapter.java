@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -56,7 +57,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
      */
     public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int columnCount, @Nullable BitSet noValueSet) {
         assert binaryTuple != null : "binaryTuple != null";
-        assert columnCount > 0 : "columnCount > 0";
 
         this.binaryTuple = binaryTuple;
         this.columnCount = columnCount;
@@ -372,7 +372,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     @Override
     public Tuple set(String columnName, @Nullable Object value) {
         if (tuple == null) {
-            tuple = Tuple.create(this);
+            tuple = Tuple.copy(this);
 
             //noinspection DataFlowIssue
             binaryTuple = null;
@@ -482,7 +482,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     private String schemaColumnName0(int publicIndex) {
         Objects.checkIndex(publicIndex, columnCount);
 
-        return schemaColumnName(binaryTupleIndex(publicIndex));
+        return IgniteNameUtils.quoteIfNeeded(schemaColumnName(binaryTupleIndex(publicIndex)));
     }
 
     private @Nullable Object object(int binaryTupleIndex) {
@@ -532,9 +532,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             case UUID:
                 return binaryTuple.uuidValue(binaryTupleIndex);
 
-            case BITMASK:
-                return binaryTuple.bitmaskValue(binaryTupleIndex);
-
             case STRING:
                 return binaryTuple.stringValue(binaryTupleIndex);
 
@@ -546,9 +543,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
             case DURATION:
                 return binaryTuple.durationValue(binaryTupleIndex);
-
-            case NUMBER:
-                return binaryTuple.numberValue(binaryTupleIndex);
 
             default:
                 throw new IllegalStateException("Unsupported type: " + type);

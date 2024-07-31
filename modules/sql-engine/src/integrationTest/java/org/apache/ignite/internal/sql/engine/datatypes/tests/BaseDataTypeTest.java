@@ -115,7 +115,9 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends BaseSqlI
 
         IgniteImpl node = CLUSTER.aliveNode();
 
-        return queryCheckerFactory.create(node.name(), node.queryEngine(), node.transactions(), this::validateMetadata, queryTemplate);
+        return queryCheckerFactory.create(
+                node.name(), node.queryEngine(), node.observableTimeTracker(), this::validateMetadata, queryTemplate
+        );
     }
 
     private void validateMetadata(ResultSetMetadata metadata) {

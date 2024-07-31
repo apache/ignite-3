@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -55,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -83,11 +83,13 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -96,9 +98,11 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -114,13 +118,14 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -157,7 +162,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -247,7 +251,6 @@ public class ItTxTestCluster {
     protected String localNodeName;
 
     private final ClusterNodeResolver nodeResolver = new ClusterNodeResolver() {
-
         @Override
         public @Nullable ClusterNode getById(String id) {
             for (ClusterService service : cluster) {
@@ -384,40 +387,56 @@ public class ItTxTestCluster {
             HybridClock clock = new HybridClockImpl();
             TestClockService clockService = new TestClockService(clock);
 
-            clocks.put(node.name(), clock);
-            clockServices.put(node.name(), clockService);
+            String nodeName = node.name();
 
-            var raftSrv = new Loza(
+            clocks.put(nodeName, clock);
+            clockServices.put(nodeName, clockService);
+
+            var raftSrv = TestLozaFactory.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfig,
                     workDir.resolve("node" + i),
                     clock
             );
 
-            assertThat(raftSrv.startAsync(), willCompleteSuccessfully());
+            assertThat(raftSrv.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            raftServers.put(node.name(), raftSrv);
+            raftServers.put(nodeName, raftSrv);
 
             var cmgManager = mock(ClusterManagementGroupManager.class);
 
             // This test is run without Meta storage.
             when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
+            var commandMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
+
+            var raftClientFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService(clusterService),
+                    Loza.FACTORY,
+                    new RaftGroupEventsClientListener()
+            );
+
             ReplicaManager replicaMgr = new ReplicaManager(
-                    node.name(),
+                    nodeName,
                     clusterService,
                     cmgManager,
                     clockService,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     partitionOperationsExecutor,
-                    new NoOpFailureProcessor()
+                    () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                    new NoOpFailureProcessor(),
+                    commandMarshaller,
+                    raftClientFactory,
+                    raftSrv,
+                    new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
+                    ForkJoinPool.commonPool()
             );
 
-            assertThat(replicaMgr.startAsync(), willCompleteSuccessfully());
+            assertThat(replicaMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            replicaManagers.put(node.name(), replicaMgr);
+            replicaManagers.put(nodeName, replicaMgr);
 
             LOG.info("Replica manager has been started, node=[" + node + ']');
 
@@ -425,18 +444,19 @@ public class ItTxTestCluster {
                     clusterService.messagingService(),
                     clock,
                     partitionOperationsExecutor,
-                    replicationConfiguration
+                    replicationConfiguration,
+                    executor
             ));
 
-            replicaServices.put(node.name(), replicaSvc);
+            replicaServices.put(nodeName, replicaSvc);
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
             TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
-            txInflights.put(node.name(), transactionInflights);
+            txInflights.put(nodeName, transactionInflights);
 
-            cursorRegistries.put(node.name(), resourcesRegistry);
+            cursorRegistries.put(nodeName, resourcesRegistry);
 
             TxManagerImpl txMgr = newTxManager(
                     clusterService,
@@ -451,7 +471,7 @@ public class ItTxTestCluster {
             );
 
             ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
-                    node.name(),
+                    nodeName,
                     resourcesRegistry,
                     clusterService.topologyService(),
                     clusterService.messagingService(),
@@ -459,13 +479,13 @@ public class ItTxTestCluster {
                     txMgr
             );
 
-            assertThat(txMgr.startAsync(), willCompleteSuccessfully());
-            txManagers.put(node.name(), txMgr);
+            assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            txManagers.put(nodeName, txMgr);
 
-            assertThat(resourceVacuumManager.startAsync(), willCompleteSuccessfully());
-            resourceCleanupManagers.put(node.name(), resourceVacuumManager);
+            assertThat(resourceVacuumManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            resourceCleanupManagers.put(nodeName, resourceVacuumManager);
 
-            txStateStorages.put(node.name(), new TestTxStateStorage());
+            txStateStorages.put(nodeName, new TestTxStateStorage());
         }
 
         LOG.info("Raft servers have been started");
@@ -650,7 +670,8 @@ public class ItTxTestCluster {
                         storageIndexTracker,
                         catalogService,
                         schemaManager,
-                        clockServices.get(assignment)
+                        clockServices.get(assignment),
+                        mock(IndexMetaStorage.class)
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
@@ -661,7 +682,6 @@ public class ItTxTestCluster {
                         topologyAwareRaftGroupServiceFactory
                 ).thenAccept(
                         raftSvc -> {
-                            try {
                                 PartitionReplicaListener listener = newReplicaListener(
                                         mvPartStorage,
                                         raftSvc,
@@ -689,13 +709,9 @@ public class ItTxTestCluster {
 
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tableId, partId),
-                                        listener,
-                                        raftSvc,
-                                        storageIndexTracker
+                                        storageIndexTracker,
+                                        completedFuture(listener)
                                 );
-                            } catch (NodeStoppingException e) {
-                                fail("Unexpected node stopping", e);
-                            }
                         }
                 );
 
@@ -756,7 +772,8 @@ public class ItTxTestCluster {
                         clientTransactionInflights,
                         500,
                         0,
-                        null
+                        null,
+                        mock(StreamerReceiverRunner.class)
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
@@ -813,7 +830,8 @@ public class ItTxTestCluster {
                 placementDriver,
                 clusterNodeResolver,
                 resourcesRegistry,
-                schemaRegistry
+                schemaRegistry,
+                mock(IndexMetaStorage.class)
         );
     }
 
@@ -877,10 +895,10 @@ public class ItTxTestCluster {
      *
      */
     public void shutdownCluster() {
-        assertThat(stopAsync(cluster), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());
 
         if (client != null) {
-            assertThat(client.stopAsync(), willCompleteSuccessfully());
+            assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         if (executor != null) {
@@ -917,29 +935,29 @@ public class ItTxTestCluster {
                     }
                 });
 
-                assertThat(replicaMgr.stopAsync(), willCompleteSuccessfully());
-                assertThat(rs.stopAsync(), willCompleteSuccessfully());
+                assertThat(replicaMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(rs.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
 
         if (resourceCleanupManagers != null) {
             for (ResourceVacuumManager resourceVacuumManager : resourceCleanupManagers.values()) {
-                assertThat(resourceVacuumManager.stopAsync(), willCompleteSuccessfully());
+                assertThat(resourceVacuumManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
 
         if (clientResourceVacuumManager != null) {
-            assertThat(clientResourceVacuumManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(clientResourceVacuumManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         if (txManagers != null) {
             for (TxManager txMgr : txManagers.values()) {
-                assertThat(txMgr.stopAsync(), willCompleteSuccessfully());
+                assertThat(txMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
 
         if (clientTxManager != null) {
-            assertThat(clientTxManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(clientTxManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         for (Map.Entry<String, List<RaftGroupService>> e : raftClients.entrySet()) {
@@ -961,7 +979,7 @@ public class ItTxTestCluster {
             NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        assertThat(network.startAsync(), willCompleteSuccessfully());
+        assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return network;
     }
@@ -981,7 +999,8 @@ public class ItTxTestCluster {
                 client.messagingService(),
                 clientClock,
                 partitionOperationsExecutor,
-                replicationConfiguration
+                replicationConfiguration,
+                executor
         ));
 
         LOG.info("The client has been started");
@@ -1034,7 +1053,7 @@ public class ItTxTestCluster {
         );
 
         clientTxStateResolver.start();
-        assertThat(startAsync(clientTxManager, clientResourceVacuumManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), clientTxManager, clientResourceVacuumManager), willCompleteSuccessfully());
     }
 
     public Map<String, Loza> raftServers() {
@@ -1059,5 +1078,13 @@ public class ItTxTestCluster {
 
     public Map<String, HybridClock> clocks() {
         return clocks;
+    }
+
+    public HybridClock clientClock() {
+        return clientClock;
+    }
+
+    public Map<String, ReplicaManager> replicaManagers() {
+        return replicaManagers;
     }
 }

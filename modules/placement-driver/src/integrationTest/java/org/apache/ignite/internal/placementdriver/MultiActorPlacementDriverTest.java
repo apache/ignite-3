@@ -43,10 +43,12 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -67,6 +69,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -129,12 +132,12 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             if (!placementDriverNodeNames.contains(nodeName)) {
                 var service = clusterServices.get(nodeName);
 
-                assertThat(service.startAsync(), willCompleteSuccessfully());
+                assertThat(service.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 servicesToClose.add(() -> {
                     service.beforeNodeStop();
 
-                    assertThat(service.stopAsync(), willCompleteSuccessfully());
+                    assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
                 });
             }
         }
@@ -242,9 +245,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             HybridClock nodeClock = new HybridClockImpl();
 
-            var raftManager = new Loza(
+            var raftManager = TestLozaFactory.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     workDir.resolve(nodeName + "_loza"),
                     nodeClock,
@@ -252,6 +254,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             );
 
             var storage = new SimpleInMemoryKeyValueStorage(nodeName);
+
+            ClockService clockService = new TestClockService(nodeClock);
 
             var metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
@@ -261,7 +265,10 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     storage,
                     nodeClock,
                     topologyAwareRaftGroupServiceFactory,
-                    metaStorageConfiguration
+                    new NoOpMetricManager(),
+                    metaStorageConfiguration,
+                    raftConfiguration.retryTimeout(),
+                    completedFuture(clockService::maxClockSkewMillis)
             );
 
             if (this.metaStorageManager == null) {
@@ -277,7 +284,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    new TestClockService(nodeClock)
+                    clockService
             );
 
             res.add(new Node(nodeName, clusterService, raftManager, metaStorageManager, placementDriverManager));

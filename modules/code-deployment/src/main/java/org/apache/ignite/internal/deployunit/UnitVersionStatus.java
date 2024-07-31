@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 
 /**
  * Unit version and status.

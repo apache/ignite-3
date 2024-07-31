@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.LockByRowId;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,6 +55,9 @@ import org.jetbrains.annotations.Nullable;
 public class TestMvPartitionStorage implements MvPartitionStorage {
     /** Preserved {@link LocalLocker} instance to allow nested calls of {@link #runConsistently(WriteClosure)}. */
     private static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
+
+    private static final AtomicLongFieldUpdater<TestMvPartitionStorage> ESTIMATED_SIZE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(TestMvPartitionStorage.class, "estimatedSize");
 
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
@@ -67,11 +72,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
 
+    private volatile long estimatedSize;
+
     private volatile byte @Nullable [] groupConfig;
 
     final int partitionId;
 
     private volatile boolean closed;
+
     private volatile boolean destroyed;
 
     private volatile boolean rebalance;
@@ -92,12 +100,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     private static class VersionChain implements GcEntry {
-        final RowId rowId;
-        final @Nullable BinaryRow row;
-        final @Nullable HybridTimestamp ts;
-        final @Nullable UUID txId;
-        final @Nullable Integer commitTableId;
-        final int commitPartitionId;
+        private final RowId rowId;
+        private final @Nullable BinaryRow row;
+        private final @Nullable HybridTimestamp ts;
+        private final @Nullable UUID txId;
+        private final @Nullable Integer commitTableId;
+        private final int commitPartitionId;
         volatile @Nullable VersionChain next;
 
         VersionChain(
@@ -142,6 +150,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             assert ts != null : "Method should only be invoked for instances with non-null timestamps.";
 
             return ts;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(VersionChain.class, this);
         }
     }
 
@@ -307,27 +320,39 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {
         VersionChain nextChain = committedVersionChain.next;
 
+        boolean isNewValueTombstone = committedVersionChain.row == null;
+
         if (nextChain != null) {
-            // Avoid creating tombstones for tombstones.
-            if (committedVersionChain.row == null && nextChain.row == null) {
-                return nextChain;
+            boolean isOldValueTombstone = nextChain.row == null;
+
+            if (isOldValueTombstone) {
+                if (isNewValueTombstone) {
+                    // Avoid creating tombstones for tombstones.
+                    return nextChain;
+                }
+
+                ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
+            } else if (isNewValueTombstone) {
+                ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
             }
 
             // Calling it from the compute is fine. Concurrent writes of the same row are impossible, and if we call the compute closure
             // several times, the same tuple will be inserted into the GC queue (timestamp and rowId don't change in this case).
             gcQueue.add(committedVersionChain);
         } else {
-            if (committedVersionChain.row == null) {
+            if (isNewValueTombstone) {
                 // If there is only one version, and it is a tombstone, then remove the chain.
                 return null;
             }
+
+            ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
         }
 
         return committedVersionChain;
     }
 
     @Override
-    public ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp) {
+    public ReadResult read(RowId rowId, HybridTimestamp timestamp) {
         checkStorageClosedOrInProcessOfRebalance();
 
         if (rowId.partitionId() != partitionId) {
@@ -483,14 +508,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     throw new IllegalStateException();
                 }
 
-                // We don't check if row conforms the key filter here, because we've already checked it.
-                ReadResult read = read(currentChain, timestamp, null);
-
-                if (read.transactionId() == null) {
-                    return read.binaryRow();
-                }
-
-                return null;
+                return read(currentChain, timestamp, null).binaryRow();
             }
 
             @Override
@@ -615,14 +633,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public long rowsCount() {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        return map.size();
-    }
-
-    @Override
-    public void updateLease(long leaseStartTime) {
+    public synchronized void updateLease(long leaseStartTime) {
         checkStorageClosed();
 
         if (leaseStartTime <= this.leaseStartTime) {
@@ -637,6 +648,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         return leaseStartTime;
+    }
+
+    @Override
+    public long estimatedSize() {
+        checkStorageClosed();
+
+        return estimatedSize;
     }
 
     @Override
@@ -669,6 +687,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
+        estimatedSize = 0;
         groupConfig = null;
 
         leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
@@ -709,7 +728,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndex = REBALANCE_IN_PROGRESS;
         lastAppliedTerm = REBALANCE_IN_PROGRESS;
-
+        estimatedSize = 0;
         groupConfig = null;
     }
 
@@ -723,11 +742,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         rebalance = false;
 
         clear0();
-
-        lastAppliedIndex = 0;
-        lastAppliedTerm = 0;
-
-        groupConfig = null;
     }
 
     void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {

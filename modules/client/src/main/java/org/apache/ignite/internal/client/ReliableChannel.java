@@ -201,6 +201,29 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
+     * Gets active client channels.
+     *
+     * @return List of connected channels.
+     */
+    public List<ClientChannel> channels() {
+        List<ClientChannel> res = new ArrayList<>(channels.size());
+
+        for (var holder : nodeChannelsByName.values()) {
+            var chFut = holder.chFut;
+
+            if (chFut != null) {
+                ClientChannel ch = ClientFutureUtils.getNowSafe(chFut);
+
+                if (ch != null && !ch.closed()) {
+                    res.add(ch);
+                }
+            }
+        }
+
+        return res;
+    }
+
+    /**
      * Sends request and handles response asynchronously.
      *
      * @param opCode        Operation code.

@@ -48,6 +48,7 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.reflect.Field;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
@@ -56,7 +57,6 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithPrivateConstructor;
@@ -67,11 +67,12 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.testobjects.TestBitmaskObject;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ObjectFactory;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -159,8 +160,8 @@ public class RecordMarshallerTest {
                 () -> factory.create(schema, TestObjectWithAllTypes.class));
 
         assertEquals(
-                "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
-                        + "longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, primitiveFloatCol, "
+                "Fields [booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
+                        + "longCol, nullBytesCol, nullLongCol, primitiveBooleanCol, primitiveByteCol, primitiveFloatCol, "
                         + "primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] of type "
                         + "org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes are not mapped to columns",
                 ex.getMessage());
@@ -180,7 +181,7 @@ public class RecordMarshallerTest {
         Mapper<TestObject> mapper = Mapper.builder(TestObject.class)
                 .map("id", "key")
                 .map("intCol", "col1")
-                .map("stringCol", "col3")
+                .map("dateCol", "col3", new TestTypeConverter())
                 .build();
 
         RecordMarshaller<TestObject> marshaller = factory.create(schema, mapper);
@@ -204,11 +205,11 @@ public class RecordMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(
                 schemaVersion.incrementAndGet(),
                 new Column[]{
-                        new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
+                        new Column("longCol".toUpperCase(), INT32, false),
                         new Column("intCol".toUpperCase(), UUID, false)
                 },
                 new Column[]{
-                        new Column("bytesCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                        new Column("bytesCol".toUpperCase(), NativeTypes.blobOf(42), true),
                         new Column("stringCol".toUpperCase(), UUID, true)
                 }
         );
@@ -217,24 +218,7 @@ public class RecordMarshallerTest {
 
         assertThat(
                 ex.getMessage(),
-                containsString("Column's type mismatch [column=LONGCOL, expectedType=BITSET, actualType=class java.lang.Long]"));
-    }
-
-    @ParameterizedTest
-    @MethodSource("marshallerFactoryProvider")
-    public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                schemaVersion.incrementAndGet(),
-                new Column[]{ new Column("key".toUpperCase(), INT32, false) },
-                new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
-        );
-
-        RecordMarshaller<TestBitmaskObject> marshaller = factory.create(schema, TestBitmaskObject.class);
-
-        TestBitmaskObject rec = new TestBitmaskObject(1, IgniteTestUtils.randomBitSet(rnd, 42));
-
-        Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec)).getCause();
-        assertThat(ex.getMessage(), containsString("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
+                containsString("Column's type mismatch [column=LONGCOL, expectedType=INT, actualType=class java.lang.Long]"));
     }
 
     @ParameterizedTest
@@ -422,11 +406,9 @@ public class RecordMarshallerTest {
                 new Column("timestampCol".toUpperCase(), timestamp(6), true),
 
                 new Column("uuidCol".toUpperCase(), UUID, true),
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
                 new Column("stringCol".toUpperCase(), STRING, true),
                 new Column("nullBytesCol".toUpperCase(), BYTES, true),
                 new Column("bytesCol".toUpperCase(), BYTES, true),
-                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
                 new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
         };
     }
@@ -442,7 +424,7 @@ public class RecordMarshallerTest {
 
         private Long longCol2;
 
-        private String stringCol;
+        private LocalDate dateCol;
 
         static TestObject randomObject(Random rnd) {
             final TestObject obj = new TestObject();
@@ -450,7 +432,7 @@ public class RecordMarshallerTest {
             obj.id = rnd.nextLong();
             obj.intCol = rnd.nextInt();
             obj.longCol2 = rnd.nextLong();
-            obj.stringCol = IgniteTestUtils.randomString(rnd, 100);
+            obj.dateCol = LocalDate.now();
 
             return obj;
         }
@@ -470,7 +452,7 @@ public class RecordMarshallerTest {
             return id == that.id
                     && intCol == that.intCol
                     && Objects.equals(longCol2, that.longCol2)
-                    && Objects.equals(stringCol, that.stringCol);
+                    && Objects.equals(dateCol, that.dateCol);
         }
 
         @Override
@@ -580,6 +562,18 @@ public class RecordMarshallerTest {
         @Override
         public int hashCode() {
             return Objects.hash(primLongCol);
+        }
+    }
+
+    private static class TestTypeConverter implements TypeConverter<LocalDate, String> {
+        @Override
+        public String toColumnType(LocalDate val) {
+            return val.toString();
+        }
+
+        @Override
+        public LocalDate toObjectType(String val) {
+            return LocalDate.parse(val);
         }
     }
 }

@@ -40,11 +40,12 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
 // TODO IGNITE-15525 Filter by table type must be added after 'view' type will appear.
@@ -58,9 +59,6 @@ public class JdbcMetadataCatalog {
 
     /** Table type. */
     private static final String TBL_TYPE = "TABLE";
-
-    /** Default schema name. */
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private final ClockService clockService;
 
@@ -139,7 +137,7 @@ public class JdbcMetadataCatalog {
             return tables.stream()
                     .filter(t -> tableNameAndSchemaMatches(t, schemaNameRegex, tlbNameRegex))
                     .sorted(byTblTypeThenSchemaThenTblName)
-                    .map(t -> new JdbcTableMeta(DEFAULT_SCHEMA_NAME, t.name(), TBL_TYPE))
+                    .map(t -> new JdbcTableMeta(SqlCommon.DEFAULT_SCHEMA_NAME, t.name(), TBL_TYPE))
                     .collect(toList());
         });
     }
@@ -149,7 +147,7 @@ public class JdbcMetadataCatalog {
             @Nullable String schemaNameRegex,
             @Nullable String tlbNameRegex
     ) {
-        return matches(DEFAULT_SCHEMA_NAME, schemaNameRegex) && matches(table.name(), tlbNameRegex);
+        return matches(SqlCommon.DEFAULT_SCHEMA_NAME, schemaNameRegex) && matches(table.name(), tlbNameRegex);
     }
 
     /**
@@ -195,13 +193,13 @@ public class JdbcMetadataCatalog {
 
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
 
-        if (matches(DEFAULT_SCHEMA_NAME, schemaNameRegex)) {
-            schemas.add(DEFAULT_SCHEMA_NAME);
+        if (matches(SqlCommon.DEFAULT_SCHEMA_NAME, schemaNameRegex)) {
+            schemas.add(SqlCommon.DEFAULT_SCHEMA_NAME);
         }
 
         return tablesAtNow().thenApply(tables ->
                 tables.stream()
-                    .map(tbl -> DEFAULT_SCHEMA_NAME)
+                    .map(tbl -> SqlCommon.DEFAULT_SCHEMA_NAME)
                     .filter(schema -> matches(schema, schemaNameRegex))
                     .collect(toCollection(() -> schemas))
         );
@@ -218,7 +216,7 @@ public class JdbcMetadataCatalog {
 
         List<String> keyColNames = List.copyOf(tbl.primaryKeyColumns());
 
-        return new JdbcPrimaryKeyMeta(DEFAULT_SCHEMA_NAME, tbl.name(), keyName, keyColNames);
+        return new JdbcPrimaryKeyMeta(SqlCommon.DEFAULT_SCHEMA_NAME, tbl.name(), keyName, keyColNames);
     }
 
     /**
@@ -233,10 +231,10 @@ public class JdbcMetadataCatalog {
 
         return new JdbcColumnMeta(
                 col.name(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 tblName,
                 col.name(),
-                Commons.nativeTypeToJdbcClass(colType),
+                colType.spec().asColumnType(), 
                 Commons.nativeTypePrecision(colType),
                 Commons.nativeTypeScale(colType),
                 col.nullable()

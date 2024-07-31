@@ -20,12 +20,14 @@ package org.apache.ignite.internal.table;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -191,7 +193,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(33L, tbl.getNullable(null, 1L).get()); // Previous operation applied.
 
         // Check null value
-        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, 1L, null));
+        assertNotNull(tbl.getAndPut(null, 1L, null));
     }
 
     @Test
@@ -428,7 +430,8 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(33L, tbl.get(null, 1L));
 
         // Check null value.
-        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, 1L, null));
+        assertEquals(33, tbl.getAndReplace(null, 1L, null));
+        assertNull(tbl.getNullable(null, 1L).get());
     }
 
     @Test
@@ -477,9 +480,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
                 NativeTypes.DOUBLE,
                 NativeTypes.DATE,
                 NativeTypes.UUID,
-                NativeTypes.numberOf(20),
                 NativeTypes.decimalOf(25, 5),
-                NativeTypes.bitmaskOf(22),
                 NativeTypes.time(0),
                 NativeTypes.datetime(6),
                 NativeTypes.timestamp(6),
@@ -488,7 +489,12 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         );
 
         // Validate all types are tested.
-        assertEquals(Set.of(NativeTypeSpec.values()),
+        Set<NativeTypeSpec> nativeTypes = EnumSet.allOf(NativeTypeSpec.class);
+
+        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
+        nativeTypes.removeAll(unsupported);
+
+        assertEquals(nativeTypes,
                 allTypes.stream().map(NativeType::spec).collect(Collectors.toSet()));
 
         for (NativeType type : allTypes) {
@@ -650,8 +656,8 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
     public void nonNullableValueColumn() {
         KeyValueView<Long, Long> tbl = kvViewForValueType(NativeTypes.INT64, Long.class, false);
 
-        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, 1L, null));
-        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, 1L, null));
+        assertThrows(MarshallerException.class, () -> tbl.getAndPut(null, 1L, null));
+        assertThrows(MarshallerException.class, () -> tbl.getAndReplace(null, 1L, null));
         assertThrows(MarshallerException.class, () -> tbl.getNullableAndReplace(null, 1L, null));
         assertThrows(MarshallerException.class, () -> tbl.getNullableAndPut(null, 1L, null));
 

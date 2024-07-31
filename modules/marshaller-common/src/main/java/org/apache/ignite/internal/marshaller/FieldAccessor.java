@@ -31,6 +31,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.TypeConverter;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,14 +77,14 @@ abstract class FieldAccessor {
                 validateColumnType(col, field.getType());
             }
 
-            BinaryMode mode = BinaryMode.forClass(field.getType());
+            BinaryMode fieldAccessMode = BinaryMode.forClass(field.getType());
             MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
 
             VarHandle varHandle = lookup.unreflectVarHandle(field);
 
-            assert mode != null : "Invalid mode for type: " + field.getType();
+            assert fieldAccessMode != null : "Invalid fieldAccessMode for type: " + field.getType();
 
-            switch (mode) {
+            switch (fieldAccessMode) {
                 case P_BOOLEAN:
                     return new BooleanPrimitiveAccessor(varHandle, colIdx);
 
@@ -123,10 +124,10 @@ abstract class FieldAccessor {
                 case DATETIME:
                 case TIMESTAMP:
                 case POJO:
-                    return new ReferenceFieldAccessor(varHandle, colIdx, mode, col.scale(), typeConverter);
+                    return new ReferenceFieldAccessor(varHandle, colIdx, col.type(), col.scale(), typeConverter);
 
                 default:
-                    assert false : "Invalid mode " + mode;
+                    assert false : "Invalid field access mode " + fieldAccessMode;
             }
 
             throw new IllegalArgumentException("Failed to create accessor for field [name=" + field.getName() + ']');
@@ -398,7 +399,7 @@ abstract class FieldAccessor {
         try {
             write0(writer, obj);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to write field [id=" + colIdx + ']', ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
@@ -422,7 +423,7 @@ abstract class FieldAccessor {
         try {
             read0(reader, obj);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to read field [id=" + colIdx + ']', ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
@@ -816,6 +817,17 @@ abstract class FieldAccessor {
 
             try {
                 set(obj, typeConverter == null ? val : typeConverter.toObjectType(val));
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
+        }
+
+        @Override
+        Object value(Object obj) {
+            Object value = get(Objects.requireNonNull(obj));
+
+            try {
+                return typeConverter == null ? value : typeConverter.toColumnType(value);
             } catch (Exception e) {
                 throw new IllegalArgumentException(e);
             }

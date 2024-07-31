@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validatePartition;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 
@@ -44,6 +44,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         return new Builder();
     }
 
+    private final boolean ifExists;
+
     private final @Nullable Integer partitions;
 
     private final @Nullable Integer replicas;
@@ -62,6 +64,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param partitions Number of partitions.
      * @param replicas Number of replicas.
      * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
@@ -73,6 +76,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
      */
     private AlterZoneCommand(
             String zoneName,
+            boolean ifExists,
             @Nullable Integer partitions,
             @Nullable Integer replicas,
             @Nullable Integer dataNodesAutoAdjust,
@@ -83,6 +87,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     ) throws CatalogValidationException {
         super(zoneName);
 
+        this.ifExists = ifExists;
         this.partitions = partitions;
         this.replicas = replicas;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
@@ -92,6 +97,10 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         this.storageProfileParams = storageProfileParams;
 
         validate();
+    }
+
+    public boolean ifExists() {
+        return ifExists;
     }
 
     @Override
@@ -135,7 +144,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     }
 
     private void validate() {
-        validateField(partitions, 1, MAX_PARTITION_COUNT, "Invalid number of partitions");
+        validatePartition(partitions);
         validateField(replicas, 1, null, "Invalid number of replicas");
         validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
@@ -156,6 +165,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     private static class Builder implements AlterZoneCommandBuilder {
         private String zoneName;
 
+        private boolean ifExists;
+
         private @Nullable Integer partitions;
 
         private @Nullable Integer replicas;
@@ -173,6 +184,13 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         @Override
         public AlterZoneCommandBuilder zoneName(String zoneName) {
             this.zoneName = zoneName;
+
+            return this;
+        }
+
+        @Override
+        public AlterZoneCommandBuilder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
 
             return this;
         }
@@ -230,6 +248,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         public CatalogCommand build() {
             return new AlterZoneCommand(
                     zoneName,
+                    ifExists,
                     partitions,
                     replicas,
                     dataNodesAutoAdjust,

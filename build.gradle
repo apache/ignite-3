@@ -45,7 +45,7 @@ ext {
             'apache-staging' : 'https://repository.apache.org/service/local/staging/deploy/maven2'
     ]
 
-    defaultJvmArgs = [
+    addOpens = [
             "--add-opens=java.base/java.lang=ALL-UNNAMED",
             "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
             "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
@@ -58,6 +58,9 @@ ext {
             "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
             "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
             "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
+    ]
+
+    defaultJvmArgs = addOpens + [
             "-Dio.netty.tryReflectionSetAccessible=true",
             "-XX:+HeapDumpOnOutOfMemoryError",
             "-ea"

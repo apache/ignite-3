@@ -202,6 +202,59 @@ public class ClientTableTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testContains() {
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        long key = 101L;
+        Tuple keyTuple = tuple(key);
+        Tuple valTuple = tuple(key, "201");
+
+        recordView.insert(null, valTuple);
+
+        assertThrows(NullPointerException.class, () -> recordView.contains(null, null));
+
+        assertTrue(recordView.contains(null, keyTuple));
+
+        Tuple missedKeyTuple = tuple(0L);
+
+        assertFalse(recordView.contains(null, missedKeyTuple));
+    }
+
+    @Test
+    public void testContainsAll() {
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        long firstKey = 101L;
+        Tuple firstKeyTuple = tuple(firstKey);
+        Tuple firstValTuple = tuple(firstKey, "201");
+
+        long secondKey = 102L;
+        Tuple secondKeyTuple = tuple(secondKey);
+        Tuple secondValTuple = tuple(secondKey, "202");
+
+        long thirdKey = 103L;
+        Tuple thirdKeyTuple = tuple(thirdKey);
+        Tuple thirdValTuple = tuple(thirdKey, "203");
+
+        List<Tuple> recs = List.of(firstValTuple, secondValTuple, thirdValTuple);
+
+        recordView.insertAll(null, recs);
+
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, null));
+        assertThrows(NullPointerException.class, () -> recordView.containsAll(null, List.of(firstKeyTuple, null, thirdKeyTuple)));
+
+        assertTrue(recordView.containsAll(null, List.of()));
+        assertTrue(recordView.containsAll(null, List.of(firstKeyTuple)));
+        assertTrue(recordView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, thirdKeyTuple)));
+
+        long missedKey = 0L;
+        Tuple missedKeyTuple = tuple(missedKey);
+
+        assertFalse(recordView.containsAll(null, List.of(missedKeyTuple)));
+        assertFalse(recordView.containsAll(null, List.of(firstKeyTuple, secondKeyTuple, missedKeyTuple)));
+    }
+
+    @Test
     public void testUpsertAll() {
         var table = defaultTable().recordView();
 
@@ -400,7 +453,7 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         var ex = assertThrows(IgniteException.class, () -> table.upsert(null, tuple));
 
-        assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("Column 'STRNONNULL' does not allow NULLs"), ex.getMessage());
     }
 
     @Test

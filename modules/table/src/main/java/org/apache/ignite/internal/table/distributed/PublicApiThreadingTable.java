@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.table.PublicApiThreadingKeyValueView;
 import org.apache.ignite.internal.table.PublicApiThreadingRecordView;
+import org.apache.ignite.internal.table.partition.PublicApiThreadingPartitionManager;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.table.KeyValueView;
@@ -28,6 +29,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionManager;
 
 /**
  * Wrapper around {@link Table} that maintains public API invariants relating to threading.
@@ -36,14 +38,14 @@ import org.apache.ignite.table.mapper.Mapper;
  *
  * @see PublicApiThreading#preventThreadHijack(CompletableFuture, Executor)
  */
-class PublicApiThreadingTable implements Table, Wrapper {
+public class PublicApiThreadingTable implements Table, Wrapper {
     private final Table table;
     private final Executor asyncContinuationExecutor;
 
     /**
      * Constructor.
      */
-    PublicApiThreadingTable(Table table, Executor asyncContinuationExecutor) {
+    public PublicApiThreadingTable(Table table, Executor asyncContinuationExecutor) {
         this.table = table;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
@@ -51,6 +53,11 @@ class PublicApiThreadingTable implements Table, Wrapper {
     @Override
     public String name() {
         return table.name();
+    }
+
+    @Override
+    public PartitionManager partitionManager() {
+        return new PublicApiThreadingPartitionManager(table.partitionManager(), asyncContinuationExecutor);
     }
 
     @Override

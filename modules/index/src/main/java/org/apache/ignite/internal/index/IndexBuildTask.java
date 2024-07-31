@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
@@ -32,15 +33,16 @@ import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -49,7 +51,10 @@ import org.apache.ignite.network.ClusterNode;
 class IndexBuildTask {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuildTask.class);
 
-    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private final IndexBuildTaskId taskId;
 
@@ -71,7 +76,7 @@ class IndexBuildTask {
 
     private final long enlistmentConsistencyToken;
 
-    private final int creationCatalogVersion;
+    private final boolean afterDisasterRecovery;
 
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
@@ -90,7 +95,7 @@ class IndexBuildTask {
             ClusterNode node,
             List<IndexBuildCompletionListener> listeners,
             long enlistmentConsistencyToken,
-            int creationCatalogVersion
+            boolean afterDisasterRecovery
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
@@ -103,7 +108,7 @@ class IndexBuildTask {
         // We do not intentionally make a copy of the list, we want to see changes in the passed list.
         this.listeners = listeners;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
-        this.creationCatalogVersion = creationCatalogVersion;
+        this.afterDisasterRecovery = afterDisasterRecovery;
     }
 
     /** Starts building the index. */
@@ -176,9 +181,7 @@ class IndexBuildTask {
                             // Index has been built.
                             LOG.info("Index build completed: [{}]", createCommonIndexInfo());
 
-                            for (IndexBuildCompletionListener listener : listeners) {
-                                listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
-                            }
+                            notifyListeners(taskId);
 
                             return CompletableFutures.<Void>nullCompletedFuture();
                         }
@@ -216,13 +219,14 @@ class IndexBuildTask {
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds) {
         boolean finish = rowIds.size() < batchSize;
 
-        return TABLE_MESSAGES_FACTORY.buildIndexReplicaRequest()
-                .groupId(new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()))
+        TablePartitionId tablePartitionId = new TablePartitionId(taskId.getTableId(), taskId.getPartitionId());
+
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexReplicaRequest()
+                .groupId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                 .indexId(taskId.getIndexId())
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                .creationCatalogVersion(creationCatalogVersion)
                 .build();
     }
 
@@ -239,5 +243,15 @@ class IndexBuildTask {
                 "tableId={}, partitionId={}, indexId={}",
                 taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
         );
+    }
+
+    private void notifyListeners(IndexBuildTaskId taskId) {
+        for (IndexBuildCompletionListener listener : listeners) {
+            if (afterDisasterRecovery) {
+                listener.onBuildCompletionAfterDisasterRecovery(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
+            } else {
+                listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
+            }
+        }
     }
 }

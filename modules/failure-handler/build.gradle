@@ -22,14 +22,20 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
+    annotationProcessor libs.auto.service
+    annotationProcessor project(":ignite-configuration-annotation-processor")
+
     implementation project(':ignite-api')
     implementation project(':ignite-core')
+    implementation project(':ignite-configuration-api')
     implementation libs.jetbrains.annotations
+    implementation libs.auto.service.annotations
 
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
 
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility

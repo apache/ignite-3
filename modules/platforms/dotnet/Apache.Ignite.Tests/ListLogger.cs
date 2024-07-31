@@ -69,7 +69,9 @@ namespace Apache.Ignite.Tests
         /** <inheritdoc /> */
         public bool IsEnabled(LogLevel logLevel) => EnabledLevels.Contains(logLevel);
 
-        public IDisposable BeginScope<TState>(TState state) => throw new NotImplementedException();
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull
+            => throw new NotImplementedException();
 
         [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible", Justification = "Tests.")]
         public record Entry(string Message, LogLevel Level, string? Category, Exception? Exception);

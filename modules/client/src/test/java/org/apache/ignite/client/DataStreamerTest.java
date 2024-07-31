@@ -18,23 +18,44 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -42,10 +63,14 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -54,6 +79,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Data streamer test.
  */
+@SuppressWarnings("DataFlowIssue")
 public class DataStreamerTest extends AbstractClientTableTest {
     private IgniteClient client2;
 
@@ -194,8 +220,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
-    @Test
-    public void testManyItemsWithDisconnectAndRetry() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testManyItemsWithDisconnectAndRetry(boolean withReceiver) throws Exception {
         // Drop connection on every 5th request.
         Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
         var ignite2 = startTestServer2(shouldDropConnection, idx -> 0);
@@ -217,7 +244,16 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     .perPartitionParallelOperations(4)
                     .build();
 
-            streamFut = view.streamData(publisher, options);
+            streamFut = withReceiver
+                    ? view.streamData(
+                        publisher,
+                        DataStreamerItem::get,
+                        t -> t.get().longValue("id"),
+                        ReceiverDescriptor.builder(TestUpsertReceiver.class).build(),
+                    null,
+                        options,
+                    null)
+                    : view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {
                 publisher.submit(tuple(i, "foo_" + i));
@@ -320,6 +356,360 @@ public class DataStreamerTest extends AbstractClientTableTest {
         assertEquals("bar2", view.get(null, tupleKey(2L)).stringValue("name"));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    public void testBasicStreamingWithReceiverRecordBinaryView(int batchSize) {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(batchSize).build();
+            streamerFut = view.streamData(
+                    publisher,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    null,
+                    options,
+                    ":arg:");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg_" + i, view.get(null, tupleKey(i)).stringValue("name"));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    public void testBasicStreamingWithReceiverAndSubscriberRecordBinaryView(int batchSize) {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(batchSize).build();
+            streamerFut = view.streamData(
+                    publisher,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    resultSubscriber,
+                    options,
+                    "returnResults:arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertTrue(resultSubscriber.completed.get());
+        assertNull(resultSubscriber.error.get());
+        assertEquals(count, resultSubscriber.items.size());
+
+        for (long i = 0; i < count; i++) {
+            String expectedName = "recv_arg_" + i;
+            assertEquals(expectedName, view.get(null, tupleKey(i)).stringValue("name"));
+
+            assertTrue(resultSubscriber.items.contains(expectedName));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testBasicStreamingWithReceiverRecordPojoView(boolean withSubscriber) {
+        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        var resultSubscriber = withSubscriber ? new TestSubscriber<String>(count) : null;
+
+        try (var publisher = new SubmissionPublisher<PersonPojo>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    t -> t,
+                    t -> t.id,
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    resultSubscriber,
+                    null,
+                     (withSubscriber ? "returnResults" : "noResults") + ":arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(new PersonPojo(i));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        if (withSubscriber) {
+            assertTrue(resultSubscriber.completed.get());
+            assertNull(resultSubscriber.error.get());
+            assertEquals(count, resultSubscriber.items.size());
+        }
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg_" + i, view.get(null, new PersonPojo(i)).name);
+
+            if (withSubscriber) {
+                assertTrue(resultSubscriber.items.contains("recv_arg_" + i));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testBasicStreamingWithReceiverKvBinaryView(boolean withSubscriber) {
+        KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        var resultSubscriber = withSubscriber ? new TestSubscriber<String>(count) : null;
+
+        try (var publisher = new SubmissionPublisher<Entry<Tuple, Tuple>>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    t -> t,
+                    t -> t.getKey().longValue(0),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    resultSubscriber,
+                    null,
+                    (withSubscriber ? "returnResults" : "noResults") + ":arg"
+            );
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(Map.entry(tupleKey(i), tupleVal("foo")));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        if (withSubscriber) {
+            assertTrue(resultSubscriber.completed.get());
+            assertNull(resultSubscriber.error.get());
+            assertEquals(count, resultSubscriber.items.size());
+        }
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg_" + i, view.get(null, tupleKey(i)).stringValue(0));
+
+            if (withSubscriber) {
+                assertTrue(resultSubscriber.items.contains("recv_arg_" + i));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testBasicStreamingWithReceiverKvPojoView(boolean withSubscriber) {
+        KeyValueView<Long, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonValPojo.class));
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        var resultSubscriber = withSubscriber ? new TestSubscriber<String>(count) : null;
+
+        try (var publisher = new SubmissionPublisher<Entry<Long, PersonValPojo>>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    t -> t,
+                    Entry::getKey,
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    resultSubscriber,
+                    null,
+                    (withSubscriber ? "returnResults" : "noResults") + ":arg"
+            );
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(Map.entry(i, new PersonValPojo("foo")));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        if (withSubscriber) {
+            assertTrue(resultSubscriber.completed.get());
+            assertNull(resultSubscriber.error.get());
+            assertEquals(count, resultSubscriber.items.size());
+        }
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg_" + i, view.get(null, i).name);
+
+            if (withSubscriber) {
+                assertTrue(resultSubscriber.items.contains("recv_arg_" + i));
+            }
+        }
+    }
+
+    @Test
+    public void testReceiverRequiresSameItemTypes() {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Long>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    id -> tuple(0L),
+                    id -> id == 1L ? 1 : "2",
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    null,
+                    null,
+                    "arg");
+
+            publisher.submit(1L);
+            publisher.submit(2L);
+        }
+
+        ExecutionException e = assertThrows(ExecutionException.class, () -> streamerFut.get(1, TimeUnit.SECONDS));
+        assertTrue(e.getMessage().contains("All items must have the same type. "
+                + "First item: class java.lang.Integer, "
+                + "current item: class java.lang.String"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0, 1, 10})
+    public void testReceiverWithSubscriberAllowsAnyNumberOfResults(int resultCount) {
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(100).build();
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    t -> tuple(), // Same key for all items to execute receiver with one batch.
+                    t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    resultSubscriber,
+                    options,
+                    (resultCount < 0 ? null : "returnResults") + ":arg:" + resultCount
+            );
+
+            for (long i = 0; i < 3; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        streamerFut.orTimeout(2, TimeUnit.SECONDS).join();
+
+        assertTrue(resultSubscriber.completed.get());
+        assertNull(resultSubscriber.error.get());
+        assertEquals(resultCount == -1 ? 0 : resultCount, resultSubscriber.items.size());
+    }
+
+    @Test
+    public void testExceptionInResultSubscriberFailsStreamerAndSetsSubscriberError() {
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<String>(Long.MAX_VALUE);
+        resultSubscriber.throwOnNext = true;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(100).build();
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    resultSubscriber,
+                    options,
+                    "returnResults:arg"
+            );
+
+            for (long i = 0; i < 3; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        assertThat(streamerFut, willThrow(ArithmeticException.class, "Result subscriber exception"));
+        assertFalse(resultSubscriber.completed.get());
+        assertInstanceOf(CompletionException.class, resultSubscriber.error.get());
+        assertInstanceOf(ArithmeticException.class, resultSubscriber.error.get().getCause());
+    }
+
+    @Test
+    public void testReceiverWithResultsWithoutSubscriber() {
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(100).build();
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    null,
+                    options,
+                    "arg:returnResults"
+            );
+
+            for (long i = 0; i < 3; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        streamerFut.orTimeout(2, TimeUnit.SECONDS).join();
+    }
+
+    @Test
+    public void testReceiverWithSubscriberAllTypesRoundtrip() {
+        testArgRoundtrip(true);
+        testArgRoundtrip(Byte.MAX_VALUE);
+        testArgRoundtrip(Short.MAX_VALUE);
+        testArgRoundtrip(Integer.MAX_VALUE);
+        testArgRoundtrip(Long.MAX_VALUE);
+        testArgRoundtrip(Float.MAX_VALUE);
+        testArgRoundtrip(Double.MAX_VALUE);
+        testArgRoundtrip(BigDecimal.valueOf(123, 4));
+        testArgRoundtrip(LocalDate.now());
+        testArgRoundtrip(LocalTime.now());
+        testArgRoundtrip(LocalDateTime.now());
+        testArgRoundtrip(Instant.now());
+        testArgRoundtrip(UUID.randomUUID());
+        testArgRoundtrip("Ignite 🔥");
+        testArgRoundtrip(new byte[]{-1, 1});
+        testArgRoundtrip(Period.ofDays(3));
+        testArgRoundtrip(Duration.ofDays(3));
+    }
+
+    private void testArgRoundtrip(Object arg) {
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<>(Long.MAX_VALUE);
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    t -> t,
+                    t -> 0L,
+                    ReceiverDescriptor.builder(EchoArgsReceiver.class).build(),
+                    resultSubscriber,
+                    null,
+                    arg);
+
+            publisher.submit(tuple());
+        }
+
+        streamerFut.orTimeout(2, TimeUnit.SECONDS).join();
+
+        assertTrue(resultSubscriber.completed.get());
+        assertNull(resultSubscriber.error.get());
+
+        Object res = resultSubscriber.items.iterator().next();
+
+        if (arg instanceof byte[]) {
+            assertArrayEquals((byte[]) arg, (byte[]) res);
+        } else {
+            assertEquals(arg, res);
+        }
+    }
+
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
         ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
 
@@ -331,5 +721,120 @@ public class DataStreamerTest extends AbstractClientTableTest {
         testServer2 = new TestServer(10_000, ignite2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null, null);
 
         return ignite2;
+    }
+
+    private static class TestReceiver implements DataStreamerReceiver<Long, Object, String> {
+        @Override
+        public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object arg) {
+            var parsedArgs = TestReceiverArs.from(arg);
+
+            // noinspection resource
+            RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
+            List<String> res = new ArrayList<>(page.size());
+
+            int resultCount = parsedArgs.resultCount < 0 ? page.size() : parsedArgs.resultCount;
+
+            for (Long id : page) {
+                String name = "recv_" + parsedArgs.arg + "_" + id;
+                view.upsert(null, tuple(id, name));
+
+                if (resultCount-- > 0) {
+                    res.add(name);
+                }
+            }
+
+            while (resultCount-- > 0) {
+                res.add("extra_" + resultCount);
+            }
+
+            return CompletableFuture.completedFuture(parsedArgs.returnResults ? res : null);
+        }
+
+        static class TestReceiverArs {
+            final boolean returnResults;
+            final String arg;
+            final int resultCount;
+
+            TestReceiverArs(boolean returnResults, String arg, int resultCount) {
+                this.returnResults = returnResults;
+                this.arg = arg;
+                this.resultCount = resultCount;
+            }
+
+            static TestReceiverArs from(@Nullable Object str) {
+                if (str == null) {
+                    return new TestReceiverArs(false, null, -1);
+                }
+
+                String[] split = ((String) str).split(":");
+                boolean returnResults = "returnResults".equals(split[0]);
+                String arg = split[1];
+                int resultCount = split.length > 2 ? Integer.parseInt(split[2]) : -1;
+
+                return new TestReceiverArs(returnResults, arg, resultCount);
+            }
+
+        }
+    }
+
+    private static class TestUpsertReceiver implements DataStreamerReceiver<Long, Object, Void> {
+        @Override
+        @Nullable
+        public CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object arg) {
+            // noinspection resource
+            RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
+
+            for (Long id : page) {
+                view.upsert(null, tuple(id, "foo_" + id));
+            }
+
+            return null;
+        }
+    }
+
+    private static class TestSubscriber<T> implements Subscriber<T> {
+        final Set<T> items = Collections.synchronizedSet(new HashSet<>());
+        final AtomicReference<Throwable> error = new AtomicReference<>();
+        final AtomicBoolean completed = new AtomicBoolean();
+        final long requestOnSubscribe;
+        boolean throwOnNext;
+
+        Subscription subscription;
+
+        TestSubscriber(long requestOnSubscribe) {
+            this.requestOnSubscribe = requestOnSubscribe;
+        }
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            this.subscription = subscription;
+            subscription.request(requestOnSubscribe);
+        }
+
+        @Override
+        public void onNext(T item) {
+            if (throwOnNext) {
+                throw new ArithmeticException("Result subscriber exception");
+            }
+
+            items.add(item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            error.set(throwable);
+        }
+
+        @Override
+        public void onComplete() {
+            completed.set(true);
+        }
+    }
+
+    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object, Object> {
+        @Override
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
+            return CompletableFuture.completedFuture(List.of(arg));
+        }
     }
 }

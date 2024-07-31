@@ -19,13 +19,13 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.rel.ModifyNode;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The interface describe a table that could be updated by {@link ModifyNode}.
@@ -54,7 +54,7 @@ public interface UpdatableTable {
      *
      * <p>This method accepts instance of the transaction, thus MUST be issued on initiator node.
      *
-     * @param tx A transaction within which the insert is issued.
+     * @param explicitTx A transaction within which the insert is issued.
      * @param ectx An execution context. Used mainly to acquire {@link RowHandler}.
      * @param row A row to insert.
      * @param <RowT> A type of sql row.
@@ -62,14 +62,13 @@ public interface UpdatableTable {
      *      iif row has been inserted, will be completed exceptionally otherwise.
      */
     <RowT> CompletableFuture<Void> insert(
-            InternalTransaction tx, ExecutionContext<RowT> ectx, RowT row
+            @Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT row
     );
 
     /**
      * Updates rows if they are exists, inserts the rows otherwise.
      *
-     * <p>The rows passed should match the full row type defined by the table's {@link #descriptor() descriptor}
-     * (see {@link TableDescriptor#rowType(IgniteTypeFactory, ImmutableBitSet)}).
+     * <p>The rows passed should match the full row type defined by the table's {@link #descriptor() descriptor}.
      *
      * @param ectx An execution context.
      * @param rows Rows to upsert.

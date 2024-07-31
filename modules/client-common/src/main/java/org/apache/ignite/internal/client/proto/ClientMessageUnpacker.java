@@ -24,8 +24,11 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.BatchedArguments;
@@ -484,6 +487,17 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads a payload into the specified buffer.
+     *
+     * @param target Target buffer.
+     */
+    public void readPayload(ByteBuffer target) {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        buf.readBytes(target);
+    }
+
+    /**
      * Reads a binary value.
      *
      * @return Payload bytes.
@@ -728,12 +742,35 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads array of longs.
+     *
+     * @return Array of longs.
+     */
+    public long[] unpackLongArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        int size = unpackInt();
+
+        if (size == 0) {
+            return ArrayUtils.LONG_EMPTY_ARRAY;
+        }
+
+        long[] res = new long[size];
+
+        for (int i = 0; i < size; i++) {
+            res[i] = unpackInt();
+        }
+
+        return res;
+    }
+
+    /**
      * Unpacks batch of arguments from binary tuples.
      *
      * @return BatchedArguments object with the unpacked arguments.
      */
     @SuppressWarnings("unused")
-    public BatchedArguments unpackObjectArrayFromBinaryTupleArray() {
+    public BatchedArguments unpackBatchedArgumentsFromBinaryTupleArray() {
         assert refCnt > 0 : "Unpacker is closed";
 
         if (tryUnpackNil()) {
@@ -742,7 +779,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
         int rowLen = unpackInt();
         int rows = unpackInt();
-        boolean last = unpackBoolean(); // unused now, but we will need it in case of arguments load by pages.
+        unpackBoolean(); // unused now, but we will need it in case of arguments load by pages.
 
         BatchedArguments args = BatchedArguments.create();
 
@@ -920,6 +957,22 @@ public class ClientMessageUnpacker implements AutoCloseable {
         long seconds = unpackLong();
         int nanos = unpackInt();
         return Instant.ofEpochSecond(seconds, nanos);
+    }
+
+    /**
+     * Unpacks deployment units.
+     *
+     * @return Deployment units.
+     */
+    public List<DeploymentUnit> unpackDeploymentUnits() {
+        int size = tryUnpackNil() ? 0 : unpackInt();
+        List<DeploymentUnit> res = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++) {
+            res.add(new DeploymentUnit(unpackString(), unpackString()));
+        }
+
+        return res;
     }
 
     private int readLength8() {

@@ -49,6 +49,8 @@ namespace Apache.Ignite
             PlacementDriver.GroupCode => PlacementDriver.GroupName,
             CriticalWorkers.GroupCode => CriticalWorkers.GroupName,
             DisasterRecovery.GroupCode => DisasterRecovery.GroupName,
+            Embedded.GroupCode => Embedded.GroupName,
+            Marshalling.GroupCode => Marshalling.GroupName,
 
             _ => UnknownGroupName
         };
@@ -83,6 +85,12 @@ namespace Apache.Ignite
             /// <summary> ResourceClosing error. </summary>
             public const int ResourceClosing = (GroupCode << 16) | (7 & 0xFFFF);
 
+            /// <summary> UserObjectSerialization error. </summary>
+            public const int UserObjectSerialization = (GroupCode << 16) | (8 & 0xFFFF);
+
+            /// <summary> NullableValue error. </summary>
+            public const int NullableValue = (GroupCode << 16) | (9 & 0xFFFF);
+
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
         }
@@ -116,6 +124,9 @@ namespace Apache.Ignite
 
             /// <summary> SchemaVersionMismatch error. </summary>
             public const int SchemaVersionMismatch = (GroupCode << 16) | (7 & 0xFFFF);
+
+            /// <summary> UnsupportedPartitionType error. </summary>
+            public const int UnsupportedPartitionType = (GroupCode << 16) | (8 & 0xFFFF);
         }
 
         /// <summary> Client errors. </summary>
@@ -168,34 +179,31 @@ namespace Apache.Ignite
             public const String GroupName = "SQL";
 
             /// <summary> QueryNoResultSet error. </summary>
-            public const int QueryNoResultSet = (GroupCode << 16) | (2 & 0xFFFF);
+            public const int QueryNoResultSet = (GroupCode << 16) | (1 & 0xFFFF);
 
             /// <summary> SchemaNotFound error. </summary>
-            public const int SchemaNotFound = (GroupCode << 16) | (3 & 0xFFFF);
+            public const int SchemaNotFound = (GroupCode << 16) | (2 & 0xFFFF);
 
             /// <summary> StmtParse error. </summary>
-            public const int StmtParse = (GroupCode << 16) | (5 & 0xFFFF);
+            public const int StmtParse = (GroupCode << 16) | (3 & 0xFFFF);
 
             /// <summary> StmtValidation error. </summary>
-            public const int StmtValidation = (GroupCode << 16) | (6 & 0xFFFF);
+            public const int StmtValidation = (GroupCode << 16) | (4 & 0xFFFF);
 
             /// <summary> ConstraintViolation error. </summary>
-            public const int ConstraintViolation = (GroupCode << 16) | (7 & 0xFFFF);
+            public const int ConstraintViolation = (GroupCode << 16) | (5 & 0xFFFF);
 
             /// <summary> ExecutionCancelled error. </summary>
-            public const int ExecutionCancelled = (GroupCode << 16) | (8 & 0xFFFF);
+            public const int ExecutionCancelled = (GroupCode << 16) | (6 & 0xFFFF);
 
             /// <summary> Runtime error. </summary>
-            public const int Runtime = (GroupCode << 16) | (9 & 0xFFFF);
-
-            /// <summary> PlanningTimeout error. </summary>
-            public const int PlanningTimeout = (GroupCode << 16) | (10 & 0xFFFF);
+            public const int Runtime = (GroupCode << 16) | (7 & 0xFFFF);
 
             /// <summary> Mapping error. </summary>
-            public const int Mapping = (GroupCode << 16) | (11 & 0xFFFF);
+            public const int Mapping = (GroupCode << 16) | (8 & 0xFFFF);
 
             /// <summary> TxControlInsideExternalTx error. </summary>
-            public const int TxControlInsideExternalTx = (GroupCode << 16) | (12 & 0xFFFF);
+            public const int TxControlInsideExternalTx = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> MetaStorage errors. </summary>
@@ -494,8 +502,8 @@ namespace Apache.Ignite
             /// <summary> QueueOverflow error. </summary>
             public const int QueueOverflow = (GroupCode << 16) | (4 & 0xFFFF);
 
-            /// <summary> ComputeJobStateTransition error. </summary>
-            public const int ComputeJobStateTransition = (GroupCode << 16) | (5 & 0xFFFF);
+            /// <summary> ComputeJobStatusTransition error. </summary>
+            public const int ComputeJobStatusTransition = (GroupCode << 16) | (5 & 0xFFFF);
 
             /// <summary> Cancelling error. </summary>
             public const int Cancelling = (GroupCode << 16) | (6 & 0xFFFF);
@@ -503,8 +511,8 @@ namespace Apache.Ignite
             /// <summary> ResultNotFound error. </summary>
             public const int ResultNotFound = (GroupCode << 16) | (7 & 0xFFFF);
 
-            /// <summary> FailToGetJobStatus error. </summary>
-            public const int FailToGetJobStatus = (GroupCode << 16) | (8 & 0xFFFF);
+            /// <summary> FailToGetJobState error. </summary>
+            public const int FailToGetJobState = (GroupCode << 16) | (8 & 0xFFFF);
 
             /// <summary> ComputeJobFailed error. </summary>
             public const int ComputeJobFailed = (GroupCode << 16) | (9 & 0xFFFF);
@@ -523,6 +531,9 @@ namespace Apache.Ignite
 
             /// <summary> NodeNotFound error. </summary>
             public const int NodeNotFound = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> MarshallingTypeMismatch error. </summary>
+            public const int MarshallingTypeMismatch = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>
@@ -587,6 +598,47 @@ namespace Apache.Ignite
 
             /// <summary> PartitionState error. </summary>
             public const int PartitionState = (GroupCode << 16) | (3 & 0xFFFF);
+
+            /// <summary> ClusterNotIdle error. </summary>
+            public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
+        }
+
+        /// <summary> Embedded errors. </summary>
+        public static class Embedded
+        {
+            /// <summary> Embedded group code. </summary>
+            public const short GroupCode = 21;
+
+            /// <summary> Embedded group name. </summary>
+            public const String GroupName = "EMBEDDED";
+
+            /// <summary> ClusterNotInitialized error. </summary>
+            public const int ClusterNotInitialized = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> ClusterInitFailed error. </summary>
+            public const int ClusterInitFailed = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> NodeNotStarted error. </summary>
+            public const int NodeNotStarted = (GroupCode << 16) | (3 & 0xFFFF);
+
+            /// <summary> NodeStart error. </summary>
+            public const int NodeStart = (GroupCode << 16) | (4 & 0xFFFF);
+        }
+
+        /// <summary> Marshalling errors. </summary>
+        public static class Marshalling
+        {
+            /// <summary> Marshalling group code. </summary>
+            public const short GroupCode = 22;
+
+            /// <summary> Marshalling group name. </summary>
+            public const String GroupName = "MARSHALLING";
+
+            /// <summary> Common error. </summary>
+            public const int Common = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> UnsupportedObjectType error. </summary>
+            public const int UnsupportedObjectType = (GroupCode << 16) | (2 & 0xFFFF);
         }
     }
 }

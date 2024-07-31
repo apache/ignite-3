@@ -28,17 +28,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -56,12 +61,14 @@ import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AssertionFailureBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -566,34 +573,64 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public void batch() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteSql sql = CLUSTER.aliveNode().sql();
+        // Execute batch using query.
+        {
+            BatchedArguments args = BatchedArguments.of(0, 0);
 
-        BatchedArguments args = BatchedArguments.of(0, 0);
+            for (int i = 1; i < ROW_COUNT; ++i) {
+                args.add(i, i);
+            }
 
-        for (int i = 1; i < ROW_COUNT; ++i) {
-            args.add(i, i);
+            long[] batchRes = executeBatch("INSERT INTO TEST VALUES (?, ?)", args);
+
+            Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
         }
 
-        long[] batchRes = executeBatch(sql, "INSERT INTO TEST VALUES (?, ?)", args);
+        // Execute batch using statement.
+        {
+            BatchedArguments args = BatchedArguments.of(ROW_COUNT, ROW_COUNT);
 
-        Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
+            for (int i = ROW_COUNT + 1; i < ROW_COUNT * 2; ++i) {
+                args.add(i, i);
+            }
+
+            Statement statement = igniteSql().createStatement("INSERT INTO TEST VALUES (?, ?)");
+
+            long[] batchRes = executeBatch(statement, args);
+
+            Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
+        }
 
         // Check that data are inserted OK
         List<List<Object>> res = sql("SELECT ID FROM TEST ORDER BY ID");
-        IntStream.range(0, ROW_COUNT).forEach(i -> assertEquals(i, res.get(i).get(0)));
+        IntStream.range(0, ROW_COUNT * 2).forEach(i -> assertEquals(i, res.get(i).get(0)));
+
+        BatchedArguments args = BatchedArguments.of(-1, -1);
 
         // Check invalid query type
         assertThrowsSqlException(
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
                 "Invalid SQL statement type",
-                () -> executeBatch(sql, "SELECT * FROM TEST", args));
+                () -> executeBatch("SELECT * FROM TEST", args));
 
         assertThrowsSqlException(
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
                 "Invalid SQL statement type",
-                () -> executeBatch(sql, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args));
+                () -> executeBatch("CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args));
+
+        // Check that statement parameters taken into account.
+        Statement statement = igniteSql().statementBuilder()
+                .defaultSchema("NON_EXISTING_SCHEMA")
+                .query("INSERT INTO TEST VALUES (?, ?)")
+                .build();
+
+        assertThrowsSqlException(
+                SqlBatchException.class,
+                Sql.SCHEMA_NOT_FOUND_ERR,
+                "Schema not found [schemaName=NON_EXISTING_SCHEMA]",
+                () -> executeBatch(statement, args));
     }
 
     @Test
@@ -601,8 +638,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         int err = ROW_COUNT / 2;
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        IgniteSql sql = CLUSTER.aliveNode().sql();
 
         BatchedArguments args = BatchedArguments.of(0, 0);
 
@@ -618,7 +653,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 SqlBatchException.class,
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "PK unique constraint is violated",
-                () -> executeBatch(sql, "INSERT INTO TEST VALUES (?, ?)", args)
+                () -> executeBatch("INSERT INTO TEST VALUES (?, ?)", args)
         );
 
         assertEquals(err, ex.updateCounters().length);
@@ -840,6 +875,124 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         assertEquals(1, result.result().get(0).intValue(0));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", "UTC", "Europe/Athens", "America/New_York", "Asia/Tokyo"})
+    public void testTimeZoneId(String timeZoneId) {
+        ZoneId zoneId = timeZoneId.isEmpty() ? ZoneId.systemDefault() : ZoneId.of(timeZoneId);
+
+        StatementBuilder builder = igniteSql().statementBuilder()
+                .query("SELECT CURRENT_TIMESTAMP")
+                .timeZoneId(zoneId);
+
+        ResultSet<SqlRow> resultSet = igniteSql().execute(null, builder.build());
+        SqlRow row = resultSet.next();
+
+        LocalDateTime ts = row.value(0);
+        assertNotNull(ts);
+
+        float tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        float nowMillis = LocalDateTime.now(zoneId).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        float deltaMillis = 5000;
+
+        assertEquals(nowMillis, tsMillis, deltaMillis);
+    }
+
+    @Test
+    public void testEarlyQueryTimeout() {
+        Statement stmt = igniteSql().statementBuilder()
+                .query("SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000000000))")
+                .queryTimeout(1, TimeUnit.MILLISECONDS)
+                .build();
+
+        // Do not have enough time to do anything.
+        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
+            executeForRead(igniteSql(), stmt);
+        });
+    }
+
+    @Test
+    public void testQueryTimeout() {
+        Statement stmt = igniteSql().statementBuilder()
+                .query("SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000000000))")
+                .queryTimeout(100, TimeUnit.MILLISECONDS)
+                .build();
+
+        // Run ignoring any timeout util we get some result.
+        ResultSet<SqlRow> resultSet = runIgnoringExecutionErrors(stmt);
+        assertNotNull(resultSet);
+
+        // Read data until timeout exception occurs.
+        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
+            while (resultSet.hasNext()) {
+                resultSet.next();
+            }
+        });
+    }
+
+    @Test
+    public void testQueryTimeoutIsPropagatedFromTheServer() throws Exception {
+        Statement stmt = igniteSql().statementBuilder()
+                .query("SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000000000))")
+                .queryTimeout(100, TimeUnit.MILLISECONDS)
+                .build();
+
+        // Run ignoring any timeout to get some results.
+        ResultSet<SqlRow> resultSet = runIgnoringExecutionErrors(stmt);
+
+        assertTrue(resultSet.hasNext());
+        assertNotNull(resultSet.next());
+
+        // wait sometime until the time is right for a timeout to occur.
+        // then start retrieving the remaining data to trigger timeout exception.
+        TimeUnit.SECONDS.sleep(2);
+
+        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
+            while (resultSet.hasNext()) {
+                resultSet.next();
+            }
+        });
+    }
+
+    private ResultSet<SqlRow> runIgnoringExecutionErrors(Statement stmt) {
+        SqlException lastError = null;
+
+        for (int i = 0; i < 100; i++) {
+            try {
+                return executeForRead(igniteSql(), stmt);
+            } catch (SqlException e) {
+                // Ignore all execution cancelled error. We assume that all these errors are transient (timeouts),
+                // and we will eventually get a result set.
+                if (e.code() == Sql.EXECUTION_CANCELLED_ERR) {
+                    lastError = e;
+                    continue;
+                }
+
+                fail(e.getMessage());
+            }
+        }
+
+        throw AssertionFailureBuilder.assertionFailure()
+                .message("Failed to execute the statement without timeouts.")
+                .cause(lastError)
+                .build();
+    }
+
+    @Test
+    public void testDdlTimeout() {
+        IgniteSql igniteSql = igniteSql();
+        int timeoutMillis = 1;
+
+        Statement stmt = igniteSql.statementBuilder()
+                .query("CREATE TABLE test (ID INT PRIMARY KEY, VAL0 INT)")
+                .queryTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
+                .build();
+
+        // Trigger query timeout from the planner or the parser.
+        assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
+            executeForRead(igniteSql, stmt);
+        });
+    }
+
     protected ResultSet<SqlRow> executeForRead(IgniteSql sql, String query, Object... args) {
         return executeForRead(sql, null, query, args);
     }
@@ -864,7 +1017,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         return assertThrowsSqlException(code, msg, () -> execute(sql, query, args));
     }
 
-    protected abstract long[] executeBatch(IgniteSql sql, String query, BatchedArguments args);
+    protected abstract long[] executeBatch(String query, BatchedArguments args);
+
+    protected abstract long[] executeBatch(Statement statement, BatchedArguments args);
 
     protected ResultProcessor execute(Integer expectedPages, Transaction tx, IgniteSql sql, String query, Object... args) {
         return execute(expectedPages, tx, sql, sql.createStatement(query), args);

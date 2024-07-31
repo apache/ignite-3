@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -56,15 +57,15 @@ public class ConfigurationManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
-        return registry.startAsync();
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        return registry.startAsync(componentContext);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         // TODO: IGNITE-15161 Implement component's stop.
-        return registry.stopAsync();
+        return registry.stopAsync(componentContext);
     }
 
     /**

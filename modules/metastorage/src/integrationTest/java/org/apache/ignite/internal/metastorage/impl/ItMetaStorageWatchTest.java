@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -59,12 +61,14 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -79,6 +83,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -133,9 +138,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            var raftManager = new Loza(
+            var raftManager = TestLozaFactory.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     basePath.resolve("raft"),
                     clock,
@@ -156,6 +160,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
+            FailureProcessor failureProcessor = new NoOpFailureProcessor();
+            components.add(failureProcessor);
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -164,7 +171,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration),
+                    failureProcessor
             );
 
             components.add(cmgManager);
@@ -183,17 +191,20 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage"), new NoOpFailureProcessor(name())),
+                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage"), new NoOpFailureProcessor()),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
-                    metaStorageConfiguration
+                    new NoOpMetricManager(),
+                    metaStorageConfiguration,
+                    raftConfiguration.retryTimeout(),
+                    completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
             );
 
             components.add(metaStorageManager);
         }
 
         void start() {
-            assertThat(startAsync(components), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
         }
 
         String name() {
@@ -205,7 +216,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
 
-            Stream<AutoCloseable> nodeStop = Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()));
+            Stream<AutoCloseable> nodeStop = Stream.of(() ->
+                    assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
+            );
 
             IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));
         }

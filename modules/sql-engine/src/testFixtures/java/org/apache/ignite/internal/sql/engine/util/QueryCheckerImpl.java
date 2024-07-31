@@ -55,12 +55,12 @@ import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 
@@ -297,10 +297,12 @@ abstract class QueryCheckerImpl implements QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        SqlProperties properties = SqlPropertiesHelper.newBuilder()
+        SqlProperties newProperties = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                 .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
                 .build();
+
+        SqlProperties properties = SqlPropertiesHelper.merge(newProperties, SqlQueryProcessor.DEFAULT_PROPERTIES);
 
         String qry = queryTemplate.createQuery();
 
@@ -308,7 +310,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.queryAsync(
-                    properties, transactions(), tx, "EXPLAIN PLAN FOR " + qry, params);
+                    properties, observableTimeTracker(), tx, "EXPLAIN PLAN FOR " + qry, params);
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
             List<InternalSqlRow> explainRes = getAllFromCursor(explainCursor);
 
@@ -334,7 +336,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check result.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
-                bypassingThreadAssertionsAsync(() -> qryProc.queryAsync(properties, transactions(), tx, qry, params));
+                bypassingThreadAssertionsAsync(() -> qryProc.queryAsync(properties, observableTimeTracker(), tx, qry, params));
 
         AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 
@@ -375,7 +377,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
     protected abstract QueryProcessor getEngine();
 
-    protected abstract IgniteTransactions transactions();
+    protected abstract HybridTimestampTracker observableTimeTracker();
 
     protected void checkMetadata(ResultSetMetadata metadata) {
         // No-op.

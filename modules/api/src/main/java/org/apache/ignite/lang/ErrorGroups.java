@@ -49,8 +49,8 @@ public class ErrorGroups {
      * @param groupName Group name to be created.
      * @param groupCode Group code to be created.
      * @return New error group.
-     * @throws IllegalArgumentException If the specified name or group code already registered.
-     *      Also, this exception is thrown if the given {@code groupName} is {@code null} or empty.
+     * @throws IllegalArgumentException If the specified name or group code already registered. Also, this exception is thrown if
+     *         the given {@code groupName} is {@code null} or empty.
      */
     public static synchronized ErrorGroup registerGroup(String groupName, short groupCode) {
         if (groupName == null || groupName.isEmpty()) {
@@ -139,9 +139,18 @@ public class ErrorGroups {
         /** Resource closing error. */
         public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
+        /** Can't marshal/unmarshal a user object. */
+        public static final int USER_OBJECT_SERIALIZATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 8);
+
         /**
-         * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
-         * In general, this error code should be considered as a non-recoverable error
+         * This error code indicates that a method can't return a {@code null} value due it's ambiguity
+         * (whether the value is absent or is {@code null}).
+         **/
+        public static final int NULLABLE_VALUE_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
+
+        /**
+         * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase. In general, this error code
+         * should be considered as a non-recoverable error
          */
         public static final int INTERNAL_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 0xFFFF);
     }
@@ -172,6 +181,9 @@ public class ErrorGroups {
 
         /** Schema version mismatch. */
         public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 7);
+
+        /** Unsupported partition type. */
+        public static final int UNSUPPORTED_PARTITION_TYPE_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 8);
     }
 
     /** Client error group. */
@@ -218,17 +230,17 @@ public class ErrorGroups {
         public static final ErrorGroup SQL_ERR_GROUP = registerGroup("SQL", (short) 4);
 
         /** Query without a result set error. */
-        public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
+        public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Schema not found. */
-        public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 3);
+        public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Statement parsing error. This error is returned when an SQL statement string is not valid according to syntax rules. */
-        public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode((short) 5);
+        public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode((short) 3);
 
         /**
-         * Statement validation error. Although statement is grammatically correct, the semantic is in question.
-         * This error may appear in following cases:
+         * Statement validation error. Although statement is grammatically correct, the semantic is in question. This error may appear in
+         * following cases:
          * <ul>
          *     <li>the statement refer to relation that doesn't exists.</li>
          *     <li>the statement describes action that is prohibited by the system, like changing columns belonging to primary keys.</li>
@@ -238,13 +250,13 @@ public class ErrorGroups {
          *
          * <p>See message for details.
          */
-        public static final int STMT_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 6);
+        public static final int STMT_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 4);
 
         /** Constraint violation error such as primary key violation. */
-        public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 7);
+        public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Statement canceled error. Statement is canceled due to timeout, admin action, etc. */
-        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 8);
+        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 6);
 
         /**
          * Runtime error. Errors caused by programming errors in SQL statement itself, such errors happen during statement execution:
@@ -254,10 +266,7 @@ public class ErrorGroups {
          *     <li>Function execution errors.</li>
          * </ul>
          */
-        public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode((short) 9);
-
-        /** Planning timed out without finding any valid plan. */
-        public static final int PLANNING_TIMEOUT_ERR = SQL_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode((short) 7);
 
         /**
          * SQL engine was unable to map query on current cluster topology.
@@ -267,10 +276,10 @@ public class ErrorGroups {
          *
          * <p>See error message for details.
          */
-        public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 11);
+        public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 8);
 
         /** Execution of transaction control statement inside an external transaction is forbidden. */
-        public static final int TX_CONTROL_INSIDE_EXTERNAL_TX_ERR = SQL_ERR_GROUP.registerErrorCode((short) 12);
+        public static final int TX_CONTROL_INSIDE_EXTERNAL_TX_ERR = SQL_ERR_GROUP.registerErrorCode((short) 9);
     }
 
     /** Meta storage error group. */
@@ -428,7 +437,7 @@ public class ErrorGroups {
         /** Distribution zones group. */
         public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = registerGroup("DISTRZONES", (short) 10);
 
-        /** Distribution zone is not found. */
+        /** Distribution zone was not found. */
         public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
     }
 
@@ -539,8 +548,8 @@ public class ErrorGroups {
         /** Compute execution queue overflow error. */
         public static final int QUEUE_OVERFLOW_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Compute job state transfer error. */
-        public static final int COMPUTE_JOB_STATE_TRANSITION_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 5);
+        /** Compute job status transition error. */
+        public static final int COMPUTE_JOB_STATUS_TRANSITION_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Compute job cancel failed error. */
         public static final int CANCELLING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 6);
@@ -548,8 +557,8 @@ public class ErrorGroups {
         /** Compute job result not found error. */
         public static final int RESULT_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 7);
 
-        /** Compute job status can't be retrieved. */
-        public static final int FAIL_TO_GET_JOB_STATUS_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 8);
+        /** Compute job state can't be retrieved. */
+        public static final int FAIL_TO_GET_JOB_STATE_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 8);
 
         /** Compute job failed. */
         public static final int COMPUTE_JOB_FAILED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
@@ -568,6 +577,13 @@ public class ErrorGroups {
 
         /** Specified node is not found in the cluster. */
         public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
+
+        /**
+         * Incompatible types for argument/result in compute job.
+         * For example, the one has defined a marshaller for Type A in the compute job
+         * but on the client side they have passed Type B.
+         */
+        public static final int MARSHALLING_TYPE_MISMATCH_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 15);
     }
 
     /** Catalog error group. */
@@ -620,5 +636,40 @@ public class ErrorGroups {
 
         /** Error while returning partition states. */
         public static final int PARTITION_STATE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 3);
+
+        /** Error while returning partition states. */
+        public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
+    }
+
+    /** Embedded API error group. */
+    @ErrorCodeGroup
+    public static class Embedded {
+        /** Embedded API group. */
+        public static final ErrorGroup EMBEDDED_ERR_GROUP = registerGroup("EMBEDDED", (short) 21);
+
+        /** Cluster is not yet initialized. */
+        public static final int CLUSTER_NOT_INITIALIZED_ERR = EMBEDDED_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Cluster initialization failed. */
+        public static final int CLUSTER_INIT_FAILED_ERR = EMBEDDED_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Node not started. */
+        public static final int NODE_NOT_STARTED_ERR = EMBEDDED_ERR_GROUP.registerErrorCode((short) 3);
+
+        /** Node start failed.. */
+        public static final int NODE_START_ERR = EMBEDDED_ERR_GROUP.registerErrorCode((short) 4);
+    }
+
+    /** Marshalling error group. */
+    @ErrorCodeGroup
+    public static class Marshalling {
+        /** Marshalling error group. */
+        public static final ErrorGroup MARSHALLING_ERR_GROUP = registerGroup("MARSHALLING", (short) 22);
+
+        /** Marshalling error. */
+        public static final int COMMON_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Unsupported object type error. */
+        public static final int UNSUPPORTED_OBJECT_TYPE_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 2);
     }
 }

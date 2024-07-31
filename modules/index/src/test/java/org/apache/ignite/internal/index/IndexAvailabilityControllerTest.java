@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
@@ -55,10 +54,12 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -67,6 +68,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** For {@link IndexAvailabilityController} testing. */
@@ -96,11 +98,13 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(
-                startAsync(metaStorageManager, catalogManager)
-                        .thenCompose(unused -> metaStorageManager.deployWatches()),
-                willCompleteSuccessfully()
-        );
+        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
+
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        indexAvailabilityController.start(metaStorageManager.recoveryFinishedFuture().join());
+
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         awaitDefaultZoneCreation(catalogManager);
 
@@ -121,11 +125,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
         closeAll(
                 indexAvailabilityController::close,
                 indexBuilder::close,
-                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully()),
                 () -> shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS)
         );
     }
@@ -180,6 +185,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22374")
     void testMetastoreKeysAfterIndexCreateForOnlyOnePartition() throws Exception {
         changePartitionCountInCatalog(1);
 
@@ -187,6 +193,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22374")
     void testMetastoreKeysAfterIndexBuildingForOnlyOnePartition() throws Exception {
         changePartitionCountInCatalog(1);
 
@@ -201,7 +208,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         startBuildIndex(indexId);
 
-        finishBuildingIndexForPartition(indexId, 0, indexCreationCatalogVersion(INDEX_NAME));
+        finishBuildingIndexForPartition(indexId, 0);
 
         awaitTillGlobalMetastoreRevisionIsApplied();
 
@@ -260,6 +267,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22374")
     void testMetastoreKeysAfterDropIndexForOnlyOnePartition() throws Exception {
         changePartitionCountInCatalog(1);
 
@@ -272,7 +280,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        finishBuildingIndexForPartition(indexId, 0, indexCreationCatalogVersion(INDEX_NAME));
+        finishBuildingIndexForPartition(indexId, 0);
 
         dropIndex(INDEX_NAME);
 
@@ -292,7 +300,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         int indexId = indexId(INDEX_NAME);
 
         for (int partitionId = 1; partitionId < partitions; partitionId++) {
-            finishBuildingIndexForPartition(indexId, partitionId, indexCreationCatalogVersion(INDEX_NAME));
+            finishBuildingIndexForPartition(indexId, partitionId);
         }
 
         dropIndex(INDEX_NAME);
@@ -313,7 +321,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         int indexId = indexId(INDEX_NAME);
 
         for (int partitionId = 2; partitionId < partitions; partitionId++) {
-            finishBuildingIndexForPartition(indexId, partitionId, indexCreationCatalogVersion(INDEX_NAME));
+            finishBuildingIndexForPartition(indexId, partitionId);
         }
 
         dropIndex(INDEX_NAME);
@@ -332,7 +340,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void createIndex(String indexName) {
-        TableTestUtils.createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
+        TableTestUtils.createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
     }
 
     private void startBuildIndex(int indexId) {
@@ -340,7 +348,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private int indexId(String indexName) {
@@ -368,7 +376,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         partitions = newPartitions;
     }
 
-    private void finishBuildingIndexForPartition(int indexId, int partitionId, int indexCreationCatalogVersion) {
+    private void finishBuildingIndexForPartition(int indexId, int partitionId) {
         // It may look complicated, but the other method through mocking IndexBuilder seems messier.
         IndexStorage indexStorage = mock(IndexStorage.class);
 
@@ -383,15 +391,17 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 indexStorage,
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
-                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                indexCreationCatalogVersion
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN
         );
 
         CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
 
-        indexBuilder.listen((indexId1, tableId, partitionId1) -> {
-            if (indexId1 == indexId && partitionId1 == partitionId) {
-                finishBuildIndexFuture.complete(null);
+        indexBuilder.listen(new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletion(int indexId1, int tableId1, int partitionId1) {
+                if (indexId1 == indexId && partitionId1 == partitionId) {
+                    finishBuildIndexFuture.complete(null);
+                }
             }
         });
 
@@ -444,9 +454,5 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private static String partitionBuildIndexKey(int indexId, int partitionId) {
         return "indexBuild.partition." + indexId + "." + partitionId;
-    }
-
-    private int indexCreationCatalogVersion(String indexName) {
-        return TableTestUtils.getIndexStrict(catalogManager, indexName, clock.nowLong()).txWaitCatalogVersion();
     }
 }

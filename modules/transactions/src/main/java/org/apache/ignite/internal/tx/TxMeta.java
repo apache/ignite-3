@@ -18,12 +18,18 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.Collections.unmodifiableCollection;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxMetaMessage;
 import org.jetbrains.annotations.Nullable;
 
 /** Transaction meta. */
@@ -38,8 +44,7 @@ public class TxMeta implements TransactionMeta {
     private final Collection<TablePartitionId> enlistedPartitions;
 
     /** Commit timestamp. */
-    @Nullable
-    private final HybridTimestamp commitTimestamp;
+    private final @Nullable HybridTimestamp commitTimestamp;
 
     /**
      * The constructor.
@@ -66,6 +71,21 @@ public class TxMeta implements TransactionMeta {
     @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
+    }
+
+    @Override
+    public TxMetaMessage toTransactionMetaMessage(ReplicaMessagesFactory replicaMessagesFactory, TxMessagesFactory txMessagesFactory) {
+        var enlistedPartitionMessages = new ArrayList<TablePartitionIdMessage>(enlistedPartitions.size());
+
+        for (TablePartitionId enlistedPartition : enlistedPartitions) {
+            enlistedPartitionMessages.add(toTablePartitionIdMessage(replicaMessagesFactory, enlistedPartition));
+        }
+
+        return txMessagesFactory.txMetaMessage()
+                .txState(txState)
+                .commitTimestamp(commitTimestamp)
+                .enlistedPartitions(enlistedPartitionMessages)
+                .build();
     }
 
     @Override

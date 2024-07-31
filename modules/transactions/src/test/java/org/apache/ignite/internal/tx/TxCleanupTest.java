@@ -49,6 +49,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -146,7 +146,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = clock.now();
 
-        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(partitions, true, commitTimestamp, txId);
+        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(tablePartitionId1, partitions, true, commitTimestamp, txId);
 
         assertThat(cleanup, willCompleteSuccessfully());
 
@@ -182,7 +182,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = clock.now();
 
-        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(partitions, true, commitTimestamp, txId);
+        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(tablePartitionId1, partitions, true, commitTimestamp, txId);
 
         assertThat(cleanup, willCompleteSuccessfully());
 
@@ -216,7 +216,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = clock.now();
 
-        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(partitions, true, commitTimestamp, txId);
+        CompletableFuture<Void> cleanup = cleanupRequestSender.cleanup(tablePartitionId1, partitions, true, commitTimestamp, txId);
 
         assertThat(cleanup, willCompleteSuccessfully());
 

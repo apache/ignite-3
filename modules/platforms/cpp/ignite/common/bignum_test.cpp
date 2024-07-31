@@ -62,11 +62,13 @@ void CheckOutputInput(const T &val) {
 }
 
 void CheckDoubleCast(double val) {
-    big_decimal dec;
+    big_decimal dec1(big_decimal::from_double(val));
+    big_decimal dec2;
 
-    dec.assign_double(val);
+    dec2.assign_double(val);
 
-    EXPECT_NEAR(val, dec.to_double(), 1E-10);
+    EXPECT_NEAR(val, dec1.to_double(), 1E-10);
+    EXPECT_NEAR(val, dec2.to_double(), 1E-10);
 }
 
 TEST(bignum, TestMultiplyBigIntegerArguments) {
@@ -78,7 +80,7 @@ TEST(bignum, TestMultiplyBigIntegerArguments) {
     bigInt.multiply(big_integer(12345), res);
 
     {
-        const big_integer::mag_array &mag = res.get_magnitude();
+        const big_integer::mag_array_view mag = res.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -90,7 +92,7 @@ TEST(bignum, TestMultiplyBigIntegerArguments) {
     bigInt.multiply(bigInt, res);
 
     {
-        const big_integer::mag_array &mag = res.get_magnitude();
+        const big_integer::mag_array_view mag = res.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -102,7 +104,7 @@ TEST(bignum, TestMultiplyBigIntegerArguments) {
     bigInt.multiply(big_integer(12345), bigInt);
 
     {
-        const big_integer::mag_array &mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -114,7 +116,7 @@ TEST(bignum, TestMultiplyBigIntegerArguments) {
     bigInt.multiply(bigInt, bigInt);
 
     {
-        const big_integer::mag_array &mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -135,7 +137,7 @@ TEST(bignum, TestMultiplyBigIntegerBigger) {
     bigInt.multiply(buf, bigInt);
 
     {
-        const big_integer::mag_array &mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 3);
 
@@ -150,7 +152,7 @@ TEST(bignum, TestMultiplyBigIntegerBigger) {
     bigInt.multiply(big_integer(23423079641), bigInt);
 
     {
-        const big_integer::mag_array &mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 5);
 
@@ -166,7 +168,7 @@ TEST(bignum, TestPowBigInteger) {
     big_integer bigInt(12345);
 
     {
-        const big_integer::mag_array &mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -177,7 +179,7 @@ TEST(bignum, TestPowBigInteger) {
     bigInt.pow(2);
 
     {
-        const big_integer::mag_array &mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 1);
 
@@ -189,7 +191,7 @@ TEST(bignum, TestPowBigInteger) {
     bigInt.pow(3);
 
     {
-        const big_integer::mag_array &mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 3);
 
@@ -211,7 +213,7 @@ TEST(bignum, TestPowBigInteger) {
     bigInt.pow(10);
 
     {
-        const big_integer::mag_array &mag = bigInt.get_magnitude();
+        const big_integer::mag_array_view &mag = bigInt.get_magnitude();
 
         EXPECT_EQ(mag.size(), 26);
 
@@ -379,6 +381,61 @@ TEST(bignum, TestMultiplyDivideSimple) {
     EXPECT_EQ(val, big_integer(0));
 }
 
+TEST(bignum, TestAddSimple) {
+    big_integer val;
+    big_integer res;
+
+    val.assign_int64(0);
+    EXPECT_EQ(val.to_int64(), 0L);
+
+    val.add(big_integer(1), res);
+    EXPECT_EQ(res.to_int64(), 1L);
+
+    // random
+    val.assign_int64(2463541195749558141L);
+    val.add(big_integer(3098194482677853036L), res);
+
+    EXPECT_EQ(res.to_int64(), 5561735678427411177L);
+
+    val.assign_int64(0);
+    val.add(big_integer(-1), res);
+
+    EXPECT_EQ(res.to_int64(), -1L);
+
+    // random negative
+    val.assign_int64(-4032357373991925161L);
+    val.add(big_integer(-233378388862503951L), res);
+
+    EXPECT_EQ(res.to_int64(), -4265735762854429112L);
+}
+
+TEST(bignum, TestSubtractSimple) {
+    big_integer val;
+    big_integer res;
+
+    val.assign_int64(0);
+
+    val.subtract(big_integer(1), res);
+    EXPECT_EQ(res.to_int64(), -1L);
+
+    // random
+    val.assign_int64(5688815843208686889L);
+    val.subtract(big_integer(3900474041211631169L), res);
+
+    EXPECT_EQ(res.to_int64(), 1788341801997055720L);
+
+    val.assign_int64(0);
+    val.add(big_integer(-1), res);
+
+    EXPECT_EQ(res.to_int64(), -1L);
+
+    // random negative
+    val.assign_int64(-3456647618045976636L);
+    val.add(big_integer(-4426861903511900512L), res);
+
+    EXPECT_EQ(res.to_int64(), -7883509521557877148L);
+}
+
 TEST(bignum, TestDivideBigger) {
     big_integer res;
     big_integer rem;
@@ -404,7 +461,7 @@ TEST(bignum, TestDivideBigger) {
         .divide(big_integer("-29064503640646565660609983646665763458768340596340586"), res, rem);
 
     EXPECT_EQ(res, big_integer("-199192136253942064949205579447876757418653967046"));
-    EXPECT_EQ(rem, big_integer("-9693519879390725820633207073869515731754969332274689"));
+    EXPECT_EQ(rem, big_integer("9693519879390725820633207073869515731754969332274689"));
 
     big_integer(
         "-107519074510758034695616045096493659264398569023607895679428769875976987594876903458769799098378994985"
@@ -790,30 +847,30 @@ TEST(bignum, TestInputOutputSimpleDecimal) {
 }
 
 TEST(bignum, TestInputSimpleDecimal) {
-    CheckOutputInput(big_decimal(0));
+    CheckOutputInput(big_decimal(0L));
 
-    CheckOutputInput(big_decimal(1));
-    CheckOutputInput(big_decimal(9));
-    CheckOutputInput(big_decimal(10));
-    CheckOutputInput(big_decimal(11));
-    CheckOutputInput(big_decimal(19));
-    CheckOutputInput(big_decimal(123));
-    CheckOutputInput(big_decimal(1234));
-    CheckOutputInput(big_decimal(12345));
-    CheckOutputInput(big_decimal(123456));
-    CheckOutputInput(big_decimal(1234567));
-    CheckOutputInput(big_decimal(12345678));
-    CheckOutputInput(big_decimal(123456789));
-    CheckOutputInput(big_decimal(1234567890));
-    CheckOutputInput(big_decimal(12345678909));
-    CheckOutputInput(big_decimal(123456789098));
-    CheckOutputInput(big_decimal(1234567890987));
-    CheckOutputInput(big_decimal(12345678909876));
-    CheckOutputInput(big_decimal(123456789098765));
-    CheckOutputInput(big_decimal(1234567890987654));
-    CheckOutputInput(big_decimal(12345678909876543));
-    CheckOutputInput(big_decimal(123456789098765432));
-    CheckOutputInput(big_decimal(1234567890987654321));
+    CheckOutputInput(big_decimal(1L));
+    CheckOutputInput(big_decimal(9L));
+    CheckOutputInput(big_decimal(10L));
+    CheckOutputInput(big_decimal(11L));
+    CheckOutputInput(big_decimal(19L));
+    CheckOutputInput(big_decimal(123L));
+    CheckOutputInput(big_decimal(1234L));
+    CheckOutputInput(big_decimal(12345L));
+    CheckOutputInput(big_decimal(123456L));
+    CheckOutputInput(big_decimal(1234567L));
+    CheckOutputInput(big_decimal(12345678L));
+    CheckOutputInput(big_decimal(123456789L));
+    CheckOutputInput(big_decimal(1234567890L));
+    CheckOutputInput(big_decimal(12345678909L));
+    CheckOutputInput(big_decimal(123456789098L));
+    CheckOutputInput(big_decimal(1234567890987L));
+    CheckOutputInput(big_decimal(12345678909876L));
+    CheckOutputInput(big_decimal(123456789098765L));
+    CheckOutputInput(big_decimal(1234567890987654L));
+    CheckOutputInput(big_decimal(12345678909876543L));
+    CheckOutputInput(big_decimal(123456789098765432L));
+    CheckOutputInput(big_decimal(1234567890987654321L));
     CheckOutputInput(big_decimal(999999999999999999L));
     CheckOutputInput(big_decimal(999999999099999999L));
     CheckOutputInput(big_decimal(1000000000000000000L));
@@ -821,28 +878,28 @@ TEST(bignum, TestInputSimpleDecimal) {
     CheckOutputInput(big_decimal(1000000005000000000L));
     CheckOutputInput(big_decimal(INT64_MAX));
 
-    CheckOutputInput(big_decimal(-1));
-    CheckOutputInput(big_decimal(-9));
-    CheckOutputInput(big_decimal(-10));
-    CheckOutputInput(big_decimal(-11));
-    CheckOutputInput(big_decimal(-19));
-    CheckOutputInput(big_decimal(-123));
-    CheckOutputInput(big_decimal(-1234));
-    CheckOutputInput(big_decimal(-12345));
-    CheckOutputInput(big_decimal(-123456));
-    CheckOutputInput(big_decimal(-1234567));
-    CheckOutputInput(big_decimal(-12345678));
-    CheckOutputInput(big_decimal(-123456789));
-    CheckOutputInput(big_decimal(-1234567890));
-    CheckOutputInput(big_decimal(-12345678909));
-    CheckOutputInput(big_decimal(-123456789098));
-    CheckOutputInput(big_decimal(-1234567890987));
-    CheckOutputInput(big_decimal(-12345678909876));
-    CheckOutputInput(big_decimal(-123456789098765));
-    CheckOutputInput(big_decimal(-1234567890987654));
-    CheckOutputInput(big_decimal(-12345678909876543));
-    CheckOutputInput(big_decimal(-123456789098765432));
-    CheckOutputInput(big_decimal(-1234567890987654321));
+    CheckOutputInput(big_decimal(-1L));
+    CheckOutputInput(big_decimal(-9L));
+    CheckOutputInput(big_decimal(-10L));
+    CheckOutputInput(big_decimal(-11L));
+    CheckOutputInput(big_decimal(-19L));
+    CheckOutputInput(big_decimal(-123L));
+    CheckOutputInput(big_decimal(-1234L));
+    CheckOutputInput(big_decimal(-12345L));
+    CheckOutputInput(big_decimal(-123456L));
+    CheckOutputInput(big_decimal(-1234567L));
+    CheckOutputInput(big_decimal(-12345678L));
+    CheckOutputInput(big_decimal(-123456789L));
+    CheckOutputInput(big_decimal(-1234567890L));
+    CheckOutputInput(big_decimal(-12345678909L));
+    CheckOutputInput(big_decimal(-123456789098L));
+    CheckOutputInput(big_decimal(-1234567890987L));
+    CheckOutputInput(big_decimal(-12345678909876L));
+    CheckOutputInput(big_decimal(-123456789098765L));
+    CheckOutputInput(big_decimal(-1234567890987654L));
+    CheckOutputInput(big_decimal(-12345678909876543L));
+    CheckOutputInput(big_decimal(-123456789098765432L));
+    CheckOutputInput(big_decimal(-1234567890987654321L));
     CheckOutputInput(big_decimal(-999999999999999999L));
     CheckOutputInput(big_decimal(-999999999099999999L));
     CheckOutputInput(big_decimal(-1000000000000000000L));
@@ -917,28 +974,107 @@ TEST(bignum, TestScalingBig) {
     EXPECT_EQ(decimal.to_int64(), 63647190455381106L);
 }
 
-TEST(bignum, TestPrecisionSimple) {
-    big_decimal test(1);
+TEST(bignum, TestDecimalSimple) {
+    EXPECT_EQ(big_decimal(1000L, 3) + big_decimal(1000L, 3), big_decimal(2000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) + big_decimal(1000L, 2), big_decimal(11000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) + big_decimal(1000L, 1), big_decimal(101000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) + big_decimal(1000L, 0), big_decimal(1001000L, 3));
 
-    EXPECT_EQ(big_decimal(-9).get_precision(), 1);
-    EXPECT_EQ(big_decimal(-8).get_precision(), 1);
-    EXPECT_EQ(big_decimal(-7).get_precision(), 1);
-    EXPECT_EQ(big_decimal(-6).get_precision(), 1);
-    EXPECT_EQ(big_decimal(-5).get_precision(), 1);
-    EXPECT_EQ(big_decimal(-4).get_precision(), 1);
-    EXPECT_EQ(big_decimal(-3).get_precision(), 1);
-    EXPECT_EQ(big_decimal(-2).get_precision(), 1);
-    EXPECT_EQ(big_decimal(-1).get_precision(), 1);
-    EXPECT_EQ(big_decimal(0).get_precision(), 1);
-    EXPECT_EQ(big_decimal(1).get_precision(), 1);
-    EXPECT_EQ(big_decimal(2).get_precision(), 1);
-    EXPECT_EQ(big_decimal(3).get_precision(), 1);
-    EXPECT_EQ(big_decimal(4).get_precision(), 1);
-    EXPECT_EQ(big_decimal(5).get_precision(), 1);
-    EXPECT_EQ(big_decimal(6).get_precision(), 1);
-    EXPECT_EQ(big_decimal(7).get_precision(), 1);
-    EXPECT_EQ(big_decimal(8).get_precision(), 1);
-    EXPECT_EQ(big_decimal(9).get_precision(), 1);
+    EXPECT_EQ(big_decimal(1000L, 3) - big_decimal(1000L, 3), big_decimal(0L, std::int16_t(3)));
+    EXPECT_EQ(big_decimal(1000L, 3) - big_decimal(1000L, 2), big_decimal(-9000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) - big_decimal(1000L, 1), big_decimal(-99000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) - big_decimal(1000L, 0), big_decimal(-999000L, 3));
+
+    EXPECT_EQ(big_decimal(1000L, 3) * big_decimal(1000L, 3), big_decimal(1000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) * big_decimal(1000L, 2), big_decimal(10000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) * big_decimal(1000L, 1), big_decimal(100000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) * big_decimal(1000L, 0), big_decimal(1000000L, 3));
+
+    EXPECT_EQ(big_decimal(1000L, 3) / big_decimal(1000L, 3), big_decimal(1000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) / big_decimal(1000L, 2), big_decimal(100L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) / big_decimal(1000L, 1), big_decimal(10L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) / big_decimal(1000L, 0), big_decimal(1L, 3));
+
+    // Generated tests
+    // Test with negative numbers
+    EXPECT_EQ(big_decimal(-1000L, 3) / big_decimal(1000L, 3), big_decimal(-1000L, 3));
+    EXPECT_EQ(big_decimal(1000L, 3) / big_decimal(-1000L, 3), big_decimal(-1000L, 3));
+    EXPECT_EQ(big_decimal(-1000L, 3) / big_decimal(-1000L, 3), big_decimal(1000L, 3));
+
+    // Test with zero
+    EXPECT_EQ(big_decimal(0L, std::int16_t(3)) / big_decimal(1000L, 3), big_decimal(0L, std::int16_t(3)));
+
+    // Test with a large scale
+    EXPECT_EQ(big_decimal(123456789L, 100) / big_decimal(100000000L, 100), big_decimal(123456789L, 8));
+
+    // Test with different scales
+    EXPECT_EQ(big_decimal(123456789L, 5) / big_decimal(100000000L, 3), big_decimal(123456789L, 10));
+    EXPECT_EQ(big_decimal(123456789L, 3) / big_decimal(100000000L, 5), big_decimal(123456789L, 6));
+
+    // Test scale after divide
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 0), big_decimal(123456789L, 8));
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 1), big_decimal(123456789L, 7));
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 2), big_decimal(123456789L, 6));
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 3), big_decimal(123456789L, 5));
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 4), big_decimal(123456789L, 4));
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 5), big_decimal(123456789L, 3));
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 6), big_decimal(123456789L, 2));
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 7), big_decimal(123456789L, 1));
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 8), big_decimal(123456789L, 0));
+
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 0), big_decimal(123456789L, 8));
+    EXPECT_EQ(big_decimal(123456789L, 1) / big_decimal(100000000L, 0), big_decimal(123456789L, 9));
+    EXPECT_EQ(big_decimal(123456789L, 2) / big_decimal(100000000L, 0), big_decimal(123456789L, 10));
+    EXPECT_EQ(big_decimal(123456789L, 3) / big_decimal(100000000L, 0), big_decimal(123456789L, 11));
+    EXPECT_EQ(big_decimal(123456789L, 4) / big_decimal(100000000L, 0), big_decimal(123456789L, 12));
+    EXPECT_EQ(big_decimal(123456789L, 5) / big_decimal(100000000L, 0), big_decimal(123456789L, 13));
+    EXPECT_EQ(big_decimal(123456789L, 6) / big_decimal(100000000L, 0), big_decimal(123456789L, 14));
+    EXPECT_EQ(big_decimal(123456789L, 7) / big_decimal(100000000L, 0), big_decimal(123456789L, 15));
+    EXPECT_EQ(big_decimal(123456789L, 8) / big_decimal(100000000L, 0), big_decimal(123456789L, 16));
+
+    EXPECT_EQ(big_decimal(123456789L, 0) / big_decimal(100000000L, 8), big_decimal(123456789L, 0));
+    EXPECT_EQ(big_decimal(123456789L, 1) / big_decimal(100000000L, 7), big_decimal(123456789L, 2));
+    EXPECT_EQ(big_decimal(123456789L, 2) / big_decimal(100000000L, 6), big_decimal(123456789L, 4));
+    EXPECT_EQ(big_decimal(123456789L, 3) / big_decimal(100000000L, 5), big_decimal(123456789L, 6));
+    EXPECT_EQ(big_decimal(123456789L, 4) / big_decimal(100000000L, 4), big_decimal(123456789L, 8));
+    EXPECT_EQ(big_decimal(123456789L, 5) / big_decimal(100000000L, 3), big_decimal(123456789L, 10));
+    EXPECT_EQ(big_decimal(123456789L, 6) / big_decimal(100000000L, 2), big_decimal(123456789L, 12));
+    EXPECT_EQ(big_decimal(123456789L, 7) / big_decimal(100000000L, 1), big_decimal(123456789L, 14));
+    EXPECT_EQ(big_decimal(123456789L, 8) / big_decimal(100000000L, 0), big_decimal(123456789L, 16));
+
+    // Random
+    EXPECT_EQ(big_decimal(98094819054L, 2) + big_decimal(24689666136L, 1), big_decimal(344991480414L, 2));
+    EXPECT_EQ(big_decimal(58628397409L, 6) + big_decimal(45577616757L, 4), big_decimal(4616390073109L, 6));
+
+    EXPECT_EQ(big_decimal(98094819054L, 2) * big_decimal(24689666136L, 1), big_decimal("2421928332114591355.344"));
+    EXPECT_EQ(big_decimal(58628397409L, 6) * big_decimal(45577616757L, 4), big_decimal("267214262818.4493782613"));
+
+    EXPECT_EQ(big_decimal(98094819054L, 2) / big_decimal(24689666136L, 1), big_decimal(3973112415277L, 13));
+    EXPECT_EQ(big_decimal(58628397409L, 6) / big_decimal(45577616757L, 4), big_decimal(1286341884034L, 14));
+}
+
+TEST(bignum, TestPrecisionSimple) {
+    big_decimal test(1L);
+
+    EXPECT_EQ(big_decimal(-9L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(-8L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(-7L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(-6L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(-5L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(-4L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(-3L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(-2L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(-1L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(0L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(1L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(2L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(3L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(4L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(5L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(6L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(7L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(8L).get_precision(), 1);
+    EXPECT_EQ(big_decimal(9L).get_precision(), 1);
 
     EXPECT_EQ(big_decimal(2147483648L).get_precision(), 10); // 2^31:       10 digits
     EXPECT_EQ(big_decimal(-2147483647L).get_precision(), 10); // -2^31+1:    10 digits
@@ -976,7 +1112,7 @@ TEST(bignum, TestPrecisionChange) {
     EXPECT_EQ(decimal.get_precision(), 45);
     EXPECT_EQ(decimal.get_scale(), 23);
 
-    for (int32_t i = 0; i < decimal.get_scale(); ++i) {
+    for (int16_t i = 0; i < decimal.get_scale(); ++i) {
         decimal.set_scale(i, decimal);
 
         EXPECT_EQ(decimal.get_precision(), decimal.get_precision() - decimal.get_scale() + i);

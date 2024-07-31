@@ -16,7 +16,7 @@
  */
 
 #include "ignite/odbc/type_traits.h"
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/odbc/system/odbc_constants.h"
 
 namespace ignite {

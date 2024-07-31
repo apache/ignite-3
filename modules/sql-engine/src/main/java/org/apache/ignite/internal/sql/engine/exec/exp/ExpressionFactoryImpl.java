@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,6 +48,7 @@ import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.linq4j.tree.MethodDeclaration;
 import org.apache.calcite.linq4j.tree.ParameterExpression;
+import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
@@ -65,6 +67,7 @@ import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -83,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -275,8 +279,18 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     public Supplier<RowT> rowSource(List<RexNode> values) {
         List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : NULL_TYPE);
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
+        List<RexLiteral> literalValues = new ArrayList<>(values.size());
 
-        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+        // Avoiding compilation when all expressions are constants.
+        for (int i = 0; i < values.size(); i++) {
+            if (!(values.get(i) instanceof RexLiteral)) {
+                return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+            }
+
+            literalValues.add((RexLiteral) values.get(i));
+        }
+
+        return new ConstantValuesImpl(literalValues, typeList, ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
@@ -326,21 +340,35 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     rows.add(rowBuilder.buildAndReset());
                 }
 
-                RexLiteral literal = values.get(i);
-                Object val = literal.getValueAs(types.get(field));
-
-                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
-                if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
-                    val = IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
-                }
-
-                rowBuilder.addField(val);
+                rowBuilder.addField(literalValue(values.get(i), types.get(field)));
             }
 
             rows.add(rowBuilder.buildAndReset());
         }
 
         return rows;
+    }
+
+    private @Nullable Object literalValue(RexLiteral literal, Class<?> type) {
+        RelDataType dataType = literal.getType();
+
+        if (SqlTypeUtil.isNumeric(dataType)) {
+            BigDecimal value = (BigDecimal) literal.getValue();
+            if (value == null) {
+                return null;
+            }
+
+            return convertNumericLiteral(dataType, value, type);
+        } else {
+            Object val = literal.getValueAs(type);
+
+            // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+            if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
+            }
+
+            return val;
+        }
     }
 
     /** {@inheritDoc} */
@@ -792,6 +820,35 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
+    private class ConstantValuesImpl implements Supplier<RowT> {
+        private final List<RexLiteral> values;
+
+        private final RowBuilder<RowT> rowBuilder;
+
+        private final List<RelDataType> types;
+
+        /**
+         * Constructor.
+         */
+        private ConstantValuesImpl(List<RexLiteral> values, List<RelDataType> types, RowFactory<RowT> factory) {
+            this.values = values;
+            this.rowBuilder = factory.rowBuilder();
+            this.types = types;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RowT get() {
+            for (int field = 0; field < values.size(); field++) {
+                Class<?> javaType = Primitives.wrap((Class<?>) TYPE_FACTORY.getJavaClass(types.get(field)));
+
+                rowBuilder.addField(literalValue(values.get(field), javaType));
+            }
+
+            return rowBuilder.buildAndReset();
+        }
+    }
+
     private class RangeConditionImpl implements RangeCondition<RowT> {
         /** Lower bound expression. */
         private final @Nullable SingleScalar lowerBound;
@@ -1163,6 +1220,70 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             correlates.put(variable.getName(), new FieldGetter(hnd, corr, variable.getType()));
 
             return variable;
+        }
+    }
+
+    private static Object convertNumericLiteral(RelDataType dataType, BigDecimal value, Class<?> type) {
+        Primitive primitive = Primitive.ofBoxOr(type);
+        assert primitive != null || type == BigDecimal.class : "Neither primitive nor BigDecimal: " + type;
+
+        switch (dataType.getSqlTypeName()) {
+            case TINYINT:
+                byte b = IgniteMath.convertToByteExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, b);
+                } else {
+                    return new BigDecimal(b);
+                }
+            case SMALLINT:
+                short s = IgniteMath.convertToShortExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, s);
+                } else {
+                    return new BigDecimal(s);
+                }
+            case INTEGER:
+                int i = IgniteMath.convertToIntExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, i);
+                } else {
+                    return new BigDecimal(i);
+                }
+            case BIGINT:
+                long l = IgniteMath.convertToLongExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, l);
+                } else {
+                    return new BigDecimal(l);
+                }
+            case REAL:
+            case FLOAT:
+                float r = IgniteMath.convertToFloatExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, r);
+                } else {
+                    // Preserve the exact form of a float value.
+                    return new BigDecimal(Float.toString(r));
+                }
+            case DOUBLE:
+                double d = IgniteMath.convertToDoubleExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, d);
+                } else {
+                    // Preserve the exact form of a double value.
+                    return new BigDecimal(Double.toString(d));
+                }
+            case DECIMAL:
+                BigDecimal bd = IgniteSqlFunctions.toBigDecimal(value, dataType.getPrecision(), dataType.getScale());
+                assert bd != null;
+
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, bd);
+                } else {
+                    return bd;
+                }
+            default:
+                throw new IllegalStateException("Unexpected numeric type: " + dataType);
         }
     }
 }

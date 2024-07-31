@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -164,9 +165,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var tupleView = table.recordView();
 
         Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create().set("KEY", 1)), IgniteException.class);
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
+        assertThat(ex.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
     }
 
     @Test
@@ -190,9 +189,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create()),
                 IgniteException.class);
 
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
+        assertThat(ex.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
     }
 
     @Test
@@ -276,9 +273,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var tupleView = table.recordView();
 
         Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create().set("KEY", null)), IgniteException.class);
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=0, keyPosition=0, valuePosition=-1, colocationPosition=0, name=KEY"));
+        assertThat(ex.getMessage(), containsString("Column 'KEY' does not allow NULLs"));
     }
 
     @Test
@@ -291,9 +286,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         Tuple rec = Tuple.create().set("KEY", 1).set("VAL", null);
         Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, rec), IgniteException.class);
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
+        assertThat(ex.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
     }
 
     @Test
@@ -317,9 +310,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create().set("VAL", null)),
                 IgniteException.class);
 
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
+        assertThat(ex.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
     }
 
     private static class TestPojo2 {

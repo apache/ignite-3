@@ -32,19 +32,20 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.MapReduceTask;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
 import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
-import org.apache.ignite.internal.compute.message.JobStatusResponse;
-import org.apache.ignite.internal.compute.message.JobStatusesResponse;
+import org.apache.ignite.internal.compute.message.JobStateResponse;
+import org.apache.ignite.internal.compute.message.JobStatesResponse;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.DataStreamerReceiver;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,7 +61,7 @@ public class ComputeUtils {
      * @param <R> Compute job return type.
      * @return Compute job instance.
      */
-    public static <R> ComputeJob<R> instantiateJob(Class<? extends ComputeJob<R>> computeJobClass) {
+    public static <T, R> ComputeJob<T, R> instantiateJob(Class<? extends ComputeJob<T, R>> computeJobClass) {
         if (!(ComputeJob.class.isAssignableFrom(computeJobClass))) {
             throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
@@ -69,7 +70,7 @@ public class ComputeUtils {
         }
 
         try {
-            Constructor<? extends ComputeJob<R>> constructor = computeJobClass.getDeclaredConstructor();
+            Constructor<? extends ComputeJob<T, R>> constructor = computeJobClass.getDeclaredConstructor();
 
             if (!constructor.canAccess(null)) {
                 constructor.setAccessible(true);
@@ -89,9 +90,9 @@ public class ComputeUtils {
      * @param <R> Compute job return type.
      * @return Compute job class.
      */
-    public static <R> Class<ComputeJob<R>> jobClass(ClassLoader jobClassLoader, String jobClassName) {
+    public static <T, R> Class<ComputeJob<T, R>> jobClass(ClassLoader jobClassLoader, String jobClassName) {
         try {
-            return (Class<ComputeJob<R>>) Class.forName(jobClassName, true, jobClassLoader);
+            return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader);
         } catch (ClassNotFoundException e) {
             throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load job class by name '" + jobClassName + "'", e);
         }
@@ -104,7 +105,7 @@ public class ComputeUtils {
      * @param <R> Map reduce task return type.
      * @return Map reduce task instance.
      */
-    public static <R> MapReduceTask<R> instantiateTask(Class<? extends MapReduceTask<R>> taskClass) {
+    public static <I, M, T, R> MapReduceTask<I, M, T, R> instantiateTask(Class<? extends MapReduceTask<I, M, T, R>> taskClass) {
         if (!(MapReduceTask.class.isAssignableFrom(taskClass))) {
             throw new ComputeException(
                     CLASS_INITIALIZATION_ERR,
@@ -113,7 +114,7 @@ public class ComputeUtils {
         }
 
         try {
-            Constructor<? extends MapReduceTask<R>> constructor = taskClass.getDeclaredConstructor();
+            Constructor<? extends MapReduceTask<I, M, T, R>> constructor = taskClass.getDeclaredConstructor();
 
             if (!constructor.canAccess(null)) {
                 constructor.setAccessible(true);
@@ -133,11 +134,56 @@ public class ComputeUtils {
      * @param <R> Map reduce task return type.
      * @return Map reduce task class.
      */
-    public static <R> Class<MapReduceTask<R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
+    public static <I, M, T, R> Class<MapReduceTask<I, M, T, R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
         try {
-            return (Class<MapReduceTask<R>>) Class.forName(taskClassName, true, taskClassLoader);
+            return (Class<MapReduceTask<I, M, T, R>>) Class.forName(taskClassName, true, taskClassLoader);
         } catch (ClassNotFoundException e) {
             throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load task class by name '" + taskClassName + "'", e);
+        }
+    }
+
+    /**
+     * Instantiate data streamer receiver.
+     *
+     * @param recvClass Receiver class.
+     * @param <T> Receiver item type.
+     * @param <R> Receiver return type.
+     * @return Receiver instance.
+     */
+    public static <T, R, A> DataStreamerReceiver<T, R, A> instantiateReceiver(Class<? extends DataStreamerReceiver<T, R, A>> recvClass) {
+        if (!(DataStreamerReceiver.class.isAssignableFrom(recvClass))) {
+            throw new ComputeException(
+                    CLASS_INITIALIZATION_ERR,
+                    "'" + recvClass.getName() + "' does not implement DataStreamerReceiver interface"
+            );
+        }
+
+        try {
+            Constructor<? extends DataStreamerReceiver<T, R, A>> constructor = recvClass.getDeclaredConstructor();
+
+            if (!constructor.canAccess(null)) {
+                constructor.setAccessible(true);
+            }
+
+            return constructor.newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot instantiate streamer receiver", e);
+        }
+    }
+
+    /**
+     * Resolve receiver class name.
+     *
+     * @param classLoader Class loader.
+     * @param className Class name.
+     * @param <R> Return type.
+     * @return Receiver class.
+     */
+    public static <T, R, A> Class<DataStreamerReceiver<T, R, A>> receiverClass(ClassLoader classLoader, String className) {
+        try {
+            return (Class<DataStreamerReceiver<T, R, A>>) Class.forName(className, true, classLoader);
+        } catch (ClassNotFoundException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load receiver class by name '" + className + "'", e);
         }
     }
 
@@ -186,33 +232,33 @@ public class ComputeUtils {
     }
 
     /**
-     * Extract compute job statuses from statuses response.
+     * Extract compute job states from states response.
      *
-     * @param jobStatusesResponse Job statuses result message response.
+     * @param jobStatesResponse Job states result message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<Collection<JobStatus>> statusesFromJobStatusesResponse(JobStatusesResponse jobStatusesResponse) {
-        Throwable throwable = jobStatusesResponse.throwable();
+    public static CompletableFuture<Collection<JobState>> statesFromJobStatesResponse(JobStatesResponse jobStatesResponse) {
+        Throwable throwable = jobStatesResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return completedFuture(jobStatusesResponse.statuses());
+        return completedFuture(jobStatesResponse.states());
     }
 
     /**
-     * Extract compute job status from status response.
+     * Extract compute job state from state response.
      *
-     * @param jobStatusResponse Job status result message response.
+     * @param jobStateResponse Job state result message response.
      * @return Completable future with result.
      */
-    public static CompletableFuture<@Nullable JobStatus> statusFromJobStatusResponse(JobStatusResponse jobStatusResponse) {
-        Throwable throwable = jobStatusResponse.throwable();
+    public static CompletableFuture<@Nullable JobState> stateFromJobStateResponse(JobStateResponse jobStateResponse) {
+        Throwable throwable = jobStateResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return completedFuture(jobStatusResponse.status());
+        return completedFuture(jobStateResponse.state());
     }
 
     /**

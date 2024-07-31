@@ -68,12 +68,6 @@ public enum IgniteMethod {
     /** See {@link BiScalar#execute(ExecutionContext, Object, Object, RowBuilder)}. */
     BI_SCALAR_EXECUTE(BiScalar.class, "execute", ExecutionContext.class, Object.class, Object.class, RowBuilder.class),
 
-    SYSTEM_RANGE2(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class),
-
-    SYSTEM_RANGE3(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class, Object.class),
-
-    STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "timestampStringToNumeric", String.class),
-
     /** See {@link IgniteSqlFunctions#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlFunctions.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
 
@@ -102,16 +96,12 @@ public enum IgniteMethod {
     IS_NOT_DISTINCT_FROM(Objects.class, "equals", Object.class, Object.class),
 
     /** See {@link UUID#randomUUID()}. */
-    RAND_UUID(UUID.class, "randomUUID"),
+    RAND_UUID(IgniteSqlFunctions.class, "randUuid"),
 
     LENGTH(IgniteSqlFunctions.class, "length", Object.class),
 
     OCTET_LENGTH(IgniteSqlFunctions.class, "octetLength", ByteString.class),
     OCTET_LENGTH2(IgniteSqlFunctions.class, "octetLength", String.class),
-
-    /** See {@link IgniteSqlFunctions#genRandomUuid()}. */
-    // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
-    GEN_RANDOM_UUID(IgniteSqlFunctions.class, "genRandomUuid"),
 
     /** See {@link IgniteSqlFunctions#consumeFirstArgument(Object, Object)}. **/
     CONSUME_FIRST_ARGUMENT(IgniteSqlFunctions.class, "consumeFirstArgument", Object.class, Object.class),
@@ -125,8 +115,6 @@ public enum IgniteMethod {
      * TRUNCATE function. See {@link IgniteSqlFunctions#struncate(double)}, {@link IgniteSqlFunctions#struncate(double, int)} and variants.
      */
     TRUNCATE(IgniteSqlFunctions.class, "struncate", true),
-
-    SUBSTRING(IgniteSqlFunctions.class, "substring", true),
 
     /**
      * Division operator used by REDUCE phase of AVG aggregate.

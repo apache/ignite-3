@@ -18,17 +18,17 @@
 package org.apache.ignite.internal.compute.task;
 
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.task.ComputeJobRunner;
+import org.apache.ignite.compute.task.MapReduceJob;
 
 /**
  * Compute job submitter.
  */
 @FunctionalInterface
-public interface JobSubmitter {
+public interface JobSubmitter<T, R> {
     /**
      * Submits compute job for an execution.
      *
      * @param computeJobRunner Computer job start parameters.
      */
-    JobExecution<Object> submit(ComputeJobRunner computeJobRunner);
+    JobExecution<R> submit(MapReduceJob<T, R> computeJobRunner);
 }

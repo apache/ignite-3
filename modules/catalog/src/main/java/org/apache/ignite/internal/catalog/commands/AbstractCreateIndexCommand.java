@@ -49,18 +49,25 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
 
     protected final List<String> columns;
 
-    AbstractCreateIndexCommand(String schemaName, String indexName, String tableName, boolean unique, List<String> columns)
-            throws CatalogValidationException {
+    private final boolean ifNotExists;
+
+    AbstractCreateIndexCommand(String schemaName, String indexName, boolean ifNotExists, String tableName, boolean unique,
+            List<String> columns) throws CatalogValidationException {
         super(schemaName, indexName);
 
         validate(tableName, columns);
 
+        this.ifNotExists = ifNotExists;
         this.tableName = tableName;
         this.unique = unique;
         this.columns = copyOrNull(columns);
     }
 
-    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, int creationCatalogVersion);
+    public boolean ifNotExists() {
+        return ifNotExists;
+    }
+
+    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId);
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
@@ -84,7 +91,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         }
 
         return List.of(
-                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id(), catalog.version() + 1), schemaName),
+                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id())),
                 new ObjectIdGenUpdateEntry(1)
         );
     }

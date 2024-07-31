@@ -20,20 +20,15 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -59,21 +54,19 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link VolatilePageMemoryTableStorage}.
  */
 public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
-    private final PageEvictionTracker pageEvictionTracker = spy(PageEvictionTrackerNoOp.INSTANCE);
-
     private VolatilePageMemoryStorageEngine engine;
 
     @BeforeEach
     void setUp(
             @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
-            StorageConfiguration storageConfiguration
+            StorageConfiguration storageConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration, ioRegistry, pageEvictionTracker);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfig, ioRegistry, clock);
 
         engine.start();
 
@@ -102,7 +95,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         insertOneRow(partitionStorage);
 
-        long emptyDataPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyDataPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
@@ -112,13 +105,9 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     private void assertMvDataDestructionCompletes(long emptyDataPagesBeforeDestroy)
             throws InterruptedException, IgniteInternalCheckedException {
         assertTrue(waitForCondition(
-                () -> dataRegion().rowVersionFreeList().emptyDataPages() > emptyDataPagesBeforeDestroy,
+                () -> dataRegion().freeList().emptyDataPages() > emptyDataPagesBeforeDestroy,
                 5_000
         ));
-
-        // Make sure that some page storing row versions gets emptied (so we can be sure that row versions
-        // get removed).
-        verify(pageEvictionTracker, timeout(5_000)).forgetPage(anyLong());
     }
 
     private void insertOneRow(MvPartitionStorage partitionStorage) {
@@ -141,7 +130,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         insertOneRow(partitionStorage);
 
-        long emptyDataPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyDataPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroy(), willSucceedFast());
 
@@ -156,8 +145,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         indexStorage.put(nonInlinableIndexRow());
 
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
-        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyIndexPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
@@ -184,15 +172,10 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     private void assertIndexDataDestructionCompletes(long emptyIndexPagesBeforeDestroy)
             throws InterruptedException, IgniteInternalCheckedException {
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
         assertTrue(waitForCondition(
-                () -> dataRegion().rowVersionFreeList().emptyDataPages() > emptyIndexPagesBeforeDestroy,
+                () -> dataRegion().freeList().emptyDataPages() > emptyIndexPagesBeforeDestroy,
                 5_000
         ));
-
-        // Make sure that some page storing index columns gets emptied (so we can be sure that index columns
-        // get removed).
-        verify(pageEvictionTracker, timeout(5_000)).forgetPage(anyLong());
     }
 
     @Test
@@ -203,8 +186,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         indexStorage.put(nonInlinableIndexRow());
 
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
-        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyIndexPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
@@ -219,8 +201,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         indexStorage.put(nonInlinableIndexRow());
 
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
-        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyIndexPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroy(), willSucceedFast());
 
@@ -235,12 +216,23 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         indexStorage.put(nonInlinableIndexRow());
 
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
-        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyIndexPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroy(), willSucceedFast());
 
         assertIndexDataDestructionCompletes(emptyIndexPagesBeforeDestroy);
+    }
+
+    @Test
+    public void testDestroyTablesNoLeakages() {
+        int limit = 100000;
+        for (int i = 1; i < limit; i++) {
+            MvTableStorage mvTableStorage = createMvTableStorage();
+
+            getOrCreateMvPartition(mvTableStorage, PARTITION_ID);
+
+            assertThat(mvTableStorage.destroy(), willCompleteSuccessfully());
+        }
     }
 
     private VolatilePageMemoryDataRegion dataRegion() {

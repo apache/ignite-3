@@ -94,6 +94,7 @@ public class SharedRocksDbInstanceCreator {
             );
 
             RocksDB db = add(RocksDB.open(dbOptions, path.toAbsolutePath().toString(), cfDescriptors, cfHandles));
+            this.resources.addAll(cfHandles);
 
             RocksDbMetaStorage meta = null;
             ColumnFamily partitionCf = null;
@@ -148,7 +149,8 @@ public class SharedRocksDbInstanceCreator {
                     requireNonNull(partitionCf, "partitionCf"),
                     requireNonNull(gcQueueCf, "gcQueueCf"),
                     requireNonNull(hashIndexCf, "hashIndexCf"),
-                    sortedIndexCfs
+                    sortedIndexCfs,
+                    resources // Trusts the inner class to copy the resources!!
             );
         } catch (Throwable t) {
             Collections.reverse(resources);

@@ -63,6 +63,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
@@ -89,7 +91,6 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.logging.log4j.core.LogEvent;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -291,7 +292,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService member0 = testCluster.members.get(0);
         ClusterService member1 = testCluster.members.get(1);
 
-        assertThat(member0.stopAsync(), willCompleteSuccessfully());
+        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
@@ -342,7 +343,7 @@ class ItScaleCubeNetworkMessagingTest {
                 1000
         );
 
-        assertThat(member0.stopAsync(), willCompleteSuccessfully());
+        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -389,7 +390,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         assertTrue(receivedTestMessages.await(10, SECONDS), "Did not receive invocations on the receiver in time");
 
-        assertThat(member0.stopAsync(), willCompleteSuccessfully());
+        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -1060,7 +1061,7 @@ class ItScaleCubeNetworkMessagingTest {
                 receiver.topologyService().localMember()
         );
 
-        assertThat(sender.stopAsync(), willCompleteSuccessfully());
+        assertThat(sender.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(sendFuture, willThrow(NodeStoppingException.class));
     }
@@ -1176,7 +1177,7 @@ class ItScaleCubeNetworkMessagingTest {
         if (forceful) {
             stopForcefully(alice);
         } else {
-            assertThat(alice.stopAsync(), willCompleteSuccessfully());
+            assertThat(alice.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, SECONDS);
@@ -1260,7 +1261,7 @@ class ItScaleCubeNetworkMessagingTest {
          * @throws AssertionError       If the cluster was unable to start in 3 seconds.
          */
         void startAwait() throws InterruptedException {
-            assertThat(startAsync(members), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), members), willCompleteSuccessfully());
 
             if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
                 throw new AssertionError();
@@ -1278,7 +1279,7 @@ class ItScaleCubeNetworkMessagingTest {
          * Stops the cluster.
          */
         void shutdown() {
-            assertThat(stopAsync(members), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), members), willCompleteSuccessfully());
         }
     }
 

@@ -20,11 +20,16 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -41,6 +46,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Integration test for ALTER TABLE ALTER COLUMN command.
+ *
+ * <p>SQL F381 feature. Extended schema manipulation.
  */
 public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     @AfterEach
@@ -177,6 +184,61 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
                 () -> sql("ALTER TABLE t ALTER COLUMN val SET DATA TYPE VARCHAR(100) NOT NULL"));
         assertThrowsSqlException(STMT_VALIDATION_ERR, "Adding NOT NULL constraint is not allowed",
                 () -> sql("ALTER TABLE t ALTER COLUMN val2 SET DATA TYPE VARCHAR(100) NOT NULL"));
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testChangeColumnDefault() {
+        sql("CREATE TABLE test("
+                + "id BIGINT PRIMARY KEY, "
+                + "valint INTEGER, "
+                + "valdate DATE,"
+                + "valtime TIME(3),"
+                + "valts TIMESTAMP(3),"
+                + "valstr VARCHAR,"
+                + "valbin VARBINARY"
+                + ")");
+
+
+        sql("ALTER TABLE test ALTER COLUMN valint SET DEFAULT 1");
+        sql("ALTER TABLE test ALTER COLUMN valdate SET DEFAULT DATE '2001-12-21'");
+        sql("ALTER TABLE test ALTER COLUMN valtime SET DEFAULT TIME '11:22:33.444555'");
+        sql("ALTER TABLE test ALTER COLUMN valts SET DEFAULT TIMESTAMP '2001-12-21 11:22:33.444555'");
+        sql("ALTER TABLE test ALTER COLUMN valstr SET DEFAULT 'string'");
+        sql("ALTER TABLE test ALTER COLUMN valbin SET DEFAULT x'ff'");
+
+        sql("INSERT INTO test (id) VALUES (0)");
+
+        assertQuery("SELECT * FROM test")
+                .returns(0L,
+                        1,
+                        LocalDate.of(2001, Month.DECEMBER, 21),
+                        LocalTime.of(11, 22, 33, 444000000),
+                        LocalDateTime.of(2001, Month.DECEMBER, 21, 11, 22, 33, 444000000),
+                        "string",
+                        new byte[]{(byte) 0xff}
+                )
+                .check();
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void functionalDefaultIsNotSupportedForNonPkColumns() {
+        sql("CREATE TABLE t (id UUID PRIMARY KEY, val VARCHAR)");
+
+        // PK column
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"rand_uuid\"",
+                () -> sql("ALTER TABLE t ALTER COLUMN id SET DEFAULT rand_uuid")
+        );
+
+        // Non-pk column
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"rand_uuid\"",
+                () -> sql("ALTER TABLE t ALTER COLUMN val SET DEFAULT rand_uuid")
+        );
     }
 
     @Override

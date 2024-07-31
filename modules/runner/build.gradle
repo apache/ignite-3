@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/generate-version-file.gradle"
 
 description = 'ignite-runner'
 
@@ -84,6 +85,8 @@ dependencies {
     implementation project(':ignite-catalog-dsl')
     implementation project(':ignite-eventlog')
     implementation project(':ignite-low-watermark')
+    implementation project(':ignite-partition-replicator')
+    implementation project(':ignite-catalog-compaction')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -128,6 +131,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-api')
@@ -157,6 +161,7 @@ dependencies {
     integrationTestImplementation project(':ignite-workers')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-low-watermark')
+    integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -175,6 +180,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-jdbc'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
@@ -211,7 +217,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-storage-api'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.auto.service.annotations
+    testFixturesImplementation libs.typesafe.config
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {

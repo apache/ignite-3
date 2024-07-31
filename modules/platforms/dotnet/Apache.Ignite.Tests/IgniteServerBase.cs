@@ -41,12 +41,12 @@ public abstract class IgniteServerBase : IDisposable
 
     private volatile bool _dropNewConnections;
 
-    protected IgniteServerBase()
+    protected IgniteServerBase(int port = 0)
     {
         _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         _listener.NoDelay = true;
 
-        _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+        _listener.Bind(new IPEndPoint(IPAddress.Any, port));
         _listener.Listen(backlog: 1);
 
         Console.WriteLine($"Fake server started [port={Port}, test={TestContext.CurrentContext.Test.Name}]");
@@ -125,7 +125,6 @@ public abstract class IgniteServerBase : IDisposable
 
                 _cts.Cancel();
                 _handler?.Dispose();
-                _listener.Disconnect(false);
                 _listener.Dispose();
                 _cts.Dispose();
 

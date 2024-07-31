@@ -32,11 +32,9 @@ import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.lang.CursorClosedException;
-import org.apache.ignite.lang.ErrorGroups.Client;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -99,7 +97,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-        metadata = hasRowSet ? new ClientResultSetMetadata(in) : null;
+        metadata = hasRowSet ? ClientResultSetMetadata.read(in) : null;
 
         this.mapper = mapper;
         marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class
@@ -223,8 +221,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                 }
             } catch (MarshallerException e) {
                 assert mapper != null;
-                throw new IgniteException(
-                        Client.CONFIGURATION_ERR,
+                throw new MarshallerException(
                         "Failed to map SQL result set to type '" + mapper.targetType() + "': " + e.getMessage(),
                         e);
             }
@@ -278,9 +275,6 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             case UUID:
                 return in.uuidValue(idx);
 
-            case BITMASK:
-                return in.bitmaskValue(idx);
-
             case STRING:
                 return in.stringValue(idx);
 
@@ -292,9 +286,6 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
             case DURATION:
                 return in.durationValue(idx);
-
-            case NUMBER:
-                return in.numberValue(idx);
 
             default:
                 throw new UnsupportedOperationException("Unsupported column type: " + col.type());

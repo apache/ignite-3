@@ -19,7 +19,7 @@ package org.apache.ignite.internal.deployunit;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**

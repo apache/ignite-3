@@ -32,17 +32,17 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetrics;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Cluster time implementation with additional methods to adjust time and update safe time.
  */
-public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
+public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterTimeImpl.class);
 
     private final String nodeName;
@@ -62,6 +62,11 @@ public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
      * <p>Concurrent access is guarded by {@code this}.
      */
     private @Nullable SafeTimeScheduler safeTimeScheduler;
+
+    @Override
+    public long safeTimeLag() {
+        return clock.now().getPhysical() - safeTime.current().getPhysical();
+    }
 
     /** Action that issues a time sync command. */
     @FunctionalInterface
@@ -130,6 +135,11 @@ public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
     @Override
     public long nowLong() {
         return clock.nowLong();
+    }
+
+    @Override
+    public HybridTimestamp currentSafeTime() {
+        return this.safeTime.current();
     }
 
     @Override
@@ -227,10 +237,6 @@ public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
 
             IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
         }
-    }
 
-    @TestOnly
-    public HybridTimestamp currentSafeTime() {
-        return this.safeTime.current();
     }
 }

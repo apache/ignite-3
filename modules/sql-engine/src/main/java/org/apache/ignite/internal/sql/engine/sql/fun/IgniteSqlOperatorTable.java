@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
-import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlBasicFunction;
@@ -32,8 +32,6 @@ import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlReturnTypeInference;
-import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
-import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
@@ -109,23 +107,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
                     SqlFunctionCategory.STRING);
 
-    private static final SqlSingleOperandTypeChecker STRING_NUMERIC_OPTIONAL_NUMERIC =
-            OperandTypes.family(
-                    ImmutableList.of(SqlTypeFamily.STRING, SqlTypeFamily.NUMERIC,
-                            SqlTypeFamily.NUMERIC), i -> i == 2);
-
-    public static final SqlFunction SUBSTRING =
-            new SqlFunction(
-                    "SUBSTRING",
-                    SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.ARG0_NULLABLE_VARYING,
-                    null,
-                    OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER
-                            .or(STRING_NUMERIC_OPTIONAL_NUMERIC)
-                            .or(OperandTypes.STRING_INTEGER)
-                            .or(OperandTypes.STRING_NUMERIC),
-                    SqlFunctionCategory.STRING);
-
     /**
      * The {@code RAND_UUID()} function, which yields a random UUID.
      */
@@ -134,30 +115,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     "RAND_UUID",
                     SqlKind.OTHER_FUNCTION,
                     ReturnTypes.explicit(new UuidType(false)),
-                    null,
-                    OperandTypes.NILADIC,
-                    SqlFunctionCategory.SYSTEM
-            ) {
-                @Override
-                public boolean isDynamicFunction() {
-                    return true;
-                }
-
-                @Override
-                public boolean isDeterministic() {
-                    return false;
-                }
-            };
-
-    /**
-     * This function is used to generate a value for implicit primary key.
-     */
-    // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
-    public static final SqlFunction GEN_RANDOM_UUID =
-            new SqlFunction(
-                    "GEN_RANDOM_UUID",
-                    SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.explicit(SqlTypeName.VARCHAR),
                     null,
                     OperandTypes.NILADIC,
                     SqlFunctionCategory.SYSTEM
@@ -218,6 +175,21 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
 
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
+
+    /** IgniteCustomType: A list of functions supported by all custom data types. */
+    public static final List<SqlFunction> CUSTOM_TYPE_FUNCTIONS = List.of(
+            SqlStdOperatorTable.CAST,
+            SqlStdOperatorTable.COALESCE,
+            SqlStdOperatorTable.NULLIF,
+            TYPEOF,
+            SqlStdOperatorTable.COUNT,
+            SqlStdOperatorTable.MIN,
+            SqlStdOperatorTable.MAX,
+            SqlStdOperatorTable.ANY_VALUE,
+            SqlStdOperatorTable.SOME,
+            SqlStdOperatorTable.SINGLE_VALUE,
+            SqlStdOperatorTable.EVERY
+    );
 
     /**
      * Default constructor.
@@ -303,7 +275,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.FROM_BASE64);
         register(SqlLibraryOperators.MD5);
         register(SqlLibraryOperators.SHA1);
-        register(SUBSTRING);
+        register(SqlStdOperatorTable.SUBSTRING);
         register(SqlLibraryOperators.LEFT);
         register(SqlLibraryOperators.RIGHT);
         register(SqlStdOperatorTable.REPLACE);
@@ -488,7 +460,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(LEAST2);
         register(GREATEST2);
         register(RAND_UUID);
-        register(GEN_RANDOM_UUID);
     }
 
     /** Sets scale to {@code 0} for single argument variants of ROUND/TRUNCATE operators. */

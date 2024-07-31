@@ -164,6 +164,44 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         await _recordView.StreamDataAsync(ToKv(data), options, cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc/>
+    public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
+        IAsyncEnumerable<TSource> data,
+        Func<TSource, KeyValuePair<TK, TV>> keySelector,
+        Func<TSource, TPayload> payloadSelector,
+        ReceiverDescriptor<TArg, TResult> receiver,
+        TArg receiverArg,
+        DataStreamerOptions? options,
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull =>
+        _recordView.StreamDataAsync(
+            data,
+            src => ToKv(keySelector(src)),
+            payloadSelector,
+            receiver,
+            receiverArg,
+            options,
+            cancellationToken);
+
+    /// <inheritdoc/>
+    public Task StreamDataAsync<TSource, TPayload, TArg>(
+        IAsyncEnumerable<TSource> data,
+        Func<TSource, KeyValuePair<TK, TV>> keySelector,
+        Func<TSource, TPayload> payloadSelector,
+        ReceiverDescriptor<TArg> receiver,
+        TArg receiverArg,
+        DataStreamerOptions? options,
+        CancellationToken cancellationToken = default)
+        where TPayload : notnull =>
+        _recordView.StreamDataAsync(
+            data,
+            src => ToKv(keySelector(src)),
+            payloadSelector,
+            receiver,
+            receiverArg,
+            options,
+            cancellationToken);
+
+    /// <inheritdoc/>
     public override string ToString() =>
         new IgniteToStringBuilder(GetType())
             .Append(_recordView.Table, "Table")

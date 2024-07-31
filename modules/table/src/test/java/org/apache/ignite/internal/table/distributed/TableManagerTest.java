@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -32,6 +31,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.atMost;
@@ -58,10 +59,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -74,7 +74,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.internal.affinity.AffinityUtils;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -95,6 +95,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -102,19 +103,18 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -122,8 +122,10 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -139,7 +141,6 @@ import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
@@ -154,6 +155,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /** Tests scenarios for table manager. */
+// TODO: test demands for reworking https://issues.apache.org/jira/browse/IGNITE-22388
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
@@ -179,6 +181,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
     /** Topology service. */
+    // TODO: useless field for now https://issues.apache.org/jira/browse/IGNITE-22388
     @Mock
     private TopologyService ts;
 
@@ -189,6 +192,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Replica manager. */
     @Mock
     private ReplicaManager replicaMgr;
+
+    /** Raft log syncer. */
+    @Mock
+    private LogSyncer logSyncer;
 
     /** TX manager. */
     @Mock
@@ -255,13 +262,20 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private TestLowWatermark lowWatermark;
 
+    private IndexMetaStorage indexMetaStorage;
+
+    /** Partition replica lifecycle manager. */
+    @Mock
+    private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+
     @BeforeEach
     void before() throws NodeStoppingException {
         lowWatermark = new TestLowWatermark();
         catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
+        indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, catalogMetastore);
 
-        assertThat(startAsync(catalogMetastore, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), catalogMetastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
 
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
 
@@ -280,7 +294,17 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
+        when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
+        when(replicaMgr.weakStartReplica(any(), any(), any())).thenAnswer(inv -> {
+            Supplier<CompletableFuture<Void>> startOperation = inv.getArgument(1);
+            return startOperation.get();
+        });
+        when(replicaMgr.weakStopReplica(any(), any(), any())).thenAnswer(inv -> {
+            Supplier<CompletableFuture<Void>> stopOperation = inv.getArgument(2);
+            return stopOperation.get();
+        });
 
         tblManagerFut = new CompletableFuture<>();
 
@@ -296,17 +320,24 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @AfterEach
     void after() throws Exception {
+        var componentContext = new ComponentContext();
+
         closeAll(
                 () -> {
                     assertTrue(tblManagerFut.isDone());
 
                     tblManagerFut.join().beforeNodeStop();
-                    assertThat(tblManagerFut.join().stopAsync(), willCompleteSuccessfully());
+                    assertThat(tblManagerFut.join().stopAsync(componentContext), willCompleteSuccessfully());
                 },
-                dsm == null ? null : () -> assertThat(dsm.stopAsync(), willCompleteSuccessfully()),
-                sm == null ? null : () -> assertThat(sm.stopAsync(), willCompleteSuccessfully()),
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                catalogMetastore == null ? null : () -> assertThat(catalogMetastore.stopAsync(), willCompleteSuccessfully()),
+                dsm == null ? null : dsm::beforeNodeStop,
+                sm == null ? null : sm::beforeNodeStop,
+                indexMetaStorage == null ? null : indexMetaStorage::beforeNodeStop,
+                catalogManager == null ? null : catalogManager::beforeNodeStop,
+                catalogMetastore == null ? null : catalogMetastore::beforeNodeStop,
+                () -> assertThat(
+                        stopAsync(componentContext, dsm, sm, indexMetaStorage, catalogManager, catalogMetastore),
+                        willCompleteSuccessfully()
+                ),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
@@ -448,7 +479,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(tableManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThrowsWithCause(tableManager::tables, NodeStoppingException.class);
         assertThrowsWithCause(() -> tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME), NodeStoppingException.class);
@@ -468,7 +499,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(tableManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         int fakeTblId = 1;
 
         assertThrowsWithCause(() -> tableManager.table(fakeTblId), NodeStoppingException.class);
@@ -552,8 +583,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     private IgniteBiTuple<TableViewInternal, TableManager> startTableManagerStopTest() throws Exception {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any(), any());
-
         TableManager tableManager = tblManagerFut.join();
 
         return new IgniteBiTuple<>(table, tableManager);
@@ -563,9 +592,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         mockDoThrow.run();
 
         tableManager.beforeNodeStop();
-        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(tableManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        verify(rm, times(PARTITIONS)).stopRaftNodes(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         verify(table.internalTable().storage()).close();
@@ -712,35 +740,20 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws Exception {
         String consistentId = "node0";
 
-        when(rm.startRaftGroupService(any(), any(), any(), any())).thenAnswer(mock -> {
-            RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
-
-            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));
-
-            return completedFuture(raftGrpSrvcMock);
-        });
-
         when(ts.getByConsistentId(any())).thenReturn(new ClusterNodeImpl(
                 UUID.randomUUID().toString(),
                 consistentId,
                 new NetworkAddress("localhost", 47500)
         ));
 
+        // TODO: should be removed or reworked https://issues.apache.org/jira/browse/IGNITE-22388
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
             schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(any()))
                     .thenReturn(mock(SchemaDescriptor.class));
         }
 
-        try (MockedStatic<AffinityUtils> affinityServiceMock = mockStatic(AffinityUtils.class)) {
-            ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
-
-            for (int part = 0; part < PARTITIONS; part++) {
-                assignment.add(new ArrayList<>(Collections.singleton(node)));
-            }
-
-            affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt()))
-                    .thenReturn(assignment);
-        }
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+                .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         TableManager tableManager = createTableManager(tblManagerFut);
 
@@ -786,9 +799,12 @@ public class TableManagerTest extends IgniteAbstractTest {
      *
      * @return Table manager.
      */
-    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, Consumer<MvTableStorage> tableStorageDecorator,
-            Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
-        TableManager tableManager = new TableManager(
+    private TableManager createTableManager(
+            CompletableFuture<TableManager> tblManagerFut,
+            Consumer<MvTableStorage> tableStorageDecorator,
+            Consumer<TxStateTableStorage> txStateTableStorageDecorator
+    ) {
+        var tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
@@ -797,7 +813,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
-                rm,
                 replicaMgr,
                 null,
                 null,
@@ -806,13 +821,12 @@ public class TableManagerTest extends IgniteAbstractTest {
                 workDir,
                 msm,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
-                budgetView -> new LocalLogStorageFactory(),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
+                mock(ScheduledExecutorService.class),
                 clock,
                 new TestClockService(clock),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
-                mock(TopologyAwareRaftGroupServiceFactory.class),
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
@@ -820,9 +834,11 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
-                mock(ScheduledExecutorService.class),
                 lowWatermark,
-                mock(TransactionInflights.class)
+                mock(TransactionInflights.class),
+                indexMetaStorage,
+                logSyncer,
+                partitionReplicaLifecycleManager
         ) {
 
             @Override
@@ -847,7 +863,9 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
         };
 
-        assertThat(startAsync(sm, tableManager), willCompleteSuccessfully());
+        tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
+
+        assertThat(startAsync(new ComponentContext(), sm, tableManager), willCompleteSuccessfully());
 
         tblManagerFut.complete(tableManager);
 
@@ -871,12 +889,13 @@ public class TableManagerTest extends IgniteAbstractTest {
                         storagePath,
                         null,
                         mock(FailureProcessor.class),
-                        mock(LogSyncer.class)
+                        mock(LogSyncer.class),
+                        clock
                 ),
                 storageConfiguration
         );
 
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return manager;
     }
@@ -888,7 +907,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void createTable(String tableName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 tableName,
                 List.of(
@@ -900,7 +919,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     private void dropTable(String tableName) {
-        TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
+        TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
     }
 
     private Collection<CatalogTableDescriptor> allTableDescriptors() {

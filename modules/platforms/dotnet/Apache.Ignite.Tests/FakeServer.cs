@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -39,6 +40,7 @@ namespace Apache.Ignite.Tests
     /// <summary>
     /// Fake Ignite server for test purposes.
     /// </summary>
+    [SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Tests")]
     public sealed class FakeServer : IgniteServerBase
     {
         public const string Err = "Err!";
@@ -76,12 +78,15 @@ namespace Apache.Ignite.Tests
         internal FakeServer(
             Func<RequestContext, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
-            bool disableOpsTracking = false)
+            bool disableOpsTracking = false,
+            int port = 0)
+            : base(port)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
 
-            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)Listener.LocalEndPoint!);
+            Node = new ClusterNode("id-" + nodeName, nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
             PartitionAssignment = new[] { Node.Id };
+            ClusterNodes = new[] { Node };
 
             if (!disableOpsTracking)
             {
@@ -128,6 +133,8 @@ namespace Apache.Ignite.Tests
         public long ObservableTimestamp { get; set; }
 
         public long LastClientObservableTimestamp { get; set; }
+
+        public IList<IClusterNode> ClusterNodes { get; set; }
 
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
@@ -346,17 +353,92 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.StreamerBatchSend:
                         reader.Skip(4);
-                        StreamerRowCount += reader.ReadInt32();
+                        var batchSize = reader.ReadInt32();
+                        StreamerRowCount += batchSize;
+
+                        if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                        {
+                            Thread.Sleep(MultiRowOperationDelayPerRow * batchSize);
+                        }
 
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
+
+                    case ClientOp.StreamerWithReceiverBatchSend:
+                    {
+                        reader.ReadInt32(); // table
+                        reader.ReadInt32(); // partition
+                        var unitCount = reader.ReadInt32();
+                        reader.Skip(unitCount);
+                        reader.ReadBoolean(); // returnResults.
+
+                        var payloadTupleSize = reader.ReadInt32();
+                        var payloadItemCount = payloadTupleSize - 6; // NOTE: Ignores args.
+                        StreamerRowCount += payloadItemCount;
+
+                        if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                        {
+                            Thread.Sleep(MultiRowOperationDelayPerRow * payloadItemCount);
+                        }
+
+                        Send(handler, requestId, Array.Empty<byte>());
+                        continue;
+                    }
+
+                    case ClientOp.PrimaryReplicasGet:
+                    {
+                        using var arrayBufferWriter = new PooledArrayBuffer();
+                        var writer = new MsgPackWriter(arrayBufferWriter);
+
+                        writer.Write(PartitionAssignment.Length);
+
+                        for (var index = 0; index < PartitionAssignment.Length; index++)
+                        {
+                            var nodeId = PartitionAssignment[index];
+
+                            writer.Write(index); // Partition id.
+                            writer.Write(4); // Prop count.
+                            writer.Write(nodeId); // Id.
+                            writer.Write(nodeId); // Name.
+                            writer.Write("localhost"); // Host.
+                            writer.Write(10900 + index); // Port.
+                        }
+
+                        Send(handler, requestId, arrayBufferWriter);
+                        continue;
+                    }
+
+                    case ClientOp.ClusterGetNodes:
+                    {
+                        using var arrayBufferWriter = new PooledArrayBuffer();
+                        var writer = new MsgPackWriter(arrayBufferWriter);
+
+                        writer.Write(ClusterNodes.Count);
+
+                        foreach (var node in ClusterNodes)
+                        {
+                            writer.Write(4); // Field count.
+                            writer.Write(node.Id);
+                            writer.Write(node.Name);
+
+                            var addr = node.Address is IPEndPoint ip
+                                ? (ip.Address.ToString(), ip.Port)
+                                : (((DnsEndPoint)node.Address).Host, ((DnsEndPoint)node.Address).Port);
+
+                            writer.Write(addr.Item1);
+                            writer.Write(addr.Port);
+                        }
+
+                        Send(handler, requestId, arrayBufferWriter);
+                        continue;
+                    }
                 }
 
                 // Fake error message for any other op code.
                 using var errWriter = new PooledArrayBuffer();
                 var w = new MsgPackWriter(errWriter);
                 w.Write(Guid.Empty);
-                w.Write(262150);
+                w.Write(262148);
                 w.Write("org.foo.bar.BazException");
                 w.Write(Err);
                 w.WriteNil(); // Stack trace.
@@ -441,6 +523,7 @@ namespace Apache.Ignite.Tests
             props["timeoutMs"] = timeoutMs;
 
             props["sessionTimeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+            props["timeZoneId"] = reader.TryReadNil() ? null : reader.ReadString();
 
             // ReSharper restore RedundantCast
             var propCount = reader.ReadInt32();
@@ -550,7 +633,8 @@ namespace Apache.Ignite.Tests
                 ["schema"] = reader.TryReadNil() ? null : reader.ReadString(),
                 ["pageSize"] = reader.TryReadNil() ? null : reader.ReadInt32(),
                 ["timeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
-                ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64()
+                ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
+                ["timeZoneId"] = reader.TryReadNil() ? null : reader.ReadString()
             };
 
             var propCount = reader.ReadInt32();

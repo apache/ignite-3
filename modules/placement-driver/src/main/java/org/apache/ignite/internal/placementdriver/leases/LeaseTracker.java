@@ -53,7 +53,8 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -63,14 +64,14 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class tracks cluster leases in memory.
  * At first, the class state recoveries from Vault, then updates on watch's listener.
  */
-public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements PlacementDriver {
+public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
+        LeasePlacementDriver {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseTracker.class);
 
@@ -195,7 +196,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                                     .update(lease.getExpirationTime(), lease);
 
                             if (needFireEventReplicaBecomePrimary(previousLeasesMap.get(grpId), lease)) {
-                                fireEventFutures.add(fireEventReplicaBecomePrimary(event.revision(), lease));
+                                fireEventFutures.add(fireEventPrimaryReplicaElected(event.revision(), lease));
                             }
                         }
 
@@ -217,7 +218,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
 
                     for (Lease expiredLease : expiredLeases) {
-                        firePrimaryReplicaExpiredEvent(event.revision(), expiredLease);
+                        fireEventPrimaryReplicaExpired(event.revision(), expiredLease);
                     }
                 }
 
@@ -379,7 +380,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param causalityToken Causality token.
      * @param expiredLease Expired lease.
      */
-    private void firePrimaryReplicaExpiredEvent(long causalityToken, Lease expiredLease) {
+    private void fireEventPrimaryReplicaExpired(long causalityToken, Lease expiredLease) {
         ReplicationGroupId grpId = expiredLease.replicationGroupId();
 
         CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
@@ -396,7 +397,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
     }
 
-    private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
+    private CompletableFuture<Void> fireEventPrimaryReplicaElected(long causalityToken, Lease lease) {
         String leaseholderId = lease.getLeaseholderId();
 
         assert leaseholderId != null : lease;

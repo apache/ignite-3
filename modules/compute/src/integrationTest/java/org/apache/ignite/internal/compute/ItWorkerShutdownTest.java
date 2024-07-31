@@ -37,7 +37,9 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
@@ -214,9 +216,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // When start broadcast job.
         Map<ClusterNode, JobExecution<Object>> executions = compute(entryNode).submitBroadcast(
                 clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
-                List.of(),
-                InteractiveJobs.interactiveJobName()
-        );
+                JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(), null);
 
         // Then all three jobs are alive.
         assertThat(executions.size(), is(3));
@@ -290,12 +290,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         // When start colocated job on node that is not primary replica.
         IgniteImpl entryNode = anyNodeExcept(primaryReplica);
-        TestingJobExecution<Object> execution = new TestingJobExecution<>(compute(entryNode).submitColocated(
-                TABLE_NAME,
-                Tuple.create(1).set("K", 1),
-                List.of(),
-                InteractiveJobs.globalJob().name()
-        ));
+        TestingJobExecution<Object> execution = new TestingJobExecution<>(
+                compute(entryNode).submit(
+                        JobTarget.colocated(TABLE_NAME, Tuple.create(1).set("K", 1)),
+                        JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
+                        null));
 
         // Then the job is alive.
         InteractiveJobs.globalJob().assertAlive();
@@ -364,7 +363,9 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
         return new TestingJobExecution<>(
-                compute(entryNode).submit(clusterNodesByNames(nodes), List.of(), InteractiveJobs.globalJob().name())
+                compute(entryNode).submit(
+                        JobTarget.anyNode(clusterNodesByNames(nodes)),
+                        JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(), null)
         );
     }
 
@@ -378,7 +379,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         executeSql("INSERT INTO test(k, v) VALUES (1, 101)");
     }
 
-    private List<String> allNodeNames() {
+    private static List<String> allNodeNames() {
         return new ArrayList<>(NODES_NAMES_TO_INDEXES.keySet());
     }
 }

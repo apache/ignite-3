@@ -35,6 +35,8 @@ import org.jetbrains.annotations.Nullable;
  * Column name arguments passed to the tuple methods must use SQL-parser style notation; e.g.,
  * "myColumn" - column named "MYCOLUMN", "\"MyColumn\"" - "MyColumn", etc.
  *
+ * <p>Note: "\"MYCOLUMN\"" is equivalent to a normalized name "MYCOLUMN".
+ *
  * <p>Provides a specialized method for some value-types to avoid boxing/unboxing.
  */
 public interface Tuple extends Iterable<Object> {
@@ -79,7 +81,7 @@ public interface Tuple extends Iterable<Object> {
      * @param tuple Tuple to copy.
      * @return A new tuple.
      */
-    static Tuple create(Tuple tuple) {
+    static Tuple copy(Tuple tuple) {
         return new TupleImpl(tuple);
     }
 
@@ -193,7 +195,9 @@ public interface Tuple extends Iterable<Object> {
      * Gets a name of the column with the specified index.
      *
      * @param columnIndex Column index.
-     * @return Column name.
+     * @return Normalized column name in SQL-parser style notation; e.g., <br>
+     *         "\"MyColumn\"" - quoted value for a name of the column with respect to case sensitivity,
+     *         "MYCOLUMN" - column name in uppercase, otherwise.
      * @throws IndexOutOfBoundsException If a value for a column with the given index doesn't exists.
      */
     String columnName(int columnIndex);
@@ -442,6 +446,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
+    @Deprecated(forRemoval = true)
     BitSet bitmaskValue(String columnName);
 
     /**
@@ -451,6 +456,7 @@ public interface Tuple extends Iterable<Object> {
      * @return Column value.
      * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
+    @Deprecated(forRemoval = true)
     BitSet bitmaskValue(int columnIndex);
 
     /**

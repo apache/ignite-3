@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.UUID;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.List;
@@ -28,9 +30,12 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -112,12 +117,31 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         builder = fillProperties(builder);
 
         builder.columns(List.of(
-                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("C").type(UUID).defaultValue(DefaultValue.functionCall("rand_uuid")).build(),
                 ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
 
         )).primaryKey(primaryKey("C", "D"));
 
         builder.build();
+    }
+
+    @Test
+    void unsupportedFunctionalDefault() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        )).primaryKey(primaryKey("C", "D"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Functional default contains unsupported function: [col=C, functionName=function]"
+        );
     }
 
     @Test
@@ -459,5 +483,60 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
             command.get(newCatalog);
         });
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-15200
+    //  Remove this after interval type support is added.
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"PERIOD", "DURATION"}, mode = Mode.INCLUDE)
+    void rejectIntervalTypes(ColumnType columnType) {
+        ColumnParams id = ColumnParams.builder()
+                .name("ID")
+                .type(INT32)
+                .build();
+
+        String error = format("Column of type '{}' cannot be persisted [col=P]", columnType);
+
+        {
+            ColumnParams val = ColumnParams.builder()
+                    .name("P")
+                    .type(columnType)
+                    .precision(2)
+                    .nullable(false)
+                    .build();
+
+            CreateTableCommandBuilder builder = CreateTableCommand.builder()
+                    .tableName("T")
+                    .schemaName(SCHEMA_NAME)
+                    .columns(List.of(id, val))
+                    .primaryKey(primaryKey("ID"));
+
+            assertThrows(
+                    CatalogValidationException.class,
+                    builder::build,
+                    error
+            );
+        }
+
+        {
+            ColumnParams val = ColumnParams.builder()
+                    .name("P")
+                    .type(columnType)
+                    .precision(2)
+                    .nullable(true)
+                    .build();
+
+            CreateTableCommandBuilder builder = CreateTableCommand.builder()
+                    .tableName("T")
+                    .schemaName(SCHEMA_NAME)
+                    .columns(List.of(id, val))
+                    .primaryKey(primaryKey("ID"));
+
+            assertThrows(
+                    CatalogValidationException.class,
+                    builder::build,
+                    error
+            );
+        }
     }
 }

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
+import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
@@ -31,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,7 +67,7 @@ import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -115,13 +117,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
 
     /**
+     * Cache of {@link InetSocketAddress} of recipient nodes ({@link ClusterNode}) that are in the topology and not stale.
+     *
+     * <p>Introduced for optimization - reducing the number of address resolving for the same nodes.</p>
+     */
+    private final Map<String, InetSocketAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
+
+    /**
      * Constructor.
      *
+     * @param nodeName Consistent ID (aka name) of the local node associated with the service to create.
      * @param factory Network messages factory.
      * @param topologyService Topology service.
      * @param staleIdDetector Used to detect stale node IDs.
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
+     * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      */
     public DefaultMessagingService(
             String nodeName,
@@ -233,9 +244,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return nullCompletedFuture();
         }
 
-        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
+        InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
 
-        if (isSelf(recipient.name(), recipientAddress)) {
+        if (recipientAddress == null) {
             if (correlationId != null) {
                 onInvokeResponse(msg, correlationId);
             } else {
@@ -281,9 +292,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.put(correlationId, responseFuture);
 
-        InetSocketAddress recipientAddress = new InetSocketAddress(recipient.address().host(), recipient.address().port());
+        InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
 
-        if (isSelf(recipient.name(), recipientAddress)) {
+        if (recipientAddress == null) {
             sendToSelf(msg, correlationId);
 
             return responseFuture;
@@ -349,9 +360,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Correlation id.
      */
     private void sendToSelf(NetworkMessage message, @Nullable Long correlationId) {
-        for (HandlerContext context : getHandlerContexts(message.groupType())) {
+        List<HandlerContext> handlerContexts = getHandlerContexts(message.groupType());
+
+        // Specially made by a classic loop for optimization.
+        for (int i = 0; i < handlerContexts.size(); i++) {
+            HandlerContext handlerContext = handlerContexts.get(i);
+
             // Invoking on the same thread, ignoring the executor chooser registered with the handler.
-            context.handler().onReceived(message, topologyService.localMember(), correlationId);
+            handlerContext.handler().onReceived(message, topologyService.localMember(), correlationId);
         }
     }
 
@@ -368,7 +384,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return;
         }
 
-        if (inNetworkObject.message() instanceof InvokeResponse) {
+        NetworkMessage message = inNetworkObject.message();
+
+        if (message instanceof InvokeResponse) {
             Executor executor = chooseExecutorInInboundPool(inNetworkObject);
             executor.execute(() -> handleInvokeResponse(inNetworkObject));
             return;
@@ -376,12 +394,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage payload;
         Long correlationId = null;
-        if (inNetworkObject.message() instanceof InvokeRequest) {
-            InvokeRequest invokeRequest = (InvokeRequest) inNetworkObject.message();
+        if (message instanceof InvokeRequest) {
+            InvokeRequest invokeRequest = (InvokeRequest) message;
             payload = invokeRequest.message();
             correlationId = invokeRequest.correlationId();
         } else {
-            payload = inNetworkObject.message();
+            payload = message;
         }
 
         Iterator<HandlerContext> handlerContexts = getHandlerContexts(payload.groupType()).iterator();
@@ -403,17 +421,29 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 logAndRethrowIfError(inNetworkObject, e);
             } finally {
                 long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+
                 if (tookMillis > 100) {
-                    LOG.warn("Processing of {} from {} took {} ms", inNetworkObject.message(), inNetworkObject.sender(), tookMillis);
+                    LOG.warn(
+                            "Processing of {} from {} took {} ms",
+                            LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                            inNetworkObject.sender(),
+                            tookMillis
+                    );
                 }
             }
         });
     }
 
     private static void logMessageSkipDueToSenderLeft(InNetworkObject inNetworkObject) {
-        LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
-                inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message()
-        );
+        if (LOG.isInfoEnabled()) {
+            NetworkMessage message = inNetworkObject.message();
+
+            LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
+                    inNetworkObject.launchId(),
+                    inNetworkObject.consistentId(),
+                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging()
+            );
+        }
     }
 
     private boolean senderIdIsStale(InNetworkObject obj) {
@@ -500,11 +530,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
-        if (e instanceof UnresolvableConsistentIdException && obj.message() instanceof InvokeRequest) {
-            LOG.info("onMessage() failed while processing {} from {} as the sender has left the topology",
-                    obj.message(), obj.sender());
+        NetworkMessage message = obj.message();
+
+        if (e instanceof UnresolvableConsistentIdException && message instanceof InvokeRequest) {
+            if (LOG.isInfoEnabled()) {
+                LOG.info(
+                        "onMessage() failed while processing {} from {} as the sender has left the topology",
+                        LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                        obj.sender()
+                );
+            }
         } else {
-            LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.sender());
+            LOG.error(
+                    "onMessage() failed while processing {} from {}",
+                    e,
+                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(), obj.sender()
+            );
         }
 
         if (e instanceof Error) {
@@ -557,37 +598,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     /**
-     * Checks if the target is the current node.
-     *
-     * @param consistentId Target consistent ID. Can be {@code null} if the node has not been added to the topology.
-     * @param targetAddress Target address.
-     * @return {@code true} if the target is the current node, {@code false} otherwise.
-     */
-    private boolean isSelf(@Nullable String consistentId, InetSocketAddress targetAddress) {
-        if (consistentId != null) {
-            return connectionManager.consistentId().equals(consistentId);
-        }
-
-        InetSocketAddress localAddress = connectionManager.localAddress();
-
-        if (Objects.equals(localAddress, targetAddress)) {
-            return true;
-        }
-
-        InetAddress targetInetAddress = targetAddress.getAddress();
-
-        if (targetInetAddress.isAnyLocalAddress() || targetInetAddress.isLoopbackAddress()) {
-            return targetAddress.getPort() == localAddress.getPort();
-        }
-
-        return false;
-    }
-
-    /**
      * Starts the service.
      */
     public void start() {
         criticalWorkerRegistry.register(outboundExecutor);
+
+        topologyService.addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                recipientInetAddrByNodeId.remove(member.id());
+            }
+        });
     }
 
     /**
@@ -601,6 +622,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         requestsMap.clear();
 
         criticalWorkerRegistry.unregister(outboundExecutor);
+
+        recipientInetAddrByNodeId.clear();
 
         inboundExecutors.close();
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
@@ -620,7 +643,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *     node's consistent ID.
      */
     @TestOnly
-    public void dropMessages(BiPredicate<String, NetworkMessage> predicate) {
+    public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
         dropMessagesPredicate = predicate;
     }
 
@@ -686,5 +709,59 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 workerRegistry.unregister(worker);
             }
         }
+    }
+
+    /**
+     * Returns the resolved address of the target node, {@code null} if the target node is the current node.
+     *
+     * <p>NOTE: Method was written as a result of analyzing the performance of sending a message to yourself.</p>
+     *
+     * @param recipientNode Target cluster node.
+     */
+    private @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
+        // Node name is {@code null} if the node has not been added to the topology.
+        if (recipientNode.name() != null) {
+            return connectionManager.consistentId().equals(recipientNode.name()) ? null : getFromCacheOrCreateResolved(recipientNode);
+        }
+
+        InetSocketAddress localAddress = connectionManager.localAddress();
+
+        NetworkAddress recipientAddress = recipientNode.address();
+
+        if (localAddress.getPort() != recipientAddress.port()) {
+            return createResolved(recipientAddress);
+        }
+
+        // For optimization, we will check the addresses without resolving the address of the target node.
+        if (Objects.equals(localAddress.getHostName(), recipientAddress.host())) {
+            return null;
+        }
+
+        InetSocketAddress resolvedRecipientAddress = createResolved(recipientAddress);
+        InetAddress recipientInetAddress = resolvedRecipientAddress.getAddress();
+
+        if (Objects.equals(localAddress.getAddress(), recipientInetAddress)) {
+            return null;
+        }
+
+        return recipientInetAddress.isAnyLocalAddress() || recipientInetAddress.isLoopbackAddress() ? null : resolvedRecipientAddress;
+    }
+
+    private static InetSocketAddress createResolved(NetworkAddress address) {
+        return new InetSocketAddress(address.host(), address.port());
+    }
+
+    private InetSocketAddress getFromCacheOrCreateResolved(ClusterNode recipientNode) {
+        assert recipientNode.name() != null : "Node has not been added to the topology: " + recipientNode.id();
+
+        InetSocketAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, inetSocketAddress) -> {
+            if (staleIdDetector.isIdStale(nodeId)) {
+                return null;
+            }
+
+            return inetSocketAddress != null ? inetSocketAddress : createResolved(recipientNode.address());
+        });
+
+        return address != null ? address : createResolved(recipientNode.address());
     }
 }

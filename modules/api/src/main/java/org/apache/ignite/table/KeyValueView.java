@@ -122,6 +122,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @param tx Transaction or {@code null} to auto commit.
      * @param keys Keys whose values are to be returned. The keys cannot be {@code null}.
      * @return Values associated with given keys.
+     *      If a requested key does not exist, it will have no corresponding entry in the returned map.
      * @throws MarshallerException if the keys don't match the schema.
      */
     Map<K, V> getAll(@Nullable Transaction tx, Collection<K> keys);
@@ -141,7 +142,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key whose presence is to be verified. The key cannot be {@code null}.
-     * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
+     * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
      */
     boolean contains(@Nullable Transaction tx, K key);
@@ -155,6 +156,27 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @throws MarshallerException if the key doesn't match the schema.
      */
     CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key);
+
+    /**
+     * Determines whether a table contains entries for all given keys.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
+     * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    boolean containsAll(@Nullable Transaction tx, Collection<K> keys);
+
+    /**
+     * Determines whether a table contains entries for all given keys.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation. The result of the future will be {@code true} if a value
+     *      exists for every specified key, {@code false} otherwise.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<K> keys);
 
     /**
      * Puts into a table a value associated with the given key.
@@ -407,12 +429,13 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param oldValue Expected value associated with the specified key.
+     * @param oldValue Expected value associated with the specified key. Can be {@code null} when mapped to a single column
+     *     with a simple type.
      * @param newValue Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
-    boolean replace(@Nullable Transaction tx, K key, V oldValue, @Nullable V newValue);
+    boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue);
 
     /**
      * Asynchronously replaces a value for a key if it exists. See {@link #replace(Transaction, Object, Object)}.

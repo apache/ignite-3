@@ -31,22 +31,23 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index status. */
     private final CatalogIndexStatus status;
 
-    /**
-     * Catalog version used in special index status updates to wait for RW transactions, started before this version, to finish.
-     */
-    private final int txWaitCatalogVersion;
-
     /** Index descriptor type. */
     private final CatalogIndexDescriptorType indexType;
 
-    CatalogIndexDescriptor(CatalogIndexDescriptorType indexType, int id, String name, int tableId, boolean unique,
-            CatalogIndexStatus status, int txWaitCatalogVersion, long causalityToken) {
+    CatalogIndexDescriptor(
+            CatalogIndexDescriptorType indexType,
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            CatalogIndexStatus status,
+            long causalityToken
+    ) {
         super(id, Type.INDEX, name, causalityToken);
         this.indexType = indexType;
         this.tableId = tableId;
         this.unique = unique;
         this.status = Objects.requireNonNull(status, "status");
-        this.txWaitCatalogVersion = txWaitCatalogVersion;
     }
 
     /** Gets table ID. */
@@ -62,14 +63,6 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Returns index status. */
     public CatalogIndexStatus status() {
         return status;
-    }
-
-    /**
-     * Returns the Catalog version used in special index status updates to wait for RW transactions, started before
-     * this version, to finish.
-     */
-    public int txWaitCatalogVersion() {
-        return txWaitCatalogVersion;
     }
 
     /** Returns catalog index descriptor type. */
@@ -99,12 +92,13 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
 
         /** Returns catalog index descriptor type by identifier. */
         public static CatalogIndexDescriptorType forId(int id) {
-            assert id == HASH.typeId || id == SORTED.typeId : "Unknown index descriptor type ID: " + id;
-
-            if (id == HASH.typeId) {
-                return HASH;
-            } else {
-                return SORTED;
+            switch (id) {
+                case 0:
+                    return HASH;
+                case 1:
+                    return SORTED;
+                default:
+                    throw new IllegalArgumentException("Unknown index descriptor type id: " + id);
             }
         }
     }

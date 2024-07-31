@@ -16,12 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -151,9 +155,9 @@ public class LogStorageBenchmark {
 
 //        LogStorageFactory logStorageFactory = new DefaultLogStorageFactory(testPath);
         LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", new StoreOptions(), () -> testPath);
-        logStorageFactory.start();
+        assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        try (AutoCloseable factory = logStorageFactory::close) {
+        try {
             RaftOptions raftOptions = new RaftOptions();
             raftOptions.setSync(false);
 
@@ -167,6 +171,8 @@ public class LogStorageBenchmark {
             try (AutoCloseable log = logStorage::shutdown) {
                 new LogStorageBenchmark(logStorage, logSize, totalLogs, batchSize).doTest();
             }
+        } finally {
+            assertThat(logStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 }

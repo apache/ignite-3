@@ -46,7 +46,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -156,7 +155,7 @@ public class ClientSqlExecuteRequest {
     private static CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             QueryProcessor qryProc,
-            IgniteTransactions transactions,
+            IgniteTransactionsImpl transactions,
             String query,
             int pageSize,
             SqlProperties props,
@@ -168,7 +167,7 @@ public class ClientSqlExecuteRequest {
                     .build();
 
             CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
-                            properties, transactions, (InternalTransaction) transaction, query, arguments)
+                            properties, transactions.observableTimestampTracker(), (InternalTransaction) transaction, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(
                                     batchRes -> new AsyncResultSetImpl<>(

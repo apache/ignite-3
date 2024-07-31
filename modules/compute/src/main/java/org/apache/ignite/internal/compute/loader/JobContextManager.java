@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.DeploymentUnitAccessor;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
@@ -148,7 +148,7 @@ public class JobContextManager {
     }
 
     private CompletableFuture<List<DeploymentUnit>> normalizeVersions(List<DeploymentUnit> units) {
-        return mapList(units, this::normalizeVersion, CompletableFutures::allOf);
+        return mapList(units, this::normalizeVersion, CompletableFutures::allOfToList);
     }
 
     private CompletableFuture<Void> onDemandDeploy(List<DeploymentUnit> units) {

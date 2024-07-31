@@ -26,18 +26,24 @@ import org.apache.ignite.internal.type.NativeTypes;
  * <p>These constants is just shortcuts for variable length types to use in tests.
  */
 public final class Types {
-    public static final NativeType NUMBER_1 = NativeTypes.numberOf(1);
-    public static final NativeType NUMBER_2 = NativeTypes.numberOf(2);
-    public static final NativeType NUMBER_5 = NativeTypes.numberOf(5);
 
     public static final NativeType DECIMAL_1_0 = NativeTypes.decimalOf(1, 0);
     public static final NativeType DECIMAL_2_1 = NativeTypes.decimalOf(2, 1);
+    public static final NativeType DECIMAL_4_1 = NativeTypes.decimalOf(4, 1);
     public static final NativeType DECIMAL_4_3 = NativeTypes.decimalOf(4, 3);
+    public static final NativeType DECIMAL_10_0 = NativeTypes.decimalOf(10, 0);
+    public static final NativeType DECIMAL_11_1 = NativeTypes.decimalOf(11, 1);
+    public static final NativeType DECIMAL_13_3 = NativeTypes.decimalOf(13, 3);
+    public static final NativeType DECIMAL_19_0 = NativeTypes.decimalOf(19, 0);
+    public static final NativeType DECIMAL_20_1 = NativeTypes.decimalOf(20, 1);
+    public static final NativeType DECIMAL_22_3 = NativeTypes.decimalOf(22, 3);
 
     public static final NativeType DECIMAL_2_0 = NativeTypes.decimalOf(2, 0);
     public static final NativeType DECIMAL_3_1 = NativeTypes.decimalOf(3, 1);
     public static final NativeType DECIMAL_5_3 = NativeTypes.decimalOf(5, 3);
+    public static final NativeType DECIMAL_6_3 = NativeTypes.decimalOf(6, 3);
 
+    public static final NativeType DECIMAL_3_0 = NativeTypes.decimalOf(3, 0);
     public static final NativeType DECIMAL_5_0 = NativeTypes.decimalOf(5, 0);
     public static final NativeType DECIMAL_6_1 = NativeTypes.decimalOf(6, 1);
     public static final NativeType DECIMAL_8_3 = NativeTypes.decimalOf(8, 3);

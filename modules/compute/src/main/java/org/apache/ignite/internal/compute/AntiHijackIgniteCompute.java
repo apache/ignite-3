@@ -19,21 +19,20 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toMap;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.task.AntiHijackTaskExecution;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper around {@link IgniteCompute} that adds protection against thread hijacking by users.
@@ -51,102 +50,38 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <R> JobExecution<R> submit(
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
+        return preventThreadHijack(compute.submit(target, descriptor, args));
+    }
+
+    @Override
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
+        return compute.execute(target, descriptor, args);
+    }
+
+    @Override
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
+            JobDescriptor<T, R> descriptor,
+            T args
     ) {
-        return preventThreadHijack(compute.submit(nodes, units, jobClassName, options, args));
-    }
-
-    @Override
-    public <R> R execute(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return compute.execute(nodes, units, jobClassName, options, args);
-    }
-
-    @Override
-    public <R> JobExecution<R> submitColocated(
-            String tableName,
-            Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return preventThreadHijack(compute.submitColocated(tableName, key, units, jobClassName, options, args));
-    }
-
-    @Override
-    public <K, R> JobExecution<R> submitColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return preventThreadHijack(compute.submitColocated(tableName, key, keyMapper, units, jobClassName, options, args));
-    }
-
-    @Override
-    public <R> R executeColocated(
-            String tableName,
-            Tuple key,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return compute.executeColocated(tableName, key, units, jobClassName, options, args);
-    }
-
-    @Override
-    public <K, R> R executeColocated(
-            String tableName,
-            K key,
-            Mapper<K> keyMapper,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        return compute.executeColocated(tableName, key, keyMapper, units, jobClassName, options, args);
-    }
-
-    @Override
-    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
-            Set<ClusterNode> nodes,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            JobExecutionOptions options,
-            Object... args
-    ) {
-        Map<ClusterNode, JobExecution<R>> results = compute.submitBroadcast(nodes, units, jobClassName, options, args);
+        Map<ClusterNode, JobExecution<R>> results = compute.submitBroadcast(nodes, descriptor, args);
 
         return results.entrySet().stream()
                 .collect(toMap(Entry::getKey, entry -> preventThreadHijack(entry.getValue())));
     }
 
     @Override
-    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
-        return new AntiHijackTaskExecution<>(compute.submitMapReduce(units, taskClassName, args), asyncContinuationExecutor);
+    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return new AntiHijackTaskExecution<>(compute.submitMapReduce(taskDescriptor, arg), asyncContinuationExecutor);
     }
 
     @Override
-    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
-        return compute.executeMapReduce(units, taskClassName, args);
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return compute.executeMapReduce(taskDescriptor, arg);
     }
 
-    private <R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {
+    private <T, R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {
         return new AntiHijackJobExecution<>(execution, asyncContinuationExecutor);
     }
 

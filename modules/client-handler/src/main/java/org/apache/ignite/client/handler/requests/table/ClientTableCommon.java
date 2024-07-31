@@ -45,13 +45,12 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -444,10 +443,6 @@ public class ClientTableCommon {
      * @return Precision.
      */
     public static int getPrecision(NativeType type) {
-        if (type instanceof NumberNativeType) {
-            return ((NumberNativeType) type).precision();
-        }
-
         if (type instanceof TemporalNativeType) {
             return ((TemporalNativeType) type).precision();
         }

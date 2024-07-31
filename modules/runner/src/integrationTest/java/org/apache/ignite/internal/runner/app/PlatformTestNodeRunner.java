@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.sql.ColumnType.BITMASK;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
 import static org.apache.ignite.sql.ColumnType.DATE;
@@ -37,7 +37,6 @@ import static org.apache.ignite.sql.ColumnType.INT16;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.INT8;
-import static org.apache.ignite.sql.ColumnType.NUMBER;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.apache.ignite.sql.ColumnType.TIME;
 import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
@@ -51,16 +50,23 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -69,21 +75,27 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.partition.Partition;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -215,7 +227,11 @@ public class PlatformTestNodeRunner {
             return;
         }
 
-        List<Ignite> startedNodes = startNodes(BASE_PATH, nodesBootstrapCfg);
+        List<IgniteServer> startedIgniteServers = startNodes(BASE_PATH, nodesBootstrapCfg);
+
+        List<Ignite> startedNodes = startedIgniteServers.stream()
+                .map(IgniteServer::api)
+                .collect(toList());
 
         createTables(startedNodes.get(0));
 
@@ -231,8 +247,8 @@ public class PlatformTestNodeRunner {
         Thread.sleep(runTimeMinutes * 60_000);
         System.out.println("Exiting after " + runTimeMinutes + " minutes.");
 
-        for (Ignite node : startedNodes) {
-            IgnitionManager.stop(node.name());
+        for (IgniteServer node : startedIgniteServers) {
+            node.shutdown();
         }
     }
 
@@ -243,7 +259,7 @@ public class PlatformTestNodeRunner {
      * @param nodeCfg Node configuration.
      * @return Started nodes.
      */
-    static List<Ignite> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
+    static List<IgniteServer> startNodes(Path basePath, Map<String, String> nodeCfg) throws IOException {
         IgniteUtils.deleteIfExists(basePath);
         Files.createDirectories(basePath);
 
@@ -251,7 +267,7 @@ public class PlatformTestNodeRunner {
         var trustStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/trust.jks"));
         var keyStorePath = escapeWindowsPath(getResourcePath(PlatformTestNodeRunner.class, "ssl/server.jks"));
 
-        List<CompletableFuture<Ignite>> igniteFutures = nodeCfg.entrySet().stream()
+        List<IgniteServer> nodes = nodeCfg.entrySet().stream()
                 .map(e -> {
                     String nodeName = e.getKey();
                     String config = e.getValue()
@@ -263,22 +279,21 @@ public class PlatformTestNodeRunner {
                 })
                 .collect(toList());
 
-        String metaStorageNodeName = nodeCfg.keySet().iterator().next();
+        IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
                 .build();
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNode, initParameters);
 
         System.out.println("Initialization complete");
 
-        List<Ignite> startedNodes = igniteFutures.stream().map(CompletableFuture::join).collect(toList());
+        allOf(nodes.stream().map(IgniteServer::waitForInitAsync).toArray(CompletableFuture[]::new)).join();
 
         System.out.println("Ignite nodes started");
 
-        return startedNodes;
+        return nodes;
     }
 
     private static void createTables(Ignite node) {
@@ -290,7 +305,7 @@ public class PlatformTestNodeRunner {
 
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME,
                 List.of(
@@ -304,7 +319,7 @@ public class PlatformTestNodeRunner {
 
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS,
                 List.of(
@@ -318,7 +333,6 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
                         ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
                         ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
-                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
@@ -334,7 +348,7 @@ public class PlatformTestNodeRunner {
 
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS_NOT_NULL,
                 List.of(
@@ -364,7 +378,7 @@ public class PlatformTestNodeRunner {
         // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS_SQL,
                 List.of(
@@ -477,20 +491,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(NUMBER).precision(15).build(),
-                ColumnParams.builder().name("VAL").type(NUMBER).precision(15).nullable(true).build()
-        );
-
-        createTwoColumnTable(
-                ignite,
                 ColumnParams.builder().name("KEY").type(BYTE_ARRAY).length(1000).build(),
                 ColumnParams.builder().name("VAL").type(BYTE_ARRAY).length(1000).nullable(true).build()
-        );
-
-        createTwoColumnTable(
-                ignite,
-                ColumnParams.builder().name("KEY").type(BITMASK).length(1000).build(),
-                ColumnParams.builder().name("VAL").type(BITMASK).length(1000).nullable(true).build()
         );
     }
 
@@ -499,7 +501,7 @@ public class PlatformTestNodeRunner {
 
         createTable(
                 ignite.catalogManager(),
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 ("tbl_" + keyColumnParams.type().name()).toUpperCase(),
                 List.of(keyColumnParams, valueColumnParams),
@@ -542,14 +544,12 @@ public class PlatformTestNodeRunner {
      * Compute job that creates a table.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class CreateTableJob implements ComputeJob<String> {
+    private static class CreateTableJob implements ComputeJob<String, String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            String tableName = (String) args[0];
-
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
             context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
 
-            return tableName;
+            return completedFuture(tableName);
         }
     }
 
@@ -557,13 +557,12 @@ public class PlatformTestNodeRunner {
      * Compute job that drops a table.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class DropTableJob implements ComputeJob<String> {
+    private static class DropTableJob implements ComputeJob<String, String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            String tableName = (String) args[0];
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
             context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
 
-            return tableName;
+            return completedFuture(tableName);
         }
     }
 
@@ -571,10 +570,10 @@ public class PlatformTestNodeRunner {
      * Compute job that throws an exception.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class ExceptionJob implements ComputeJob<String> {
+    private static class ExceptionJob implements ComputeJob<String, String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            throw new RuntimeException("Test exception: " + args[0]);
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String msg) {
+            throw new RuntimeException("Test exception: " + msg);
         }
     }
 
@@ -582,10 +581,10 @@ public class PlatformTestNodeRunner {
      * Compute job that throws an exception.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class CheckedExceptionJob implements ComputeJob<String> {
+    private static class CheckedExceptionJob implements ComputeJob<String, String> {
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + args[0]));
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, String msg) {
+            throw new CompletionException(new IgniteCheckedException(Common.NODE_LEFT_ERR, "TestCheckedEx: " + msg));
         }
     }
 
@@ -593,13 +592,14 @@ public class PlatformTestNodeRunner {
      * Compute job that computes row colocation hash.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class ColocationHashJob implements ComputeJob<Integer> {
+    private static class ColocationHashJob implements ComputeJob<byte[], Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
-            var columnCount = (int) args[0];
-            var buf = (byte[]) args[1];
-            var timePrecision = (int) args[2];
-            var timestampPrecision = (int) args[3];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
+            BinaryTupleReader argsReader = new BinaryTupleReader(4, args);
+            var columnCount = argsReader.intValue(0);
+            var timePrecision = argsReader.intValue(1);
+            var timestampPrecision = argsReader.intValue(2);
+            var buf = argsReader.bytesValue(3);
 
             List<Column> columns = new ArrayList<>(columnCount);
             var tuple = Tuple.create(columnCount);
@@ -610,7 +610,7 @@ public class PlatformTestNodeRunner {
                 var scale = reader.intValue(i * 3 + 1);
                 var valIdx = i * 3 + 2;
 
-                String colName = "col" + i;
+                String colName = "COL" + i;
 
                 switch (type) {
                     case BOOLEAN:
@@ -663,16 +663,6 @@ public class PlatformTestNodeRunner {
                         tuple.set(colName, reader.uuidValue(valIdx));
                         break;
 
-                    case NUMBER:
-                        columns.add(new Column(colName, NativeTypes.numberOf(255), false));
-                        tuple.set(colName, reader.numberValue(valIdx));
-                        break;
-
-                    case BITMASK:
-                        columns.add(new Column(colName, NativeTypes.bitmaskOf(32), false));
-                        tuple.set(colName, reader.bitmaskValue(valIdx));
-                        break;
-
                     case DATE:
                         columns.add(new Column(colName, NativeTypes.DATE, false));
                         tuple.set(colName, reader.dateValue(valIdx));
@@ -703,13 +693,9 @@ public class PlatformTestNodeRunner {
 
             var marsh = new TupleMarshallerImpl(schema);
 
-            try {
-                Row row = marsh.marshal(tuple);
+            Row row = marsh.marshal(tuple);
 
-                return row.colocationHash();
-            } catch (TupleMarshallerException e) {
-                throw new RuntimeException(e);
-            }
+            return completedFuture(row.colocationHash());
         }
     }
 
@@ -717,11 +703,12 @@ public class PlatformTestNodeRunner {
      * Compute job that computes row colocation hash according to the current table schema.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class TableRowColocationHashJob implements ComputeJob<Integer> {
+    private static class TableRowColocationHashJob implements ComputeJob<byte[], Integer> {
         @Override
-        public Integer execute(JobExecutionContext context, Object... args) {
-            String tableName = (String) args[0];
-            int i = (int) args[1];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, byte[] args) {
+            BinaryTupleReader reader = new BinaryTupleReader(2, args);
+            String tableName = reader.stringValue(0);
+            int i = reader.intValue(1);
             Tuple key = Tuple.create().set("id", 1 + i).set("id0", 2L + i).set("id1", "3" + i);
 
             @SuppressWarnings("resource")
@@ -729,11 +716,7 @@ public class PlatformTestNodeRunner {
             RecordBinaryViewImpl view = Wrappers.unwrap(table.recordView(), RecordBinaryViewImpl.class);
             TupleMarshaller marsh = view.marshaller(1);
 
-            try {
-                return marsh.marshal(key).colocationHash();
-            } catch (TupleMarshallerException e) {
-                throw new RuntimeException(e);
-            }
+            return completedFuture(marsh.marshal(key).colocationHash());
         }
     }
 
@@ -741,10 +724,10 @@ public class PlatformTestNodeRunner {
      * Compute job that enables or disables client authentication.
      */
     @SuppressWarnings("unused") // Used by platform tests.
-    private static class EnableAuthenticationJob implements ComputeJob<Void> {
+    private static class EnableAuthenticationJob implements ComputeJob<Integer, Void> {
         @Override
-        public Void execute(JobExecutionContext context, Object... args) {
-            boolean enable = ((Integer) args[0]) != 0;
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer flag) {
+            boolean enable = flag != 0;
             @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
@@ -764,6 +747,133 @@ public class PlatformTestNodeRunner {
                     });
 
             assertThat(changeFuture, willCompleteSuccessfully());
+
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class TestReceiver implements DataStreamerReceiver<String, String, String> {
+        @SuppressWarnings("resource")
+        @Override
+        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, String arg) {
+            String[] args = arg.split(":", 3);
+            String tableName = args[0];
+            String arg1 = args[1];
+            int arg2 = Integer.parseInt(args[2]);
+
+            if (Objects.equals(arg1, "throw")) {
+                throw new ArithmeticException("Test exception: " + arg2);
+            }
+
+            Table table = ctx.ignite().tables().table(tableName);
+            RecordView<Tuple> recordView = table.recordView();
+            List<String> res = new ArrayList<>();
+
+            for (String s : page) {
+                String[] parts = s.split("-", 2);
+                String val = parts[1] + "_" + arg1 + "_" + arg2;
+
+                Tuple rec = Tuple.create()
+                        .set("key", Long.parseLong(parts[0]))
+                        .set("val", val);
+
+                res.add(val);
+
+                recordView.upsert(null, rec);
+            }
+
+            return completedFuture(res);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, String, Object> {
+        @SuppressWarnings("resource")
+        @Override
+        public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, String arg) {
+            String[] args = arg.split(":", 3);
+
+            String tableName = args[0];
+            long id1 = Long.parseLong(args[1]);
+            long id2 = Long.parseLong(args[2]);
+
+            Table table = ctx.ignite().tables().table(tableName);
+            RecordView<Tuple> recordView = table.recordView();
+
+            for (Object item : page) {
+                Tuple classNameRec = Tuple.create()
+                        .set("key", id1)
+                        .set("val", item.getClass().getName());
+
+                Tuple valStrRec = Tuple.create()
+                        .set("key", id2)
+                        .set("val", item instanceof byte[]
+                                ? Arrays.toString((byte[]) item)
+                                : item.toString());
+
+                recordView.upsertAll(null, List.of(classNameRec, valStrRec));
+            }
+
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class EchoArgsReceiver implements DataStreamerReceiver<Object, Object, Object> {
+        @Override
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
+            return CompletableFuture.completedFuture(List.of(arg));
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class EchoReceiver implements DataStreamerReceiver<Object, Object, Object> {
+        @Override
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
+            return CompletableFuture.completedFuture(page);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class PartitionJob implements ComputeJob<Long, Integer> {
+        @Override
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Long id) {
+            Table table = context.ignite().tables().table(TABLE_NAME);
+            Tuple key = Tuple.create().set("key", id);
+            Partition partition = table.partitionManager().partitionAsync(key).join();
+
+            return completedFuture(((HashPartition) partition).partitionId());
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
+            return completedFuture(context.ignite().clusterNodes().stream()
+                    .map(node -> MapReduceJob.<Integer, Void>builder()
+                            .jobDescriptor(JobDescriptor.builder(SleepJob.class).build())
+                            .nodes(Set.of(node))
+                            .args(input)
+                            .build())
+                    .collect(toList()));
+        }
+
+        @Override
+        public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<java.util.UUID, Void> results) {
+            return completedFuture(null);
+        }
+    }
+
+    private static class SleepJob implements ComputeJob<Integer, Void> {
+        @Override
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer args) {
+            try {
+                Thread.sleep(args);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
 
             return null;
         }

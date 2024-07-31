@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,7 +32,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -84,6 +83,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .defaultSchema("SCHEMA2")
                 .queryTimeout(124, TimeUnit.SECONDS)
                 .pageSize(235)
+                .timeZoneId(ZoneId.of("Europe/London"))
                 .build();
 
         AsyncResultSet<SqlRow> resultSet = client.sql().executeAsync(null, statement).join();
@@ -94,6 +94,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals("SCHEMA2", props.get("schema"));
         assertEquals("124000", props.get("timeout"));
         assertEquals("235", props.get("pageSize"));
+        assertEquals("Europe/London", props.get("timeZoneId"));
     }
 
     @Test
@@ -163,20 +164,14 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(new UUID(0, 0), row.uuidValue(12));
         assertEquals(ColumnType.UUID, meta.columns().get(12).type());
 
-        assertEquals(BitSet.valueOf(new byte[0]), row.bitmaskValue(13));
-        assertEquals(ColumnType.BITMASK, meta.columns().get(13).type());
+        assertEquals(0, ((byte[]) row.value(13))[0]);
+        assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(13).type());
 
-        assertEquals(0, ((byte[]) row.value(14))[0]);
-        assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(14).type());
+        assertEquals(Period.of(10, 9, 8), row.value(14));
+        assertEquals(ColumnType.PERIOD, meta.columns().get(14).type());
 
-        assertEquals(Period.of(10, 9, 8), row.value(15));
-        assertEquals(ColumnType.PERIOD, meta.columns().get(15).type());
-
-        assertEquals(Duration.ofDays(11), row.value(16));
-        assertEquals(ColumnType.DURATION, meta.columns().get(16).type());
-
-        assertEquals(BigInteger.valueOf(42), row.value(17));
-        assertEquals(ColumnType.NUMBER, meta.columns().get(17).type());
+        assertEquals(Duration.ofDays(11), row.value(15));
+        assertEquals(ColumnType.DURATION, meta.columns().get(15).type());
     }
 
     @Test

@@ -24,7 +24,7 @@
 #include "ignite/client/table/tables.h"
 #include "ignite/client/transaction/transactions.h"
 
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 
 #include <chrono>

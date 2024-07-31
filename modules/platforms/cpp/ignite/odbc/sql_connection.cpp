@@ -24,7 +24,7 @@
 #include "ignite/odbc/ssl_mode.h"
 #include "ignite/odbc/utility.h"
 
-#include <ignite/common/bytes.h>
+#include "ignite/common/detail/bytes.h"
 #include <ignite/network/network.h>
 #include <ignite/protocol/client_operation.h>
 #include <ignite/protocol/messages.h>
@@ -250,7 +250,7 @@ bool sql_connection::receive(std::vector<std::byte> &msg, std::int32_t timeout) 
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not receive message header");
 
     static_assert(sizeof(std::int32_t) == PROTOCOL_HEADER_SIZE);
-    std::int32_t len = bytes::load<endian::BIG, std::int32_t>(len_buffer);
+    std::int32_t len = detail::bytes::load<detail::endian::BIG, std::int32_t>(len_buffer);
     if (len < 0) {
         close();
         throw odbc_error(sql_state::SHY000_GENERAL_ERROR, "Protocol error: Message length is negative");
@@ -324,6 +324,15 @@ void sql_connection::send_message(bytes_view req, std::int32_t timeout) {
 }
 
 network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std::int32_t timeout) {
+    auto res = receive_message_nothrow(id, timeout);
+    if (res.second) {
+        throw std::move(*res.second);
+    }
+    return std::move(res.first);
+}
+
+std::pair<network::data_buffer_owning, std::optional<odbc_error>> sql_connection::receive_message_nothrow(
+    std::int64_t id, std::int32_t timeout) {
     ensure_connected();
     std::vector<std::byte> res;
 
@@ -349,12 +358,12 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         auto observable_timestamp = reader.read_int64();
         on_observable_timestamp(observable_timestamp);
 
+        std::optional<odbc_error> err;
         if (test_flag(flags, protocol::response_flag::ERROR_FLAG)) {
-            auto err = protocol::read_error(reader);
-            throw odbc_error(error_code_to_sql_state(err.get_status_code()), err.what_str());
+            err = odbc_error(protocol::read_error(reader));
         }
 
-        return network::data_buffer_owning{std::move(res), reader.position()};
+        return {network::data_buffer_owning{std::move(res), reader.position()}, err};
     }
 }
 

@@ -17,22 +17,16 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
+import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.internal.util.AsyncWrapper;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -42,16 +36,9 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Test class for {@link JdbcQueryCursor}.
  */
 public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
-    private QueryTransactionWrapper txWrapper;
-
     private static final List<Integer> ROWS = List.of(1, 2, 3);
 
     private static final int TOTAL_ROWS_COUNT = ROWS.size();
-
-    @BeforeEach
-    void initTxMock() {
-        txWrapper = new QueryTransactionWrapperImpl(mock(InternalTransaction.class), false);
-    }
 
     /** Tests corner cases of setting the {@code maxRows} parameter. */
     @ParameterizedTest(name = "maxRows={0}, fetchSize={1}")
@@ -77,9 +64,7 @@ public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
                 new AsyncSqlCursorImpl<>(
                         SqlQueryType.QUERY,
                         null,
-                        txWrapper,
-                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run),
-                        nullCompletedFuture(),
+                        new IteratorToDataCursorAdapter<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run),
                         null
                 )
         );

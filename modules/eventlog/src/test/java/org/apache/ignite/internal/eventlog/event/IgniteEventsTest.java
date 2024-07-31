@@ -24,43 +24,57 @@ import static org.hamcrest.Matchers.equalTo;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class IgniteEventsTest {
-    private static String USER = "test_user";
-    private static String PROVIDER = "test_provider";
+    private static final String USER = "test_user";
 
-    static Stream<Arguments> events() {
-        Event connectionClosedEvent = IgniteEvents.CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER));
-        Event connectionEstablishedEvent = IgniteEvents.USER_AUTHENTICATED.create(EventUser.of(USER, PROVIDER));
+    private static final String PROVIDER = "test_provider";
 
+    private static Stream<Arguments> events() {
         return Stream.of(
                 Arguments.of(
-                        connectionClosedEvent,
+                        IgniteEvents.CLIENT_CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER)),
                         Event.builder()
-                                .type("CONNECTION_CLOSED")
-                                .productVersion("3.0.0")
-                                .timestamp(connectionClosedEvent.getTimestamp())
+                                .type("CLIENT_CONNECTION_CLOSED")
+                                .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                                 .user(EventUser.of(USER, PROVIDER))
-                                .build()
                 ),
                 Arguments.of(
-                        connectionEstablishedEvent,
+                        IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of(USER, PROVIDER)),
                         Event.builder()
-                                .type("USER_AUTHENTICATED")
-                                .productVersion("3.0.0")
-                                .timestamp(connectionEstablishedEvent.getTimestamp())
+                                .type("CLIENT_CONNECTION_ESTABLISHED")
+                                .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                                 .user(EventUser.of(USER, PROVIDER))
-                                .build()
+                ),
+                Arguments.of(
+                        IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(USER, PROVIDER)),
+                        Event.builder()
+                                .type("USER_AUTHENTICATION_SUCCESS")
+                                .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
+                                .user(EventUser.of(USER, PROVIDER))
+
+                ),
+                Arguments.of(
+                        IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of(USER, PROVIDER)),
+                        Event.builder()
+                                .type("USER_AUTHENTICATION_FAILURE")
+                                .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
+                                .user(EventUser.of(USER, PROVIDER))
+
                 )
         );
     }
 
     @ParameterizedTest
     @MethodSource("events")
-    void createEvents(Event givenEvent, Event expectedEvent) {
+    void createEvents(Event givenEvent, EventBuilder expectedEventBuilder) {
+        // Timestamp should be equal, so we take it from expected event.
+        var expectedEvent = expectedEventBuilder.timestamp(givenEvent.getTimestamp()).build();
+
         assertThat(givenEvent, equalTo(expectedEvent));
     }
 }

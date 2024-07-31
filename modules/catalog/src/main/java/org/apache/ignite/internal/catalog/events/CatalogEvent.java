@@ -30,28 +30,51 @@ public enum CatalogEvent implements Event {
     /** This event is fired, when a table was dropped in Catalog. */
     TABLE_DROP,
 
-    /** This event is fired when a table has been renamed or a column has been modified, added to, or removed from a table. */
+    /**
+     * This event is fired when a table has been renamed or a column has been modified, added to, or removed from a table.
+     *
+     * @see AlterColumnEventParameters
+     * @see DropColumnEventParameters
+     * @see AddColumnEventParameters
+     * @see RenameTableEventParameters
+     */
     TABLE_ALTER,
 
-    /** This event is fired, when an index was created in Catalog. */
+    /**
+     * This event is fired, when an index was created in Catalog.
+     *
+     * @see CreateIndexEventParameters
+     */
     INDEX_CREATE,
 
-    /** This event is fired when the index is ready to start building. */
+    /**
+     * This event is fired when the index is ready to start building.
+     *
+     * @see StartBuildingIndexEventParameters
+     */
     INDEX_BUILDING,
 
-    /** This event is fired when the index becomes available, i.e. the index has been built. */
+    /**
+     * This event is fired when the index becomes available, i.e. the index has been built.
+     *
+     * @see MakeIndexAvailableEventParameters
+     */
     INDEX_AVAILABLE,
 
     /**
      * This event is fired when an {@link CatalogIndexStatus#AVAILABLE} index was dropped in the Catalog (so it's switched to
      * the {@link CatalogIndexStatus#STOPPING} state), but not its table.
+     *
+     * @see StoppingIndexEventParameters
      */
     INDEX_STOPPING,
 
     /**
-     *  Fired when an index is removed from the Catalog. This happens when an index that never was {@link CatalogIndexStatus#AVAILABLE}
-     *  gets dropped, or when an index that is {@link CatalogIndexStatus#STOPPING} is finished with and we don't need to keep it in
-     *  the Catalog anymore, or when an index gets dropped because its table gets dropped.
+     * Fired when an index is removed from the Catalog. This happens when an index that never was {@link CatalogIndexStatus#AVAILABLE}
+     * gets dropped, or when an index that is {@link CatalogIndexStatus#STOPPING} is finished with and we don't need to keep it in
+     * the Catalog anymore, or when an index gets dropped because its table gets dropped.
+     *
+     * @see RemoveIndexEventParameters
      */
     INDEX_REMOVED,
 

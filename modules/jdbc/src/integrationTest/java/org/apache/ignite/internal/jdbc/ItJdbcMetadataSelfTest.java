@@ -72,8 +72,6 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testNullValuesMetaData() throws Exception {
-        Statement stmt = DriverManager.getConnection(URL).createStatement();
-
         ResultSet rs = stmt.executeQuery(
                 "select NULL, substring(null, 1, 2)");
 
@@ -96,8 +94,6 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testResultSetMetaData() throws Exception {
-        Statement stmt = DriverManager.getConnection(URL).createStatement();
-
         ResultSet rs = stmt.executeQuery(
                 "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");
 
@@ -139,9 +135,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                             rs.getString("TABLE_SCHEM"),
                             rs.getString("TABLE_NAME"),
                             rs.getString("COLUMN_NAME"),
-                            rs.getInt("DATA_TYPE"),
-                            rs.getString("TYPE_NAME"),
-                            dataTypeToJavaCls(rs.getInt("DATA_TYPE"), rs.getString("TYPE_NAME")),
+                            dataTypeToColumnType(rs.getInt("DATA_TYPE"), rs.getString("TYPE_NAME")),
                             rs.getShort("COLUMN_SIZE"),
                             rs.getShort("DECIMAL_DIGITS"),
                             "YES".equals(rs.getString("IS_NULLABLE"))
@@ -157,61 +151,63 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    private String dataTypeToJavaCls(int dataType, String typeName) {
-        Class cls = null;
+    private ColumnType dataTypeToColumnType(int dataType, String typeName) {
+        ColumnType type = null;
 
         switch (dataType) {
             case Types.BOOLEAN:
-                cls = Boolean.class;
+                type = ColumnType.BOOLEAN;
                 break;
             case Types.TINYINT:
-                cls = Byte.class;
+                type = ColumnType.INT8;
                 break;
             case Types.SMALLINT:
-                cls = Short.class;
+                type = ColumnType.INT16;
                 break;
             case Types.INTEGER:
-                cls = Integer.class;
+                type = ColumnType.INT32;
                 break;
             case Types.BIGINT:
-                cls = Long.class;
+                type = ColumnType.INT64;
                 break;
             case Types.REAL:
-                cls = Float.class;
+                type = ColumnType.FLOAT;
                 break;
             case Types.DOUBLE:
-                cls = Double.class;
+                type = ColumnType.DOUBLE;
                 break;
             case Types.DECIMAL:
-                cls = BigDecimal.class;
+                type = ColumnType.DECIMAL;
                 break;
             case Types.DATE:
-                cls = java.sql.Date.class;
+                type = ColumnType.DATE;
                 break;
             case Types.TIME:
-                cls = java.sql.Time.class;
+                type = ColumnType.TIME;
                 break;
             case Types.TIMESTAMP:
-                cls = java.sql.Timestamp.class;
+                type = ColumnType.DATETIME;
                 break;
             case Types.OTHER:
                 if (typeName.equals("UUID")) {
-                    cls = UUID.class;
+                    type = ColumnType.UUID;
+                } else if (typeName.equals("TIMESTAMP WITH LOCAL TIME ZONE")) {
+                    type = ColumnType.TIMESTAMP;
                 }
                 break;
             case Types.VARCHAR:
-                cls = String.class;
+                type = ColumnType.STRING;
                 break;
             case Types.VARBINARY:
-                cls = byte[].class;
+                type = ColumnType.BYTE_ARRAY;
                 break;
             default:
                 break;
         }
 
-        assertNotNull(cls, "Not supported type " + dataType + " " + typeName);
+        assertNotNull(type, "Not supported type " + dataType + " " + typeName);
 
-        return cls.getName();
+        return type;
     }
 
     @Test
@@ -267,14 +263,13 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     private void createMetaTable() {
-        try (Connection conn = DriverManager.getConnection(URL);
-                Statement stmt = conn.createStatement();
-        ) {
+        try {
             StringJoiner joiner = new StringJoiner(",");
 
             // Add columns with All supported types.
             EnumSet<ColumnType> excludeTypes = EnumSet
-                    .of(ColumnType.TIMESTAMP, ColumnType.NUMBER, ColumnType.BITMASK, ColumnType.DURATION,
+                    .of(ColumnType.TIMESTAMP, ColumnType.DURATION,
+                            ColumnType.BITMASK, ColumnType.NUMBER,
                             ColumnType.PERIOD, ColumnType.NULL);
             Arrays.stream(ColumnType.values()).filter(t -> !excludeTypes.contains(t))
                     .forEach(t -> {
@@ -655,23 +650,21 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
      * @param invalidCat catalog name that is not either
      */
     private void checkNoEntitiesFoundForCatalog(String invalidCat) throws SQLException {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            DatabaseMetaData meta = conn.getMetaData();
+        DatabaseMetaData meta = conn.getMetaData();
 
-            // Intention: we set the other arguments that way, the values to have as many results as possible.
-            assertIsEmpty(meta.getTables(invalidCat, null, "%", new String[]{"TABLE"}));
-            assertIsEmpty(meta.getColumns(invalidCat, null, "%", "%"));
-            assertIsEmpty(meta.getColumnPrivileges(invalidCat, "pers", "PERSON", "%"));
-            assertIsEmpty(meta.getTablePrivileges(invalidCat, null, "%"));
-            assertIsEmpty(meta.getPrimaryKeys(invalidCat, "pers", "PERSON"));
-            assertIsEmpty(meta.getImportedKeys(invalidCat, "pers", "PERSON"));
-            assertIsEmpty(meta.getExportedKeys(invalidCat, "pers", "PERSON"));
-            // meta.getCrossReference(...) doesn't make sense because we don't have FK constraint.
-            assertIsEmpty(meta.getIndexInfo(invalidCat, null, "%", false, true));
-            assertIsEmpty(meta.getSuperTables(invalidCat, "%", "%"));
-            assertIsEmpty(meta.getSchemas(invalidCat, null));
-            assertIsEmpty(meta.getPseudoColumns(invalidCat, null, "%", ""));
-        }
+        // Intention: we set the other arguments that way, the values to have as many results as possible.
+        assertIsEmpty(meta.getTables(invalidCat, null, "%", new String[]{"TABLE"}));
+        assertIsEmpty(meta.getColumns(invalidCat, null, "%", "%"));
+        assertIsEmpty(meta.getColumnPrivileges(invalidCat, "pers", "PERSON", "%"));
+        assertIsEmpty(meta.getTablePrivileges(invalidCat, null, "%"));
+        assertIsEmpty(meta.getPrimaryKeys(invalidCat, "pers", "PERSON"));
+        assertIsEmpty(meta.getImportedKeys(invalidCat, "pers", "PERSON"));
+        assertIsEmpty(meta.getExportedKeys(invalidCat, "pers", "PERSON"));
+        // meta.getCrossReference(...) doesn't make sense because we don't have FK constraint.
+        assertIsEmpty(meta.getIndexInfo(invalidCat, null, "%", false, true));
+        assertIsEmpty(meta.getSuperTables(invalidCat, "%", "%"));
+        assertIsEmpty(meta.getSchemas(invalidCat, null));
+        assertIsEmpty(meta.getPseudoColumns(invalidCat, null, "%", ""));
     }
 
     /**

@@ -22,7 +22,6 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using BinaryTuple;
 using Buffers;
-using Transactions;
 
 /// <summary>
 /// MsgPack writer. Wraps <see cref="PooledArrayBuffer"/>. Writer index is kept by the buffer, so this struct is readonly.
@@ -41,6 +40,11 @@ internal readonly ref struct MsgPackWriter
     {
         Buf = buf;
     }
+
+    /// <summary>
+    /// Gets the current position.
+    /// </summary>
+    public int Position => Buf.Position;
 
     private PooledArrayBuffer Buf { get; }
 
@@ -339,17 +343,35 @@ internal readonly ref struct MsgPackWriter
     /// <summary>
     /// Writes a transaction.
     /// </summary>
-    /// <param name="tx">Transaction.</param>
-    public void WriteTx(Transaction? tx)
+    /// <param name="txId">Transaction id.</param>
+    public void WriteTx(long? txId)
     {
-        if (tx == null)
+        if (txId == null)
         {
             WriteNil();
         }
         else
         {
-            Write(tx.Id);
+            Write(txId.Value);
         }
+    }
+
+    /// <summary>
+    /// Writes an object with type code.
+    /// </summary>
+    /// <param name="obj">Object.</param>
+    public void WriteObjectAsBinaryTuple(object? obj)
+    {
+        if (obj == null)
+        {
+            WriteNil();
+
+            return;
+        }
+
+        using var builder = new BinaryTupleBuilder(3);
+        builder.AppendObjectWithType(obj);
+        Write(builder.Build().Span);
     }
 
     /// <summary>

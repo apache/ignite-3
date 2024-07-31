@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,14 +34,17 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -53,6 +57,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
 
     /**
      * Returns a stream with test arguments.
@@ -84,7 +91,10 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         new SimpleInMemoryKeyValueStorage(mcNodeName),
                         clock,
                         mock(TopologyAwareRaftGroupServiceFactory.class),
-                        metaStorageConfiguration
+                        new NoOpMetricManager(),
+                        metaStorageConfiguration,
+                        raftConfiguration.retryTimeout(),
+                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
                 ),
                 StandaloneMetaStorageManager.create()
         );
@@ -102,12 +112,12 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         assertFalse(deployWatchesFut.isDone());
 
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(deployWatchesFut, willCompleteSuccessfully());
 
         metastore.beforeNodeStop();
 
-        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
+        assertThat(metastore.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 }

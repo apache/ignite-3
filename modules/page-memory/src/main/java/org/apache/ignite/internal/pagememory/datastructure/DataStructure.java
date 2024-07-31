@@ -61,14 +61,13 @@ public abstract class DataStructure implements ManuallyCloseable {
     protected final int grpId;
 
     /** Group name. */
-    protected final String grpName;
+    protected final @Nullable String grpName;
 
     /** Page memory. */
     protected final PageMemory pageMem;
 
     /** Reuse list. */
-    @Nullable
-    protected ReuseList reuseList;
+    protected @Nullable ReuseList reuseList;
 
     /** Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}. */
     protected final byte defaultPageFlag;
@@ -79,7 +78,7 @@ public abstract class DataStructure implements ManuallyCloseable {
     /**
      * Constructor.
      *
-     * @param name Structure name (for debugging purposes).
+     * @param structureNamePrefix Structure name prefix (for debugging purposes).
      * @param grpId Group ID.
      * @param grpName Group name.
      * @param partId Partition ID.
@@ -89,7 +88,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      *      PageIdAllocator#FLAG_AUX}.
      */
     public DataStructure(
-            String name,
+            String structureNamePrefix,
             int grpId,
             @Nullable String grpName,
             int partId,
@@ -97,11 +96,11 @@ public abstract class DataStructure implements ManuallyCloseable {
             PageLockListener lockLsnr,
             byte defaultPageFlag
     ) {
-        assert !StringUtils.nullOrEmpty(name);
+        assert !StringUtils.nullOrEmpty(structureNamePrefix);
         assert pageMem != null;
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
-        this.name = name;
+        this.name = structureNamePrefix + "_" + grpId + "_" + partId;
         this.grpId = grpId;
         this.grpName = grpName;
         this.partId = partId;
@@ -155,32 +154,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @throws IgniteInternalCheckedException If failed.
      */
     protected final long allocatePage(@Nullable ReuseBag bag, boolean useRecycled) throws IgniteInternalCheckedException {
-        long pageId = 0;
-
-        if (useRecycled && reuseList != null) {
-            pageId = bag != null ? bag.pollFreePage() : 0;
-
-            if (pageId == 0) {
-                pageId = reuseList.takeRecycledPage();
-            }
-
-            // Recycled. "pollFreePage" result should be reinitialized to move rotatedId to itemId.
-            if (pageId != 0) {
-                pageId = reuseList.initRecycledPage(pageId, defaultPageFlag, null);
-            }
-        }
-
-        if (pageId == 0) {
-            pageId = allocatePageNoReuse();
-        }
-
-        assert pageId != 0;
-
-        assert partitionId(pageId) >= 0 && partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
-
-        assert flag(pageId) != FLAG_DATA || itemId(pageId) == 0 : toDetailString(pageId);
-
-        return pageId;
+        return pageMem.allocatePage(reuseList, bag, useRecycled, grpId, partId, defaultPageFlag);
     }
 
     /**
@@ -190,7 +164,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @throws IgniteInternalCheckedException If failed.
      */
     protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, partId, defaultPageFlag);
+        return pageMem.allocatePageNoReuse(grpId, partId, defaultPageFlag);
     }
 
     /**
@@ -436,7 +410,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @return Page ID with the incremented rotation ID.
      * @see FullPageId
      */
-    protected final long recyclePage(long pageId, long pageAddr) {
+    protected static long recyclePage(long pageId, long pageAddr) {
         long recycled = 0;
 
         if (flag(pageId) == FLAG_DATA) {

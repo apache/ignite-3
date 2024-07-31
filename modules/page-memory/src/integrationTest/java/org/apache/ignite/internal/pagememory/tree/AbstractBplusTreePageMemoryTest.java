@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.StringUtils.hexLong;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -2504,6 +2505,68 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         assertNull(tree.findOne(0L));
     }
 
+    /**
+     * Test checks the not very obvious case of error "Maximum number of retries 1000 reached...", which can occur after restoring a
+     * {@code BplusTree} with an inner replace and then attempting to read from such a tree.
+     *
+     * <p>This error can occur due to incorrect restoration of the {@code BplusTree#globalRmvId}, which should always be equal or greater
+     * than the tree had previously.</p>
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testRecoverGlobalRmvId() throws Exception {
+        int keyCount = 100;
+        boolean canGetRow = true;
+
+        var globalRmvId = new AtomicLong();
+
+        TestTree tree = createTestTree(canGetRow, globalRmvId);
+
+        for (long i = 0; i < keyCount; i++) {
+            tree.put(i);
+        }
+
+        // Let's remove the rightmost element that is present in the leaf and the root inner (which has level 0), it is important that this
+        // should not be the rightmost element of the entire tree. This allows us to reproduce inner replace with increment
+        // BplusTree#globalRmvId. This element was chosen with eyes when printing the tree (BplusTree#printTree).
+        tree.remove(57L);
+
+        assertEquals(1, globalRmvId.get());
+
+        // Let's check that after the inner replace the readings are not broken.
+        assertDoesNotThrow(() -> findNextForKeys(tree, keyCount));
+
+        // Let's "recover" a tree with an incorrectly globalRmvId, less than what was in the base tree.
+        var newRestoredTreeWithWrongGlobalRmvId = reCreateTestTree(tree, 0L);
+
+        assertThrows(
+                IgniteInternalCheckedException.class,
+                () -> findNextForKeys(newRestoredTreeWithWrongGlobalRmvId, keyCount),
+                "Maximum number of retries 1000 reached"
+        );
+
+        // Let's "recover" a tree with a correct globalRmvId, equal to the base tree.
+        var newRestoredTreeWithCorrectGlobalRmvId0 = reCreateTestTree(tree, globalRmvId.get());
+
+        assertDoesNotThrow(() -> findNextForKeys(newRestoredTreeWithCorrectGlobalRmvId0, keyCount));
+
+        // Let's "recover" a tree with a correct globalRmvId, more than the base tree.
+        var newRestoredTreeWithCorrectGlobalRmvId1 = reCreateTestTree(tree, globalRmvId.get() + 1);
+
+        assertDoesNotThrow(() -> findNextForKeys(newRestoredTreeWithCorrectGlobalRmvId1, keyCount));
+    }
+
+    private static void findNextForKeys(TestTree tree, long keyCount) throws Exception {
+        for (long key = 0; key < keyCount; key++) {
+            tree.findNext(key, true);
+        }
+    }
+
+    private TestTree reCreateTestTree(TestTree tree, long globalRmvId) throws Exception {
+        return new TestTree(tree.metaFullPageId(), reuseList, tree.canGetRow, pageMem, new AtomicLong(globalRmvId), false);
+    }
+
     private void doTestRandomPutRemoveMultithreaded(boolean canGetRow) throws Exception {
         final TestTree tree = createTestTree(canGetRow);
 
@@ -2703,8 +2766,8 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
     }
 
-    protected TestTree createTestTree(boolean canGetRow) throws Exception {
-        TestTree tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, pageMem);
+    private TestTree createTestTree(boolean canGetRow, AtomicLong globalRmvId) throws Exception {
+        var tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, pageMem, globalRmvId, true);
 
         assertEquals(0, tree.size());
         assertEquals(0, tree.rootLevel());
@@ -2712,40 +2775,50 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         return tree;
     }
 
-    private FullPageId allocateMetaPage() throws Exception {
-        return new FullPageId(pageMem.allocatePage(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+    private TestTree createTestTree(boolean canGetRow) throws Exception {
+        return createTestTree(canGetRow, new AtomicLong());
     }
 
-    /**
-     * Test tree.
-     */
+    private FullPageId allocateMetaPage() throws Exception {
+        return new FullPageId(pageMem.allocatePage(reuseList, GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+    }
+
+    /** Test tree. */
     protected static class TestTree extends BplusTree<Long, Long> {
         /** Number of retries. */
         private int numRetries = super.getLockRetries();
+
+        private final boolean canGetRow;
 
         /**
          * Constructor.
          *
          * @param metaPageId Meta page ID.
-         * @param reuseList Reuse list.
+         * @param reuseList Reuse list, {@code null} if absent.
          * @param canGetRow Can get row from inner page.
          * @param pageMem Page memory.
+         * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+         *      must be greater than or equal to the previous value.
+         * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating it
+         *      for the first time), {@code false} if not necessary (for example, when restoring a tree).
          * @throws Exception If failed.
          */
-        public TestTree(
+        TestTree(
                 FullPageId metaPageId,
                 @Nullable ReuseList reuseList,
                 boolean canGetRow,
-                PageMemory pageMem
+                PageMemory pageMem,
+                AtomicLong globalRmvId,
+                boolean initNew
         ) throws Exception {
             super(
-                    "test",
+                    "TestTree",
                     metaPageId.groupId(),
                     null,
                     partitionId(metaPageId.pageId()),
                     pageMem,
                     new TestPageLockListener(PageLockListenerNoOp.INSTANCE),
-                    new AtomicLong(),
+                    globalRmvId,
                     metaPageId.pageId(),
                     reuseList,
                     new IoVersions<>(new LongInnerIo(canGetRow)),
@@ -2753,14 +2826,19 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                     new IoVersions<>(new LongMetaIo())
             );
 
-            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongInnerIo(canGetRow)));
-            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongLeafIo()));
-            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongMetaIo()));
+            this.canGetRow = canGetRow;
 
-            initTree(true);
+            TestPageIoRegistry ioRegistry = (TestPageIoRegistry) pageMem.ioRegistry();
+
+            ioRegistry.load(
+                    new IoVersions<>(new LongInnerIo(canGetRow)),
+                    new IoVersions<>(new LongLeafIo()),
+                    new IoVersions<>(new LongMetaIo())
+            );
+
+            initTree(initNew);
         }
 
-        /** {@inheritDoc} */
         @Override
         protected int compare(BplusIo<Long> io, long pageAddr, int idx, Long n2) throws IgniteInternalCheckedException {
             Long n1 = io.getLookupRow(this, pageAddr, idx);
@@ -2768,7 +2846,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return Long.compare(n1, n2);
         }
 
-        /** {@inheritDoc} */
         @Override
         public Long getRow(BplusIo<Long> io, long pageAddr, int idx, Object ignore) throws IgniteInternalCheckedException {
             assert io.canGetRow() : io;
@@ -2825,10 +2902,13 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return b.toString();
         }
 
-        /** {@inheritDoc} */
         @Override
         protected int getLockRetries() {
             return numRetries;
+        }
+
+        private FullPageId metaFullPageId() {
+            return new FullPageId(metaPageId, grpId);
         }
     }
 

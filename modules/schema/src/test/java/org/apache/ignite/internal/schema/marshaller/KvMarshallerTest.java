@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.type.NativeTypes.time;
 import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -61,7 +60,6 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -75,7 +73,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.SerializingConverter;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithNoDefaultConstructor;
@@ -95,7 +92,9 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ObjectFactory;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.TypeConverter;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicNode;
@@ -146,7 +145,7 @@ public class KvMarshallerTest {
     @TestFactory
     public Stream<DynamicNode> basicTypes() {
         NativeType[] types = {BOOLEAN, INT8, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, STRING, BYTES,
-                NativeTypes.bitmaskOf(5), NativeTypes.numberOf(42), NativeTypes.decimalOf(12, 3)};
+                NativeTypes.decimalOf(12, 3)};
 
         return marshallerFactoryProvider().stream().map(factory ->
                 dynamicContainer(
@@ -163,8 +162,6 @@ public class KvMarshallerTest {
                                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, FLOAT, DOUBLE)),
                                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, INT32, BYTES)),
                                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, STRING, INT64)),
-                                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.bitmaskOf(9), BYTES)),
-                                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.numberOf(12), BYTES)),
                                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.decimalOf(12, 3), BYTES))
                                 )
                         )
@@ -258,8 +255,8 @@ public class KvMarshallerTest {
         );
 
         assertEquals(
-                "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
-                        + "intCol, longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, "
+                "Fields [booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
+                        + "intCol, longCol, nullBytesCol, nullLongCol, primitiveBooleanCol, primitiveByteCol, "
                         + "primitiveFloatCol, primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] "
                         + "of type org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes are not mapped to columns",
                 ex.getMessage());
@@ -283,7 +280,7 @@ public class KvMarshallerTest {
 
         Mapper<TestObject> valMapper = Mapper.builder(TestObject.class)
                 .map("longCol", "col1")
-                .map("stringCol", "col3")
+                .map("dateCol", "col3", new TestTypeConverter())
                 .build();
 
         KvMarshaller<TestKeyObject, TestObject> marshaller = factory.create(schema, keyMapper, valMapper);
@@ -311,11 +308,11 @@ public class KvMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(
                 schemaVersion.incrementAndGet(),
                 new Column[]{
-                        new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
+                        new Column("longCol".toUpperCase(), INT32, false),
                         new Column("intCol".toUpperCase(), UUID, false)
                 },
                 new Column[]{
-                        new Column("bytesCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                        new Column("bytesCol".toUpperCase(), NativeTypes.blobOf(42), true),
                         new Column("stringCol".toUpperCase(), UUID, true)
                 }
         );
@@ -326,7 +323,7 @@ public class KvMarshallerTest {
 
         assertThat(
                 ex.getMessage(),
-                containsString("Column's type mismatch [column=LONGCOL, expectedType=BITSET, actualType=class java.lang.Long]")
+                containsString("Column's type mismatch [column=LONGCOL, expectedType=INT, actualType=class java.lang.Long]")
         );
     }
 
@@ -348,29 +345,6 @@ public class KvMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyCols, valCols);
 
         assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class));
-    }
-
-    @ParameterizedTest
-    @MethodSource("marshallerFactoryProvider")
-    public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                schemaVersion.incrementAndGet(),
-                new Column[]{ new Column("key".toUpperCase(), INT32, false) },
-                new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
-        );
-
-        KvMarshaller<Integer, BitSet> marshaller =
-                factory.create(schema, Integer.class, BitSet.class);
-
-        Throwable ex = assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42)));
-
-        while (ex.getCause() != null) {
-            ex = ex.getCause();
-        }
-
-        assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }
 
     @ParameterizedTest
@@ -876,17 +850,19 @@ public class KvMarshallerTest {
                 new Column("timestampCol".toUpperCase(), timestamp(6), nullable),
 
                 new Column("uuidCol".toUpperCase(), UUID, nullable),
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), nullable),
                 new Column("stringCol".toUpperCase(), STRING, nullable),
                 new Column("nullBytesCol".toUpperCase(), BYTES, nullable),
                 new Column("bytesCol".toUpperCase(), BYTES, nullable),
-                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), nullable),
                 new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), nullable),
         };
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
+
+        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
+
         Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+                .filter(t -> !unsupported.contains(t))
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);
@@ -937,7 +913,7 @@ public class KvMarshallerTest {
 
             obj.longCol = rnd.nextLong();
             obj.longCol2 = rnd.nextLong();
-            obj.stringCol = IgniteTestUtils.randomString(rnd, 100);
+            obj.dateCol = LocalDate.now();
 
             return obj;
         }
@@ -946,7 +922,7 @@ public class KvMarshallerTest {
 
         private Long longCol2;
 
-        private String stringCol;
+        private LocalDate dateCol;
 
         @Override
         public boolean equals(Object o) {
@@ -962,12 +938,12 @@ public class KvMarshallerTest {
 
             return longCol == that.longCol
                     && Objects.equals(longCol2, that.longCol2)
-                    && Objects.equals(stringCol, that.stringCol);
+                    && Objects.equals(dateCol, that.dateCol);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(longCol, longCol2, stringCol);
+            return Objects.hash(longCol, longCol2, dateCol);
         }
     }
 
@@ -1148,6 +1124,18 @@ public class KvMarshallerTest {
             int result = Objects.hash(pojoField);
             result = 31 * result + Arrays.hashCode(rawField);
             return result;
+        }
+    }
+
+    private static class TestTypeConverter implements TypeConverter<LocalDate, String> {
+        @Override
+        public String toColumnType(LocalDate val) {
+            return val.toString();
+        }
+
+        @Override
+        public LocalDate toObjectType(String val) {
+            return LocalDate.parse(val);
         }
     }
 }

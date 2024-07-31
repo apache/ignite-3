@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.calcite.rel.hint.HintPredicates.AGGREGATE;
 import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
 import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
-import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
+import static org.apache.ignite.internal.sql.engine.prepare.PlanningContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
@@ -34,14 +34,12 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.io.StringReader;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -57,7 +55,6 @@ import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
 import org.apache.calcite.config.NullCollation;
 import org.apache.calcite.linq4j.Ord;
-import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
@@ -112,10 +109,8 @@ import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -130,6 +125,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
+    public static final String PART_COL_NAME = "__part";
 
     public static final int IN_BUFFER_SIZE = 512;
 
@@ -154,6 +150,10 @@ public final class Commons {
             .executor(new RexExecutorImpl(DataContexts.EMPTY))
             .sqlToRelConverterConfig(SqlToRelConverter.config()
                     .withTrimUnusedFields(true)
+                    // Disable `RemoveSortInSubQuery` hint that causes incorrect plan transformation
+                    // because calcite does not distinguish between VIEWs and nested subqueries.
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22392
+                    .withRemoveSortInSubQuery(false)
                     // currently SqlToRelConverter creates not optimal plan for both optimization and execution
                     // so it's better to disable such rewriting right now
                     // TODO: remove this after IGNITE-14277
@@ -263,22 +263,15 @@ public final class Commons {
     /**
      * Extracts query context.
      */
-    public static BaseQueryContext context(RelNode rel) {
+    public static PlanningContext context(RelNode rel) {
         return context(rel.getCluster());
     }
 
     /**
      * Extracts query context.
      */
-    public static BaseQueryContext context(RelOptCluster cluster) {
-        return Objects.requireNonNull(cluster.getPlanner().getContext().unwrap(BaseQueryContext.class));
-    }
-
-    /**
-     * Extracts planner context.
-     */
-    public static PlanningContext context(Context ctx) {
-        return Objects.requireNonNull(ctx.unwrap(PlanningContext.class));
+    public static PlanningContext context(RelOptCluster cluster) {
+        return Objects.requireNonNull(cluster.getPlanner().getContext().unwrap(PlanningContext.class));
     }
 
     /**
@@ -487,8 +480,6 @@ public final class Commons {
             case UUID: return tuple.uuidValue(fieldIndex);
             case STRING: return tuple.stringValue(fieldIndex);
             case BYTES: return tuple.bytesValue(fieldIndex);
-            case BITMASK: return tuple.bitmaskValue(fieldIndex);
-            case NUMBER: return tuple.numberValue(fieldIndex);
             case DATE: return tuple.dateValue(fieldIndex);
             case TIME: return tuple.timeValue(fieldIndex);
             case DATETIME: return tuple.dateTimeValue(fieldIndex);
@@ -569,9 +560,6 @@ public final class Commons {
             case DOUBLE:
                 return Double.class;
 
-            case NUMBER:
-                return BigInteger.class;
-
             case DECIMAL:
                 return BigDecimal.class;
 
@@ -583,9 +571,6 @@ public final class Commons {
 
             case BYTES:
                 return byte[].class;
-
-            case BITMASK:
-                return BitSet.class;
 
             case DATE:
                 return LocalDate.class;
@@ -601,28 +586,6 @@ public final class Commons {
 
             default:
                 throw new IllegalArgumentException("Unsupported type " + type.spec());
-        }
-    }
-
-    /**
-     * Provide mapping Native types to JDBC classes.
-     *
-     * @param type Native type
-     * @return JDBC corresponding class.
-     */
-    public static Class<?> nativeTypeToJdbcClass(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case DATE:
-                return java.sql.Date.class;
-            case TIME:
-                return java.sql.Time.class;
-            case DATETIME:
-            case TIMESTAMP:
-                return java.sql.Timestamp.class;
-            default:
-                return nativeTypeToClass(type);
         }
     }
 
@@ -652,9 +615,6 @@ public final class Commons {
             case DOUBLE:
                 return 15;
 
-            case NUMBER:
-                return ((NumberNativeType) type).precision();
-
             case DECIMAL:
                 return ((DecimalNativeType) type).precision();
 
@@ -671,9 +631,6 @@ public final class Commons {
             case BYTES:
             case STRING:
                 return ((VarlenNativeType) type).length();
-
-            case BITMASK:
-                return ((BitmaskNativeType) type).bits();
 
             default:
                 throw new IllegalArgumentException("Unsupported type " + type.spec());
@@ -692,7 +649,6 @@ public final class Commons {
             case INT16:
             case INT32:
             case INT64:
-            case NUMBER:
                 return 0;
 
             case BOOLEAN:
@@ -705,7 +661,6 @@ public final class Commons {
             case TIMESTAMP:
             case BYTES:
             case STRING:
-            case BITMASK:
                 return UNDEFINED_SCALE;
 
             case DECIMAL:
@@ -772,6 +727,18 @@ public final class Commons {
      */
     public static boolean implicitPkEnabled() {
         return IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
+    }
+
+    /**
+     * Checks whether a fast path optimizations are enabled or not.
+     *
+     * <p>Note: for test purpose only.
+     *
+     * @return A {@code true} if fast path optimizations are enabled, {@code false} otherwise.
+     */
+    public static boolean fastQueryOptimizationEnabled() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+        return IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
     }
 
     /**

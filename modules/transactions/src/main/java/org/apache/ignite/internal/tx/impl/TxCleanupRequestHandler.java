@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -33,11 +35,13 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfoMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -50,7 +54,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TxCleanupRequestHandler {
     /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Messaging service. */
     private final MessagingService messagingService;
@@ -112,19 +119,22 @@ public class TxCleanupRequestHandler {
         Map<TablePartitionId, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
 
         // These cleanups will all be local.
-        Collection<ReplicationGroupId> groups = txCleanupMessage.groups();
+        List<TablePartitionIdMessage> groups = txCleanupMessage.groups();
 
         if (groups != null) {
-            trackPartitions(txCleanupMessage.txId(), groups, sender);
+            Set<TablePartitionId> groupSet = asTablePartitionIdSet(groups);
 
-            for (ReplicationGroupId group : groups) {
-                writeIntentSwitches.put((TablePartitionId) group,
-                        writeIntentSwitchProcessor.switchLocalWriteIntents(
-                                (TablePartitionId) group,
-                                txCleanupMessage.txId(),
-                                txCleanupMessage.commit(),
-                                txCleanupMessage.commitTimestamp()
-                        ).thenAccept(this::processWriteIntentSwitchResponse));
+            trackPartitions(txCleanupMessage.txId(), groupSet, sender);
+
+            for (TablePartitionId group : groupSet) {
+                CompletableFuture<Void> future = writeIntentSwitchProcessor.switchLocalWriteIntents(
+                        group,
+                        txCleanupMessage.txId(),
+                        txCleanupMessage.commit(),
+                        txCleanupMessage.commitTimestamp()
+                ).thenAccept(this::processWriteIntentSwitchResponse);
+
+                writeIntentSwitches.put(group, future);
             }
         }
         // First trigger the cleanup to properly release the locks if we know all affected partitions on this node.
@@ -139,7 +149,7 @@ public class TxCleanupRequestHandler {
                     if (ex == null) {
                         msg = prepareResponse();
                     } else {
-                        msg = prepareErrorResponse(ex);
+                        msg = prepareErrorResponse(txCleanupMessage.txId(), ex);
 
                         // Run durable cleanup for the partitions that we failed to cleanup properly.
                         // No need to wait on this future.
@@ -164,25 +174,26 @@ public class TxCleanupRequestHandler {
     }
 
     private NetworkMessage prepareResponse() {
-        return FACTORY
+        return TX_MESSAGES_FACTORY
                 .txCleanupMessageResponse()
-                .timestampLong(clockService.nowLong())
+                .timestamp(clockService.now())
                 .build();
     }
 
     private NetworkMessage prepareResponse(CleanupReplicatedInfo result) {
-        return FACTORY
+        return TX_MESSAGES_FACTORY
                 .txCleanupMessageResponse()
-                .result(result)
-                .timestampLong(clockService.nowLong())
+                .result(toCleanupReplicatedInfoMessage(result))
+                .timestamp(clockService.now())
                 .build();
     }
 
-    private NetworkMessage prepareErrorResponse(Throwable th) {
-        return FACTORY
+    private NetworkMessage prepareErrorResponse(UUID txId, Throwable th) {
+        return TX_MESSAGES_FACTORY
                 .txCleanupMessageErrorResponse()
+                .txId(txId)
                 .throwable(th)
-                .timestampLong(clockService.nowLong())
+                .timestamp(clockService.now())
                 .build();
     }
 
@@ -193,13 +204,8 @@ public class TxCleanupRequestHandler {
      * @param groups Replication groups.
      * @param sender Cleanup request sender, needed to send cleanup replicated response.
      */
-    private void trackPartitions(UUID txId, Collection<ReplicationGroupId> groups, ClusterNode sender) {
-        Set<TablePartitionId> partitions =
-                groups.stream()
-                        .map(TablePartitionId.class::cast)
-                        .collect(toSet());
-
-        writeIntentsReplicated.put(txId, new CleanupContext(sender, partitions, partitions));
+    private void trackPartitions(UUID txId, Set<TablePartitionId> groups, ClusterNode sender) {
+        writeIntentsReplicated.put(txId, new CleanupContext(sender, groups, groups));
     }
 
     /**
@@ -264,5 +270,29 @@ public class TxCleanupRequestHandler {
             this.partitions = partitions;
             this.initialPartitions = initialPartitions;
         }
+    }
+
+    private static CleanupReplicatedInfoMessage toCleanupReplicatedInfoMessage(CleanupReplicatedInfo info) {
+        Collection<TablePartitionId> partitions = info.partitions();
+        List<TablePartitionIdMessage> partitionMessages = new ArrayList<>(partitions.size());
+
+        for (TablePartitionId partition : partitions) {
+            partitionMessages.add(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partition));
+        }
+
+        return TX_MESSAGES_FACTORY.cleanupReplicatedInfoMessage()
+                .txId(info.txId())
+                .partitions(partitionMessages)
+                .build();
+    }
+
+    private static Set<TablePartitionId> asTablePartitionIdSet(List<TablePartitionIdMessage> messages) {
+        var set = new HashSet<TablePartitionId>(messages.size());
+
+        for (int i = 0; i < messages.size(); i++) {
+            set.add(messages.get(i).asTablePartitionId());
+        }
+
+        return set;
     }
 }

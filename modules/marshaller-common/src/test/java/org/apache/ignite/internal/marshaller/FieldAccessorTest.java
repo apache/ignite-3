@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.marshaller;
 
-import static org.apache.ignite.internal.marshaller.BinaryMode.BITSET;
 import static org.apache.ignite.internal.marshaller.BinaryMode.BOOLEAN;
 import static org.apache.ignite.internal.marshaller.BinaryMode.BYTE;
 import static org.apache.ignite.internal.marshaller.BinaryMode.BYTE_ARR;
@@ -28,7 +27,6 @@ import static org.apache.ignite.internal.marshaller.BinaryMode.DOUBLE;
 import static org.apache.ignite.internal.marshaller.BinaryMode.FLOAT;
 import static org.apache.ignite.internal.marshaller.BinaryMode.INT;
 import static org.apache.ignite.internal.marshaller.BinaryMode.LONG;
-import static org.apache.ignite.internal.marshaller.BinaryMode.NUMBER;
 import static org.apache.ignite.internal.marshaller.BinaryMode.SHORT;
 import static org.apache.ignite.internal.marshaller.BinaryMode.STRING;
 import static org.apache.ignite.internal.marshaller.BinaryMode.TIME;
@@ -53,6 +51,7 @@ import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.marshaller.testobjects.TestSimpleObject;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.lang.MarshallerException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -109,10 +108,8 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
                 new MarshallerColumn("timestampCol", TIMESTAMP),
 
                 new MarshallerColumn("uuidCol", UUID),
-                new MarshallerColumn("bitmaskCol", BITSET),
                 new MarshallerColumn("stringCol", STRING),
                 new MarshallerColumn("bytesCol", BYTE_ARR),
-                new MarshallerColumn("numberCol", NUMBER),
                 new MarshallerColumn("decimalCol", DECIMAL),
         };
 
@@ -294,7 +291,7 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
         assertThrowsWithCause(
                 () -> accessor.write(mocks.getFirst(), "Other string"),
                 MarshallerException.class,
-                "Failed to write field [id=42]"
+                "class java.lang.String cannot be cast to class java.util.UUID"
         );
     }
 

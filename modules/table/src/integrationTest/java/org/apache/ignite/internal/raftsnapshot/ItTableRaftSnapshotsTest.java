@@ -52,7 +52,6 @@ import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -60,18 +59,21 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -101,6 +103,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -109,7 +112,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 @Timeout(90)
-class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
+@ExtendWith(WorkDirectoryExtension.class)
+class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
     /**
@@ -120,16 +124,14 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network: {\n"
-            + "    port:{},\n"
-            + "    nodeFinder:{\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
+            + "    port: {},\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
             + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
             + "  storage.profiles: {"
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n"
             + "  clientConnector.port: {},\n"
             + "  rest.port: {}\n"
@@ -174,9 +176,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {
             RocksDbStorageEngine.ENGINE_NAME,
-            PersistentPageMemoryStorageEngine.ENGINE_NAME
-            // TODO: uncomment when https://issues.apache.org/jira/browse/IGNITE-19234 is fixed
-//            VolatilePageMemoryStorageEngine.ENGINE_NAME
+            PersistentPageMemoryStorageEngine.ENGINE_NAME,
+            VolatilePageMemoryStorageEngine.ENGINE_NAME
     })
     void leaderFeedsFollowerWithSnapshot(String storageEngine) throws Exception {
         testLeaderFeedsFollowerWithSnapshot(storageEngine);

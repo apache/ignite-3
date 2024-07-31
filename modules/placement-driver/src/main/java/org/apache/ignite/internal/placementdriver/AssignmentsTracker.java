@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
 import java.nio.charset.StandardCharsets;
@@ -29,6 +30,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.affinity.TokenizedAssignments;
+import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -40,22 +44,29 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
  * The class tracks assignment of all replication groups.
  */
-public class AssignmentsTracker {
+public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(AssignmentsTracker.class);
+
+    // TODO Not sure whether it should be instantiated here or propagated from PDM.
+    // TODO Use it on stop, etc.
+    /** Busy lock to linearize service public API calls and service stop. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
     /** Map replication group id to assignment nodes. */
-    private final Map<ReplicationGroupId, Set<Assignment>> groupAssignments;
+    private final Map<ReplicationGroupId, TokenizedAssignments> groupAssignments;
 
     /** Assignment Meta storage watch listener. */
     private final AssignmentsListener assignmentsListener;
+
 
     /**
      * The constructor.
@@ -96,9 +107,9 @@ public class AssignmentsTracker {
 
                     TablePartitionId grpId = TablePartitionId.fromString(strKey);
 
-                    Set<Assignment> assignments = Assignments.fromBytes(entry.value()).nodes();
+                    Set<Assignment> assignmentNodes = Assignments.fromBytes(entry.value()).nodes();
 
-                    groupAssignments.put(grpId, assignments);
+                    groupAssignments.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
                 }
             }
         }).whenComplete((res, ex) -> {
@@ -117,12 +128,23 @@ public class AssignmentsTracker {
         msManager.unregisterWatch(assignmentsListener);
     }
 
+    @Override
+    public CompletableFuture<TokenizedAssignments> getAssignments(
+            ReplicationGroupId replicationGroupId,
+            HybridTimestamp clusterTimeToAwait
+    ) {
+        return msManager
+                .clusterTime()
+                .waitFor(clusterTimeToAwait)
+                .thenApply(ignored -> inBusyLock(busyLock, () -> assignments().get(replicationGroupId)));
+    }
+
     /**
      * Gets assignments.
      *
      * @return Map replication group id to its assignment.
      */
-    public Map<ReplicationGroupId, Set<Assignment>> assignments() {
+    public Map<ReplicationGroupId, TokenizedAssignments> assignments() {
         return groupAssignments;
     }
 
@@ -151,7 +173,7 @@ public class AssignmentsTracker {
                     groupAssignments.remove(replicationGrpId);
                 } else {
                     Set<Assignment> newAssignments = Assignments.fromBytes(entry.value()).nodes();
-                    groupAssignments.put(replicationGrpId, newAssignments);
+                    groupAssignments.put(replicationGrpId, new TokenizedAssignmentsImpl(newAssignments, entry.revision()));
                 }
             }
 

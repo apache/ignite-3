@@ -66,6 +66,34 @@ enum class result_column {
 using namespace ignite;
 
 /**
+ * Convert data type to string.
+ * @param data_type Data type.
+ * @return String representation.
+ */
+std::string_view data_type_to_string(ignite_type data_type) {
+    switch (data_type) {
+        case ignite_type::BOOLEAN: return "BOOLEAN";
+        case ignite_type::INT8: return "TINYINT";
+        case ignite_type::INT16: return "SMALLINT";
+        case ignite_type::INT32: return "INTEGER";
+        case ignite_type::INT64: return "BIGINT";
+        case ignite_type::FLOAT: return "REAL";
+        case ignite_type::DOUBLE: return "DOUBLE";
+        case ignite_type::STRING: return "VARCHAR";
+        case ignite_type::BYTE_ARRAY: return "VARBINARY";
+        case ignite_type::TIME: return "TIME";
+        case ignite_type::DATETIME: return "TIMESTAMP";
+        case ignite_type::TIMESTAMP: return "TIMESTAMP WITH LOCAL TIME ZONE";
+        case ignite_type::DATE: return "DATE";
+        case ignite_type::DECIMAL: return "DECIMAL";
+        case ignite_type::NIL: return "NULL";
+        case ignite_type::UUID: return "UUID";
+        default:
+            return "OTHER";
+    }
+}
+
+/**
  * Reads result set metadata.
  *
  * @param reader Reader.
@@ -78,9 +106,6 @@ std::vector<odbc_column_meta> read_column_meta(protocol::reader &reader) {
     columns.reserve(size);
 
     for (std::int32_t column_idx = 0; column_idx < size; ++column_idx) {
-        auto has_data = reader.read_bool();
-        assert(has_data);
-
         auto status = reader.read_int32();
         assert(status == 0);
 
@@ -94,8 +119,6 @@ std::vector<odbc_column_meta> read_column_meta(protocol::reader &reader) {
         column.column = reader.read_string_nullable();
 
         column.data_type = ignite_type(reader.read_int32());
-        column.data_type_name = reader.read_string();
-        reader.skip(); // data_type_class
         column.nullable = reader.read_bool();
         column.precision = reader.read_int32();
         column.scale = reader.read_int32();
@@ -214,7 +237,7 @@ sql_result column_metadata_query::get_column(std::uint16_t column_idx, applicati
         }
 
         case result_column::TYPE_NAME: {
-            buffer.put_string(current_column.data_type_name);
+            buffer.put_string(std::string(data_type_to_string(current_column.data_type)));
             break;
         }
 
@@ -290,16 +313,13 @@ sql_result column_metadata_query::make_request_get_columns_meta() {
             });
 
         protocol::reader reader{response.get_bytes_view()};
-        m_has_result_set = reader.read_bool();
 
         auto status = reader.read_int32();
         auto err_msg = reader.read_string_nullable();
         if (err_msg)
             throw odbc_error(response_status_to_sql_state(status), *err_msg);
 
-        if (m_has_result_set) {
-            m_meta = read_column_meta(reader);
-        }
+        m_meta = read_column_meta(reader);
 
         m_executed = true;
     });

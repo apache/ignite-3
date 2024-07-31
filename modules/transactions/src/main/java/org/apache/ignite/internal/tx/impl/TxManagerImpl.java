@@ -72,15 +72,16 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -93,7 +94,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -108,7 +109,6 @@ import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -366,9 +366,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
         return primaryReplicaEventListener(eventParameters, groupId -> {
-            String localNodeName = topologyService.localMember().name();
+            if (localNodeId.equals(eventParameters.leaseholderId())) {
+                String localNodeName = topologyService.localMember().name();
 
-            txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+                txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+            }
         });
     }
 
@@ -564,7 +566,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return nullCompletedFuture();
         }
 
-        return failedFuture(new MismatchingTransactionOutcomeException(
+        return failedFuture(new MismatchingTransactionOutcomeInternalException(
                 "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + stateMeta.txState() + "].",
                 new TransactionResult(stateMeta.txState(), stateMeta.commitTimestamp()))
         );
@@ -589,7 +591,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         (unused, throwable) -> {
                             boolean verifiedCommit = throwable == null && commit;
 
-                            Map<ReplicationGroupId, String> replicationGroupIds = enlistedGroups.entrySet().stream()
+                            Map<TablePartitionId, String> replicationGroupIds = enlistedGroups.entrySet().stream()
                                     .collect(Collectors.toMap(
                                             Entry::getKey,
                                             entry -> entry.getValue().get1().name()
@@ -616,7 +618,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
-            Map<ReplicationGroupId, String> replicationGroupIds,
+            Map<TablePartitionId, String> replicationGroupIds,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
@@ -638,8 +640,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     if (ex != null) {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
-                        if (cause instanceof MismatchingTransactionOutcomeException) {
-                            MismatchingTransactionOutcomeException transactionException = (MismatchingTransactionOutcomeException) cause;
+                        if (cause instanceof MismatchingTransactionOutcomeInternalException) {
+                            MismatchingTransactionOutcomeInternalException transactionException =
+                                    (MismatchingTransactionOutcomeInternalException) cause;
 
                             TransactionResult result = transactionException.transactionResult();
 
@@ -689,7 +692,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             String primaryConsistentId,
             Long enlistmentConsistencyToken,
             boolean commit,
-            Map<ReplicationGroupId, String> replicationGroupIds,
+            Map<TablePartitionId, String> replicationGroupIds,
             UUID txId,
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
@@ -738,7 +741,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     txResult.transactionState()
             );
 
-            throw new MismatchingTransactionOutcomeException(
+            throw new MismatchingTransactionOutcomeInternalException(
                     "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txResult.transactionState()
                             + "].",
                     txResult
@@ -757,7 +760,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             localNodeId = topologyService.localMember().id();
 
@@ -792,7 +795,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -821,27 +824,29 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> cleanup(
+            TablePartitionId commitPartitionId,
             Map<TablePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return txCleanupRequestSender.cleanup(enlistedPartitions, commit, commitTimestamp, txId);
+        return txCleanupRequestSender.cleanup(commitPartitionId, enlistedPartitions, commit, commitTimestamp, txId);
     }
 
     @Override
     public CompletableFuture<Void> cleanup(
+            TablePartitionId commitPartitionId,
             Collection<TablePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return txCleanupRequestSender.cleanup(enlistedPartitions, commit, commitTimestamp, txId);
+        return txCleanupRequestSender.cleanup(commitPartitionId, enlistedPartitions, commit, commitTimestamp, txId);
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(String node, UUID txId) {
-        return txCleanupRequestSender.cleanup(node, txId);
+    public CompletableFuture<Void> cleanup(TablePartitionId commitPartitionId, String node, UUID txId) {
+        return txCleanupRequestSender.cleanup(commitPartitionId, node, txId);
     }
 
     @Override

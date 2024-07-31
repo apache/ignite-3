@@ -19,18 +19,23 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
+import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
+import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalPartitionStatesSystemView;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalPartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.DEGRADED;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.BROKEN;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.CATCHING_UP;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.HEALTHY;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INITIALIZING;
-import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
 
@@ -51,51 +56,64 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.systemview.api.SystemViewProvider;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNotFoundException;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateMessage;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.core.State;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Manager, responsible for "disaster recovery" operations.
  * Internally it triggers meta-storage updates, in order to acquire unique causality token.
- * As a reaction to these updates, manager performs actual recovery operations, such as {@link #resetPartitions(int, int)}.
+ * As a reaction to these updates, manager performs actual recovery operations, such as {@link #resetPartitions(String, String, Set)}.
  * More details are in the <a href="https://issues.apache.org/jira/browse/IGNITE-21140">epic</a>.
  */
-public class DisasterRecoveryManager implements IgniteComponent {
+public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvider {
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(DisasterRecoveryManager.class);
+    static final IgniteLogger LOG = Loggers.forClass(DisasterRecoveryManager.class);
 
     /** Single key for writing disaster recovery requests into meta-storage. */
     static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
 
-    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
+            new PartitionReplicationMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Disaster recovery operations timeout in seconds. */
     private static final int TIMEOUT_SECONDS = 30;
@@ -122,29 +140,41 @@ public class DisasterRecoveryManager implements IgniteComponent {
     final DistributionZoneManager dzManager;
 
     /** Raft manager. */
-    private final Loza raftManager;
+    final Loza raftManager;
+
+    /** Cluster physical topology service.  */
+    private final TopologyService topologyService;
 
     /** Watch listener for {@link #RECOVERY_TRIGGER_KEY}. */
     private final WatchListener watchListener;
 
+    /** Table manager. */
+    final TableManager tableManager;
+
+    /** Metric manager. */
+    private final MetricManager metricManager;
+
     /**
      * Map of operations, triggered by local node, that have not yet been processed by {@link #watchListener}. Values in the map are the
-     * futures, returned from the {@link #processNewRequest(ManualGroupUpdateRequest)}, they are completed by
+     * futures, returned from the {@link #processNewRequest(DisasterRecoveryRequest)}, they are completed by
      * {@link #handleTriggerKeyUpdate(WatchEvent)} when node receives corresponding events from the metastorage (or if it doesn't receive
      * this event within a 30 seconds window).
      */
     private final Map<UUID, CompletableFuture<Void>> ongoingOperationsById = new ConcurrentHashMap<>();
 
-    /**
-     * Constructor.
-     */
+    private final Map<Integer, PartitionStatesMetricSource> metricSourceByTableId = new ConcurrentHashMap<>();
+
+    /** Constructor. */
     public DisasterRecoveryManager(
             ExecutorService threadPool,
             MessagingService messagingService,
             MetaStorageManager metaStorageManager,
             CatalogManager catalogManager,
             DistributionZoneManager dzManager,
-            Loza raftManager
+            Loza raftManager,
+            TopologyService topologyService,
+            TableManager tableManager,
+            MetricManager metricManager
     ) {
         this.threadPool = threadPool;
         this.messagingService = messagingService;
@@ -152,11 +182,17 @@ public class DisasterRecoveryManager implements IgniteComponent {
         this.catalogManager = catalogManager;
         this.dzManager = dzManager;
         this.raftManager = raftManager;
+        this.topologyService = topologyService;
+        this.tableManager = tableManager;
+        this.metricManager = metricManager;
 
         watchListener = new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                return handleTriggerKeyUpdate(event);
+                handleTriggerKeyUpdate(event);
+
+                // There is no need to block a watch thread any longer.
+                return nullCompletedFuture();
             }
 
             @Override
@@ -167,16 +203,22 @@ public class DisasterRecoveryManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
-        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
+
+        catalogManager.listen(TABLE_CREATE, fromConsumer(this::onTableCreate));
+
+        catalogManager.listen(TABLE_DROP, fromConsumer(this::onTableDrop));
+
+        registerMetricSources();
 
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         metaStorageManager.unregisterWatch(watchListener);
 
         for (CompletableFuture<Void> future : ongoingOperationsById.values()) {
@@ -186,18 +228,72 @@ public class DisasterRecoveryManager implements IgniteComponent {
         return nullCompletedFuture();
     }
 
+    @Override
+    public List<SystemView<?>> systemViews() {
+        return List.of(
+                createGlobalPartitionStatesSystemView(this),
+                createLocalPartitionStatesSystemView(this)
+        );
+    }
+
     /**
      * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
      * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
      * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
      * so that a new leader could be elected.
      *
-     * @param zoneId Distribution zone ID.
-     * @param tableId Table ID.
-     * @return Operation future.
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(int zoneId, int tableId) {
-        return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), zoneId, tableId));
+    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
+        try {
+            Catalog catalog = catalogLatestVersion();
+
+            int tableId = tableDescriptor(catalog, tableName).id();
+
+            CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
+
+            checkPartitionsRange(partitionIds, Set.of(zone));
+
+            return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds));
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
+    }
+
+    /**
+     * Restarts replica service and raft group of passed partitions.
+     *
+     * @param nodeNames Names specifying nodes to restart partitions. Case-sensitive, empty set means "all nodes".
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
+     * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
+     * @return Future that completes when partitions are restarted.
+     */
+    public CompletableFuture<Void> restartPartitions(
+            Set<String> nodeNames,
+            String zoneName,
+            String tableName,
+            Set<Integer> partitionIds
+    ) {
+        try {
+            // Validates passed node names.
+            getNodes(nodeNames);
+
+            Catalog catalog = catalogLatestVersion();
+
+            CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
+
+            CatalogTableDescriptor table = tableDescriptor(catalog, tableName);
+
+            checkPartitionsRange(partitionIds, Set.of(zone));
+
+            return processNewRequest(new ManualGroupRestartRequest(UUID.randomUUID(), zone.id(), table.id(), partitionIds, nodeNames));
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
     }
 
     /**
@@ -214,10 +310,14 @@ public class DisasterRecoveryManager implements IgniteComponent {
             Set<String> nodeNames,
             Set<Integer> partitionIds
     ) {
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        try {
+            Catalog catalog = catalogLatestVersion();
 
-        return localPartitionStatesInternal(zoneNames, nodeNames, partitionIds, catalog)
-                .thenApply(res -> normalizeLocal(res, catalog));
+            return localPartitionStatesInternal(zoneNames, nodeNames, partitionIds, catalog)
+                    .thenApply(res -> normalizeLocal(res, catalog));
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
     }
 
     /**
@@ -232,14 +332,18 @@ public class DisasterRecoveryManager implements IgniteComponent {
             Set<String> zoneNames,
             Set<Integer> partitionIds
     ) {
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        try {
+            Catalog catalog = catalogLatestVersion();
 
-        return localPartitionStatesInternal(zoneNames, Set.of(), partitionIds, catalog)
-                .thenApply(res -> normalizeLocal(res, catalog))
-                .thenApply(res -> assembleGlobal(res, partitionIds, catalog));
+            return localPartitionStatesInternal(zoneNames, Set.of(), partitionIds, catalog)
+                    .thenApply(res -> normalizeLocal(res, catalog))
+                    .thenApply(res -> assembleGlobal(res, partitionIds, catalog));
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
     }
 
-    private CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localPartitionStatesInternal(
+    CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localPartitionStatesInternal(
             Set<String> zoneNames,
             Set<String> nodeNames,
             Set<Integer> partitionIds,
@@ -247,27 +351,13 @@ public class DisasterRecoveryManager implements IgniteComponent {
     ) {
         Collection<CatalogZoneDescriptor> zones = filterZones(zoneNames, catalog.zones());
 
-        if (!partitionIds.isEmpty()) {
-            int minPartition = partitionIds.stream().min(Integer::compare).get();
-
-            if (minPartition < 0) {
-                throw new IllegalPartitionIdException(minPartition);
-            }
-
-            int maxPartition = partitionIds.stream().max(Integer::compare).get();
-
-            zones.forEach(zone -> {
-                if (maxPartition >= zone.partitions()) {
-                    throw new IllegalPartitionIdException(maxPartition, zone.partitions(), zone.name());
-                }
-            });
-        }
+        checkPartitionsRange(partitionIds, zones);
 
         Set<NodeWithAttributes> nodes = getNodes(nodeNames);
 
         Set<Integer> zoneIds = zones.stream().map(CatalogObjectDescriptor::id).collect(toSet());
 
-        LocalPartitionStatesRequest localPartitionStatesRequest = MSG_FACTORY.localPartitionStatesRequest()
+        LocalPartitionStatesRequest localPartitionStatesRequest = PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStatesRequest()
                 .zoneIds(zoneIds)
                 .partitionIds(partitionIds)
                 .catalogVersion(catalog.version())
@@ -309,6 +399,26 @@ public class DisasterRecoveryManager implements IgniteComponent {
             }
 
             return result;
+        });
+    }
+
+    private static void checkPartitionsRange(Set<Integer> partitionIds, Collection<CatalogZoneDescriptor> zones) {
+        if (partitionIds.isEmpty()) {
+            return;
+        }
+
+        int minPartition = partitionIds.stream().min(Integer::compare).get();
+
+        if (minPartition < 0) {
+            throw new IllegalPartitionIdException(minPartition);
+        }
+
+        int maxPartition = partitionIds.stream().max(Integer::compare).get();
+
+        zones.forEach(zone -> {
+            if (maxPartition >= zone.partitions()) {
+                throw new IllegalPartitionIdException(maxPartition, zone.partitions(), zone.name());
+            }
         });
     }
 
@@ -363,7 +473,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * @param request Request.
      * @return Operation future.
      */
-    private CompletableFuture<Void> processNewRequest(ManualGroupUpdateRequest request) {
+    private CompletableFuture<Void> processNewRequest(DisasterRecoveryRequest request) {
         UUID operationId = request.operationId();
 
         CompletableFuture<Void> operationFuture = new CompletableFuture<Void>()
@@ -379,9 +489,9 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
     /**
      * Handler for {@link #RECOVERY_TRIGGER_KEY} update event. Deserializes the request and delegates the execution to
-     * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long, CompletableFuture)}.
+     * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long)}.
      */
-    private CompletableFuture<Void> handleTriggerKeyUpdate(WatchEvent watchEvent) {
+    private void handleTriggerKeyUpdate(WatchEvent watchEvent) {
         Entry newEntry = watchEvent.entryEvent().newEntry();
 
         byte[] requestBytes = newEntry.value();
@@ -393,17 +503,39 @@ public class DisasterRecoveryManager implements IgniteComponent {
         } catch (Exception e) {
             LOG.warn("Unable to deserialize disaster recovery request.", e);
 
-            return nullCompletedFuture();
+            return;
         }
 
         CompletableFuture<Void> operationFuture = ongoingOperationsById.remove(request.operationId());
 
-        if (operationFuture == null) {
-            // We're not the initiator, or timeout has passed. Just ignore it.
-            return nullCompletedFuture();
-        }
+        switch (request.type()) {
+            case SINGLE_NODE:
+                if (operationFuture == null) {
+                    // We're not the initiator, or timeout has passed. Just ignore it.
+                    return;
+                }
 
-        return request.handle(this, watchEvent.revision(), operationFuture);
+                request.handle(this, watchEvent.revision()).whenComplete(copyStateTo(operationFuture));
+
+                break;
+            case MULTI_NODE:
+                CompletableFuture<Void> handleFuture = request.handle(this, watchEvent.revision());
+
+                if (operationFuture == null) {
+                    // We're not the initiator, or timeout has passed.
+                    return;
+                }
+
+                handleFuture.whenComplete(copyStateTo(operationFuture));
+
+                break;
+            default:
+                var error = new AssertionError("Unexpected request type: " + request.getClass());
+
+                if (operationFuture != null) {
+                    operationFuture.completeExceptionally(error);
+                }
+        }
     }
 
     private void handleMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
@@ -429,41 +561,25 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
                     CatalogTableDescriptor tableDescriptor = catalogManager.table(tablePartitionId.tableId(), catalogVersion);
                     // Only tables that belong to a specific catalog version will be returned.
-                    if (tableDescriptor == null || !containsOrEmpty(tableDescriptor.zoneId(), request.zoneIds())
-                    ) {
+                    if (tableDescriptor == null || !containsOrEmpty(tableDescriptor.zoneId(), request.zoneIds())) {
                         return;
                     }
 
-                    Node raftNode = raftGroupService.getRaftNode();
-                    State nodeState = raftNode.getNodeState();
+                    LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
+                            LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
 
-                    LocalPartitionStateEnum localState = convertState(nodeState);
-                    long lastLogIndex = raftNode.lastLogIndex();
-
-                    if (localState == HEALTHY) {
-                        // Node without log didn't process anything yet, it's not really "healthy" before it accepts leader's configuration.
-                        if (lastLogIndex == 0) {
-                            localState = INITIALIZING;
-                        }
-
-                        if (raftNode.isInstallingSnapshot()) {
-                            localState = INSTALLING_SNAPSHOT;
-                        }
-                    }
-
-                    statesList.add(MSG_FACTORY.localPartitionStateMessage()
-                            .partitionId(MSG_FACTORY.tablePartitionIdMessage()
-                                    .tableId(tablePartitionId.tableId())
-                                    .partitionId(tablePartitionId.partitionId())
-                                    .build())
-                            .state(localState)
-                            .logIndex(lastLogIndex)
+                    statesList.add(PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
+                            .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
+                            .state(localPartitionStateWithLogIndex.state)
+                            .logIndex(localPartitionStateWithLogIndex.logIndex)
                             .build()
                     );
                 }
             });
 
-            LocalPartitionStatesResponse response = MSG_FACTORY.localPartitionStatesResponse().states(statesList).build();
+            LocalPartitionStatesResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStatesResponse()
+                    .states(statesList)
+                    .build();
 
             messagingService.respond(sender, response, correlationId);
         }, threadPool);
@@ -471,34 +587,6 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
     private static <T> boolean containsOrEmpty(T item, Collection<T> collection) {
         return collection.isEmpty() || collection.contains(item);
-    }
-
-    /**
-     * Converts internal raft node state into public local partition state.
-     */
-    private static LocalPartitionStateEnum convertState(State nodeState) {
-        switch (nodeState) {
-            case STATE_LEADER:
-            case STATE_TRANSFERRING:
-            case STATE_CANDIDATE:
-            case STATE_FOLLOWER:
-                return HEALTHY;
-
-            case STATE_ERROR:
-                return BROKEN;
-
-            case STATE_UNINITIALIZED:
-                return INITIALIZING;
-
-            case STATE_SHUTTING:
-            case STATE_SHUTDOWN:
-            case STATE_END:
-                return LocalPartitionStateEnum.UNAVAILABLE;
-
-            default:
-                // Unrecognized state, better safe than sorry.
-                return BROKEN;
-        }
     }
 
     /**
@@ -542,7 +630,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
         LocalPartitionStateEnum stateEnum = stateMsg.state();
 
-        if (stateMsg.state() == HEALTHY && maxLogIndex - stateMsg.logIndex() >= CATCH_UP_THRESHOLD) {
+        if (stateEnum == HEALTHY && maxLogIndex - stateMsg.logIndex() >= CATCH_UP_THRESHOLD) {
             stateEnum = CATCHING_UP;
         }
 
@@ -641,5 +729,72 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
         LocalPartitionState anyLocalState = map.values().iterator().next();
         return new GlobalPartitionState(anyLocalState.tableName, zoneDescriptor.name(), tablePartitionId.partitionId(), globalStateEnum);
+    }
+
+    private Catalog catalogLatestVersion() {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        Catalog catalog = catalogManager.catalog(catalogVersion);
+
+        assert catalog != null : catalogVersion;
+
+        return catalog;
+    }
+
+    private static CatalogTableDescriptor tableDescriptor(Catalog catalog, String tableName) {
+        CatalogTableDescriptor tableDescriptor = catalog.table(tableName);
+
+        if (tableDescriptor == null) {
+            throw new TableNotFoundException(tableName);
+        }
+
+        return tableDescriptor;
+    }
+
+    private static CatalogZoneDescriptor zoneDescriptor(Catalog catalog, String zoneName) {
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName);
+
+        if (zoneDescriptor == null) {
+            throw new DistributionZoneNotFoundException(zoneName);
+        }
+
+        return zoneDescriptor;
+    }
+
+    ClusterNode localNode() {
+        return topologyService.localMember();
+    }
+
+    private void onTableCreate(CreateTableEventParameters parameters) {
+        registerPartitionStatesMetricSource(parameters.tableDescriptor());
+    }
+
+    private void onTableDrop(DropTableEventParameters parameters) {
+        unregisterPartitionStatesMetricSource(parameters.tableId());
+    }
+
+    private void registerMetricSources() {
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        catalogManager.tables(catalogVersion).forEach(this::registerPartitionStatesMetricSource);
+    }
+
+    private void registerPartitionStatesMetricSource(CatalogTableDescriptor tableDescriptor) {
+        var metricSource = new PartitionStatesMetricSource(tableDescriptor, this);
+
+        PartitionStatesMetricSource previous = metricSourceByTableId.putIfAbsent(tableDescriptor.id(), metricSource);
+
+        assert previous == null : "tableId=" + tableDescriptor.id();
+
+        metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
+    }
+
+    private void unregisterPartitionStatesMetricSource(int tableId) {
+        PartitionStatesMetricSource metricSource = metricSourceByTableId.get(tableId);
+
+        assert metricSource != null : "tableId=" + tableId;
+
+        metricManager.unregisterSource(metricSource);
     }
 }

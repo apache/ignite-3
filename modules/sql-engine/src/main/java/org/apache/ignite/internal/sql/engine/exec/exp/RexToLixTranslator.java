@@ -66,6 +66,8 @@ import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLambda;
+import org.apache.calcite.rex.RexLambdaRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -91,6 +93,7 @@ import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
+import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.locationtech.jts.geom.Geometry;
 
@@ -103,7 +106,7 @@ import org.locationtech.jts.geom.Geometry;
  * 3. RexToLixTranslator#translateCast() BYTESTRING_TO_STRING, STRING_TO_BYTESTRING special case converters.
  * 4. RexToLixTranslator#translateCast() case INTERVAL_SECOND -> case CHARACTER special case converters.
  * 5. RexToLixTranslator#translateCast() case TIMESTAMP -> case CHAR  special case converters.
- * 6. RexToLixTranslator#translateLiteral() case DECIMAL special case converters.
+ * 6. RexToLixTranslator#translateLiteral() case DECIMAL special case converters. Primitive float/double conversion.
  * 7. RexToLixTranslator#translateCast() ANY branch
  * 8. EnumUtils.convert -> ConverterUtils.convert
  */
@@ -356,7 +359,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case CHAR:
                     case VARCHAR:
                         convert =
-                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
+                                Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand);
                         break;
                     case DATE:
                         convert =
@@ -403,7 +406,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         // Since this type implies a local timezone, its explicit indication seems redundant,
                         // so we prohibit the user from explicitly setting a timezone.
                         convert =
-                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
+                                Expressions.call(
+                                        BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                                        operand,
+                                        Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
                         break;
                     case DATE:
                         convert =
@@ -910,7 +916,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 final Primitive primitive = Primitive.ofBoxOr(javaClass);
                 final Comparable value = literal.getValueAs(Comparable.class);
                 if (primitive != null && value instanceof Number) {
-                    value2 = primitive.number((Number) value);
+                    value2 = Primitives.convertPrimitiveExact(primitive, (Number) value);
                 } else {
                     value2 = value;
                 }
@@ -1529,6 +1535,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     @Override public Result visitPatternFieldRef(RexPatternFieldRef fieldRef) {
         return visitInputRef(fieldRef);
+    }
+
+    @Override
+    public Result visitLambda(RexLambda lambda) {
+        throw new RuntimeException("cannot translate expression " + lambda);
+    }
+
+    @Override
+    public Result visitLambdaRef(RexLambdaRef lambdaRef) {
+        throw new RuntimeException("cannot translate expression " + lambdaRef);
     }
 
     Expression checkNull(Expression expr) {

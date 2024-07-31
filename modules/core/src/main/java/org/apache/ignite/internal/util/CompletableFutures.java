@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import org.jetbrains.annotations.Nullable;
 
 /** Helper class for working with {@link CompletableFuture}. */
@@ -96,7 +97,7 @@ public class CompletableFutures {
      * @return Future that completes with a list of results from the source futures.
      */
     @SafeVarargs
-    public static <T> CompletableFuture<List<T>> allOf(CompletableFuture<T>... cfs) {
+    public static <T> CompletableFuture<List<T>> allOfToList(CompletableFuture<T>... cfs) {
         return CompletableFuture.allOf(cfs)
                 .thenApply(v -> {
                     var result = new ArrayList<T>(cfs.length);
@@ -107,6 +108,16 @@ public class CompletableFutures {
 
                     return result;
                 });
+    }
+
+    /**
+     * Returns a future that is completed when all provided futures complete (the behavior is identical to
+     * {@link CompletableFuture#allOf}).
+     *
+     * @param futures List of futures.
+     */
+    public static CompletableFuture<Void> allOf(Collection<CompletableFuture<?>> futures) {
+        return futures.isEmpty() ? nullCompletedFuture() : CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -131,5 +142,23 @@ public class CompletableFutures {
         } else {
             return completedFuture(result);
         }
+    }
+
+    /**
+     * Creates a consumer that, when passed to a {@link CompletableFuture#whenComplete} call, will copy the outcome (either successful or
+     * not) of the target future to the given future.
+     *
+     * @param future Future to copy the outcome to.
+     * @param <T> Future result type.
+     * @return Consumer for transferring a future outcome to another future.
+     */
+    public static <T> BiConsumer<T, Throwable> copyStateTo(CompletableFuture<? super T> future) {
+        return (v, e) -> {
+            if (e != null) {
+                future.completeExceptionally(e);
+            } else {
+                future.complete(v);
+            }
+        };
     }
 }

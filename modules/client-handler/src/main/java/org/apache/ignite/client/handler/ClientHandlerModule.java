@@ -51,6 +51,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -199,7 +200,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (channel != null) {
             throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
@@ -208,7 +209,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
         metricManager.registerSource(metrics);
         if (configuration.metricsEnabled()) {
-            metrics.enable();
+            metricManager.enable(metrics);
         }
 
         primaryReplicaTracker.start();
@@ -218,7 +219,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -255,6 +256,16 @@ public class ClientHandlerModule implements IgniteComponent {
         }
 
         return (InetSocketAddress) ch.localAddress();
+    }
+
+    /** Enables request handling. */
+    public void enable() {
+        Channel ch = channel;
+        if (ch == null) {
+            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule has not been started");
+        }
+
+        ch.config().setAutoRead(true);
     }
 
     /**
@@ -316,7 +327,8 @@ public class ClientHandlerModule implements IgniteComponent {
                         }
                     }
                 })
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout())
+                .option(ChannelOption.AUTO_READ, false);
 
         int port = configuration.port();
         String address = configuration.listenAddress();

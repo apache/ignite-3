@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job that sleeps for a number of milliseconds passed in the argument. */
-public class SleepJob implements ComputeJob<Void> {
+public class SleepJob implements ComputeJob<Long, Void> {
     @Override
-    public Void execute(JobExecutionContext jobExecutionContext, Object... args) {
+    public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
         try {
-            TimeUnit.SECONDS.sleep((Long) args[0]);
+            TimeUnit.SECONDS.sleep(timeout);
             return null;
         } catch (InterruptedException e) {
             throw new RuntimeException(e);

@@ -720,15 +720,15 @@ public:
         insert_test_batch(split_at, records_num, records_num - split_at);
 
         for (int i = 0; i < records_num - split_at; ++i)
-            EXPECT_EQ(statuses[i], SQL_PARAM_SUCCESS);
+            EXPECT_EQ(statuses[i], SQL_PARAM_SUCCESS) << "index=" << i;
 
         insert_test_batch_no_check(0, records_num, ret);
 
         for (int i = 0; i < split_at; ++i)
-            EXPECT_EQ(statuses[i], SQL_PARAM_SUCCESS);
+            EXPECT_EQ(statuses[i], SQL_PARAM_SUCCESS) << "index=" << i;
 
         for (int i = split_at; i < records_num; ++i)
-            EXPECT_EQ(statuses[i], SQL_PARAM_ERROR);
+            EXPECT_EQ(statuses[i], SQL_PARAM_ERROR) << "index=" << i;
 
         SQLFreeStmt(m_statement, SQL_RESET_PARAMS);
         SQLFreeStmt(m_statement, SQL_UNBIND);

@@ -31,11 +31,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.junit.jupiter.api.AfterEach;
@@ -103,8 +104,10 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         List<DeploymentUnit> nonExistingUnits = List.of(new DeploymentUnit("non-existing", "1.0.0"));
-        CompletableFuture<String> result = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), nonExistingUnits, concatJobClassName(), "a", 42);
+        CompletableFuture<String> result = entryNode.compute().executeAsync(
+                JobTarget.node(entryNode.node()),
+                JobDescriptor.<Object[], String>builder(concatJobClassName()).units(nonExistingUnits).build(),
+                new Object[]{"a", 42});
 
         CompletionException ex0 = assertThrows(CompletionException.class, result::join);
 
@@ -124,23 +127,25 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         DeploymentUnit firstVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.0"));
         deployJar(entryNode, firstVersion.name(), firstVersion.version(), "ignite-unit-test-job1-1.0-SNAPSHOT.jar");
 
-        CompletableFuture<Integer> result1 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.apache.ignite.internal.compute.UnitJob");
+        JobDescriptor job = JobDescriptor.builder("org.apache.ignite.internal.compute.UnitJob").units(jobUnits).build();
+        CompletableFuture<Integer> result1 = entryNode.compute().executeAsync(JobTarget.node(entryNode.node()), job, null);
         assertThat(result1, willBe(1));
 
         DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
         deployJar(entryNode, secondVersion.name(), secondVersion.version(), "ignite-unit-test-job2-1.0-SNAPSHOT.jar");
 
-        CompletableFuture<String> result2 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.apache.ignite.internal.compute.UnitJob");
+        CompletableFuture<String> result2 = entryNode.compute().executeAsync(JobTarget.node(entryNode.node()), job, null);
         assertThat(result2, willBe("Hello World!"));
     }
 
     @Test
     void undeployAcquiredUnit() {
         IgniteImpl entryNode = node(0);
-        CompletableFuture<Void> job = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units, SleepJob.class.getName(), 3L);
+
+        CompletableFuture<Void> job = entryNode.compute().executeAsync(
+                JobTarget.node(entryNode.node()),
+                JobDescriptor.builder(SleepJob.class).units(units).build(),
+                3L);
 
         assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
 
@@ -161,13 +166,13 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Test
     void executeJobWithObsoleteUnit() {
         IgniteImpl entryNode = node(0);
-        CompletableFuture<Void> successJob = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units, SleepJob.class.getName(), 2L);
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units).build();
+
+        CompletableFuture<Void> successJob = entryNode.compute().executeAsync(JobTarget.node(entryNode.node()), job, 2L);
 
         assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
 
-        CompletableFuture<Void> failedJob = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units, SleepJob.class.getName(), 2L);
+        CompletableFuture<Void> failedJob = entryNode.compute().executeAsync(JobTarget.node(entryNode.node()), job, 2L);
 
         CompletionException ex0 = assertThrows(CompletionException.class, failedJob::join);
         assertComputeException(

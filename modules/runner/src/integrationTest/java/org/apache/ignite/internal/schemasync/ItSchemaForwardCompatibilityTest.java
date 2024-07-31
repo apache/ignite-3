@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.schemasync;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -33,9 +34,10 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.IncompatibleSchemaException;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -62,7 +64,7 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
     }
 
     /**
-     * Makes sure forward-compatible schema changes happenning between transaction operations and
+     * Makes sure forward-compatible schema changes happening between transaction operations and
      * commit do not prevent a commit from happening.
      */
     @ParameterizedTest
@@ -79,18 +81,17 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
         assertDoesNotThrow(tx::commit);
     }
 
-    @SuppressWarnings("resource")
     private void writeIn(Transaction tx) {
         putInTx(cluster.node(0).tables().table(TABLE_NAME), tx);
     }
 
     /**
-     * Makes sure forward-incompatible schema changes happenning between transaction operations and
+     * Makes sure forward-incompatible schema changes happening between transaction operations and
      * commit prevent a commit from happening: instead, the transaction is aborted.
      */
     @ParameterizedTest
     @EnumSource(ForwardIncompatibleDdl.class)
-    void forwardIncompatibleSchemaChangesDoNotAllowCommitting(ForwardIncompatibleDdl ddl) {
+    void forwardIncompatibleSchemaChangesDoNotAllowSyncCommit(ForwardIncompatibleDdl ddl) {
         createTable();
 
         Table table = node.tables().table(TABLE_NAME);
@@ -101,18 +102,46 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
 
         ddl.executeOn(cluster);
 
-        int tableId = unwrapTableViewInternal(table).tableId();
-
-        TransactionException ex = assertThrows(TransactionException.class, tx::commit);
+        IncompatibleSchemaException ex = assertThrows(IncompatibleSchemaException.class, tx::commit);
         assertThat(
                 ex.getMessage(),
                 containsString(String.format(
-                        "Commit failed because schema 1 is not forward-compatible with 2 for table %d",
-                        tableId
+                        "Commit failed because schema is not forward-compatible [fromSchemaVersion=1, toSchemaVersion=2, table=%s, "
+                                + "details=%s]",
+                        table.name(),
+                        ddl.expectedDetails
                 ))
         );
 
-        assertThat(ex.code(), is(Transactions.TX_UNEXPECTED_STATE_ERR));
+        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+
+        assertThat(tx.state(), is(TxState.ABORTED));
+    }
+
+    /**
+     * Makes sure forward-incompatible schema changes happening between transaction operations and
+     * commit prevent a commit from happening (for async API): instead, the transaction is aborted.
+     */
+    @Test
+    void forwardIncompatibleSchemaChangesDoNotAllowAsyncCommitting() {
+        createTable();
+
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+        writeIn(tx);
+
+        ForwardIncompatibleDdl.CHANGE_DEFAULT.executeOn(cluster);
+
+        IncompatibleSchemaException ex = assertWillThrow(tx.commitAsync(), IncompatibleSchemaException.class, 10, SECONDS);
+        assertThat(
+                ex.getMessage(),
+                containsString(
+                        "Commit failed because schema is not forward-compatible [fromSchemaVersion=1, toSchemaVersion=2, table=TEST, "
+                                + "details=Column default value changed]"
+                )
+        );
+
+        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
 
         assertThat(tx.state(), is(TxState.ABORTED));
     }
@@ -133,7 +162,7 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
     private enum ForwardCompatibleDdl {
         ADD_NULLABLE_COLUMN("ALTER TABLE " + TABLE_NAME + " ADD COLUMN new_col INT"),
         ADD_COLUMN_WITH_DEFAULT("ALTER TABLE " + TABLE_NAME + " ADD COLUMN new_col INT NOT NULL DEFAULT 42"),
-        // TODO: IGNITE-19485, IGNITE-20315 - Uncomment this after column rename support gets aded.
+        // TODO: IGNITE-19485, IGNITE-20315 - Uncomment this after column rename support gets added.
         // RENAME_COLUMN("ALTER TABLE " + TABLE_NAME + " RENAME COLUMN not_null_int to new_col"),
         DROP_NOT_NULL("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int DROP NOT NULL"),
         WIDEN_COLUMN_TYPE("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int SET DATA TYPE BIGINT");
@@ -154,15 +183,18 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
     private enum ForwardIncompatibleDdl {
         // TODO: Enable after https://issues.apache.org/jira/browse/IGNITE-19484 is fixed.
         // RENAME_TABLE("RENAME TABLE " + TABLE_NAME + " to new_table"),
-        DROP_COLUMN("ALTER TABLE " + TABLE_NAME + " DROP COLUMN not_null_int"),
-        ADD_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int SET DEFAULT 102"),
-        CHANGE_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN int_with_default SET DEFAULT 102"),
-        DROP_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN int_with_default DROP DEFAULT");
+        DROP_COLUMN("ALTER TABLE " + TABLE_NAME + " DROP COLUMN not_null_int", "Columns were dropped"),
+        ADD_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN not_null_int SET DEFAULT 102", "Column default value changed"),
+        CHANGE_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN int_with_default SET DEFAULT 102",
+                "Column default value changed"),
+        DROP_DEFAULT("ALTER TABLE " + TABLE_NAME + " ALTER COLUMN int_with_default DROP DEFAULT", "Column default value changed");
 
         private final String ddl;
+        private final String expectedDetails;
 
-        ForwardIncompatibleDdl(String ddl) {
+        ForwardIncompatibleDdl(String ddl, String expectedDetails) {
             this.ddl = ddl;
+            this.expectedDetails = expectedDetails;
         }
 
         void executeOn(Cluster cluster) {

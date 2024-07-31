@@ -35,7 +35,6 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -76,6 +75,7 @@ public class CreateTableCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to create. Should not be null or blank.
      * @param schemaName Name of the schema to create table in. Should not be null or blank.
+     * @param ifNotExists Flag indicating whether the {@code IF NOT EXISTS} was specified.
      * @param primaryKey Primary key.
      * @param colocationColumns Name of the columns participating in distribution calculation.
      *      Should be subset of the primary key columns.
@@ -86,13 +86,14 @@ public class CreateTableCommand extends AbstractTableCommand {
     private CreateTableCommand(
             String tableName,
             String schemaName,
+            boolean ifNotExists,
             TablePrimaryKey primaryKey,
             List<String> colocationColumns,
             List<ColumnParams> columns,
             @Nullable String zoneName,
             String storageProfile
     ) throws CatalogValidationException {
-        super(schemaName, tableName);
+        super(schemaName, tableName, ifNotExists);
 
         this.primaryKey = primaryKey;
         this.colocationColumns = copyOrNull(colocationColumns);
@@ -145,13 +146,12 @@ public class CreateTableCommand extends AbstractTableCommand {
         String indexName = pkIndexName(tableName);
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
-        int txWaitCatalogVersion = catalog.version() + 1;
 
-        CatalogIndexDescriptor pkIndex = createIndexDescriptor(txWaitCatalogVersion, indexName, pkIndexId, tableId);
+        CatalogIndexDescriptor pkIndex = createIndexDescriptor(indexName, pkIndexId, tableId);
 
         return List.of(
-                new NewTableEntry(table, schemaName),
-                new NewIndexEntry(pkIndex, schemaName),
+                new NewTableEntry(table),
+                new NewIndexEntry(pkIndex),
                 new MakeIndexAvailableEntry(pkIndexId),
                 new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
         );
@@ -177,9 +177,12 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         for (ColumnParams column : columns) {
             boolean partOfPk = primaryKey.columns().contains(column.name());
-            if (!partOfPk && column.defaultValueDefinition().type == Type.FUNCTION_CALL) {
-                throw new CatalogValidationException(
-                        format("Functional defaults are not supported for non-primary key columns [col={}].", column.name()));
+
+            CatalogUtils.ensureTypeCanBeStored(column.name(), column.type());
+            if (partOfPk) {
+                CatalogUtils.ensureSupportedDefault(column.name(), column.type(), column.defaultValueDefinition());
+            } else {
+                CatalogUtils.ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
             }
         }
 
@@ -200,7 +203,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
     }
 
-    private CatalogIndexDescriptor createIndexDescriptor(int txWaitCatalogVersion, String indexName, int pkIndexId, int tableId) {
+    private CatalogIndexDescriptor createIndexDescriptor(String indexName, int pkIndexId, int tableId) {
         CatalogIndexDescriptor pkIndex;
 
         if (primaryKey instanceof TableSortedPrimaryKey) {
@@ -220,7 +223,6 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    txWaitCatalogVersion,
                     indexColumns
             );
         } else if (primaryKey instanceof TableHashPrimaryKey) {
@@ -231,7 +233,6 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    txWaitCatalogVersion,
                     hashPrimaryKey.columns()
             );
         } else {
@@ -251,6 +252,8 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         private String tableName;
 
+        private boolean ifNotExists;
+
         private TablePrimaryKey primaryKey;
 
         private List<String> colocationColumns;
@@ -269,6 +272,13 @@ public class CreateTableCommand extends AbstractTableCommand {
         @Override
         public CreateTableCommandBuilder tableName(String tableName) {
             this.tableName = tableName;
+
+            return this;
+        }
+
+        @Override
+        public CreateTableCommandBuilder ifTableExists(boolean ifNotExists) {
+            this.ifNotExists = ifNotExists;
 
             return this;
         }
@@ -325,6 +335,7 @@ public class CreateTableCommand extends AbstractTableCommand {
             return new CreateTableCommand(
                     tableName,
                     schemaName,
+                    ifNotExists,
                     primaryKey,
                     colocationColumns,
                     columns,

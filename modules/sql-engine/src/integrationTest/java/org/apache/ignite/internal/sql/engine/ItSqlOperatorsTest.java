@@ -186,6 +186,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("EXP(2)").returns(Math.exp(2)).check();
         assertExpression("POWER(2, 2)").returns(Math.pow(2, 2)).check();
         assertExpression("LN(2)").returns(Math.log(2)).check();
+        // TODO LOG10 Need to be implemented in a different way https://issues.apache.org/jira/browse/IGNITE-22405
         assertExpression("LOG10(2) ").returns(Math.log(2) / Math.log(10)).check();
         assertExpression("ABS(-1)").returns(Math.abs(-1)).check();
         assertExpression("RAND()").check();
@@ -279,7 +280,6 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("'1'::INT").returns(1).check();
         assertExpression("COALESCE(null, 'a', 'A')").returns("a").check();
         assertExpression("NVL(null, 'a')").returns("a").check();
-        assertExpression("NULLIF(1, 2)").returns(1).check();
         assertExpression("CASE WHEN 1=1 THEN 1 ELSE 2 END").returns(1).check();
         assertExpression("DECODE(1, 1, 1, 2)").returns(1).check();
         assertExpression("LEAST('a', 'b')").returns("a").check();
@@ -335,6 +335,14 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("'{\"a\":1}' IS NOT JSON OBJECT").returns(false).check();
         assertExpression("'[1, 2]' IS NOT JSON ARRAY").returns(false).check();
         assertExpression("'1' IS NOT JSON SCALAR").returns(false).check();
+    }
+
+    @Test
+    public void testNullIf() {
+        assertExpression("NULLIF(1, 2)").returns(1).check();
+        assertExpression("NULLIF(1, 1)").returns(null).check();
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Character b is neither a decimal digit number, "
+                        + "decimal point, nor \"e\" notation exponential mark", () -> sql("SELECT NULLIF(12.2, 'b')"));
     }
 
     @Test

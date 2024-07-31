@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import org.apache.ignite.internal.catalog.Catalog;
@@ -61,19 +63,9 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
     }
 
     static CatalogSchemaDescriptor schemaByIndexId(Catalog catalog, int indexId) {
-        CatalogIndexDescriptor index = catalog.index(indexId);
-
-        assert index != null : indexId;
-
-        CatalogTableDescriptor table = catalog.table(index.tableId());
-
-        assert table != null : index.tableId();
-
-        CatalogSchemaDescriptor schema = catalog.schema(table.schemaId());
-
-        assert schema != null : table.schemaId();
-
-        return schema;
+        CatalogIndexDescriptor index = indexOrThrow(catalog, indexId);
+        CatalogTableDescriptor table = tableOrThrow(catalog, index.tableId());
+        return schemaOrThrow(catalog, table.schemaId());
     }
 
     private CatalogIndexDescriptor updateIndexStatus(
@@ -83,15 +75,12 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
     ) {
         CatalogIndexDescriptor source = indexOrThrow(catalog, indexId);
 
-        // We only care about the transitions to REGISTERED and STOPPING. REGISTERED status has already been handled on index creation.
-        int txWaitCatalogVersion = newStatus == CatalogIndexStatus.STOPPING ? catalog.version() + 1 : source.txWaitCatalogVersion();
-
         CatalogIndexDescriptor updateIndexDescriptor;
 
         if (source instanceof CatalogHashIndexDescriptor) {
-            updateIndexDescriptor = updateHashIndexStatus((CatalogHashIndexDescriptor) source, newStatus, txWaitCatalogVersion);
+            updateIndexDescriptor = updateHashIndexStatus((CatalogHashIndexDescriptor) source, newStatus);
         } else if (source instanceof CatalogSortedIndexDescriptor) {
-            updateIndexDescriptor = updateSortedIndexStatus((CatalogSortedIndexDescriptor) source, newStatus, txWaitCatalogVersion);
+            updateIndexDescriptor = updateSortedIndexStatus((CatalogSortedIndexDescriptor) source, newStatus);
         } else {
             throw new CatalogValidationException(format("Unsupported index type '{}' {}", source.id(), source));
         }
@@ -101,30 +90,24 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
         return updateIndexDescriptor;
     }
 
-    private static CatalogIndexDescriptor updateHashIndexStatus(
-            CatalogHashIndexDescriptor index, CatalogIndexStatus newStatus, int txWaitCatalogVersion
-    ) {
+    private static CatalogIndexDescriptor updateHashIndexStatus(CatalogHashIndexDescriptor index, CatalogIndexStatus newStatus) {
         return new CatalogHashIndexDescriptor(
                 index.id(),
                 index.name(),
                 index.tableId(),
                 index.unique(),
                 newStatus,
-                txWaitCatalogVersion,
                 index.columns()
         );
     }
 
-    private static CatalogIndexDescriptor updateSortedIndexStatus(
-            CatalogSortedIndexDescriptor index, CatalogIndexStatus newStatus, int txWaitCatalogVersion
-    ) {
+    private static CatalogIndexDescriptor updateSortedIndexStatus(CatalogSortedIndexDescriptor index, CatalogIndexStatus newStatus) {
         return new CatalogSortedIndexDescriptor(
                 index.id(),
                 index.name(),
                 index.tableId(),
                 index.unique(),
                 newStatus,
-                txWaitCatalogVersion,
                 index.columns()
         );
     }

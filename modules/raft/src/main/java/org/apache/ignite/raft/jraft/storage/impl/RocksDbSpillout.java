@@ -144,6 +144,7 @@ public class RocksDbSpillout implements Logs {
         this.groupEndBound = new Slice(groupEndPrefix);
 
         this.writeOptions = new WriteOptions();
+        this.writeOptions.setDisableWAL(true);
         this.writeOptions.setSync(false);
     }
 
