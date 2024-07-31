@@ -42,13 +42,21 @@ import org.openjdk.jmh.runner.options.TimeValue;
  * Heartbeat (ping) benchmark - measures the simplest client-server interaction.
  *
  * <p>Results on i9-12900H, openjdk 11.0.23, Ubuntu 22.04:
- * Benchmark                                               Mode  Cnt      Score       Error   Units
- * ClientHeartbeatBenchmark.heartbeat                     thrpt    3  56634.999 ± 14804.164   ops/s
- * ClientHeartbeatBenchmark.heartbeat:gc.alloc.rate       thrpt    3    123.395 ±   100.878  MB/sec
- * ClientHeartbeatBenchmark.heartbeat:gc.alloc.rate.norm  thrpt    3   2298.438 ±  1308.839    B/op
- * ClientHeartbeatBenchmark.heartbeat:gc.count            thrpt    3     33.000              counts
- * ClientHeartbeatBenchmark.heartbeat:gc.time             thrpt    3     25.000                  ms
- * ClientHeartbeatBenchmark.heartbeat:jfr                 thrpt             NaN                 ---
+ * Benchmark                                                Mode      Cnt     Score     Error   Units
+ * ClientHeartbeatBenchmark.heartbeat                     sample  1297810    17.333 ±   0.021   us/op
+ * ClientHeartbeatBenchmark.heartbeat:gc.alloc.rate       sample        3    27.942 ±  16.104  MB/sec
+ * ClientHeartbeatBenchmark.heartbeat:gc.alloc.rate.norm  sample        3   512.781 ± 242.667    B/op
+ * ClientHeartbeatBenchmark.heartbeat:gc.count            sample        3     6.000            counts
+ * ClientHeartbeatBenchmark.heartbeat:gc.time             sample        3    18.000                ms
+ * ClientHeartbeatBenchmark.heartbeat:jfr                 sample                NaN               ---
+ * ClientHeartbeatBenchmark.heartbeat:p0.00               sample             13.120             us/op
+ * ClientHeartbeatBenchmark.heartbeat:p0.50               sample             16.480             us/op
+ * ClientHeartbeatBenchmark.heartbeat:p0.90               sample             20.480             us/op
+ * ClientHeartbeatBenchmark.heartbeat:p0.95               sample             21.408             us/op
+ * ClientHeartbeatBenchmark.heartbeat:p0.99               sample             25.632             us/op
+ * ClientHeartbeatBenchmark.heartbeat:p0.999              sample             94.336             us/op
+ * ClientHeartbeatBenchmark.heartbeat:p0.9999             sample            160.880             us/op
+ * ClientHeartbeatBenchmark.heartbeat:p1.00               sample           3690.496             us/op
  */
 @State(Scope.Benchmark)
 public class ClientHeartbeatBenchmark {
@@ -113,7 +121,7 @@ public class ClientHeartbeatBenchmark {
                 .measurementIterations(3)
                 .measurementTime(TimeValue.seconds(15))
                 .forks(1)
-                .threads(10)
+                .threads(1)
                 .build();
 
         new Runner(opt).run();
