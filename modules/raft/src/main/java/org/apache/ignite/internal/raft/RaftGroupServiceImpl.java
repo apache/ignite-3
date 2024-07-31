@@ -63,7 +63,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -559,7 +558,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry resp={} from={} to={} err={}",
-                                    S.toString(resp),
+                                    resp,
                                     cluster.topologyService().localMember().address(),
                                     peer.consistentId(),
                                     err == null ? null : err.getMessage());
@@ -597,7 +596,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     "Recoverable error during the request occurred (will be retried on the randomly selected node) "
                             + "[request={}, peer={}, newPeer={}].",
                     err,
-                    sentRequest,
+                    LOG.isDebugEnabled() ? sentRequest : sentRequest.toStringForLightLogging(),
                     peer,
                     randomPeer
             );

@@ -71,4 +71,9 @@ public interface NetworkMessage extends Cloneable {
      * Public clone version that is implemented in generated *Impl class.
      */
     NetworkMessage clone();
+
+    /** Returns a lightweight string representation of a network message for logging. */
+    default String toStringForLightLogging() {
+        return getClass().toString();
+    }
 }

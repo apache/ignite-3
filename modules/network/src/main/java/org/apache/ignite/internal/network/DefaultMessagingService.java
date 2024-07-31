@@ -418,17 +418,29 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 logAndRethrowIfError(inNetworkObject, e);
             } finally {
                 long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+
                 if (tookMillis > 100) {
-                    LOG.warn("Processing of {} from {} took {} ms", inNetworkObject.message(), inNetworkObject.sender(), tookMillis);
+                    LOG.warn(
+                            "Processing of {} from {} took {} ms",
+                            LOG.isDebugEnabled() ? inNetworkObject.message() : inNetworkObject.message().toStringForLightLogging(),
+                            inNetworkObject.sender(),
+                            tookMillis
+                    );
                 }
             }
         });
     }
 
     private static void logMessageSkipDueToSenderLeft(InNetworkObject inNetworkObject) {
-        LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
-                inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message()
-        );
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Sender ID {} ({}) is stale, so skipping message handling: {}",
+                    inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message()
+            );
+        } else if (LOG.isInfoEnabled()) {
+            LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
+                    inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message().toStringForLightLogging()
+            );
+        }
     }
 
     private boolean senderIdIsStale(InNetworkObject obj) {
@@ -516,10 +528,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
         if (e instanceof UnresolvableConsistentIdException && obj.message() instanceof InvokeRequest) {
-            LOG.info("onMessage() failed while processing {} from {} as the sender has left the topology",
-                    obj.message(), obj.sender());
+            if (LOG.isDebugEnabled()) {
+                LOG.debug(
+                        "onMessage() failed while processing {} from {} as the sender has left the topology",
+                        obj.message(), obj.sender()
+                );
+            } else if (LOG.isInfoEnabled()) {
+                LOG.info(
+                        "onMessage() failed while processing {} from {} as the sender has left the topology",
+                        obj.message().toStringForLightLogging(), obj.sender()
+                );
+            }
         } else {
-            LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.sender());
+            LOG.error(
+                    "onMessage() failed while processing {} from {}",
+                    e, LOG.isDebugEnabled() ? obj.message() : obj.message().toStringForLightLogging(), obj.sender()
+            );
         }
 
         if (e instanceof Error) {

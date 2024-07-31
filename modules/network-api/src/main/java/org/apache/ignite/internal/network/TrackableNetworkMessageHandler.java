@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.network;
 
-import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
-
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -77,10 +75,9 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
         if (durationMillis > MESSAGING_PROCESSING_LOG_THRESHOLD_MILLIS) {
             LOG.warn(
-                    "Message handling has been too long [duration={}ms, message=[{}]]",
+                    "Message handling has been too long [duration={}ms, message={}]",
                     durationMillis,
-                    // Message may include sensitive data, however it seems useful to print full message content while testing.
-                    includeSensitive() ? message : message.getClass()
+                    LOG.isDebugEnabled() ? message : message.toStringForLightLogging()
             );
         }
     }
