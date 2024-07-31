@@ -52,6 +52,8 @@ public class IdempotentCacheVacuumizer implements ElectionListener {
      * @param nodeName Node name.
      * @param scheduler Scheduler to run vacuumization actions.
      * @param vacuumizationAction Action that will trigger vacuumization process.
+     * @param idempotentCacheTtl Idempotent cache ttl.
+     * @param clockService Clock service.
      * @param initialDelay The time to delay first execution.
      * @param delay The delay between the termination of one execution and the commencement of the next
      * @param unit The time unit of the initialDelay and delay parameters.
