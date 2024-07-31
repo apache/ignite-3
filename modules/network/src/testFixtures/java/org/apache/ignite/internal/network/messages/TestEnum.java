@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.dsl;
+package org.apache.ignite.internal.network.messages;
 
-/**
- * Defines possible operation types.
- */
-public enum OperationType {
-    /** No-op operation. */
-    NO_OP,
-
-    /** Put (insert/replace) operation. */
-    PUT,
-
-    /** Remove operation. */
-    REMOVE;
+/** Test enum. */
+public enum TestEnum {
+    ONE,
+    TWO,
+    THREE;
 
     /** Cached array with all enum values. */
-    private static final OperationType[] VALUES = values();
+    private static final TestEnum[] VALUES = values();
 
     /**
      * Returns the enumerated value from its ordinal.
@@ -39,7 +32,7 @@ public enum OperationType {
      * @param ordinal Ordinal of enumeration constant.
      * @throws IllegalArgumentException If no enumeration constant by ordinal.
      */
-    public static OperationType fromOrdinal(int ordinal) throws IllegalArgumentException {
+    public static TestEnum fromOrdinal(int ordinal) throws IllegalArgumentException {
         if (ordinal < 0 || ordinal >= VALUES.length) {
             throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
         }

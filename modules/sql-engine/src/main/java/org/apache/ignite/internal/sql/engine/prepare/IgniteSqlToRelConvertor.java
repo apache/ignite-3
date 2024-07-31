@@ -50,6 +50,7 @@ import org.apache.calcite.sql.validate.SqlValidatorImpl;
 import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.RelBuilder;
@@ -59,7 +60,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.jetbrains.annotations.Nullable;
 
 /** Converts a SQL parse tree into a relational algebra operators. */
-public class IgniteSqlToRelConvertor extends SqlToRelConverter {
+public class IgniteSqlToRelConvertor extends SqlToRelConverter implements InitializerContext {
     private final Deque<SqlCall> datasetStack = new ArrayDeque<>();
 
     private RelBuilder relBuilder;
@@ -93,6 +94,11 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         datasetStack.pop();
 
         return rel;
+    }
+
+    @Override
+    public SqlNode validateExpression(RelDataType rowType, SqlNode expr) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     private static class DefaultChecker extends SqlShuttle {
@@ -307,7 +313,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
     // replaced with similar one but accepting lamda instead of
     // plain string.
     @Override
-    protected RelOptTable getTargetTable(SqlNode call) {
+    public RelOptTable getTargetTable(SqlNode call) {
         final SqlValidatorNamespace targetNs = getNamespace(call);
         SqlValidatorNamespace namespace;
         if (targetNs.isWrapperFor(SqlValidatorImpl.DmlNamespace.class)) {
