@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -28,7 +29,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.atLeastOnce;
@@ -316,25 +316,19 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
             try (AutoCloseable ignored1 = mvPartitionStorage::close) {
                 assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
 
-                {
-                    mvPartitionStorage.runConsistently(locker -> {
-                        mvPartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+                mvPartitionStorage.runConsistently(locker -> {
+                    mvPartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-                        return null;
-                    });
+                    return null;
+                });
 
-                    CompletableFuture<Void> subscribeFuture1 = mvPartitionStorage.flush(false);
-                    assertThat(subscribeFuture1, willTimeoutFast());
+                CompletableFuture<Void> subscribeFuture = mvPartitionStorage.flush(false);
+                assertThat(subscribeFuture, willTimeoutFast());
 
-                    CompletableFuture<Void> subscribeFuture2 = mvPartitionStorage.flush(false);
-                    assertThat(subscribeFuture2, willTimeoutFast());
+                CompletableFuture<Void> flushFuture = mvPartitionStorage.flush();
+                assertSame(subscribeFuture, flushFuture);
 
-                    assertSame(subscribeFuture1, subscribeFuture2);
-                    assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
-
-                    assertTrue(subscribeFuture1.isDone());
-                    assertTrue(subscribeFuture2.isDone());
-                }
+                assertThat(flushFuture, willSucceedFast());
             }
         }
     }
