@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -46,6 +47,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
@@ -63,7 +65,6 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
-import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesResponse;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -329,6 +330,48 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(compactor.lastRunFuture(), willThrow(IllegalStateException.class));
     }
 
+    @Test
+    public void shouldNotStartIfAlreadyInProgress() throws InterruptedException {
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+
+        CountDownLatch messageBlockLatch = new CountDownLatch(1);
+        CountDownLatch topologyChangeLatch = new CountDownLatch(1);
+
+        CatalogCompactionRunner compactor = createRunner(
+                NODE1,
+                NODE1,
+                (node) -> {
+                    if (NODE1.name().equals(node)) {
+                        return clockService.nowLong();
+                    }
+
+                    try {
+                        messageBlockLatch.countDown();
+
+                        topologyChangeLatch.await();
+
+                        return Long.MIN_VALUE;
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
+
+        compactor.triggerCompaction(clockService.now());
+
+        messageBlockLatch.await();
+
+        CompletableFuture<Void> lastFut = compactor.lastRunFuture();
+
+        compactor.triggerCompaction(clockService.now());
+
+        assertSame(lastFut, compactor.lastRunFuture());
+
+        topologyChangeLatch.countDown();
+
+        assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
+    }
+
     private CatalogCompactionRunner createRunner(
             ClusterNode localNode,
             ClusterNode coordinator,
@@ -352,22 +395,22 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         when(messagingService.invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong()))
                 .thenAnswer(invocation -> {
-                    String nodeName = ((ClusterNode) invocation.getArgument(0)).name();
+                    return CompletableFuture.supplyAsync(() -> {
+                        String nodeName = ((ClusterNode) invocation.getArgument(0)).name();
 
-                    assertThat("Coordinator shouldn't send messages to himself",
-                            nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
+                        assertThat("Coordinator shouldn't send messages to himself",
+                                nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
 
-                    Object obj = timeSupplier.apply(nodeName);
+                        Object obj = timeSupplier.apply(nodeName);
 
-                    // Simulate an exception when exchanging messages.
-                    if (obj instanceof Exception) {
-                        return CompletableFuture.failedFuture((Exception) obj);
-                    }
+                        // Simulate an exception when exchanging messages.
+                        if (obj instanceof Exception) {
+                            throw new CompletionException((Exception) obj);
+                        }
 
-                    CatalogCompactionMinimumTimesResponse msg = messagesFactory.catalogCompactionMinimumTimesResponse()
-                            .minimumRequiredTime(((Long) obj)).build();
-
-                    return CompletableFuture.completedFuture(msg);
+                        return messagesFactory.catalogCompactionMinimumTimesResponse()
+                                .minimumRequiredTime(((Long) obj)).build();
+                    });
                 });
 
         Set<Assignment> assignments = assignmentNodes.stream()

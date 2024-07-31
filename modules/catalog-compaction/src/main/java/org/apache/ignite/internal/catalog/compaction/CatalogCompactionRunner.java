@@ -241,6 +241,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                 if (!fut.isDone()) {
                     LOG.info("Catalog compaction is already in progress, skipping (timestamp={})", lwm.longValue());
+
+                    return;
                 }
 
                 lastRunFuture = startCompaction(logicalTopologyService.localLogicalTopology());
