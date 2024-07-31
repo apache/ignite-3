@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
+import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
@@ -383,37 +384,35 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return;
         }
 
-        if (inNetworkObject.message() instanceof InvokeResponse) {
+        NetworkMessage message = inNetworkObject.message();
+
+        if (message instanceof InvokeResponse) {
             Executor executor = chooseExecutorInInboundPool(inNetworkObject);
             executor.execute(() -> handleInvokeResponse(inNetworkObject));
             return;
         }
 
-        NetworkMessage payload;
         Long correlationId = null;
-        if (inNetworkObject.message() instanceof InvokeRequest) {
-            InvokeRequest invokeRequest = (InvokeRequest) inNetworkObject.message();
-            payload = invokeRequest.message();
+        if (message instanceof InvokeRequest) {
+            InvokeRequest invokeRequest = (InvokeRequest) message;
             correlationId = invokeRequest.correlationId();
-        } else {
-            payload = inNetworkObject.message();
         }
 
-        Iterator<HandlerContext> handlerContexts = getHandlerContexts(payload.groupType()).iterator();
+        Iterator<HandlerContext> handlerContexts = getHandlerContexts(message.groupType()).iterator();
         if (!handlerContexts.hasNext()) {
             // No need to handle this.
             return;
         }
 
         HandlerContext firstHandlerContext = handlerContexts.next();
-        Executor firstHandlerExecutor = chooseExecutorFor(payload, inNetworkObject, firstHandlerContext.executorChooser());
+        Executor firstHandlerExecutor = chooseExecutorFor(message, inNetworkObject, firstHandlerContext.executorChooser());
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {
             long startedNanos = System.nanoTime();
 
             try {
-                handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
+                handleStartingWithFirstHandler(message, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
                 logAndRethrowIfError(inNetworkObject, e);
             } finally {
@@ -422,7 +421,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 if (tookMillis > 100) {
                     LOG.warn(
                             "Processing of {} from {} took {} ms",
-                            LOG.isDebugEnabled() ? inNetworkObject.message() : inNetworkObject.message().toStringForLightLogging(),
+                            LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
                             inNetworkObject.sender(),
                             tookMillis
                     );
@@ -432,13 +431,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     private static void logMessageSkipDueToSenderLeft(InNetworkObject inNetworkObject) {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Sender ID {} ({}) is stale, so skipping message handling: {}",
-                    inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message()
-            );
-        } else if (LOG.isInfoEnabled()) {
+        if (LOG.isInfoEnabled()) {
+            NetworkMessage message = inNetworkObject.message();
+
             LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
-                    inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message().toStringForLightLogging()
+                    inNetworkObject.launchId(),
+                    inNetworkObject.consistentId(),
+                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging()
             );
         }
     }
@@ -527,22 +526,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
-        if (e instanceof UnresolvableConsistentIdException && obj.message() instanceof InvokeRequest) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug(
-                        "onMessage() failed while processing {} from {} as the sender has left the topology",
-                        obj.message(), obj.sender()
-                );
-            } else if (LOG.isInfoEnabled()) {
+        NetworkMessage message = obj.message();
+
+        if (e instanceof UnresolvableConsistentIdException && message instanceof InvokeRequest) {
+            if (LOG.isInfoEnabled()) {
                 LOG.info(
                         "onMessage() failed while processing {} from {} as the sender has left the topology",
-                        obj.message().toStringForLightLogging(), obj.sender()
+                        LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                        obj.sender()
                 );
             }
         } else {
             LOG.error(
                     "onMessage() failed while processing {} from {}",
-                    e, LOG.isDebugEnabled() ? obj.message() : obj.message().toStringForLightLogging(), obj.sender()
+                    e,
+                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(), obj.sender()
             );
         }
 

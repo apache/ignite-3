@@ -72,7 +72,11 @@ public interface NetworkMessage extends Cloneable {
      */
     NetworkMessage clone();
 
-    /** Returns a lightweight string representation of a network message for logging. */
+    /**
+     * Returns a lightweight string representation of a network message for logging.
+     *
+     * <p>NOTE: Avoid output sensetive information.</p>
+     */
     default String toStringForLightLogging() {
         return getClass().toString();
     }

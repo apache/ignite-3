@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
@@ -596,7 +597,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     "Recoverable error during the request occurred (will be retried on the randomly selected node) "
                             + "[request={}, peer={}, newPeer={}].",
                     err,
-                    LOG.isDebugEnabled() ? sentRequest : sentRequest.toStringForLightLogging(),
+                    LOG.isDebugEnabled() && includeSensitive() ? sentRequest : sentRequest.toStringForLightLogging(),
                     peer,
                     randomPeer
             );
