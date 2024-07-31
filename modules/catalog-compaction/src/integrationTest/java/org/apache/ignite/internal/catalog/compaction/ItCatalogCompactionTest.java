@@ -207,7 +207,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    private static CatalogManagerCompactionHelper catalogManagerHelper() {
-        return new CatalogManagerCompactionHelper((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager());
+    private static CatalogManagerCompactionFacade catalogManagerHelper() {
+        return new CatalogManagerCompactionFacade((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager());
     }
 }

@@ -21,10 +21,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Provides the minimum starting time among all locally started active RW transactions.
+ * Provides the minimum begin time among all active RW transactions started locally.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface ActiveTxMinimumStartTimeProvider {
-    /** Returns minimum starting time among all locally started active RW transactions. */
-    @Nullable HybridTimestamp minimumStartTime();
+public interface ActiveTxMinimumBeginTimeProvider {
+    /** Returns the minimum begin time among all active RW transactions started locally. */
+    @Nullable HybridTimestamp minimumBeginTime();
 }

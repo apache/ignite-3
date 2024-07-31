@@ -37,14 +37,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link CatalogManagerCompactionHelper}.
+ * Tests for {@link CatalogManagerCompactionFacade}.
  */
-class CatalogManagerCompactionHelperTest extends AbstractCatalogCompactionTest {
-    private CatalogManagerCompactionHelper catalogManagerHelper;
+class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
+    private CatalogManagerCompactionFacade catalogManagerHelper;
 
     @BeforeEach
     void setupHelper() {
-        catalogManagerHelper = new CatalogManagerCompactionHelper(catalogManager);
+        catalogManagerHelper = new CatalogManagerCompactionFacade(catalogManager);
     }
 
     @Test

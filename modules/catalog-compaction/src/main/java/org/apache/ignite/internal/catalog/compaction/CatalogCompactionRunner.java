@@ -60,7 +60,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
-import org.apache.ignite.internal.tx.ActiveTxMinimumStartTimeProvider;
+import org.apache.ignite.internal.tx.ActiveTxMinimumBeginTimeProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -94,7 +94,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private static final long ANSWER_TIMEOUT = 5_000;
 
-    private final CatalogManagerCompactionHelper catalogManagerHelper;
+    private final CatalogManagerCompactionFacade catalogManagerHelper;
 
     private final MessagingService messagingService;
 
@@ -112,7 +112,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final String localNodeName;
 
-    private final ActiveTxMinimumStartTimeProvider localActiveRwTxMinBeginTimeProvider;
+    private final ActiveTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider;
 
     private final ReplicaService replicaService;
 
@@ -139,7 +139,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ReplicaService replicaService,
             ClockService clockService,
             Executor executor,
-            ActiveTxMinimumStartTimeProvider localActiveRwTxMinBeginTimeProvider
+            ActiveTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider
     ) {
         this(localNodeName, catalogManager, messagingService, logicalTopologyService, placementDriver, replicaService, clockService,
                 executor, localActiveRwTxMinBeginTimeProvider, null);
@@ -157,13 +157,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ReplicaService replicaService,
             ClockService clockService,
             Executor executor,
-            ActiveTxMinimumStartTimeProvider localActiveRwTxMinBeginTimeProvider,
+            ActiveTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider,
             @Nullable CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
     ) {
         this.localNodeName = localNodeName;
         this.messagingService = messagingService;
         this.logicalTopologyService = logicalTopologyService;
-        this.catalogManagerHelper = new CatalogManagerCompactionHelper(catalogManager);
+        this.catalogManagerHelper = new CatalogManagerCompactionFacade(catalogManager);
         this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
@@ -181,7 +181,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             if (message.messageType() == CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST) {
                 CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                         .minimumRequiredTime(localMinTimeProvider.time())
-                        .minimumActiveTxTime(localActiveRwTxMinBeginTimeProvider.minimumStartTime())
+                        .minimumActiveTxTime(localActiveRwTxMinBeginTimeProvider.minimumBeginTime())
                         .build();
 
                 messagingService.respond(sender, response, correlationId);
@@ -326,7 +326,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
                 .thenApply(ignore -> {
                     long globalMinimumRequiredTime = localMinimumRequiredTime;
-                    HybridTimestamp globalMinimumActiveTxTime = localActiveRwTxMinBeginTimeProvider.minimumStartTime();
+                    HybridTimestamp globalMinimumActiveTxTime = localActiveRwTxMinBeginTimeProvider.minimumBeginTime();
 
                     for (CompletableFuture<CatalogCompactionMinimumTimesResponse> fut : responseFutures) {
                         CatalogCompactionMinimumTimesResponse response = fut.join();

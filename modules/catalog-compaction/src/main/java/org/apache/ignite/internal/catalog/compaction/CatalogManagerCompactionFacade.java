@@ -30,10 +30,10 @@ import org.jetbrains.annotations.Nullable;
  * Class contains utility methods for interacting with the catalog manager.
  * These methods are only needed for catalog compaction routine.
  */
-class CatalogManagerCompactionHelper {
+class CatalogManagerCompactionFacade {
     private final CatalogManagerImpl catalogManager;
 
-    CatalogManagerCompactionHelper(CatalogManagerImpl catalogManager) {
+    CatalogManagerCompactionFacade(CatalogManagerImpl catalogManager) {
         this.catalogManager = catalogManager;
     }
 
