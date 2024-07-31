@@ -254,9 +254,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         long localMinimum = localMinTimeProvider.time();
 
         if (catalogManagerHelper.catalogByTsNullable(localMinimum) == null) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Catalog compaction skipped, nothing to compact (ts={})", localMinimum);
-            }
+            LOG.info("Catalog compaction skipped, nothing to compact (ts={})", localMinimum);
 
             return CompletableFutures.nullCompletedFuture();
         }
@@ -270,9 +268,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     CompletableFuture<Boolean> catalogCompactionFut;
 
                     if (catalog == null) {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Catalog compaction skipped, nothing to compact (ts={})", minRequiredTime);
-                        }
+                        LOG.info("Catalog compaction skipped, nothing to compact (ts={})", minRequiredTime);
 
                         catalogCompactionFut = CompletableFutures.falseCompletedFuture();
                     } else {
@@ -280,10 +276,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             if (ex != null) {
                                 LOG.warn("Catalog compaction has failed (timestamp={})", ex, minRequiredTime);
                             } else {
-                                if (res && LOG.isDebugEnabled()) {
-                                    LOG.debug("Catalog compaction completed successfully (timestamp={})", minRequiredTime);
+                                if (res) {
+                                    LOG.info("Catalog compaction completed successfully (timestamp={})", minRequiredTime);
                                 } else {
-                                    LOG.debug("Catalog compaction skipped (timestamp={})", minRequiredTime);
+                                    LOG.info("Catalog compaction skipped (timestamp={})", minRequiredTime);
                                 }
                             }
                         });
@@ -481,9 +477,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
 
                     if (!missingNodes.isEmpty()) {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Catalog compaction aborted due to missing cluster members (nodes={})", missingNodes);
-                        }
+                        LOG.info("Catalog compaction aborted due to missing cluster members (nodes={})", missingNodes);
 
                         return CompletableFutures.falseCompletedFuture();
                     }

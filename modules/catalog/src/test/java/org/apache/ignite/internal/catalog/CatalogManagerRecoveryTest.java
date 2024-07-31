@@ -151,7 +151,6 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         // Save version, which will be earliest version after snapshot.
         int earliestVersion = catalogManager.latestCatalogVersion();
         long earliestVersionActivationTime = catalogManager.catalog(earliestVersion).time();
-        int snapshotVer = catalogManager.latestCatalogVersion();
 
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME_3)), willCompleteSuccessfully());
 
@@ -162,7 +161,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         clearInvocations(interceptor);
         interceptor.dropSnapshotEvents();
 
-        assertThat(((CatalogManagerImpl) catalogManager).compactCatalog(snapshotVer), willBe(true));
+        assertThat(((CatalogManagerImpl) catalogManager).compactCatalog(earliestVersion), willBe(true));
 
         verify(interceptor, timeout(2_000)).handle(any(SnapshotEntry.class), any(), anyLong());
         assertThat(catalogManager.earliestCatalogVersion(), equalTo(0));
@@ -181,7 +180,6 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(0));
         assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(earliestVersionActivationTime - 1));
         assertThat(catalogManager.activeCatalogVersion(earliestVersionActivationTime), equalTo(earliestVersion));
-        assertThat(catalogManager.activeCatalogVersion(snapshotVer), equalTo(earliestVersion));
         assertThat(catalogManager.activeCatalogVersion(latestVersionActivationTime), equalTo(latestVersion));
     }
 
