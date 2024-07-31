@@ -359,7 +359,6 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("idempotentCommandProvider")
-    // TODO sanpwc run multiple times.
     public void testIdempotentCacheRestoreFromSnapshot(IdempotentCommand idempotentCommand, TestInfo testInfo) throws Exception {
         RaftGroupService raftClient = raftClient();
         Node leader = leader(raftClient);

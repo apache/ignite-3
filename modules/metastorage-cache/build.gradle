@@ -21,7 +21,6 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
 description = 'ignite-metastorage-cache'
 
-//TODO sanpwc add readme.md
 dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-metastorage')

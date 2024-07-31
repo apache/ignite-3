@@ -85,7 +85,6 @@ public class MetaStorageWriteHandler {
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
 
-    // TODO Seems that we no longer need storing timestamp in the cache, nor we need IdempotentCommandCachedResult
     private final Map<CommandId, @Nullable Serializable> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(
@@ -385,7 +384,8 @@ public class MetaStorageWriteHandler {
             byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
 
             List<byte[]> evictionCandidateKeys = storage.range(keyFrom, keyTo, obsoleteRevision).stream()
-                    // TODO tombstones and emptiness handling?
+                    // Not sure whether it's possible to retrieve empty entry here, thus !entry.empty() was added just in case.
+                    .filter(entry -> !entry.tombstone() && !entry.empty())
                     .map(Entry::key)
                     .collect(toList());
 

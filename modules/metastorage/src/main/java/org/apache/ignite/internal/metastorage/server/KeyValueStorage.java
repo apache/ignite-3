@@ -276,7 +276,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param timestamp Timestamp by which to do a lookup.
      * @return Revision lesser or equal to the timestamp or -1 if there is no such revision.
      */
-    // TODO sanpwc Add tests.
     long revisionByTimestamp(HybridTimestamp timestamp);
 
     /**
