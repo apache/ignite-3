@@ -306,7 +306,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ByteBuf byteBuf = (ByteBuf) msg;
 
         // Each inbound handler in a pipeline has to release the received messages.
-        var unpacker = getUnpacker(byteBuf);
+        var unpacker = new ClientMessageUnpacker(byteBuf);
         metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
         // Packer buffer is released by Netty on send, or by inner exception handlers below.
@@ -549,10 +549,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
         // Outgoing messages are released on write.
         return new ClientMessagePacker(alloc.buffer());
-    }
-
-    private static ClientMessageUnpacker getUnpacker(ByteBuf buf) {
-        return new ClientMessageUnpacker(buf);
     }
 
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
