@@ -19,12 +19,12 @@ INSERT INTO integers2 SELECT a k, 2 l FROM table(system_range(2000, 3999, 1)) t1
 
 # equality join
 query IIII
-SELECT i, j, k, l FROM integers FULL OUTER JOIN integers2 ON integers.i=integers2.k ORDER BY 1, 2, 3, 4
+SELECT i, j, k, l FROM integers FULL OUTER JOIN integers2 ON integers.i=integers2.k ORDER BY 1 NULLS FIRST, 2 NULLS FIRST, 3 NULLS FIRST, 4 NULLS FIRST
 ----
-16000 values hashing to 766810847df091f5cf6108fec3f4c1f9
+16000 values hashing to 7f3fd3a1cf91a34b461601ac6420e880
 
 # range join
 query IIII
-SELECT i, j, k, l FROM integers FULL OUTER JOIN integers2 ON integers.j>integers2.l ORDER BY 1, 2, 3, 4
+SELECT i, j, k, l FROM integers FULL OUTER JOIN integers2 ON integers.j>integers2.l ORDER BY 1 NULLS FIRST, 2 NULLS FIRST, 3 NULLS FIRST, 4 NULLS FIRST
 ----
-16000 values hashing to 766810847df091f5cf6108fec3f4c1f9
+16000 values hashing to 7f3fd3a1cf91a34b461601ac6420e880

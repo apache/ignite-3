@@ -44,8 +44,9 @@ statement ok
 INSERT INTO test1 VALUES ('2'), (NULL), ('355555552'), ('1'), ('35555556'), ('10'), ('355555553'), ('355555551')
 
 query I
-SELECT * FROM test1 ORDER BY s
+SELECT * FROM test1 ORDER BY s NULLS FIRST
 ----
+NULL
 1
 10
 2
@@ -53,7 +54,6 @@ SELECT * FROM test1 ORDER BY s
 355555552
 355555553
 35555556
-NULL
 
 # sort on 10000 strings
 statement ok
