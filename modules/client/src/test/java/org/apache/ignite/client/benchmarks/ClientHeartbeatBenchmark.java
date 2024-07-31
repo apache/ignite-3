@@ -77,7 +77,7 @@ public class ClientHeartbeatBenchmark {
      */
     @Benchmark
     public void heartbeat() {
-        channel.heartbeatAsync(null);
+        channel.heartbeatAsync(null).join();
     }
 
     /**
@@ -85,7 +85,7 @@ public class ClientHeartbeatBenchmark {
      */
     @Benchmark
     public void heartbeatWithPayload() {
-        channel.heartbeatAsync(w -> w.out().writePayload(payload));
+        channel.heartbeatAsync(w -> w.out().writePayload(payload)).join();
     }
 
     /**
