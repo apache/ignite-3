@@ -63,10 +63,10 @@ select count(*) from a, (SELECT 1::tinyint AS j) b where i = j AND i>1000
 ----
 0
 
-# tests for smallint
 statement ok
 drop table a
 
+# tests for smallint
 statement ok
 create table a(i smallint)
 
@@ -122,10 +122,10 @@ select count(*) from a, (SELECT 1::smallint AS j) b where i = j AND i>1000
 ----
 0
 
-# tests for integer
 statement ok
 drop table a
 
+# tests for integer
 statement ok
 create table a(i integer)
 
@@ -181,10 +181,10 @@ select count(*) from a, (SELECT 1::integer AS j) b where i = j AND i>1000
 ----
 0
 
-# tests for bigint
 statement ok
 drop table a
 
+# tests for bigint
 statement ok
 create table a(i bigint)
 
@@ -240,10 +240,10 @@ select count(*) from a, (SELECT 1::bigint AS j) b where i = j AND i>1000
 ----
 0
 
-# tests for real
 statement ok
 drop table a
 
+# tests for real
 statement ok
 create table a(i real)
 
@@ -299,10 +299,10 @@ select count(*) from a, (SELECT 1::real AS j) b where i = j AND i>1000
 ----
 0
 
-# tests for double
 statement ok
 drop table a
 
+# tests for double
 statement ok
 create table a(i double)
 

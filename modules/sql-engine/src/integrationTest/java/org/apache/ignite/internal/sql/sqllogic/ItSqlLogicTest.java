@@ -139,7 +139,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Tag(value = "sqllogic")
 @ExtendWith({SystemPropertiesExtension.class, WorkDirectoryExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", regex = "test_order_large.test")
 public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 

@@ -12,7 +12,7 @@ statement ok
 create table a(i tinyint)
 
 statement ok
-insert into a select x i from table(system_range(1, 100, 1)) order by rand()
+insert into a select x from table(system_range(1, 100)) order by rand()
 
 # range joins
 query I
@@ -117,7 +117,7 @@ statement ok
 create table a(i smallint)
 
 statement ok
-insert into a select x i from table(system_range(1, 100, 1)) order by rand()
+insert into a select x from table(system_range(1, 100)) order by rand()
 
 # range joins
 query I
@@ -222,7 +222,7 @@ statement ok
 create table a(i integer)
 
 statement ok
-insert into a select x i from table(system_range(1, 100, 1)) order by rand()
+insert into a select x from table(system_range(1, 100)) order by rand()
 
 # range joins
 query I
@@ -327,7 +327,7 @@ statement ok
 create table a(i bigint)
 
 statement ok
-insert into a select x i from table(system_range(1, 100, 1)) order by rand()
+insert into a select x from table(system_range(1, 100)) order by rand()
 
 # range joins
 query I
@@ -432,7 +432,7 @@ statement ok
 create table a(i real)
 
 statement ok
-insert into a select x i from table(system_range(1, 100, 1)) order by rand()
+insert into a select x from table(system_range(1, 100)) order by rand()
 
 # range joins
 query I
@@ -537,7 +537,7 @@ statement ok
 create table a(i double)
 
 statement ok
-insert into a select x i from table(system_range(1, 100, 1)) order by rand()
+insert into a select x from table(system_range(1, 100)) order by rand()
 
 # range joins
 query I

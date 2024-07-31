@@ -13,7 +13,6 @@ SELECT count(*) from t;
 ----
 1000
 
-
 query II
 SELECT
   COUNT(*) AS unfiltered,
