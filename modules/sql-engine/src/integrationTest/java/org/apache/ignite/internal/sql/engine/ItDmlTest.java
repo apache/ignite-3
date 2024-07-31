@@ -21,7 +21,11 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -33,6 +37,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -44,6 +49,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -452,10 +458,10 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
      * Test verifies that scan is executed within provided transaction.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15081")
     public void scanExecutedWithinGivenTransaction() {
         sql("CREATE TABLE test (id int primary key, val int)");
 
+        Transaction olderTx = CLUSTER.aliveNode().transactions().begin();
         Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
         sql(tx, "INSERT INTO test VALUES (0, 0)");
@@ -463,16 +469,24 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         // just inserted row should be visible within the same transaction
         assertEquals(1, sql(tx, "select * from test").size());
 
-        Transaction anotherTx = CLUSTER.aliveNode().transactions().begin();
-
         // just inserted row should not be visible until related transaction is committed
-        assertEquals(0, sql(anotherTx, "select * from test").size());
+        assertEquals(0,
+                sql(CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true)), "select * from test").size());
+
+        CompletableFuture<Integer> selectFut = runAsync(() -> sql(olderTx, "select * from test").size());
+
+        assertFalse(selectFut.isDone());
 
         tx.commit();
 
-        assertEquals(1, sql(anotherTx, "select * from test").size());
+        assertThat(selectFut, willCompleteSuccessfully());
 
-        anotherTx.commit();
+        assertEquals(1, selectFut.join());
+
+        assertEquals(1,
+                sql(CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true)), "select * from test").size());
+
+        olderTx.commit();
     }
 
     @Test
@@ -491,6 +505,17 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         Set<?> pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
 
         assertEquals(3, pkVals.size());
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void invalidAliases() {
+        sql("CREATE TABLE T(VAL INT)");
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __p_key is reserved name",
+                () -> sql("select val as \"__p_key\" from t"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __part is reserved name",
+                () -> sql("select val as \"__part\" from t"));
     }
 
     private static Stream<DefaultValueArg> defaultValueArgs() {

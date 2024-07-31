@@ -163,7 +163,7 @@ public class TxStateMeta implements TransactionMeta {
             TxMessagesFactory txMessagesFactory
     ) {
         return txMessagesFactory.txStateMetaMessage()
-                .txStateInt(txState.ordinal())
+                .txState(txState)
                 .txCoordinatorId(txCoordinatorId)
                 .commitPartitionId(commitPartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, commitPartitionId))
                 .commitTimestamp(commitTimestamp)

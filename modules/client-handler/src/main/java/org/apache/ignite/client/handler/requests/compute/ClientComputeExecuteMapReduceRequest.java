@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -56,7 +57,8 @@ public class ClientComputeExecuteMapReduceRequest {
         String taskClassName = in.unpackString();
         Object args = unpackPayload(in);
 
-        TaskExecution<Object> execution = compute.submitMapReduce(deploymentUnits, taskClassName, args);
+        TaskExecution<Object> execution = compute.submitMapReduce(
+                TaskDescriptor.builder(taskClassName).units(deploymentUnits).build(), args);
         sendTaskResult(execution, notificationSender);
 
         var idsAsync = execution.idsAsync()
