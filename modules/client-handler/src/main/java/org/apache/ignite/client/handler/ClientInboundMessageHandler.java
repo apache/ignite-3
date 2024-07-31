@@ -829,7 +829,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** {@inheritDoc} */
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) {
-        ctx.flush();
+        // TODO: ??
+        // ctx.flush();
     }
 
     /** {@inheritDoc} */
