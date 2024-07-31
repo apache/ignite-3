@@ -315,10 +315,12 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Mockito.reset(updatableTable);
 
         TableDescriptor tableDescriptor = createTableDescriptor(dstRowSchema);
+        ArgumentCaptor<List<RowWrapper>> insertedRows = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<RowWrapper>> updatedRows = ArgumentCaptor.forClass(List.class);
 
         when(updatableTable.descriptor()).thenReturn(tableDescriptor);
-        when(updatableTable.insertAll(any(), any(), any())).thenReturn(nullCompletedFuture());
-        when(updatableTable.upsertAll(any(), any(), any())).thenReturn(nullCompletedFuture());
+        when(updatableTable.insertAll(any(), insertedRows.capture(), any())).thenReturn(nullCompletedFuture());
+        when(updatableTable.upsertAll(any(), updatedRows.capture(), any())).thenReturn(nullCompletedFuture());
 
         RowFactory<RowWrapper> dstFactory = rowHandler.factory(dstRowSchema);
 
@@ -364,11 +366,8 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         await(downstream.result());
 
-        ArgumentCaptor<List<RowWrapper>> insertedRows = ArgumentCaptor.forClass(List.class);
-        verify(updatableTable).insertAll(any(), insertedRows.capture(), any());
-
-        ArgumentCaptor<List<RowWrapper>> updatedRows = ArgumentCaptor.forClass(List.class);
-        verify(updatableTable).upsertAll(any(), updatedRows.capture(), any());
+        verify(updatableTable).insertAll(any(), any(), any());
+        verify(updatableTable).upsertAll(any(), any(), any());
 
         RowWrapper inserted = insertedRows.getAllValues().get(0).get(0);
         expectRow(inserted, rowHandler, rowCount, 1, 5);
