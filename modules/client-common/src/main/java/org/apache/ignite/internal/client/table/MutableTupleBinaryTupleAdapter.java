@@ -57,7 +57,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
      */
     public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int columnCount, @Nullable BitSet noValueSet) {
         assert binaryTuple != null : "binaryTuple != null";
-        assert columnCount > 0 : "columnCount > 0";
 
         this.binaryTuple = binaryTuple;
         this.columnCount = columnCount;
