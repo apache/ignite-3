@@ -17,8 +17,6 @@
 
 package org.apache.ignite.sql;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
