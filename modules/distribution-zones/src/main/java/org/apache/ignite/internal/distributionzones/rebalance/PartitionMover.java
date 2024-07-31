@@ -52,9 +52,9 @@ public class PartitionMover {
     }
 
     /**
-     * Performs {@link RaftGroupService#changePeersAndLearnersAsync} on a provided raft group service of a partition, so nodes of the corresponding
-     * raft group can be reconfigured. Retry mechanism is applied to repeat {@link RaftGroupService#changePeersAndLearnersAsync} if previous one failed
-     * with some exception.
+     * Performs {@link RaftGroupService#changePeersAndLearnersAsync} on a provided raft group service of a partition, so nodes of the
+     * corresponding raft group can be reconfigured. Retry mechanism is applied to repeat
+     * {@link RaftGroupService#changePeersAndLearnersAsync} if previous one failed with some exception.
      *
      * @return Function which performs {@link RaftGroupService#changePeersAndLearnersAsync}.
      */
