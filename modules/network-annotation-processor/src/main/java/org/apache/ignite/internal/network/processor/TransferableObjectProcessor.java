@@ -41,6 +41,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
@@ -107,6 +108,8 @@ public class TransferableObjectProcessor extends AbstractProcessor {
             updateConfig(messages, messageGroup);
 
             validateMessages(messages);
+
+            generateEnumTransferableUtils(messages, messageGroup);
 
             generateMessageImpls(messages, messageGroup);
 
@@ -350,5 +353,34 @@ public class TransferableObjectProcessor extends AbstractProcessor {
         } catch (IOException e) {
             throw new ProcessingException(e.getMessage(), e);
         }
+    }
+
+    /** Generates utility classes for {@link Enum} in network messages. */
+    private void generateEnumTransferableUtils(Collection<MessageClass> messageClasses, MessageGroupWrapper messageGroup) {
+        List<MessageClass> serializableMessages = collectAutoSerializableMessageClasses(messageClasses);
+
+        if (serializableMessages.isEmpty()) {
+            return;
+        }
+
+        var enumMethodsGenerator = new EnumMethodsGenerator(processingEnv);
+
+        Set<TypeMirror> enumTypes = enumMethodsGenerator.collectEnums(messageClasses);
+
+        if (enumTypes.isEmpty()) {
+            return;
+        }
+
+        for (TypeMirror enumType : enumTypes) {
+            TypeSpec enumTransferableUtils = enumMethodsGenerator.generateEnumTransferableUtils(enumType);
+
+            writeToFile(messageGroup.packageName(), enumTransferableUtils);
+        }
+    }
+
+    private static List<MessageClass> collectAutoSerializableMessageClasses(Collection<MessageClass> messageClasses) {
+        return messageClasses.stream()
+                .filter(MessageClass::isAutoSerializable)
+                .collect(toList());
     }
 }

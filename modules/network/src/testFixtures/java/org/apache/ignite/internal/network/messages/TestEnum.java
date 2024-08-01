@@ -17,26 +17,22 @@
 
 package org.apache.ignite.internal.network.messages;
 
+import org.apache.ignite.internal.network.annotations.TransferableEnum;
+
 /** Test enum. */
-public enum TestEnum {
-    ONE,
-    TWO,
-    THREE;
+public enum TestEnum implements TransferableEnum {
+    ONE(0),
+    TWO(1),
+    THREE(2);
 
-    /** Cached array with all enum values. */
-    private static final TestEnum[] VALUES = values();
+    private final int transferableId;
 
-    /**
-     * Returns the enumerated value from its ordinal.
-     *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
-     */
-    public static TestEnum fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
-        }
+    TestEnum(int transferableId) {
+        this.transferableId = transferableId;
+    }
 
-        return VALUES[ordinal];
+    @Override
+    public int transferableId() {
+        return transferableId;
     }
 }

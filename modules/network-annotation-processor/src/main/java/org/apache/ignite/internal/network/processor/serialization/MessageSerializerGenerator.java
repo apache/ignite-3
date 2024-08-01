@@ -150,11 +150,11 @@ public class MessageSerializerGenerator {
         if (typeUtils.isEnum(getter.getReturnType())) {
             String fieldName = getter.getSimpleName().toString();
 
-            // Let's write the shifted ordinal to efficiently transfer null (since we use "var int").
+            // Let's write the shifted transferableId to efficiently transfer null (since we use "var int").
             writerMethodCallBuilder
-                    .add("int ordinalShifted = message.$L() == null ? 0 : message.$L().ordinal() + 1;", fieldName, fieldName)
+                    .add("int transferableIdShifted = message.$L() == null ? 0 : message.$L().transferableId() + 1;", fieldName, fieldName)
                     .add("\n")
-                    .add("boolean written = writer.writeInt($S, ordinalShifted)", fieldName);
+                    .add("boolean written = writer.writeInt($S, transferableIdShifted)", fieldName);
         } else {
             writerMethodCallBuilder
                     .add("boolean written = writer.")

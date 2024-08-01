@@ -17,8 +17,17 @@
 
 package org.apache.ignite.internal.network.annotations;
 
-/** Позже документацию. */
-// TODO: IGNITE-22869 Документация
+/**
+ * Special interface that must be present for {@link Enum} that will be transferred in a network message (with {@link Transferable}).
+ *
+ * <p>This interface serves to protect against situations such as adding new constants to enumeration in the middle and errors occurring
+ * during serialization and deserialization of messages.</p>
+ *
+ * <p>It is recommended that when adding new constants to enumeration, use a new {@link #transferableId()} and do not delete old constants
+ * to prevent errors during serialization and deserialization. Which can occur, for example, when recovery a node that saved commands to the
+ * replication log.</p>
+ */
 public interface TransferableEnum {
+    /** Non-negative and unique constant ID in the current enumeration to transfer in a network message. */
     int transferableId();
 }
