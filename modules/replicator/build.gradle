@@ -68,7 +68,8 @@ dependencies {
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-cluster-management')
-    testFixturesImplementation project(':ignite-system-configuration')
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22564 runner should not be in test fixtures
+    testFixturesImplementation project(':ignite-runner')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-configuration:'))
