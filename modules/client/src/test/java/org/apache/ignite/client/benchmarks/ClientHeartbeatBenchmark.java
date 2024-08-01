@@ -19,7 +19,6 @@ package org.apache.ignite.client.benchmarks;
 
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.ResourceLeakDetector.Level;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.TestServer;
@@ -60,8 +59,6 @@ import org.openjdk.jmh.runner.options.TimeValue;
  */
 @State(Scope.Benchmark)
 public class ClientHeartbeatBenchmark {
-    private static final byte[] payload = new byte[1024];
-
     private TestServer testServer;
 
     private TcpIgniteClient client;
@@ -73,8 +70,6 @@ public class ClientHeartbeatBenchmark {
      */
     @Setup
     public void init() {
-        ThreadLocalRandom.current().nextBytes(payload);
-
         testServer = new TestServer(1000, new FakeIgnite("server-1"));
 
         client = (TcpIgniteClient) IgniteClient.builder()
