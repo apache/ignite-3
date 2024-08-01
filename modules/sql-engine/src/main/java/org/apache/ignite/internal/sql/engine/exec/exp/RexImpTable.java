@@ -469,9 +469,21 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 /**
  * Contains implementations of Rex operators as Java code.
  * Changes in comparison with original code:
- * 1. AbstractRexCallImplementor#genValueStatement() -> append op instanceof SqlTableFunction)
+ * 1. Removed original ROUND, TRUNCATE, TRUNC_BIG_QUERY functions
  * 2. populateIgnite()
- * 3. Replaces implementation of ROUND, TRUNCATE operators and removes TRUNC operator.
+ * 3. Removed support of all quantifiers (SOME_EQ, SOME_GT, SOME_LE, ...)
+ * 4. Removed windows aggregate functions (FIRST_VALUE, LAST_VALUE, LEAD, LAG, NTILE, LAST)
+ * 5. Amend calls of:
+ *    EnumUtils.fromInternal -> ConverterUtils.fromInternal
+ *    Expressions.makeUnary  -> IgniteExpressions.makeUnary
+ *    Expressions.makeBinary -> IgniteExpressions.makeBinary
+ *    Expressions.multiply   -> IgniteExpressions.multiplyExact
+ *    Expressions.divide     -> IgniteExpressions.divideExact
+ *    Expressions.negate     -> IgniteExpressions.makeUnary
+ *    Expressions.subtract   -> IgniteExpressions.subtractExact
+ *    Expressions.add        -> IgniteExpressions.addExact
+ *    Expressions.subtract   -> IgniteExpressions.subtractExact
+ * 6. Consider Void.class return type as NULL_EXPR in genValueStatement(...) method
  *
  * <p>Immutable.
  */
@@ -479,7 +491,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public class RexImpTable {
   /** The singleton instance. */
   public static final RexImpTable INSTANCE =
-      new RexImpTable(new Builder().populate());
+          new RexImpTable(new Builder().populate());
 
   public static final ConstantExpression NULL_EXPR =
           Expressions.constant(null);
@@ -3992,7 +4004,6 @@ public class RexImpTable {
       final boolean noConvert =
               returnType == callValue.getType()
                       || op instanceof SqlUserDefinedTableMacro
-//                      || op instanceof SqlTableFunction
                       || op instanceof SqlUserDefinedTableFunction;
       Expression convertedCallValue;
 

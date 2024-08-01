@@ -105,14 +105,28 @@ import static java.util.Objects.requireNonNull;
  * Translates {@link org.apache.calcite.rex.RexNode REX expressions} to
  * {@link Expression linq4j expressions}.
  * Changes in comparison with original code:
- * 1. RexToLixTranslator#visitDynamicParam() refactoring
- * 2. RexToLixTranslator#translateCast() SqlTypeName.DECIMAL special case converter.
- * 3. RexToLixTranslator#translateCast() BYTESTRING_TO_STRING, STRING_TO_BYTESTRING special case converters.
- * 4. RexToLixTranslator#translateCast() case INTERVAL_SECOND -> case CHARACTER special case converters.
- * 5. RexToLixTranslator#translateCast() case TIMESTAMP -> case CHAR  special case converters.
- * 6. RexToLixTranslator#translateLiteral() case DECIMAL special case converters. Primitive float/double conversion.
- * 7. RexToLixTranslator#translateCast() ANY branch
- * 8. EnumUtils.convert -> ConverterUtils.convert
+ * 1. Amends invocations for the following:
+ *      EnumUtils.toInternal -> ConverterUtils.toInternal
+ *      EnumUtils.internalTypes -> ConverterUtils.internalTypes
+ *      EnumUtils.convert -> ConverterUtils.convert
+ * 2. removed translateTableFunction method
+ * 3. checkExpressionPadTruncate method - added operand as parameter to make ability to do cast to TIMESTMAP WITH LOCAL TIMEZONE
+ * 4. Added support for custom types conversion (see using of CustomTypesConversion class)
+ * 5. Casts:
+ *      Cast String to Time use own implementation IgniteMethod.UNIX_TIME_TO_STRING_PRECISION_AWARE
+ *      Cast String to Timestamp use own implementation IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
+ *      Added support cast to decimal, see ConverterUtils.convertToDecimal
+ *      Removed original casts to numeric types and used own ConverterUtils.convert
+ *      Added pad-truncate from CHARACTER to INTERVAL types
+ *      Added time-zone dependency for cast from CHARACTER types to TIMESTAMP WITH LOCAL TIMEZONE (see point 3)
+ *      Cast TIMESTAMP to TIMESTAMP WITH LOCAL TIMEZONE use our own implementation, see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
+ * 6. Translate literals changes:
+ *      DECIMAL use own implementation see IgniteSqlFunctions.class, “toBigDecimal"
+ *      TIMESTAMP_WITH_LOCAL_TIME_ZONE use own implementation
+ *      use Primitives.convertPrimitiveExact instead of primitive.number method
+ * 7. Reworked implementation of dynamic parameters:
+ *      IgniteMethod.CONTEXT_GET_PARAMETER_VALUE instead of BuiltInMethod.DATA_CONTEXT_GET
+ * 	    added conversation for Decimals
  */
 public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result> {
     public static final Map<Method, SqlOperator> JAVA_TO_SQL_METHOD_MAP =
@@ -325,8 +339,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
             case VARBINARY:
             case BINARY:
-                switch (sourceType.getSqlTypeName().getFamily()) {
-                    case CHARACTER:
+                switch (sourceType.getSqlTypeName()) {
+                    case CHAR:
+                    case VARCHAR:
                         return Expressions.call(IgniteMethod.STRING_TO_BYTESTRING.method(), operand);
 
                     default:
