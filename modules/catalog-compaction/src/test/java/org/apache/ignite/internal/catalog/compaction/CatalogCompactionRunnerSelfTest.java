@@ -73,6 +73,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
@@ -391,6 +392,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         messagingService = mock(MessagingService.class);
         logicalTopologyService = mock(LogicalTopologyService.class);
         placementDriver = mock(PlacementDriver.class);
+
+        ReplicaService replicaService = mock(ReplicaService.class);
         CatalogCompactionMessagesFactory messagesFactory = new CatalogCompactionMessagesFactory();
 
         when(messagingService.invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong()))
@@ -409,7 +412,9 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                         }
 
                         return messagesFactory.catalogCompactionMinimumTimesResponse()
-                                .minimumRequiredTime(((Long) obj)).build();
+                                .minimumRequiredTime(((Long) obj))
+                                .minimumActiveTxTime(clockService.nowLong())
+                                .build();
                     });
                 });
 
@@ -424,13 +429,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         when(logicalTopologyService.localLogicalTopology()).thenReturn(logicalTop);
 
+        when(replicaService.invoke(any(String.class), any(ReplicaRequest.class))).thenReturn(CompletableFutures.nullCompletedFuture());
+
         CatalogCompactionRunner runner = new CatalogCompactionRunner(
                 localNode.name(),
                 catalogManager,
                 messagingService,
                 logicalTopologyService,
                 placementDriver,
-                mock(ReplicaService.class),
+                replicaService,
                 clockService,
                 ForkJoinPool.commonPool(),
                 () -> null,

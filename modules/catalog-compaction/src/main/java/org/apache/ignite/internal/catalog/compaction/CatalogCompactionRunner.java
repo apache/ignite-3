@@ -27,6 +27,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -176,12 +177,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         messagingService.addMessageHandler(CatalogCompactionMessageGroup.class, (message, sender, correlationId) -> {
             assert message.groupType() == CatalogCompactionMessageGroup.GROUP_TYPE : message.groupType();
-            assert correlationId != null;
 
             if (message.messageType() == CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST) {
+                assert correlationId != null;
+
                 CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                         .minimumRequiredTime(localMinTimeProvider.time())
-                        .minimumActiveTxTime(localActiveRwTxMinBeginTimeProvider.minimumBeginTime())
+                        .minimumActiveTxTime(computeLocalMinTxBeginTime())
                         .build();
 
                 messagingService.respond(sender, response, correlationId);
@@ -262,7 +264,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinimum)
                 .thenComposeAsync(timeHolder -> {
                     long minRequiredTime = timeHolder.minRequiredTime;
-                    HybridTimestamp minActiveTxStartTime = timeHolder.minActiveTxStartTime;
+                    long minActiveTxStartTime = timeHolder.minActiveTxBeginTime;
                     Catalog catalog = catalogManagerHelper.catalogByTsNullable(minRequiredTime);
 
                     CompletableFuture<Boolean> catalogCompactionFut;
@@ -283,10 +285,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                 }
                             }
                         });
-                    }
-
-                    if (minActiveTxStartTime == null) {
-                        return catalogCompactionFut.thenApply(ignore -> null);
                     }
 
                     CompletableFuture<Void> propagateToReplicasFut = propagateTimeToReplicas(minActiveTxStartTime)
@@ -324,7 +322,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
                 .thenApply(ignore -> {
                     long globalMinimumRequiredTime = localMinimumRequiredTime;
-                    HybridTimestamp globalMinimumActiveTxTime = localActiveRwTxMinBeginTimeProvider.minimumBeginTime();
+                    long globalMinimumActiveTxTime = computeLocalMinTxBeginTime();
 
                     for (CompletableFuture<CatalogCompactionMinimumTimesResponse> fut : responseFutures) {
                         CatalogCompactionMinimumTimesResponse response = fut.join();
@@ -333,12 +331,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             globalMinimumRequiredTime = response.minimumRequiredTime();
                         }
 
-                        HybridTimestamp responseMinActiveTxTime = response.minimumActiveTxTime();
-
-                        if (responseMinActiveTxTime != null) {
-                            if (globalMinimumActiveTxTime == null || responseMinActiveTxTime.compareTo(globalMinimumActiveTxTime) < 0) {
-                                globalMinimumActiveTxTime = response.minimumActiveTxTime();
-                            }
+                        if (response.minimumActiveTxTime() < globalMinimumActiveTxTime) {
+                            globalMinimumActiveTxTime = response.minimumActiveTxTime();
                         }
                     }
 
@@ -412,15 +406,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
-    CompletableFuture<Void> propagateTimeToReplicas(HybridTimestamp minimumRequiredTime) {
+    CompletableFuture<Void> propagateTimeToReplicas(long minimumRequiredTime) {
         Map<Integer, Integer> tablesWithPartitions = catalogManagerHelper.collectTablesWithPartitionsBetween(
-                minimumRequiredTime.longValue(),
+                minimumRequiredTime,
                 clockService.nowLong()
         );
 
         return invokeOnReplicas(
                 tablesWithPartitions.entrySet().iterator(),
-                minimumRequiredTime.longValue(),
+                minimumRequiredTime,
                 clockService.now()
         );
     }
@@ -486,6 +480,17 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 });
     }
 
+    private long computeLocalMinTxBeginTime() {
+        // To help compaction progress when there are no active RW transactions,
+        // it is safe to return the current time as minimum tx begin time.
+        HybridTimestamp beforeDetermineTxTime = clockService.now();
+
+        return Objects.requireNonNullElse(
+                localActiveRwTxMinBeginTimeProvider.minimumBeginTime(),
+                beforeDetermineTxTime
+        ).longValue();
+    }
+
     private static void throwAssignmentsNotReadyException(TablePartitionId replicationGroupId) {
         throw new IllegalStateException("Cannot get assignments for table "
                 + "(replication group=" + replicationGroupId + ").");
@@ -500,11 +505,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     static class TimeHolder {
         final long minRequiredTime;
-        final @Nullable HybridTimestamp minActiveTxStartTime;
+        final long minActiveTxBeginTime;
 
-        private TimeHolder(long minRequiredTime, @Nullable HybridTimestamp minActiveTxStartTime) {
+        private TimeHolder(long minRequiredTime, long minActiveTxBeginTime) {
             this.minRequiredTime = minRequiredTime;
-            this.minActiveTxStartTime = minActiveTxStartTime;
+            this.minActiveTxBeginTime = minActiveTxBeginTime;
         }
     }
 }

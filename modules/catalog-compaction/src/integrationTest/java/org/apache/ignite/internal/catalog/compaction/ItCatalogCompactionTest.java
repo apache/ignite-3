@@ -21,11 +21,13 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -34,6 +36,7 @@ import it.unimi.dsi.fastutil.ints.Int2IntMap.Entry;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -86,7 +89,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(minRequiredCatalog.time());
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToReplicas(expectedTime);
+                    .propagateTimeToReplicas(expectedTime.longValue());
 
             assertThat(fut, willCompleteSuccessfully());
 
@@ -104,7 +107,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime);
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToReplicas(expectedTime);
+                    .propagateTimeToReplicas(expectedTime.longValue());
 
             assertThat(fut, willCompleteSuccessfully());
 
@@ -116,7 +119,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime - 1);
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToReplicas(expectedTime);
+                    .propagateTimeToReplicas(expectedTime.longValue());
 
             assertThat(fut, willCompleteSuccessfully());
 
@@ -145,28 +148,38 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxStartTime, equalTo(tx1.startTimestamp()));
+            assertThat(timeHolder.minActiveTxBeginTime, is(tx1.startTimestamp().longValue()));
         });
 
         tx1.rollback();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxStartTime, equalTo(tx2.startTimestamp()));
+            assertThat(timeHolder.minActiveTxBeginTime, is(tx2.startTimestamp().longValue()));
         });
 
         tx2.commit();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxStartTime, equalTo(tx3.startTimestamp()));
+            assertThat(timeHolder.minActiveTxBeginTime, is(tx3.startTimestamp().longValue()));
         });
 
         tx3.rollback();
 
+        // Since there are no active RW transactions in the cluster, the minimum time will be min(now()) across all nodes.
         compactors.forEach(compactor -> {
+            long minTime = Stream.of(node0, node1, node2).map(node -> node.clockService().nowLong()).min(Long::compareTo).orElseThrow();
+
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));
-            assertThat(timeHolder.minActiveTxStartTime, is(nullValue()));
+
+            long maxTime = Stream.of(node0, node1, node2).map(node -> node.clockService().nowLong()).min(Long::compareTo).orElseThrow();
+
+            // Read-only transactions are not counted,
+            assertThat(timeHolder.minActiveTxBeginTime, greaterThan(readonlyTx.startTimestamp().longValue()));
+
+            assertThat(timeHolder.minActiveTxBeginTime, greaterThanOrEqualTo(minTime));
+            assertThat(timeHolder.minActiveTxBeginTime, lessThanOrEqualTo(maxTime));
         });
 
         readonlyTx.rollback();

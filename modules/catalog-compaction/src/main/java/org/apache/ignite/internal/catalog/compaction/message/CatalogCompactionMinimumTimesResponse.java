@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Response message containing timestamps from the entire cluster required to safely perform catalog compaction.
@@ -37,5 +35,5 @@ public interface CatalogCompactionMinimumTimesResponse extends NetworkMessage {
     long minimumRequiredTime();
 
     /** Returns node's minimum starting time among locally started active RW transactions. */
-    @Nullable HybridTimestamp minimumActiveTxTime();
+    long minimumActiveTxTime();
 }
