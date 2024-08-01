@@ -350,7 +350,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled
+    // TODO: change the ticket
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22115")
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
