@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
-import static org.apache.ignite.internal.sql.engine.util.Commons.simpleKeyValueOptimization;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -148,13 +147,11 @@ public final class PlannerHelper {
                 // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,
                 // thus if result meets our expectation, then return the result, otherwise discard it and
                 // proceed with regular flow
-                if (simpleKeyValueOptimization()) {
-                    RelNode simpleOperation = planner.transform(PlannerPhase.HEP_TO_SIMPLE_KEY_VALUE_OPERATION, rel.getTraitSet(), rel);
+/*                RelNode simpleOperation = planner.transform(PlannerPhase.HEP_TO_SIMPLE_KEY_VALUE_OPERATION, rel.getTraitSet(), rel);
 
-                    if (simpleOperation instanceof IgniteRel) {
-                        return (IgniteRel) simpleOperation;
-                    }
-                }
+                if (simpleOperation instanceof IgniteRel) {
+                    return (IgniteRel) simpleOperation;
+                }*/
             }
 
             RelTraitSet desired = rel.getCluster().traitSet()

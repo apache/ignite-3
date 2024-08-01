@@ -36,22 +36,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexFieldAccess;
+import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
+import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -156,7 +161,8 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     }
 
     private static class ModifyNodeShuttle extends IgniteRelShuttle {
-        List<RexNode> projections = null;
+        List<List<RexNode>> projections = null;
+        List<List<RexNode>> mappingProjections = null;
         List<List<RexNode>> expressions = null;
         boolean unionRaised = false;
         IgniteRel previous = null;
@@ -172,18 +178,25 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteProject rel) {
-            if (!unionRaised) {
+            if (unionRaised) {
+                unionRaised = false;
                 // unexpected branch
                 if (projections != null) {
-                    throw Util.FoundOne.NULL;
+                    //throw Util.FoundOne.NULL;
+                    mappingProjections = new ArrayList<>(projections);
+                    projections.clear();
                 }
-                projections = rel.getProjects();
+                if (projections == null) {
+                    projections = new ArrayList<>();
+                }
+                projections.add(rel.getProjects());
+                //projections = rel.getProjects();
             } else {
                 // projections after union
-                if (expressions == null) {
-                    expressions = new ArrayList<>();
+                if (projections == null) {
+                    projections = new ArrayList<>();
                 }
-                expressions.add(rel.getProjects());
+                projections.add(rel.getProjects());
             }
 
             return super.visit(rel);
@@ -196,9 +209,12 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                 expressions = new ArrayList<>();
             }
 
-            List<List<RexNode>> values = Commons.cast(rel.getTuples());
+            //List<RexNode> values = Commons.cast(rel.getTuples());
+            //var values = rel.getTuples();
 
-            expressions.addAll(values);
+            for (List<RexLiteral> values : rel.getTuples()) {
+                expressions.add(new ArrayList<>(values));
+            }
 
             return super.visit(rel);
         }
@@ -247,6 +263,23 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return rel;
         }
 
+        if (modify.mappingProjections != null) {
+            List<RexNode> mappingProjections = replaceInputRefs(modify.mappingProjections.get(0));
+            TargetMapping mapping = RexUtils.inversePermutation(mappingProjections, // !!!!
+                    table.getRowType(Commons.typeFactory()), true);
+
+            //assert mapping.size() == table.getRowType(Commons.typeFactory()).getFieldCount(); // to think !!
+
+            for (int i = 0; i < modify.projections.size(); ++i) {
+                List<RexNode> projections = modify.projections.get(i);
+                List<RexNode> newProjections = new ArrayList<>(projections);
+                for (int nodeIdx = 0; nodeIdx < projections.size(); ++nodeIdx) {
+                    newProjections.set(nodeIdx, projections.get(mapping.getSourceOpt(nodeIdx)));
+                }
+                modify.projections.set(i, newProjections);
+            }
+        }
+
         extractFromValues(rel.sourceId(), table, modify.projections, modify.expressions, rexBuilder);
 
         return super.visit(rel);
@@ -255,7 +288,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     private void extractFromValues(
             long sourceId,
             IgniteTable table,
-            @Nullable List<RexNode> projections,
+            @Nullable List<List<RexNode>> projections,
             @Nullable List<List<RexNode>> expressions,
             RexBuilder rexBuilder
     ) {
@@ -269,23 +302,71 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return;
         }
 
-        Mappings.TargetMapping mapping = null;
+        boolean processed = false;
 
         if (projections != null) {
-            List<RexNode> projectionsReplaced = replaceInputRefs(projections);
+            boolean refFound = false;
+            for (int i = 0; i < projections.size(); ++i) {
+                List<RexNode> projectionsReplaced = replaceInputRefs(projections.get(i));
+                refFound = !projectionsReplaced.equals(projections.get(i));
 
-            boolean refFound = !projectionsReplaced.equals(projections);
+                if (refFound) {
+                    projections.set(i, projectionsReplaced);
+                }
+            }
 
-            if (refFound) {
-                projections = replaceInputRefs(projections);
+            processed = true;
 
-                mapping = RexUtils.inversePermutation(projections,
-                        table.getRowType(Commons.typeFactory()), true);
+            if (projections.size() == 1) {
+                for (int i = 0; i < expressions.size(); ++i) {
+                    List<RexNode> prjNodes = projections.get(0);
+                    List<RexNode> exprNodes = expressions.get(i);
+                    List<RexNode> newExprNodes = new ArrayList<>(prjNodes);
+
+                    for (int prjIndex = 0; prjIndex < prjNodes.size(); ++prjIndex) {
+                        RexNode prjNode = prjNodes.get(prjIndex);
+                        if (prjNode instanceof RexDynamicParam) {
+                            newExprNodes.set(prjIndex, prjNode);
+                        } else if (prjNode instanceof RexLocalRef) {
+                            RexLocalRef node0 = (RexLocalRef) prjNode;
+                            newExprNodes.set(prjIndex, exprNodes.get(node0.getIndex()));
+                        }
+                    }
+
+                    expressions.set(i, newExprNodes);
+                }
+            } else {
+                //assert expressions.size() == 1;
+                for (int prjIndex = 0; prjIndex < projections.size(); ++prjIndex) {
+                    List<RexNode> prjNode = projections.get(prjIndex);
+                    expressions.set(prjIndex, prjNode);
+                }
+            }
+
+            // projections after union
+            if (processed) {
+/*                if (projections.size() > 1) {
+                    for (List<RexNode> exprs : expressions) {
+                        for (List<RexNode> prjs : projections) {
+                            for (int i = 0; i < prjs.size(); ++i) {
+                                RexNode node = prjs.get(i);
+                                if (node instanceof RexLocalRef) {
+                                    RexLocalRef node0 = (RexLocalRef) node;
+                                    prjs.set(i, exprs.get(node0.getIndex()));
+                                }
+                            }
+                        }
+                    }
+                }*/
+
+                //projections = projectionsReplaced;
+                //expressions = List.of(projections);
+
+/*                mapping = RexUtils.inversePermutation(projections,
+                        table.getRowType(Commons.typeFactory()), true);*/
             } else {
                 // no references are found, projections contains materialized data without any refs.
-                expressions = List.of(projections);
-
-                projections = null;
+                expressions = projections;
             }
         }
 
@@ -304,19 +385,15 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
             List<RexNode> andNodes = new ArrayList<>(keysList.size());
             for (int key : keysList) {
-                RexNode lit = items.get(mapping != null ? mapping.getSourceOpt(key) : key);
-                if (!isValueExpr(lit)) {
+                RexNode node = items.get(key);
+
+                if (!isValueExpr(node)) {
                     return;
                 }
 
-                RexLocalRef ref;
-                if (projections != null) {
-                    ref = (RexLocalRef) projections.get(mapping.getSourceOpt(key));
-                } else {
-                    ref = rexBuilder.makeLocalRef(rowTypes.getFieldList().get(key).getType(), key);
-                }
+                RexLocalRef ref = rexBuilder.makeLocalRef(rowTypes.getFieldList().get(key).getType(), key);
 
-                RexNode eq = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, lit);
+                RexNode eq = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, node);
                 andNodes.add(eq);
             }
             if (andNodes.size() > 1) {
@@ -326,7 +403,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                 andEqNodes.add(andNodes.get(0));
             }
 
-            dynParamsFound = items.stream().anyMatch(RexDynamicParam.class::isInstance);
+            //dynParamsFound = items.stream().anyMatch(RexDynamicParam.class::isInstance);
         }
 
         if (!nullOrEmpty(andEqNodes)) {

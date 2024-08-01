@@ -127,7 +127,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
     /** Basic test cases for partition pruning metadata extractor, insert case. */
     @ParameterizedTest(name = "INSERT: {0}")
     @EnumSource(TestCaseBasicInsert.class)
-    @WithSystemProperty(key = "SIMPLE_KEY_VALUE_OPERATION", value = "false")
+    @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
     public void testBasicInsertNoOptimization(TestCaseBasicInsert testCaseSimple) {
         checkPruningMetadata(testCaseSimple.data, SqlKind.INSERT);
     }
@@ -151,6 +151,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         SIMPLE_1a11("t VALUES ((SELECT 100), ?)", TABLE_C1_NULLABLE_C2),
         SIMPLE_1a12("t VALUES (?, (SELECT 100))", TABLE_C1_NULLABLE_C2),
         SIMPLE_1a13("t VALUES (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),
+        SIMPLE_1a141("t(c2, c1) VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]", "[c1=?3]"),
         SIMPLE_1a14("t VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?2]"),
         SIMPLE_1a15("t VALUES ('100', 1)", TABLE_C1_NULLABLE_C2, "[c1=100]"),
         SIMPLE_1a16("t VALUES ('100'::smallint, 1)", TABLE_C1_NULLABLE_C2, "[c1=100]"),
@@ -163,6 +164,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         SIMPLE_1a42("t VALUES (?, ?, ?)", TABLE_C1_C2_NULLABLE_C3, "[c1=?0, c2=?1]"),
         // values with projection and rex expression case
         SIMPLE_1a5("t(C2, C1) VALUES (null, 1), (null, 2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
+        SIMPLE_1a511("t(C2, C1, C3) VALUES (?, ?, 1), (?, ?, 2)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=?3, c2=?2]"),
         SIMPLE_1a51("t(C2, C1) VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]", "[c1=?3]"),
         SIMPLE_1a52("t(C2, C1) VALUES (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]"),
         SIMPLE_1a53("t(C2, C1) VALUES (?, ?), ((SELECT 1), (SELECT 1))", TABLE_C1_NULLABLE_C2),
@@ -191,6 +193,16 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         SIMPLE_1j3("t(C4, C2, C3, C1) VALUES (?, ?, ?, ?), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=?3, c2=?1, c3=?2]", "[c1=5, c2=3, c3=4]"),
 
         SIMPLE_1h1(String.format("t(C1) VALUES (%d)", Long.MAX_VALUE), TABLE_C1_NULLABLE_C2),
+        //
+        //TEST00("t(C1, C2, C3) SELECT ?, t.x, t.y FROM (SELECT ?::int, 103) as T(x, y)", TABLE_C1_C2_NULLABLE_C3),
+        TEST0("t(C1, C2, C3) SELECT ?, t.x, t.y FROM (SELECT 102, 103) as T(x, y)", TABLE_C1_C2_NULLABLE_C3, "[c1=?0, c2=102]"),
+        TEST1("t(C1, C2) SELECT ?, t.x FROM (SELECT 102) as T(x)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),
+        TEST2("t(C1, C2) SELECT 101, t.x FROM (SELECT 102) as T(x)", TABLE_C1_NULLABLE_C2, "[c1=101]"),
+        TEST3("t(C1, C2) SELECT t.x, 102 FROM (SELECT 101) as T(x)", TABLE_C1_NULLABLE_C2, "[c1=101]"),
+        TEST4("t(C1, C2) SELECT t.x, 102 FROM (SELECT ?::int) as T(x)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),
+        TEST5("t(C2, C1) SELECT 102, t.x FROM (SELECT ?::int) as T(x)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),
+        TEST6("t(C3, C2, C1) SELECT 103, t.y, t.x FROM (SELECT 101, 102) as T(x, y)", TABLE_C1_C2_NULLABLE_C3, "[c1=101, c2=102]"),
+        TEST7("t(C1, C2, C3) SELECT t.x, t.y, 103 FROM (SELECT ?::int, ?::int) as T(x, y)", TABLE_C1_C2_NULLABLE_C3, "[c1=?0, c2=?1]")
         ;
 
         private final TestCase data;
