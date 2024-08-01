@@ -131,12 +131,12 @@ namespace Apache.Ignite.Internal.Sql
                 ColumnType.Datetime => reader.GetDateTime(idx),
                 ColumnType.Timestamp => reader.GetTimestamp(idx),
                 ColumnType.Uuid => reader.GetGuid(idx),
-                ColumnType.Bitmask => reader.GetBitmask(idx),
                 ColumnType.String => reader.GetString(idx),
                 ColumnType.ByteArray => reader.GetBytes(idx),
                 ColumnType.Period => reader.GetPeriod(idx),
                 ColumnType.Duration => reader.GetDuration(idx),
-                ColumnType.Number => reader.GetNumber(idx),
+                ColumnType.Bitmask => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type."),
+                ColumnType.Number => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type."),
                 _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
             };
         }

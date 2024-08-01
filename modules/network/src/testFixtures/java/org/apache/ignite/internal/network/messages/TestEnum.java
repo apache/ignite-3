@@ -15,32 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testobjects;
+package org.apache.ignite.internal.network.messages;
 
-import java.util.BitSet;
+/** Test enum. */
+public enum TestEnum {
+    ONE,
+    TWO,
+    THREE;
 
-/**
- * Test object.
- */
-public class TestBitmaskObject {
-    private final int key;
+    /** Cached array with all enum values. */
+    private static final TestEnum[] VALUES = values();
 
-    private final BitSet bitmaskCol;
+    /**
+     * Returns the enumerated value from its ordinal.
+     *
+     * @param ordinal Ordinal of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     */
+    public static TestEnum fromOrdinal(int ordinal) throws IllegalArgumentException {
+        if (ordinal < 0 || ordinal >= VALUES.length) {
+            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+        }
 
-    public TestBitmaskObject() {
-        this(0, new BitSet(0));
-    }
-
-    public TestBitmaskObject(int key, BitSet bitmaskCol) {
-        this.key = key;
-        this.bitmaskCol = bitmaskCol;
-    }
-
-    public int key() {
-        return key;
-    }
-
-    public BitSet bitmaskCol() {
-        return bitmaskCol;
+        return VALUES[ordinal];
     }
 }

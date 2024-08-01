@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
@@ -37,7 +36,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,9 +61,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -111,7 +106,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -145,8 +139,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     private CatalogManager catalogManager;
-
-    private ScheduledExecutorService rebalanceScheduler;
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
@@ -281,9 +273,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             return completedFuture(result);
         }).when(metaStorageManager).getAll(any());
-
-        rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(nodeName, "test-rebalance-scheduler", logger()));
     }
 
     @AfterEach
@@ -292,8 +281,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 catalogManager == null ? null :
                         () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close,
-                rebalanceEngine == null ? null : rebalanceEngine::stop,
-                () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS)
+                rebalanceEngine == null ? null : rebalanceEngine::stop
         );
     }
 
@@ -501,8 +489,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 new IgniteSpinBusyLock(),
                 metaStorageManager,
                 distributionZoneManager,
-                catalogManager,
-                rebalanceScheduler
+                catalogManager
         );
     }
 

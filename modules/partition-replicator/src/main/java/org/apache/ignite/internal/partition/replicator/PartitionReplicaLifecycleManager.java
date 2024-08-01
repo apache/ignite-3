@@ -1027,7 +1027,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                                 PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                                CompletableFuture<Void> voidCompletableFuture = raftClient.changePeersAsync(newConfiguration,
+                                CompletableFuture<Void> voidCompletableFuture = raftClient.changePeersAndLearnersAsync(newConfiguration,
                                         leaderWithTerm.term()).exceptionally(e -> {
                                             return null;
                                         });

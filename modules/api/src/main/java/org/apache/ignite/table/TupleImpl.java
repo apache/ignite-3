@@ -24,7 +24,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -270,18 +269,6 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public UUID uuidValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
         return value(columnIndex);
     }
 

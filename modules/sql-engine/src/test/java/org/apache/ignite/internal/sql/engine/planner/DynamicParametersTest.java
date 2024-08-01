@@ -27,6 +27,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.VarlenNativeType;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.TestFactory;
 /**
  * Test cases for dynamic parameters.
  */
+@WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
 public class DynamicParametersTest extends AbstractPlannerTest {
 
     /**
