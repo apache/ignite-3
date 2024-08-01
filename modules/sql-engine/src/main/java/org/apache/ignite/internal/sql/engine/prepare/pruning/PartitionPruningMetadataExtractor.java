@@ -161,10 +161,8 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     }
 
     private static class ModifyNodeShuttle extends IgniteRelShuttle {
-        List<List<RexNode>> projections = null;
         List<RexNode> mappingProjections = null;
-        List<List<RexNode>> expressions = null;
-        TargetMapping mapping;
+        @Nullable TargetMapping mapping;
         Deque<Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>>> projectsExpressions = new ArrayDeque<>();
         boolean unionRaised = false;
         IgniteRel previous = null;
@@ -182,6 +180,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         public IgniteRel visit(IgniteProject rel) {
             if (unionRaised) {
                 if (mappingProjections == null) {
+                    // found projection before union, thus mapping is required
                     if (!projectsExpressions.isEmpty()) {
                         assert projectsExpressions.size() == 1 : "unexpected projections";
                         mappingProjections = projectsExpressions.poll().getFirst();
@@ -255,6 +254,8 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
         IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
 
+        assert table != null;
+
         RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
 
         ModifyNodeShuttle modify = new ModifyNodeShuttle();
@@ -277,7 +278,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             long sourceId,
             IgniteTable table,
             Queue<Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>>> projectsExpressions,
-            TargetMapping mapping,
+            @Nullable TargetMapping mapping,
             RexBuilder rexBuilder
     ) {
         if (projectsExpressions.isEmpty()) {
@@ -292,57 +293,41 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
         List<List<RexNode>> finalExpressions = new ArrayList<>();
 
-        boolean projectsFound = projectsExpressions.stream().anyMatch(p -> p.getFirst() != null);
+        for (Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>> prjExp : projectsExpressions) {
+            @Nullable List<RexNode> projections = prjExp.getFirst();
+            @Nullable List<List<RexNode>> expressions = prjExp.getSecond();
 
-        if (projectsFound) {
-            for (Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>> prjExp : projectsExpressions) {
-                @Nullable List<RexNode> projections1 = prjExp.getFirst();
-                @Nullable List<List<RexNode>> expressions1 = prjExp.getSecond();
+            if (projections != null) {
+                List<RexNode> projectionsReplaced = replaceInputRefs(projections);
 
-                if (projections1 != null) {
-                    List<RexNode> projectionsReplaced = replaceInputRefs(projections1);
+                boolean refFound = !projectionsReplaced.equals(projections);
 
-                    boolean refFound = !projectionsReplaced.equals(projections1);
+                projections = projectionsReplaced;
 
-                    projections1 = projectionsReplaced;
+                assert expressions != null;
 
-                    assert expressions1 != null;
+                for (List<RexNode> exp : expressions) {
+                    if (!refFound) {
+                        // no references are found, all important in projections
+                        finalExpressions.add(projections);
+                    } else {
+                        // otherwise exchange references with appropriate representations
+                        List<RexNode> modifiedExpressions = new ArrayList<>(projections);
 
-                    for (List<RexNode> exp : expressions1) {
-                        if (!refFound) {
-                            finalExpressions.add(projections1);
-                        } else {
-                            List<RexNode> newExprNodes = new ArrayList<>(projections1);
+                        for (int i = 0; i < projections.size(); ++i) {
+                            RexNode prjNode = projections.get(i);
 
-                            for (int prjIndex = 0; prjIndex < projections1.size(); ++prjIndex) {
-                                RexNode prjNode = projections1.get(prjIndex);
-                                if (prjNode instanceof RexLocalRef) {
-                                    RexLocalRef node0 = (RexLocalRef) prjNode;
-                                    newExprNodes.set(prjIndex, exp.get(node0.getIndex()));
-                                }
+                            if (prjNode instanceof RexLocalRef) {
+                                RexLocalRef node0 = (RexLocalRef) prjNode;
+                                modifiedExpressions.set(i, exp.get(node0.getIndex()));
                             }
+                        }
 
-                            finalExpressions.add(newExprNodes);
-                        }
-                    }
-                } else {
-                    for (List<RexNode> exp : expressions1) {
-                        if (exp != null) {
-                            finalExpressions.add(exp);
-                        }
+                        finalExpressions.add(modifiedExpressions);
                     }
                 }
-            }
-
-
-        } else {
-            for (Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>> prjExp : projectsExpressions) {
-                @Nullable List<List<RexNode>> expressions1 = prjExp.getSecond();
-                for (List<RexNode> exp : expressions1) {
-                    if (exp != null) {
-                        finalExpressions.add(exp);
-                    }
-                }
+            } else if (expressions != null) {
+                finalExpressions.addAll(expressions);
             }
         }
 
@@ -350,15 +335,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
         RelDataType rowTypes = table.getRowType(Commons.typeFactory());
 
-        boolean dynParamsFound = false;
-
         for (List<RexNode> items : finalExpressions) {
-            // if dynamic parameters are present seems we need to skip the next one gathered from values and useless here.
-            if (dynParamsFound) {
-                dynParamsFound = false;
-                continue;
-            }
-
             List<RexNode> andNodes = new ArrayList<>(keysList.size());
             for (int key : keysList) {
                 RexNode node = items.get(mapping != null ? mapping.getSourceOpt(key) : key);
@@ -378,8 +355,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             } else {
                 andEqNodes.add(andNodes.get(0));
             }
-
-            //dynParamsFound = items.stream().anyMatch(RexDynamicParam.class::isInstance);
         }
 
         if (!nullOrEmpty(andEqNodes)) {
