@@ -1077,7 +1077,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             return placementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
                     .thenApply(replicaMeta -> replicaMeta != null
                             && replicaMeta.getLeaseholderId() != null
-                            && replicaMeta.getLeaseholderId().equals(localNode().name()));
+                            && replicaMeta.getLeaseholderId().equals(localNode().id()));
         } catch (IllegalArgumentException e) {
             long currentSafeTimeMs = currentSafeTime.longValue();
 
