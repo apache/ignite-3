@@ -276,8 +276,6 @@ public class ColocationHashTests : IgniteTestsBase
             Guid => ColumnType.Uuid,
             byte[] => ColumnType.ByteArray,
             string => ColumnType.String,
-            BigInteger => ColumnType.Number,
-            BitArray => ColumnType.Bitmask,
             LocalTime => ColumnType.Time,
             LocalDate => ColumnType.Date,
             LocalDateTime => ColumnType.Datetime,
