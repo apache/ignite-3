@@ -30,6 +30,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Integration metrics tests.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItMetricsTest extends BaseIgniteAbstractTest {
     @WorkDirectory
@@ -47,6 +50,10 @@ public class ItMetricsTest extends BaseIgniteAbstractTest {
         cluster.shutdown();
     }
 
+    /**
+     * Test that will ensure that metric exporter will be started once only despite the fact that start is triggered
+     * within both {@code MetricManager#start} and {@code IgniteImpl#recoverComponentsStateOnStart()}.
+     */
     @Test
     void testMetricExporterStartsOnceOnly() {
         cluster.startAndInit(1, builder -> builder.clusterConfiguration(
