@@ -119,14 +119,14 @@ import static java.util.Objects.requireNonNull;
  *      Removed original casts to numeric types and used own ConverterUtils.convert
  *      Added pad-truncate from CHARACTER to INTERVAL types
  *      Added time-zone dependency for cast from CHARACTER types to TIMESTAMP WITH LOCAL TIMEZONE (see point 3)
- *      Cast TIMESTAMP to TIMESTAMP WITH LOCAL TIMEZONE use our own implementation, see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
+ *      Cast TIMESTAMP to TIMESTAMP WITH LOCAL TIMEZONE use our implementation, see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
  * 6. Translate literals changes:
  *      DECIMAL use own implementation see IgniteSqlFunctions.class, “toBigDecimal"
  *      TIMESTAMP_WITH_LOCAL_TIME_ZONE use own implementation
  *      use Primitives.convertPrimitiveExact instead of primitive.number method
  * 7. Reworked implementation of dynamic parameters:
  *      IgniteMethod.CONTEXT_GET_PARAMETER_VALUE instead of BuiltInMethod.DATA_CONTEXT_GET
- * 	    added conversation for Decimals
+ *      added conversation for Decimals
  */
 public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result> {
     public static final Map<Method, SqlOperator> JAVA_TO_SQL_METHOD_MAP =
