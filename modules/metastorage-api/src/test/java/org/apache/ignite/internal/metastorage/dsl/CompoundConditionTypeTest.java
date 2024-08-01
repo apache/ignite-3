@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
@@ -27,21 +26,10 @@ import org.junit.jupiter.api.Test;
  * Tests that persisted enum ordinals have not been accidentally changed by a developer.
  */
 class CompoundConditionTypeTest {
+    /** Checks that the transferable ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
-    void testOrdinal() {
-        assertEquals(0, CompoundConditionType.AND.ordinal());
-
-        assertEquals(1, CompoundConditionType.OR.ordinal());
-    }
-
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
-    @Test
-    void testFromOrdinal() {
-        assertEquals(CompoundConditionType.AND, CompoundConditionType.fromOrdinal(0));
-
-        assertEquals(CompoundConditionType.OR, CompoundConditionType.fromOrdinal(1));
-
-        assertThrows(IllegalArgumentException.class, () -> CompoundConditionType.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> CompoundConditionType.fromOrdinal(2));
+    void testTransferableId() {
+        assertEquals(0, CompoundConditionType.AND.transferableId());
+        assertEquals(1, CompoundConditionType.OR.transferableId());
     }
 }

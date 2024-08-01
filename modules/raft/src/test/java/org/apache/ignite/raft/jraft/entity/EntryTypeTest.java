@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
@@ -26,18 +25,12 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link EntryType} testing. */
 public class EntryTypeTest {
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    /** Checks that the transferable ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
-    void testFromOrdinal() {
-        assertEquals(EntryType.ENTRY_TYPE_UNKNOWN, EntryType.fromOrdinal(0));
-
-        assertEquals(EntryType.ENTRY_TYPE_NO_OP, EntryType.fromOrdinal(1));
-
-        assertEquals(EntryType.ENTRY_TYPE_DATA, EntryType.fromOrdinal(2));
-
-        assertEquals(EntryType.ENTRY_TYPE_CONFIGURATION, EntryType.fromOrdinal(3));
-
-        assertThrows(IllegalArgumentException.class, () -> EntryType.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> EntryType.fromOrdinal(4));
+    void testTransferableId() {
+        assertEquals(0, EntryType.ENTRY_TYPE_UNKNOWN.transferableId());
+        assertEquals(1, EntryType.ENTRY_TYPE_NO_OP.transferableId());
+        assertEquals(2, EntryType.ENTRY_TYPE_DATA.transferableId());
+        assertEquals(3, EntryType.ENTRY_TYPE_CONFIGURATION.transferableId());
     }
 }

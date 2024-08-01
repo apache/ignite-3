@@ -19,6 +19,7 @@
 
 package org.apache.ignite.raft.jraft.entity;
 
+import org.apache.ignite.internal.network.annotations.TransferableEnum;
 import org.jetbrains.annotations.Nullable;
 
 public final class EnumOutter {
@@ -28,27 +29,23 @@ public final class EnumOutter {
     /**
      * Protobuf enum {@code jraft.EntryType}
      */
-    public enum EntryType {
+    public enum EntryType implements TransferableEnum {
         /**
          * <code>ENTRY_TYPE_UNKNOWN = 0;</code>
          */
-        ENTRY_TYPE_UNKNOWN(0),
+        ENTRY_TYPE_UNKNOWN(0, 0),
         /**
          * <code>ENTRY_TYPE_NO_OP = 1;</code>
          */
-        ENTRY_TYPE_NO_OP(1),
+        ENTRY_TYPE_NO_OP(1, 1),
         /**
          * <code>ENTRY_TYPE_DATA = 2;</code>
          */
-        ENTRY_TYPE_DATA(2),
+        ENTRY_TYPE_DATA(2, 2),
         /**
          * <code>ENTRY_TYPE_CONFIGURATION = 3;</code>
          */
-        ENTRY_TYPE_CONFIGURATION(3),
-        ;
-
-        /** Cached array with all enum values. */
-        private static final EntryType[] VALUES = values();
+        ENTRY_TYPE_CONFIGURATION(3, 3);
 
         public final int getNumber() {
             return value;
@@ -77,24 +74,17 @@ public final class EnumOutter {
             }
         }
 
-        /**
-        * Returns the enumerated value from its ordinal.
-        *
-        * @param ordinal Ordinal of enumeration constant.
-        * @throws IllegalArgumentException If no enumeration constant by ordinal.
-        */
-        public static EntryType fromOrdinal(int ordinal) throws IllegalArgumentException {
-            if (ordinal < 0 || ordinal >= VALUES.length) {
-                throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
-            }
-
-            return VALUES[ordinal];
-        }
-
         private final int value;
 
-        private EntryType(int value) {
+        private final int transferableId;
+
+        EntryType(int value, int transferableId) {
             this.value = value;
+            this.transferableId = transferableId;
+        }
+        @Override
+        public int transferableId() {
+            return transferableId;
         }
     }
 

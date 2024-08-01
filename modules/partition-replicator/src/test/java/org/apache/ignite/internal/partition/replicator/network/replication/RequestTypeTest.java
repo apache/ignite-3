@@ -15,59 +15,36 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
 
 /** For {@link RequestType} testing. */
 public class RequestTypeTest {
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    /** Checks that the transferable ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
-    void testFromOrdinal() {
-        assertEquals(RequestType.RW_GET, RequestType.fromOrdinal(0));
-
-        assertEquals(RequestType.RW_GET_ALL, RequestType.fromOrdinal(1));
-
-        assertEquals(RequestType.RW_DELETE, RequestType.fromOrdinal(2));
-
-        assertEquals(RequestType.RW_DELETE_ALL, RequestType.fromOrdinal(3));
-
-        assertEquals(RequestType.RW_DELETE_EXACT, RequestType.fromOrdinal(4));
-
-        assertEquals(RequestType.RW_DELETE_EXACT_ALL, RequestType.fromOrdinal(5));
-
-        assertEquals(RequestType.RW_INSERT, RequestType.fromOrdinal(6));
-
-        assertEquals(RequestType.RW_INSERT_ALL, RequestType.fromOrdinal(7));
-
-        assertEquals(RequestType.RW_UPSERT, RequestType.fromOrdinal(8));
-
-        assertEquals(RequestType.RW_UPSERT_ALL, RequestType.fromOrdinal(9));
-
-        assertEquals(RequestType.RW_REPLACE, RequestType.fromOrdinal(10));
-
-        assertEquals(RequestType.RW_REPLACE_IF_EXIST, RequestType.fromOrdinal(11));
-
-        assertEquals(RequestType.RW_GET_AND_DELETE, RequestType.fromOrdinal(12));
-
-        assertEquals(RequestType.RW_GET_AND_REPLACE, RequestType.fromOrdinal(13));
-
-        assertEquals(RequestType.RW_GET_AND_UPSERT, RequestType.fromOrdinal(14));
-
-        assertEquals(RequestType.RW_SCAN, RequestType.fromOrdinal(15));
-
-        assertEquals(RequestType.RO_GET, RequestType.fromOrdinal(16));
-
-        assertEquals(RequestType.RO_GET_ALL, RequestType.fromOrdinal(17));
-
-        assertEquals(RequestType.RO_SCAN, RequestType.fromOrdinal(18));
-
-        assertThrows(IllegalArgumentException.class, () -> RequestType.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> RequestType.fromOrdinal(19));
+    void testTransferableId() {
+        assertEquals(0, RequestType.RW_GET.transferableId());
+        assertEquals(1, RequestType.RW_GET_ALL.transferableId());
+        assertEquals(2, RequestType.RW_DELETE.transferableId());
+        assertEquals(3, RequestType.RW_DELETE_ALL.transferableId());
+        assertEquals(4, RequestType.RW_DELETE_EXACT.transferableId());
+        assertEquals(5, RequestType.RW_DELETE_EXACT_ALL.transferableId());
+        assertEquals(6, RequestType.RW_INSERT.transferableId());
+        assertEquals(7, RequestType.RW_INSERT_ALL.transferableId());
+        assertEquals(8, RequestType.RW_UPSERT.transferableId());
+        assertEquals(9, RequestType.RW_UPSERT_ALL.transferableId());
+        assertEquals(10, RequestType.RW_REPLACE.transferableId());
+        assertEquals(11, RequestType.RW_REPLACE_IF_EXIST.transferableId());
+        assertEquals(12, RequestType.RW_GET_AND_DELETE.transferableId());
+        assertEquals(13, RequestType.RW_GET_AND_REPLACE.transferableId());
+        assertEquals(14, RequestType.RW_GET_AND_UPSERT.transferableId());
+        assertEquals(15, RequestType.RW_SCAN.transferableId());
+        assertEquals(16, RequestType.RO_GET.transferableId());
+        assertEquals(17, RequestType.RO_GET_ALL.transferableId());
+        assertEquals(18, RequestType.RO_SCAN.transferableId());
     }
 }

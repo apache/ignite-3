@@ -32,8 +32,10 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transient;
@@ -168,12 +170,12 @@ public class MessageDeserializerGenerator {
                 if (typeUtils.isEnum(getter.getReturnType())) {
                     TypeName enumType = TypeName.get(getter.getReturnType());
 
-                    ClassName enumUtilityType = ClassName.bestGuess(enumType.toString() + TRANSFERABLE_UTILS_CLASS_POSTFIX);
+                    ClassName enumTransferableUtils = getEnumTransferableUtils(getter.getReturnType());
 
                     method
                             .addStatement(
                                     "$T tmp = transferableIdShifted == 0 ? null : $T.$L(transferableIdShifted - 1)",
-                                    enumType, enumUtilityType, FORM_TRANSFERABLE_ID_METHOD_NAME
+                                    enumType, enumTransferableUtils, FORM_TRANSFERABLE_ID_METHOD_NAME
                             )
                             .addCode("\n");
                 }
@@ -209,5 +211,13 @@ public class MessageDeserializerGenerator {
                 .add("$T tmp = reader.", varType)
                 .add(methodResolver.resolveReadMethod(getter))
                 .build();
+    }
+
+    private ClassName getEnumTransferableUtils(TypeMirror enumMirror) {
+        Element enumElement = typeUtils.types().asElement(enumMirror);
+
+        return ClassName.bestGuess(
+                messageGroup.packageName() + "." + enumElement.getSimpleName().toString() + TRANSFERABLE_UTILS_CLASS_POSTFIX
+        );
     }
 }

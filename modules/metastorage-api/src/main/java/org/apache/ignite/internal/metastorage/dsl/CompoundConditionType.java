@@ -17,27 +17,23 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import org.apache.ignite.internal.network.annotations.TransferableEnum;
+
 /**
  * Type of compound condition.
  */
-public enum CompoundConditionType {
-    AND,
-    OR;
+public enum CompoundConditionType implements TransferableEnum {
+    AND(0),
+    OR(1);
 
-    /** Cached array with all enum values. */
-    private static final CompoundConditionType[] VALUES = values();
+    private final int transferableId;
 
-    /**
-     * Returns the enumerated value from its ordinal.
-     *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
-     */
-    public static CompoundConditionType fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
-        }
+    CompoundConditionType(int transferableId) {
+        this.transferableId = transferableId;
+    }
 
-        return VALUES[ordinal];
+    @Override
+    public int transferableId() {
+        return transferableId;
     }
 }
