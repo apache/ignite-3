@@ -147,11 +147,11 @@ public final class PlannerHelper {
                 // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,
                 // thus if result meets our expectation, then return the result, otherwise discard it and
                 // proceed with regular flow
-/*                RelNode simpleOperation = planner.transform(PlannerPhase.HEP_TO_SIMPLE_KEY_VALUE_OPERATION, rel.getTraitSet(), rel);
+                RelNode simpleOperation = planner.transform(PlannerPhase.HEP_TO_SIMPLE_KEY_VALUE_OPERATION, rel.getTraitSet(), rel);
 
                 if (simpleOperation instanceof IgniteRel) {
                     return (IgniteRel) simpleOperation;
-                }*/
+                }
             }
 
             RelTraitSet desired = rel.getCluster().traitSet()

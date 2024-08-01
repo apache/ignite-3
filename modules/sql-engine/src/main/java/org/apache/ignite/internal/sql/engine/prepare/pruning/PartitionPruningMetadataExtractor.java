@@ -183,6 +183,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                     // found projection before union, thus mapping is required
                     if (!projectsExpressions.isEmpty()) {
                         assert projectsExpressions.size() == 1 : "unexpected projections";
+                        // erase projection and store it for mapping needs
                         mappingProjections = projectsExpressions.poll().getFirst();
                     } else {
                         mappingProjections = Collections.emptyList();
@@ -199,17 +200,14 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteValues rel) {
-            Pair<List<RexNode>, List<List<RexNode>>> head = projectsExpressions.pollLast();
+            Pair<List<RexNode>, List<List<RexNode>>> head = projectsExpressions.peekLast();
 
-            if (head == null) {
+            if (head == null || head.getSecond() != null) {
                 projectsExpressions.add(new Pair<>(null, Commons.cast(rel.getTuples())));
             } else {
-                if (head.getSecond() == null) {
-                    projectsExpressions.add(new Pair<>(head.getFirst(), Commons.cast(rel.getTuples())));
-                } else {
-                    projectsExpressions.add(head);
-                    projectsExpressions.add(new Pair<>(null, Commons.cast(rel.getTuples())));
-                }
+                // no projection without values are possible
+                projectsExpressions.pollLast();
+                projectsExpressions.add(new Pair<>(head.getFirst(), Commons.cast(rel.getTuples())));
             }
 
             return super.visit(rel);
@@ -331,7 +329,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             }
         }
 
-        List<RexNode> andEqNodes = new ArrayList<>();
+        List<RexNode> andEqNodes = new ArrayList<>(finalExpressions.size());
 
         RelDataType rowTypes = table.getRowType(Commons.typeFactory());
 
