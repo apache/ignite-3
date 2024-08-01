@@ -23,8 +23,8 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncResponse;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 
@@ -33,24 +33,24 @@ import static java.util.stream.Collectors.toList;
 /**
  * Change peers request processor.
  */
-public class ChangePeersAsyncRequestProcessor extends BaseCliRequestProcessor<ChangePeersAsyncRequest> {
+public class ChangePeersAndLearnersAsyncRequestProcessor extends BaseCliRequestProcessor<ChangePeersAndLearnersAsyncRequest> {
 
-    public ChangePeersAsyncRequestProcessor(Executor executor, RaftMessagesFactory msgFactory) {
+    public ChangePeersAndLearnersAsyncRequestProcessor(Executor executor, RaftMessagesFactory msgFactory) {
         super(executor, msgFactory);
     }
 
     @Override
-    protected String getPeerId(final ChangePeersAsyncRequest request) {
+    protected String getPeerId(final ChangePeersAndLearnersAsyncRequest request) {
         return request.leaderId();
     }
 
     @Override
-    protected String getGroupId(final ChangePeersAsyncRequest request) {
+    protected String getGroupId(final ChangePeersAndLearnersAsyncRequest request) {
         return request.groupId();
     }
 
     @Override
-    protected Message processRequest0(final CliRequestContext ctx, final ChangePeersAsyncRequest request,
+    protected Message processRequest0(final CliRequestContext ctx, final ChangePeersAndLearnersAsyncRequest request,
             final IgniteCliRpcRequestClosure done) {
         final List<PeerId> oldPeers = ctx.node.listPeers();
         final List<PeerId> oldLearners = ctx.node.listLearners();
@@ -80,15 +80,15 @@ public class ChangePeersAsyncRequestProcessor extends BaseCliRequestProcessor<Ch
 
         long term = request.term();
 
-        LOG.info("Receive ChangePeersAsyncRequest with term {} to {} from {}, new conf is {}", term, ctx.node.getNodeId(), done.getRpcCtx()
+        LOG.info("Receive ChangePeersAndLearnersAsyncRequest with term {} to {} from {}, new conf is {}", term, ctx.node.getNodeId(), done.getRpcCtx()
                 .getRemoteAddress(), conf);
 
-        ctx.node.changePeersAsync(conf, term, status -> {
+        ctx.node.changePeersAndLearnersAsync(conf, term, status -> {
             if (!status.isOk()) {
                 done.run(status);
             }
             else {
-                ChangePeersAsyncResponse resp = msgFactory().changePeersAsyncResponse()
+                ChangePeersAndLearnersAsyncResponse resp = msgFactory().changePeersAndLearnersAsyncResponse()
                         .oldPeersList(toStringList(oldPeers))
                         .newPeersList(toStringList(conf.getPeers()))
                         .oldLearnersList(toStringList(oldLearners))
@@ -107,6 +107,6 @@ public class ChangePeersAsyncRequestProcessor extends BaseCliRequestProcessor<Ch
 
     @Override
     public String interest() {
-        return ChangePeersAsyncRequest.class.getName();
+        return ChangePeersAndLearnersAsyncRequest.class.getName();
     }
 }
