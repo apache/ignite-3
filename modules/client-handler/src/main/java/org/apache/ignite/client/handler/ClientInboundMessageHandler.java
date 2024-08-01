@@ -824,13 +824,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     /** {@inheritDoc} */
     @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
-        // TODO: ??
-        // ctx.flush();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         if (cause instanceof SSLException || cause.getCause() instanceof SSLException) {
             metrics.sessionsRejectedTlsIncrement();
