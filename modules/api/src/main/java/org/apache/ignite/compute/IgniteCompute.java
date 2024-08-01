@@ -22,14 +22,12 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
-import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -169,25 +167,23 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param units Deployment units.
-     * @param taskClassName Map reduce task class name.
+     * @param taskDescriptor Map reduce task descriptor.
      * @param arg Task argument.
      * @return Task execution interface.
      */
-    <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg);
+    <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg);
 
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution. A shortcut for {@code submitMapReduce(...).resultAsync()}.
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param units Deployment units.
-     * @param taskClassName Map reduce task class name.
+     * @param taskDescriptor Map reduce task descriptor.
      * @param arg Task argument.
      * @return Task result future.
      */
-    default <T, R> CompletableFuture<R> executeMapReduceAsync(List<DeploymentUnit> units, String taskClassName, @Nullable T arg) {
-        return this.<T, R>submitMapReduce(units, taskClassName, arg).resultAsync();
+    default <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return submitMapReduce(taskDescriptor, arg).resultAsync();
     }
 
     /**
@@ -195,11 +191,11 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param units Deployment units.
-     * @param taskClassName Map reduce task class name.
+     * @param taskDescriptor Map reduce task descriptor.
      * @param arg Task argument.
      * @return Task result.
      * @throws ComputeException If there is any problem executing the task.
      */
-    <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, @Nullable T arg);
+    <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg);
+
 }

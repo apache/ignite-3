@@ -2217,7 +2217,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                                 PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                                return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
+                                return partGrpSvc.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term());
                             });
                 });
     }

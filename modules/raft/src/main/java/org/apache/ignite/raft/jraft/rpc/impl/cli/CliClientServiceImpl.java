@@ -25,8 +25,8 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersRequest;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
@@ -83,8 +83,8 @@ public class CliClientServiceImpl extends AbstractClientService implements CliCl
     }
 
     @Override
-    public Future<Message> changePeers(final PeerId peerId, final ChangePeersRequest request,
-        final RpcResponseClosure<ChangePeersResponse> done) {
+    public Future<Message> changePeersAndLearners(final PeerId peerId, final ChangePeersAndLearnersRequest request,
+        final RpcResponseClosure<ChangePeersAndLearnersResponse> done) {
         return invokeWithDone(peerId, request, done, this.cliOptions.getTimeoutMs());
     }
 

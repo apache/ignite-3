@@ -6,16 +6,20 @@
 statement ok
 SELECT CAST('100' AS TINYINT);
 
-statement error
+query I
 SELECT CAST('100.1' AS TINYINT);
+----
+100
 
-query T
+query I
 SELECT CAST(1e1 AS TINYINT);
 ----
 10
 
-statement error: Invalid input syntax for type TINYINT: "1e2"
+query I
 SELECT CAST('1e2' AS TINYINT);
+----
+100
 
 # overflow
 statement error
@@ -70,7 +74,7 @@ SELECT CAST(100.1::DOUBLE AS TINYINT);
 ----
 100
 
-statement error: Invalid input syntax for type TINYINT: "100x"
+statement error: Invalid input string for type TINYINT: "100x"
 SELECT CAST('100x' AS TINYINT);
 
 statement error: Cast function cannot convert value of type BINARY(1) to type TINYINT

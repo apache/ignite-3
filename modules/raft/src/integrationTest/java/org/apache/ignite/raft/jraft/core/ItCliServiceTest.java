@@ -337,7 +337,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeers(TestInfo testInfo) throws Exception {
+    public void testChangePeersAndLearners(TestInfo testInfo) throws Exception {
         List<TestPeer> newPeers = TestUtils.generatePeers(testInfo, 6);
         newPeers.removeIf(p -> conf.getPeerSet().contains(p.getPeerId()));
 
@@ -350,7 +350,14 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
         assertNotNull(oldLeaderNode);
         PeerId oldLeader = oldLeaderNode.getNodeId().getPeerId();
         assertNotNull(oldLeader);
-        Status status = cliService.changePeers(groupId, conf, new Configuration(newPeers.stream().map(TestPeer::getPeerId).collect(toList())));
+
+        Status status = cliService.changePeersAndLearners(
+                groupId,
+                conf,
+                new Configuration(newPeers.stream().map(TestPeer::getPeerId).collect(toList())),
+                oldLeaderNode.getCurrentTerm()
+        );
+
         assertTrue(status.isOk(), status.getErrorMsg());
         PeerId newLeader = cluster.waitAndGetLeader().getNodeId().getPeerId();
         assertNotEquals(oldLeader, newLeader);

@@ -244,7 +244,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.BIGINT_BIGINT)
-                        .opMatches(castTo(NativeTypes.INT64)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_1_0)
                         .opMatches(castTo(NativeTypes.INT64)),
@@ -500,7 +500,6 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1).opMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)));
         map.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3,
                 forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)));
-        map.put(NumericPair.BIGINT_BIGINT, forTypePair(NumericPair.BIGINT_BIGINT).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
         map.put(NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT)));
 
         return argsForUpdateWithLiteralValue().map(v -> map.getOrDefault(v.get()[0], v));
@@ -509,7 +508,6 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     private static Stream<Arguments> argsDyn() {
         // Difference between the original parameters.
         Map<NumericPair, Arguments> diff = Map.of(
-                NumericPair.BIGINT_BIGINT, forTypePair(NumericPair.BIGINT_BIGINT).opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
                 NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT))
         );
 

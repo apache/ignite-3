@@ -33,7 +33,6 @@ public final class RaftOutter {
     public interface EntryMeta extends Message {
         long term();
 
-        @Marshallable
         EnumOutter.EntryType type();
 
         @Nullable Collection<String> peersList();

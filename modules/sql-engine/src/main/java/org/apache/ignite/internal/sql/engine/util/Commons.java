@@ -125,6 +125,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
+    public static final String PART_COL_NAME = "__part";
 
     public static final int IN_BUFFER_SIZE = 512;
 
@@ -726,6 +727,18 @@ public final class Commons {
      */
     public static boolean implicitPkEnabled() {
         return IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
+    }
+
+    /**
+     * Checks whether a fast path optimizations are enabled or not.
+     *
+     * <p>Note: for test purpose only.
+     *
+     * @return A {@code true} if fast path optimizations are enabled, {@code false} otherwise.
+     */
+    public static boolean fastQueryOptimizationEnabled() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+        return IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
     }
 
     /**
