@@ -186,7 +186,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void ensureTimestampStoredInAllReplicas(HybridTimestamp expTime, int expTablesCount) throws InterruptedException {
-        Int2IntMap tablesWithPartitions = catalogManagerHelper().collectTablesWithPartitionsBetween(
+        Int2IntMap tablesWithPartitions = catalogManagerFacade().collectTablesWithPartitionsBetween(
                 expTime.longValue(),
                 CLUSTER.aliveNode().clockService().nowLong()
         );
@@ -220,7 +220,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    private static CatalogManagerCompactionFacade catalogManagerHelper() {
+    private static CatalogManagerCompactionFacade catalogManagerFacade() {
         return new CatalogManagerCompactionFacade((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager());
     }
 }

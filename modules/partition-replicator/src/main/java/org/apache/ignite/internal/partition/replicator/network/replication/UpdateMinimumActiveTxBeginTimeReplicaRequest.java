@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.network.command;
-
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
+package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
- * Command to store the minimum starting time among all active RW transactions
- * into transient state of each replication group.
+ * Request to update the minimum starting time among all active RW transactions.
  */
-@Transferable(UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND)
-public interface UpdateMinimumActiveTxStartTimeCommand extends WriteCommand {
+@Transferable(PartitionReplicationMessageGroup.UPDATE_MINIMUM_ACTIVE_TX_TIME_REPLICA_REQUEST)
+public interface UpdateMinimumActiveTxBeginTimeReplicaRequest extends ReplicaRequest {
     /** Returns the minimum starting time among all active RW transactions. */
     long timestamp();
 }

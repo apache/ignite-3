@@ -54,7 +54,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxStartTimeReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -95,7 +95,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private static final long ANSWER_TIMEOUT = 5_000;
 
-    private final CatalogManagerCompactionFacade catalogManagerHelper;
+    private final CatalogManagerCompactionFacade catalogManagerFacade;
 
     private final MessagingService messagingService;
 
@@ -164,7 +164,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.localNodeName = localNodeName;
         this.messagingService = messagingService;
         this.logicalTopologyService = logicalTopologyService;
-        this.catalogManagerHelper = new CatalogManagerCompactionFacade(catalogManager);
+        this.catalogManagerFacade = new CatalogManagerCompactionFacade(catalogManager);
         this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
@@ -255,7 +255,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private CompletableFuture<Void> startCompaction(LogicalTopologySnapshot topologySnapshot) {
         long localMinimum = localMinTimeProvider.time();
 
-        if (catalogManagerHelper.catalogByTsNullable(localMinimum) == null) {
+        if (catalogManagerFacade.catalogByTsNullable(localMinimum) == null) {
             LOG.info("Catalog compaction skipped, nothing to compact (ts={})", localMinimum);
 
             return CompletableFutures.nullCompletedFuture();
@@ -265,7 +265,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenComposeAsync(timeHolder -> {
                     long minRequiredTime = timeHolder.minRequiredTime;
                     long minActiveTxStartTime = timeHolder.minActiveTxBeginTime;
-                    Catalog catalog = catalogManagerHelper.catalogByTsNullable(minRequiredTime);
+                    Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
 
                     CompletableFuture<Boolean> catalogCompactionFut;
 
@@ -407,7 +407,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     CompletableFuture<Void> propagateTimeToReplicas(long minimumRequiredTime) {
-        Map<Integer, Integer> tablesWithPartitions = catalogManagerHelper.collectTablesWithPartitionsBetween(
+        Map<Integer, Integer> tablesWithPartitions = catalogManagerFacade.collectTablesWithPartitionsBetween(
                 minimumRequiredTime,
                 clockService.nowLong()
         );
@@ -449,8 +449,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                 replicationGroupId
                         );
 
-                        UpdateMinimumActiveTxStartTimeReplicaRequest msg = REPLICATION_MESSAGES_FACTORY
-                                .updateMinimumActiveTxStartTimeReplicaRequest()
+                        UpdateMinimumActiveTxBeginTimeReplicaRequest msg = REPLICATION_MESSAGES_FACTORY
+                                .updateMinimumActiveTxBeginTimeReplicaRequest()
                                 .groupId(partIdMessage)
                                 .timestamp(txBeginTime)
                                 .build();
@@ -476,7 +476,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         return CompletableFutures.falseCompletedFuture();
                     }
 
-                    return catalogManagerHelper.compactCatalog(catalog.version());
+                    return catalogManagerFacade.compactCatalog(catalog.version());
                 });
     }
 

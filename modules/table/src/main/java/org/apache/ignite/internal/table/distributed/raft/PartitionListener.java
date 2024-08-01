@@ -50,7 +50,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxStartTimeCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -228,8 +228,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof VacuumTxStatesCommand) {
                     handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof UpdateMinimumActiveTxStartTimeCommand) {
-                    handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxStartTimeCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+                    handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -683,7 +683,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
     }
 
-    private void handleUpdateMinimalActiveTxTimeCommand(UpdateMinimumActiveTxStartTimeCommand cmd, long commandIndex, long commandTerm) {
+    private void handleUpdateMinimalActiveTxTimeCommand(UpdateMinimumActiveTxBeginTimeCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;

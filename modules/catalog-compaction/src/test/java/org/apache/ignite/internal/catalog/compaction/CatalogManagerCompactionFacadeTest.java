@@ -40,11 +40,11 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link CatalogManagerCompactionFacade}.
  */
 class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
-    private CatalogManagerCompactionFacade catalogManagerHelper;
+    private CatalogManagerCompactionFacade catalogManagerFacade;
 
     @BeforeEach
     void setupHelper() {
-        catalogManagerHelper = new CatalogManagerCompactionFacade(catalogManager);
+        catalogManagerFacade = new CatalogManagerCompactionFacade(catalogManager);
     }
 
     @Test
@@ -73,28 +73,28 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         assertThat(catalogManager.execute(dropTableCommandBuilder.tableName("test3").build()), willCompleteSuccessfully());
 
         {
-            Int2IntMap tablesWithParts = catalogManagerHelper.collectTablesWithPartitionsBetween(from1,
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(from1,
                     clockService.nowLong());
 
             assertThat(tablesWithParts.keySet(), hasSize(3));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerHelper.collectTablesWithPartitionsBetween(from2,
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(from2,
                     clockService.nowLong());
 
             assertThat(tablesWithParts.keySet(), hasSize(2));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerHelper.collectTablesWithPartitionsBetween(from3,
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(from3,
                     clockService.nowLong());
 
             assertThat(tablesWithParts.keySet(), hasSize(1));
         }
 
         {
-            Int2IntMap tablesWithParts = catalogManagerHelper.collectTablesWithPartitionsBetween(
+            Int2IntMap tablesWithParts = catalogManagerFacade.collectTablesWithPartitionsBetween(
                     clockService.nowLong(),
                     clockService.nowLong()
             );
@@ -108,6 +108,6 @@ class CatalogManagerCompactionFacadeTest extends AbstractCatalogCompactionTest {
         Catalog earliestCatalog = catalogManager.catalog(catalogManager.earliestCatalogVersion());
         assertNotNull(earliestCatalog);
 
-        assertNull(catalogManagerHelper.catalogByTsNullable(earliestCatalog.time() - 1));
+        assertNull(catalogManagerFacade.catalogByTsNullable(earliestCatalog.time() - 1));
     }
 }

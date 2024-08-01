@@ -25,7 +25,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.FinishTxC
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxStartTimeCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
@@ -55,7 +55,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxStartTimeReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 
 /**
  * Message group for the table module.
@@ -194,7 +194,7 @@ public interface PartitionReplicationMessageGroup {
     short GET_ESTIMATED_SIZE_MESSAGE = 25;
 
     /**
-     * Message type for {@link UpdateMinimumActiveTxStartTimeReplicaRequest}.
+     * Message type for {@link UpdateMinimumActiveTxBeginTimeReplicaRequest}.
      */
     short UPDATE_MINIMUM_ACTIVE_TX_TIME_REPLICA_REQUEST = 26;
 
@@ -219,7 +219,7 @@ public interface PartitionReplicationMessageGroup {
         /** Message type for {@link BuildIndexCommand}. */
         short BUILD_INDEX = 44;
 
-        /** Message type for {@link UpdateMinimumActiveTxStartTimeCommand}. */
+        /** Message type for {@link UpdateMinimumActiveTxBeginTimeCommand}. */
         short UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND = 45;
     }
 
