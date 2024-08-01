@@ -1258,8 +1258,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return executorInclinedPlacementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
                     .thenApply(replicaMeta -> replicaMeta != null
-                            && replicaMeta.getLeaseholder() != null
-                            && replicaMeta.getLeaseholder().equals(localNode().name()));
+                            && replicaMeta.getLeaseholderId() != null
+                            && replicaMeta.getLeaseholderId().equals(localNode().id()));
         } catch (IllegalArgumentException e) {
             long currentSafeTimeMs = currentSafeTime.longValue();
 
