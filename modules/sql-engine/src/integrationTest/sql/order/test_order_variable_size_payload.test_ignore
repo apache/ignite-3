@@ -397,6 +397,9 @@ CREATE TABLE test9(i INT, j INT)
 statement ok
 INSERT INTO test9 (SELECT x % 4 i, x j FROM table(system_range(1, 5000)))
 
+statement ok
+INSERT INTO test9 VALUES (0, NULL), (1, NULL), (2, NULL), (3, NULL)
+
 query TT
 SELECT i, list(j) FROM test9 GROUP BY i ORDER BY i;
 ----
