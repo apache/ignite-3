@@ -88,18 +88,6 @@ public enum NativeTypeSpec {
     BYTES(false),
 
     /**
-     * Native type representing a bitmask.
-     */
-    @Deprecated(forRemoval = true)
-    BITMASK(true),
-
-    /**
-     * Native type representing a BigInteger.
-     */
-    @Deprecated(forRemoval = true)
-    NUMBER(false),
-
-    /**
      * Native type representing a timezone-free date.
      */
     DATE(true),

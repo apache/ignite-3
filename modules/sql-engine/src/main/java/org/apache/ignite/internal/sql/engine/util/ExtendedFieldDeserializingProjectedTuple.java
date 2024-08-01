@@ -20,12 +20,10 @@ package org.apache.ignite.internal.sql.engine.util;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -248,15 +246,6 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
     }
 
     @Override
-    public BigInteger numberValue(int col) {
-        if (isExtraColumn(col)) {
-            return extraColumn(col).value();
-        }
-
-        return super.numberValue(col);
-    }
-
-    @Override
     public String stringValue(int col) {
         if (isExtraColumn(col)) {
             return extraColumn(col).value();
@@ -281,15 +270,6 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
         }
 
         return super.uuidValue(col);
-    }
-
-    @Override
-    public BitSet bitmaskValue(int col) {
-        if (isExtraColumn(col)) {
-            return extraColumn(col).value();
-        }
-
-        return super.bitmaskValue(col);
     }
 
     @Override
