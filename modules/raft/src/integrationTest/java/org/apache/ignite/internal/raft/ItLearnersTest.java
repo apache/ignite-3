@@ -333,7 +333,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests adding a new learner using {@link RaftGroupService#changePeersAsync} to an Ignite node that is already running a Raft peer.
+     * Tests adding a new learner using {@link RaftGroupService#changePeersAndLearnersAsync} to an Ignite node that is already running a
+     * Raft peer.
      */
     @Test
     void testChangePeersToAddLearnerToSameNodeAsPeer() throws InterruptedException {
@@ -368,7 +369,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         PeersAndLearners newConfiguration = createConfiguration(followers, List.of(learner, newLearner));
 
         CompletableFuture<Void> changePeersFuture = learnerService.thenCompose(s -> s.refreshAndGetLeaderWithTerm()
-                .thenCompose(leaderWithTerm -> s.changePeersAsync(newConfiguration, leaderWithTerm.term())
+                .thenCompose(leaderWithTerm -> s.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
         ));
 
         assertThat(changePeersFuture, willCompleteSuccessfully());

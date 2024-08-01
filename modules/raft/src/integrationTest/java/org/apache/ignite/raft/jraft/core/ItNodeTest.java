@@ -145,6 +145,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItNodeTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger log = Loggers.forClass(ItNodeTest.class);
 
+    private static final long MISMATCHED_TERM = 10_000;
+
     private static DumpThread dumpThread;
 
     private static class DumpThread extends Thread {
@@ -2911,16 +2913,16 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeers() throws Exception {
-        changePeers(false);
+    public void testChangePeersAndLearners() throws Exception {
+        changePeersAndLearners(false);
     }
 
     @Test
     public void testChangeAsyncPeers() throws Exception {
-        changePeers(true);
+        changePeersAndLearners(true);
     }
 
-    private void changePeers(boolean async) throws Exception {
+    private void changePeersAndLearners(boolean async) throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
         assertTrue(cluster.start(peer0));
@@ -2949,7 +2951,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             PeerId newLeaderPeer = peers.get(i + 1).getPeerId();
             if (async) {
                 SynchronizedClosure done = new SynchronizedClosure();
-                leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
+                leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
                         leader.getCurrentTerm(), done);
                 Status status = done.await();
                 assertTrue(status.isOk(), status.getRaftError().toString());
@@ -2961,7 +2963,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 }, 10_000));
             } else {
                 SynchronizedClosure done = new SynchronizedClosure();
-                leader.changePeers(new Configuration(Collections.singletonList(newLeaderPeer)), done);
+                leader.changePeersAndLearners(new Configuration(Collections.singletonList(newLeaderPeer)), leader.getCurrentTerm(), done);
                 Status status = done.await();
                 assertTrue(status.isOk(), status.getRaftError().toString());
             }
@@ -2993,7 +2995,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         SynchronizedClosure done = new SynchronizedClosure();
 
-        leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
+        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newPeer)),
                 leader.getCurrentTerm(), done);
         assertEquals(done.await(), Status.OK());
 
@@ -3033,7 +3035,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any());
 
         // Wait until every node sees every other node, otherwise
-        // changePeersAsync can fail.
+        // changePeersAndLearnersAsync can fail.
         waitForTopologyOnEveryNode(numPeers, cluster);
 
         for (int i = 0; i < 4; i++) {
@@ -3045,7 +3047,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             PeerId newLearner = learners.get(i).getPeerId();
 
             SynchronizedClosure done = new SynchronizedClosure();
-            leader.changePeersAsync(new Configuration(List.of(newPeer), List.of(newLearner)), leader.getCurrentTerm(), done);
+            leader.changePeersAndLearnersAsync(new Configuration(List.of(newPeer), List.of(newLearner)), leader.getCurrentTerm(), done);
             assertEquals(done.await(), Status.OK());
             assertTrue(waitForCondition(() -> {
                 if (cluster.getLeader() != null) {
@@ -3059,7 +3061,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeersOnLeaderElected() throws Exception {
+    public void testChangePeersAndLearnersOnLeaderElected() throws Exception {
         List<TestPeer> peers = IntStream.range(0, 6)
                 .mapToObj(i -> new TestPeer(testInfo, TestUtils.INIT_PORT + i))
                 .collect(toList());
@@ -3092,7 +3094,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void changePeersAsyncResponses() throws Exception {
+    public void changePeersAndLearnersAsyncResponses() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
         assertTrue(cluster.start(peer0));
@@ -3112,19 +3114,19 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // wrong leader term, do nothing
         SynchronizedClosure done = new SynchronizedClosure();
-        leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer.getPeerId())),
+        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newLeaderPeer.getPeerId())),
                 leader.getCurrentTerm() - 1, done);
         assertEquals(done.await(), Status.OK());
 
         // the same config, do nothing
         done = new SynchronizedClosure();
-        leader.changePeersAsync(new Configuration(Collections.singletonList(leaderPeer)),
+        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(leaderPeer)),
                 leader.getCurrentTerm(), done);
         assertEquals(done.await(), Status.OK());
 
         // change peer to new conf containing only new node
         done = new SynchronizedClosure();
-        leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer.getPeerId())),
+        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newLeaderPeer.getPeerId())),
                 leader.getCurrentTerm(), done);
         assertEquals(done.await(), Status.OK());
 
@@ -3152,7 +3154,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             SynchronizedClosure newDone = new SynchronizedClosure();
             dones.add(newDone);
             futs.add(executor.submit(() -> {
-                newLeader.changePeersAsync(new Configuration(Collections.singletonList(peer0.getPeerId())), 2, newDone);
+                newLeader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(peer0.getPeerId())), 2, newDone);
             }));
         }
         futs.get(0).get();
@@ -3177,7 +3179,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeersAddMultiNodes() throws Exception {
+    public void testChangePeersAndLearnersAddMultiNodes() throws Exception {
         List<TestPeer> peers = new ArrayList<>();
 
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
@@ -3200,32 +3202,56 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         TestPeer peer = peers.get(1);
         // fail, because the peers are not started.
         SynchronizedClosure done = new SynchronizedClosure();
-        leader.changePeers(new Configuration(Collections.singletonList(peer.getPeerId())), done);
+        leader.changePeersAndLearners(new Configuration(Collections.singletonList(peer.getPeerId())), leader.getCurrentTerm(), done);
         assertEquals(RaftError.ECATCHUP, done.await().getRaftError());
 
         // start peer1
         assertTrue(cluster.start(peer));
         // still fail, because peer2 is not started
         done.reset();
-        leader.changePeers(conf, done);
+        leader.changePeersAndLearners(conf, leader.getCurrentTerm(), done);
         assertEquals(RaftError.ECATCHUP, done.await().getRaftError());
         // start peer2
         peer = peers.get(2);
         assertTrue(cluster.start(peer));
         done.reset();
+
+        for (NodeImpl node: cluster.getNodes())
+            assertEquals(node.getConf().getConf().getPeers().size(), 1);
+
         // works
-        leader.changePeers(conf, done);
+        leader.changePeersAndLearners(conf, leader.getCurrentTerm(), done);
         Status await = done.await();
         assertTrue(await.isOk(), await.getErrorMsg());
 
         cluster.ensureSame();
         assertEquals(3, cluster.getFsms().size());
+
         for (MockStateMachine fsm : cluster.getFsms())
             assertEquals(10, fsm.getLogs().size());
+
+        for (NodeImpl node: cluster.getNodes())
+            assertEquals(node.getConf().getConf().getPeers().size(), 3);
+
+        // another attempt to change peers with unmatched term
+        Configuration conf2 = new Configuration(List.of(peer0.getPeerId()));
+        leader.changePeersAndLearners(conf2, MISMATCHED_TERM, done);
+        Status await2 = done.await();
+        assertTrue(await2.isOk(), await.getErrorMsg());
+
+        cluster.ensureSame();
+        assertEquals(3, cluster.getFsms().size());
+
+        for (MockStateMachine fsm : cluster.getFsms())
+            assertEquals(10, fsm.getLogs().size());
+
+        // Verify that configuration wasn't applied because of mismatched term.
+        for (NodeImpl node: cluster.getNodes())
+            assertEquals(node.getConf().getConf().getPeers().size(), 3);
     }
 
     @Test
-    public void testChangePeersStepsDownInJointConsensus() throws Exception {
+    public void testChangePeersAndLearnersStepsDownInJointConsensus() throws Exception {
         List<TestPeer> peers = new ArrayList<>();
 
         TestPeer peer0 = new TestPeer(testInfo, 5006);
@@ -3258,7 +3284,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // change peers
         SynchronizedClosure done = new SynchronizedClosure();
-        leader.changePeers(conf, done);
+        leader.changePeersAndLearners(conf, leader.getCurrentTerm(), done);
         assertTrue(done.await().isOk());
 
         // stop peer3
@@ -3269,7 +3295,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // Change peers to [peer2, peer3], which must fail since peer3 is stopped
         done.reset();
-        leader.changePeers(conf, done);
+        leader.changePeersAndLearners(conf, leader.getCurrentTerm(), done);
         assertEquals(RaftError.EPERM, done.await().getRaftError());
         log.info(done.getStatus().toString());
 
@@ -3303,7 +3329,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
     }
 
-    private Future<?> startChangePeersThread(ChangeArg arg) {
+    private Future<?> startChangePeersAndLearnersThread(ChangeArg arg) {
         Set<RaftError> expectedErrors = new HashSet<>();
         expectedErrors.add(RaftError.EBUSY);
         expectedErrors.add(RaftError.EPERM);
@@ -3333,7 +3359,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                         continue;
                     }
                     SynchronizedClosure done = new SynchronizedClosure();
-                    leader.changePeers(conf, done);
+                    leader.changePeersAndLearners(conf, leader.getCurrentTerm(), done);
                     done.await();
                     assertTrue(done.getStatus().isOk() || expectedErrors.contains(done.getStatus().getRaftError()), done.getStatus().toString());
                 }
@@ -3345,7 +3371,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeersChaosWithSnapshot() throws Exception {
+    public void testChangePeersAndLearnersChaosWithSnapshot() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
         peers.add(new TestPeer(testInfo, TestUtils.INIT_PORT));
@@ -3360,7 +3386,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         ChangeArg arg = new ChangeArg(cluster, peers.stream().map(TestPeer::getPeerId).collect(toList()), false, false);
 
-        Future<?> future = startChangePeersThread(arg);
+        Future<?> future = startChangePeersAndLearnersThread(arg);
         for (int i = 0; i < 5000; ) {
             Node leader = cluster.waitAndGetLeader();
             if (leader == null)
@@ -3380,7 +3406,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         future.get();
         SynchronizedClosure done = new SynchronizedClosure();
         Node leader = cluster.waitAndGetLeader();
-        leader.changePeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), done);
+        leader.changePeersAndLearners(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), leader.getCurrentTerm(), done);
         Status st = done.await();
         assertTrue(st.isOk(), st.getErrorMsg());
         cluster.ensureSame();
@@ -3390,7 +3416,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeersChaosWithoutSnapshot() throws Exception {
+    public void testChangePeersAndLearnersChaosWithoutSnapshot() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
         peers.add(new TestPeer(testInfo, TestUtils.INIT_PORT));
@@ -3405,7 +3431,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         ChangeArg arg = new ChangeArg(cluster, peers.stream().map(TestPeer::getPeerId).collect(toList()), false, true);
 
-        Future<?> future = startChangePeersThread(arg);
+        Future<?> future = startChangePeersAndLearnersThread(arg);
         final int tasks = 5000;
         for (int i = 0; i < tasks; ) {
             Node leader = cluster.waitAndGetLeader();
@@ -3426,7 +3452,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         future.get();
         SynchronizedClosure done = new SynchronizedClosure();
         Node leader = cluster.waitAndGetLeader();
-        leader.changePeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), done);
+        leader.changePeersAndLearners(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), leader.getCurrentTerm(), done);
         assertTrue(done.await().isOk());
         cluster.ensureSame();
         assertEquals(10, cluster.getFsms().size());
@@ -3437,7 +3463,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeersChaosApplyTasks() throws Exception {
+    public void testChangePeersAndLearnersChaosApplyTasks() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
         peers.add(new TestPeer(testInfo, TestUtils.INIT_PORT));
@@ -3462,7 +3488,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         for (int t = 0; t < threads; t++) {
             ChangeArg arg = new ChangeArg(cluster, peers.stream().map(TestPeer::getPeerId).collect(toList()), false, true);
             args.add(arg);
-            futures.add(startChangePeersThread(arg));
+            futures.add(startChangePeersAndLearnersThread(arg));
 
             Utils.runInThread(executor, () -> {
                 try {
@@ -3499,7 +3525,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         SynchronizedClosure done = new SynchronizedClosure();
         Node leader = cluster.waitAndGetLeader();
-        leader.changePeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), done);
+        leader.changePeersAndLearners(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), leader.getCurrentTerm(), done);
         assertTrue(done.await().isOk());
         cluster.ensureSame();
         assertEquals(10, cluster.getFsms().size());

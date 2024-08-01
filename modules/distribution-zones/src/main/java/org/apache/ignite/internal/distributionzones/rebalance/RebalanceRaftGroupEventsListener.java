@@ -252,14 +252,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.debug("Error occurred during rebalance [partId={}]", tablePartitionId);
 
             if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
-                scheduleChangePeers(configuration, term);
+                scheduleChangePeersAndLearners(configuration, term);
             } else {
                 LOG.info("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", tablePartitionId,
                         REBALANCE_RETRY_THRESHOLD);
 
                 // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
                 // TODO: but rebalance cancel mechanism should be implemented. https://issues.apache.org/jira/browse/IGNITE-19087
-                scheduleChangePeers(configuration, term);
+                scheduleChangePeersAndLearners(configuration, term);
             }
         } finally {
             busyLock.leaveBusy();
@@ -272,7 +272,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param peersAndLearners Peers and learners.
      * @param term Current known leader term.
      */
-    private void scheduleChangePeers(PeersAndLearners peersAndLearners, long term) {
+    private void scheduleChangePeersAndLearners(PeersAndLearners peersAndLearners, long term) {
         rebalanceScheduler.schedule(() -> {
             if (!busyLock.enterBusy()) {
                 return;

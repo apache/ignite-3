@@ -26,46 +26,46 @@ import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncResponse;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-public class ChangePeersAsyncRequestProcessorTest extends AbstractCliRequestProcessorTest<ChangePeersAsyncRequest>{
+public class ChangePeersAndLearnersAsyncRequestProcessorTest extends AbstractCliRequestProcessorTest<ChangePeersAndLearnersAsyncRequest>{
     private static final List<String> PEERS = List.of("follower1", "follower2");
     private static final List<String> LEARNERS = List.of("learner1", "learner2", "learner3");
 
     @Override
-    public ChangePeersAsyncRequest createRequest(String groupId, PeerId peerId) {
-        return msgFactory.changePeersAsyncRequest()
+    public ChangePeersAndLearnersAsyncRequest createRequest(String groupId, PeerId peerId) {
+        return msgFactory.changePeersAndLearnersAsyncRequest()
                 .groupId(groupId)
                 .leaderId(peerId.toString())
                 .newPeersList(PEERS)
                 .newLearnersList(LEARNERS)
-                .term(1)
+                .term(1L)
                 .build();
     }
 
     @Override
-    public BaseCliRequestProcessor<ChangePeersAsyncRequest> newProcessor() {
-        return new ChangePeersAsyncRequestProcessor(null, msgFactory);
+    public BaseCliRequestProcessor<ChangePeersAndLearnersAsyncRequest> newProcessor() {
+        return new ChangePeersAndLearnersAsyncRequestProcessor(null, msgFactory);
     }
 
     @Override
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
-        assertEquals(ChangePeersAsyncRequest.class.getName(), interest);
+        assertEquals(ChangePeersAndLearnersAsyncRequest.class.getName(), interest);
 
         Configuration expectedConf = new Configuration();
         PEERS.stream().map(PeerId::parsePeer).forEach(expectedConf::addPeer);
         LEARNERS.stream().map(PeerId::parsePeer).forEach(expectedConf::addLearner);
 
-        Mockito.verify(node).changePeersAsync(eq(expectedConf), eq(1L), doneArg.capture());
+        Mockito.verify(node).changePeersAndLearnersAsync(eq(expectedConf), eq(1L), doneArg.capture());
         Closure done = doneArg.getValue();
         assertNotNull(done);
         done.run(Status.OK());
         assertNotNull(this.asyncContext.getResponseObject());
 
-        ChangePeersAsyncResponse response = this.asyncContext.as(ChangePeersAsyncResponse.class);
+        ChangePeersAndLearnersAsyncResponse response = this.asyncContext.as(ChangePeersAndLearnersAsyncResponse.class);
 
         assertEquals(List.of("localhost:8081", "localhost:8082", "localhost:8083"), response.oldPeersList());
         assertEquals(PEERS, response.newPeersList());
