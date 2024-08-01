@@ -56,7 +56,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -188,7 +188,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         AtomicBoolean dropMessages = new AtomicBoolean(true);
 
         cluster.runningNodes().forEach(
-                n -> n.dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && dropMessages.get())
+                n -> n.dropMessages((nodeName, msg) -> msg instanceof ChangePeersAndLearnersAsyncRequest && dropMessages.get())
         );
 
         alterZone(zoneName, 2);
