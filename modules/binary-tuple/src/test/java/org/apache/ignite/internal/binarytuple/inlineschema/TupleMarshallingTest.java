@@ -19,12 +19,6 @@ package org.apache.ignite.internal.binarytuple.inlineschema;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -33,7 +27,6 @@ import java.time.Period;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.TupleImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -42,7 +35,23 @@ import org.junit.jupiter.params.provider.MethodSource;
 class TupleMarshallingTest {
     static Stream<Arguments> oneFieldTuple() {
         return Stream.of(
-                Tuple.create().set("col", 1)
+                Tuple.create().set("col", 1),
+                Tuple.create().set("col2", true),
+                Tuple.create().set("col3", (byte) 1),
+                Tuple.create().set("col4", (short) 2),
+                Tuple.create().set("col5", 3),
+                Tuple.create().set("col6", 4L),
+                Tuple.create().set("col7", 5.0f),
+                Tuple.create().set("col8", 6.0),
+                Tuple.create().set("col9", new BigDecimal("7.1")),
+                Tuple.create().set("col10", LocalDate.of(2024, 1, 1)),
+                Tuple.create().set("col11", LocalTime.of(12, 0)),
+                Tuple.create().set("col12", LocalDate.of(2024, 1, 1).atTime(LocalTime.of(12, 0))),
+                Tuple.create().set("col13", UUID.fromString("123e4567-e89b-12d3-a456-426614174000")),
+                Tuple.create().set("col14", "string"),
+                Tuple.create().set("col15", new byte[]{1, 2, 3}),
+                Tuple.create().set("col16", Period.ofDays(10)),
+                Tuple.create().set("col17", Duration.ofDays(10))
         ).map(Arguments::of);
     }
 
@@ -64,7 +73,7 @@ class TupleMarshallingTest {
                 .set("col6", 4L)
                 .set("col7", 5.0f)
                 .set("col8", 6.0)
-                .set("col9", new BigDecimal("7.0"))
+                .set("col9", new BigDecimal("7.11"))
                 .set("col10", LocalDate.of(2024, 1, 1))
                 .set("col11", LocalTime.of(12, 0))
                 .set("col12", LocalDate.of(2024, 1, 1).atTime(LocalTime.of(12, 0)))
@@ -76,41 +85,5 @@ class TupleMarshallingTest {
 
         byte[] marshalled = TupleMarshalling.marshal(tuple);
         assertEquals(tuple, TupleMarshalling.unmarshal(marshalled));
-    }
-
-    @Test
-    void jacksonTest() throws IOException {
-        Tuple tuple = Tuple.create()
-                .set("col1", null)
-                .set("col2", true)
-                .set("col3", (byte) 1)
-                .set("col4", (short) 2)
-                .set("col5", 3)
-                .set("col6", 4L)
-                .set("col7", 5.0f)
-                .set("col8", 6.0)
-                .set("col9", new BigDecimal("7.0"))
-                .set("col10", LocalDate.of(2024, 1, 1))
-                .set("col11", LocalTime.of(12, 0))
-                .set("col12", LocalDate.of(2024, 1, 1).atTime(LocalTime.of(12, 0)))
-//                .set("col13", UUID.fromString("123e4567-e89b-12d3-a456-426614174000"))
-                .set("col14", "string")
-                .set("col15", new byte[]{1, 2, 3})
-                .set("col16", Period.ofDays(10))
-                .set("col17", Duration.ofDays(10));
-
-        var kryo = new Kryo();
-        var baus = new ByteArrayOutputStream();
-        var output = new Output(baus);
-        kryo.writeObject(output, tuple);
-        output.flush();
-
-        var input = new Input(new ByteArrayInputStream(baus.toByteArray()));
-
-
-        Tuple theObject = kryo.readObject(input, TupleImpl.class);
-        input.close();
-
-        assertEquals(tuple, theObject);
     }
 }

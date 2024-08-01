@@ -214,8 +214,10 @@ public class TupleMarshalling {
         }
 
         int offset = size * 2;
-        for (int k = 0; k < size; k++) {
+        int k = 0;
+        while (k < size) {
             setColumnValue(reader, tup, columns.get(k), types[k].id(), k + offset);
+            k += 1;
         }
 
         return tup;
@@ -251,7 +253,8 @@ public class TupleMarshalling {
                 tup.set(colName, reader.stringValue(i));
                 break;
             case DECIMAL:
-                tup.set(colName, reader.decimalValue(i, 0));
+                BigDecimal decimal = reader.decimalValue(i, Integer.MIN_VALUE);
+                tup.set(colName, decimal);
                 break;
             case DATE:
                 tup.set(colName, reader.dateValue(i));
