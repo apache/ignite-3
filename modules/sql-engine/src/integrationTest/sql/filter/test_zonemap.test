@@ -1,10 +1,12 @@
 # name: test/sql/filter/test_zonemap.test
 # description: Test expressions with transitive filters
 # group: [filter]
-# Ignore: https://issues.apache.org/jira/browse/IGNITE-17268
 
 statement ok
-create table t as select x a, length(x) b, mod(x,10000) c, 5 d, 10000 e from table(system_range(0,999));
+create table t(a int, b int, c int, d int, e int);
+
+statement ok
+insert into t select x a, length(x) b, mod(x,10000) c, 5 d, 10000 e from table(system_range(0,999));
 
 query I
 select count(*) from t where a > 500 or a <= 700
