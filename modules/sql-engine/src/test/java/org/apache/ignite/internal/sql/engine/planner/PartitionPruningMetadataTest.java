@@ -147,17 +147,17 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
     }
 
     enum TestCaseBasicInsert {
-/*        SIMPLE_1a1("t(C1) VALUES (SELECT 100)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1a1("t(C1) VALUES (SELECT 100)", TABLE_C1_NULLABLE_C2),
         SIMPLE_1a11("t VALUES ((SELECT 100), ?)", TABLE_C1_NULLABLE_C2),
         SIMPLE_1a12("t VALUES (?, (SELECT 100))", TABLE_C1_NULLABLE_C2),
         SIMPLE_1a13("t VALUES (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),
         SIMPLE_1a141("t(c2, c1) VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]", "[c1=?3]"),
-        SIMPLE_1a14("t VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?2]"),*/
-/*        SIMPLE_1a15("t VALUES ('100', 1)", TABLE_C1_NULLABLE_C2, "[c1=100]"),
+        SIMPLE_1a14("t VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?2]"),
+        SIMPLE_1a15("t VALUES ('100', 1)", TABLE_C1_NULLABLE_C2, "[c1=100]"),
         SIMPLE_1a16("t VALUES ('100'::smallint, 1)", TABLE_C1_NULLABLE_C2, "[c1=100]"),
         // values with rex expression case
         SIMPLE_1a2("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
-        SIMPLE_1a3("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),*/
+        SIMPLE_1a3("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),
         // union can be used here
         SIMPLE_1a4("t(C1) VALUES (?), (?), (1)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=1]"),
         SIMPLE_1a41("t VALUES (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),

@@ -32,6 +32,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -161,7 +162,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
     private static class ModifyNodeShuttle extends IgniteRelShuttle {
         List<List<RexNode>> projections = null;
-        List<List<RexNode>> mappingProjections = null;
+        List<RexNode> mappingProjections = null;
         List<List<RexNode>> expressions = null;
         TargetMapping mapping;
         Deque<Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>>> projectsExpressions = new ArrayDeque<>();
@@ -180,31 +181,18 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         @Override
         public IgniteRel visit(IgniteProject rel) {
             if (unionRaised) {
-                unionRaised = false;
-                // unexpected branch
-                if (projections != null) {
-                    //throw Util.FoundOne.NULL;
-                    mappingProjections = new ArrayList<>(projections);
-
-                    projections.clear();
+                if (mappingProjections == null) {
+                    if (!projectsExpressions.isEmpty()) {
+                        assert projectsExpressions.size() == 1 : "unexpected projections";
+                        mappingProjections = projectsExpressions.poll().getFirst();
+                    } else {
+                        mappingProjections = Collections.emptyList();
+                    }
                 }
-                if (projections == null) {
-                    projections = new ArrayList<>();
-                }
-                projections.add(rel.getProjects());
-
-                projectsExpressions.clear();
-                projectsExpressions.add(new Pair<>(rel.getProjects(), null));
-                //projections = rel.getProjects();
-            } else {
-                // projections after union
-                if (projections == null) {
-                    projections = new ArrayList<>();
-                }
-                projections.add(rel.getProjects());
-
-                projectsExpressions.add(new Pair<>(rel.getProjects(), null));
             }
+
+            // fill projections, appropriate values will be filled further
+            projectsExpressions.add(new Pair<>(rel.getProjects(), null));
 
             return super.visit(rel);
         }
@@ -212,29 +200,16 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteValues rel) {
-            if (expressions == null) {
-                expressions = new ArrayList<>();
-            }
-
-            //List<RexNode> values = Commons.cast(rel.getTuples());
-            //var values = rel.getTuples();
-
-            List<List<RexNode>> exps = new ArrayList<>();
-
-            for (List<RexLiteral> values : rel.getTuples()) {
-                expressions.add(new ArrayList<>(values));
-                exps.add(new ArrayList<>(values));
-            }
-
             Pair<List<RexNode>, List<List<RexNode>>> head = projectsExpressions.pollLast();
+
             if (head == null) {
-                projectsExpressions.add(new Pair<>(null, exps));
+                projectsExpressions.add(new Pair<>(null, Commons.cast(rel.getTuples())));
             } else {
                 if (head.getSecond() == null) {
-                    projectsExpressions.add(new Pair<>(head.getFirst(), exps));
+                    projectsExpressions.add(new Pair<>(head.getFirst(), Commons.cast(rel.getTuples())));
                 } else {
                     projectsExpressions.add(head);
-                    projectsExpressions.add(new Pair<>(null, exps));
+                    projectsExpressions.add(new Pair<>(null, Commons.cast(rel.getTuples())));
                 }
             }
 
@@ -244,6 +219,11 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteUnionAll rel) {
+            // unexpected branch
+            if (unionRaised) {
+                throw Util.FoundOne.NULL;
+            }
+
             unionRaised = true;
             return super.visit(rel);
         }
@@ -285,44 +265,10 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return rel;
         }
 
-        if (modify.mappingProjections != null) {
-            modify.mapping = RexUtils.inversePermutation(modify.mappingProjections.get(0), // !!!!
-                    table.getRowType(Commons.typeFactory()), false);
-        }
+        modify.mapping = nullOrEmpty(modify.mappingProjections) ? null : RexUtils.inversePermutation(modify.mappingProjections,
+                table.getRowType(Commons.typeFactory()), false);
 
-        if (modify.mappingProjections != null) {
-            List<RexNode> mappingProjections = replaceInputRefs(modify.mappingProjections.get(0));
-            TargetMapping mapping = RexUtils.inversePermutation(mappingProjections, // !!!!
-                    table.getRowType(Commons.typeFactory()), true);
-
-            //assert mapping.size() == table.getRowType(Commons.typeFactory()).getFieldCount(); // to think !!
-
-            for (int i = 0; i < modify.expressions.size(); ++i) {
-                List<RexNode> expressions = modify.expressions.get(i);
-
-                if (mapping.size() != expressions.size()) {
-                    continue;
-                }
-
-                List<RexNode> newExpressions = new ArrayList<>(expressions);
-
-                for (int nodeIdx = 0; nodeIdx < expressions.size(); ++nodeIdx) {
-                    newExpressions.set(nodeIdx, expressions.get(mapping.getSourceOpt(nodeIdx)));
-                }
-                modify.expressions.set(i, newExpressions);
-            }
-
-            for (int i = 0; i < modify.projections.size(); ++i) {
-                List<RexNode> projections = modify.projections.get(i);
-                List<RexNode> newProjections = new ArrayList<>(projections);
-                for (int nodeIdx = 0; nodeIdx < projections.size(); ++nodeIdx) {
-                    newProjections.set(nodeIdx, projections.get(mapping.getSourceOpt(nodeIdx)));
-                }
-                modify.projections.set(i, newProjections);
-            }
-        }
-
-        extractFromValues(rel.sourceId(), table, modify.projections, modify.expressions, modify.projectsExpressions, modify.mapping, rexBuilder);
+        extractFromValues(rel.sourceId(), table, modify.projectsExpressions, modify.mapping, rexBuilder);
 
         return super.visit(rel);
     }
@@ -330,13 +276,11 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     private void extractFromValues(
             long sourceId,
             IgniteTable table,
-            @Nullable List<List<RexNode>> projections,
-            @Nullable List<List<RexNode>> expressions,
             Queue<Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>>> projectsExpressions,
             TargetMapping mapping,
             RexBuilder rexBuilder
     ) {
-        if (expressions == null) {
+        if (projectsExpressions.isEmpty()) {
             return;
         }
 
@@ -346,11 +290,11 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return;
         }
 
-        boolean processed = false;
-
         List<List<RexNode>> finalExpressions = new ArrayList<>();
 
-        if (projections != null) {
+        boolean projectsFound = projectsExpressions.stream().anyMatch(p -> p.getFirst() != null);
+
+        if (projectsFound) {
             for (Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>> prjExp : projectsExpressions) {
                 @Nullable List<RexNode> projections1 = prjExp.getFirst();
                 @Nullable List<List<RexNode>> expressions1 = prjExp.getSecond();
