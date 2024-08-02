@@ -54,6 +54,7 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -441,7 +442,7 @@ public class ZoneRebalanceUtil {
     }
 
     /**
-     * Extract zone id from a metastorage key {@link RebalanceUtil#tablesCounterKey}.
+     * Extract zone id from a metastorage key {@link DistributionZonesUtil#zoneDataNodesKey()}.
      *
      * @param key Key.
      * @return Table id.

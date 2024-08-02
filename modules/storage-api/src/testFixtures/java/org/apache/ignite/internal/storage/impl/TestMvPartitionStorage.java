@@ -182,7 +182,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
+    public CompletableFuture<Void> flush(boolean trigger) {
         checkStorageClosed();
 
         return nullCompletedFuture();

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Generators
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.IO;
     using System.Linq;
@@ -32,6 +33,10 @@ namespace Apache.Ignite.Internal.Generators
     /// Generates exception classes from Java exceptions.
     /// </summary>
     [Generator]
+    [SuppressMessage(
+        "MicrosoftCodeAnalysisCorrectness",
+        "RS1035:Do not use APIs banned for analyzers",
+        Justification = "IO is required to read Java code.")]
     public sealed class ExceptionsGenerator : JavaToCsharpGeneratorBase
     {
         /// <inheritdoc/>
@@ -151,7 +156,7 @@ namespace Apache.Ignite.Internal.Generators
             }
 
             var xmlDoc = javaDocMatch.Groups[1].Value
-                .Replace(Environment.NewLine, " ")
+                .Replace("\r\n", " ")
                 .Replace('\n', ' ')
                 .Replace(" * ", " ");
 

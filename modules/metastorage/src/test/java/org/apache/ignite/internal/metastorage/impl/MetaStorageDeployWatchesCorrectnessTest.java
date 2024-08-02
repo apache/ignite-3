@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -57,9 +55,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
-
-    @InjectConfiguration
-    private static RaftConfiguration raftConfiguration;
 
     /**
      * Returns a stream with test arguments.
@@ -92,9 +87,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         clock,
                         mock(TopologyAwareRaftGroupServiceFactory.class),
                         new NoOpMetricManager(),
-                        metaStorageConfiguration,
-                        raftConfiguration.retryTimeout(),
-                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                        metaStorageConfiguration
                 ),
                 StandaloneMetaStorageManager.create()
         );

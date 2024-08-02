@@ -266,9 +266,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     nodeClock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(clockService::maxClockSkewMillis)
+                    metaStorageConfiguration
             );
 
             if (this.metaStorageManager == null) {

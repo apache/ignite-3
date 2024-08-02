@@ -25,7 +25,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -212,18 +211,6 @@ public class SqlRowProjection implements Tuple {
     @Override
     public UUID uuidValue(int columnIndex) {
         return row.uuidValue(rowIndexMapping[columnIndex]);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(String columnName) {
-        return row.bitmaskValue(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        return row.bitmaskValue(rowIndexMapping[columnIndex]);
     }
 
     /** {@inheritDoc} */

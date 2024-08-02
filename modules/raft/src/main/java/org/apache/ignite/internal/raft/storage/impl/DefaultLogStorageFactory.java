@@ -202,7 +202,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     @Override
     public void sync() throws RocksDBException {
-        db.syncWal();
+        if (!dbOptions.useFsync()) {
+            db.syncWal();
+        }
     }
 
     /**

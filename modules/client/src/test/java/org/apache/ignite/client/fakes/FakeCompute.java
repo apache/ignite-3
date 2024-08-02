@@ -49,6 +49,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
@@ -170,13 +171,13 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
+    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
         return taskExecution(future != null ? future : completedFuture((R) nodeName));
     }
 
     @Override
-    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
-        return sync(executeMapReduceAsync(units, taskClassName, args));
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return sync(executeMapReduceAsync(taskDescriptor, arg));
     }
 
     private <R> JobExecution<R> completedExecution(R result) {
