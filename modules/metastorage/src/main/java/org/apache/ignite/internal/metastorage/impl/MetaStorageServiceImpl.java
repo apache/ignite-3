@@ -278,8 +278,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     CompletableFuture<Void> evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp) {
         EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand = evictIdempotentCommandsCacheCommand(
                 context.commandsFactory(),
-                clusterTime.now(),
-                evictionTimestamp
+                evictionTimestamp,
+                clusterTime.now()
         );
 
         return context.raftService().run(evictIdempotentCommandsCacheCommand);
