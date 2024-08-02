@@ -24,8 +24,8 @@ package org.apache.ignite.internal.network.annotations;
  * during serialization and deserialization of messages.</p>
  *
  * <p>It is recommended that when adding new constants to enumeration, use a new {@link #transferableId()} and do not delete old constants
- * to prevent errors during serialization and deserialization. Which can occur, for example, when recovery a node that saved commands to the
- * replication log.</p>
+ * to prevent errors during serialization and deserialization. Which can occur, for example, when recovering a node that saved commands to
+ * the replication log.</p>
  */
 public interface TransferableEnum {
     /** Non-negative and unique constant ID in the current enumeration to transfer in a network message. */

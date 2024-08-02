@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.network.processor.EnumMethodsGenerator.FORM_TRANSFERABLE_ID_METHOD_NAME;
+import static org.apache.ignite.internal.network.processor.EnumMethodsGenerator.FROM_TRANSFERABLE_ID_METHOD_NAME;
 import static org.apache.ignite.internal.network.processor.EnumMethodsGenerator.TRANSFERABLE_UTILS_CLASS_POSTFIX;
 import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
 
@@ -175,7 +175,7 @@ public class MessageDeserializerGenerator {
                     method
                             .addStatement(
                                     "$T tmp = transferableIdShifted == 0 ? null : $T.$L(transferableIdShifted - 1)",
-                                    enumType, enumTransferableUtils, FORM_TRANSFERABLE_ID_METHOD_NAME
+                                    enumType, enumTransferableUtils, FROM_TRANSFERABLE_ID_METHOD_NAME
                             )
                             .addCode("\n");
                 }

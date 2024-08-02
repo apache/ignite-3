@@ -355,7 +355,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
         }
     }
 
-    /** Generates utility classes for {@link Enum} in network messages. */
+    /** Generates utility classes for {@link Enum}s in network messages. */
     private void generateEnumTransferableUtils(Collection<MessageClass> messageClasses, MessageGroupWrapper messageGroup) {
         List<MessageClass> serializableMessages = collectAutoSerializableMessageClasses(messageClasses);
 
@@ -365,13 +365,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
 
         var enumMethodsGenerator = new EnumMethodsGenerator(processingEnv);
 
-        Set<TypeMirror> enumTypes = enumMethodsGenerator.collectEnums(messageClasses);
-
-        if (enumTypes.isEmpty()) {
-            return;
-        }
-
-        for (TypeMirror enumType : enumTypes) {
+        for (TypeMirror enumType : enumMethodsGenerator.collectEnums(messageClasses)) {
             TypeSpec enumTransferableUtils = enumMethodsGenerator.generateEnumTransferableUtils(enumType);
 
             writeToFile(messageGroup.packageName(), enumTransferableUtils);

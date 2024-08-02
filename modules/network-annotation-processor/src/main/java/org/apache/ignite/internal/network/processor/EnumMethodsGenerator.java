@@ -42,16 +42,16 @@ import org.apache.ignite.internal.network.annotations.TransferableEnum;
 import org.apache.ignite.internal.network.annotations.Transient;
 
 /**
- * Generates classes for {@link Enum} that are present in network messages (with {@link Transferable}) with utility methods.
+ * Generates classes for {@link Enum}s that are present in network messages (with {@link Transferable}) with utility methods.
  *
- * <p>{@link Enum} are expected to implement {@link TransferableEnum}.</p>
+ * <p>{@link Enum}s are expected to implement {@link TransferableEnum}.</p>
  *
  * <p>Name of the generated class will be the class name + {@code TransferableUtils}, for example for the enum {@code SomeEnum} the class
  * name will be {@code SomeEnumTransferableUtils}.</p>
  *
  * <p>Generated methods:</p>
  * <ul>
- *     <li>{@code public static SomeEnum formTransferableId(int transferableId) throws IllegalInitArgumentException} - which will return
+ *     <li>{@code public static SomeEnum fromTransferableId(int transferableId) throws IllegalInitArgumentException} - which will return
  *     the enumeration constant by its {@link TransferableEnum#transferableId} and throw {@link IllegalArgumentException} if it does not
  *     find it.</li>
  * </ul>
@@ -62,9 +62,9 @@ public class EnumMethodsGenerator {
     private static final String TRANSFERABLE_ID_FIELD_NAME = "transferableId";
 
     /** Name of static method to get {@link Enum} by {@link TransferableEnum#transferableId}. */
-    public static final String FORM_TRANSFERABLE_ID_METHOD_NAME = "formTransferableId";
+    public static final String FROM_TRANSFERABLE_ID_METHOD_NAME = "fromTransferableId";
 
-    /** Postfix the name of the utility class for the {@link Enum} with {@link TransferableEnum}. */
+    /** Postfix of name of the utility class for the {@link Enum} with {@link TransferableEnum}. */
     public static final String TRANSFERABLE_UTILS_CLASS_POSTFIX = "TransferableUtils";
 
     private final TypeUtils typeUtils;
@@ -85,7 +85,7 @@ public class EnumMethodsGenerator {
                 .filter(element -> element.getAnnotation(Transient.class) == null)
                 .map(ExecutableElement::getReturnType)
                 .filter(this::isEnum)
-                .peek(this::checkEnumImplementTransferableEnum)
+                .peek(this::checkEnumImplementsTransferableEnum)
                 .collect(toSet());
     }
 
@@ -101,12 +101,12 @@ public class EnumMethodsGenerator {
         TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(simpleEnumName(enumType) + "TransferableUtils")
                 .addModifiers(PUBLIC);
 
-        addFormTransferableIdMethod(enumType, typeSpecBuilder);
+        addFromTransferableIdMethod(enumType, typeSpecBuilder);
 
         return typeSpecBuilder.build();
     }
 
-    private static void addFormTransferableIdMethod(TypeMirror enumType, TypeSpec.Builder enumTypeSpecBuilder) {
+    private static void addFromTransferableIdMethod(TypeMirror enumType, TypeSpec.Builder enumTypeSpecBuilder) {
         ParameterizedTypeName staticFieldType = ParameterizedTypeName.get(
                 ClassName.get(Map.class),
                 TypeName.get(Integer.class),
@@ -136,7 +136,7 @@ public class EnumMethodsGenerator {
                 .endControlFlow()
                 .build();
 
-        MethodSpec staticMethodSpec = MethodSpec.methodBuilder(FORM_TRANSFERABLE_ID_METHOD_NAME)
+        MethodSpec staticMethodSpec = MethodSpec.methodBuilder(FROM_TRANSFERABLE_ID_METHOD_NAME)
                 .addModifiers(PUBLIC, STATIC)
                 .returns(TypeName.get(enumType))
                 .addParameter(int.class, TRANSFERABLE_ID_FIELD_NAME)
@@ -170,7 +170,7 @@ public class EnumMethodsGenerator {
         return typeUtils.isSubType(enumType, TransferableEnum.class);
     }
 
-    private void checkEnumImplementTransferableEnum(TypeMirror enumType) {
+    private void checkEnumImplementsTransferableEnum(TypeMirror enumType) {
         if (!isTransferableEnum(enumType)) {
             throw new ProcessingException(String.format("Enum must implement %s: %s", TransferableEnum.class, enumType));
         }
