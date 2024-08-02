@@ -224,7 +224,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         };
 
         return new TableImpl(
-                new FakeInternalTable(name, id, keyExtractor, compute),
+                new FakeInternalTable(name, id, keyExtractor, compute, placementDriver),
                 schemaReg,
                 new HeapLockManager(),
                 new SchemaVersions() {
