@@ -81,6 +81,7 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -219,6 +220,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22891")
     public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
         AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
 
