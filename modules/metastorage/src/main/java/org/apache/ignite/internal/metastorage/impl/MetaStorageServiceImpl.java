@@ -359,9 +359,9 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      */
     private EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand(
             MetaStorageCommandsFactory commandsFactory,
-            HybridTimestamp ts,
-            HybridTimestamp evictionTimestamp
+            HybridTimestamp evictionTimestamp,
+            HybridTimestamp ts
     ) {
-        return commandsFactory.evictIdempotentCommandsCacheCommand().initiatorTime(ts).evictionTimestamp(evictionTimestamp).build();
+        return commandsFactory.evictIdempotentCommandsCacheCommand().evictionTimestamp(evictionTimestamp).initiatorTime(ts).build();
     }
 }

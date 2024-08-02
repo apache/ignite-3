@@ -78,7 +78,7 @@ public class IdempotentCacheVacuumizer implements ElectionListener {
                                     - (idempotentCacheTtl.value() + clockService.maxClockSkewMillis())));
                         } catch (Exception e) {
                             LOG.warn("An exception occurred while executing idempotent cache vacuumization action."
-                                    + " Idempotent cache vacuumizer will not be stopped.", e);
+                                    + " Idempotent cache vacuumizer won't be stopped.", e);
                         }
                     }
                 },
