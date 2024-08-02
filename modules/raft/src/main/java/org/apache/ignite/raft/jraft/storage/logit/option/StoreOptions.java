@@ -28,12 +28,12 @@ public class StoreOptions {
     private static final String storagePath                   = "localLog";
 
     // Default is 64Mb, similar to Ignite 2.
-    private int                 segmentFileSize               = 1024 * 1024 * 64;
+    private int                 segmentFileSize               = 100 * 1024;
 
     private int                 indexFileSize                 = FileHeader.HEADER_SIZE + 5000000
                                                                 * IndexEntry.INDEX_SIZE;
     // Default is 64Mb, similar to Ignite 2.
-    private int                 confFileSize                  = 1024 * 1024 * 64;
+    private int                 confFileSize                  = 100 * 1024;
 
     // Whether enable warm up file when pre allocate
     private boolean             enableWarmUpFile              = true;
