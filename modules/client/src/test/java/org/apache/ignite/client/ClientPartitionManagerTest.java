@@ -25,6 +25,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.partition.Partition;
@@ -60,8 +61,17 @@ public class ClientPartitionManagerTest extends AbstractClientTest {
     public void testPrimaryReplicasCacheInvalidation() {
         Table table = client.tables().table(TABLE_NAME);
         PartitionManager partMgr = table.partitionManager();
+        HashPartition part = new HashPartition(0);
 
-        updateServerReplicas(List.of("foo-bar"));
+        Map<Partition, ClusterNode> map = partMgr.primaryReplicasAsync().join();
+        assertEquals(4, map.size());
+        assertEquals("server-1", map.get(part).name());
+
+        updateServerReplicas(List.of("foo", "bar", "baz", "qux"));
+
+        Map<Partition, ClusterNode> map2 = partMgr.primaryReplicasAsync().join();
+        assertEquals(4, map2.size());
+        assertEquals("foo", map2.get(part).name());
     }
 
     private static void updateServerReplicas(List<String> replicas) {
