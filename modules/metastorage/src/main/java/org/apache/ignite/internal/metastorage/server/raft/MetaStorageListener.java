@@ -26,10 +26,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.function.LongSupplier;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
@@ -67,17 +64,10 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
      */
     public MetaStorageListener(
             KeyValueStorage storage,
-            ClusterTimeImpl clusterTime,
-            ConfigurationValue<Long> idempotentCacheTtl,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+            ClusterTimeImpl clusterTime
     ) {
         this.storage = storage;
-        this.writeHandler = new MetaStorageWriteHandler(
-                storage,
-                clusterTime,
-                idempotentCacheTtl,
-                maxClockSkewMillisFuture
-        );
+        this.writeHandler = new MetaStorageWriteHandler(storage, clusterTime);
     }
 
     @Override
@@ -190,14 +180,5 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public void onShutdown() {
-    }
-
-    /**
-     * Removes obsolete entries from both volatile and persistent idempotent command cache.
-     */
-    @Deprecated(forRemoval = true)
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
-    public void evictIdempotentCommandsCache() {
-        writeHandler.evictIdempotentCommandsCache();
     }
 }

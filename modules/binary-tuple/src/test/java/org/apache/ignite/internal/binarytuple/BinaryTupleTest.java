@@ -33,7 +33,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.logger.Loggers;
@@ -66,12 +65,10 @@ public class BinaryTupleTest {
         assertNull(reader.longValueBoxed(0));
         assertNull(reader.floatValueBoxed(0));
         assertNull(reader.doubleValueBoxed(0));
-        assertNull(reader.numberValue(0));
         assertNull(reader.decimalValue(0, 0));
         assertNull(reader.stringValue(0));
         assertNull(reader.bytesValue(0));
         assertNull(reader.uuidValue(0));
-        assertNull(reader.bitmaskValue(0));
         assertNull(reader.dateValue(0));
         assertNull(reader.timeValue(0));
         assertNull(reader.dateTimeValue(0));
@@ -297,20 +294,6 @@ public class BinaryTupleTest {
     }
 
     /**
-     * Test big integer value encoding.
-     */
-    @Test
-    public void numberTest() {
-        BigInteger value = BigInteger.valueOf(12345);
-
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
-        ByteBuffer bytes = builder.appendNumber(value).build();
-
-        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-        assertEquals(value, reader.numberValue(0));
-    }
-
-    /**
      * Test big decimal value encoding.
      */
     @Test
@@ -456,27 +439,6 @@ public class BinaryTupleTest {
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
         assertEquals(value, reader.uuidValue(0));
-    }
-
-    /**
-     * Test bitmask value encoding.
-     */
-    @Test
-    public void bitmaskTest() {
-        Random rnd = getRng();
-
-        for (int i = 0; i < 100; i++) {
-            byte[] valueBytes = generateBytes(rnd);
-            if (valueBytes != null) {
-                BitSet value = BitSet.valueOf(valueBytes);
-
-                BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
-                ByteBuffer bytes = builder.appendBitmask(value).build();
-
-                BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-                assertEquals(value, reader.bitmaskValue(0));
-            }
-        }
     }
 
     /**

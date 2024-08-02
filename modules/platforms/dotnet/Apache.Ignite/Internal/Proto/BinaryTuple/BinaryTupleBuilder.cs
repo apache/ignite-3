@@ -495,58 +495,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
-        /// Appends a bitmask.
-        /// </summary>
-        /// <param name="value">Value.</param>
-        public void AppendBitmask(BitArray value)
-        {
-            var size = (value.Length + 7) / 8; // Ceiling division.
-            var arr = ByteArrayPool.Rent(size);
-
-            try
-            {
-                value.CopyTo(arr, 0);
-
-                // Trim zero bytes.
-                while (size > 0 && arr[size - 1] == 0)
-                {
-                    size--;
-                }
-
-                var resBytes = arr.AsSpan()[..size];
-
-                if (GetHashOrder() is { } hashOrder)
-                {
-                    PutHash(hashOrder, HashUtils.Hash32(resBytes));
-                }
-
-                PutBytes(resBytes);
-
-                OnWrite();
-            }
-            finally
-            {
-                ByteArrayPool.Return(arr);
-            }
-        }
-
-        /// <summary>
-        /// Appends a bitmask.
-        /// </summary>
-        /// <param name="value">Value.</param>
-        public void AppendBitmaskNullable(BitArray? value)
-        {
-            if (value == null)
-            {
-                AppendNull();
-            }
-            else
-            {
-                AppendBitmask(value);
-            }
-        }
-
-        /// <summary>
         /// Appends a decimal.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -556,7 +504,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var (unscaled, actualScale) = BinaryTupleCommon.DecimalToUnscaledBigInteger(value, scale);
 
             PutShort(actualScale);
-            AppendNumber(unscaled);
+            PutNumber(unscaled);
         }
 
         /// <summary>
@@ -573,43 +521,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             else
             {
                 AppendDecimal(value.Value, scale);
-            }
-        }
-
-        /// <summary>
-        /// Appends a number.
-        /// </summary>
-        /// <param name="value">Value.</param>
-        public void AppendNumber(BigInteger value)
-        {
-            var size = value.GetByteCount();
-            var destination = GetSpan(size);
-            var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
-
-            if (GetHashOrder() is { } hashOrder)
-            {
-                PutHash(hashOrder, HashUtils.Hash32(destination[..written]));
-            }
-
-            Debug.Assert(success, "success");
-            Debug.Assert(written == size, "written == size");
-
-            OnWrite();
-        }
-
-        /// <summary>
-        /// Appends a number.
-        /// </summary>
-        /// <param name="value">Value.</param>
-        public void AppendNumberNullable(BigInteger? value)
-        {
-            if (value == null)
-            {
-                AppendNull();
-            }
-            else
-            {
-                AppendNumber(value.Value);
             }
         }
 
@@ -863,16 +774,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendBytes((byte[])value);
                     break;
 
-                case ColumnType.Bitmask:
-                    AppendBitmask((BitArray)value);
-                    break;
-
                 case ColumnType.Decimal:
                     AppendDecimal((decimal)value, scale);
-                    break;
-
-                case ColumnType.Number:
-                    AppendNumber((BigInteger)value);
                     break;
 
                 case ColumnType.Date:
@@ -975,11 +878,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendDecimal(dec, scale);
                     break;
 
-                case BigInteger bigInt:
-                    AppendTypeAndScale(ColumnType.Number);
-                    AppendNumber(bigInt);
-                    break;
-
                 case LocalDate localDate:
                     AppendTypeAndScale(ColumnType.Date);
                     AppendDate(localDate);
@@ -1008,11 +906,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 case Duration duration:
                     AppendTypeAndScale(ColumnType.Duration);
                     AppendDuration(duration);
-                    break;
-
-                case BitArray bitArray:
-                    AppendTypeAndScale(ColumnType.Bitmask);
-                    AppendBitmask(bitArray);
                     break;
 
                 default:
@@ -1130,15 +1023,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                     break;
 
-                case BigInteger:
-                    AppendTypeAndSize(ColumnType.Number, collection.Length);
-                    foreach (var item in collection)
-                    {
-                        AppendNumber((BigInteger)(object)item!);
-                    }
-
-                    break;
-
                 case LocalDate:
                     AppendTypeAndSize(ColumnType.Date, collection.Length);
                     foreach (var item in collection)
@@ -1171,15 +1055,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     foreach (var item in collection)
                     {
                         AppendTimestamp((Instant)(object)item!, TemporalTypes.MaxTimePrecision);
-                    }
-
-                    break;
-
-                case BitArray:
-                    AppendTypeAndSize(ColumnType.Bitmask, collection.Length);
-                    foreach (var item in collection)
-                    {
-                        AppendBitmask((BitArray)(object)item!);
                     }
 
                     break;
@@ -1468,6 +1343,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             AppendInt((int)type);
             AppendInt(size);
+        }
+
+        private void PutNumber(BigInteger value)
+        {
+            var size = value.GetByteCount();
+            var destination = GetSpan(size);
+            var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
+
+            if (GetHashOrder() is { } hashOrder)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(destination[..written]));
+            }
+
+            Debug.Assert(success, "success");
+            Debug.Assert(written == size, "written == size");
+
+            OnWrite();
         }
 
         private void OnWrite()

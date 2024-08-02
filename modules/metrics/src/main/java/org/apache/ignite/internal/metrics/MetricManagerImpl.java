@@ -195,9 +195,17 @@ public class MetricManagerImpl implements MetricManager {
         MetricExporter<T> exporter = availableExporters.get(exporterName);
 
         if (exporter != null) {
-            exporter.start(metricsProvider, exporterConfiguration);
+            enabledMetricExporters.computeIfAbsent(exporter.name(), name -> {
+                try {
+                    exporter.start(metricsProvider, exporterConfiguration);
 
-            enabledMetricExporters.put(exporter.name(), exporter);
+                    return exporter;
+                } catch (Exception e) {
+                    log.warn("Unable to start metrics exporter name=[" + exporterName + "].", e);
+
+                    return null;
+                }
+            });
         } else {
             log.warn("Received configuration for unknown metric exporter with the name '" + exporterName + "'");
         }
