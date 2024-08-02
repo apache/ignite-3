@@ -359,6 +359,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     private void generateEnumTransferableUtils(Collection<MessageClass> messageClasses, MessageGroupWrapper messageGroup) {
         List<MessageClass> serializableMessages = collectAutoSerializableMessageClasses(messageClasses);
 
+        // If messages are not automatically serializable/deserializable, then there is no need for utility classes for enum for them.
         if (serializableMessages.isEmpty()) {
             return;
         }

@@ -33,19 +33,19 @@ public final class EnumOutter {
         /**
          * <code>ENTRY_TYPE_UNKNOWN = 0;</code>
          */
-        ENTRY_TYPE_UNKNOWN(0, 0),
+        ENTRY_TYPE_UNKNOWN(0),
         /**
          * <code>ENTRY_TYPE_NO_OP = 1;</code>
          */
-        ENTRY_TYPE_NO_OP(1, 1),
+        ENTRY_TYPE_NO_OP(1),
         /**
          * <code>ENTRY_TYPE_DATA = 2;</code>
          */
-        ENTRY_TYPE_DATA(2, 2),
+        ENTRY_TYPE_DATA(2),
         /**
          * <code>ENTRY_TYPE_CONFIGURATION = 3;</code>
          */
-        ENTRY_TYPE_CONFIGURATION(3, 3);
+        ENTRY_TYPE_CONFIGURATION(3);
 
         public final int getNumber() {
             return value;
@@ -76,15 +76,13 @@ public final class EnumOutter {
 
         private final int value;
 
-        private final int transferableId;
-
-        EntryType(int value, int transferableId) {
+        EntryType(int value) {
             this.value = value;
-            this.transferableId = transferableId;
         }
+
         @Override
         public int transferableId() {
-            return transferableId;
+            return value;
         }
     }
 
