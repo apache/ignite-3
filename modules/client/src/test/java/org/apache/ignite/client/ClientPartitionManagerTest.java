@@ -17,10 +17,15 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.Map;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.table.partition.PartitionManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -29,10 +34,17 @@ import org.junit.jupiter.api.Test;
 public class ClientPartitionManagerTest extends AbstractClientTest {
     private static final String TABLE_NAME = "tbl1";
 
+    @BeforeEach
+    public void setUp() {
+        ((FakeIgniteTables) server.tables()).createTable(TABLE_NAME);
+    }
+
     @Test
-    public void test() {
-        PartitionManager partMgr = client.tables().table(TABLE_NAME).partitionManager();
+    public void primaryReplicas() {
+        Table table = client.tables().table(TABLE_NAME);
+        PartitionManager partMgr = table.partitionManager();
 
         Map<Partition, ClusterNode> map = partMgr.primaryReplicasAsync().join();
+        assertEquals(4, map.size());
     }
 }
