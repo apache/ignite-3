@@ -31,7 +31,7 @@ public class FailureProcessorConfigurationBuilderImpl implements FailureProcesso
 
     public void buildToConfiguration(FailureProcessorConfiguration configuration) {
         if (failureHandlerBuilder != null) {
-            failureHandlerBuilder.buildToConfiguration(configuration);
+            failureHandlerBuilder.buildToConfiguration(configuration.handler());
         }
     }
 

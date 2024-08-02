@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import org.apache.ignite.failure.handlers.configuration.FailureHandlerBuilder;
-import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 
 public class FailureHandlerBuilderImpl implements FailureHandlerBuilder {
     private final List<Consumer<FailureHandlerChange>> changes = new ArrayList<>();
@@ -32,8 +31,7 @@ public class FailureHandlerBuilderImpl implements FailureHandlerBuilder {
         return this;
     }
 
-    public void buildToConfiguration(FailureProcessorConfiguration configuration) {
-        configuration.change(c -> c.changeHandler(handlerChange -> changes.forEach(consumer -> consumer.accept(handlerChange))))
-                .join();
+    public void buildToConfiguration(FailureHandlerConfiguration configuration) {
+        configuration.change(c -> changes.forEach(consumer -> consumer.accept(c))).join();
     }
 }

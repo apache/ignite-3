@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.failure.handlers.configuration;
 
 import org.apache.ignite.failure.handlers.configuration.NoOpFailureHandlerBuilder;
-import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 
 public class NoOpFailureHandlerBuilderImpl extends FailureHandlerBuilderImpl implements NoOpFailureHandlerBuilder {
     @Override
-    public void buildToConfiguration(FailureProcessorConfiguration configuration) {
+    public void buildToConfiguration(FailureHandlerConfiguration configuration) {
         super.buildToConfiguration(configuration);
-        configuration.change(c -> c.changeHandler(handlerChange -> handlerChange.convert(NoOpFailureHandlerChange.class)))
-                .join();
+        configuration.change(c -> c.convert(NoOpFailureHandlerChange.class)).join();
     }
 }

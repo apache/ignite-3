@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.failure.handlers.configuration;
 
 import org.apache.ignite.failure.handlers.configuration.StopNodeFailureHandlerBuilder;
-import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 
 public class StopNodeFailureHandlerBuilderImpl extends FailureHandlerBuilderImpl
         implements StopNodeFailureHandlerBuilder {
     @Override
-    public void buildToConfiguration(FailureProcessorConfiguration configuration) {
+    public void buildToConfiguration(FailureHandlerConfiguration configuration) {
         super.buildToConfiguration(configuration);
-        configuration.change(c -> c.changeHandler(handlerChange -> handlerChange.convert(StopNodeFailureHandlerChange.class)))
-                .join();
+        configuration.change(c -> c.convert(StopNodeFailureHandlerChange.class)).join();
     }
 }

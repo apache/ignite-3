@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import org.apache.ignite.failure.handlers.configuration.StopNodeOrHaltFailureHandlerBuilder;
-import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 
 public class StopNodeOrHaltFailureHandlerBuilderImpl extends FailureHandlerBuilderImpl
         implements StopNodeOrHaltFailureHandlerBuilder {
@@ -40,11 +39,11 @@ public class StopNodeOrHaltFailureHandlerBuilderImpl extends FailureHandlerBuild
     }
 
     @Override
-    public void buildToConfiguration(FailureProcessorConfiguration configuration) {
+    public void buildToConfiguration(FailureHandlerConfiguration configuration) {
         super.buildToConfiguration(configuration);
-        configuration.change(c -> c.changeHandler(handlerChange -> {
-            StopNodeOrHaltFailureHandlerChange change = handlerChange.convert(StopNodeOrHaltFailureHandlerChange.class);
+        configuration.change(c -> {
+            StopNodeOrHaltFailureHandlerChange change = c.convert(StopNodeOrHaltFailureHandlerChange.class);
             changes.forEach(consumer -> consumer.accept(change));
-        })).join();
+        }).join();
     }
 }

@@ -23,8 +23,6 @@ import org.apache.ignite.failure.handlers.configuration.StopNodeOrHaltFailureHan
 
 public interface FailureProcessorConfigurationBuilder {
     NoOpFailureHandlerBuilder withNoOpFailureHandler();
-
     StopNodeFailureHandlerBuilder withStopNodeFailureHandler();
-
     StopNodeOrHaltFailureHandlerBuilder withStopNodeOrHaltFailureHandler();
 }
