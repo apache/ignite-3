@@ -33,8 +33,8 @@ import org.apache.ignite.network.ClusterNode;
 
 /**
  * Scheduler wrapper that triggers idempotent cache vacuumization with an ability to suspend and resume the triggering. It is valid but not
- * effective to have multiple vacuumizers at the same time, meaning that best-effort oneness is preferable. In order to achieve such
- * best-effort oneness it's possible to use meta storage leader collocation: start/resume triggering on leader election if the leader is
+ * effective to have multiple vacuumizers at the same time, meaning that best-effort uniqueness is preferable. In order to achieve such
+ * best-effort uniqueness it's possible to use meta storage leader collocation: start/resume triggering on leader election if the leader is
  * collocated with a local node, and suspend upon loss of collocation with the leader.
  * In case of exception within vacuumization action, vacuumizer will just log a warning without suspending the scheduler.
  */
