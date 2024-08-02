@@ -38,7 +38,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Queue;
 import java.util.Set;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
@@ -275,7 +274,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     private void extractFromValues(
             long sourceId,
             IgniteTable table,
-            Queue<Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>>> projectsExpressions,
+            Deque<Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>>> projectsExpressions,
             @Nullable TargetMapping mapping,
             RexBuilder rexBuilder
     ) {
