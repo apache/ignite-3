@@ -247,7 +247,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                     PeersAndLearners newPeerConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
 
                     // We can't use 'resetLearners' call here because it does not support empty lists of learners.
-                    return raftService.changePeersAsync(newPeerConfiguration, term);
+                    return raftService.changePeersAndLearnersAsync(newPeerConfiguration, term);
                 })));
     }
 

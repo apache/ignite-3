@@ -15,9 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.client.benchmarks;
 
+import io.netty.util.ResourceLeakDetector;
+import io.netty.util.ResourceLeakDetector.Level;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.TestServer;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.RecordView;
@@ -119,6 +123,8 @@ public class ClientPutGetBenchmark {
      * @throws RunnerException Exception.
      */
     public static void main(String[] args) throws RunnerException {
+        ResourceLeakDetector.setLevel(Level.DISABLED);
+
         Options opt = new OptionsBuilder()
                 .include(ClientPutGetBenchmark.class.getSimpleName())
                 .addProfiler("gc")

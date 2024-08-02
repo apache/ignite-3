@@ -62,8 +62,8 @@ public final class CliRequests {
         Collection<String> newPeersList();
     }
 
-    @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_REQUEST)
-    public interface ChangePeersRequest extends Message {
+    @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_AND_LEARNERS_REQUEST)
+    public interface ChangePeersAndLearnersRequest extends Message {
         String groupId();
 
         String leaderId();
@@ -76,8 +76,8 @@ public final class CliRequests {
         Long term();
     }
 
-    @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_RESPONSE)
-    public interface ChangePeersResponse extends Message {
+    @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_AND_LEARNERS_RESPONSE)
+    public interface ChangePeersAndLearnersResponse extends Message {
         @Nullable
         Collection<String> oldPeersList();
 
@@ -89,8 +89,8 @@ public final class CliRequests {
         Collection<String> newLearnersList();
     }
 
-    @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_ASYNC_REQUEST)
-    public interface ChangePeersAsyncRequest extends Message {
+    @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_AND_LEARNERS_ASYNC_REQUEST)
+    public interface ChangePeersAndLearnersAsyncRequest extends Message {
         String groupId();
 
         String leaderId();
@@ -103,8 +103,8 @@ public final class CliRequests {
         Long term();
     }
 
-    @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_ASYNC_RESPONSE)
-    public interface ChangePeersAsyncResponse extends Message {
+    @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_AND_LEARNERS_ASYNC_RESPONSE)
+    public interface ChangePeersAndLearnersAsyncResponse extends Message {
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();

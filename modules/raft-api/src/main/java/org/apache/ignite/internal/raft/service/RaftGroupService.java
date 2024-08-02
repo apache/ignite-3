@@ -128,7 +128,7 @@ public interface RaftGroupService extends RaftCommandRunner {
     CompletableFuture<Void> removePeer(Peer peer);
 
     /**
-     * Changes peers of a replication group.
+     * Changes peers and learners of a replication group.
      *
      * <p>After the future completion methods like {@link #peers()} and {@link #learners()} can be used to retrieve current members of a
      * group.
@@ -137,10 +137,10 @@ public interface RaftGroupService extends RaftCommandRunner {
      *
      * @param peersAndLearners New peers and Learners of the Raft group.
      * @param term Current known leader term.
-     *             If real raft group term will be different - changePeers will be skipped.
+     *             If real raft group term will be different - configuration update will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeers(PeersAndLearners peersAndLearners, long term);
+    CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term);
 
     /**
      * Changes peers and learners of a replication group.
@@ -155,10 +155,10 @@ public interface RaftGroupService extends RaftCommandRunner {
      *
      * @param peersAndLearners New peers and Learners of the Raft group.
      * @param term Current known leader term.
-     *             If real raft group term will be different - changePeers will be skipped.
+     *             If real raft group term will be different - configuration update will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAsync(PeersAndLearners peersAndLearners, long term);
+    CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term);
 
     /**
      * Adds learners (non-voting members).

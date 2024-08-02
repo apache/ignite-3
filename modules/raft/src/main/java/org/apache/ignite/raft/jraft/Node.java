@@ -178,11 +178,11 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * Change the configuration of the raft group to |newPeers| , done.run() would be invoked after this operation
      * finishes, describing the detailed result.
      *
-     * @param newPeersAndLearners new peers and learners to change
-     * @param term term on which this method was called. If real raft group term will be different - changePeers will be skipped.
+     * @param newConf new peers and learners configuration to apply.
+     * @param term term on which this method was called. If real raft group term will be different - configuration update will be skipped.
      * @param done callback
      */
-    void changePeers(final Configuration newPeersAndLearners, long term, final Closure done);
+    void changePeersAndLearners(final Configuration newConf, long term, final Closure done);
 
     /**
      * Asynchronously change the configuration of the raft group to |newPeers|. If done closure was completed with {@link Status#OK()},
@@ -190,10 +190,10 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * {@code STAGE_CATCHING_UP}
      *
      * @param newConf new peers and learners configuration to apply.
-     * @param term term on which this method was called. If real raft group term will be different - changePeers will be skipped.
+     * @param term term on which this method was called. If real raft group term will be different - configuration update will be skipped.
      * @param done callback
      */
-    void changePeersAsync(final Configuration newConf, long term, final Closure done);
+    void changePeersAndLearnersAsync(final Configuration newConf, long term, final Closure done);
 
     /**
      * Reset the configuration of this node individually, without any replication to other peers before this node

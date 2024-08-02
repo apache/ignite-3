@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -251,22 +250,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         Column col = rowColumnByIndex(columnIndex);
 
         return row.uuidValue(correctIndex(col));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(String columnName) {
-        Column col = rowColumnByName(columnName);
-
-        return row.bitmaskValue(correctIndex(col));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        Column col = rowColumnByIndex(columnIndex);
-
-        return row.bitmaskValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */

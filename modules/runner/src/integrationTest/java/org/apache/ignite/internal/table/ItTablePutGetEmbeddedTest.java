@@ -18,15 +18,18 @@
 package org.apache.ignite.internal.table;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -93,6 +96,33 @@ public class ItTablePutGetEmbeddedTest extends ClusterPerClassIntegrationTest {
                 assertEquals(i * 10, recordView.get(null, key).intValue(1));
             }
         }
+    }
+
+    @Test
+    public void testSingleColumnTableKeyValueView() {
+        String tableName = "TEST_TABLE_1";
+
+        sql("CREATE TABLE " + tableName + " (id int primary key)");
+        sql("INSERT INTO " + tableName + " (id) VALUES (1)");
+
+        // Tuples.
+        KeyValueView<Tuple, Tuple> kvTupleView = tables().table(tableName).keyValueView();
+        Tuple key = Tuple.create().set("id", 1);
+        Tuple val = Tuple.create();
+
+        kvTupleView.put(null, key, val);
+        Tuple res = kvTupleView.get(null, key);
+
+        assertEquals(val, res);
+
+        // Classes.
+        KeyValueView<Integer, Void> kvPrimitiveView = tables().table(tableName).keyValueView(Integer.class, Void.class);
+        int key2 = 2;
+
+        kvPrimitiveView.put(null, key2, null);
+        NullableValue<Void> res2 = kvPrimitiveView.getNullable(null, key2);
+
+        assertNull(res2.get());
     }
 
     private static Stream<Arguments> tableDefinitions() {

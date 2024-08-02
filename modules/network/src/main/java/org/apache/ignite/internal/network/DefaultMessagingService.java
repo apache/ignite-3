@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
+import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
@@ -383,7 +384,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return;
         }
 
-        if (inNetworkObject.message() instanceof InvokeResponse) {
+        NetworkMessage message = inNetworkObject.message();
+
+        if (message instanceof InvokeResponse) {
             Executor executor = chooseExecutorInInboundPool(inNetworkObject);
             executor.execute(() -> handleInvokeResponse(inNetworkObject));
             return;
@@ -391,12 +394,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage payload;
         Long correlationId = null;
-        if (inNetworkObject.message() instanceof InvokeRequest) {
-            InvokeRequest invokeRequest = (InvokeRequest) inNetworkObject.message();
+        if (message instanceof InvokeRequest) {
+            InvokeRequest invokeRequest = (InvokeRequest) message;
             payload = invokeRequest.message();
             correlationId = invokeRequest.correlationId();
         } else {
-            payload = inNetworkObject.message();
+            payload = message;
         }
 
         Iterator<HandlerContext> handlerContexts = getHandlerContexts(payload.groupType()).iterator();
@@ -418,17 +421,29 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 logAndRethrowIfError(inNetworkObject, e);
             } finally {
                 long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+
                 if (tookMillis > 100) {
-                    LOG.warn("Processing of {} from {} took {} ms", inNetworkObject.message(), inNetworkObject.sender(), tookMillis);
+                    LOG.warn(
+                            "Processing of {} from {} took {} ms",
+                            LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                            inNetworkObject.sender(),
+                            tookMillis
+                    );
                 }
             }
         });
     }
 
     private static void logMessageSkipDueToSenderLeft(InNetworkObject inNetworkObject) {
-        LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
-                inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message()
-        );
+        if (LOG.isInfoEnabled()) {
+            NetworkMessage message = inNetworkObject.message();
+
+            LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
+                    inNetworkObject.launchId(),
+                    inNetworkObject.consistentId(),
+                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging()
+            );
+        }
     }
 
     private boolean senderIdIsStale(InNetworkObject obj) {
@@ -515,11 +530,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
-        if (e instanceof UnresolvableConsistentIdException && obj.message() instanceof InvokeRequest) {
-            LOG.info("onMessage() failed while processing {} from {} as the sender has left the topology",
-                    obj.message(), obj.sender());
+        NetworkMessage message = obj.message();
+
+        if (e instanceof UnresolvableConsistentIdException && message instanceof InvokeRequest) {
+            if (LOG.isInfoEnabled()) {
+                LOG.info(
+                        "onMessage() failed while processing {} from {} as the sender has left the topology",
+                        LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                        obj.sender()
+                );
+            }
         } else {
-            LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.sender());
+            LOG.error(
+                    "onMessage() failed while processing {} from {}",
+                    e,
+                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(), obj.sender()
+            );
         }
 
         if (e instanceof Error) {
