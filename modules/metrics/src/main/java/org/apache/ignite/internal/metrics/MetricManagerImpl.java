@@ -198,9 +198,11 @@ public class MetricManagerImpl implements MetricManager {
             enabledMetricExporters.computeIfAbsent(exporter.name(), name -> {
                 try {
                     exporter.start(metricsProvider, exporterConfiguration);
+
                     return exporter;
                 } catch (Exception e) {
                     log.warn("Unable to start metrics exporter name=[" + exporterName + "].", e);
+
                     return null;
                 }
             });
