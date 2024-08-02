@@ -438,9 +438,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
-                metaStorageConfiguration,
-                raftConfiguration.retryTimeout(),
-                maxClockSkewFuture
+                metaStorageConfiguration
         ) {
             @Override
             public CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {

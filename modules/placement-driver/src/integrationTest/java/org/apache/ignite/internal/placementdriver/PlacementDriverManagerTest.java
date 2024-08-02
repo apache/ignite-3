@@ -203,9 +203,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 nodeClock,
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
-                metaStorageConfiguration,
-                raftConfiguration.retryTimeout(),
-                completedFuture(clockService::maxClockSkewMillis)
+                metaStorageConfiguration
         );
 
         placementDriverManager = new PlacementDriverManager(

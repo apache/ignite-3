@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -134,6 +135,7 @@ import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventPara
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -320,6 +322,9 @@ public class IgniteImpl implements Ignite {
 
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
+
+    /** Idempotent cache vacuumizer. */
+    private final IdempotentCacheVacuumizer idempotentCacheVacuumizer;
 
     /** Cluster initializer. */
     private final ClusterInitializer clusterInitializer;
@@ -588,8 +593,6 @@ public class IgniteImpl implements Ignite {
                 raftGroupEventsClientListener
         );
 
-        CompletableFuture<LongSupplier> maxClockSkewMillisFuture = new CompletableFuture<>();
-
         metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
                 cmgMgr,
@@ -598,9 +601,7 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH), failureProcessor),
                 clock,
                 topologyAwareRaftGroupServiceFactory,
-                metricManager,
-                raftConfiguration.retryTimeout(),
-                maxClockSkewMillisFuture
+                metricManager
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -622,7 +623,18 @@ public class IgniteImpl implements Ignite {
 
         clockService = new ClockServiceImpl(clock, clockWaiter, new SameValueLongSupplier(() -> schemaSyncConfig.maxClockSkew().value()));
 
-        maxClockSkewMillisFuture.complete(clockService::maxClockSkewMillis);
+        idempotentCacheVacuumizer = new IdempotentCacheVacuumizer(
+                name,
+                threadPoolsManager.commonScheduler(),
+                metaStorageMgr::evictIdempotentCommandsCache,
+                nodeCfgMgr.configurationRegistry().getConfiguration(RaftConfiguration.KEY).retryTimeout(),
+                clockService,
+                1,
+                1,
+                MINUTES
+        );
+
+        metaStorageMgr.addElectionListener(idempotentCacheVacuumizer);
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
@@ -1114,7 +1126,6 @@ public class IgniteImpl implements Ignite {
 
                     clusterSvc.updateMetadata(
                             new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
-
                 } catch (Throwable e) {
                     startupExecutor.shutdownNow();
 
@@ -1168,6 +1179,7 @@ public class IgniteImpl implements Ignite {
                                 catalogCompactionRunner,
                                 indexMetaStorage,
                                 clusterCfgMgr,
+                                idempotentCacheVacuumizer,
                                 authenticationManager,
                                 placementDriverMgr,
                                 metricManager,
