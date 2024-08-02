@@ -19,8 +19,12 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.client.handler.FakePlacementDriver;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.partition.Partition;
@@ -34,17 +38,35 @@ import org.junit.jupiter.api.Test;
 public class ClientPartitionManagerTest extends AbstractClientTest {
     private static final String TABLE_NAME = "tbl1";
 
+    private static int tableId;
+
     @BeforeEach
     public void setUp() {
-        ((FakeIgniteTables) server.tables()).createTable(TABLE_NAME);
+        Table table = ((FakeIgniteTables) server.tables()).createTable(TABLE_NAME);
+
+        tableId = ((TableViewInternal)table).tableId();
     }
 
     @Test
-    public void primaryReplicas() {
+    public void testPrimaryReplicas() {
         Table table = client.tables().table(TABLE_NAME);
         PartitionManager partMgr = table.partitionManager();
 
         Map<Partition, ClusterNode> map = partMgr.primaryReplicasAsync().join();
         assertEquals(4, map.size());
+    }
+
+    @Test
+    public void testPrimaryReplicasCacheInvalidation() {
+        Table table = client.tables().table(TABLE_NAME);
+        PartitionManager partMgr = table.partitionManager();
+
+        updateServerReplicas(List.of("foo-bar"));
+    }
+
+    private static void updateServerReplicas(List<String> replicas) {
+        FakePlacementDriver placementDriver = testServer.placementDriver();
+        long leaseStartTime = new HybridClockImpl().nowLong();
+        placementDriver.setReplicas(replicas, tableId, leaseStartTime);
     }
 }
