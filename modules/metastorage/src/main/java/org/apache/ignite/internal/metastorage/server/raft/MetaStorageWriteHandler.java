@@ -389,9 +389,11 @@ public class MetaStorageWriteHandler {
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-22828
             evictionCandidateKeys.forEach(evictionCandidateKeyBytes -> {
-                byte[] commandIdBytes = copyOfRange(evictionCandidateKeyBytes, IDEMPOTENT_COMMAND_PREFIX_BYTES.length,
-                        evictionCandidateKeyBytes.length);
-                CommandId commandId = ByteUtils.fromBytes(commandIdBytes);
+                CommandId commandId = ByteUtils.fromBytes(
+                        evictionCandidateKeyBytes,
+                        IDEMPOTENT_COMMAND_PREFIX_BYTES.length,
+                        evictionCandidateKeyBytes.length
+                );
 
                 idempotentCommandCache.remove(commandId);
             });
