@@ -108,7 +108,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     private ScheduledExecutorService executor;
 
     @InjectConfiguration
-    protected RaftConfiguration raftConfiguration;
+    private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
     protected SystemConfiguration systemConfiguration;

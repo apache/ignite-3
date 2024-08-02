@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
@@ -84,6 +82,7 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -225,6 +224,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22891")
     public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
         AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
 
@@ -415,12 +415,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv1.startRaftNode(
                 raftNodeId1,
                 membersConfiguration,
-                new MetaStorageListener(
-                        mockStorage,
-                        mock(ClusterTimeImpl.class),
-                        raftConfiguration.retryTimeout(),
-                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-                ),
+                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
                 defaults()
         );
 
@@ -429,12 +424,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv2.startRaftNode(
                 raftNodeId2,
                 membersConfiguration,
-                new MetaStorageListener(
-                        mockStorage,
-                        mock(ClusterTimeImpl.class),
-                        raftConfiguration.retryTimeout(),
-                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-                ),
+                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
                 defaults()
         );
 
@@ -443,12 +433,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv3.startRaftNode(
                 raftNodeId3,
                 membersConfiguration,
-                new MetaStorageListener(
-                        mockStorage,
-                        mock(ClusterTimeImpl.class),
-                        raftConfiguration.retryTimeout(),
-                        completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-                ),
+                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
                 defaults()
         );
 

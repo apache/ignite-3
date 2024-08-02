@@ -47,10 +47,10 @@ public class RaftMessageGroup {
         public static final short REMOVE_PEER_RESPONSE = 1003;
 
         /** */
-        public static final short CHANGE_PEERS_REQUEST = 1004;
+        public static final short CHANGE_PEERS_AND_LEARNERS_REQUEST = 1004;
 
         /** */
-        public static final short CHANGE_PEERS_RESPONSE = 1005;
+        public static final short CHANGE_PEERS_AND_LEARNERS_RESPONSE = 1005;
 
         /** */
         public static final short SNAPSHOT_REQUEST = 1006;
@@ -86,10 +86,10 @@ public class RaftMessageGroup {
         public static final short LEARNERS_OP_RESPONSE = 1016;
 
         /** */
-        public static final short CHANGE_PEERS_ASYNC_REQUEST = 1017;
+        public static final short CHANGE_PEERS_AND_LEARNERS_ASYNC_REQUEST = 1017;
 
         /** */
-        public static final short CHANGE_PEERS_ASYNC_RESPONSE = 1018;
+        public static final short CHANGE_PEERS_AND_LEARNERS_ASYNC_RESPONSE = 1018;
 
         /** */
         public static final short SUBSCRIPTION_LEADER_CHANGE_REQUEST = 1019;
