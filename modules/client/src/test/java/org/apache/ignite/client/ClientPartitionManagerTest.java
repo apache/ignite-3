@@ -49,30 +49,27 @@ public class ClientPartitionManagerTest extends AbstractClientTest {
     }
 
     @Test
-    public void testPrimaryReplicas() {
-        Table table = client.tables().table(TABLE_NAME);
-        PartitionManager partMgr = table.partitionManager();
-
-        Map<Partition, ClusterNode> map = partMgr.primaryReplicasAsync().join();
-        assertEquals(4, map.size());
-    }
-
-    @Test
     public void testPrimaryReplicasCacheInvalidation() {
         Table table = client.tables().table(TABLE_NAME);
         PartitionManager partMgr = table.partitionManager();
-        HashPartition part = new HashPartition(0);
+        HashPartition part0 = new HashPartition(0);
+        HashPartition part2 = new HashPartition(2);
 
+        // Before update.
         Map<Partition, ClusterNode> map = partMgr.primaryReplicasAsync().join();
         assertEquals(4, map.size());
-        assertEquals("s", map.get(part).name());
+        assertEquals("s", map.get(part0).name());
+        assertEquals("s", partMgr.primaryReplicaAsync(part2).join().name());
 
+        // Update.
         updateServerReplicas(List.of("foo", "bar", "baz", "qux"));
         client.tables().tables(); // Perform a request to trigger cache invalidation.
 
+        // After update.
         Map<Partition, ClusterNode> map2 = partMgr.primaryReplicasAsync().join();
         assertEquals(4, map2.size());
-        assertEquals("foo", map2.get(part).name());
+        assertEquals("foo", map2.get(part0).name());
+        assertEquals("baz", partMgr.primaryReplicaAsync(part2).join().name());
     }
 
     private static void updateServerReplicas(List<String> replicas) {
