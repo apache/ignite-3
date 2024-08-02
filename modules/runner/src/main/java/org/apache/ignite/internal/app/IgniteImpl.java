@@ -323,6 +323,9 @@ public class IgniteImpl implements Ignite {
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
 
+    /** Idempotent cache vacuumizer. */
+    private final IdempotentCacheVacuumizer idempotentCacheVacuumizer;
+
     /** Cluster initializer. */
     private final ClusterInitializer clusterInitializer;
 
@@ -619,6 +622,19 @@ public class IgniteImpl implements Ignite {
         );
 
         clockService = new ClockServiceImpl(clock, clockWaiter, new SameValueLongSupplier(() -> schemaSyncConfig.maxClockSkew().value()));
+
+        idempotentCacheVacuumizer = new IdempotentCacheVacuumizer(
+                name,
+                threadPoolsManager.commonScheduler(),
+                metaStorageMgr::evictIdempotentCommandsCache,
+                nodeCfgMgr.configurationRegistry().getConfiguration(RaftConfiguration.KEY).retryTimeout(),
+                clockService,
+                1,
+                1,
+                MINUTES
+        );
+
+        metaStorageMgr.addElectionListener(idempotentCacheVacuumizer);
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
@@ -1110,20 +1126,6 @@ public class IgniteImpl implements Ignite {
 
                     clusterSvc.updateMetadata(
                             new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
-
-                    // Instantiate and register idempotentCacheVacuumizer. Should be registered after configuration start.
-                    metaStorageMgr.addElectionListener(
-                            new IdempotentCacheVacuumizer(
-                                    name,
-                                    threadPoolsManager.commonScheduler(),
-                                    metaStorageMgr::evictIdempotentCommandsCache,
-                                    nodeCfgMgr.configurationRegistry().getConfiguration(RaftConfiguration.KEY).retryTimeout(),
-                                    clockService,
-                                    1,
-                                    1,
-                                    MINUTES
-                            )
-                    );
                 } catch (Throwable e) {
                     startupExecutor.shutdownNow();
 
@@ -1177,6 +1179,7 @@ public class IgniteImpl implements Ignite {
                                 catalogCompactionRunner,
                                 indexMetaStorage,
                                 clusterCfgMgr,
+                                idempotentCacheVacuumizer,
                                 authenticationManager,
                                 placementDriverMgr,
                                 metricManager,

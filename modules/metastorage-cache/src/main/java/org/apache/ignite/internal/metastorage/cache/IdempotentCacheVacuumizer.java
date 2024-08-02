@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.metastorage.cache;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -28,6 +31,8 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.ElectionListener;
 import org.apache.ignite.network.ClusterNode;
 
@@ -38,12 +43,36 @@ import org.apache.ignite.network.ClusterNode;
  * collocated with a local node, and suspend upon loss of collocation with the leader.
  * In case of exception within vacuumization action, vacuumizer will just log a warning without suspending the scheduler.
  */
-public class IdempotentCacheVacuumizer implements ElectionListener {
+public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListener {
     private static final IgniteLogger LOG = Loggers.forClass(IdempotentCacheVacuumizer.class);
 
     private final AtomicBoolean triggerVacuumization;
 
     private final String nodeName;
+
+    /** Scheduler to run vacuumization actions. */
+    private final ScheduledExecutorService scheduler;
+
+    /** Action that will trigger vacuumization process. */
+    private final Consumer<HybridTimestamp> vacuumizationAction;
+
+    /** Idempotent cache ttl. */
+    private final ConfigurationValue<Long> idempotentCacheTtl;
+
+    /** Clock service. */
+    private final ClockService clockService;
+
+    /** The time to delay first execution. */
+    private final long initialDelay;
+
+    /** The delay between the termination of one execution and the commencement of the next. */
+    private final long delay;
+
+    /** The time unit of the initialDelay and delay parameters. */
+    private final TimeUnit unit;
+
+    /** Vacuumization task future. */
+    private volatile ScheduledFuture<?> scheduledFuture;
 
     /**
      * The constructor.
@@ -69,8 +98,18 @@ public class IdempotentCacheVacuumizer implements ElectionListener {
     ) {
         this.nodeName = nodeName;
         this.triggerVacuumization = new AtomicBoolean(false);
+        this.scheduler = scheduler;
+        this.vacuumizationAction = vacuumizationAction;
+        this.idempotentCacheTtl = idempotentCacheTtl;
+        this.clockService = clockService;
+        this.initialDelay = initialDelay;
+        this.delay = delay;
+        this.unit = unit;
+    }
 
-        scheduler.scheduleWithFixedDelay(
+    @Override
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        scheduledFuture = scheduler.scheduleWithFixedDelay(
                 () -> {
                     if (triggerVacuumization.get()) {
                         try {
@@ -86,6 +125,17 @@ public class IdempotentCacheVacuumizer implements ElectionListener {
                 delay,
                 unit
         );
+
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+        }
+
+        return nullCompletedFuture();
     }
 
     @Override
