@@ -371,7 +371,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
                 boolean insertRow = true;
                 for (int i = updateColumnOffset; i < updateColumnOffset + mapping.length; i++) {
-                    insertRow = insertRow && handler.get(i, row) == null;
+                    if (!handler.isNull(i, row)) {
+                        insertRow = false;
+                        break;
+                    }
                 }
 
                 if (insertRow) {
