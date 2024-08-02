@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -325,18 +324,6 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public UUID uuidValue(int columnIndex) {
             return (UUID) row.get(columnIndex);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public BitSet bitmaskValue(String columnName) {
-            return (BitSet) row.get(columnIndexChecked(columnName));
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public BitSet bitmaskValue(int columnIndex) {
-            return (BitSet) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */

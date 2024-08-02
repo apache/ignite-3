@@ -137,7 +137,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
+    public CompletableFuture<Void> flush(boolean trigger) {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 

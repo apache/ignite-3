@@ -167,12 +167,8 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
     private static Stream<Arguments> oneColumnParameters() {
         List<Arguments> args = new ArrayList<>();
-        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
 
         for (NativeTypeSpec t : NativeTypeSpec.values()) {
-            if (unsupported.contains(t)) {
-                continue;
-            }
             args.add(Arguments.of(t));
         }
 

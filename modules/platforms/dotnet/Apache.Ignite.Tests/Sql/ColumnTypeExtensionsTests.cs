@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using System;
+using System.Linq;
 using Ignite.Sql;
 using Internal.Sql;
 using NUnit.Framework;
@@ -27,7 +28,9 @@ using NUnit.Framework;
 /// </summary>
 public class ColumnTypeExtensionsTests
 {
-    private static readonly ColumnType[] SqlColumnTypes = Enum.GetValues<ColumnType>();
+    private static readonly ColumnType[] SqlColumnTypes = Enum.GetValues<ColumnType>()
+        .Where(x => x != ColumnType.Bitmask && x != ColumnType.Number)
+        .ToArray();
 
     [TestCaseSource(nameof(SqlColumnTypes))]
     public void TestToClrType(ColumnType columnType) =>

@@ -15,32 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testobjects;
+package org.apache.ignite.internal.metrics.exporters;
 
-import java.util.BitSet;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
 /**
- * Test object.
+ * Empty configuration for {@link TestSimpleExporter}.
  */
-public class TestBitmaskObject {
-    private final int key;
-
-    private final BitSet bitmaskCol;
-
-    public TestBitmaskObject() {
-        this(0, new BitSet(0));
-    }
-
-    public TestBitmaskObject(int key, BitSet bitmaskCol) {
-        this.key = key;
-        this.bitmaskCol = bitmaskCol;
-    }
-
-    public int key() {
-        return key;
-    }
-
-    public BitSet bitmaskCol() {
-        return bitmaskCol;
-    }
+@PolymorphicConfigInstance(TestDoubleStartExporter.EXPORTER_NAME)
+public class TestDoubleStartExporterConfigurationSchema extends ExporterConfigurationSchema {
 }

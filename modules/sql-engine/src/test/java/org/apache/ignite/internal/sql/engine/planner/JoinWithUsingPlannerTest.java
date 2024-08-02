@@ -217,8 +217,6 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
     private static Stream<Arguments> nativeTypesMatrix() {
         Set<ColumnType> unsupportedTypes = Set.of(
                 ColumnType.NULL,
-                ColumnType.NUMBER,
-                ColumnType.BITMASK,
                 // TODO Exclude interval types after https://issues.apache.org/jira/browse/IGNITE-15200
                 ColumnType.PERIOD,
                 ColumnType.DURATION
