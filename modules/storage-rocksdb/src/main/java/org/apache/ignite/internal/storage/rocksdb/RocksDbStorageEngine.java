@@ -152,6 +152,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     @Override
     public void start() throws StorageException {
         // TODO: IGNITE-17066 Add handling deleting/updating storage profiles configuration
+        storageConfiguration.profiles().value();
         for (StorageProfileView profile : storageConfiguration.profiles().value()) {
             if (profile instanceof RocksDbProfileView) {
                 registerProfile((RocksDbProfileView) profile);

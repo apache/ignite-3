@@ -20,11 +20,14 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.DATA_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MAX_KEY_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MV_KEY_BUFFER;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_OFFSET;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.deserializeRow;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.getFromBatchAndDb;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.isTombstone;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampNatural;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.wrapIterator;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage.invalid;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
@@ -73,8 +76,17 @@ class GarbageCollector {
     /** Garbage collector's queue key's size. */
     private static final int GC_KEY_SIZE = GC_KEY_ROW_ID_OFFSET + ROW_ID_SIZE;
 
-    /** Thread-local direct buffer instance to read keys from RocksDB. */
-    private static final ThreadLocal<ByteBuffer> GC_KEY_BUFFER = withInitial(() -> allocateDirect(GC_KEY_SIZE).order(KEY_BYTE_ORDER));
+    /** Thread-local direct buffer instance to read keys that contain Data ID. */
+    private static final ThreadLocal<ByteBuffer> DIRECT_DATA_ID_KEY_BUFFER =
+            withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
+
+    /** Thread-local direct buffer for storing Data ID. */
+    private static final ThreadLocal<ByteBuffer> DIRECT_DATA_ID_BUFFER =
+            withInitial(() -> allocateDirect(DATA_ID_SIZE).order(KEY_BYTE_ORDER));
+
+    /** Thread-local direct buffer instance to read keys from the GC queue. */
+    private static final ThreadLocal<ByteBuffer> DIRECT_GC_KEY_BUFFER =
+            withInitial(() -> allocateDirect(GC_KEY_SIZE).order(KEY_BYTE_ORDER));
 
     /** Helper for the rocksdb partition. */
     private final PartitionDataHelper helper;
@@ -85,14 +97,18 @@ class GarbageCollector {
     /** GC queue column family. */
     private final ColumnFamilyHandle gcQueueCf;
 
+    /** Read options for regular reads. */
+    private final ReadOptions readOpts;
+
     enum AddResult {
         WAS_TOMBSTONE, WAS_VALUE, WAS_EMPTY
     }
 
-    GarbageCollector(PartitionDataHelper helper, RocksDB db, ColumnFamilyHandle gcQueueCf) {
+    GarbageCollector(PartitionDataHelper helper, RocksDB db, ReadOptions readOpts, ColumnFamilyHandle gcQueueCf) {
         this.helper = helper;
         this.db = db;
         this.gcQueueCf = gcQueueCf;
+        this.readOpts = readOpts;
     }
 
     /**
@@ -108,26 +124,23 @@ class GarbageCollector {
      */
     AddResult tryAddToGcQueue(WriteBatchWithIndex writeBatch, RowId rowId, HybridTimestamp timestamp, boolean isNewValueTombstone)
             throws RocksDBException {
-        ColumnFamilyHandle partCf = helper.partCf;
-
         // Try find previous value for the row id.
-        ByteBuffer keyBuffer = MV_KEY_BUFFER.get();
-        keyBuffer.clear();
+        ByteBuffer dataIdKeyBuffer = DIRECT_DATA_ID_KEY_BUFFER.get().clear();
 
-        helper.putDataKey(keyBuffer, rowId, timestamp);
+        helper.putCommittedDataIdKey(dataIdKeyBuffer, rowId, timestamp);
 
-        try (RocksIterator it = db.newIterator(partCf, helper.upperBoundReadOpts)) {
-            it.seek(keyBuffer);
+        try (RocksIterator it = db.newIterator(helper.partCf, helper.upperBoundReadOpts)) {
+            it.seek(dataIdKeyBuffer);
 
             if (invalid(it)) {
                 return AddResult.WAS_EMPTY;
             }
 
-            keyBuffer.clear();
+            dataIdKeyBuffer.clear();
 
-            int keyLen = it.key(keyBuffer);
+            int keyLen = it.key(dataIdKeyBuffer);
 
-            RowId readRowId = helper.getRowId(keyBuffer, ROW_ID_OFFSET);
+            RowId readRowId = helper.getRowId(dataIdKeyBuffer, ROW_ID_OFFSET);
 
             if (!readRowId.equals(rowId)) {
                 return AddResult.WAS_EMPTY;
@@ -136,11 +149,9 @@ class GarbageCollector {
             // Found previous value.
             assert keyLen == MAX_KEY_SIZE; // Can not be write-intent.
 
-            int valueSize = it.value(EMPTY_DIRECT_BUFFER);
-
             AddResult result;
 
-            if (valueSize == 0) {
+            if (isCurrentValueTombstone(it)) {
                 // Do not add a new tombstone if the existing value is also a tombstone.
                 if (isNewValueTombstone) {
                     return AddResult.WAS_TOMBSTONE;
@@ -151,11 +162,11 @@ class GarbageCollector {
                 result = AddResult.WAS_VALUE;
             }
 
-            keyBuffer.clear();
+            ByteBuffer gcKeyBuffer = DIRECT_GC_KEY_BUFFER.get().clear();
 
-            helper.putGcKey(keyBuffer, rowId, timestamp);
+            helper.putGcKey(gcKeyBuffer, rowId, timestamp);
 
-            writeBatch.put(gcQueueCf, keyBuffer, EMPTY_DIRECT_BUFFER);
+            writeBatch.put(gcQueueCf, gcKeyBuffer, EMPTY_DIRECT_BUFFER);
 
             return result;
         }
@@ -167,12 +178,12 @@ class GarbageCollector {
      * @param lowWatermark Low watermark.
      * @return Garbage collected element descriptor.
      */
-    @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+    @Nullable GcEntry peek(WriteBatchWithIndex writeBatch, HybridTimestamp lowWatermark) {
         // We retrieve the first element of the GC queue and seek for it in the data CF.
         // However, the element that we need to garbage collect is the next (older one) element.
         // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
         // If the next element exists, that should be the element that we want to garbage collect.
-        try (RocksIterator gcIt = newWrappedIterator(gcQueueCf, helper.upperBoundReadOpts)) {
+        try (RocksIterator gcIt = newWrappedIterator(writeBatch, gcQueueCf, helper.upperBoundReadOpts)) {
             gcIt.seek(helper.partitionStartPrefix());
 
             if (invalid(gcIt)) {
@@ -198,7 +209,7 @@ class GarbageCollector {
      * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#vacuum(GcEntry)}.
      *
      * @param batch Write batch.
-     * @param entry Entry, previously returned by {@link #peek(HybridTimestamp)}.
+     * @param entry Entry, previously returned by {@link #peek}.
      * @return Garbage collected element.
      * @throws RocksDBException If failed to collect the garbage.
      */
@@ -211,7 +222,7 @@ class GarbageCollector {
         // However, the element that we need to garbage collect is the next (older one) element.
         // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
         // If the next element exists, that should be the element that we want to garbage collect.
-        try (RocksIterator gcIt = newWrappedIterator(gcQueueCf, helper.upperBoundReadOpts)) {
+        try (RocksIterator gcIt = newWrappedIterator(batch, gcQueueCf, helper.upperBoundReadOpts)) {
             gcIt.seek(helper.partitionStartPrefix());
 
             if (invalid(gcIt)) {
@@ -231,7 +242,7 @@ class GarbageCollector {
             // Delete element from the GC queue.
             batch.delete(gcQueueCf, gcKeyBuffer);
 
-            try (RocksIterator partIt = newWrappedIterator(partCf, helper.upperBoundReadOpts)) {
+            try (RocksIterator partIt = newWrappedIterator(batch, partCf, helper.upperBoundReadOpts)) {
                 // Process the element in data cf that triggered the addition to the GC queue.
                 boolean proceed = checkHasNewerRowAndRemoveTombstone(partIt, batch, gcRowVersion);
 
@@ -241,24 +252,29 @@ class GarbageCollector {
                 }
 
                 // Find the row that should be garbage collected.
-                ByteBuffer dataKey = getRowForGcKey(partIt, gcRowVersion.getRowId());
+                ByteBuffer dataIdKey = getDataIdForGcKey(partIt, gcRowVersion.getRowId());
 
-                if (dataKey == null) {
+                if (dataIdKey == null) {
                     // No row for GC.
                     return null;
                 }
 
                 // At this point there's definitely a value that needs to be garbage collected in the iterator.
-                byte[] valueBytes = partIt.value();
+                ByteBuffer dataId = readDataId(partIt);
 
-                assert valueBytes.length > 0; // Can't be a tombstone.
+                assert !isTombstone(dataId);
 
-                var row = deserializeRow(ByteBuffer.wrap(valueBytes));
+                byte[] payloadKey = helper.createPayloadKey(dataId);
+
+                byte[] rowBytes = getFromBatchAndDb(db, batch, helper.dataCf, readOpts, payloadKey);
+
+                assert rowBytes != null && rowBytes.length > 0;
 
                 // Delete the row from the data cf.
-                batch.delete(partCf, dataKey);
+                batch.delete(partCf, dataIdKey);
+                batch.delete(helper.dataCf, payloadKey);
 
-                return row;
+                return deserializeRow(rowBytes);
             }
         }
     }
@@ -280,38 +296,33 @@ class GarbageCollector {
             WriteBatchWithIndex batch,
             GcRowVersion gcRowVersion
     ) throws RocksDBException {
-        ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
-        dataKeyBuffer.clear();
-
-        ColumnFamilyHandle partCf = helper.partCf;
+        ByteBuffer dataIdKeyBuffer = DIRECT_DATA_ID_KEY_BUFFER.get().clear();
 
         // Set up the data key.
-        helper.putDataKey(dataKeyBuffer, gcRowVersion.getRowId(), gcRowVersion.getTimestamp());
+        helper.putCommittedDataIdKey(dataIdKeyBuffer, gcRowVersion.getRowId(), gcRowVersion.getTimestamp());
 
         // Seek to the row id and timestamp from the GC queue.
         // Note that it doesn't mean that the element in this iterator has matching row id or even partition id.
-        it.seek(dataKeyBuffer);
+        it.seek(dataIdKeyBuffer);
 
         if (invalid(it)) {
             // There is no row for the GC queue element.
             return false;
-        } else {
-            dataKeyBuffer.clear();
+        }
 
-            it.key(dataKeyBuffer);
+        dataIdKeyBuffer.clear();
 
-            if (!helper.getRowId(dataKeyBuffer, ROW_ID_OFFSET).equals(gcRowVersion.getRowId())) {
-                // There is no row for the GC queue element.
-                return false;
-            }
+        it.key(dataIdKeyBuffer);
+
+        if (!helper.getRowId(dataIdKeyBuffer, ROW_ID_OFFSET).equals(gcRowVersion.getRowId())) {
+            // There is no row for the GC queue element.
+            return false;
         }
 
         // Check if the new element, whose insertion scheduled the GC, was a tombstone.
-        int len = it.value(EMPTY_DIRECT_BUFFER);
-
-        if (len == 0) {
+        if (isCurrentValueTombstone(it)) {
             // This is a tombstone, we need to delete it.
-            batch.delete(partCf, dataKeyBuffer);
+            batch.delete(helper.partCf, dataIdKeyBuffer);
         }
 
         return true;
@@ -325,28 +336,25 @@ class GarbageCollector {
      * @param gcElementRowId Row id of the element from the GC queue/
      * @return Key of the row that needs to be garbage collected, or {@code null} if such row doesn't exist.
      */
-    private @Nullable ByteBuffer getRowForGcKey(RocksIterator it, RowId gcElementRowId) {
+    private @Nullable ByteBuffer getDataIdForGcKey(RocksIterator it, RowId gcElementRowId) {
         // Let's move to the element that was scheduled for GC.
         it.next();
-
-        RowId gcRowId;
 
         if (invalid(it)) {
             return null;
         }
 
-        ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
-        dataKeyBuffer.clear();
+        ByteBuffer dataIdKeyBuffer = DIRECT_DATA_ID_KEY_BUFFER.get().clear();
 
-        int keyLen = it.key(dataKeyBuffer);
+        int keyLen = it.key(dataIdKeyBuffer);
 
         // Check if we moved to another row id's write-intent, that would mean that there is no row to GC for the current row id.
         if (keyLen == MAX_KEY_SIZE) {
-            gcRowId = helper.getRowId(dataKeyBuffer, ROW_ID_OFFSET);
+            RowId rowId = helper.getRowId(dataIdKeyBuffer, ROW_ID_OFFSET);
 
             // We might have moved to the next row id.
-            if (gcElementRowId.equals(gcRowId)) {
-                return dataKeyBuffer;
+            if (gcElementRowId.equals(rowId)) {
+                return dataIdKeyBuffer;
             }
         }
 
@@ -363,9 +371,8 @@ class GarbageCollector {
         writeBatch.deleteRange(gcQueueCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
     }
 
-    private ByteBuffer readGcKey(RocksIterator gcIt) {
-        ByteBuffer gcKeyBuffer = GC_KEY_BUFFER.get();
-        gcKeyBuffer.clear();
+    private static ByteBuffer readGcKey(RocksIterator gcIt) {
+        ByteBuffer gcKeyBuffer = DIRECT_GC_KEY_BUFFER.get().clear();
 
         gcIt.key(gcKeyBuffer);
 
@@ -379,20 +386,21 @@ class GarbageCollector {
         );
     }
 
-    private void refreshGcIterator(RocksIterator gcIt, ByteBuffer gcKeyBuffer) throws RocksDBException {
-        gcIt.refresh();
-
-        gcIt.seekForPrev(gcKeyBuffer);
-
-        // Row version was removed from the gc queue by someone, back to the head of gc queue.
-        if (invalid(gcIt)) {
-            gcIt.seek(helper.partitionStartPrefix());
-        }
-    }
-
-    private RocksIterator newWrappedIterator(ColumnFamilyHandle cf, ReadOptions readOptions) {
+    private RocksIterator newWrappedIterator(WriteBatchWithIndex writeBatch, ColumnFamilyHandle cf, ReadOptions readOptions) {
         RocksIterator it = db.newIterator(cf, readOptions);
 
-        return helper.wrapIterator(it, cf);
+        return wrapIterator(it, writeBatch, cf);
+    }
+
+    private static ByteBuffer readDataId(RocksIterator it) {
+        ByteBuffer dataId = DIRECT_DATA_ID_BUFFER.get().clear();
+
+        it.value(dataId);
+
+        return dataId;
+    }
+
+    private static boolean isCurrentValueTombstone(RocksIterator it) {
+        return isTombstone(readDataId(it));
     }
 }

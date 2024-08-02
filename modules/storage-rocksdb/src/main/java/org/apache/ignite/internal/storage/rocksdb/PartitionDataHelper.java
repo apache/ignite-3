@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static java.lang.ThreadLocal.withInitial;
-import static java.nio.ByteBuffer.allocateDirect;
+import static java.nio.ByteBuffer.allocate;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
@@ -44,44 +43,45 @@ import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 import org.rocksdb.WriteBatchWithIndex;
 
 /** Helper for the partition data. */
 public final class PartitionDataHelper implements ManuallyCloseable {
-    /** Position of row id inside the key. */
-    static final int ROW_ID_OFFSET = TABLE_ID_SIZE + Short.BYTES;
-
-    /** Size of the key without timestamp. */
-    public static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
-
-    /** Maximum size of the data key. */
-    static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + HYBRID_TIMESTAMP_SIZE;
-
     /** Transaction id size (part of the transaction state). */
     private static final int TX_ID_SIZE = 2 * Long.BYTES;
 
-    /** Size of the value header (transaction state). */
-    static final int VALUE_HEADER_SIZE = TX_ID_SIZE + TABLE_ID_SIZE + PARTITION_ID_SIZE;
+    /** Position of row id inside the key. */
+    static final int ROW_ID_OFFSET = TABLE_ID_SIZE + PARTITION_ID_SIZE;
 
-    /** Transaction id offset. */
-    static final int TX_ID_OFFSET = 0;
+    public static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
 
-    /** Commit table id offset. */
-    static final int TABLE_ID_OFFSET = TX_ID_SIZE;
+    /** Maximum size of the key associated with transaction state. */
+    static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + HYBRID_TIMESTAMP_SIZE;
 
-    /** Commit partition id offset. */
-    static final int PARTITION_ID_OFFSET = TABLE_ID_OFFSET + TABLE_ID_SIZE;
+    /** Size of Data ID. */
+    static final int DATA_ID_SIZE = ROW_ID_SIZE + HYBRID_TIMESTAMP_SIZE;
 
-    /** Value offset (if transaction state is present). */
-    static final int VALUE_OFFSET = VALUE_HEADER_SIZE;
+    /** Offset of Data ID inside the key associated with row data. */
+    private static final int DATA_ID_OFFSET = TABLE_ID_SIZE + PARTITION_ID_SIZE;
 
-    /** Thread-local direct buffer instance to read keys from RocksDB. */
-    static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
+    /** Size of the key associated with row data. */
+    private static final int PAYLOAD_KEY_SIZE = DATA_ID_OFFSET + DATA_ID_SIZE;
+
+    /** Size of the transaction state part of the value (Tx ID + Commit Table ID + Commit Partition ID). */
+    private static final int TX_STATE_SIZE = TX_ID_SIZE + TABLE_ID_SIZE + PARTITION_ID_SIZE;
+
+    static final int DATA_ID_WITH_TX_STATE_SIZE = DATA_ID_SIZE + TX_STATE_SIZE;
 
     /** Thread-local write batch for {@link MvPartitionStorage#runConsistently(WriteClosure)}. */
     static final ThreadLocal<ThreadLocalState> THREAD_LOCAL_STATE = new ThreadLocal<>();
+
+    /** Thread-local buffer for payload keys. */
+    private static final ThreadLocal<ByteBuffer> PAYLOAD_KEY_BUFFER =
+            ThreadLocal.withInitial(() -> allocate(PAYLOAD_KEY_SIZE).order(KEY_BYTE_ORDER));
 
     /** Table ID. */
     private final int tableId;
@@ -94,6 +94,8 @@ public final class PartitionDataHelper implements ManuallyCloseable {
 
     /** Partition data column family. */
     final ColumnFamilyHandle partCf;
+
+    final ColumnFamilyHandle dataCf;
 
     /** Read options for regular scans. */
     final ReadOptions upperBoundReadOpts;
@@ -109,10 +111,11 @@ public final class PartitionDataHelper implements ManuallyCloseable {
     /** Prefix for finding the ending of the partition. */
     private final byte[] partitionEndPrefix;
 
-    PartitionDataHelper(int tableId, int partitionId, ColumnFamilyHandle partCf) {
+    PartitionDataHelper(int tableId, int partitionId, ColumnFamilyHandle partCf, ColumnFamilyHandle dataCf) {
         this.tableId = tableId;
         this.partitionId = partitionId;
         this.partCf = partCf;
+        this.dataCf = dataCf;
 
         this.partitionStartPrefix = compositeKey(tableId, partitionId);
         this.partitionEndPrefix = incrementPrefix(partitionStartPrefix);
@@ -140,18 +143,20 @@ public final class PartitionDataHelper implements ManuallyCloseable {
         return partitionEndPrefix;
     }
 
-    void putDataKey(ByteBuffer dataKeyBuffer, RowId rowId, HybridTimestamp timestamp) {
+    void putCommittedDataIdKey(ByteBuffer buffer, RowId rowId, HybridTimestamp timestamp) {
+        assert buffer.order() == KEY_BYTE_ORDER;
         assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
 
-        dataKeyBuffer.putInt(tableId);
-        dataKeyBuffer.putShort((short) partitionId);
-        putRowIdUuid(dataKeyBuffer, rowId.uuid());
-        putTimestampDesc(dataKeyBuffer, timestamp);
+        buffer.putInt(tableId);
+        buffer.putShort((short) partitionId);
+        putRowIdUuid(buffer, rowId.uuid());
+        putTimestampDesc(buffer, timestamp);
 
-        dataKeyBuffer.flip();
+        buffer.flip();
     }
 
     void putGcKey(ByteBuffer gcKeyBuffer, RowId rowId, HybridTimestamp timestamp) {
+        assert gcKeyBuffer.order() == KEY_BYTE_ORDER;
         assert rowId.partitionId() == partitionId : "rowPartitionId=" + rowId.partitionId() + ", storagePartitionId=" + partitionId;
 
         gcKeyBuffer.putInt(tableId);
@@ -173,7 +178,6 @@ public final class PartitionDataHelper implements ManuallyCloseable {
 
         return new RowId(partitionId, getRowIdUuid(keyBuffer, offset));
     }
-
 
     /**
      * Returns a WriteBatch that can be used by the affiliated storage implementation (like indices) to maintain consistency when run
@@ -200,7 +204,7 @@ public final class PartitionDataHelper implements ManuallyCloseable {
      * Creates a byte array key, that consists of table or index ID (4 bytes), followed by a partition ID (2 bytes).
      */
     public static byte[] compositeKey(int tableOrIndexId, int partitionId) {
-        return ByteBuffer.allocate(ROW_ID_OFFSET).order(KEY_BYTE_ORDER)
+        return allocate(ROW_ID_OFFSET).order(KEY_BYTE_ORDER)
                 .putInt(tableOrIndexId)
                 .putShort((short) partitionId)
                 .array();
@@ -241,14 +245,41 @@ public final class PartitionDataHelper implements ManuallyCloseable {
         return hybridTimestamp(time);
     }
 
-    RocksIterator wrapIterator(RocksIterator it, ColumnFamilyHandle cf) {
-        WriteBatchWithIndex writeBatch = currentWriteBatch();
+    static RocksIterator wrapIterator(RocksIterator it, ColumnFamilyHandle cf) {
+        return wrapIterator(it, currentWriteBatch(), cf);
+    }
 
+    static RocksIterator wrapIterator(RocksIterator it, @Nullable WriteBatchWithIndex writeBatch, ColumnFamilyHandle cf) {
+        // "count()" check is mandatory. Write batch iterator without any updates just crashes everything.
+        // It's not documented, but this is exactly how it should be used.
         if (writeBatch != null && writeBatch.count() > 0) {
             return writeBatch.newIteratorWithBase(cf, it);
         }
 
         return it;
+    }
+
+    static byte @Nullable [] getFromBatchAndDb(
+            RocksDB db, ColumnFamilyHandle cfHandle, ReadOptions readOptions, byte[] key
+    ) throws RocksDBException {
+        return getFromBatchAndDb(db, currentWriteBatch(), cfHandle, readOptions, key);
+    }
+
+    static byte @Nullable [] getFromBatchAndDb(
+            RocksDB db, @Nullable WriteBatchWithIndex writeBatch, ColumnFamilyHandle cfHandle, ReadOptions readOptions, byte[] key
+    ) throws RocksDBException {
+        return writeBatch == null || writeBatch.count() == 0
+                ? db.get(cfHandle, readOptions, key)
+                : writeBatch.getFromBatchAndDB(db, cfHandle, readOptions, key);
+    }
+
+    /**
+     * Converts an internal serialized presentation of a binary row into its Java Object counterpart.
+     */
+    static BinaryRow deserializeRow(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN);
+
+        return deserializeRow(buffer);
     }
 
     /**
@@ -261,6 +292,59 @@ public final class PartitionDataHelper implements ManuallyCloseable {
         ByteBuffer binaryTupleSlice = buffer.slice().order(BinaryTuple.ORDER);
 
         return new BinaryRowImpl(schemaVersion, binaryTupleSlice);
+    }
+
+    byte[] createPayloadKey(ByteBuffer dataId) {
+        byte[] result = PAYLOAD_KEY_BUFFER.get()
+                .clear()
+                .putInt(tableId)
+                .putShort((short) partitionId)
+                .put(dataId)
+                .array();
+
+        dataId.rewind();
+
+        // Always use 0 for the last bit (tombstone flag), because it only makes sense when data ID is stored as a value.
+        setLastBit(result, result.length - 1, false);
+
+        return result;
+    }
+
+    /**
+     * Changes the last bit of the byte identified by an index in an array.
+     *
+     * @param array Array containing the byte to change.
+     * @param index Index of the byte inside the array.
+     * @param value If {@code true} - sets the bit to 1, else to 0.
+     */
+    static void setLastBit(byte[] array, int index, boolean value) {
+        byte lastByte = array[index];
+
+        if (value) {
+            lastByte |= 0x01;
+        } else {
+            lastByte &= 0xFE;
+        }
+
+        array[index] = lastByte;
+    }
+
+    /**
+     * Returns {@code true} if the given data ID points to a tombstone.
+     */
+    static boolean isTombstone(ByteBuffer dataId) {
+        byte lastByte = dataId.get(dataId.limit() - 1);
+
+        return (lastByte & 0x1) != 0;
+    }
+
+    /**
+     * Returns {@code true} if the given data ID points to a tombstone.
+     */
+    static boolean isTombstone(byte[] dataId) {
+        byte lastByte = dataId[dataId.length - 1];
+
+        return (lastByte & 0x1) != 0;
     }
 
     @Override
