@@ -18,9 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
-    using System.Collections;
     using System.Collections.Generic;
-    using System.Numerics;
     using System.Reflection;
     using NodaTime;
     using Proto.BinaryTuple;
