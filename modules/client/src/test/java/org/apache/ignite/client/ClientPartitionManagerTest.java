@@ -68,6 +68,7 @@ public class ClientPartitionManagerTest extends AbstractClientTest {
         assertEquals("server-1", map.get(part).name());
 
         updateServerReplicas(List.of("foo", "bar", "baz", "qux"));
+        client.tables().tables(); // Perform a request to trigger cache invalidation.
 
         Map<Partition, ClusterNode> map2 = partMgr.primaryReplicasAsync().join();
         assertEquals(4, map2.size());

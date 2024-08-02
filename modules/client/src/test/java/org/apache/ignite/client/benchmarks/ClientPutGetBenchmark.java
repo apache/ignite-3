@@ -67,7 +67,7 @@ public class ClientPutGetBenchmark {
 
     private TestServer testServer;
 
-    private Ignite ignite;
+    private FakeIgnite ignite;
 
     private IgniteClient client;
 
