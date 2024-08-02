@@ -479,6 +479,19 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    /** Tests conversions int to decimal as dynamic parameters for decode and coalesce functions. */
+    @Test
+    public void testFunctionArgsToNumericImplicitConversion() {
+        assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(0).returns(new BigDecimal("0.0")).check();
+        assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+        assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
+        assertQuery("select decode(?, 0, 0.0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+        assertQuery("select decode(?, 0, 0.000, 1, 1.0)").withParams(1).returns(new BigDecimal("1.000")).check();
+
+        assertQuery("select coalesce(?, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+    }
+
     /**
      * Test cases for decimal literals.
      */
