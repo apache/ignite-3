@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.annotation.Value;
  * System Configuration schema.
  */
 @ConfigurationRoot(rootName = "system", type = ConfigurationType.LOCAL)
-public class SystemConfigurationSchema {
+public class SystemLocalConfigurationSchema {
 
     /**
      * Directory where partition data is stored. By default "partitions" subfolder of data storage path is used.

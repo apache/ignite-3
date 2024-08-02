@@ -42,7 +42,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.configuration.SystemConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -111,7 +111,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    protected SystemConfiguration systemConfiguration;
+    protected SystemLocalConfiguration systemConfiguration;
 
     /**
      * Create executor for raft group services.

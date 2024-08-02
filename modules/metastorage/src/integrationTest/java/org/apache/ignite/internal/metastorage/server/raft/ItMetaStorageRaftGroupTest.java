@@ -43,7 +43,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.configuration.SystemConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -157,7 +157,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private SystemConfiguration systemConfiguration;
+    private SystemLocalConfiguration systemConfiguration;
 
     /**
      * Run {@code NODES} cluster nodes.

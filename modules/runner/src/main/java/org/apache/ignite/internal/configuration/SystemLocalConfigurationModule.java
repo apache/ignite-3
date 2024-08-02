@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
  * {@link ConfigurationModule} for node-local system configuration.
  */
 @AutoService(ConfigurationModule.class)
-public class SystemConfigurationModule implements ConfigurationModule {
+public class SystemLocalConfigurationModule implements ConfigurationModule {
 
     @Override
     public ConfigurationType type() {
@@ -37,6 +37,6 @@ public class SystemConfigurationModule implements ConfigurationModule {
 
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(SystemConfiguration.KEY);
+        return Collections.singleton(SystemLocalConfiguration.KEY);
     }
 }

@@ -109,7 +109,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
-import org.apache.ignite.internal.configuration.SystemConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -251,7 +251,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static SystemConfiguration systemConfiguration;
+    private static SystemLocalConfiguration systemConfiguration;
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;

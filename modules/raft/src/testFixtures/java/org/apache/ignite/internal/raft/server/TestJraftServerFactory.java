@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPat
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.SystemConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -46,7 +46,7 @@ public class TestJraftServerFactory {
      * @param service Cluster service.
      * @param dataPath Data path.
      */
-    public static JraftServerImpl create(ClusterService service, Path dataPath, SystemConfiguration systemConfiguration) {
+    public static JraftServerImpl create(ClusterService service, Path dataPath, SystemLocalConfiguration systemConfiguration) {
         return create(service, dataPath, systemConfiguration, new NodeOptions(), new RaftGroupEventsClientListener());
     }
 
@@ -59,7 +59,12 @@ public class TestJraftServerFactory {
      * @param dataPath Data path.
      * @param opts Node Options.
      */
-    public static JraftServerImpl create(ClusterService service, Path dataPath, SystemConfiguration systemConfiguration, NodeOptions opts) {
+    public static JraftServerImpl create(
+            ClusterService service,
+            Path dataPath,
+            SystemLocalConfiguration systemConfiguration,
+            NodeOptions opts
+    ) {
         return create(service, dataPath, systemConfiguration, opts, new RaftGroupEventsClientListener());
     }
 
@@ -75,7 +80,7 @@ public class TestJraftServerFactory {
     public static JraftServerImpl create(
             ClusterService service,
             Path dataPath,
-            SystemConfiguration systemConfiguration,
+            SystemLocalConfiguration systemConfiguration,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {

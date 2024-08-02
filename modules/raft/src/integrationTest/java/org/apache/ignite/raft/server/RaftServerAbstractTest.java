@@ -24,7 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.configuration.SystemConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -60,7 +60,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
     protected RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    protected SystemConfiguration systemConfiguration;
+    protected SystemLocalConfiguration systemConfiguration;
 
     /** Test info. */
     TestInfo testInfo;

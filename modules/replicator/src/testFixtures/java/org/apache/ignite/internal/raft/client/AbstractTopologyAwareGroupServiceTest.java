@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.configuration.SystemConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -109,7 +109,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
     protected RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    protected SystemConfiguration systemConfiguration;
+    protected SystemLocalConfiguration systemConfiguration;
 
     @AfterEach
     protected void tearDown() throws Exception {

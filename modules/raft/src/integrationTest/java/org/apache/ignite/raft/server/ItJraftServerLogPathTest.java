@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.apache.ignite.internal.configuration.SystemConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
@@ -107,7 +107,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
         assertEquals(dataPath.resolve("partitions/log/log-1"), factory.resolveLogStoragePath("1"));
     }
 
-    private JraftServerImpl startServer(SystemConfiguration systemConfiguration) {
+    private JraftServerImpl startServer(SystemLocalConfiguration systemConfiguration) {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService service = clusterService(PORT, List.of(addr), true);

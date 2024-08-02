@@ -57,7 +57,7 @@ public class IgnitePaths {
      *         configuration.
      * @return Working dir subtree structure representation for partitions.
      */
-    public static ComponentWorkingDir partitionsPath(SystemConfiguration systemConfiguration, Path workDir) {
+    public static ComponentWorkingDir partitionsPath(SystemLocalConfiguration systemConfiguration, Path workDir) {
         LazyPath basePath = lazy(systemConfiguration.partitionsBasePath(), () -> workDir.resolve(PARTITIONS_BASE_PATH));
 
         return new ComponentWorkingDir(basePath) {
