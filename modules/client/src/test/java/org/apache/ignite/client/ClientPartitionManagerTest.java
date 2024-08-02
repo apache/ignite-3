@@ -45,7 +45,7 @@ public class ClientPartitionManagerTest extends AbstractClientTest {
     public void setUp() {
         Table table = ((FakeIgniteTables) server.tables()).createTable(TABLE_NAME);
 
-        tableId = ((TableViewInternal)table).tableId();
+        tableId = ((TableViewInternal) table).tableId();
     }
 
     @Test
