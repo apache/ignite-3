@@ -534,39 +534,6 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
 
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
-
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
-
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
-
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
-
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_6_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
-
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_8_3)
-                        .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
-
-                forTypePair(NumericPair.DECIMAL_2_0_REAL)
-                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE)),
-
-                forTypePair(NumericPair.DECIMAL_2_0_DOUBLE)
-                        .firstOpMatches(ofTypeWithoutCast(NativeTypes.DOUBLE))
-                        .secondOpBeSame(),
-
-
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
                         .firstOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3))
                         .secondOpMatches(ofTypeWithoutCast(Types.DECIMAL_22_3)),
