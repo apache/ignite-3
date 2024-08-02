@@ -28,9 +28,7 @@ using NUnit.Framework;
 /// </summary>
 public class ColumnTypeExtensionsTests
 {
-    private static readonly ColumnType[] SqlColumnTypes = Enum.GetValues<ColumnType>()
-        .Where(x => x != ColumnType.Bitmask && x != ColumnType.Number)
-        .ToArray();
+    private static readonly ColumnType[] SqlColumnTypes = Enum.GetValues<ColumnType>().ToArray();
 
     [TestCaseSource(nameof(SqlColumnTypes))]
     public void TestToClrType(ColumnType columnType) =>
