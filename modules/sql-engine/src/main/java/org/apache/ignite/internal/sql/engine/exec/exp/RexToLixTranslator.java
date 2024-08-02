@@ -987,7 +987,8 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       final Primitive primitive = Primitive.ofBoxOr(javaClass);
       final Comparable value = literal.getValueAs(Comparable.class);
       if (primitive != null && value instanceof Number) {
-        value2 = Primitives.convertPrimitiveExact(primitive, (Number) value);
+        // value2 = Primitives.convertPrimitiveExact(primitive, (Number) value);
+        value2 = primitive.number((Number) value);
       } else {
         value2 = value;
       }
