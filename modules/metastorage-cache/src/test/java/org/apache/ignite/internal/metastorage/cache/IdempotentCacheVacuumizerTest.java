@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metastorage.cache;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,6 +58,8 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
 
     private ConfigurationValue<Long> idempotentCacheTtlConfigurationValue;
 
+    private IdempotentCacheVacuumizer vacuumizer;
+
     @BeforeEach
     public void setup() {
         scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -66,6 +71,11 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() {
+        if (vacuumizer != null) {
+            vacuumizer.beforeNodeStop();
+            assertThat(vacuumizer.stopAsync(), willCompleteSuccessfully());
+        }
+
         scheduler.shutdown();
     }
 
@@ -94,6 +104,8 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 1,
                 TimeUnit.MILLISECONDS
         );
+
+        assertThat(vacuumizer.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Ensure that until starting, vacuumizer will not trigger the vacuumization action. It's a best-effort check.
         Thread.sleep(10);
@@ -148,6 +160,8 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 TimeUnit.MILLISECONDS
         );
 
+        assertThat(vacuumizer.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
         // Start vacuumization triggering and verify that vacuumization action was called.
         vacuumizer.startLocalVacuumizationTriggering();
         assertTrue(waitForCondition(
@@ -198,6 +212,8 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 TimeUnit.MILLISECONDS
         );
 
+        assertThat(vacuumizer.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
         // Start vacuumization triggering and verify that vacuumization actions were not stopped after exception.
         vacuumizer.startLocalVacuumizationTriggering();
 
@@ -205,6 +221,5 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 () -> touchCounter.get() > 1,
                 TOUCH_COUNTER_CHANGE_TIMEOUT_MILLIS)
         );
-
     }
 }
