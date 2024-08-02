@@ -17,9 +17,15 @@
 
 package org.apache.ignite;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.NodeConfiguration;
+import org.apache.ignite.configuration.NodeConfigurationImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
+import org.apache.ignite.internal.configuration.NodeConfigCreateException;
+import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,6 +35,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>NOTE: Methods of this interface are not thread-safe and shouldn't be called from different threads.
  */
 public interface IgniteServer {
+    String DEFAULT_CONFIG_PATH = "ignite-config.conf";
+
     /**
      * Starts an embedded Ignite node with a configuration from a HOCON file.
      *
@@ -71,6 +79,31 @@ public interface IgniteServer {
         return embeddedNode.startAsync().thenApply(unused -> embeddedNode);
     }
 
+    static CompletableFuture<IgniteServer> startAsync(
+            String nodeName,
+            NodeConfiguration nodeConfiguration,
+            Path workDir,
+            @Nullable ClassLoader serviceLoaderClassLoader
+    ) {
+        String config = ((NodeConfigurationImpl) nodeConfiguration).build();
+        Path configPath = workDir.resolve(DEFAULT_CONFIG_PATH);
+        saveConfigToFile(config, configPath);
+
+        return startAsync(nodeName, configPath, workDir, serviceLoaderClassLoader);
+    }
+
+    private static void saveConfigToFile(String config, Path configPath) {
+        if (configPath.toFile().exists()) {
+            throw new NodeConfigCreateException("Default config file already exists");
+        }
+        try {
+            Files.createDirectories(configPath.getParent());
+            Files.writeString(configPath, config);
+        } catch (IOException e) {
+            throw new NodeConfigWriteException("Failed to write config file.", e);
+        }
+    }
+
     /**
      * Starts an embedded Ignite node with a configuration from a HOCON file synchronously.
      *
@@ -108,6 +141,19 @@ public interface IgniteServer {
         IgniteServerImpl embeddedNode = new IgniteServerImpl(nodeName, configPath, workDir, serviceLoaderClassLoader);
         embeddedNode.start();
         return embeddedNode;
+    }
+
+    static IgniteServer start(
+            String nodeName,
+            NodeConfiguration nodeConfiguration,
+            Path workDir,
+            @Nullable ClassLoader serviceLoaderClassLoader
+    ) {
+        String config = ((NodeConfigurationImpl) nodeConfiguration).build();
+        Path configPath = workDir.resolve(DEFAULT_CONFIG_PATH);
+        saveConfigToFile(config, configPath);
+
+        return start(nodeName, configPath, workDir, serviceLoaderClassLoader);
     }
 
     /**

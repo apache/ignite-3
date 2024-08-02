@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.io.IOException;
@@ -34,6 +36,11 @@ import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.configuration.NodeConfiguration;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
+import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerView;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -182,6 +189,31 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
                 NodeStartException.class,
                 "Config file doesn't exist"
         );
+    }
+
+    @Test
+    void configurationPojo() {
+        NodeConfiguration nodeConfiguration = NodeConfiguration.create();
+        nodeConfiguration.withFailureHandler()
+                .withStopNodeOrHaltFailureHandler()
+                .setTimeoutMillis(1);
+
+        String nodeName = nodesBootstrapCfg.keySet().stream().findFirst().orElseThrow();
+        startNode(nodeName, name -> IgniteServer.start(name, nodeConfiguration, workDir.resolve(name), null));
+
+        IgniteServer igniteServer = startedIgniteServers.get(0);
+
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodes(igniteServer)
+                .clusterName("cluster")
+                .build();
+        assertThat(igniteServer.initClusterAsync(initParameters), willCompleteSuccessfully());
+
+        FailureHandlerView handlerConfiguration = ((IgniteImpl) igniteServer.api()).nodeConfiguration()
+                .getConfiguration(FailureProcessorConfiguration.KEY)
+                .handler().value();
+        assertThat(handlerConfiguration, instanceOf(StopNodeOrHaltFailureHandlerView.class));
+        assertThat(((StopNodeOrHaltFailureHandlerView) handlerConfiguration).timeoutMillis(), is(1L));
     }
 
     private void startNode(String nodeName, Function<String, IgniteServer> starter) {
