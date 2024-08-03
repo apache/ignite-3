@@ -89,6 +89,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
     }
 
+    // TODO Normal test.
+    @Test
+    public void testTinyIntOverflow() {
+        String query = "SELECT 18455967445746405807::TINYINT";
+        checkSqlError(Sql.RUNTIME_ERR, "TINYINT out of range", igniteSql(), query);
+    }
+
     @Test
     public void ddl() {
         IgniteSql sql = igniteSql();

@@ -38,11 +38,13 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -135,6 +137,30 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter implements Initia
         } else {
             // a bit lightweight than default processing one.
             return super.convertValues(values, targetRowType);
+        }
+    }
+
+    @Override
+    protected RexNode convertExtendedExpression(
+            SqlNode expr,
+            Blackboard bb) {
+        SqlKind kind = expr.getKind();
+
+        if (kind == SqlKind.CAST) {
+            SqlCall call = (SqlCall) expr;
+            SqlNode op0 = call.operand(0);
+            SqlNode type = call.operand(1);
+
+            if (!(op0 instanceof SqlNumericLiteral) || !(type instanceof SqlDataTypeSpec)) {
+                return null;
+            }
+
+            SqlNumericLiteral literal = (SqlNumericLiteral) op0;
+            RelDataType derived = ((SqlDataTypeSpec) type).deriveType(validator);
+
+            return rexBuilder.makeLiteral(literal.getValue(), derived, false, false);
+        } else {
+            return null;
         }
     }
 

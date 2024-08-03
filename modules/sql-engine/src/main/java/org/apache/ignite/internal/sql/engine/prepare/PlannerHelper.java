@@ -180,7 +180,7 @@ public final class PlannerHelper {
                 LOG.debug(planner.dump());
             }
 
-            if (ex instanceof CannotPlanException) {
+            if (ex instanceof CannotPlanException || ex instanceof SqlException) {
                 throw ex;
             } else if (ex.getClass() == RuntimeException.class && ex.getCause() instanceof SqlException) {
                 SqlException sqlEx = (SqlException) ex.getCause();
