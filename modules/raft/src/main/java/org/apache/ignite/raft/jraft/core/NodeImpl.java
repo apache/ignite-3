@@ -3404,13 +3404,24 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void changePeers(final Configuration newPeers, final Closure done) {
-        Requires.requireNonNull(newPeers, "Null new peers");
-        Requires.requireTrue(!newPeers.isEmpty(), "Empty new peers");
+    public void changePeersAndLearners(final Configuration newPeersAndLearners, long term, final Closure done) {
+        Requires.requireNonNull(newPeersAndLearners, "Null new configuration");
+        Requires.requireTrue(!newPeersAndLearners.isEmpty(), "Empty new configuration");
         this.writeLock.lock();
         try {
-            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
-            unsafeRegisterConfChange(this.conf.getConf(), newPeers, done);
+            long currentTerm = getCurrentTerm();
+
+            if (currentTerm != term) {
+                LOG.warn("Node {} ignored the configuration because of mismatching terms. Current term is {}, but provided is {}.",
+                    getNodeId(), currentTerm, term);
+
+                    Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, Status.OK());
+
+                    return;
+            }
+
+            LOG.info("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newPeersAndLearners);
+            unsafeRegisterConfChange(this.conf.getConf(), newPeersAndLearners, done);
         }
         finally {
             this.writeLock.unlock();
@@ -3418,15 +3429,15 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void changePeersAsync(final Configuration newConf, long term, Closure done) {
-        Requires.requireNonNull(newConf, "Null new peers");
-        Requires.requireTrue(!newConf.isEmpty(), "Empty new peers");
+    public void changePeersAndLearnersAsync(final Configuration newConf, long term, Closure done) {
+        Requires.requireNonNull(newConf, "Null new configuration");
+        Requires.requireTrue(!newConf.isEmpty(), "Empty new configuration");
         this.writeLock.lock();
         try {
             long currentTerm = getCurrentTerm();
 
             if (currentTerm != term) {
-                LOG.warn("Node {} refused configuration because of mismatching terms. Current term is {}, but provided is {}.",
+                LOG.warn("Node {} ignored the configuration because of mismatching terms. Current term is {}, but provided is {}.",
                         getNodeId(), currentTerm, term);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, Status.OK());
@@ -3434,7 +3445,7 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
-            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newConf);
+            LOG.info("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newConf);
 
             unsafeRegisterConfChange(this.conf.getConf(), newConf, done, true);
         }

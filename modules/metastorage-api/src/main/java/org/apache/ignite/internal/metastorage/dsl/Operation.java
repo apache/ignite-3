@@ -37,15 +37,6 @@ public interface Operation extends NetworkMessage {
      */
     @Nullable ByteBuffer value();
 
-    /**
-     * Operation type (integer representation).
-     *
-     * @see OperationType
-     */
-    int operationType();
-
     /** Operation type. */
-    default OperationType type() {
-        return OperationType.values()[operationType()];
-    }
+    OperationType type();
 }

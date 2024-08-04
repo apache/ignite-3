@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
@@ -36,10 +37,12 @@ public class PartitionManagerTests : IgniteTestsBase
     public async Task TestGetPrimaryReplicas()
     {
         var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
-        var replicasNodes = replicas.Values.Distinct().OrderBy(x => x.Address.Port).ToList();
+        var replicasNodes = replicas.Values.Distinct().OrderBy(x => ((IPEndPoint)x.Address).Port).ToList();
         var replicasPartitions = replicas.Keys.Select(x => ((HashPartition)x).PartitionId).OrderBy(x => x).ToList();
 
-        var expectedNodes = (await Client.GetClusterNodesAsync()).OrderBy(x => x.Address.Port).ToList();
+        var expectedNodes = (await Client.GetClusterNodesAsync())
+            .OrderBy(x => ((IPEndPoint)x.Address).Port)
+            .ToList();
 
         CollectionAssert.AreEqual(expectedNodes, replicasNodes, "Primary replicas should be distributed among all nodes");
 

@@ -74,7 +74,9 @@ public class ConsoleLogger : ILogger, ILoggerFactory
 
     public bool IsEnabled(LogLevel logLevel) => logLevel >= _minLevel;
 
-    public IDisposable BeginScope<TState>(TState state) => new DisposeAction(() => { });
+    public IDisposable BeginScope<TState>(TState state)
+        where TState : notnull
+        => new DisposeAction(() => { });
 
     public void Dispose()
     {

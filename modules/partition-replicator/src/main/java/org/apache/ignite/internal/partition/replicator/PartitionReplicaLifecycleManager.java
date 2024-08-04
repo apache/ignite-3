@@ -983,7 +983,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                                 PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                                CompletableFuture<Void> voidCompletableFuture = partGrpSvc.changePeersAsync(newConfiguration,
+                                CompletableFuture<Void> voidCompletableFuture = partGrpSvc.changePeersAndLearnersAsync(newConfiguration,
                                         leaderWithTerm.term()).exceptionally(e -> {
                                             return null;
                                         });

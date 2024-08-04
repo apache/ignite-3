@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rebalance;
 
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
@@ -221,7 +220,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
@@ -768,7 +767,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         // Using this hack we pause rebalance on all nodes
         nodes.forEach(n -> ((DefaultMessagingService) n.clusterService.messagingService())
-                .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && dropMessages.get())
+                .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAndLearnersAsyncRequest && dropMessages.get())
         );
 
         node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
@@ -1174,9 +1173,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
-                    metaStorageConfiguration,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(() -> DEFAULT_MAX_CLOCK_SKEW_MS)
+                    metaStorageConfiguration
             );
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));

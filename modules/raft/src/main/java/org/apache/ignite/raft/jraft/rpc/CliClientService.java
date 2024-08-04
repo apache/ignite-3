@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Future;
-import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.entity.PeerId;import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersRequest;import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersResponse;
 
 /**
  * Cli RPC client service.
@@ -69,15 +69,15 @@ public interface CliClientService extends ClientService {
         RpcResponseClosure<RpcRequests.ErrorResponse> done);
 
     /**
-     * Change peers.
+     * Change peers and learners.
      *
      * @param peerId peer ID
      * @param request request data
      * @param done callback
      * @return a future with result
      */
-    Future<Message> changePeers(PeerId peerId, CliRequests.ChangePeersRequest request,
-        RpcResponseClosure<CliRequests.ChangePeersResponse> done);
+    Future<Message> changePeersAndLearners(PeerId peerId, ChangePeersAndLearnersRequest request,
+        RpcResponseClosure<ChangePeersAndLearnersResponse> done);
 
     /**
      * Add learners
