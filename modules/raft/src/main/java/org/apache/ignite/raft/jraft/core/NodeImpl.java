@@ -1130,6 +1130,7 @@ public class NodeImpl implements Node, RaftServerService {
         final BallotBoxOptions ballotBoxOpts = new BallotBoxOptions();
         ballotBoxOpts.setWaiter(this.fsmCaller);
         ballotBoxOpts.setClosureQueue(this.closureQueue);
+        // TODO: uncomment when backport related change https://issues.apache.org/jira/browse/IGNITE-22923
         //ballotBoxOpts.setNodeId(getNodeId());
          // Try to initialize the last committed index in BallotBox to be the last snapshot index.
         long lastCommittedIndex = 0;
@@ -1472,7 +1473,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
 
         // init commit manager
-        this.ballotBox.resetPendingIndex(this.logManager.getLastLogIndex() + 1, getQuorum());
+        this.ballotBox.resetPendingIndex(this.logManager.getLastLogIndex() + 1);
         // Register _conf_ctx to reject configuration changing before the first log
         // is committed.
         if (this.confCtx.isBusy()) {
