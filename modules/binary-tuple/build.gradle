@@ -79,10 +79,10 @@ jmh {
     synchronizeIterations = false // Synchronize iterations?
     threads = 1 // Number of worker threads to run with.
     //threadGroups = [2,3,4] //Override thread group distribution for asymmetric benchmarks.
-    jmhTimeout = '1s' // Timeout for benchmark iteration.
+    jmhTimeout = '5s' // Timeout for benchmark iteration.
     timeUnit = 's' // Output time unit. Available time units are: [m, s, ms, us, ns].
     verbosity = 'NORMAL' // Verbosity mode. Available modes are: [SILENT, NORMAL, EXTRA]
-    warmup = '1s' // Time to spend at each warmup iteration.
+    warmup = '5s' // Time to spend at each warmup iteration.
     warmupBatchSize = 10 // Warmup batch size: number of benchmark method calls per operation.
     warmupForks = 0 // How many warmup forks to make for a single benchmark. 0 to disable warmup forks.
     warmupIterations = 1 // Number of warmup iterations to do.

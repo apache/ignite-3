@@ -33,7 +33,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class TupleMarshallingTest {
-    static Stream<Arguments> oneFieldTuple() {
+    private static Stream<Arguments> oneFieldTuple() {
         return Stream.of(
                 Tuple.create().set("col", 1),
                 Tuple.create().set("col2", true),

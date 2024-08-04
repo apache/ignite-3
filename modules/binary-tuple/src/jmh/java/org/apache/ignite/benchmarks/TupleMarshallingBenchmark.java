@@ -38,7 +38,11 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.infra.Blackhole;
 
+/**
+ * Tuple marshalling benchmark.
+ */
 @State(Scope.Benchmark)
 public class TupleMarshallingBenchmark {
     Tuple tuple;
@@ -47,6 +51,9 @@ public class TupleMarshallingBenchmark {
     Output output;
     Input input;
 
+    /**
+     * Initialize.
+     */
     @Setup
     public void init() {
         tuple = Tuple.create()
@@ -62,7 +69,6 @@ public class TupleMarshallingBenchmark {
                 .set("col10", LocalDate.of(2024, 1, 1))
                 .set("col11", LocalTime.of(12, 0))
                 .set("col12", LocalDate.of(2024, 1, 1).atTime(LocalTime.of(12, 0)))
-                //.set("col13", UUID.fromString("123e4567-e89b-12d3-a456-426614174000"))
                 .set("col14", "string")
                 .set("col15", new byte[]{1, 2, 3})
                 .set("col16", Period.ofDays(10))
@@ -71,6 +77,11 @@ public class TupleMarshallingBenchmark {
         kryo = new Kryo();
     }
 
+    /**
+     * Tear down.
+     *
+     * @throws Exception If failed.
+     */
     @TearDown
     public void tearDown() throws Exception {
         tuple = null;
@@ -80,25 +91,41 @@ public class TupleMarshallingBenchmark {
         input = null;
     }
 
+    /**
+     * Round trip with inline schema.
+     */
     @Benchmark
     public void roundWithInlineSchema() {
         TupleMarshalling.unmarshal(TupleMarshalling.marshal(tuple));
     }
 
+    /**
+     * Round trip with Kryo.
+     *
+     * @param blackhole Blackhole.
+     * @throws IOException If failed.
+     */
     @Benchmark
-    public void roundWithKryo() throws IOException {
+    public void roundWithKryo(Blackhole blackhole) throws IOException {
         baus = new ByteArrayOutputStream();
         output = new Output(baus);
         kryo.writeObject(output, tuple);
         output.flush();
         input = new Input(new ByteArrayInputStream(baus.toByteArray()));
         Tuple theObject = kryo.readObject(input, TupleImpl.class);
+        blackhole.consume(theObject);
     }
 
+    /**
+     * Round trip with Java serialization.
+     *
+     * @throws IOException If failed.
+     * @throws ClassNotFoundException If failed.
+     */
     @Benchmark
     public void roundWithJavaSerialization() throws IOException, ClassNotFoundException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        try(ObjectOutputStream out = new ObjectOutputStream(bos)) {
+        try (ObjectOutputStream out = new ObjectOutputStream(bos)) {
             out.writeObject(tuple);
             out.flush();
         }

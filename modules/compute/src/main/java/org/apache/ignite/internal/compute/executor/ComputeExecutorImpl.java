@@ -29,6 +29,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.binarytuple.inlineschema.TupleMarshalling;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -119,7 +121,11 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
 
-    private static <R> Object marshallOrNull(Object res, @Nullable Marshaller<R, byte[]> marshaller) {
+    private static <R> @Nullable Object marshallOrNull(Object res, @Nullable Marshaller<R, byte[]> marshaller) {
+        if (res instanceof Tuple && marshaller == null) {
+            return TupleMarshalling.marshal((Tuple) res);
+        }
+
         if (marshaller == null) {
             return res;
         }

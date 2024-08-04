@@ -35,9 +35,11 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.binarytuple.inlineschema.TupleMarshalling;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -111,6 +113,9 @@ public class ClientBinaryTupleUtils {
 
             case PERIOD:
                 return reader.periodValue(valIdx);
+
+            case TUPLE:
+                return TupleMarshalling.unmarshal(reader.bytesValue(valIdx));
 
             default:
                 throw unsupportedTypeException(typeId);
@@ -241,6 +246,9 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof Period) {
             appendTypeAndScale(builder, ColumnType.PERIOD);
             builder.appendPeriod((Period) obj);
+        } else if (obj instanceof Tuple) {
+            appendTypeAndScale(builder, ColumnType.TUPLE);
+            builder.appendBytes(TupleMarshalling.marshal((Tuple) obj));
         } else {
             throw unsupportedTypeException(obj.getClass());
         }
