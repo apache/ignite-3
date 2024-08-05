@@ -18,9 +18,7 @@
 namespace Apache.Ignite.Tests.Proto.BinaryTuple
 {
     using System;
-    using System.Collections;
     using System.Linq;
-    using System.Numerics;
     using Ignite.Sql;
     using Internal.Proto.BinaryTuple;
     using Internal.Table;
