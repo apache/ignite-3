@@ -53,7 +53,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -578,7 +577,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
             SnapshotStorageFactory snapshotStorageFactory,
-            Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
@@ -604,7 +602,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return startReplica(
                 replicaGrpId,
                 newConfiguration,
-                updateTableRaftService,
                 createListener,
                 storageIndexTracker,
                 newRaftClientFut
@@ -618,8 +615,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGroupListener Raft group listener for raft group starting.
      * @param isVolatileStorage is table storage volatile?
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
-     * @param updateTableRaftService Temporal consumer while TableRaftService wouldn't be removed in
-     *      TODO: https://issues.apache.org/jira/browse/IGNITE-22218.
      * @param createListener Due to creation of ReplicaListener in TableManager, the function returns desired listener by created
      *      raft-client inside {@link #startReplica} method.
      * @param replicaGrpId Replication group id.
@@ -633,7 +628,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
             SnapshotStorageFactory snapshotStorageFactory,
-            Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
@@ -649,7 +643,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftGroupListener,
                     isVolatileStorage,
                     snapshotStorageFactory,
-                    updateTableRaftService,
                     createListener,
                     storageIndexTracker,
                     replicaGrpId,
@@ -745,8 +738,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @param replicaGrpId Replication group id.
      * @param newConfiguration Peers and Learners of the Raft group.
-     * @param updateTableRaftService A temporal clojure that updates table raft service with new raft-client, but
-     *      TODO: will be removed https://issues.apache.org/jira/browse/IGNITE-22218
      * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
      * @param storageIndexTracker Storage index tracker.
      * @param newRaftClientFut A future that returns created raft-client.
@@ -758,7 +749,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
-            Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut
@@ -766,11 +756,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
         return newRaftClientFut
-                .thenApplyAsync(raftClient -> {
-                    // TODO: will be removed in https://issues.apache.org/jira/browse/IGNITE-22218
-                    updateTableRaftService.accept(raftClient);
-                    return createListener.apply(raftClient);
-                }, replicasCreationExecutor)
+                .thenApplyAsync(createListener, replicasCreationExecutor)
                 .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, completedFuture(replicaListener)));
     }
 
@@ -1147,6 +1133,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @return True if the replica is started.
      */
+    @TestOnly
+    @VisibleForTesting
+    @Deprecated
     public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
         CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
         return replicaFuture != null && isCompletedSuccessfully(replicaFuture);

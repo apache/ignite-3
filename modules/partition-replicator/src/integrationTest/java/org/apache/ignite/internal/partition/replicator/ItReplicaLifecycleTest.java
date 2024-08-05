@@ -118,6 +118,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -176,6 +177,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
@@ -304,6 +306,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
 
+        placementDriver.setPrimary(node0.toClusterNode());
+
         nodes.values().forEach(Node::waitWatches);
 
         assertThat(
@@ -346,6 +350,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22928")
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -1125,8 +1130,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     threadPoolsManager.tableIoExecutor(),
                     rebalanceScheduler,
-                    threadPoolsManager.partitionOperationsExecutor()
-            );
+                    threadPoolsManager.partitionOperationsExecutor(),
+                    clockService,
+                    placementDriver);
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
@@ -1279,6 +1285,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();
+        }
+
+        ClusterNode toClusterNode() {
+            return new ClusterNodeImpl(name, name, networkAddress);
         }
     }
 

@@ -245,7 +245,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 newConfiguration,
-                                (unused) -> { },
                                 (unused) -> listener,
                                 new PendingComparableValuesTracker<>(0L),
                                 completedFuture(mock(TopologyAwareRaftGroupService.class))
@@ -363,7 +362,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     replicaManager.startReplica(
                             tablePartitionId,
                             newConfiguration,
-                            (unused) -> { },
                             (unused) -> listener,
                             new PendingComparableValuesTracker<>(0L),
                             completedFuture(mock(TopologyAwareRaftGroupService.class))
