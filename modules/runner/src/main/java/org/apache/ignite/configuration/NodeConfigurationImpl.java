@@ -17,39 +17,20 @@
 
 package org.apache.ignite.configuration;
 
+import static org.apache.ignite.configuration.ConfigurationBuilderUtil.createChanger;
+import static org.apache.ignite.configuration.ConfigurationBuilderUtil.loadConfigurationModules;
+import static org.apache.ignite.configuration.ConfigurationBuilderUtil.renderConfig;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import com.typesafe.config.ConfigRenderOptions;
-import java.util.List;
-import java.util.Set;
 import org.apache.ignite.failure.configuration.FailureProcessorConfigurationBuilder;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
-import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
+import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.hocon.HoconConverter;
-import org.apache.ignite.internal.configuration.storage.InMemoryConfigurationStorage;
-import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
-import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
-import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfigurationBuilderImpl;
-import org.apache.ignite.internal.failure.handlers.configuration.NoOpFailureHandlerConfigurationSchema;
-import org.apache.ignite.internal.failure.handlers.configuration.StopNodeFailureHandlerConfigurationSchema;
-import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
+import org.jetbrains.annotations.Nullable;
 
 public class NodeConfigurationImpl implements NodeConfiguration {
-    private static final List<RootKey<?, ?>> rootKeys = List.of(FailureProcessorConfiguration.KEY);
-
-    private static final List<Class<?>> schemaExtensions = List.of();
-
-    private static final List<Class<?>> polymorphicSchemaExtensions = List.of(
-            NoOpFailureHandlerConfigurationSchema.class,
-            StopNodeFailureHandlerConfigurationSchema.class,
-            StopNodeOrHaltFailureHandlerConfigurationSchema.class
-    );
-
     private FailureProcessorConfigurationBuilderImpl failureHandler;
 
     @Override
@@ -59,12 +40,17 @@ public class NodeConfigurationImpl implements NodeConfiguration {
         return builder;
     }
 
-    public String build() {
+    public String build(@Nullable ClassLoader serviceLoaderClassLoader) {
+        ConfigurationModules modules = loadConfigurationModules(serviceLoaderClassLoader);
         ConfigurationTreeGenerator configurationGenerator = new ConfigurationTreeGenerator(
-                rootKeys, schemaExtensions, polymorphicSchemaExtensions);
+                modules.local().rootKeys(),
+                modules.local().schemaExtensions(),
+                modules.local().polymorphicSchemaExtensions()
+        );
 
-        ConfigurationChanger changer = createChanger(configurationGenerator);
+        ConfigurationChanger changer = createChanger(LOCAL, configurationGenerator, modules.local().rootKeys());
         changer.start();
+        changer.onDefaultsPersisted().join();
 
 
         FailureProcessorConfiguration failureProcessorConfiguration = (FailureProcessorConfiguration) configurationGenerator.instantiateCfg(
@@ -74,33 +60,8 @@ public class NodeConfigurationImpl implements NodeConfiguration {
             failureProcessorConfiguration.change(failureHandler::change).join();
         }
 
-
-        ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
-                .includeInternal(false)
-                .skipEmptyValues(true)
-                .maskSecretValues(false)
-                .build();
-
-        String rendered = HoconConverter.represent(changer.superRoot().copy(), List.of(), visitor)
-                .render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
-
+        String rendered = renderConfig(changer);
         changer.stop();
         return rendered;
-    }
-
-    private static ConfigurationChanger createChanger(ConfigurationTreeGenerator configurationGenerator) {
-        InMemoryConfigurationStorage storage = new InMemoryConfigurationStorage(LOCAL);
-
-        ConfigurationValidator configurationValidator =
-                ConfigurationValidatorImpl.withDefaultValidators(configurationGenerator, Set.of());
-
-        ConfigurationUpdateListener empty = (oldRoot, newRoot, storageRevision, notificationNumber) -> nullCompletedFuture();
-
-        return new ConfigurationChanger(empty, rootKeys, storage, configurationValidator) {
-            @Override
-            public InnerNode createRootNode(RootKey<?, ?> rootKey) {
-                return configurationGenerator.instantiateNode(rootKey.schemaClass());
-            }
-        };
     }
 }

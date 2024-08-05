@@ -20,6 +20,7 @@ package org.apache.ignite;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.configuration.ClusterConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /** Initialization parameters. */
@@ -33,8 +34,11 @@ public class InitParameters {
     /** Human-readable name of the cluster. */
     private final String clusterName;
 
-    /** Cluster configuration, that will be applied after initialization. */
-    private final String clusterConfiguration;
+    /** Cluster configuration object that will be applied after initialization. */
+    private final ClusterConfiguration clusterConfiguration;
+
+    /** Cluster configuration string that will be applied after initialization. */
+    private final String clusterConfigurationString;
 
     /**
      * Constructor.
@@ -42,14 +46,17 @@ public class InitParameters {
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
      * @param cmgNodeNames Names of nodes that will host the CMG.
      * @param clusterName Human-readable name of the cluster.
-     * @param clusterConfiguration Cluster configuration.
+     * @param clusterConfiguration Cluster configuration object.
+     * @param clusterConfigurationString Cluster configuration string.
      */
     InitParameters(
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,
-            @Nullable String clusterConfiguration
+            @Nullable ClusterConfiguration clusterConfiguration,
+            @Nullable String clusterConfigurationString
     ) {
+        this.clusterConfiguration = clusterConfiguration;
         Objects.requireNonNull(metaStorageNodeNames);
         Objects.requireNonNull(cmgNodeNames);
         Objects.requireNonNull(clusterName);
@@ -57,7 +64,7 @@ public class InitParameters {
         this.metaStorageNodeNames = List.copyOf(metaStorageNodeNames);
         this.cmgNodeNames = List.copyOf(cmgNodeNames);
         this.clusterName = clusterName;
-        this.clusterConfiguration = clusterConfiguration;
+        this.clusterConfigurationString = clusterConfigurationString;
     }
 
     public static InitParametersBuilder builder() {
@@ -76,7 +83,11 @@ public class InitParameters {
         return clusterName;
     }
 
-    public String clusterConfiguration() {
+    public ClusterConfiguration clusterConfiguration() {
         return clusterConfiguration;
+    }
+
+    public String clusterConfigurationString() {
+        return clusterConfigurationString;
     }
 }

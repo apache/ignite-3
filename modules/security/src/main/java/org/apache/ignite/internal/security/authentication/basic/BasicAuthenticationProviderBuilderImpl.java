@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderBuilderImpl;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderChange;
+import org.apache.ignite.security.authentication.basic.BasicAuthenticationProviderBuilder;
+import org.apache.ignite.security.authentication.basic.BasicUserBuilder;
 
 public class BasicAuthenticationProviderBuilderImpl extends AuthenticationProviderBuilderImpl implements
         BasicAuthenticationProviderBuilder {

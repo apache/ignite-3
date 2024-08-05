@@ -160,8 +160,8 @@ public class TestIgnitionManager {
                 .metaStorageNodeNames(params.metaStorageNodeNames().toArray(String[]::new))
                 .cmgNodeNames(params.cmgNodeNames().toArray(String[]::new));
 
-        if (!PRODUCTION_CLUSTER_CONFIG_STRING.equals(params.clusterConfiguration())) {
-            builder.clusterConfiguration(applyTestDefaultsToConfig(params.clusterConfiguration(), DEFAULT_CLUSTER_CONFIG));
+        if (!PRODUCTION_CLUSTER_CONFIG_STRING.equals(params.clusterConfigurationString())) {
+            builder.clusterConfiguration(applyTestDefaultsToConfig(params.clusterConfigurationString(), DEFAULT_CLUSTER_CONFIG));
         }
 
         return builder.build();

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.failure.configuration;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.containsString;
 
 import org.apache.ignite.configuration.NodeConfiguration;
 import org.apache.ignite.configuration.NodeConfigurationImpl;
@@ -32,9 +32,9 @@ class FailureProcessorConfigurationBuilderTest {
         nodeConfiguration.withFailureHandler().withNoOpFailureHandler()
                 .setIgnoredFailureTypes(new String[]{});
 
-        String config = ((NodeConfigurationImpl) nodeConfiguration).build();
+        String config = ((NodeConfigurationImpl) nodeConfiguration).build(null);
 
-        assertThat(config, is(
+        assertThat(config, containsString(
                 "failureHandler {\n"
                         + "    handler {\n"
                         + "        ignoredFailureTypes=[]\n"
@@ -49,9 +49,9 @@ class FailureProcessorConfigurationBuilderTest {
         NodeConfiguration nodeConfiguration = NodeConfiguration.create();
         nodeConfiguration.withFailureHandler().withStopNodeFailureHandler();
 
-        String config = ((NodeConfigurationImpl) nodeConfiguration).build();
+        String config = ((NodeConfigurationImpl) nodeConfiguration).build(null);
 
-        assertThat(config, is(
+        assertThat(config, containsString(
                 "failureHandler {\n"
                         + "    handler {\n"
                         + "        ignoredFailureTypes=[\n"
@@ -71,9 +71,9 @@ class FailureProcessorConfigurationBuilderTest {
         builder.withStopNodeOrHaltFailureHandler()
                 .setTimeoutMillis(1);
 
-        String config = ((NodeConfigurationImpl) nodeConfiguration).build();
+        String config = ((NodeConfigurationImpl) nodeConfiguration).build(null);
 
-        assertThat(config, is(
+        assertThat(config, containsString(
                 "failureHandler {\n"
                         + "    handler {\n"
                         + "        ignoredFailureTypes=[\n"

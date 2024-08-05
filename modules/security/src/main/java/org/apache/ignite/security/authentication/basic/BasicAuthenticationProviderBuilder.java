@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.configuration;
+package org.apache.ignite.security.authentication.basic;
 
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationBuilder;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderBuilderImpl;
+import org.apache.ignite.security.authentication.configuration.AuthenticationProviderBuilder;
 
-public interface SecurityBuilder {
-    SecurityBuilder setEnabled(boolean enabled);
+public interface BasicAuthenticationProviderBuilder extends AuthenticationProviderBuilder {
+    static BasicAuthenticationProviderBuilder create(String name) {
+        return new BasicAuthenticationProviderBuilderImpl(name);
+    }
 
-    AuthenticationBuilder withAuthentication();
+    BasicAuthenticationProviderBuilder addUser(BasicUserBuilder user);
 }

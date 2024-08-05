@@ -31,6 +31,7 @@ import java.util.concurrent.CompletionException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.configuration.ClusterConfigurationImpl;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -148,11 +149,25 @@ public class IgniteServerImpl implements IgniteServer {
             return instance.initClusterAsync(parameters.metaStorageNodeNames(),
                     parameters.cmgNodeNames(),
                     parameters.clusterName(),
-                    parameters.clusterConfiguration()
+                    extractClusterConfiguration(parameters)
             ).thenCompose(unused -> waitForInitAsync());
         } catch (NodeStoppingException e) {
             throw new ClusterInitFailureException("Node stop detected during init", e);
         }
+    }
+
+    /**
+     * Extracts cluster configuration string from init parameters. If configuration object is present, builds the configuration string from
+     * it.
+     *
+     * @param parameters Initialization parameters.
+     * @return Cluster configuration string.
+     */
+    private String extractClusterConfiguration(InitParameters parameters) {
+        if (parameters.clusterConfiguration() != null) {
+            return ((ClusterConfigurationImpl) parameters.clusterConfiguration()).build(classLoader);
+        }
+        return parameters.clusterConfigurationString();
     }
 
     @Override

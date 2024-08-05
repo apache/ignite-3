@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.security.authentication.configuration;
 
+import org.apache.ignite.security.authentication.configuration.AuthenticationProviderBuilder;
+
 public abstract class AuthenticationProviderBuilderImpl implements
         AuthenticationProviderBuilder {
     private final String name;

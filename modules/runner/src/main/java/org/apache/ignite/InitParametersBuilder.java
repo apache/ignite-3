@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ClusterConfiguration;
-import org.apache.ignite.configuration.ClusterConfigurationImpl;
 
 /** Builder of {@link InitParameters}. */
 public class InitParametersBuilder {
@@ -184,7 +183,7 @@ public class InitParametersBuilder {
     }
 
     /**
-     * Sets cluster configuration, that will be applied after initialization.
+     * Sets cluster configuration that will be applied after initialization.
      *
      * @param clusterConfigurationString Cluster configuration string.
      * @return {@code this} for chaining.
@@ -197,6 +196,12 @@ public class InitParametersBuilder {
         return this;
     }
 
+    /**
+     * Sets cluster configuration object that will be applied after initialization.
+     *
+     * @param clusterConfiguration Cluster configuration object.
+     * @return {@code this} for chaining.
+     */
     public InitParametersBuilder clusterConfiguration(ClusterConfiguration clusterConfiguration) {
         if (clusterConfigurationString != null) {
             throw new IllegalArgumentException("Cluster configuration should be set only one way.");
@@ -219,9 +224,6 @@ public class InitParametersBuilder {
             throw new IllegalStateException("Cluster name is not set.");
         }
 
-        if (clusterConfiguration != null) {
-            clusterConfigurationString = ((ClusterConfigurationImpl) clusterConfiguration).build();
-        }
-        return new InitParameters(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfigurationString);
+        return new InitParameters(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration, clusterConfigurationString);
     }
 }

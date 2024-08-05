@@ -85,7 +85,7 @@ public interface IgniteServer {
             Path workDir,
             @Nullable ClassLoader serviceLoaderClassLoader
     ) {
-        String config = ((NodeConfigurationImpl) nodeConfiguration).build();
+        String config = ((NodeConfigurationImpl) nodeConfiguration).build(serviceLoaderClassLoader);
         Path configPath = workDir.resolve(DEFAULT_CONFIG_PATH);
         saveConfigToFile(config, configPath);
 
@@ -149,7 +149,7 @@ public interface IgniteServer {
             Path workDir,
             @Nullable ClassLoader serviceLoaderClassLoader
     ) {
-        String config = ((NodeConfigurationImpl) nodeConfiguration).build();
+        String config = ((NodeConfigurationImpl) nodeConfiguration).build(serviceLoaderClassLoader);
         Path configPath = workDir.resolve(DEFAULT_CONFIG_PATH);
         saveConfigToFile(config, configPath);
 

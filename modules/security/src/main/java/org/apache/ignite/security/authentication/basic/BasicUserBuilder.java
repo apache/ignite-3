@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.basic;
+package org.apache.ignite.security.authentication.basic;
+
+import org.apache.ignite.internal.security.authentication.basic.BasicUserBuilderImpl;
 
 public interface BasicUserBuilder {
     static BasicUserBuilder create(String username) {

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.security.authentication.basic;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import org.apache.ignite.security.authentication.basic.BasicUserBuilder;
 
 public class BasicUserBuilderImpl implements BasicUserBuilder {
     private final String username;

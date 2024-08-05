@@ -19,6 +19,8 @@ package org.apache.ignite.internal.security.authentication.configuration;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.security.authentication.configuration.AuthenticationBuilder;
+import org.apache.ignite.security.authentication.configuration.AuthenticationProviderBuilder;
 
 public class AuthenticationBuilderImpl implements
         AuthenticationBuilder {

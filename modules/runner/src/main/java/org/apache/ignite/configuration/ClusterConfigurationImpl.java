@@ -17,35 +17,19 @@
 
 package org.apache.ignite.configuration;
 
+import static org.apache.ignite.configuration.ConfigurationBuilderUtil.createChanger;
+import static org.apache.ignite.configuration.ConfigurationBuilderUtil.loadConfigurationModules;
+import static org.apache.ignite.configuration.ConfigurationBuilderUtil.renderConfig;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import com.typesafe.config.ConfigRenderOptions;
-import java.util.List;
-import java.util.Set;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
-import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
+import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.hocon.HoconConverter;
-import org.apache.ignite.internal.configuration.storage.InMemoryConfigurationStorage;
-import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
-import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
-import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
-import org.apache.ignite.internal.security.configuration.SecurityBuilder;
 import org.apache.ignite.internal.security.configuration.SecurityBuilderImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.security.configuration.SecurityBuilder;
 
 public class ClusterConfigurationImpl implements ClusterConfiguration {
-    private static final List<RootKey<?, ?>> rootKeys = List.of(SecurityConfiguration.KEY);
-
-    private static final List<Class<?>> schemaExtensions = List.of();
-
-    private static final List<Class<?>> polymorphicSchemaExtensions = List.of(
-            BasicAuthenticationProviderConfigurationSchema.class
-    );
-
     private SecurityBuilderImpl security;
 
     @Override
@@ -55,12 +39,17 @@ public class ClusterConfigurationImpl implements ClusterConfiguration {
         return builder;
     }
 
-    public String build() {
+    public String build(ClassLoader classLoader) {
+        ConfigurationModules modules = loadConfigurationModules(classLoader);
         ConfigurationTreeGenerator configurationGenerator = new ConfigurationTreeGenerator(
-                rootKeys, schemaExtensions, polymorphicSchemaExtensions);
+                modules.distributed().rootKeys(),
+                modules.distributed().schemaExtensions(),
+                modules.distributed().polymorphicSchemaExtensions()
+        );
 
-        ConfigurationChanger changer = createChanger(configurationGenerator);
+        ConfigurationChanger changer = createChanger(DISTRIBUTED, configurationGenerator, modules.distributed().rootKeys());
         changer.start();
+        changer.onDefaultsPersisted().join();
 
 
         SecurityConfiguration securityConfiguration = (SecurityConfiguration) configurationGenerator.instantiateCfg(
@@ -70,34 +59,8 @@ public class ClusterConfigurationImpl implements ClusterConfiguration {
             securityConfiguration.change(security::change).join();
         }
 
-
-        ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
-                .includeInternal(false)
-                .skipEmptyValues(true)
-                .maskSecretValues(false)
-                .build();
-
-        String rendered = HoconConverter.represent(changer.superRoot().copy(), List.of(), visitor)
-                .render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
-
+        String rendered = renderConfig(changer);
         changer.stop();
         return rendered;
-    }
-
-    private static ConfigurationChanger createChanger(ConfigurationTreeGenerator configurationGenerator) {
-        InMemoryConfigurationStorage storage = new InMemoryConfigurationStorage(DISTRIBUTED);
-
-        // Don't apply any validator except default since these changes could be incremental
-        ConfigurationValidator configurationValidator =
-                ConfigurationValidatorImpl.withDefaultValidators(configurationGenerator, Set.of());
-
-        ConfigurationUpdateListener empty = (oldRoot, newRoot, storageRevision, notificationNumber) -> nullCompletedFuture();
-
-        return new ConfigurationChanger(empty, rootKeys, storage, configurationValidator) {
-            @Override
-            public InnerNode createRootNode(RootKey<?, ?> rootKey) {
-                return configurationGenerator.instantiateNode(rootKey.schemaClass());
-            }
-        };
     }
 }

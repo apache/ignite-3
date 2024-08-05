@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.configuration;
+package org.apache.ignite.security.authentication.configuration;
 
-public interface AuthenticationProviderBuilder {
+public interface AuthenticationBuilder {
+    void addProvider(AuthenticationProviderBuilder provider);
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.configuration;
 
-import org.apache.ignite.internal.security.configuration.SecurityBuilder;
+import org.apache.ignite.security.configuration.SecurityBuilder;
 
 public interface ClusterConfiguration {
     static ClusterConfiguration create() {
