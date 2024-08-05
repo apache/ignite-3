@@ -1022,14 +1022,6 @@ public class NodeImpl implements Node, RaftServerService {
             LOG.error("Node {} initFSMCaller failed.", getNodeId());
             return false;
         }
-        this.ballotBox = new BallotBox();
-        final BallotBoxOptions ballotBoxOpts = new BallotBoxOptions();
-        ballotBoxOpts.setWaiter(this.fsmCaller);
-        ballotBoxOpts.setClosureQueue(this.closureQueue);
-        if (!this.ballotBox.init(ballotBoxOpts)) {
-            LOG.error("Node {} init ballotBox failed.", getNodeId());
-            return false;
-        }
 
         if (!initSnapshotStorage()) {
             LOG.error("Node {} initSnapshotStorage failed.", getNodeId());
@@ -1051,6 +1043,12 @@ public class NodeImpl implements Node, RaftServerService {
             this.conf.setConf(this.options.getInitialConf());
             // initially set to max(priority of all nodes)
             this.targetPriority = getMaxPriorityOfNodes(this.conf.getConf().getPeers());
+        }
+
+        // It must be initialized after initializing conf and log storage.
+        if (!initBallotBox()) {
+            LOG.error("Node {} init ballotBox failed.", getNodeId());
+            return false;
         }
 
         if (!this.conf.isEmpty()) {
@@ -1125,6 +1123,30 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
         return true;
+    }
+
+    private boolean initBallotBox() {
+        this.ballotBox = new BallotBox();
+        final BallotBoxOptions ballotBoxOpts = new BallotBoxOptions();
+        ballotBoxOpts.setWaiter(this.fsmCaller);
+        ballotBoxOpts.setClosureQueue(this.closureQueue);
+        // TODO: uncomment when backport related change https://issues.apache.org/jira/browse/IGNITE-22923
+        //ballotBoxOpts.setNodeId(getNodeId());
+         // Try to initialize the last committed index in BallotBox to be the last snapshot index.
+        long lastCommittedIndex = 0;
+        if (this.snapshotExecutor != null) {
+            lastCommittedIndex = this.snapshotExecutor.getLastSnapshotIndex();
+        }
+        if (this.getQuorum() == 1) {
+            // It is safe to initiate lastCommittedIndex as last log one because in case of single peer no one will discard
+            // log records on leader election.
+            // Fix https://github.com/sofastack/sofa-jraft/issues/1049
+            lastCommittedIndex = Math.max(lastCommittedIndex, this.logManager.getLastLogIndex());
+        }
+
+        ballotBoxOpts.setLastCommittedIndex(lastCommittedIndex);
+        LOG.info("Node {} init ballot box's lastCommittedIndex={}.", getNodeId(), lastCommittedIndex);
+        return this.ballotBox.init(ballotBoxOpts);
     }
 
     /**
@@ -1451,7 +1473,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
 
         // init commit manager
-        this.ballotBox.resetPendingIndex(this.logManager.getLastLogIndex() + 1, getQuorum());
+        this.ballotBox.resetPendingIndex(this.logManager.getLastLogIndex() + 1);
         // Register _conf_ctx to reject configuration changing before the first log
         // is committed.
         if (this.confCtx.isBusy()) {
@@ -1561,6 +1583,18 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     private void executeApplyingTasks(final List<LogEntryAndClosure> tasks) {
+        if (!this.logManager.hasAvailableCapacityToAppendEntries(1)) {
+        	// It's overload, fail-fast
+        	final List<Closure> dones = tasks.stream().map(ele -> ele.done).filter(Objects::nonNull)
+        			.collect(Collectors.toList());
+        	Utils.runInThread(this.getOptions().getCommonExecutor(), () -> {
+        		for (final Closure done : dones) {
+        			done.run(new Status(RaftError.EBUSY, "Node %s log manager is busy.", this.getNodeId()));
+        		}
+        	});
+        	return;
+        }
+
         this.writeLock.lock();
         try {
             final int size = tasks.size();
