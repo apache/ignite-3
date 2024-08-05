@@ -30,8 +30,11 @@ import java.util.UUID;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.internal.binarytuple.inlineschema.TupleMarshalling;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -599,7 +602,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals, @Nullable Marshaller<Object, byte[]> marshaller) {
+    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals) {
         assert !closed : "Packer is closed";
 
         if (vals == null) {
@@ -619,7 +622,7 @@ public class ClientMessagePacker implements AutoCloseable {
         var builder = new BinaryTupleBuilder(vals.length * 3);
 
         for (Object arg : vals) {
-            ClientBinaryTupleUtils.appendObject(builder, arg, marshaller);
+            ClientBinaryTupleUtils.appendObject(builder, arg);
         }
 
         packBinaryTuple(builder);
@@ -651,7 +654,7 @@ public class ClientMessagePacker implements AutoCloseable {
             var builder = new BinaryTupleBuilder(rowLen * 3);
 
             for (Object value : values) {
-                ClientBinaryTupleUtils.appendObject(builder, value, null);
+                ClientBinaryTupleUtils.appendObject(builder, value);
             }
 
             packBinaryTuple(builder);
@@ -663,7 +666,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param val Object array.
      */
-    public <T> void packObjectAsBinaryTuple(@Nullable T val, @Nullable Marshaller<T, byte[]> marshaller) {
+    public <T> void packObjectAsBinaryTuple(@Nullable T val) {
         assert !closed : "Packer is closed";
 
         if (val == null) {
@@ -675,7 +678,7 @@ public class ClientMessagePacker implements AutoCloseable {
         // Builder with inline schema.
         // Value is represented by 3 tuple elements: type, scale, value.
         var builder = new BinaryTupleBuilder(3, 3, false);
-        ClientBinaryTupleUtils.appendObject(builder, val, marshaller);
+        ClientBinaryTupleUtils.appendObject(builder, val);
 
         packBinaryTuple(builder);
     }
@@ -813,5 +816,31 @@ public class ClientMessagePacker implements AutoCloseable {
         }
 
         return 5;
+    }
+
+    public <T> void packJobArg(T arg, @Nullable Marshaller<T, byte[]> marshaller) {
+        if (marshaller != null) {
+            byte[] marshalled = marshaller.marshal(arg);
+            if (marshalled == null) {
+                packNil();
+                return;
+            }
+
+            packInt(ColumnType.BYTE_ARRAY.id());
+            packByteBuffer(ByteBuffer.wrap(marshalled));
+            return;
+        }
+
+        if (arg instanceof Tuple) {
+            byte[] marshalledTuple = TupleMarshalling.marshal((Tuple) arg);
+
+            packInt(1_000); //todo
+
+            assert marshalledTuple != null;
+            packByteBuffer(ByteBuffer.wrap(marshalledTuple));
+            return;
+        }
+
+        packObjectAsBinaryTuple(arg);
     }
 }

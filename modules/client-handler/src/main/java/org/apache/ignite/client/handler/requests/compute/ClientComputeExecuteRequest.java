@@ -116,6 +116,6 @@ public class ClientComputeExecuteRequest {
      * @return Args array.
      */
     static Object unpackPayload(ClientMessageUnpacker in) {
-        return in.unpackObjectFromBinaryTuple();
+        return in.unpackJobArgument();
     }
 }
