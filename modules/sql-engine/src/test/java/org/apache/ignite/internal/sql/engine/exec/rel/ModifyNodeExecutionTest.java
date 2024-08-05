@@ -36,8 +36,10 @@ import static org.mockito.Mockito.when;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -61,6 +63,8 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -282,9 +286,36 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         verifyNoMoreInteractions(updatableTable);
     }
 
+    private static Stream<Arguments> mergeArgs() {
+        return Stream.of(
+                // Column count, update only, destination row data
+                Arguments.of(2, false, new Object[]{null, null}),
+                Arguments.of(2, true,  new Object[]{null, 1}),
+                Arguments.of(2, true,  new Object[]{2, 1}),
+
+                Arguments.of(3, false, new Object[]{null, null, null}),
+                Arguments.of(3, true, new Object[]{null, 1, null}),
+                Arguments.of(3, true, new Object[]{null, null, 1}),
+                Arguments.of(3, true, new Object[]{2, null, null}),
+
+                Arguments.of(4, false, new Object[]{null, null, null, null}),
+                Arguments.of(4, true, new Object[]{null, 1, null, null}),
+                Arguments.of(4, true, new Object[]{null, null, 1, null}),
+                Arguments.of(4, true, new Object[]{null, null, null, 1}),
+                Arguments.of(4, true, new Object[]{2, null, null, null}),
+
+                Arguments.of(5, false, new Object[]{null, null, null, null, null}),
+                Arguments.of(5, true, new Object[]{null, 1, null, null, null}),
+                Arguments.of(5, true, new Object[]{null, null, 1, null, null}),
+                Arguments.of(5, true, new Object[]{null, null, null, 1, null}),
+                Arguments.of(5, true, new Object[]{null, null, null, null, 1}),
+                Arguments.of(5, true, new Object[]{2, null, null, null, null})
+        );
+    }
+
     @ParameterizedTest
-    @ValueSource(ints = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13})
-    void mergePassesCorrectRowsToInsert(int rowCount) {
+    @MethodSource("mergeArgs")
+    void mergePassesCorrectRowsToInsert(int colCount, boolean updateOnly, Object[] dstRow2Data) {
         // DestinationRow: dst_c1, dst_c2, dst_c3
         // SourceRow: src_c1, src_c2
         // MergeRow:  src_c1, src_c2, null, dst_c1, dst_c2, dst_c3, update_col1, ...,
@@ -294,7 +325,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         RowSchema.Builder dstRowSchemaBuilder = RowSchema.builder();
 
-        for (int i = 0; i < rowCount; i++) {
+        for (int i = 0; i < colCount; i++) {
             dstRowSchemaBuilder.addField(NativeTypes.INT32, true);
         }
 
@@ -302,7 +333,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         RowSchema.Builder srcRowSchemaBuilder = RowSchema.builder();
 
-        for (int i = 0; i < rowCount; i++) {
+        for (int i = 0; i < colCount; i++) {
             srcRowSchemaBuilder.addField(NativeTypes.INT32, true);
         }
 
@@ -315,29 +346,34 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Mockito.reset(updatableTable);
 
         TableDescriptor tableDescriptor = createTableDescriptor(dstRowSchema);
+
         ArgumentCaptor<List<RowWrapper>> insertedRows = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<RowWrapper>> updatedRows = ArgumentCaptor.forClass(List.class);
 
         when(updatableTable.descriptor()).thenReturn(tableDescriptor);
-        when(updatableTable.insertAll(any(), insertedRows.capture(), any())).thenReturn(nullCompletedFuture());
-        when(updatableTable.upsertAll(any(), updatedRows.capture(), any())).thenReturn(nullCompletedFuture());
+
+        if (updateOnly) {
+            when(updatableTable.upsertAll(any(), updatedRows.capture(), any())).thenReturn(nullCompletedFuture());
+        } else {
+            when(updatableTable.insertAll(any(), insertedRows.capture(), any())).thenReturn(nullCompletedFuture());
+            when(updatableTable.upsertAll(any(), updatedRows.capture(), any())).thenReturn(nullCompletedFuture());
+        }
 
         RowFactory<RowWrapper> dstFactory = rowHandler.factory(dstRowSchema);
 
-        Object[] dstRow1Data = new Object[rowCount];
+        Object[] dstRow1Data = new Object[colCount];
         dstRow1Data[0] = 1;
         RowWrapper dstRow1 = dstFactory.create(dstRow1Data);
 
-        Object[] dstRow2Data = new Object[rowCount];
         RowWrapper dstRow2 = dstFactory.create(dstRow2Data);
 
         RowFactory<RowWrapper> srcFactory = rowHandler.factory(srcRowSchema);
 
-        Object[] srcRow1Data = new Object[rowCount];
+        Object[] srcRow1Data = new Object[colCount];
         srcRow1Data[0] = 2;
         RowWrapper srcRow1 = srcFactory.create(srcRow1Data);
 
-        Object[] srcRow2Data = new Object[rowCount];
+        Object[] srcRow2Data = new Object[colCount];
         srcRow2Data[0] = 1;
         srcRow2Data[1] = 5;
         RowWrapper srcRow2 = srcFactory.create(srcRow2Data);
@@ -366,14 +402,28 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         await(downstream.result());
 
-        verify(updatableTable).insertAll(any(), any(), any());
-        verify(updatableTable).upsertAll(any(), any(), any());
+        if (updateOnly) {
+            verify(updatableTable).upsertAll(any(), any(), any());
 
-        RowWrapper inserted = insertedRows.getAllValues().get(0).get(0);
-        expectRow(inserted, rowHandler, rowCount, 1, 5);
+            RowWrapper updated1 = updatedRows.getAllValues().get(0).get(0);
+            expectRow(updated1, rowHandler, colCount, Arrays.asList(1, null));
 
-        RowWrapper updated = updatedRows.getAllValues().get(0).get(0);
-        expectRow(updated, rowHandler, rowCount, 1, null);
+            RowWrapper updated2 = updatedRows.getAllValues().get(0).get(1);
+
+            List<Object> updated2Expected = new ArrayList<>(Arrays.asList(dstRow2Data[0], 4));
+            updated2Expected.addAll(Arrays.asList(dstRow2Data).subList(2, colCount));
+
+            expectRow(updated2, rowHandler, colCount, updated2Expected);
+        } else {
+            verify(updatableTable).insertAll(any(), any(), any());
+            verify(updatableTable).upsertAll(any(), any(), any());
+
+            RowWrapper inserted = insertedRows.getAllValues().get(0).get(0);
+            expectRow(inserted, rowHandler, colCount, Arrays.asList(1, 5));
+
+            RowWrapper updated = updatedRows.getAllValues().get(0).get(0);
+            expectRow(updated, rowHandler, colCount, Arrays.asList(1, null));
+        }
     }
 
     private static TableDescriptor createTableDescriptor(RowSchema rowSchema) {
@@ -398,17 +448,17 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         return new TableDescriptorImpl(columns, IgniteDistributions.single());
     }
 
-    private static void expectRow(RowWrapper row, RowHandler<RowWrapper> rowHandler, int expectedRowSize, Object... expectRowPrefix) {
+    private static void expectRow(RowWrapper row, RowHandler<RowWrapper> rowHandler, int expectedRowSize, List<Object> expectRowPrefix) {
         int rowSize = rowHandler.columnCount(row);
 
         assertEquals(expectedRowSize, rowSize);
-        assertTrue(expectRowPrefix.length <= rowSize, "Incorrect number of expected vals");
+        assertTrue(expectRowPrefix.size() <= rowSize, "Incorrect number of expected vals");
 
         for (int i = 0; i < rowSize; i++) {
-            if (i < expectRowPrefix.length) {
-                assertEquals(expectRowPrefix[i], rowHandler.get(i, row), "col#" + i);
+            if (i < expectRowPrefix.size()) {
+                assertEquals(expectRowPrefix.get(i), rowHandler.get(i, row), "col#" + i + " " + rowHandler.toString(row));
             } else {
-                assertNull(rowHandler.get(i, row), "col#" + i);
+                assertNull(rowHandler.get(i, row), "col#" + i + " " + rowHandler.toString(row));
             }
         }
     }
