@@ -165,7 +165,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 throw new IgniteInternalException(Common.INTERNAL_ERR, "Table with given id not found: " + tableId);
             }
 
-            long tableKey = cacheKey(tableDescriptor.tableVersion(), tableDescriptor.id());
+            long tableKey = cacheKey(tableDescriptor.id(), tableDescriptor.tableVersion());
 
             IgniteTableImpl igniteTable = tableCache.get(tableKey, (x) -> {
                 TableDescriptor descriptor = createTableDescriptorForTable(tableDescriptor);
@@ -181,10 +181,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         });
     }
 
-    private static long cacheKey(int catalogVersion, int tableId) {
-        long cacheKey = catalogVersion;
+    private static long cacheKey(int part1, int part2) {
+        long cacheKey = part1;
         cacheKey <<= 32;
-        return cacheKey | tableId;
+        return cacheKey | part2;
     }
 
     private SchemaPlus createRootSchema(Catalog catalog) {
@@ -207,7 +207,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         // Assemble sql-engine.TableDescriptors as they are required by indexes.
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
-            long tableKey = cacheKey(tableDescriptor.tableVersion(), tableDescriptor.id());
+            long tableKey = cacheKey(tableDescriptor.id(), tableDescriptor.tableVersion());
 
             // Load cached table by (id, version)
             IgniteTableImpl igniteTable = tableCache.get(tableKey, (k) -> {
