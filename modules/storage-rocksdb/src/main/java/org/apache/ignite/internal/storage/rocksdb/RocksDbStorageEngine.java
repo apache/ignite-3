@@ -40,6 +40,7 @@ import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.LazyPath;
 import org.rocksdb.RocksDB;
 
 /**
@@ -75,7 +76,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final StorageConfiguration storageConfiguration;
 
-    private final Path storagePath;
+    private final LazyPath storagePath;
 
     private final ExecutorService threadPool;
 
@@ -101,7 +102,7 @@ public class RocksDbStorageEngine implements StorageEngine {
             String nodeName,
             RocksDbStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfiguration,
-            Path storagePath,
+            LazyPath storagePath,
             LogSyncer logSyncer
     ) {
         this.engineConfig = engineConfig;
@@ -174,7 +175,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     private SharedRocksDbInstance newRocksDbInstance(String profileName, RocksDbStorageProfile profile) {
-        Path dbPath = storagePath.resolve("rocksdb-" + profileName);
+        Path dbPath = storagePath.get().resolve("rocksdb-" + profileName);
 
         try {
             return new SharedRocksDbInstanceCreator().create(this, profile, dbPath);

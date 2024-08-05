@@ -75,6 +75,8 @@ dependencies {
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-api')
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22564 runner should not be in test fixtures
+    testFixturesImplementation project(':ignite-runner')
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-metrics')))
@@ -96,6 +98,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-failure-handler')
+    integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.dropwizard.metrics
     integrationTestImplementation libs.disruptor
