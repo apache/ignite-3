@@ -50,10 +50,10 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
+    public CompletableFuture<Void> flush(boolean trigger) {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.flush();
+        return partitionStorage.flush(trigger);
     }
 
     @Override

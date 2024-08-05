@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Streams;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -124,10 +123,7 @@ public class RowSchemaTypesTest {
 
         Set<Entry<NativeTypeSpec, Boolean>> nativeTypeSpecs = new CopyOnWriteArraySet<>();
 
-        EnumSet<NativeTypeSpec> set = EnumSet.allOf(NativeTypeSpec.class);
-        set.removeAll(Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER));
-
-        for (NativeTypeSpec spec : set) {
+        for (NativeTypeSpec spec : NativeTypeSpec.values()) {
             nativeTypeSpecs.add(Map.entry(spec, true));
             nativeTypeSpecs.add(Map.entry(spec, false));
         }

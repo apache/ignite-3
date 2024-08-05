@@ -37,13 +37,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Objects;
 import java.util.Random;
 import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
@@ -360,10 +358,8 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeDouble(Mockito.anyDouble());
 
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeUuid(Mockito.any(java.util.UUID.class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBitSet(Mockito.any(BitSet.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeString(Mockito.anyString());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBytes(Mockito.any(byte[].class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBigInt(Mockito.any(BigInteger.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBigDecimal(Mockito.any(BigDecimal.class), Mockito.anyInt());
 
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeDate(Mockito.any(LocalDate.class));
@@ -392,10 +388,8 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).readTimestamp();
 
         Mockito.doAnswer(rowAnswer).when(mockedRow).readUuid();
-        Mockito.doAnswer(rowAnswer).when(mockedRow).readBitSet();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readString();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBytes();
-        Mockito.doAnswer(rowAnswer).when(mockedRow).readBigInt();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBigDecimal(0);
 
         return new Pair<>(mockedAsm, mockedRow);

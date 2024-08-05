@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import io.netty.util.ResourceLeakDetector;
+import io.netty.util.ResourceLeakDetector.Level;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +57,8 @@ public class PlatformBenchmarkNodeRunner {
      */
     public static void main(String[] args) throws Exception {
         System.out.println("Starting benchmark node runner...");
+
+        ResourceLeakDetector.setLevel(Level.DISABLED);
 
         List<IgniteServer> startedNodes = PlatformTestNodeRunner.startNodes(BASE_PATH, nodesBootstrapCfg);
 
