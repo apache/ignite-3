@@ -53,6 +53,9 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     private final SchemaDescriptor schema;
 
+    private final int keyOnlyFixedLengthColumnSize; 
+    private final int valueOnlyFixedLengthColumnSize; 
+
     /**
      * Creates marshaller for given schema.
      *
@@ -60,6 +63,18 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     public TupleMarshallerImpl(SchemaDescriptor schema) {
         this.schema = schema;
+
+        keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
+                .map(Column::type)
+                .filter(type -> type.spec().fixedLength())
+                .mapToInt(NativeType::sizeInBytes)
+                .sum();
+
+        valueOnlyFixedLengthColumnSize = schema.valueColumns().stream()
+                .map(Column::type)
+                .filter(type -> type.spec().fixedLength())
+                .mapToInt(NativeType::sizeInBytes)
+                .sum();
     }
 
     @Override
@@ -92,7 +107,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(schema.columns(), tuple, valuesWithStatistics);
+            gatherStatistics(TuplePart.KEY_VALUE, tuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns != tuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -112,7 +127,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
+            gatherStatistics(TuplePart.KEY, keyTuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns != keyTuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -122,7 +137,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             boolean keyOnly = valTuple == null;
             if (!keyOnly) {
-                gatherStatistics(schema.valueColumns(), valTuple, valuesWithStatistics);
+                gatherStatistics(TuplePart.VALUE, valTuple, valuesWithStatistics);
 
                 if ((valuesWithStatistics.knownColumns - keyTuple.columnCount()) != valTuple.columnCount()) {
                     throw new SchemaMismatchException(
@@ -143,7 +158,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
+            gatherStatistics(TuplePart.KEY, keyTuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns < keyTuple.columnCount()) {
                 throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
@@ -160,7 +175,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             ValuesWithStatistics values
     ) throws SchemaMismatchException {
         List<Column> columns = keyOnly ? schema.keyColumns() : schema.columns();
-        RowAssembler rowBuilder = new RowAssembler(schema.version(), columns, values.estimatedValueSize);
+        RowAssembler rowBuilder = new RowAssembler(schema.version(), columns, values.estimatedValueSize, false);
 
         for (Column col : columns) {
             rowBuilder.appendValue(values.value(col.name()));
@@ -172,13 +187,13 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     void gatherStatistics(
-            List<Column> columns,
+            TuplePart part,
             Tuple tuple,
             ValuesWithStatistics targetTuple
     ) throws SchemaMismatchException {
-        int estimatedValueSize = 0;
+        int estimatedValueSize = part.fixedSizeColumnsSize(keyOnlyFixedLengthColumnSize, valueOnlyFixedLengthColumnSize);
         int knownColumns = 0;
-        for (Column col : columns) {
+        for (Column col : part.deriveColumnList(schema)) {
             NativeType colType = col.type();
 
             Object val = tuple.valueOrDefault(IgniteNameUtils.quote(col.name()), POISON_OBJECT);
@@ -196,9 +211,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             col.validate(val);
 
             if (val != null) {
-                if (colType.spec().fixedLength()) {
-                    estimatedValueSize += colType.sizeInBytes();
-                } else {
+                if (!colType.spec().fixedLength()) {
                     val = shrinkValue(val, col.type());
 
                     estimatedValueSize += getValueSize(val, colType);
@@ -318,5 +331,47 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         int estimatedValueSize() {
             return estimatedValueSize;
         }
+    }
+
+    enum TuplePart {
+        KEY {
+            @Override
+            int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize) {
+                return keyOnlySize;
+            }
+
+            @Override
+            List<Column> deriveColumnList(SchemaDescriptor schema) {
+                return schema.keyColumns();
+            }
+        },
+
+        VALUE {
+            @Override
+            int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize) {
+                return valueOnlySize;
+            }
+
+            @Override
+            List<Column> deriveColumnList(SchemaDescriptor schema) {
+                return schema.valueColumns();
+            }
+        },
+
+        KEY_VALUE {
+            @Override
+            int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize) {
+                return keyOnlySize + valueOnlySize;
+            }
+
+            @Override
+            List<Column> deriveColumnList(SchemaDescriptor schema) {
+                return schema.columns();
+            }
+        };
+
+        abstract int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize);
+
+        abstract List<Column> deriveColumnList(SchemaDescriptor schema);
     }
 }
