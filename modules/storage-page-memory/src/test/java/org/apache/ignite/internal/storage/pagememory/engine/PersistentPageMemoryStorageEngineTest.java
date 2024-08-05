@@ -30,6 +30,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -57,7 +58,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
                 engineConfig,
                 storageConfig,
                 ioRegistry,
-                workDir,
+                LazyPath.create(workDir),
                 null,
                 mock(FailureProcessor.class),
                 logSyncer,

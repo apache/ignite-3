@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -109,7 +108,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
             server2.close();
             waitForConnections(client, 1);
 
-            Ignite ignite = new FakeIgnite();
+            FakeIgnite ignite = new FakeIgnite();
             server2 = new TestServer(0, ignite, null, null, "node3", AbstractClientTest.clusterId, null, 10903);
 
             if (reconnectEnabled) {
@@ -145,9 +144,9 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
     }
 
     private void startTwoServers() {
-        Ignite ignite = new FakeIgnite();
+        FakeIgnite ignite = new FakeIgnite();
         server = new TestServer(0, ignite, null, null, "node1", AbstractClientTest.clusterId, null, 10901);
-        Ignite ignite1 = new FakeIgnite();
+        FakeIgnite ignite1 = new FakeIgnite();
         server2 = new TestServer(0, ignite1, null, null, "node2", AbstractClientTest.clusterId, null, 10902);
     }
 
