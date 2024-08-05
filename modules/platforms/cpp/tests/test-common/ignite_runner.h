@@ -20,6 +20,8 @@
 #include "cmd_process.h"
 #include "test_utils.h"
 
+#include "ignite/common/detail/utils.h"
+
 #include <chrono>
 #include <string_view>
 
@@ -63,7 +65,7 @@ public:
      *
      * @return @c true if tests run in single node mode.
      */
-    static bool single_node_mode() { return ignite::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value(); }
+    static bool single_node_mode() { return ignite::detail::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value(); }
 
     /**
      * Get node addresses to use for tests.

@@ -25,15 +25,7 @@
 
 #include <cstdio>
 
-namespace ignite {
-
-/**
- * Get environment variable.
- *
- * @param name Variable name.
- * @return Variable value if it is set, or @c std::nullopt otherwise.
- */
-std::optional<std::string> get_env(const std::string &name);
+namespace ignite {;
 
 /**
  * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
