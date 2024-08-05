@@ -22,13 +22,16 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ClusterConfiguration;
+import org.apache.ignite.configuration.ClusterConfigurationImpl;
 
 /** Builder of {@link InitParameters}. */
 public class InitParametersBuilder {
     private Collection<String> metaStorageNodeNames;
     private Collection<String> cmgNodeNames;
     private String clusterName;
-    private String clusterConfiguration;
+    private String clusterConfigurationString;
+    private ClusterConfiguration clusterConfiguration;
 
     /**
      * Sets names of nodes that will host the Meta Storage.
@@ -183,10 +186,21 @@ public class InitParametersBuilder {
     /**
      * Sets cluster configuration, that will be applied after initialization.
      *
-     * @param clusterConfiguration Cluster configuration.
+     * @param clusterConfigurationString Cluster configuration string.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder clusterConfiguration(String clusterConfiguration) {
+    public InitParametersBuilder clusterConfiguration(String clusterConfigurationString) {
+        if (clusterConfiguration != null) {
+            throw new IllegalArgumentException("Cluster configuration should be set only one way.");
+        }
+        this.clusterConfigurationString = clusterConfigurationString;
+        return this;
+    }
+
+    public InitParametersBuilder clusterConfiguration(ClusterConfiguration clusterConfiguration) {
+        if (clusterConfigurationString != null) {
+            throw new IllegalArgumentException("Cluster configuration should be set only one way.");
+        }
         this.clusterConfiguration = clusterConfiguration;
         return this;
     }
@@ -205,6 +219,9 @@ public class InitParametersBuilder {
             throw new IllegalStateException("Cluster name is not set.");
         }
 
-        return new InitParameters(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
+        if (clusterConfiguration != null) {
+            clusterConfigurationString = ((ClusterConfigurationImpl) clusterConfiguration).build();
+        }
+        return new InitParameters(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfigurationString);
     }
 }

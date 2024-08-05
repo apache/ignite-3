@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -36,11 +37,17 @@ import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.configuration.ClusterConfiguration;
 import org.apache.ignite.configuration.NodeConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerView;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderBuilder;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.basic.BasicUserBuilder;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -203,9 +210,18 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
 
         IgniteServer igniteServer = startedIgniteServers.get(0);
 
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.create();
+        clusterConfiguration.withSecurity()
+                .setEnabled(true)
+                .withAuthentication()
+                .addProvider(
+                        BasicAuthenticationProviderBuilder.create("basic")
+                                .addUser(BasicUserBuilder.create("username").setPassword("password"))
+                );
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(igniteServer)
                 .clusterName("cluster")
+                .clusterConfiguration(clusterConfiguration)
                 .build();
         assertThat(igniteServer.initClusterAsync(initParameters), willCompleteSuccessfully());
 
@@ -214,6 +230,16 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
                 .handler().value();
         assertThat(handlerConfiguration, instanceOf(StopNodeOrHaltFailureHandlerView.class));
         assertThat(((StopNodeOrHaltFailureHandlerView) handlerConfiguration).timeoutMillis(), is(1L));
+
+        SecurityView securityConfiguration = ((IgniteImpl) igniteServer.api()).clusterConfiguration()
+                .getConfiguration(SecurityConfiguration.KEY).value();
+        assertThat(securityConfiguration.enabled(), is(true));
+        assertThat(securityConfiguration.authentication().providers(), contains(instanceOf(BasicAuthenticationProviderView.class)));
+        BasicAuthenticationProviderView basicProvider =
+                (BasicAuthenticationProviderView) securityConfiguration.authentication().providers().get(0);
+        assertThat(basicProvider.users().size(), is(1));
+        assertThat(basicProvider.users().get(0).username(), is("username"));
+        assertThat(basicProvider.users().get(0).password(), is("password"));
     }
 
     private void startNode(String nodeName, Function<String, IgniteServer> starter) {

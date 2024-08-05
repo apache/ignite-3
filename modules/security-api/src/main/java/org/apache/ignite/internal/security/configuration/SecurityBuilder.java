@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failure.handlers.configuration;
+package org.apache.ignite.internal.security.configuration;
 
-import org.apache.ignite.failure.handlers.configuration.NoOpFailureHandlerBuilder;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationBuilder;
 
-public class NoOpFailureHandlerBuilderImpl extends FailureHandlerBuilderImpl implements NoOpFailureHandlerBuilder {
-    @Override
-    public void change(FailureHandlerChange change) {
-        super.change(change);
-        change.convert(NoOpFailureHandlerChange.class);
-    }
+public interface SecurityBuilder {
+    SecurityBuilder setEnabled(boolean enabled);
+
+    AuthenticationBuilder withAuthentication();
 }

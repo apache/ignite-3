@@ -39,11 +39,9 @@ public class StopNodeOrHaltFailureHandlerBuilderImpl extends FailureHandlerBuild
     }
 
     @Override
-    public void buildToConfiguration(FailureHandlerConfiguration configuration) {
-        super.buildToConfiguration(configuration);
-        configuration.change(c -> {
-            StopNodeOrHaltFailureHandlerChange change = c.convert(StopNodeOrHaltFailureHandlerChange.class);
-            changes.forEach(consumer -> consumer.accept(change));
-        }).join();
+    public void change(FailureHandlerChange change) {
+        super.change(change);
+        StopNodeOrHaltFailureHandlerChange stopNodeOrHaltFailureHandlerChange = change.convert(StopNodeOrHaltFailureHandlerChange.class);
+        changes.forEach(consumer -> consumer.accept(stopNodeOrHaltFailureHandlerChange));
     }
 }

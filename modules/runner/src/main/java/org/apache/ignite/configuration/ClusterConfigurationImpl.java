@@ -17,13 +17,12 @@
 
 package org.apache.ignite.configuration;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import com.typesafe.config.ConfigRenderOptions;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.failure.configuration.FailureProcessorConfigurationBuilder;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -33,29 +32,26 @@ import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
-import org.apache.ignite.internal.failure.configuration.FailureProcessorConfigurationBuilderImpl;
-import org.apache.ignite.internal.failure.handlers.configuration.NoOpFailureHandlerConfigurationSchema;
-import org.apache.ignite.internal.failure.handlers.configuration.StopNodeFailureHandlerConfigurationSchema;
-import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
+import org.apache.ignite.internal.security.configuration.SecurityBuilder;
+import org.apache.ignite.internal.security.configuration.SecurityBuilderImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 
-public class NodeConfigurationImpl implements NodeConfiguration {
-    private static final List<RootKey<?, ?>> rootKeys = List.of(FailureProcessorConfiguration.KEY);
+public class ClusterConfigurationImpl implements ClusterConfiguration {
+    private static final List<RootKey<?, ?>> rootKeys = List.of(SecurityConfiguration.KEY);
 
     private static final List<Class<?>> schemaExtensions = List.of();
 
     private static final List<Class<?>> polymorphicSchemaExtensions = List.of(
-            NoOpFailureHandlerConfigurationSchema.class,
-            StopNodeFailureHandlerConfigurationSchema.class,
-            StopNodeOrHaltFailureHandlerConfigurationSchema.class
+            BasicAuthenticationProviderConfigurationSchema.class
     );
 
-    private FailureProcessorConfigurationBuilderImpl failureHandler;
+    private SecurityBuilderImpl security;
 
     @Override
-    public FailureProcessorConfigurationBuilder withFailureHandler() {
-        FailureProcessorConfigurationBuilderImpl builder = new FailureProcessorConfigurationBuilderImpl();
-        failureHandler = builder;
+    public SecurityBuilder withSecurity() {
+        SecurityBuilderImpl builder = new SecurityBuilderImpl();
+        security = builder;
         return builder;
     }
 
@@ -67,11 +63,11 @@ public class NodeConfigurationImpl implements NodeConfiguration {
         changer.start();
 
 
-        FailureProcessorConfiguration failureProcessorConfiguration = (FailureProcessorConfiguration) configurationGenerator.instantiateCfg(
-                FailureProcessorConfiguration.KEY, changer);
+        SecurityConfiguration securityConfiguration = (SecurityConfiguration) configurationGenerator.instantiateCfg(
+                SecurityConfiguration.KEY, changer);
 
-        if (failureHandler != null) {
-            failureProcessorConfiguration.change(failureHandler::change).join();
+        if (security != null) {
+            securityConfiguration.change(security::change).join();
         }
 
 
@@ -89,8 +85,9 @@ public class NodeConfigurationImpl implements NodeConfiguration {
     }
 
     private static ConfigurationChanger createChanger(ConfigurationTreeGenerator configurationGenerator) {
-        InMemoryConfigurationStorage storage = new InMemoryConfigurationStorage(LOCAL);
+        InMemoryConfigurationStorage storage = new InMemoryConfigurationStorage(DISTRIBUTED);
 
+        // Don't apply any validator except default since these changes could be incremental
         ConfigurationValidator configurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(configurationGenerator, Set.of());
 

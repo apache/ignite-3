@@ -29,12 +29,6 @@ import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltF
 public class FailureProcessorConfigurationBuilderImpl implements FailureProcessorConfigurationBuilder {
     private FailureHandlerBuilderImpl failureHandlerBuilder;
 
-    public void buildToConfiguration(FailureProcessorConfiguration configuration) {
-        if (failureHandlerBuilder != null) {
-            failureHandlerBuilder.buildToConfiguration(configuration.handler());
-        }
-    }
-
     @Override
     public NoOpFailureHandlerBuilder withNoOpFailureHandler() {
         NoOpFailureHandlerBuilderImpl builder = new NoOpFailureHandlerBuilderImpl();
@@ -54,5 +48,11 @@ public class FailureProcessorConfigurationBuilderImpl implements FailureProcesso
         StopNodeOrHaltFailureHandlerBuilderImpl builder = new StopNodeOrHaltFailureHandlerBuilderImpl();
         failureHandlerBuilder = builder;
         return builder;
+    }
+
+    public void change(FailureProcessorChange failureProcessorChange) {
+        if (failureHandlerBuilder != null) {
+            failureProcessorChange.changeHandler(failureHandlerBuilder::change);
+        }
     }
 }

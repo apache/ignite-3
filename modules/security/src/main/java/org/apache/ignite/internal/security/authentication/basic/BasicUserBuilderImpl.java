@@ -15,14 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failure.handlers.configuration;
+package org.apache.ignite.internal.security.authentication.basic;
 
-import org.apache.ignite.failure.handlers.configuration.NoOpFailureHandlerBuilder;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
-public class NoOpFailureHandlerBuilderImpl extends FailureHandlerBuilderImpl implements NoOpFailureHandlerBuilder {
+public class BasicUserBuilderImpl implements BasicUserBuilder {
+    private final String username;
+
+    private final List<Consumer<BasicUserChange>> changes = new ArrayList<>();
+
+    public BasicUserBuilderImpl(String username) {
+        this.username = username;
+    }
+
+    public String username() {
+        return username;
+    }
+
     @Override
-    public void change(FailureHandlerChange change) {
-        super.change(change);
-        change.convert(NoOpFailureHandlerChange.class);
+    public BasicUserBuilder setPassword(String password) {
+        changes.add(change -> change.changePassword(password));
+        return this;
+    }
+
+    public void change(BasicUserChange change) {
+        changes.forEach(consumer -> consumer.accept(change));
     }
 }

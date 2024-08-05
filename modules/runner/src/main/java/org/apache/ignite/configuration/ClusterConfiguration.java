@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failure.handlers.configuration;
+package org.apache.ignite.configuration;
 
-import org.apache.ignite.failure.handlers.configuration.NoOpFailureHandlerBuilder;
+import org.apache.ignite.internal.security.configuration.SecurityBuilder;
 
-public class NoOpFailureHandlerBuilderImpl extends FailureHandlerBuilderImpl implements NoOpFailureHandlerBuilder {
-    @Override
-    public void change(FailureHandlerChange change) {
-        super.change(change);
-        change.convert(NoOpFailureHandlerChange.class);
+public interface ClusterConfiguration {
+    static ClusterConfiguration create() {
+        return new ClusterConfigurationImpl();
     }
+
+    SecurityBuilder withSecurity();
 }

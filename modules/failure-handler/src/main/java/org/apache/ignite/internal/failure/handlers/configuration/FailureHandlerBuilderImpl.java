@@ -31,7 +31,7 @@ public class FailureHandlerBuilderImpl implements FailureHandlerBuilder {
         return this;
     }
 
-    public void buildToConfiguration(FailureHandlerConfiguration configuration) {
-        configuration.change(c -> changes.forEach(consumer -> consumer.accept(c))).join();
+    public void change(FailureHandlerChange change) {
+        changes.forEach(consumer -> consumer.accept(change));
     }
 }

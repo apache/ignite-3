@@ -22,8 +22,8 @@ import org.apache.ignite.failure.handlers.configuration.StopNodeFailureHandlerBu
 public class StopNodeFailureHandlerBuilderImpl extends FailureHandlerBuilderImpl
         implements StopNodeFailureHandlerBuilder {
     @Override
-    public void buildToConfiguration(FailureHandlerConfiguration configuration) {
-        super.buildToConfiguration(configuration);
-        configuration.change(c -> c.convert(StopNodeFailureHandlerChange.class)).join();
+    public void change(FailureHandlerChange change) {
+        super.change(change);
+        change.convert(StopNodeFailureHandlerChange.class);
     }
 }
