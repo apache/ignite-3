@@ -1027,7 +1027,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                                 PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                                CompletableFuture<Void> voidCompletableFuture = raftClient.changePeersAsync(newConfiguration,
+                                CompletableFuture<Void> voidCompletableFuture = raftClient.changePeersAndLearnersAsync(newConfiguration,
                                         leaderWithTerm.term()).exceptionally(e -> {
                                             return null;
                                         });
@@ -1077,7 +1077,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             return placementDriver.getPrimaryReplica(replicationGroupId, previousMetastoreSafeTime)
                     .thenApply(replicaMeta -> replicaMeta != null
                             && replicaMeta.getLeaseholderId() != null
-                            && replicaMeta.getLeaseholderId().equals(localNode().name()));
+                            && replicaMeta.getLeaseholderId().equals(localNode().id()));
         } catch (IllegalArgumentException e) {
             long currentSafeTimeMs = currentSafeTime.longValue();
 

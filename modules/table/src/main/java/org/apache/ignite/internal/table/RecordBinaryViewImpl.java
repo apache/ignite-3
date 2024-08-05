@@ -456,6 +456,19 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     }
 
     /**
+     * Unmarshal a row to tuple. Test-only public method.
+     *
+     * @param tx Transaction, if present.
+     * @param row Binary row.
+     * @return A future, with tuple as a result.
+     */
+    @TestOnly
+    @VisibleForTesting
+    public CompletableFuture<Tuple> binaryRowToTuple(@Nullable Transaction tx, BinaryRow row) {
+        return doOperation(tx, schemaVersion -> completedFuture(wrap(row, schemaVersion)));
+    }
+
+    /**
      * Returns table row tuple.
      *
      * @param row Binary row.

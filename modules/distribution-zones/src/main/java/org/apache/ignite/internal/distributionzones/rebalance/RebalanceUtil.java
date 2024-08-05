@@ -324,15 +324,6 @@ public class RebalanceUtil {
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
 
-    /** Key prefix for counter of rebalances of tables from a zone that are associated with the specified partition. */
-    private static final String TABLES_COUNTER_PREFIX = "tables.counter.";
-
-    /** Key prefix for catalog version of tables at the time of setting the counter. */
-    private static final String TABLE_CATALOG_PREFIX = "tables.catalog.version.";
-
-    /** Key prefix for a raft configuration that was applied during rebalance of the specified partition form a table. */
-    private static final String RAFT_CONF_APPLIED_PREFIX = "assignments.raft.conf.applied.";
-
     /**
      * Key that is needed for skipping stale events of pending key change.
      *
@@ -342,17 +333,6 @@ public class RebalanceUtil {
      */
     public static ByteArray pendingChangeTriggerKey(TablePartitionId partId) {
         return new ByteArray(partId + "pending.change.trigger");
-    }
-
-    /**
-     * Key that is needed for skipping stale events of stable key change.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
-     */
-    public static ByteArray stableChangeTriggerKey(TablePartitionId partId) {
-        return new ByteArray(partId + "stable.change.trigger");
     }
 
     /**
@@ -411,47 +391,6 @@ public class RebalanceUtil {
     }
 
     /**
-     * ByteArray key for a counter of rebalances of tables from a zone that are associated with the specified partition.
-     *
-     * @param zoneId Identifier of a zone.
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     */
-    public static ByteArray tablesCounterKey(int zoneId, int partId) {
-        return new ByteArray(TABLES_COUNTER_PREFIX + zoneId + "_part_" + partId);
-    }
-
-    /**
-     * ByteArray key for catalog version of a table .
-     *
-     * @param zoneId Identifier of a zone.
-     * @param partId Unique identifier of a partition.
-     * @return Key for a partition.
-     */
-    public static ByteArray catalogVersionKey(int zoneId, int partId) {
-        return new ByteArray(TABLE_CATALOG_PREFIX + zoneId + "_part_" + partId);
-    }
-
-    /**
-     * ByteArray prefix for counter of rebalances of tables from a zone that are associated with the specified partition.
-     *
-     * @return Prefix for a counter of rebalances of tables partition.
-     */
-    public static ByteArray tablesCounterPrefixKey() {
-        return new ByteArray(TABLES_COUNTER_PREFIX);
-    }
-
-    /**
-     * ByteArray key for a raft configuration that was applied during rebalance of the specified partition form a table.
-     *
-     * @param partId Unique identifier of a partition.
-     * @return Key for a applied raft configuration.
-     */
-    public static ByteArray raftConfigurationAppliedKey(TablePartitionId partId) {
-        return new ByteArray(RAFT_CONF_APPLIED_PREFIX + partId);
-    }
-
-    /**
      * Extract table id from a metastorage key of partition.
      *
      * @param key Key.
@@ -475,18 +414,6 @@ public class RebalanceUtil {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
         return Integer.parseInt(strKey.substring(prefix.length()));
-    }
-
-    /**
-     * Extract zone id from a metastorage key {@link RebalanceUtil#tablesCounterKey}.
-     *
-     * @param key Key.
-     * @return Table id.
-     */
-    static int extractZoneIdFromTablesCounter(byte[] key) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(TABLES_COUNTER_PREFIX.length(), strKey.indexOf("_part_")));
     }
 
     /**

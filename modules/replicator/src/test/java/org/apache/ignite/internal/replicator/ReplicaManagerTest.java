@@ -54,11 +54,13 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -84,7 +86,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
     private ReplicaManager replicaManager;
 
     @Mock
-    private RaftManager raftManager;
+    private Loza raftManager;
+
+    @Mock
+    TopologyAwareRaftGroupService raftGroupService;
 
     @BeforeEach
     void startReplicaManager(
@@ -97,7 +102,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             @Mock Marshaller marshaller,
             @Mock TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             @Mock VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator
-    ) {
+    ) throws NodeStoppingException {
         String nodeName = testNodeName(testInfo, 0);
 
         when(clusterService.messagingService()).thenReturn(messagingService);
@@ -106,6 +111,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(nodeName, nodeName, new NetworkAddress("foo", 0)));
 
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
+
+        when(raftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
+
+        when(raftManager.startRaftGroupNode(any(), any(), any(), any(), any(), any())).thenReturn(completedFuture(raftGroupService));
 
         var clock = new HybridClockImpl();
 
@@ -163,11 +172,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             TestInfo testInfo,
             @Mock EventListener<LocalReplicaEventParameters> createReplicaListener,
             @Mock EventListener<LocalReplicaEventParameters> removeReplicaListener,
-            @Mock ReplicaListener replicaListener,
-            @Mock TopologyAwareRaftGroupService raftGroupService
+            @Mock RaftGroupEventsListener raftGroupEventsListener,
+            @Mock RaftGroupListener raftGroupListener,
+            @Mock ReplicaListener replicaListener
     ) throws NodeStoppingException {
-        when(raftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
-
         when(createReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
         when(removeReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
 
@@ -181,11 +189,14 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(nodeName));
 
         CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
-                groupId,
-                newConfiguration,
+                raftGroupEventsListener,
+                raftGroupListener,
+                false,
+                null,
                 (unused) -> replicaListener,
                 new PendingComparableValuesTracker<>(0L),
-                completedFuture(raftGroupService)
+                groupId,
+                newConfiguration
         );
 
         assertThat(startReplicaFuture, willCompleteSuccessfully());

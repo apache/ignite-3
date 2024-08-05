@@ -40,7 +40,6 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -115,7 +114,6 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22806")
     void testEstimatedAfterScaleDown() throws InterruptedException {
         for (String profile : ALL_STORAGE_PROFILES) {
             String tableName = createTableWithData(profile);

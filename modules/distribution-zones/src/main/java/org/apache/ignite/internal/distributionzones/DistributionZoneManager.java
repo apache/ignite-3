@@ -236,8 +236,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 busyLock,
                 metaStorageManager,
                 this,
-                catalogManager,
-                rebalanceScheduler
+                catalogManager
         );
 
         //noinspection ThisEscapedInObjectConstruction
