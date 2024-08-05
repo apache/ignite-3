@@ -33,6 +33,7 @@
 #include <sstream>
 #include <filesystem>
 #include <cassert>
+#include <cstring>
 
 #ifndef ADDITIONAL_OPENSSL_HOME_ENV
 #   define ADDITIONAL_OPENSSL_HOME_ENV "OPEN_SSL_HOME"
