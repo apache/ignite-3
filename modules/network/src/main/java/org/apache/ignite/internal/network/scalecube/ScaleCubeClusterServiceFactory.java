@@ -43,6 +43,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
@@ -86,6 +87,7 @@ public class ScaleCubeClusterServiceFactory {
      * @param nettyBootstrapFactory Bootstrap factory.
      * @param serializationRegistry Registry used for serialization.
      * @param staleIds Used to update/detect whether a node has left the physical topology.
+     * @param clusterIdSupplier Supplier for cluster ID.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @param failureProcessor Failure processor that is used to handle critical errors.
      * @return New cluster service.
@@ -96,6 +98,7 @@ public class ScaleCubeClusterServiceFactory {
             NettyBootstrapFactory nettyBootstrapFactory,
             MessageSerializationRegistry serializationRegistry,
             StaleIds staleIds,
+            ClusterIdSupplier clusterIdSupplier,
             CriticalWorkerRegistry criticalWorkerRegistry,
             FailureProcessor failureProcessor
     ) {
@@ -146,6 +149,7 @@ public class ScaleCubeClusterServiceFactory {
                         consistentId,
                         nettyBootstrapFactory,
                         staleIds,
+                        clusterIdSupplier,
                         failureProcessor
                 );
                 this.connectionMgr = connectionMgr;

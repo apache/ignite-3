@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.network.ConstantClusterIdSupplier.withoutClusterId;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -531,6 +532,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     consistentId,
                     bootstrapFactory,
                     new AllIdsAreFresh(),
+                    withoutClusterId(),
                     mock(FailureProcessor.class)
             );
 

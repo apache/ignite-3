@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery.message;
+package org.apache.ignite.internal.cluster.management;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.network.message.ClusterNodeMessage;
-import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Test;
 
-/**
- * Handshake start message, contains info about the node.
- * This message is sent from a server to a client at the connection opening.
- */
-@Transferable(NetworkMessageTypes.HANDSHAKE_START)
-public interface HandshakeStartMessage extends InternalMessage {
-    /** Returns the server node that sends this. */
-    ClusterNodeMessage serverNode();
+class ClusterIdHolderTest {
+    private final ClusterIdHolder holder = new ClusterIdHolder();
 
-    /** ID of the cluster to which the server node belongs ({@code null} if it's not initialized yet. */
-    @Nullable
-    UUID serverClusterId();
+    @Test
+    void clusterIdIsOriginallyNull() {
+        assertThat(holder.clusterId(), is(nullValue()));
+    }
+
+    @Test
+    void clusterIdGetsUpdated() {
+        UUID newId = UUID.randomUUID();
+
+        holder.clusterId(newId);
+
+        assertThat(holder.clusterId(), is(newId));
+    }
 }
