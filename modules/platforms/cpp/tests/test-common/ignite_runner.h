@@ -37,6 +37,8 @@ class ignite_runner {
 public:
     static inline std::vector<std::string> SINGLE_NODE_ADDR = {"127.0.0.1:10942"};
     static inline std::vector<std::string> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
+    static inline std::vector<std::string> SSL_NODE_ADDRS = {"127.0.0.1:10944"};
+    static inline std::vector<std::string> SSL_NODE_CA_ADDRS = {"127.0.0.1:10945"};
 
     /**
      * Destructor.

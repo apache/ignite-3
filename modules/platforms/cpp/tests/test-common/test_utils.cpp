@@ -86,6 +86,19 @@ std::string resolve_ignite_home(const std::string &path) {
     return home.string();
 }
 
+std::filesystem::path resolve_test_dir() {
+    auto home = resolve_ignite_home();
+    if (home.empty())
+        throw ignite_error("Can not resolve Ignite Home");
+
+    std::filesystem::path home_path(home);
+    auto test_path = home_path / "modules" / "platforms" / "cpp" / "tests";
+    if (std::filesystem::is_directory(test_path))
+        return std::move(test_path);
+
+    throw ignite_error("Can not find a 'tests' directory in the current Ignite Home: " + home);
+}
+
 bool check_test_node_connectable(std::chrono::seconds timeout) {
     try {
         ensure_node_connectable(timeout);
