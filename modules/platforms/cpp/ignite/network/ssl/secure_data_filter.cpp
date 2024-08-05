@@ -255,7 +255,7 @@ std::vector<std::byte> secure_data_filter::secure_connection_context::get_pendin
     if (res <= 0)
         return {};
 
-    return std::move(buffer);
+    return buffer;
 }
 
 data_buffer_ref secure_data_filter::secure_connection_context::get_pending_decrypted_data()

@@ -61,10 +61,17 @@ ssl_gateway::ssl_gateway()
 
 void ssl_gateway::unload_all()
 {
-    m_libeay32->unload();
-    m_ssleay32->unload();
-    m_libssl->unload();
-    m_libcrypto->unload();
+    if (m_libeay32)
+        m_libeay32->unload();
+
+    if (m_ssleay32)
+        m_ssleay32->unload();
+
+    if (m_libssl)
+        m_libssl->unload();
+
+    if (m_libcrypto)
+        m_libcrypto->unload();
 
     memset(&m_functions, 0, sizeof(m_functions));
 }
@@ -158,7 +165,7 @@ bool ssl_gateway::try_load_ssl_libraries(const std::string& home_dir)
 
     return (m_libssl->is_loaded() && m_libcrypto->is_loaded()) || (m_libeay32->is_loaded() && m_ssleay32->is_loaded());
 #else
-    m_libssl = load_ssl_library("m_libssl", home_dir);
+    m_libssl = load_ssl_library("libssl", home_dir);
 
     return m_libssl->is_loaded();
 #endif

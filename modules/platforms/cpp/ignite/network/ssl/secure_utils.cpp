@@ -34,6 +34,22 @@ namespace
 {
 using namespace ignite::network;
 
+
+std::string format_error_message(const std::string &description, const std::string &details,
+    const std::string &advice)
+{
+    std::stringstream message_builder;
+    message_builder << description;
+    if (!details.empty())
+        message_builder << ": " << details;
+
+    if (!advice.empty())
+        message_builder << ". " << advice;
+
+    return message_builder.str();
+}
+
+#ifdef _WIN32
 std::string get_last_system_error()
 {
     auto error_code = IGNITE_SWITCH_WIN_OTHER(GetLastError(), errno);
@@ -58,24 +74,11 @@ std::string get_last_system_error()
     return error_details;
 }
 
-std::string format_error_message(const std::string &description, const std::string &details,
-    const std::string &advice)
-{
-    std::stringstream message_builder;
-    message_builder << description;
-    if (!details.empty())
-        message_builder << ": " << details;
-
-    if (!advice.empty())
-        message_builder << ". " << advice;
-
-    return message_builder.str();
-}
-
 std::string get_last_system_error(const std::string& description, const std::string& advice)
 {
     return format_error_message(description, get_last_system_error(), advice);
 }
+#endif
 
 void load_default_ca(SSL_CTX* ssl_context)
 {

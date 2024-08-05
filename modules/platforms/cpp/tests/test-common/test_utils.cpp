@@ -94,7 +94,7 @@ std::filesystem::path resolve_test_dir() {
     std::filesystem::path home_path(home);
     auto test_path = home_path / "modules" / "platforms" / "cpp" / "tests";
     if (std::filesystem::is_directory(test_path))
-        return std::move(test_path);
+        return test_path;
 
     throw ignite_error("Can not find a 'tests' directory in the current Ignite Home: " + home);
 }
