@@ -28,7 +28,7 @@ public class StoreOptions {
     private static final String storagePath                   = "localLog";
 
     // Default is 64Mb, similar to Ignite 2.
-    private int                 segmentFileSize               = 550 * 1024;
+    private int                 segmentFileSize               = 10 * 1024 * 1024;
 
     private int                 indexFileSize                 = FileHeader.HEADER_SIZE + 5000000
                                                                 * IndexEntry.INDEX_SIZE;
