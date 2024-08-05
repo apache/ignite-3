@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
     using System.Buffers.Binary;
-    using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
     using System.Runtime.InteropServices;
