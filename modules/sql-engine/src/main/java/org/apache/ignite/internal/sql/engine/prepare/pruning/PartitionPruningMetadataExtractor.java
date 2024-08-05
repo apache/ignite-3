@@ -30,10 +30,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,7 +67,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -160,12 +156,19 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     }
 
     private static class ModifyNodeShuttle extends IgniteRelShuttle {
-        List<RexNode> mappingProjections = null;
         @Nullable TargetMapping mapping;
-        Deque<Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>>> projectsExpressions = new ArrayDeque<>();
         boolean unionRaised = false;
         IgniteRel previous = null;
         private static final Map<Class<?>, Set<Class<?>>> allowRelTransfers = new HashMap<>();
+
+        List<List<RexNode>> finalExpressions = new ArrayList<>();
+        IgniteTable table;
+
+        @Nullable List<RexNode> prevProject;
+
+        ModifyNodeShuttle(IgniteTable table) {
+            this.table = table;
+        }
 
         static {
             allowRelTransfers.put(IgniteValues.class, Set.of(IgniteProject.class, IgniteExchange.class, IgniteTrimExchange.class));
@@ -177,21 +180,12 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteProject rel) {
-            if (unionRaised) {
-                if (mappingProjections == null) {
-                    // found projection before union, thus mapping is required
-                    if (!projectsExpressions.isEmpty()) {
-                        assert projectsExpressions.size() == 1 : "unexpected projections";
-                        // erase projection and store it for mapping needs
-                        mappingProjections = projectsExpressions.poll().getFirst();
-                    } else {
-                        mappingProjections = Collections.emptyList();
-                    }
-                }
+            if (unionRaised && mapping == null && prevProject != null) {
+                mapping = RexUtils.inversePermutation(prevProject,
+                        table.getRowType(Commons.typeFactory()), false); // !!!fix
             }
 
-            // fill projections, appropriate values will be filled further
-            projectsExpressions.add(new Pair<>(rel.getProjects(), null));
+            prevProject = rel.getProjects();
 
             return super.visit(rel);
         }
@@ -199,15 +193,42 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteValues rel) {
-            Pair<List<RexNode>, List<List<RexNode>>> head = projectsExpressions.peekLast();
+            List<List<RexNode>> expressions = Commons.cast(rel.getTuples());
 
-            if (head == null || head.getSecond() != null) {
-                projectsExpressions.add(new Pair<>(null, Commons.cast(rel.getTuples())));
-            } else {
-                // no projection without values are possible
-                projectsExpressions.pollLast();
-                projectsExpressions.add(new Pair<>(head.getFirst(), Commons.cast(rel.getTuples())));
+            if (prevProject != null) {
+                List<RexNode> projectionsReplaced = replaceInputRefs(prevProject);
+
+                boolean refFound = !projectionsReplaced.equals(prevProject);
+
+                prevProject = projectionsReplaced;
+
+                assert rel.getTuples() != null;
+
+                for (List<RexNode> exp : expressions) {
+                    if (!refFound) {
+                        // no references are found, all important in projections
+                        finalExpressions.add(prevProject);
+                    } else {
+                        // otherwise exchange references with appropriate representations
+                        List<RexNode> modifiedExpressions = new ArrayList<>(prevProject);
+
+                        for (int i = 0; i < prevProject.size(); ++i) {
+                            RexNode prjNode = prevProject.get(i);
+
+                            if (prjNode instanceof RexLocalRef) {
+                                RexLocalRef node0 = (RexLocalRef) prjNode;
+                                modifiedExpressions.set(i, exp.get(node0.getIndex()));
+                            }
+                        }
+
+                        finalExpressions.add(modifiedExpressions);
+                    }
+                }
+            } else if (expressions != null) {
+                finalExpressions.addAll(expressions);
             }
+
+            prevProject = null;
 
             return super.visit(rel);
         }
@@ -215,11 +236,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteUnionAll rel) {
-            // unexpected branch
-            if (unionRaised) {
-                throw Util.FoundOne.NULL;
-            }
-
             unionRaised = true;
             return super.visit(rel);
         }
@@ -255,7 +271,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
         RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
 
-        ModifyNodeShuttle modify = new ModifyNodeShuttle();
+        ModifyNodeShuttle modify = new ModifyNodeShuttle(table);
 
         try {
             rel.accept(modify);
@@ -263,10 +279,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return rel;
         }
 
-        modify.mapping = nullOrEmpty(modify.mappingProjections) ? null : RexUtils.inversePermutation(modify.mappingProjections,
-                table.getRowType(Commons.typeFactory()), false);
-
-        extractFromValues(rel.sourceId(), table, modify.projectsExpressions, modify.mapping, rexBuilder);
+        extractFromValues(rel.sourceId(), table, modify.finalExpressions, modify.mapping, rexBuilder);
 
         return super.visit(rel);
     }
@@ -274,11 +287,11 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     private void extractFromValues(
             long sourceId,
             IgniteTable table,
-            Deque<Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>>> projectsExpressions,
+            List<List<RexNode>> finalExpressions,
             @Nullable TargetMapping mapping,
             RexBuilder rexBuilder
     ) {
-        if (projectsExpressions.isEmpty()) {
+        if (finalExpressions.isEmpty()) {
             return;
         }
 
@@ -286,46 +299,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
         if (keysList.isEmpty()) {
             return;
-        }
-
-        List<List<RexNode>> finalExpressions = new ArrayList<>();
-
-        for (Pair<@Nullable List<RexNode>, @Nullable List<List<RexNode>>> prjExp : projectsExpressions) {
-            @Nullable List<RexNode> projections = prjExp.getFirst();
-            @Nullable List<List<RexNode>> expressions = prjExp.getSecond();
-
-            if (projections != null) {
-                List<RexNode> projectionsReplaced = replaceInputRefs(projections);
-
-                boolean refFound = !projectionsReplaced.equals(projections);
-
-                projections = projectionsReplaced;
-
-                assert expressions != null;
-
-                for (List<RexNode> exp : expressions) {
-                    if (!refFound) {
-                        // no references are found, all important in projections
-                        finalExpressions.add(projections);
-                    } else {
-                        // otherwise exchange references with appropriate representations
-                        List<RexNode> modifiedExpressions = new ArrayList<>(projections);
-
-                        for (int i = 0; i < projections.size(); ++i) {
-                            RexNode prjNode = projections.get(i);
-
-                            if (prjNode instanceof RexLocalRef) {
-                                RexLocalRef node0 = (RexLocalRef) prjNode;
-                                modifiedExpressions.set(i, exp.get(node0.getIndex()));
-                            }
-                        }
-
-                        finalExpressions.add(modifiedExpressions);
-                    }
-                }
-            } else if (expressions != null) {
-                finalExpressions.addAll(expressions);
-            }
         }
 
         List<RexNode> andEqNodes = new ArrayList<>(finalExpressions.size());

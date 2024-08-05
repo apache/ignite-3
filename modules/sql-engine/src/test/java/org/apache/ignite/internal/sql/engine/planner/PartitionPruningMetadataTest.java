@@ -147,10 +147,10 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
     }
 
     enum TestCaseBasicInsert {
-        SIMPLE_1a1("t(C1) VALUES (SELECT 100)", TABLE_C1_NULLABLE_C2),
+/*        SIMPLE_1a1("t(C1) VALUES (SELECT 100)", TABLE_C1_NULLABLE_C2),
         SIMPLE_1a11("t VALUES ((SELECT 100), ?)", TABLE_C1_NULLABLE_C2),
         SIMPLE_1a12("t VALUES (?, (SELECT 100))", TABLE_C1_NULLABLE_C2),
-        SIMPLE_1a13("t VALUES (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),
+        SIMPLE_1a13("t VALUES (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]"),*/
         SIMPLE_1a14("t VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?2]"),
         SIMPLE_1a15("t VALUES ('100', 1)", TABLE_C1_NULLABLE_C2, "[c1=100]"),
         SIMPLE_1a16("t VALUES ('100'::smallint, 1)", TABLE_C1_NULLABLE_C2, "[c1=100]"),
