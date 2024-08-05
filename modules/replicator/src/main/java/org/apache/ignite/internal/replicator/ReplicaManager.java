@@ -295,7 +295,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Executor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
-            Marshaller raftCommandsMarshaller,
+            @Nullable Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
@@ -576,7 +576,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
-            SnapshotStorageFactory snapshotStorageFactory,
+            @Nullable SnapshotStorageFactory snapshotStorageFactory,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
@@ -627,7 +627,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
-            SnapshotStorageFactory snapshotStorageFactory,
+            @Nullable SnapshotStorageFactory snapshotStorageFactory,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
@@ -836,7 +836,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
     }
 
-    private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, SnapshotStorageFactory snapshotFactory) {
+    private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
         RaftGroupOptions raftGroupOptions;
 
         if (isVolatileStorage) {
@@ -848,9 +848,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
         }
 
-        raftGroupOptions.snapshotStorageFactory(snapshotFactory);
+        if (snapshotFactory != null) {
+            raftGroupOptions.snapshotStorageFactory(snapshotFactory);
+        }
 
-        raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
+        if (raftCommandsMarshaller != null) {
+            raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
+        }
 
         return raftGroupOptions;
     }

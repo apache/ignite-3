@@ -728,58 +728,12 @@ public class ItTxTestCluster {
                         schemaManager
                 );
 
-                // The reason to use such kind of implementation is that a honest implementation requires a metastore instance:
-                // PartitionSnapshotStorageFactory <- PartitionAccessImpl <- IndexMetaStorage <- FullStateTransferIndexChooser
-                // <- MetaStorageManager. But metastore module isn't accessible there. Moreover we don't need the honest instance there,
-                // because derived tests don't use snapshots' logic inside. Then, such skeleton instance is fine there.
-                SnapshotStorageFactory snapshotStorageFactory = (uri, raftOptions) -> new SnapshotStorage() {
-                    @Override
-                    public boolean setFilterBeforeCopyRemote() {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public SnapshotWriter create() {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public SnapshotReader open() {
-                        return null;
-                    }
-
-                    @Override
-                    public SnapshotReader copyFrom(String uri, SnapshotCopierOptions opts) {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public void setSnapshotThrottle(SnapshotThrottle snapshotThrottle) {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public boolean init(Void opts) {
-                        return true;
-                    }
-
-                    @Override
-                    public void shutdown() {
-                        // no-op
-                    }
-                };
-
                 CompletableFuture<Void> partitionReadyFuture = replicaManagers.get(assignment)
                         .startReplica(
                                 RaftGroupEventsListener.noopLsnr,
                                 partitionListener,
                                 false,
-                                snapshotStorageFactory,
+                                null,
                                 createReplicaListener,
                                 storageIndexTracker,
                                 grpId,
