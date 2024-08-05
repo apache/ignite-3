@@ -468,14 +468,8 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 .map(NativeTypeSpec::asColumnType)
                 .collect(Collectors.toSet());
 
-        Set<ColumnType> unsupported = Set.of(ColumnType.BITMASK, ColumnType.NUMBER);
-
         for (ColumnType columnType : ColumnType.values()) {
             if (columnType == ColumnType.NULL) {
-                continue;
-            }
-
-            if (unsupported.contains(columnType)) {
                 continue;
             }
 

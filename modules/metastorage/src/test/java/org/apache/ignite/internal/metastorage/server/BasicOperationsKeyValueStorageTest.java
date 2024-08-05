@@ -19,6 +19,9 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
@@ -2093,6 +2096,63 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         verify(mockCallback, never()).onRevisionApplied(anyLong());
     }
 
+    @Test
+    public void testRevisionByTimestamp() {
+        // Verify that in case of empty storage -1 will be returned.
+        assertEquals(-1, storage.revisionByTimestamp(MIN_VALUE));
+        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(2)));
+        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(5)));
+        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(7)));
+        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(10)));
+        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(12)));
+        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(15)));
+        assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(17)));
+        assertEquals(-1, storage.revisionByTimestamp(MAX_VALUE));
+
+        // Populate storage with some data in order to have following revision to timestamp mapping:
+        // 1 -> 5
+        // 2 -> 10
+        // 3 -> 15
+        {
+            storage.put(key(1), keyValue(1, 1), hybridTimestamp(5));
+            assertEquals(1, storage.revision());
+
+            storage.put(key(1), keyValue(1, 1), hybridTimestamp(10));
+            assertEquals(2, storage.revision());
+
+            storage.put(key(2), keyValue(2, 2), hybridTimestamp(15));
+            assertEquals(3, storage.revision());
+        }
+
+        // Check revisionByTimestamp()
+        {
+            assertEquals(-1, storage.revisionByTimestamp(MIN_VALUE));
+
+            // There's no revision associated with 2, so closest left one is expected.
+            assertEquals(-1, storage.revisionByTimestamp(hybridTimestamp(2)));
+
+            // Exact matching 1 -> 5
+            assertEquals(1, storage.revisionByTimestamp(hybridTimestamp(5)));
+
+            // There's no revision associated with 7, so closest left one is expected.
+            assertEquals(1, storage.revisionByTimestamp(hybridTimestamp(7)));
+
+            // Exact matching 2 -> 10
+            assertEquals(2, storage.revisionByTimestamp(hybridTimestamp(10)));
+
+            // There's no revision associated with 12, so closest left one is expected.
+            assertEquals(2, storage.revisionByTimestamp(hybridTimestamp(12)));
+
+            // Exact matching 3 -> 15
+            assertEquals(3, storage.revisionByTimestamp(hybridTimestamp(15)));
+
+            // There's no revision associated with 17, so closest left one is expected.
+            assertEquals(3, storage.revisionByTimestamp(hybridTimestamp(17)));
+
+            assertEquals(3, storage.revisionByTimestamp(MAX_VALUE));
+        }
+    }
+
     private CompletableFuture<Void> watchExact(
             byte[] key, long revision, int expectedNumCalls, BiConsumer<WatchEvent, Integer> testCondition
     ) {
@@ -2160,19 +2220,19 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     void putToMs(byte[] key, byte[] value) {
-        storage.put(key, value, HybridTimestamp.MIN_VALUE);
+        storage.put(key, value, MIN_VALUE);
     }
 
     private void putAllToMs(List<byte[]> keys, List<byte[]> values) {
-        storage.putAll(keys, values, HybridTimestamp.MIN_VALUE);
+        storage.putAll(keys, values, MIN_VALUE);
     }
 
     private void removeFromMs(byte[] key) {
-        storage.remove(key, HybridTimestamp.MIN_VALUE);
+        storage.remove(key, MIN_VALUE);
     }
 
     private void removeAllFromMs(List<byte[]> keys) {
-        storage.removeAll(keys, HybridTimestamp.MIN_VALUE);
+        storage.removeAll(keys, MIN_VALUE);
     }
 
     private boolean invokeOnMs(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
@@ -2180,7 +2240,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                 condition,
                 success,
                 failure,
-                HybridTimestamp.MIN_VALUE,
+                MIN_VALUE,
                 new CommandIdGenerator(() -> UUID.randomUUID().toString()).newId()
         );
     }
@@ -2188,7 +2248,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     private StatementResult invokeOnMs(If iif) {
         return storage.invoke(
                 iif,
-                HybridTimestamp.MIN_VALUE,
+                MIN_VALUE,
                 new CommandIdGenerator(() -> UUID.randomUUID().toString()).newId()
         );
     }

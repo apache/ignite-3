@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rebalance;
 
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
@@ -158,6 +157,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -220,7 +220,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
@@ -359,6 +359,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
+        electPrimaryReplica(node);
+
         alterZone(node, ZONE_NAME, 2);
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
@@ -377,6 +379,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         createTable(node, ZONE_NAME, TABLE_NAME_3);
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        electPrimaryReplica(node);
 
         alterZone(node, ZONE_NAME, 2);
 
@@ -399,6 +403,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
+        electPrimaryReplica(node);
+
         alterZone(node, ZONE_NAME, 2);
         alterZone(node, ZONE_NAME, 3);
 
@@ -416,6 +422,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         createTable(node, ZONE_NAME, TABLE_NAME);
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        electPrimaryReplica(node);
 
         alterZone(node, ZONE_NAME, 2);
         alterZone(node, ZONE_NAME, 3);
@@ -441,6 +449,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         InternalTable table = getInternalTable(node1, TABLE_NAME);
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
+
+        electPrimaryReplica(node0);
 
         Set<String> partitionNodesConsistentIds = getPartitionClusterNodes(node0, 0).stream()
                 .map(Assignment::consistentId)
@@ -517,6 +527,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
+        electPrimaryReplica(node);
+
         JraftServerImpl raftServer = (JraftServerImpl) nodes.stream()
                 .filter(n -> n.raftManager.localNodes().stream().anyMatch(grp -> grp.toString().contains("_part_")))
                 .findFirst()
@@ -558,6 +570,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         changeTableReplicasForSinglePartition(node, ZONE_NAME, 2);
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
+
+        electPrimaryReplica(node);
 
         Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(node, 0);
 
@@ -661,6 +675,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
+        electPrimaryReplica(node);
+
         alterZone(node, ZONE_NAME, 3);
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
@@ -683,6 +699,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         createTable(node, ZONE_NAME, TABLE_NAME);
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
+
+        electPrimaryReplica(node);
 
         Set<Assignment> assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
 
@@ -750,6 +768,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
+        electPrimaryReplica(node);
+
         var assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
         String nodeNameAssignedBeforeRebalance = assignmentsBeforeRebalance.stream()
                 .findFirst()
@@ -775,7 +795,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         // Using this hack we pause rebalance on all nodes
         nodes.forEach(n -> ((DefaultMessagingService) n.clusterService.messagingService())
-                .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAsyncRequest && dropMessages.get())
+                .dropMessages((nodeName, msg) -> msg instanceof ChangePeersAndLearnersAsyncRequest && dropMessages.get())
         );
 
         node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
@@ -921,6 +941,22 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private int findNodeIndexByConsistentId(String consistentId) {
         return IntStream.range(0, nodes.size()).filter(i -> getNode(i).name.equals(consistentId)).findFirst().orElseThrow();
+    }
+
+    private void electPrimaryReplica(Node node) {
+        Set<Assignment> assignments = getPartitionClusterNodes(node, 0);
+
+        String leaseholderConsistentId = assignments.stream().findFirst().get().consistentId();
+
+        ClusterNode leaseholder = nodes.stream()
+                .filter(n -> n.clusterService.topologyService().localMember().name().equals(leaseholderConsistentId))
+                .findFirst()
+                .get()
+                .clusterService
+                .topologyService()
+                .localMember();
+
+        node.placementDriver.setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl(leaseholder.name(), leaseholder.id()));
     }
 
     private static Set<Assignment> getPartitionClusterNodes(Node node, int partNum) {
@@ -1149,9 +1185,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
-                    metaStorageConfiguration,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(() -> DEFAULT_MAX_CLOCK_SKEW_MS)
+                    metaStorageConfiguration
             );
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
