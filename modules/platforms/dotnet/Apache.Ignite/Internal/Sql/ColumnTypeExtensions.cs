@@ -18,10 +18,8 @@
 namespace Apache.Ignite.Internal.Sql;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using Ignite.Sql;
 using NodaTime;
 
@@ -32,12 +30,10 @@ internal static class ColumnTypeExtensions
 {
     private static readonly IReadOnlyDictionary<Type, ColumnType> ClrToSql =
         Enum.GetValues<ColumnType>()
-            .Where(x => x != ColumnType.Bitmask && x != ColumnType.Number)
             .ToDictionary(x => x.ToClrType(), x => x);
 
     private static readonly IReadOnlyDictionary<Type, string> ClrToSqlName =
         Enum.GetValues<ColumnType>()
-            .Where(x => x != ColumnType.Period && x != ColumnType.Duration && x != ColumnType.Bitmask && x != ColumnType.Number)
             .ToDictionary(x => x.ToClrType(), x => x.ToSqlTypeName());
 
     /// <summary>
@@ -65,8 +61,6 @@ internal static class ColumnTypeExtensions
         ColumnType.ByteArray => typeof(byte[]),
         ColumnType.Period => typeof(Period),
         ColumnType.Duration => typeof(Duration),
-        ColumnType.Bitmask => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}"),
-        ColumnType.Number => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}"),
         _ => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}")
     };
 
@@ -108,8 +102,6 @@ internal static class ColumnTypeExtensions
         ColumnType.ByteArray => "varbinary",
         ColumnType.Period => "interval",
         ColumnType.Duration => "duration",
-        ColumnType.Bitmask => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}"),
-        ColumnType.Number => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}"),
         _ => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}")
     };
 

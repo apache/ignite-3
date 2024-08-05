@@ -26,7 +26,6 @@ namespace Apache.Ignite.Internal.Sql
     using Ignite.Table;
     using Ignite.Transactions;
     using Linq;
-    using NodaTime;
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -135,8 +134,6 @@ namespace Apache.Ignite.Internal.Sql
                 ColumnType.ByteArray => reader.GetBytes(idx),
                 ColumnType.Period => reader.GetPeriod(idx),
                 ColumnType.Duration => reader.GetDuration(idx),
-                ColumnType.Bitmask => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type."),
-                ColumnType.Number => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type."),
                 _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown SQL column type.")
             };
         }

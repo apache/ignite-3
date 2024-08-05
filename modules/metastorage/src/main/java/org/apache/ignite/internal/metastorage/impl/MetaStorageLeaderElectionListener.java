@@ -118,11 +118,12 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 logicalTopologyService.addEventListener(logicalTopologyEventListener);
 
                 metaStorageSvcFut
-                        .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) ->
-                                clusterTime.startSafeTimeScheduler(
-                                        safeTime -> service.syncTime(safeTime, term),
-                                        metaStorageConfiguration
-                                ))
+                        .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
+                            clusterTime.startSafeTimeScheduler(
+                                    safeTime -> service.syncTime(safeTime, term),
+                                    metaStorageConfiguration
+                            );
+                        })
                         .whenComplete((v, e) -> {
                             if (e != null) {
                                 LOG.error("Unable to start Idle Safe Time scheduler", e);
