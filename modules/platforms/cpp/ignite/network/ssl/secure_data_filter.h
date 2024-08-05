@@ -54,7 +54,7 @@ public:
      *
      * @throw ignite_error on error.
      */
-    virtual bool send(std::uint64_t id, data_buffer_ref data);
+    bool send(std::uint64_t id, std::vector<std::byte> &&data) override;
 
     /**
       * Callback that called on successful connection establishment.
@@ -62,7 +62,7 @@ public:
       * @param addr Address of the new connection.
       * @param id Connection ID.
       */
-    virtual void on_connection_success(const end_point& addr, std::uint64_t id);
+    void on_connection_success(const end_point& addr, std::uint64_t id) override;
 
     /**
      * Callback that called on error during connection establishment.
@@ -70,7 +70,7 @@ public:
      * @param id Async client ID.
      * @param err Error. Can be null if connection closed without error.
      */
-    virtual void on_connection_closed(std::uint64_t id, std::optional<ignite_error> err);
+    void on_connection_closed(std::uint64_t id, std::optional<ignite_error> err) override;
 
     /**
      * Callback that called when new message is received.
@@ -78,7 +78,7 @@ public:
      * @param id Async client ID.
      * @param msg Received message.
      */
-    virtual void on_message_received(std::uint64_t id, bytes_view msg);
+    void on_message_received(std::uint64_t id, bytes_view msg) override;
 
 private:
     /**
@@ -113,20 +113,14 @@ private:
          *
          * @return @c true if connection established.
          */
-        bool is_connected() const
-        {
-            return m_connected;
-        }
+        [[nodiscard]] bool is_connected() const { return m_connected; }
 
         /**
          * Get address.
          *
          * @return Address.
          */
-        const end_point& get_address() const
-        {
-            return m_addr;
-        }
+        [[nodiscard]] const end_point& get_address() const { return m_addr; }
 
         /**
          * Send data.
@@ -134,7 +128,7 @@ private:
          * @param data Data to send.
          * @return @c true on success.
          */
-        bool send(data_buffer_ref data);
+        bool send(const std::vector<std::byte> &data);
 
         /**
          * Process new data.
@@ -142,7 +136,7 @@ private:
          * @param data Data received.
          * @return @c true if connection was established.
          */
-        bool process_data(data_buffer_ref data);
+        bool process_data(data_buffer_ref &data);
 
         /**
          * Get pending decrypted data.

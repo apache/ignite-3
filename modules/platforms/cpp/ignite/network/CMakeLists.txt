@@ -68,8 +68,8 @@ endif()
 
 add_library(${TARGET} OBJECT ${SOURCES})
 
-target_link_libraries(${TARGET} PUBLIC ignite-common ignite-protocol OpenSSL::SSL OpenSSL::Crypto)
-target_link_libraries(${TARGET} PRIVATE OpenSSL::applink)
+target_link_libraries(${TARGET} PUBLIC ignite-common ignite-protocol)
+target_include_directories(${TARGET} PRIVATE ${OPENSSL_INCLUDE_DIR})
 
 if (WIN32)
     add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)

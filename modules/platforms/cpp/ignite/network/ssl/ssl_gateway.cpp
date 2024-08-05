@@ -89,7 +89,7 @@ std::unique_ptr<dynamic_module> ssl_gateway::load_ssl_library(const std::string&
 void ssl_gateway::load_ssl_libraries()
 {
     auto home = ignite::detail::get_env(ADDITIONAL_OPENSSL_HOME_ENV);
-    if (home)
+    if (!home)
         home = ignite::detail::get_env("OPENSSL_HOME");
 
     bool is_loaded = false;
@@ -111,18 +111,18 @@ void ssl_gateway::load_ssl_libraries()
         if (!m_libssl->is_loaded() || !m_libcrypto->is_loaded())
         {
             if (!m_libssl->is_loaded())
-                ss << " m_libssl";
+                ss << " libssl";
 
             if (!m_libcrypto->is_loaded())
-                ss << " m_libcrypto";
+                ss << " libcrypto";
         }
         else
         {
             if (!m_libeay32->is_loaded())
-                ss << " m_libeay32";
+                ss << " libeay32";
 
             if (!m_ssleay32->is_loaded())
-                ss << " m_ssleay32";
+                ss << " ssleay32";
         }
 
         throw ignite_error(ss.str());
@@ -141,19 +141,19 @@ bool ssl_gateway::try_load_ssl_libraries(const std::string& home_dir)
 #else
 #define SSL_LIB_PLATFORM_POSTFIX ""
 #endif
-    m_libcrypto = load_ssl_library("m_libcrypto-3" SSL_LIB_PLATFORM_POSTFIX, home_dir);
-    m_libssl = load_ssl_library("m_libssl-3" SSL_LIB_PLATFORM_POSTFIX, home_dir);
+    m_libcrypto = load_ssl_library("libcrypto-3" SSL_LIB_PLATFORM_POSTFIX, home_dir);
+    m_libssl = load_ssl_library("libssl-3" SSL_LIB_PLATFORM_POSTFIX, home_dir);
 
     if (!m_libssl->is_loaded() || !m_libcrypto->is_loaded())
     {
-        m_libcrypto = load_ssl_library("m_libcrypto-1_1" SSL_LIB_PLATFORM_POSTFIX, home_dir);
-        m_libssl = load_ssl_library("m_libssl-1_1" SSL_LIB_PLATFORM_POSTFIX, home_dir);
+        m_libcrypto = load_ssl_library("libcrypto-1_1" SSL_LIB_PLATFORM_POSTFIX, home_dir);
+        m_libssl = load_ssl_library("libssl-1_1" SSL_LIB_PLATFORM_POSTFIX, home_dir);
     }
 
     if (!m_libssl->is_loaded() || !m_libcrypto->is_loaded())
     {
-        m_libeay32 = load_ssl_library("m_libeay32", home_dir);
-        m_ssleay32 = load_ssl_library("m_ssleay32", home_dir);
+        m_libeay32 = load_ssl_library("libeay32", home_dir);
+        m_ssleay32 = load_ssl_library("ssleay32", home_dir);
     }
 
     return (m_libssl->is_loaded() && m_libcrypto->is_loaded()) || (m_libeay32->is_loaded() && m_ssleay32->is_loaded());
@@ -274,15 +274,17 @@ void ssl_gateway::load_all()
 
 void* ssl_gateway::try_load_ssl_method(const char* name)
 {
-    void* fp = m_libeay32->find_symbol(name);
+    void* fp = nullptr;
+    if (m_libeay32)
+        fp = m_libeay32->find_symbol(name);
 
-    if (!fp)
+    if (!fp && m_ssleay32)
         fp = m_ssleay32->find_symbol(name);
 
-    if (!fp)
+    if (!fp && m_libcrypto)
         fp = m_libcrypto->find_symbol(name);
 
-    if (!fp)
+    if (!fp && m_libssl)
         fp = m_libssl->find_symbol(name);
 
     return fp;

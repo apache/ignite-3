@@ -71,7 +71,11 @@ dynamic_module load_module(const char* path)
 
 dynamic_module load_module(const std::string& path)
 {
+#ifdef UNICODE
     std::wstring converted_path = string_to_wstring(path);
+#else
+    const std::string &converted_path = path;
+#endif
 
     HMODULE handle = LoadLibrary(reinterpret_cast<LPCSTR>(converted_path.c_str()));
 

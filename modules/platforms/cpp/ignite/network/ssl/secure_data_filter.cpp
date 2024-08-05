@@ -20,6 +20,7 @@
 #include <ignite/network/ssl/secure_utils.h>
 #include <ignite/network/network.h>
 
+#include <iostream>
 #include <sstream>
 #include <utility>
 
@@ -38,7 +39,7 @@ secure_data_filter::~secure_data_filter()
     free_context(static_cast<SSL_CTX*>(m_ssl_context));
 }
 
-bool secure_data_filter::send(std::uint64_t id, data_buffer_ref data)
+bool secure_data_filter::send(std::uint64_t id, std::vector<std::byte> &&data)
 {
     auto context = find_context(id);
     if (!context)
@@ -201,22 +202,21 @@ bool secure_data_filter::secure_connection_context::send_pending_data()
     return m_filter.send_internal(m_id, data);
 }
 
-bool secure_data_filter::secure_connection_context::send(data_buffer_ref data)
+bool secure_data_filter::secure_connection_context::send(const std::vector<std::byte> &data)
 {
     if (!m_connected)
         return false;
 
     ssl_gateway &gateway = ssl_gateway::get_instance();
 
-    auto buf = data.get_bytes_view();
-    int res = gateway.SSL_write_(static_cast<SSL*>(m_ssl), buf.data(), int(buf.size()));
+    int res = gateway.SSL_write_(static_cast<SSL*>(m_ssl), data.data(), int(data.size()));
     if (res <= 0)
         return false;
 
     return send_pending_data();
 }
 
-bool secure_data_filter::secure_connection_context::process_data(data_buffer_ref data)
+bool secure_data_filter::secure_connection_context::process_data(data_buffer_ref &data)
 {
     ssl_gateway &gateway = ssl_gateway::get_instance();
     auto buf = data.get_bytes_view();
