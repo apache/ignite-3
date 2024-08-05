@@ -51,7 +51,7 @@ public class SharedLogStorageFactoryUtils {
                 ? workDir.resolve("log")
                 : Path.of(raftConfiguration.logPath().value());
 
-        return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
+        return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, true)
                 ? new LogitLogStorageFactory(nodeName, new StoreOptions(), logStoragePath)
                 : baseFactory.apply(nodeName, logStoragePath);
     }
