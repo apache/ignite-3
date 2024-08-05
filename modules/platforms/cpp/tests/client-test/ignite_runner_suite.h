@@ -109,6 +109,13 @@ public:
     static std::vector<std::string> get_ssl_node_addrs() { return ignite_runner::SSL_NODE_ADDRS; }
 
     /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::vector<std::string> get_ssl_node_ca_addrs() { return ignite_runner::SSL_NODE_CA_ADDRS; }
+
+    /**
      * Clear table @c TABLE_1.
      */
     static void clear_table1() {

@@ -27,11 +27,6 @@
 using namespace ignite;
 
 /**
- * Test suite.
- */
-class ssl_test : public ignite_runner_suite { };
-
-/**
  * Get a path to a SSL file.
  * @param file
  * @return
@@ -46,20 +41,48 @@ std::string get_ssl_file(const std::string& file)
     return (ssl_files_dir / file).string();
 }
 
+/**
+ * Test suite.
+ */
+class ssl_test : public ignite_runner_suite {
+public:
+    /**
+     * Clean range of records.
+     * @param view View to use.
+     * @param range Range to clean.
+     */
+    static void clean_range(record_view<ignite_tuple>& view, int range) {
+        std::vector<ignite_tuple> work_range;
+        work_range.reserve(range);
+        for (int i = 0; i < range; ++i)
+            work_range.emplace_back(get_tuple(i));
+        view.remove_all(nullptr, work_range);
+    }
+
+    /**
+     * Try connect to ssl server successfully.
+     * @param timeout Timeout.
+     * @return Client.
+     */
+    static ignite_client connect_successfully_to_ssl_server(std::chrono::seconds timeout) {
+        ignite_client_configuration cfg{get_ssl_node_addrs()};
+        cfg.set_logger(get_logger());
+
+        cfg.set_ssl_mode(ssl_mode::REQUIRE);
+        cfg.set_ssl_cert_file(get_ssl_file("client.pem"));
+        cfg.set_ssl_key_file(get_ssl_file("client.pem"));
+        cfg.set_ssl_ca_file(get_ssl_file("ca.pem"));
+
+        return ignite_client::start(cfg, timeout);
+    }
+};
+
 TEST_F(ssl_test, ssl_connection_success)
 {
-    ignite_client_configuration cfg{get_ssl_node_addrs()};
-    cfg.set_logger(get_logger());
-
-    cfg.set_ssl_mode(ssl_mode::REQUIRE);
-    cfg.set_ssl_cert_file(get_ssl_file("client.pem"));
-    cfg.set_ssl_key_file(get_ssl_file("client.pem"));
-    cfg.set_ssl_ca_file(get_ssl_file("ca.pem"));
-
-    auto client = ignite_client::start(cfg, std::chrono::seconds(500));
+    auto client = connect_successfully_to_ssl_server(std::chrono::seconds(30));
 }
 
-TEST_F(ssl_test, ssl_connection_reject)
+TEST_F(ssl_test, ssl_connection_unknown)
 {
     ignite_client_configuration cfg{get_ssl_node_addrs()};
     cfg.set_logger(get_logger());
@@ -69,12 +92,24 @@ TEST_F(ssl_test, ssl_connection_reject)
     cfg.set_ssl_key_file(get_ssl_file("client_unknown.pem"));
     cfg.set_ssl_ca_file(get_ssl_file("ca.pem"));
 
+    auto client = ignite_client::start(cfg, std::chrono::seconds(30));
+}
+
+TEST_F(ssl_test, ssl_connection_unknown_2)
+{
+    ignite_client_configuration cfg{get_ssl_node_ca_addrs()};
+    cfg.set_logger(get_logger());
+
+    cfg.set_ssl_mode(ssl_mode::REQUIRE);
+    cfg.set_ssl_cert_file(get_ssl_file("client_unknown.pem"));
+    cfg.set_ssl_key_file(get_ssl_file("client_unknown.pem"));
+    cfg.set_ssl_ca_file(get_ssl_file("ca.pem"));
     EXPECT_THROW(
         {
             try {
-                (void) ignite_client::start(cfg, std::chrono::seconds(30));
+                (void) ignite_client::start(cfg, std::chrono::seconds(5));
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not establish secure connection"));
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not establish connection within timeout"));
                 throw;
             }
         },
@@ -102,96 +137,68 @@ TEST_F(ssl_test, ssl_connection_reject_2)
 
 TEST_F(ssl_test, ssl_connection_rejected_3)
 {
-    ignite_client_configuration cfg{get_ssl_node_addrs()};
+    ignite_client_configuration cfg{get_node_addrs()};
     cfg.set_logger(get_logger());
 
     cfg.set_ssl_mode(ssl_mode::REQUIRE);
-    cfg.set_ssl_cert_file(get_ssl_file("client_full.pem"));
-    cfg.set_ssl_key_file(get_ssl_file("client_full.pem"));
+    cfg.set_ssl_cert_file(get_ssl_file("client.pem"));
+    cfg.set_ssl_key_file(get_ssl_file("client.pem"));
     cfg.set_ssl_ca_file(get_ssl_file("ca.pem"));
 
     EXPECT_THROW(
         {
             try {
-                (void) ignite_client::start(cfg, std::chrono::seconds(30));
+                (void) ignite_client::start(cfg, std::chrono::seconds(5));
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not establish secure connection"));
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Connection closed during SSL/TLS handshake"));
                 throw;
             }
         },
         ignite_error);
 }
 
-//TEST_F(ssl_test, ssl_cache_client_put_all_get_all)
-//{
-//    StartSslNode("node1");
-//    StartSslNode("node2");
-//
-//    IgniteClientConfiguration cfg;
-//    cfg.SetEndPoints("127.0.0.1:11110,127.0.0.1:11110");
-//
-//    cfg.SetSslMode(SslMode::REQUIRE);
-//    cfg.SetSslCertFile(GetConfigFile("client_full.pem"));
-//    cfg.SetSslKeyFile(GetConfigFile("client_full.pem"));
-//    cfg.SetSslCaFile(GetConfigFile("ca.pem"));
-//
-//    IgniteClient client = IgniteClient::Start(cfg);
-//
-//    cache::CacheClient<int32_t, std::string> cache =
-//            client.CreateCache<int32_t, std::string>("test");
-//
-//    enum { BATCH_SIZE = 20000 };
-//
-//    std::map<int32_t, std::string> values;
-//    std::set<int32_t> keys;
-//
-//    for (int32_t j = 0; j < BATCH_SIZE; ++j)
-//    {
-//        int32_t key = BATCH_SIZE + j;
-//
-//        values[key] = "value_" + ignite::common::LexicalCast<std::string>(key);
-//        keys.insert(key);
-//    }
-//
-//    cache.PutAll(values);
-//
-//    std::map<int32_t, std::string> retrieved;
-//    cache.GetAll(keys, retrieved);
-//
-//    BOOST_REQUIRE(values == retrieved);
-//}
-//
-//TEST_F(ssl_test, ssl_cache_client_put_get)
-//{
-//    StartSslNode("node1");
-//    StartSslNode("node2");
-//
-//    IgniteClientConfiguration cfg;
-//    cfg.SetEndPoints("127.0.0.1:11110,127.0.0.1:11110");
-//
-//    cfg.SetSslMode(SslMode::REQUIRE);
-//    cfg.SetSslCertFile(GetConfigFile("client_full.pem"));
-//    cfg.SetSslKeyFile(GetConfigFile("client_full.pem"));
-//    cfg.SetSslCaFile(GetConfigFile("ca.pem"));
-//
-//    IgniteClient client = IgniteClient::Start(cfg);
-//
-//    cache::CacheClient<int32_t, std::string> cache =
-//            client.CreateCache<int32_t, std::string>("test");
-//
-//    enum { OPS_NUM = 100 };
-//    for (int32_t j = 0; j < OPS_NUM; ++j)
-//    {
-//        int32_t key = OPS_NUM + j;
-//        std::string value = "value_" + ignite::common::LexicalCast<std::string>(key);
-//
-//        cache.Put(key, value);
-//        std::string retrieved = cache.Get(key);
-//
-//        BOOST_REQUIRE_EQUAL(value, retrieved);
-//    }
-//}
-//
+TEST_F(ssl_test, ssl_cache_client_put_all_get_all)
+{
+    enum { BATCH_SIZE = 200 };
+
+    auto client = connect_successfully_to_ssl_server(std::chrono::seconds(30));
+    auto table = client.get_tables().get_table(TABLE_1);
+
+    auto tuple_view = table->get_record_binary_view();
+
+    clean_range(tuple_view, BATCH_SIZE);
+
+    std::vector<ignite_tuple> values;
+    for (int i = 0; i < BATCH_SIZE; ++i)
+        values.emplace_back(get_tuple(i, "Str_" + std::to_string(i)));
+
+    tuple_view.upsert_all(nullptr, values);
+
+    clean_range(tuple_view, BATCH_SIZE);
+}
+
+TEST_F(ssl_test, ssl_cache_client_put_get)
+{
+    enum { OPS_NUM = 100 };
+
+    auto client = connect_successfully_to_ssl_server(std::chrono::seconds(30));
+    auto table = client.get_tables().get_table(TABLE_1);
+
+    auto tuple_view = table->get_record_binary_view();
+
+    for (int32_t i = 0; i < OPS_NUM; ++i)
+    {
+        auto to_insert = get_tuple(i, "Str_" + std::to_string(i*2));
+        tuple_view.upsert(nullptr, to_insert);
+        auto retrieved = tuple_view.get(nullptr, get_tuple(i));
+
+        ASSERT_TRUE(retrieved.has_value());
+        EXPECT_EQ(to_insert.column_count(), retrieved->column_count());
+        EXPECT_EQ(to_insert.get<int64_t>("key"), retrieved->get<int64_t>("key"));
+        EXPECT_EQ(to_insert.get<std::string>("val"), retrieved->get<std::string>("val"));
+    }
+}
+
 //TEST_F(ssl_test, ssl_connection_no_certs)
 //{
 //    StartSslNoClientAuthNode();
