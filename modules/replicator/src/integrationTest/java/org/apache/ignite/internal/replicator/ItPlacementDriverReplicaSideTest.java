@@ -528,7 +528,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     return replicaManager.startReplica(
                             groupId,
                             newConfiguration,
-                            (unused) -> { },
                             (unused) -> listener,
                             new PendingComparableValuesTracker<>(Long.MAX_VALUE),
                             completedFuture(raftClient));

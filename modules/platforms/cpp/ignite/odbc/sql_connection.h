@@ -492,7 +492,7 @@ private:
     /**
      * Try to restore connection to the cluster.
      *
-     * @throw IgniteError on failure.
+     * @throw ignite_error on failure.
      * @return @c true on success and @c false otherwise.
      */
     bool try_restore_connection();

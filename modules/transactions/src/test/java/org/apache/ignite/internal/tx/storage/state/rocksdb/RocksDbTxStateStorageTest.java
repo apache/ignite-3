@@ -37,6 +37,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,7 +69,8 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @Override
     @BeforeEach
     protected void beforeTest() {
-        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
+        sharedStorage =
+                new TxStateRocksDbSharedStorage(LazyPath.create(workDir), scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
         sharedStorage.start();
 
         super.beforeTest();

@@ -37,7 +37,7 @@ public:
      * @param data Data to be sent.
      * @return @c true if connection is present and @c false otherwise.
      *
-     * @throw IgniteError on error.
+     * @throw ignite_error on error.
      */
     virtual bool send(uint64_t id, std::vector<std::byte> &&data) = 0;
 
