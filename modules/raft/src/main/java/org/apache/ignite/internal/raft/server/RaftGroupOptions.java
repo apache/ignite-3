@@ -114,7 +114,7 @@ public class RaftGroupOptions {
     /**
      * Adds snapshot storage factory to options.
      */
-    public RaftGroupOptions snapshotStorageFactory(SnapshotStorageFactory snapshotStorageFactory) {
+    public RaftGroupOptions snapshotStorageFactory(@Nullable SnapshotStorageFactory snapshotStorageFactory) {
         this.snapshotStorageFactory = snapshotStorageFactory;
 
         return this;
