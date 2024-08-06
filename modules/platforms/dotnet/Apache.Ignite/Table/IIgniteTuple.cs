@@ -113,14 +113,16 @@ namespace Apache.Ignite.Table
                 return false;
             }
 
-            for (int i = 0; i < tuple1.FieldCount; i++)
+            for (int idx1 = 0; idx1 < tuple1.FieldCount; idx1++)
             {
-                if (tuple1.GetName(i) != tuple2.GetName(i))
+                var idx2 = tuple2.GetOrdinal(tuple1.GetName(idx1));
+
+                if (idx2 < 0)
                 {
                     return false;
                 }
 
-                if (!Equals(tuple1[i], tuple2[i]))
+                if (!Equals(tuple1[idx1], tuple2[idx2]))
                 {
                     return false;
                 }
