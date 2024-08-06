@@ -564,19 +564,19 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
                 .add("f2", SqlTypeName.INTEGER)
                 .build();
 
-        RelDataType rowType1 = typeFactory.builder().add("f1", SqlTypeName.CHAR)
-                .build();
-
         RelOptCluster cluster = Commons.emptyCluster();
         RelTraitSet traitSet = RelTraitSet.createEmpty();
 
         RexBuilder rexBuilder = Commons.rexBuilder();
 
         IgniteTypeFactory tf = Commons.typeFactory();
-        RelDataType intType = tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.INTEGER), false);
 
+        RelDataType valRowType = typeFactory.builder().add("v", SqlTypeName.CHAR)
+                .build();
         RexLiteral condition = rexBuilder.makeLiteral("0");
-        IgniteValues values = new IgniteValues(cluster, rowType1, ImmutableList.of(ImmutableList.of(condition)), traitSet);
+        IgniteValues values = new IgniteValues(cluster, valRowType, ImmutableList.of(ImmutableList.of(condition)), traitSet);
+
+        RelDataType intType = tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.INTEGER), false);
 
         RexNode dyn1 = rexBuilder.makeDynamicParam(intType, 0);
         RexNode dyn2 = rexBuilder.makeDynamicParam(intType, 1);
@@ -592,16 +592,17 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
         IgniteTable innerTbl = TestBuilders.table()
                 .name("tbl")
-                .addKeyColumn("f1", NativeTypes.INT32)
-                .addColumn("f2", NativeTypes.INT32, true)
-                .distribution(IgniteDistributions.affinity(List.of(0), 2, "3"))
+                .addKeyColumn("c1", NativeTypes.INT32)
+                .addKeyColumn("c2", NativeTypes.INT32)
+                .addColumn("c3", NativeTypes.INT32, true)
+                .distribution(IgniteDistributions.affinity(List.of(0, 1), 2, "3"))
                 .build();
 
         RelOptTableImpl tbl = RelOptTableImpl.create(null, rowType, innerTbl, ImmutableList.of("f1", "f2"));
 
         IgniteTableModify modify = new IgniteTableModify(cluster, traitSet, tbl, proj3, Operation.INSERT, null, null, true);
 
-        extractMetadataAndCheck(modify, List.of("f1", "f2"), List.of("[f1=?0]"));
+        extractMetadataAndCheck(modify, List.of("c1", "c2"), List.of("[c1=?0, c2=?1]"));
     }
 
     private static class TestCase {
