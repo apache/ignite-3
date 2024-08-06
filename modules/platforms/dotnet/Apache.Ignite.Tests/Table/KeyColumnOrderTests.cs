@@ -118,6 +118,22 @@ public class KeyColumnOrderTests : IgniteTestsBase
         Assert.AreEqual(row, res.Value);
     }
 
+    [Test]
+    [TestCaseSource(nameof(Tables))]
+    public async Task TestKeyValueView(string tableName)
+    {
+        var table = await Client.Tables.GetTableAsync(tableName);
+        var view = table!.GetKeyValueView<KeyRec, ValRec>();
+
+        var key = new KeyRec(_key, -_key);
+        var val = new ValRec("val1", "val2");
+
+        await view.PutAsync(null, key, val);
+        var res = await view.GetAsync(null, key);
+
+        Assert.AreEqual(val, res.Value);
+    }
+
     private record Rec(int Key, int Key2, string Val1, string Val2);
 
     private record KeyRec(int Key, int Key2);
