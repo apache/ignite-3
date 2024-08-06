@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System.Threading.Tasks;
+using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -25,17 +26,17 @@ using NUnit.Framework;
 /// </summary>
 public class KeyColumnOrderTests : IgniteTestsBase
 {
-    // TODO: Create multiple tables with different key column orders.
-    // Test with all views
+    private static readonly string[] Tables = { "test1", "test2", "test3", "test4", "test5", "test6" };
+
     [OneTimeSetUp]
     public async Task CreateTables()
     {
         await Client.Sql.ExecuteAsync(null, "CREATE TABLE test1 (key INT PRIMARY KEY, val1 STRING, val2 STRING)");
         await Client.Sql.ExecuteAsync(null, "CREATE TABLE test2 (val1 STRING, key INT PRIMARY KEY, val2 STRING)");
         await Client.Sql.ExecuteAsync(null, "CREATE TABLE test3 (val1 STRING, val2 STRING, key INT PRIMARY KEY)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test4 (key INT PRIMARY KEY, val1 STRING, val2 STRING) WITH \"keyColumnOrder=last\"");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test5 (val1 STRING, key INT PRIMARY KEY, val2 STRING) WITH \"keyColumnOrder=last\"");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test6 (val1 STRING, val2 STRING, key INT PRIMARY KEY) WITH \"keyColumnOrder=last\"");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test4 (key INT PRIMARY KEY, val1 STRING, val2 STRING)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test5 (val1 STRING, key INT PRIMARY KEY, val2 STRING)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test6 (val1 STRING, val2 STRING, key INT PRIMARY KEY)");
     }
 
     [OneTimeTearDown]
@@ -47,5 +48,25 @@ public class KeyColumnOrderTests : IgniteTestsBase
         await Client.Sql.ExecuteAsync(null, "DROP TABLE test4");
         await Client.Sql.ExecuteAsync(null, "DROP TABLE test5");
         await Client.Sql.ExecuteAsync(null, "DROP TABLE test6");
+    }
+
+    [Test]
+    [TestCaseSource(nameof(Tables))]
+    public async Task TestRecordBinaryView(string tableName)
+    {
+        var table = await Client.Tables.GetTableAsync(tableName);
+        var view = table!.RecordBinaryView;
+
+        var row = new IgniteTuple
+        {
+            ["key"] = 1,
+            ["val1"] = "val1",
+            ["val2"] = "val2"
+        };
+
+        await view.UpsertAsync(null, row);
+        var res = await view.GetAsync(null, row);
+
+        Assert.AreEqual(row, res.Value);
     }
 }
