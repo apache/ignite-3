@@ -550,10 +550,10 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
     /**
      * Check correctness of partitions predicate for more than one projection before union case.
-     * Project($1, $0)
-     * Project($1, $0)
+     * Project($2, $1, $0) [?0, ?1, ?2]
+     * Project($2, $1, $0) [?2, ?1, ?0]
      * Union
-     * Project(?0, ?1)
+     * Project(?0, ?1, ?2)
      * Values(0)
      */
     @Test
@@ -562,6 +562,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
         RelDataType rowType = typeFactory.builder().add("f1", SqlTypeName.INTEGER)
                 .add("f2", SqlTypeName.INTEGER)
+                .add("f3", SqlTypeName.INTEGER)
                 .build();
 
         RelOptCluster cluster = Commons.emptyCluster();
@@ -580,29 +581,31 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
         RexNode dyn1 = rexBuilder.makeDynamicParam(intType, 0);
         RexNode dyn2 = rexBuilder.makeDynamicParam(intType, 1);
+        RexNode dyn3 = rexBuilder.makeDynamicParam(intType, 2);
 
-        IgniteRel proj1 = new IgniteProject(cluster, traitSet, values, List.of(dyn1, dyn2), rowType);
+        IgniteRel proj1 = new IgniteProject(cluster, traitSet, values, List.of(dyn1, dyn2, dyn3), rowType);
 
         IgniteUnionAll union = new IgniteUnionAll(cluster, traitSet, List.of(proj1));
 
         RexNode exp1 = rexBuilder.makeInputRef(intType, 0);
         RexNode exp2 = rexBuilder.makeInputRef(intType, 1);
-        IgniteRel proj2 = new IgniteProject(cluster, traitSet, union, List.of(exp2, exp1), rowType);
-        IgniteRel proj3 = new IgniteProject(cluster, traitSet, proj2, List.of(exp2, exp1), rowType);
+        RexNode exp3 = rexBuilder.makeInputRef(intType, 2);
+        IgniteRel proj2 = new IgniteProject(cluster, traitSet, union, List.of(exp3, exp2, exp1), rowType);
+        IgniteRel proj3 = new IgniteProject(cluster, traitSet, proj2, List.of(exp3, exp2, exp1), rowType);
 
         IgniteTable innerTbl = TestBuilders.table()
                 .name("tbl")
                 .addKeyColumn("c1", NativeTypes.INT32)
-                .addKeyColumn("c2", NativeTypes.INT32)
-                .addColumn("c3", NativeTypes.INT32, true)
-                .distribution(IgniteDistributions.affinity(List.of(0, 1), 2, "3"))
+                .addColumn("c2", NativeTypes.INT32, true)
+                .addKeyColumn("c3", NativeTypes.INT32)
+                .distribution(IgniteDistributions.affinity(List.of(0, 2), 2, "3"))
                 .build();
 
-        RelOptTableImpl tbl = RelOptTableImpl.create(null, rowType, innerTbl, ImmutableList.of("f1", "f2"));
+        RelOptTableImpl tbl = RelOptTableImpl.create(null, rowType, innerTbl, ImmutableList.of("c1", "c2", "c3"));
 
         IgniteTableModify modify = new IgniteTableModify(cluster, traitSet, tbl, proj3, Operation.INSERT, null, null, true);
 
-        extractMetadataAndCheck(modify, List.of("c1", "c2"), List.of("[c1=?0, c2=?1]"));
+        extractMetadataAndCheck(modify, List.of("c1", "c2", "c3"), List.of("[c1=?0, c3=?2]"));
     }
 
     private static class TestCase {
