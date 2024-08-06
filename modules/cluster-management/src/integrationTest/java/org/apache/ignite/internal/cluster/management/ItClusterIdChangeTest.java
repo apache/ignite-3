@@ -34,7 +34,7 @@ import org.apache.ignite.internal.network.netty.NettySender;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests that, if 2 nodes have different cluster IDs, they cannot communicate each other using the network.
+ * Tests that, if 2 nodes have different cluster IDs, they cannot communicate with each other using the network.
  */
 class ItClusterIdChangeTest extends ClusterPerTestIntegrationTest {
     @Override
