@@ -22,6 +22,7 @@
 #include "ignite/network/codec_data_filter.h"
 #include "ignite/network/length_prefix_codec.h"
 #include "ignite/network/network.h"
+#include "ignite/network/ssl/secure_data_filter.h"
 #include "ignite/protocol/writer.h"
 
 #include <iterator>
@@ -52,6 +53,18 @@ void cluster_connection::start_async(std::function<void(ignite_result<void>)> ca
     }
 
     data_filters filters;
+
+    if (m_configuration.get_ssl_mode() == ssl_mode::REQUIRE) {
+        network::ensure_ssl_loaded();
+
+        network::secure_configuration ssl_cfg;
+        ssl_cfg.ca_path = m_configuration.get_ssl_ca_file();
+        ssl_cfg.key_path = m_configuration.get_ssl_key_file();
+        ssl_cfg.cert_path = m_configuration.get_ssl_cert_file();
+
+        std::shared_ptr<secure_data_filter> secure_filter(new network::secure_data_filter(ssl_cfg));
+        filters.push_back(secure_filter);
+    }
 
     std::shared_ptr<factory<codec>> codec_factory = std::make_shared<length_prefix_codec_factory>();
     std::shared_ptr<codec_data_filter> codec_filter(new network::codec_data_filter(codec_factory));
