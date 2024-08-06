@@ -137,9 +137,9 @@ namespace Apache.Ignite.Tests.Table
             var guid = Guid.NewGuid();
 
             var t1 = CreateTuple(new IgniteTuple(2) { ["k"] = 1, ["v"] = "2", ["v2"] = guid });
-            var t2 = CreateTuple(new IgniteTuple(3) { ["k"] = 1, ["v"] = "2", ["v2"] = guid });
+            var t2 = CreateTuple(new IgniteTuple(3) { ["K"] = 1, ["V"] = "2", ["V2"] = guid });
             var t3 = CreateTuple(new IgniteTuple(4) { ["k"] = 1, ["v"] = null, ["v2"] = guid });
-            var t4 = CreateTuple(new IgniteTuple(5) { ["v"] = "2", ["k"] = 1, ["v2"] = guid });
+            var t4 = CreateTuple(new IgniteTuple(5) { ["v"] = "2", ["k"] = 1, ["V2"] = guid });
             var t5 = CreateTuple(new IgniteTuple(6) { ["v"] = "2", ["k"] = 1, ["v2"] = guid, ["v3"] = 1 });
 
             Assert.AreEqual(t1, t2);
@@ -196,7 +196,12 @@ namespace Apache.Ignite.Tests.Table
                     .OrderBy(_ => Random.Shared.Next())
                     .Aggregate(new IgniteTuple(), (tuple, pair) =>
                     {
-                        tuple[pair.Key] = pair.Value;
+                        var name = Random.Shared.Next() % 2 == 0
+                            ? pair.Key.ToUpperInvariant()
+                            : pair.Key.ToLowerInvariant();
+
+                        tuple[name] = pair.Value;
+
                         return tuple;
                     });
         }
