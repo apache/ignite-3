@@ -26,28 +26,29 @@ using NUnit.Framework;
 /// </summary>
 public class KeyColumnOrderTests : IgniteTestsBase
 {
-    private static readonly string[] Tables = { "test1", "test2", "test3", "test4", "test5", "test6" };
+    private static readonly string[] Tables = { "test1", "test2", "test3", "test4" };
+
+    private int _key;
+
+    [SetUp]
+    public void IncrementKey() => _key++;
 
     [OneTimeSetUp]
     public async Task CreateTables()
     {
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test1 (key INT PRIMARY KEY, val1 VARCHAR, val2 VARCHAR)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test2 (val1 VARCHAR, key INT PRIMARY KEY, val2 VARCHAR)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test3 (val1 VARCHAR, val2 VARCHAR, key INT PRIMARY KEY)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test4 (key INT PRIMARY KEY, val1 VARCHAR, val2 VARCHAR)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test5 (val1 VARCHAR, key INT PRIMARY KEY, val2 VARCHAR)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test6 (val1 VARCHAR, val2 VARCHAR, key INT PRIMARY KEY)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test1 (key INT, key2 INT, val1 VARCHAR, val2 VARCHAR, primary key(key, key2))");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test2 (val1 VARCHAR, val2 VARCHAR, key INT, key2 INT, primary key(key2, key))");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test3 (key INT, val1 VARCHAR, val2 VARCHAR, key2 INT, primary key(key, key2))");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test4 (key2 INT, val1 VARCHAR, val2 VARCHAR, key INT, primary key(key2, key))");
     }
 
     [OneTimeTearDown]
     public async Task DropTables()
     {
-        await Client.Sql.ExecuteAsync(null, "DROP TABLE test1");
-        await Client.Sql.ExecuteAsync(null, "DROP TABLE test2");
-        await Client.Sql.ExecuteAsync(null, "DROP TABLE test3");
-        await Client.Sql.ExecuteAsync(null, "DROP TABLE test4");
-        await Client.Sql.ExecuteAsync(null, "DROP TABLE test5");
-        await Client.Sql.ExecuteAsync(null, "DROP TABLE test6");
+        foreach (var table in Tables)
+        {
+            await Client.Sql.ExecuteAsync(null, $"DROP TABLE {table}");
+        }
     }
 
     [Test]
@@ -59,12 +60,14 @@ public class KeyColumnOrderTests : IgniteTestsBase
 
         var key = new IgniteTuple
         {
-            ["key"] = 1
+            ["key"] = _key,
+            ["key2"] = -_key
         };
 
         var row = new IgniteTuple
         {
-            ["key"] = 1,
+            ["key"] = _key,
+            ["key2"] = -_key,
             ["val1"] = "val1",
             ["val2"] = "val2"
         };
