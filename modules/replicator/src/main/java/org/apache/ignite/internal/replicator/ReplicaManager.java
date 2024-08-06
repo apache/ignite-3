@@ -768,6 +768,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param newReplicaListenerFut Future that returns ready ReplicaListener for replica creation.
      * @return Future that promises ready new replica when done.
      */
+    @TestOnly
+    @VisibleForTesting
+    @Deprecated
     private CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,

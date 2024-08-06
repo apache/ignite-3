@@ -35,7 +35,7 @@ public class RaftGroupOptions {
     private LogStorageFactory logStorageFactory;
 
     /** Snapshot storage factory. */
-    private SnapshotStorageFactory snapshotStorageFactory;
+    private @Nullable SnapshotStorageFactory snapshotStorageFactory;
 
     /** Raft meta storage factory. */
     private RaftMetaStorageFactory raftMetaStorageFactory;
@@ -107,7 +107,7 @@ public class RaftGroupOptions {
     /**
      * Returns a snapshot storage factory that's used to create snapshot storage for a raft group.
      */
-    public SnapshotStorageFactory snapshotStorageFactory() {
+    public @Nullable SnapshotStorageFactory snapshotStorageFactory() {
         return snapshotStorageFactory;
     }
 
