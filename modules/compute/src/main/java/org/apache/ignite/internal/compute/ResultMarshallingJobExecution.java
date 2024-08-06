@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class ResultMarshallingJobExecution<R> implements JobExecution<R> {
     private final JobExecution<R> delegate;
-    private final Marshaller<R, byte[]> resultMarshaller;
+    public final Marshaller<R, byte[]> resultMarshaller; //todo
 
     ResultMarshallingJobExecution(JobExecution<R> delegate, Marshaller<R, byte[]> resultMarshaller) {
         this.delegate = delegate;
@@ -40,14 +40,7 @@ class ResultMarshallingJobExecution<R> implements JobExecution<R> {
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return delegate.resultAsync()
-                .thenApply(res -> {
-                    if (resultMarshaller == null) {
-                        return res;
-                    }
-
-                    return resultMarshaller.unmarshal((byte[]) res);
-                });
+        return delegate.resultAsync();
     }
 
     @Override

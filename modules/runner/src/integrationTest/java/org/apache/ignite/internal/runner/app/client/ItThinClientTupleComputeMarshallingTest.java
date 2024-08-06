@@ -44,9 +44,6 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.internal.binarytuple.inlineschema.TupleMarshalling;
-import org.apache.ignite.marshalling.Marshaller;
-import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -115,19 +112,7 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
         // When submit job that returns tuple from the table.
         JobExecution<Tuple> resultJobExec = client.compute().submit(
                 JobTarget.node(node(1)),
-                JobDescriptor.builder(TupleResultJob.class)
-                        .resultMarshaller(new Marshaller<>() {
-                            @Override
-                            public byte @Nullable [] marshal(@Nullable Tuple object) throws UnsupportedObjectTypeMarshallingException {
-                                return new byte[0];
-                            }
-
-                            @Override
-                            public @Nullable Tuple unmarshal(byte @Nullable [] raw) throws UnsupportedObjectTypeMarshallingException {
-                                return TupleMarshalling.unmarshal(raw);
-                            }
-                        })
-                        .build(),
+                JobDescriptor.builder(TupleResultJob.class).build(),
                 key
         );
 

@@ -17,36 +17,7 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import org.apache.ignite.sql.ColumnType;
-
-public class JobArgumentTypeId {
-    private final int id;
-    private final Type type;
-
-    JobArgumentTypeId(int id) {
-       this.id = id;
-       this.type = Type.fromId(id);
-    }
-
-    public int id() {
-        return id;
-    }
-
-    public Type type() {
-        return type;
-    }
-
-    public static enum Type {
-        NATIVE, MARSHALLED_TUPLE;
-
-        static Type  fromId(int id) {
-            ColumnType nativeType = ColumnType.getById(id);
-            if (nativeType == null) {
-                return MARSHALLED_TUPLE;
-            }
-
-            return NATIVE;
-        }
-    }
-
+@FunctionalInterface
+interface Writer {
+    void write(Object obj, ClientMessagePacker packer);
 }
