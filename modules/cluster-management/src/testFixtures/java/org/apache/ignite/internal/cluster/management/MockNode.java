@@ -97,6 +97,8 @@ public class MockNode {
 
         var vaultManager = new VaultManager(new PersistentVaultService(vaultDir));
 
+        var clusterIdHolder = new ClusterIdHolder();
+
         this.clusterService = ClusterServiceTestUtils.clusterService(nodeName, addr.port(), nodeFinder);
 
         var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, this.workDir, new HybridClockImpl());
@@ -114,7 +116,8 @@ public class MockNode {
                 new LogicalTopologyImpl(clusterStateStorage),
                 cmgConfiguration,
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
-                failureProcessor
+                failureProcessor,
+                clusterIdHolder
         );
 
         components = List.of(

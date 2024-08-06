@@ -112,7 +112,8 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 logicalTopology,
                 clusterManagementConfiguration,
                 nodeAttributes,
-                failureProcessor
+                failureProcessor,
+                new ClusterIdHolder()
         );
 
         assertThat(clusterService.startAsync(componentContext), willCompleteSuccessfully());
