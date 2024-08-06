@@ -68,7 +68,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
         TablePartitionId tablePartitionId = commitPartitionId();
 
         return txMessagesFactory.txStateMetaAbandonedMessage()
-                .txStateInt(txState().ordinal())
+                .txState(txState())
                 .txCoordinatorId(txCoordinatorId())
                 .commitPartitionId(tablePartitionId == null ? null : toTablePartitionIdMessage(replicaMessagesFactory, tablePartitionId))
                 .commitTimestamp(commitTimestamp())

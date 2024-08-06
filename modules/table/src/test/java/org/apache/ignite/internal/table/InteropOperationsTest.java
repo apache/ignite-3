@@ -27,7 +27,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,7 +35,6 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -111,7 +109,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                 NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
                 NativeTypes.FLOAT, NativeTypes.DOUBLE, NativeTypes.UUID, NativeTypes.STRING,
                 NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(0), NativeTypes.timestamp(4), NativeTypes.datetime(4),
-                NativeTypes.numberOf(2), NativeTypes.decimalOf(5, 2), NativeTypes.bitmaskOf(8)
+                NativeTypes.decimalOf(5, 2),
         };
 
         List<Column> valueCols = new ArrayList<>(types.length * 2);
@@ -411,14 +409,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                 res.set(colName, LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC));
             } else if (NativeTypes.timestamp(6).equals(type)) {
                 res.set(colName, Instant.ofEpochSecond(id));
-            } else if (NativeTypes.numberOf(2).equals(type)) {
-                res.set(colName, BigInteger.valueOf(id));
             } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
                 res.set(colName, BigDecimal.valueOf(id * 100).movePointLeft(2));
-            } else if (NativeTypes.bitmaskOf(8).equals(type)) {
-                BitSet bitSet = new BitSet();
-                bitSet.set(id);
-                res.set(colName, bitSet);
             } else {
                 fail("Unable to fullfill value of type " + type);
             }
@@ -478,12 +470,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                 assertEquals(expected.datetimeValue(colName), t.datetimeValue(colName));
             } else if (NativeTypes.timestamp(6).equals(type)) {
                 assertEquals(expected.timestampValue(colName), expected.timestampValue(colName));
-            } else if (NativeTypes.numberOf(2).equals(type)) {
-                assertEquals((BigInteger) expected.value(colName), t.value(colName));
             } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
                 assertEquals((BigDecimal) expected.value(colName), t.value(colName));
-            } else if (NativeTypes.bitmaskOf(8).equals(type)) {
-                assertEquals(expected.bitmaskValue(colName), t.bitmaskValue(colName));
             } else {
                 fail("Unable to validate value of type " + type);
             }
@@ -524,12 +512,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         private LocalDateTime fdatetimeN;
         private Instant ftimestamp;
         private Instant ftimestampN;
-        private BigInteger fnumber;
-        private BigInteger fnumberN;
         private BigDecimal fdecimal;
         private BigDecimal fdecimalN;
-        private BitSet fbitmask;
-        private BitSet fbitmaskN;
 
         public Value() {
 
@@ -564,16 +548,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
             fdatetimeN = (nulls) ? LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC) : null;
             ftimestamp = Instant.ofEpochSecond(id);
             ftimestampN = (nulls) ? Instant.ofEpochSecond(id) : null;
-            fnumber = BigInteger.valueOf(id);
-            fnumberN = (nulls) ? BigInteger.valueOf(id) : null;
             fdecimal = BigDecimal.valueOf(id * 100).movePointLeft(2);
             fdecimalN = (nulls) ? BigDecimal.valueOf(id * 100).movePointLeft(2) : null;
-            fbitmask = new BitSet();
-            fbitmask.set(id);
-            if (nulls) {
-                fbitmaskN = new BitSet();
-                fbitmaskN.set(id);
-            }
         }
 
         @Override
@@ -597,9 +573,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fdateN, value.fdateN) && Objects.equals(ftime, value.ftime) && Objects.equals(ftimeN, value.ftimeN)
                     && Objects.equals(fdatetime, value.fdatetime) && Objects.equals(fdatetimeN, value.fdatetimeN)
                     && Objects.equals(ftimestamp, value.ftimestamp) && Objects.equals(ftimestampN, value.ftimestampN)
-                    && Objects.equals(fnumber, value.fnumber) && Objects.equals(fnumberN, value.fnumberN)
-                    && Objects.equals(fdecimal, value.fdecimal) && Objects.equals(fdecimalN, value.fdecimalN)
-                    && Objects.equals(fbitmask, value.fbitmask) && Objects.equals(fbitmaskN, value.fbitmaskN);
+                    && Objects.equals(fdecimal, value.fdecimal) && Objects.equals(fdecimalN, value.fdecimalN);
         }
 
         @Override
@@ -633,12 +607,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fdatetimeN,
                     ftimestamp,
                     ftimestampN,
-                    fnumber,
-                    fnumberN,
                     fdecimal,
-                    fdecimalN,
-                    fbitmask,
-                    fbitmaskN
+                    fdecimalN
             );
         }
     }
@@ -676,12 +646,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         private LocalDateTime fdatetimeN;
         private Instant ftimestamp;
         private Instant ftimestampN;
-        private BigInteger fnumber;
-        private BigInteger fnumberN;
         private BigDecimal fdecimal;
         private BigDecimal fdecimalN;
-        private BitSet fbitmask;
-        private BitSet fbitmaskN;
 
         public Row() {
         }
@@ -720,17 +686,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
             fdatetimeN = (nulls) ? LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC) : null;
             ftimestamp = Instant.ofEpochSecond(id);
             ftimestampN = (nulls) ? Instant.ofEpochSecond(id) : null;
-            fnumber = BigInteger.valueOf(id);
-            fnumberN = (nulls) ? BigInteger.valueOf(id) : null;
-            new BigDecimal(fnumber, 2);
             fdecimal = BigDecimal.valueOf(id * 100).movePointLeft(2);
             fdecimalN = (nulls) ? BigDecimal.valueOf(id * 100).movePointLeft(2) : null;
-            fbitmask = new BitSet();
-            fbitmask.set(id);
-            if (nulls) {
-                fbitmaskN = new BitSet();
-                fbitmaskN.set(id);
-            }
         }
 
         @Override
@@ -753,10 +710,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fdate, row.fdate) && Objects.equals(fdateN, row.fdateN) && Objects.equals(ftime, row.ftime)
                     && Objects.equals(ftimeN, row.ftimeN) && Objects.equals(fdatetime, row.fdatetime)
                     && Objects.equals(fdatetimeN, row.fdatetimeN) && Objects.equals(ftimestamp, row.ftimestamp)
-                    && Objects.equals(ftimestampN, row.ftimestampN) && Objects.equals(fnumber, row.fnumber)
-                    && Objects.equals(fnumberN, row.fnumberN) && Objects.equals(fdecimal, row.fdecimal)
-                    && Objects.equals(fdecimalN, row.fdecimalN) && Objects.equals(fbitmask, row.fbitmask)
-                    && Objects.equals(fbitmaskN, row.fbitmaskN);
+                    && Objects.equals(ftimestampN, row.ftimestampN) && Objects.equals(fdecimal, row.fdecimal)
+                    && Objects.equals(fdecimalN, row.fdecimalN);
         }
 
         @Override
@@ -791,12 +746,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     fdatetimeN,
                     ftimestamp,
                     ftimestampN,
-                    fnumber,
-                    fnumberN,
                     fdecimal,
-                    fdecimalN,
-                    fbitmask,
-                    fbitmaskN
+                    fdecimalN
             );
         }
     }

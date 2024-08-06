@@ -74,6 +74,7 @@ dependencies {
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-runner')
 }
 
 description = 'ignite-partition-replicator'

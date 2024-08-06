@@ -18,7 +18,12 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.configuration.IgnitePaths.cmgDbPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.metastorageDbPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -26,10 +31,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -66,6 +68,7 @@ import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterIdService;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -94,6 +97,7 @@ import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
 import org.apache.ignite.internal.compute.loader.JobClassLoaderFactory;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -101,6 +105,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -134,6 +139,7 @@ import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventPara
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -230,8 +236,8 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.ThreadAssertions;
@@ -254,26 +260,6 @@ public class IgniteImpl implements Ignite {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(IgniteImpl.class);
 
-    /**
-     * Path to the persistent storage used by the {@link VaultService} component.
-     */
-    private static final Path VAULT_DB_PATH = Paths.get("vault");
-
-    /**
-     * Path to the persistent storage used by the {@link MetaStorageManager} component.
-     */
-    private static final Path METASTORAGE_DB_PATH = Paths.get("metastorage");
-
-    /**
-     * Path to the persistent storage used by the {@link ClusterManagementGroupManager} component.
-     */
-    private static final Path CMG_DB_PATH = Paths.get("cmg");
-
-    /**
-     * Path for the partitions persistent storage.
-     */
-    private static final Path PARTITIONS_STORE_PATH = Paths.get("db");
-
     /** Ignite node name. */
     private final String name;
 
@@ -293,6 +279,8 @@ public class IgniteImpl implements Ignite {
 
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
+
+    private final ClusterIdService clusterIdService;
 
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
@@ -320,6 +308,9 @@ public class IgniteImpl implements Ignite {
 
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
+
+    /** Idempotent cache vacuumizer. */
+    private final IdempotentCacheVacuumizer idempotentCacheVacuumizer;
 
     /** Cluster initializer. */
     private final ClusterInitializer clusterInitializer;
@@ -437,9 +428,16 @@ public class IgniteImpl implements Ignite {
 
         threadPoolsManager = new ThreadPoolsManager(name);
 
-        vaultMgr = createVault(workDir);
+        vaultMgr = new VaultManager(new PersistentVaultService(vaultPath(workDir)));
 
         metricManager = new MetricManagerImpl();
+
+        // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
+        Path cmgDbPath = cmgDbPath(workDir);
+
+        clusterStateStorage = new RocksDbClusterStateStorage(cmgDbPath, name);
+
+        clusterIdService = new ClusterIdService(clusterStateStorage);
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
@@ -497,6 +495,7 @@ public class IgniteImpl implements Ignite {
                 nettyBootstrapFactory,
                 serializationRegistry,
                 new VaultStaleIds(vaultMgr),
+                clusterIdService,
                 criticalWorkerRegistry,
                 failureProcessor
         );
@@ -507,16 +506,21 @@ public class IgniteImpl implements Ignite {
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY);
 
+        SystemLocalConfiguration systemConfiguration = nodeConfigRegistry.getConfiguration(SystemLocalConfiguration.KEY);
+
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), workDir, raftConfiguration);
+        ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
+
+        logStorageFactory =
+                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
         raftMgr = new Loza(
                 clusterSvc,
                 metricManager,
                 raftConfiguration,
-                workDir,
+                partitionsWorkDir.metaPath(),
                 clock,
                 raftGroupEventsClientListener,
                 logStorageFactory
@@ -529,9 +533,6 @@ public class IgniteImpl implements Ignite {
                 name,
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
-
-        // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
-        clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH), name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -576,7 +577,8 @@ public class IgniteImpl implements Ignite {
                 validationManager,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
                 nodeAttributesCollector,
-                failureProcessor
+                failureProcessor,
+                clusterIdService
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
@@ -588,19 +590,17 @@ public class IgniteImpl implements Ignite {
                 raftGroupEventsClientListener
         );
 
-        CompletableFuture<LongSupplier> maxClockSkewMillisFuture = new CompletableFuture<>();
+        Path metastorageDbPath = metastorageDbPath(workDir);
 
         metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
                 cmgMgr,
                 logicalTopologyService,
                 raftMgr,
-                new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH), failureProcessor),
+                new RocksDbKeyValueStorage(name, metastorageDbPath, failureProcessor),
                 clock,
                 topologyAwareRaftGroupServiceFactory,
-                metricManager,
-                raftConfiguration.retryTimeout(),
-                maxClockSkewMillisFuture
+                metricManager
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -622,7 +622,18 @@ public class IgniteImpl implements Ignite {
 
         clockService = new ClockServiceImpl(clock, clockWaiter, new SameValueLongSupplier(() -> schemaSyncConfig.maxClockSkew().value()));
 
-        maxClockSkewMillisFuture.complete(clockService::maxClockSkewMillis);
+        idempotentCacheVacuumizer = new IdempotentCacheVacuumizer(
+                name,
+                threadPoolsManager.commonScheduler(),
+                metaStorageMgr::evictIdempotentCommandsCache,
+                nodeCfgMgr.configurationRegistry().getConfiguration(RaftConfiguration.KEY).retryTimeout(),
+                clockService,
+                1,
+                1,
+                MINUTES
+        );
+
+        metaStorageMgr.addElectionListener(idempotentCacheVacuumizer);
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
@@ -681,7 +692,7 @@ public class IgniteImpl implements Ignite {
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
         );
 
-        Path storagePath = getPartitionsStorePath(workDir);
+        LazyPath storagePath = partitionsWorkDir.dbPath();
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
@@ -693,7 +704,8 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 longJvmPauseDetector,
                 failureProcessor,
-                logSyncer
+                logSyncer,
+                clock
         );
 
         dataStorageMgr = new DataStorageManager(
@@ -771,7 +783,9 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                clockService,
+                placementDriverMgr.placementDriver()
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
@@ -1097,6 +1111,8 @@ public class IgniteImpl implements Ignite {
                     threadPoolsManager,
                     clockWaiter,
                     failureProcessor,
+                    clusterStateStorage,
+                    clusterIdService,
                     criticalWorkerRegistry,
                     nettyBootstrapFactory,
                     nettyWorkersRegistrar,
@@ -1104,7 +1120,6 @@ public class IgniteImpl implements Ignite {
                     restComponent,
                     logStorageFactory,
                     raftMgr,
-                    clusterStateStorage,
                     cmgMgr,
                     lowWatermark
             ).thenRun(() -> {
@@ -1113,7 +1128,6 @@ public class IgniteImpl implements Ignite {
 
                     clusterSvc.updateMetadata(
                             new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
-
                 } catch (Throwable e) {
                     startupExecutor.shutdownNow();
 
@@ -1167,6 +1181,7 @@ public class IgniteImpl implements Ignite {
                                 catalogCompactionRunner,
                                 indexMetaStorage,
                                 clusterCfgMgr,
+                                idempotentCacheVacuumizer,
                                 authenticationManager,
                                 placementDriverMgr,
                                 metricManager,
@@ -1538,39 +1553,6 @@ public class IgniteImpl implements Ignite {
         );
     }
 
-    /**
-     * Starts the Vault component.
-     */
-    private static VaultManager createVault(Path workDir) {
-        Path vaultPath = workDir.resolve(VAULT_DB_PATH);
-
-        try {
-            Files.createDirectories(vaultPath);
-        } catch (IOException e) {
-            throw new IgniteInternalException(e);
-        }
-
-        return new VaultManager(new PersistentVaultService(vaultPath));
-    }
-
-    /**
-     * Returns a path to the partitions store directory. Creates a directory if it doesn't exist.
-     *
-     * @param workDir Ignite work directory.
-     * @return Partitions store path.
-     */
-    private static Path getPartitionsStorePath(Path workDir) {
-        Path partitionsStore = workDir.resolve(PARTITIONS_STORE_PATH);
-
-        try {
-            Files.createDirectories(partitionsStore);
-        } catch (IOException e) {
-            throw new IgniteInternalException("Failed to create directory for partitions storage: " + e.getMessage(), e);
-        }
-
-        return partitionsStore;
-    }
-
     @TestOnly
     public Loza raftManager() {
         return raftMgr;
@@ -1668,6 +1650,11 @@ public class IgniteImpl implements Ignite {
         return clusterSvc;
     }
 
+    @TestOnly
+    public ClusterIdService clusterIdService() {
+        return clusterIdService;
+    }
+
     /** Returns resources registry. */
     @TestOnly
     public RemotelyTriggeredResourceRegistry resourcesRegistry() {
@@ -1679,4 +1666,11 @@ public class IgniteImpl implements Ignite {
     public LowWatermarkImpl lowWatermark() {
         return lowWatermark;
     }
+
+    /** Returns replicas manager. */
+    @TestOnly
+    public ReplicaManager replicaManager() {
+        return replicaMgr;
+    }
+
 }

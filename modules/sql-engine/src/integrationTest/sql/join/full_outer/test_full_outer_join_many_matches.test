@@ -1,0 +1,30 @@
+# name: test/sql/join/full_outer/test_full_outer_join_many_matches.test
+# description: Test FULL OUTER JOIN with many matches
+# group: [full_outer]
+
+statement ok
+PRAGMA null=null
+
+statement ok
+CREATE TABLE integers(i INT, j INT)
+
+statement ok
+INSERT INTO integers SELECT a i, 1 j FROM table(system_range(0, 1999, 1)) t1(a)
+
+statement ok
+CREATE TABLE integers2(k INT, l INT)
+
+statement ok
+INSERT INTO integers2 SELECT a k, 2 l FROM table(system_range(2000, 3999, 1)) t1(a)
+
+# equality join
+query IIII
+SELECT i, j, k, l FROM integers FULL OUTER JOIN integers2 ON integers.i=integers2.k ORDER BY 1 NULLS FIRST, 2 NULLS FIRST, 3 NULLS FIRST, 4 NULLS FIRST
+----
+16000 values hashing to 7f3fd3a1cf91a34b461601ac6420e880
+
+# range join
+query IIII
+SELECT i, j, k, l FROM integers FULL OUTER JOIN integers2 ON integers.j>integers2.l ORDER BY 1 NULLS FIRST, 2 NULLS FIRST, 3 NULLS FIRST, 4 NULLS FIRST
+----
+16000 values hashing to 7f3fd3a1cf91a34b461601ac6420e880

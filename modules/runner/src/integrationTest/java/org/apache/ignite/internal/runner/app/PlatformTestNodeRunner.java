@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.sql.ColumnType.BITMASK;
 import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
 import static org.apache.ignite.sql.ColumnType.DATE;
@@ -38,7 +37,6 @@ import static org.apache.ignite.sql.ColumnType.INT16;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.INT8;
-import static org.apache.ignite.sql.ColumnType.NUMBER;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.apache.ignite.sql.ColumnType.TIME;
 import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
@@ -56,6 +54,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -63,7 +62,11 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -330,7 +333,6 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
                         ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
                         ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
-                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
@@ -373,7 +375,6 @@ public class PlatformTestNodeRunner {
                 List.of(keyCol)
         );
 
-        // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
         createTable(
                 ignite.catalogManager(),
                 SqlCommon.DEFAULT_SCHEMA_NAME,
@@ -489,20 +490,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(NUMBER).precision(15).build(),
-                ColumnParams.builder().name("VAL").type(NUMBER).precision(15).nullable(true).build()
-        );
-
-        createTwoColumnTable(
-                ignite,
                 ColumnParams.builder().name("KEY").type(BYTE_ARRAY).length(1000).build(),
                 ColumnParams.builder().name("VAL").type(BYTE_ARRAY).length(1000).nullable(true).build()
-        );
-
-        createTwoColumnTable(
-                ignite,
-                ColumnParams.builder().name("KEY").type(BITMASK).length(1000).build(),
-                ColumnParams.builder().name("VAL").type(BITMASK).length(1000).nullable(true).build()
         );
     }
 
@@ -671,16 +660,6 @@ public class PlatformTestNodeRunner {
                     case UUID:
                         columns.add(new Column(colName, NativeTypes.UUID, false));
                         tuple.set(colName, reader.uuidValue(valIdx));
-                        break;
-
-                    case NUMBER:
-                        columns.add(new Column(colName, NativeTypes.numberOf(255), false));
-                        tuple.set(colName, reader.numberValue(valIdx));
-                        break;
-
-                    case BITMASK:
-                        columns.add(new Column(colName, NativeTypes.bitmaskOf(32), false));
-                        tuple.set(colName, reader.bitmaskValue(valIdx));
                         break;
 
                     case DATE:
@@ -864,6 +843,38 @@ public class PlatformTestNodeRunner {
             Partition partition = table.partitionManager().partitionAsync(key).join();
 
             return completedFuture(((HashPartition) partition).partitionId());
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
+            return completedFuture(context.ignite().clusterNodes().stream()
+                    .map(node -> MapReduceJob.<Integer, Void>builder()
+                            .jobDescriptor(JobDescriptor.builder(SleepJob.class).build())
+                            .nodes(Set.of(node))
+                            .args(input)
+                            .build())
+                    .collect(toList()));
+        }
+
+        @Override
+        public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<java.util.UUID, Void> results) {
+            return completedFuture(null);
+        }
+    }
+
+    private static class SleepJob implements ComputeJob<Integer, Void> {
+        @Override
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer args) {
+            try {
+                Thread.sleep(args);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            return null;
         }
     }
 }

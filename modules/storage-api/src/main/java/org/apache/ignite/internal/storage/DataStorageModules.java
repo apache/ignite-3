@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +27,9 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.util.LazyPath;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -75,15 +76,19 @@ public class DataStorageModules {
      * @param configRegistry Configuration register.
      * @param storagePath Storage path.
      * @param longJvmPauseDetector Long JVM pause detector.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param logSyncer Write-ahead log synchronizer.
+     * @param clock Hybrid Logical Clock.
      * @throws StorageException If there is an error when creating the storage engines.
      */
     public Map<String, StorageEngine> createStorageEngines(
             String igniteInstanceName,
             ConfigurationRegistry configRegistry,
-            Path storagePath,
+            LazyPath storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            HybridClock clock
     ) {
         return modules.entrySet().stream().collect(toUnmodifiableMap(
                 Entry::getKey,
@@ -93,7 +98,8 @@ public class DataStorageModules {
                         storagePath,
                         longJvmPauseDetector,
                         failureProcessor,
-                        logSyncer
+                        logSyncer,
+                        clock
                 )
         ));
     }

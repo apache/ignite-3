@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.type.NativeTypes.time;
 import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -61,7 +60,6 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -147,7 +145,7 @@ public class KvMarshallerTest {
     @TestFactory
     public Stream<DynamicNode> basicTypes() {
         NativeType[] types = {BOOLEAN, INT8, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, STRING, BYTES,
-                NativeTypes.bitmaskOf(5), NativeTypes.numberOf(42), NativeTypes.decimalOf(12, 3)};
+                NativeTypes.decimalOf(12, 3)};
 
         return marshallerFactoryProvider().stream().map(factory ->
                 dynamicContainer(
@@ -164,8 +162,6 @@ public class KvMarshallerTest {
                                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, FLOAT, DOUBLE)),
                                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, INT32, BYTES)),
                                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, STRING, INT64)),
-                                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.bitmaskOf(9), BYTES)),
-                                        dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.numberOf(12), BYTES)),
                                         dynamicTest("testMixTypes 1", () -> checkBasicType(factory, NativeTypes.decimalOf(12, 3), BYTES))
                                 )
                         )
@@ -259,8 +255,8 @@ public class KvMarshallerTest {
         );
 
         assertEquals(
-                "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
-                        + "intCol, longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, "
+                "Fields [booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
+                        + "intCol, longCol, nullBytesCol, nullLongCol, primitiveBooleanCol, primitiveByteCol, "
                         + "primitiveFloatCol, primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] "
                         + "of type org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes are not mapped to columns",
                 ex.getMessage());
@@ -312,11 +308,11 @@ public class KvMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(
                 schemaVersion.incrementAndGet(),
                 new Column[]{
-                        new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
+                        new Column("longCol".toUpperCase(), INT32, false),
                         new Column("intCol".toUpperCase(), UUID, false)
                 },
                 new Column[]{
-                        new Column("bytesCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                        new Column("bytesCol".toUpperCase(), NativeTypes.blobOf(42), true),
                         new Column("stringCol".toUpperCase(), UUID, true)
                 }
         );
@@ -327,7 +323,7 @@ public class KvMarshallerTest {
 
         assertThat(
                 ex.getMessage(),
-                containsString("Column's type mismatch [column=LONGCOL, expectedType=BITSET, actualType=class java.lang.Long]")
+                containsString("Column's type mismatch [column=LONGCOL, expectedType=INT, actualType=class java.lang.Long]")
         );
     }
 
@@ -349,29 +345,6 @@ public class KvMarshallerTest {
         SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyCols, valCols);
 
         assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class));
-    }
-
-    @ParameterizedTest
-    @MethodSource("marshallerFactoryProvider")
-    public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                schemaVersion.incrementAndGet(),
-                new Column[]{ new Column("key".toUpperCase(), INT32, false) },
-                new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
-        );
-
-        KvMarshaller<Integer, BitSet> marshaller =
-                factory.create(schema, Integer.class, BitSet.class);
-
-        Throwable ex = assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42)));
-
-        while (ex.getCause() != null) {
-            ex = ex.getCause();
-        }
-
-        assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }
 
     @ParameterizedTest
@@ -877,16 +850,15 @@ public class KvMarshallerTest {
                 new Column("timestampCol".toUpperCase(), timestamp(6), nullable),
 
                 new Column("uuidCol".toUpperCase(), UUID, nullable),
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), nullable),
                 new Column("stringCol".toUpperCase(), STRING, nullable),
                 new Column("nullBytesCol".toUpperCase(), BYTES, nullable),
                 new Column("bytesCol".toUpperCase(), BYTES, nullable),
-                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), nullable),
                 new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), nullable),
         };
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
+
         Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 

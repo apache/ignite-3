@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -32,7 +31,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -289,27 +287,6 @@ public class BinaryTupleBuilder {
      * Append a value for the current element.
      *
      * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendNumberNotNull(BigInteger value) {
-        putBytes(value.toByteArray());
-        return proceed();
-    }
-
-    /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendNumber(BigInteger value) {
-        return value == null ? appendNull() : appendNumberNotNull(value);
-    }
-
-    /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
      * @param scale Decimal scale.
      * @return {@code this} for chaining.
      */
@@ -408,27 +385,6 @@ public class BinaryTupleBuilder {
      */
     public BinaryTupleBuilder appendUuid(UUID value) {
         return value == null ? appendNull() : appendUuidNotNull(value);
-    }
-
-    /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendBitmaskNotNull(BitSet value) {
-        putBytesWithEmptyCheck(value.toByteArray());
-        return proceed();
-    }
-
-    /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendBitmask(BitSet value) {
-        return value == null ? appendNull() : appendBitmaskNotNull(value);
     }
 
     /**

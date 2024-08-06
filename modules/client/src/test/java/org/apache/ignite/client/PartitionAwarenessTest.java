@@ -42,6 +42,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.streamer.SimplePublisher;
@@ -80,7 +81,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static TestServer testServer2;
 
-    private static Ignite server2;
+    private static FakeIgnite server2;
 
     private static IgniteClient client2;
 
@@ -179,7 +180,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testClientReceivesPartitionAssignmentUpdates(boolean useHeartbeat) throws InterruptedException {
-        ReliableChannel ch = IgniteTestUtils.getFieldValue(client2, "ch");
+        ReliableChannel ch = ((TcpIgniteClient) client2).channel();
 
         // Check default assignment.
         RecordView<Tuple> recordView = defaultTable().recordView();

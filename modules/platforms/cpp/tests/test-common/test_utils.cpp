@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-#include <ignite/client/ignite_client.h>
-
 #include "ignite_runner.h"
 #include "test_utils.h"
+
+#include <ignite/client/ignite_client.h>
+#include "ignite/common/detail/utils.h"
 
 #include <filesystem>
 #include <functional>
@@ -27,31 +28,24 @@
 
 namespace ignite {
 
-std::optional<std::string> get_env(const std::string &name) {
-    const char *env = std::getenv(name.c_str());
-    if (!env)
-        return {};
-
-    return env;
-}
 
 /**
  * Checks if the path looks like binary release home directory.
  * Internally checks for presence of core library.
  * @return @c true if the path looks like binary release home directory.
  */
-bool looksLikeBinaryReleaseHome(const std::filesystem::path &path) {
-    std::filesystem::path coreLibPath = path / "libs";
-    if (!is_directory(coreLibPath))
+bool looks_like_binary_release_home(const std::filesystem::path &path) {
+    std::filesystem::path core_lib_path = path / "libs";
+    if (!is_directory(core_lib_path))
         return false;
 
-    auto iter = std::filesystem::directory_iterator{coreLibPath};
+    auto iter = std::filesystem::directory_iterator{core_lib_path};
     return std::any_of(iter, std::filesystem::end(iter), [](auto entry) {
-        const std::filesystem::path &entryPath = entry.path();
-        if (entryPath.extension() != "jar")
+        const std::filesystem::path &entry_path = entry.path();
+        if (entry_path.extension() != "jar")
             return false;
 
-        std::string stem = entryPath.stem().string();
+        std::string stem = entry_path.stem().string();
         return stem.find("ignite-core") == 0;
     });
 }
@@ -75,7 +69,7 @@ std::string resolve_ignite_home(const std::string &path) {
     if (!error && std::filesystem::is_directory(path))
         return home.string();
 
-    auto env = get_env("IGNITE_HOME");
+    auto env = detail::get_env("IGNITE_HOME");
     if (env) {
         home = std::filesystem::canonical(env.value(), error);
         if (!error && std::filesystem::is_directory(home))
@@ -84,12 +78,25 @@ std::string resolve_ignite_home(const std::string &path) {
 
     home = std::filesystem::current_path();
     while (!home.empty() && home.has_relative_path()) {
-        if (looksLikeBinaryReleaseHome(home) || looks_like_source_release_home(home))
+        if (looks_like_binary_release_home(home) || looks_like_source_release_home(home))
             return home.string();
 
         home = home.parent_path();
     }
     return home.string();
+}
+
+std::filesystem::path resolve_test_dir() {
+    auto home = resolve_ignite_home();
+    if (home.empty())
+        throw ignite_error("Can not resolve Ignite Home");
+
+    std::filesystem::path home_path(home);
+    auto test_path = home_path / "modules" / "platforms" / "cpp" / "tests";
+    if (std::filesystem::is_directory(test_path))
+        return test_path;
+
+    throw ignite_error("Can not find a 'tests' directory in the current Ignite Home: " + home);
 }
 
 bool check_test_node_connectable(std::chrono::seconds timeout) {

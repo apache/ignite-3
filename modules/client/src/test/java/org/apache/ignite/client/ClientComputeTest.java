@@ -51,6 +51,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
@@ -257,7 +258,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
         try (var client = getClient(server1)) {
             Object args = "arg1";
-            String res1 = client.compute().executeMapReduce(List.of(), "job", args);
+            String res1 = client.compute().executeMapReduce(TaskDescriptor.<Object, String>builder("job").build(), args);
             assertEquals("s1", res1);
         }
     }
@@ -267,7 +268,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
-            TaskExecution<Object> task = client.compute().submitMapReduce(List.of(), "job", null);
+            IgniteCompute igniteCompute = client.compute();
+            TaskExecution<Object> task = igniteCompute.submitMapReduce(
+                    TaskDescriptor.builder("job").build(), null);
 
             assertThat(task.resultAsync(), willBe("s1"));
 
@@ -286,7 +289,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1)) {
             FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
 
-            TaskExecution<Object> execution = client.compute().submitMapReduce(List.of(), "job", null);
+            IgniteCompute igniteCompute = client.compute();
+            TaskExecution<Object> execution = igniteCompute.submitMapReduce(
+                    TaskDescriptor.builder("job").build(), null);
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
             assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.FAILED)));

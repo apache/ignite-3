@@ -61,4 +61,7 @@ public interface MetastorageCommandsMessageGroup {
 
     /** Message type for {@link SyncTimeCommand}. */
     short SYNC_TIME = 70;
+
+    /** Message type for {@link EvictIdempotentCommandsCacheCommand}. */
+    short EVICT_IDEMPOTENT_COMMAND_CACHE = 71;
 }

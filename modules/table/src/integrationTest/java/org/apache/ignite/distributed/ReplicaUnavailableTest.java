@@ -245,7 +245,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 newConfiguration,
-                                (unused) -> { },
                                 (unused) -> listener,
                                 new PendingComparableValuesTracker<>(0L),
                                 completedFuture(mock(TopologyAwareRaftGroupService.class))
@@ -274,7 +273,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .timestamp(clock.now())
                 .schemaVersion(binaryRow.schemaVersion())
                 .binaryTuple(binaryRow.tupleSlice())
-                .requestTypeInt(RW_GET.ordinal())
+                .requestType(RW_GET)
                 .enlistmentConsistencyToken(1L)
                 .coordinatorId(clusterService.topologyService().localMember().id())
                 .build();
@@ -363,7 +362,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     replicaManager.startReplica(
                             tablePartitionId,
                             newConfiguration,
-                            (unused) -> { },
                             (unused) -> listener,
                             new PendingComparableValuesTracker<>(0L),
                             completedFuture(mock(TopologyAwareRaftGroupService.class))

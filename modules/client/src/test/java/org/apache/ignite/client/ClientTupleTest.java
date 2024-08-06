@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Period;
 import java.util.Arrays;
@@ -69,17 +68,15 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
             new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, -1, 3, -1, 5),
             new ClientColumn("UUID", ColumnType.UUID, false, -1, 4, -1, 6),
             new ClientColumn("STR", ColumnType.STRING, false, 2, -1, -1, 7),
-            new ClientColumn("BITS", ColumnType.BITMASK, false, -1, 5, -1, 8),
-            new ClientColumn("DATE", ColumnType.DATE, false, -1, 6, -1, 9),
-            new ClientColumn("TIME", ColumnType.TIME, false, -1, 7, -1, 10),
-            new ClientColumn("DATETIME", ColumnType.DATETIME, false, -1, 8, -1, 11),
-            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, -1, 9, -1, 12),
-            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, -1, 10, -1, 13),
-            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, -1, 11, -1, 14, 3, 10),
-            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, -1, 12, -1, 15),
-            new ClientColumn("PERIOD", ColumnType.PERIOD, false, -1, 13, -1, 16),
-            new ClientColumn("DURATION", ColumnType.DURATION, false, -1, 14, -1, 17),
-            new ClientColumn("NUMBER", ColumnType.NUMBER, false, -1, 15, -1, 18)
+            new ClientColumn("DATE", ColumnType.DATE, false, -1, 5, -1, 8),
+            new ClientColumn("TIME", ColumnType.TIME, false, -1, 6, -1, 9),
+            new ClientColumn("DATETIME", ColumnType.DATETIME, false, -1, 7, -1, 10),
+            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, -1, 8, -1, 11),
+            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, -1, 9, -1, 12),
+            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, -1, 10, -1, 13, 3, 10),
+            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, -1, 11, -1, 14),
+            new ClientColumn("PERIOD", ColumnType.PERIOD, false, -1, 12, -1, 15),
+            new ClientColumn("DURATION", ColumnType.DURATION, false, -1, 13, -1, 16)
     }, marshallers);
 
     @Test
@@ -172,9 +169,6 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         assertEquals(STRING_VALUE, tuple.stringValue(7));
         assertEquals(STRING_VALUE, tuple.stringValue("str"));
 
-        assertEquals(BITSET_VALUE, tuple.bitmaskValue(8));
-        assertEquals(BITSET_VALUE, tuple.bitmaskValue("bits"));
-
         assertEquals(DATE_VALUE, tuple.dateValue("date"));
         assertEquals(TIME_VALUE, tuple.timeValue("time"));
         assertEquals(DATETIME_VALUE, tuple.datetimeValue("datetime"));
@@ -187,9 +181,9 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         Tuple tuple = getTupleWithColumnOfAllTypes();
 
         assertThrowsWithCause(
-                () -> tuple.byteValue(8),
+                () -> tuple.floatValue(7),
                 ClassCastException.class,
-                "Column with index 8 has type BITMASK but INT8 was requested");
+                "Column with index 7 has type STRING but FLOAT was requested");
 
         assertThrowsWithCause(
                 () -> tuple.floatValue("Str"),
@@ -248,7 +242,6 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
                 .set("FLOAT", 5.5f)
                 .set("DOUBLE", 6.6)
                 .set("UUID", UUID_VALUE)
-                .set("BITS", BITSET_VALUE)
                 .set("DATE", DATE_VALUE)
                 .set("TIME", TIME_VALUE)
                 .set("DATETIME", DATETIME_VALUE)
@@ -257,8 +250,7 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
                 .set("DECIMAL", BigDecimal.valueOf(1.234))
                 .set("BYTES", BYTE_ARRAY_VALUE)
                 .set("PERIOD", Period.ofDays(16))
-                .set("DURATION", Duration.ofDays(17))
-                .set("NUMBER", BigInteger.valueOf(18));
+                .set("DURATION", Duration.ofDays(17));
 
         assertEquals(valTupleFullData, valTuplePartialData);
         assertEquals(valTupleUser, valTupleFullData);
@@ -291,47 +283,45 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
 
     private static ClientTuple createTuplePart(TuplePart part, boolean partialData) {
         var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
-                        .appendByte((byte) 1)
-                        .appendShort((short) 2)
-                        .appendInt(3)
-                        .appendLong(4)
-                        .appendFloat(5.5f)
-                        .appendDouble(6.6)
-                        .appendUuid(UUID_VALUE)
-                        .appendString(STRING_VALUE)
-                        .appendBitmask(BITSET_VALUE)
-                        .appendDate(DATE_VALUE)
-                        .appendTime(TIME_VALUE)
-                        .appendDateTime(DATETIME_VALUE)
-                        .appendTimestamp(TIMESTAMP_VALUE)
-                        .appendByte((byte) 1)
-                        .appendDecimal(BigDecimal.valueOf(1.234), 3)
-                        .appendBytes(BYTE_ARRAY_VALUE)
-                        .appendPeriod(Period.ofDays(16))
-                        .appendDuration(Duration.ofDays(17))
-                        .appendNumber(BigInteger.valueOf(18))
-                        .build();
+                .appendByte((byte) 1)
+                .appendShort((short) 2)
+                .appendInt(3)
+                .appendLong(4)
+                .appendFloat(5.5f)
+                .appendDouble(6.6)
+                .appendUuid(UUID_VALUE)
+                .appendString(STRING_VALUE)
+                .appendDate(DATE_VALUE)
+                .appendTime(TIME_VALUE)
+                .appendDateTime(DATETIME_VALUE)
+                .appendTimestamp(TIMESTAMP_VALUE)
+                .appendByte((byte) 1)
+                .appendDecimal(BigDecimal.valueOf(1.234), 3)
+                .appendBytes(BYTE_ARRAY_VALUE)
+                .appendPeriod(Period.ofDays(16))
+                .appendDuration(Duration.ofDays(17))
+                .build();
 
         var binTupleColumnCount = FULL_SCHEMA.columns().length;
 
         if (part == TuplePart.KEY && partialData) {
-            binTupleBuf = new BinaryTupleBuilder(3)
+            BinaryTupleBuilder keyBuilder = new BinaryTupleBuilder(3)
                     .appendInt(3)
                     .appendLong(4)
-                    .appendString(STRING_VALUE)
-                    .build();
+                    .appendString(STRING_VALUE);
 
-            binTupleColumnCount = 3;
+            binTupleBuf = keyBuilder.build();
+
+            binTupleColumnCount = keyBuilder.numElements();
         }
 
         if (part == TuplePart.VAL && partialData) {
-            binTupleBuf = new BinaryTupleBuilder(16)
+            BinaryTupleBuilder valueBuilder = new BinaryTupleBuilder(14)
                     .appendByte((byte) 1)
                     .appendShort((short) 2)
                     .appendFloat(5.5f)
                     .appendDouble(6.6)
                     .appendUuid(UUID_VALUE)
-                    .appendBitmask(BITSET_VALUE)
                     .appendDate(DATE_VALUE)
                     .appendTime(TIME_VALUE)
                     .appendDateTime(DATETIME_VALUE)
@@ -340,11 +330,11 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
                     .appendDecimal(BigDecimal.valueOf(1.234), 3)
                     .appendBytes(BYTE_ARRAY_VALUE)
                     .appendPeriod(Period.ofDays(16))
-                    .appendDuration(Duration.ofDays(17))
-                    .appendNumber(BigInteger.valueOf(18))
-                    .build();
+                    .appendDuration(Duration.ofDays(17));
 
-            binTupleColumnCount = 16;
+            binTupleBuf = valueBuilder.build();
+
+            binTupleColumnCount = valueBuilder.numElements();
         }
 
         var binTuple = new BinaryTupleReader(binTupleColumnCount, binTupleBuf);

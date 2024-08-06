@@ -137,7 +137,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
@@ -768,7 +767,6 @@ public class ItTxTestCluster {
                         startClient ? clientClock : clocks.get(localNodeName),
                         timestampTracker,
                         placementDriver,
-                        new TableRaftServiceImpl(tableName, 1, clients, nodeResolver),
                         clientTransactionInflights,
                         500,
                         0,
@@ -1086,5 +1084,9 @@ public class ItTxTestCluster {
 
     public Map<String, ReplicaManager> replicaManagers() {
         return replicaManagers;
+    }
+
+    public Map<String, ClusterService> clusterServices() {
+        return clusterServices;
     }
 }

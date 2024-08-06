@@ -51,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.DynamicTest;
@@ -62,6 +63,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Type coercion related tests that ensure that the necessary casts are placed where it is necessary.
  */
+@WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
 public class ImplicitCastsTest extends AbstractPlannerTest {
     private static IgniteTable tableWithColumn(String tableName, String columnName, RelDataType columnType) {
         return TestBuilders.table()

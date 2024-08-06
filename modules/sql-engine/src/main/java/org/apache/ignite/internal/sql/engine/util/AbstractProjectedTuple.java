@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.InternalTuple;
 
@@ -47,8 +45,8 @@ import org.apache.ignite.internal.lang.InternalTuple;
  * </pre>
  */
 abstract class AbstractProjectedTuple implements InternalTuple {
-    InternalTuple delegate;
-    int[] projection;
+    protected InternalTuple delegate;
+    protected int[] projection;
 
     private boolean normalized = false;
 
@@ -154,11 +152,6 @@ abstract class AbstractProjectedTuple implements InternalTuple {
     }
 
     @Override
-    public BigInteger numberValue(int col) {
-        return delegate.numberValue(projection[col]);
-    }
-
-    @Override
     public String stringValue(int col) {
         return delegate.stringValue(projection[col]);
     }
@@ -171,11 +164,6 @@ abstract class AbstractProjectedTuple implements InternalTuple {
     @Override
     public UUID uuidValue(int col) {
         return delegate.uuidValue(projection[col]);
-    }
-
-    @Override
-    public BitSet bitmaskValue(int col) {
-        return delegate.bitmaskValue(projection[col]);
     }
 
     @Override

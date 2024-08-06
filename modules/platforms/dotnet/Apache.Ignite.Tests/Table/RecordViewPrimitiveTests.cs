@@ -18,9 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
-using System.Collections;
 using System.Linq;
-using System.Numerics;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NodaTime;
@@ -49,9 +47,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
         await TestKey(new LocalDateTime(2022, 10, 13, 8, 4, 42), TableDateTimeName);
         await TestKey(new LocalTime(3, 4, 5), TableTimeName);
         await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), TableTimestampName);
-        await TestKey(new BigInteger(123456789101112), TableNumberName);
         await TestKey(new byte[] { 1, 2, 3 }, TableBytesName);
-        await TestKey(new BitArray(new[] { byte.MaxValue }), TableBitmaskName);
     }
 
     [Test]

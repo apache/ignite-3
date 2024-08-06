@@ -26,13 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -212,8 +210,6 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         list.add(BigDecimal.valueOf(RND.nextLong()));
         list.add(BigDecimal.valueOf(RND.nextLong(), RND.nextInt(100)));
 
-        list.add(BigInteger.valueOf(RND.nextLong()));
-
         list.add(LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(100_000)));
         list.add(LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, RND.nextInt(27) + 1));
         list.add(LocalDateTime.of(
@@ -230,13 +226,6 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         // TODO Include ignored values to test after https://issues.apache.org/jira/browse/IGNITE-15200
         //  list.add(Duration.of(11, ChronoUnit.HOURS));
         //  list.add(Period.of(5, 4, 3));
-
-        BitSet bitSet = new BitSet();
-        for (int i = 0; i < RND.nextInt(100); i++) {
-            int b = RND.nextInt(1024);
-            bitSet.set(b);
-        }
-        list.add(bitSet);
 
         return list.stream().map(val -> {
             NativeType nativeType = NativeTypes.fromObject(val);

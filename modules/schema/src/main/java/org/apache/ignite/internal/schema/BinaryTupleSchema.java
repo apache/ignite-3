@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.schema;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -347,8 +345,6 @@ public class BinaryTupleSchema {
             case UUID: return tuple.uuidValue(index);
             case STRING: return tuple.stringValue(index);
             case BYTES: return tuple.bytesValue(index);
-            case BITMASK: return tuple.bitmaskValue(index);
-            case NUMBER: return tuple.numberValue(index);
             case DATE: return tuple.dateValue(index);
             case TIME: return tuple.timeValue(index);
             case DATETIME: return tuple.dateTimeValue(index);
@@ -384,12 +380,10 @@ public class BinaryTupleSchema {
             case INT64: return builder.appendLong((long) value);
             case FLOAT: return builder.appendFloat((float) value);
             case DOUBLE: return builder.appendDouble((double) value);
-            case NUMBER: return builder.appendNumberNotNull((BigInteger) value);
             case DECIMAL: return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
             case UUID: return builder.appendUuidNotNull((UUID) value);
             case BYTES: return builder.appendBytesNotNull((byte[]) value);
             case STRING: return builder.appendStringNotNull((String) value);
-            case BITMASK: return builder.appendBitmaskNotNull((BitSet) value);
             case DATE: return builder.appendDateNotNull((LocalDate) value);
             case TIME: return builder.appendTimeNotNull((LocalTime) value);
             case DATETIME: return builder.appendDateTimeNotNull((LocalDateTime) value);

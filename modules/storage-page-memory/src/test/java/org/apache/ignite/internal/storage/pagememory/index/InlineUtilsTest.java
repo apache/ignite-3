@@ -82,9 +82,6 @@ public class InlineUtilsTest extends BaseIgniteAbstractTest {
         assertEquals(16, inlineSize(nativeType = NativeTypes.UUID));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(1, inlineSize(nativeType = NativeTypes.bitmaskOf(8)));
-        nativeTypeSpecs.remove(nativeType.spec());
-
         assertEquals(3, inlineSize(nativeType = NativeTypes.DATE));
         nativeTypeSpecs.remove(nativeType.spec());
 
@@ -121,12 +118,6 @@ public class InlineUtilsTest extends BaseIgniteAbstractTest {
         nativeTypeSpecs.remove(nativeType.spec());
 
         assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.blobOf(Integer.MAX_VALUE)));
-        nativeTypeSpecs.remove(nativeType.spec());
-
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.numberOf(1)));
-        nativeTypeSpecs.remove(nativeType.spec());
-
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.numberOf(100)));
         nativeTypeSpecs.remove(nativeType.spec());
 
         // Let's check that all types have been checked.

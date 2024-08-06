@@ -102,7 +102,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         service = clusterService(PORT, List.of(addr), true);
 
-        server = TestJraftServerFactory.create(service, workDir, raftConfiguration);
+        server = TestJraftServerFactory.create(service, workDir, systemConfiguration);
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 

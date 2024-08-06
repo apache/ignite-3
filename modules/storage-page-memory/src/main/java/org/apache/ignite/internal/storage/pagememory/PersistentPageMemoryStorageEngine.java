@@ -35,31 +35,30 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.LazyPath;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Storage engine implementation based on {@link PageMemory} for persistent case.
- */
-public class PersistentPageMemoryStorageEngine implements StorageEngine {
+/** Storage engine implementation based on {@link PersistentPageMemory}. */
+public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "aipersist";
 
@@ -76,11 +75,11 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
-    private final StorageConfiguration storageConfiguration;
+    private final StorageConfiguration storageConfig;
 
     private final PageIoRegistry ioRegistry;
 
-    private final Path storagePath;
+    private final LazyPath storagePath;
 
     @Nullable
     private final LongJvmPauseDetector longJvmPauseDetector;
@@ -105,27 +104,32 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     /**
      * Constructor.
      *
-     * @param igniteInstanceName String igniteInstanceName
+     * @param igniteInstanceName Ignite instance name.
      * @param engineConfig PageMemory storage engine configuration.
+     * @param storageConfig Storage engine and storage profiles configurations.
      * @param ioRegistry IO registry.
      * @param storagePath Storage path.
      * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param clock Hybrid Logical Clock.
      */
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            StorageConfiguration storageConfiguration,
+            StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
-            Path storagePath,
+            LazyPath storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            HybridClock clock
     ) {
+        super(clock);
+
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
-        this.storageConfiguration = storageConfiguration;
+        this.storageConfig = storageConfig;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
@@ -154,7 +158,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     ? new AsyncFileIoFactory()
                     : new RandomAccessFileIoFactory();
 
-            filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureProcessor);
+            filePageStoreManager =
+                    createFilePageStoreManager(igniteInstanceName, storagePath.get(), fileIoFactory, pageSize, failureProcessor);
 
             filePageStoreManager.start();
         } catch (IgniteInternalCheckedException e) {
@@ -184,7 +189,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         }
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        storageConfiguration.profiles().value().stream().forEach(p -> {
+        storageConfig.profiles().value().stream().forEach(p -> {
             if (p instanceof PersistentPageMemoryProfileView) {
                 addDataRegion(p.name());
             }
@@ -289,7 +294,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      */
     private void addDataRegion(String name) {
         PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
-                (PersistentPageMemoryProfileConfiguration) storageConfiguration.profiles().get(name);
+                (PersistentPageMemoryProfileConfiguration) storageConfig.profiles().get(name);
 
         int pageSize = engineConfig.pageSize().value();
 

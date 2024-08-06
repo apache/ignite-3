@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests.Table
 {
     using System;
-    using System.Collections;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
@@ -557,7 +556,6 @@ namespace Apache.Ignite.Tests.Table
                 ["Double"] = 64.64,
                 ["Uuid"] = Guid.NewGuid(),
                 ["Date"] = dt.Date,
-                ["BitMask"] = new BitArray(new byte[] { 1 }),
                 ["Time"] = dt.TimeOfDay,
                 ["DateTime"] = dt,
                 ["Timestamp"] = Instant.FromDateTimeUtc(DateTime.UtcNow),
@@ -581,7 +579,6 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(tuple["Int64"], res["Int64"]);
             Assert.AreEqual(tuple["Str"], res["Str"]);
             Assert.AreEqual(tuple["Uuid"], res["Uuid"]);
-            Assert.AreEqual(tuple["BitMask"], res["BitMask"]);
             Assert.AreEqual(tuple["Timestamp"], res["Timestamp"]);
             Assert.AreEqual(tuple["Time"], res["Time"]);
             Assert.AreEqual(tuple["DateTime"], res["DateTime"]);

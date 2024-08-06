@@ -38,7 +38,7 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
     private VolatilePageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
-    private StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfig;
 
     private VolatilePageMemoryStorageEngine engine;
 
@@ -50,7 +50,7 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration, ioRegistry);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfig, ioRegistry, clock);
 
         engine.start();
 

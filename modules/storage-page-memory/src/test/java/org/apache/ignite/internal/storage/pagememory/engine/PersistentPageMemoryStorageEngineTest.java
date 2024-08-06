@@ -30,6 +30,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -38,10 +39,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngineTest {
     @InjectConfiguration("mock {checkpoint.checkpointDelayMillis = 0}")
-    private PersistentPageMemoryStorageEngineConfiguration engineConfiguration;
+    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\", size = 1048576}")
-    private StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfig;
 
     @WorkDirectory
     private Path workDir;
@@ -54,13 +55,14 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
 
         return new PersistentPageMemoryStorageEngine(
                 "test",
-                engineConfiguration,
-                storageConfiguration,
+                engineConfig,
+                storageConfig,
                 ioRegistry,
-                workDir,
+                LazyPath.create(workDir),
                 null,
                 mock(FailureProcessor.class),
-                logSyncer
+                logSyncer,
+                clock
         );
     }
 }

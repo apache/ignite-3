@@ -343,7 +343,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
-                        .requestTypeInt(arg.type.ordinal())
+                        .requestType(arg.type)
                         .coordinatorId(localNode.id())
                         .timestamp(CLOCK.now())
                         .build();
@@ -364,7 +364,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testBinaryRow.schemaVersion())
                         .binaryTuple(testBinaryRow.tupleSlice())
-                        .requestTypeInt(arg.type.ordinal())
+                        .requestType(arg.type)
                         .coordinatorId(localNode.id())
                         .timestamp(CLOCK.now())
                         .build();
@@ -433,7 +433,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
-                        .requestTypeInt(arg.type.ordinal())
+                        .requestType(arg.type)
                         .coordinatorId(localNode.id())
                         .timestamp(CLOCK.now())
                         .build();
@@ -451,7 +451,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(rows.iterator().next().schemaVersion())
                         .binaryTuples(binaryRowsToBuffers(rows))
-                        .requestTypeInt(arg.type.ordinal())
+                        .requestType(arg.type)
                         .coordinatorId(localNode.id())
                         .timestamp(CLOCK.now())
                         .build();

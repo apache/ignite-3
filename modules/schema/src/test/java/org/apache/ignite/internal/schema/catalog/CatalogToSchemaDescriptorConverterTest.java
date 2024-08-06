@@ -34,12 +34,10 @@ import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnType;
@@ -73,15 +71,11 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
 
         if (type instanceof VarlenNativeType) {
             assertThat(((VarlenNativeType) type).length(), equalTo(TEST_LENGTH));
-        } else if (type instanceof NumberNativeType) {
-            assertThat(((NumberNativeType) type).precision(), equalTo(columnDescriptor.precision()));
         } else if (type instanceof DecimalNativeType) {
             assertThat(((DecimalNativeType) type).precision(), equalTo(columnDescriptor.precision()));
             assertThat(((DecimalNativeType) type).scale(), equalTo(columnDescriptor.scale()));
         } else if (type instanceof TemporalNativeType) {
             assertThat(((TemporalNativeType) type).precision(), equalTo(columnDescriptor.precision()));
-        } else if (type instanceof BitmaskNativeType) {
-            assertThat(((BitmaskNativeType) type).bits(), equalTo(TEST_LENGTH));
         } else {
             assertThat("Unknown type: " + type.getClass(), type.getClass(), equalTo(NativeType.class));
         }
@@ -178,12 +172,9 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
         static CatalogTableColumnDescriptor forType(DefaultValueArg arg) {
             NativeType type = arg.type;
 
-            int length = type instanceof VarlenNativeType ? ((VarlenNativeType) type).length()
-                    : type instanceof BitmaskNativeType ? ((BitmaskNativeType) type).bits()
-                    : 0;
+            int length = type instanceof VarlenNativeType ? ((VarlenNativeType) type).length() : 0;
 
             int precision = type instanceof DecimalNativeType ? ((DecimalNativeType) type).precision()
-                    : type instanceof NumberNativeType ? ((NumberNativeType) type).precision()
                     : type instanceof TemporalNativeType ? ((TemporalNativeType) type).precision()
                     : 0;
 

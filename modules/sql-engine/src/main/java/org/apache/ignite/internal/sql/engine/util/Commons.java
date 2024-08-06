@@ -34,14 +34,12 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.io.StringReader;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -111,10 +109,8 @@ import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -129,6 +125,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
+    public static final String PART_COL_NAME = "__part";
 
     public static final int IN_BUFFER_SIZE = 512;
 
@@ -483,8 +480,6 @@ public final class Commons {
             case UUID: return tuple.uuidValue(fieldIndex);
             case STRING: return tuple.stringValue(fieldIndex);
             case BYTES: return tuple.bytesValue(fieldIndex);
-            case BITMASK: return tuple.bitmaskValue(fieldIndex);
-            case NUMBER: return tuple.numberValue(fieldIndex);
             case DATE: return tuple.dateValue(fieldIndex);
             case TIME: return tuple.timeValue(fieldIndex);
             case DATETIME: return tuple.dateTimeValue(fieldIndex);
@@ -565,9 +560,6 @@ public final class Commons {
             case DOUBLE:
                 return Double.class;
 
-            case NUMBER:
-                return BigInteger.class;
-
             case DECIMAL:
                 return BigDecimal.class;
 
@@ -579,9 +571,6 @@ public final class Commons {
 
             case BYTES:
                 return byte[].class;
-
-            case BITMASK:
-                return BitSet.class;
 
             case DATE:
                 return LocalDate.class;
@@ -626,9 +615,6 @@ public final class Commons {
             case DOUBLE:
                 return 15;
 
-            case NUMBER:
-                return ((NumberNativeType) type).precision();
-
             case DECIMAL:
                 return ((DecimalNativeType) type).precision();
 
@@ -645,9 +631,6 @@ public final class Commons {
             case BYTES:
             case STRING:
                 return ((VarlenNativeType) type).length();
-
-            case BITMASK:
-                return ((BitmaskNativeType) type).bits();
 
             default:
                 throw new IllegalArgumentException("Unsupported type " + type.spec());
@@ -666,7 +649,6 @@ public final class Commons {
             case INT16:
             case INT32:
             case INT64:
-            case NUMBER:
                 return 0;
 
             case BOOLEAN:
@@ -679,7 +661,6 @@ public final class Commons {
             case TIMESTAMP:
             case BYTES:
             case STRING:
-            case BITMASK:
                 return UNDEFINED_SCALE;
 
             case DECIMAL:
@@ -746,6 +727,18 @@ public final class Commons {
      */
     public static boolean implicitPkEnabled() {
         return IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
+    }
+
+    /**
+     * Checks whether a fast path optimizations are enabled or not.
+     *
+     * <p>Note: for test purpose only.
+     *
+     * @return A {@code true} if fast path optimizations are enabled, {@code false} otherwise.
+     */
+    public static boolean fastQueryOptimizationEnabled() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+        return IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
     }
 
     /**

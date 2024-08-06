@@ -26,6 +26,15 @@ public class BallotBoxOptions {
 
     private FSMCaller waiter;
     private ClosureQueue closureQueue;
+    private long lastCommittedIndex;
+
+    public long getLastCommittedIndex() {
+        return lastCommittedIndex;
+    }
+
+    public void setLastCommittedIndex(long lastCommittedIndex) {
+        this.lastCommittedIndex = lastCommittedIndex;
+    }
 
     public FSMCaller getWaiter() {
         return this.waiter;

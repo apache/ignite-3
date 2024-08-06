@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -73,8 +74,11 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     private final IgniteCompute compute;
 
-    FakeIgniteTables(IgniteCompute compute) {
+    private final FakePlacementDriver placementDriver;
+
+    FakeIgniteTables(IgniteCompute compute, FakePlacementDriver placementDriver) {
         this.compute = compute;
+        this.placementDriver = placementDriver;
     }
 
     /**
@@ -220,7 +224,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         };
 
         return new TableImpl(
-                new FakeInternalTable(name, id, keyExtractor, compute),
+                new FakeInternalTable(name, id, keyExtractor, compute, placementDriver),
                 schemaReg,
                 new HeapLockManager(),
                 new SchemaVersions() {
@@ -293,9 +297,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         new Column("zstring".toUpperCase(), NativeTypes.STRING, true),
                         new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
                         new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),
-                        new Column("zbitmask".toUpperCase(), NativeTypes.bitmaskOf(16), true),
                         new Column("zdecimal".toUpperCase(), NativeTypes.decimalOf(20, 10), true),
-                        new Column("znumber".toUpperCase(), NativeTypes.numberOf(24), true),
                 });
     }
 

@@ -30,6 +30,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -89,6 +90,7 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("IGNITE-22772")
     public void renameColumnsInFrom() {
         assertQuery("select NEW_PERSON.NEW_ID, NEW_NAME, NEW_persON.New_salary from person NEW_PERSON(NeW_Id, NeW_NaMe, New_SaLaRy)")
                 .columnNames("NEW_ID", "NEW_NAME", "NEW_SALARY").check();
@@ -189,9 +191,6 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
                 // Custom types
                 + "UUID_C UUID, "
-                // TODO: IGNITE-18431: Sql. BitSet is not supported.
-                // + "BITSET_C BITMASK, "
-                // + "BITSET_C BITMASK(8), "
 
                 // Nullability constraint
                 + "NULLABLE_C INT, " + "NON_NULL_C INT NOT NULL " + ")");
@@ -253,9 +252,6 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
                         // Custom types
                         new MetadataMatcher().name("UUID_C"),
-                        // TODO: IGNITE-18431: Sql. BitSet is not supported.
-                        // new MetadataMatcher().name("BITSET_C"),
-                        // new MetadataMatcher().name("BITSET_C2"),
 
                         // Nullability constraint
                         new MetadataMatcher().name("NULLABLE_C").nullable(true),

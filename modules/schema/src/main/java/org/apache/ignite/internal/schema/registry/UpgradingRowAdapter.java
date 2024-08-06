@@ -21,13 +21,11 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.isSupport
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -330,20 +328,6 @@ public class UpgradingRowAdapter implements Row {
 
     /** {@inheritDoc} */
     @Override
-    public BigInteger numberValue(int colIdx) throws InvalidTypeException {
-        int mappedId = mapColumn(colIdx);
-
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : row.schema().column(mappedId);
-
-        if (NativeTypeSpec.NUMBER != column.type().spec()) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
-
-        return mappedId < 0 ? (BigInteger) column.defaultValue() : row.numberValue(mappedId);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public String stringValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 
@@ -382,20 +366,6 @@ public class UpgradingRowAdapter implements Row {
         }
 
         return mappedId < 0 ? (UUID) column.defaultValue() : row.uuidValue(mappedId);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int colIdx) throws InvalidTypeException {
-        int mappedId = mapColumn(colIdx);
-
-        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : row.schema().column(mappedId);
-
-        if (NativeTypeSpec.BITMASK != column.type().spec()) {
-            throw new SchemaException("Type conversion is not supported yet.");
-        }
-
-        return mappedId < 0 ? (BitSet) column.defaultValue() : row.bitmaskValue(mappedId);
     }
 
     /** {@inheritDoc} */
