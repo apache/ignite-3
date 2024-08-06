@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -126,7 +127,7 @@ public class TestServer {
                 mock(IgniteComputeInternal.class),
                 clusterService,
                 bootstrapFactory,
-                () -> CompletableFuture.completedFuture(ClusterTag.clusterTag(msgFactory, "Test Server")),
+                () -> CompletableFuture.completedFuture(ClusterTag.clusterTag(msgFactory, "Test Server", UUID.randomUUID())),
                 mock(MetricManagerImpl.class),
                 metrics,
                 authenticationManager,
