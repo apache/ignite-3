@@ -77,4 +77,50 @@ public class KeyColumnOrderTests : IgniteTestsBase
 
         Assert.AreEqual(row, res.Value);
     }
+
+    [Test]
+    [TestCaseSource(nameof(Tables))]
+    public async Task TestKeyValueBinaryView(string tableName)
+    {
+        var table = await Client.Tables.GetTableAsync(tableName);
+        var view = table!.KeyValueBinaryView;
+
+        var key = new IgniteTuple
+        {
+            ["key"] = _key,
+            ["key2"] = -_key
+        };
+
+        var val = new IgniteTuple
+        {
+            ["val1"] = "val1",
+            ["val2"] = "val2"
+        };
+
+        await view.PutAsync(null, key, val);
+        var res = await view.GetAsync(null, key);
+
+        Assert.AreEqual(val, res.Value);
+    }
+
+    [Test]
+    [TestCaseSource(nameof(Tables))]
+    public async Task TestRecordView(string tableName)
+    {
+        var table = await Client.Tables.GetTableAsync(tableName);
+        var view = table!.GetRecordView<Rec>();
+
+        var row = new Rec(_key, -_key, "val1", "val2");
+
+        await view.UpsertAsync(null, row);
+        var res = await view.GetAsync(null, row);
+
+        Assert.AreEqual(row, res.Value);
+    }
+
+    private record Rec(int Key, int Key2, string Val1, string Val2);
+
+    private record KeyRec(int Key, int Key2);
+
+    private record ValRec(string Val1, string Val2);
 }
