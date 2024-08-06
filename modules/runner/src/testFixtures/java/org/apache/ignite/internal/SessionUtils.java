@@ -23,7 +23,7 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Utils to work with {@link Session}.
+ * Helper method for running SQL queries.
  */
 public class SessionUtils {
     /**
