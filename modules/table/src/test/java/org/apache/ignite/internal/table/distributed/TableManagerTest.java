@@ -310,12 +310,15 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
-        partitionOperationsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                5, 5,
+                10, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE)
         );
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+
+        partitionOperationsExecutor = threadPoolExecutor;
     }
 
     @AfterEach

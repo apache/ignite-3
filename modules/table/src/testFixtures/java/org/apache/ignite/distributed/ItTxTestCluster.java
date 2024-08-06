@@ -371,12 +371,15 @@ public class ItTxTestCluster {
         executor = new ScheduledThreadPoolExecutor(20,
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
-        partitionOperationsExecutor = new ThreadPoolExecutor(
-                0, 20,
-                0, TimeUnit.SECONDS,
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                20, 20,
+                10, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create("test", "partition-operations", LOG)
         );
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+
+        partitionOperationsExecutor = threadPoolExecutor;
 
         for (int i = 0; i < nodes; i++) {
             ClusterService clusterService = cluster.get(i);

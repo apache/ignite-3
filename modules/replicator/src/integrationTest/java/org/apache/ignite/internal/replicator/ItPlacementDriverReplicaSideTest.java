@@ -152,12 +152,15 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
-        partitionOperationsExecutor = new ThreadPoolExecutor(
-                0, 20,
-                0, TimeUnit.SECONDS,
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                20, 20,
+                10, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create("test", "partition-operations", log)
         );
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+
+        partitionOperationsExecutor = threadPoolExecutor;
 
         placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(toSet());

@@ -176,12 +176,15 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         raftClient = mock(TopologyAwareRaftGroupService.class);
         when(raftManager.startRaftGroupService(any(), any(), any(), any())).thenReturn(completedFuture(raftClient));
 
-        requestsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                5, 5,
+                10, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+
+        requestsExecutor = threadPoolExecutor;
 
         replicaService = new ReplicaService(
                 clusterService.messagingService(),

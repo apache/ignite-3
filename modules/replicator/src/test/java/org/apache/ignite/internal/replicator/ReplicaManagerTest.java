@@ -109,12 +109,15 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var clock = new HybridClockImpl();
 
-        requestsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                5, 5,
+                10, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+
+        requestsExecutor = threadPoolExecutor;
 
         replicaManager = new ReplicaManager(
                 nodeName,
