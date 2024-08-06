@@ -163,8 +163,26 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestTupleEqualityDifferentColumnOrder()
         {
-            var data = Enumerable.Range(1, 100)
-                .ToDictionary(x => $"col-{x}", x => Random.Shared.NextDouble());
+            var randomBytes = new byte[100];
+            Random.Shared.NextBytes(randomBytes);
+
+            var data = new Dictionary<string, object?>
+            {
+                { "nil", null },
+                { "int", Random.Shared.Next() },
+                { "short", (short)Random.Shared.Next() },
+                { "sbyte", (sbyte)Random.Shared.Next() },
+                { "long", Random.Shared.NextInt64() },
+                { "dbl", Random.Shared.NextDouble() },
+                { "flt", Random.Shared.NextSingle() },
+                { "bytes", randomBytes },
+                { "str", "s-" + Random.Shared.Next() },
+                { "guid", Guid.NewGuid() },
+                { "dt", DateTime.Now },
+                { "ts", TimeSpan.FromMilliseconds(Random.Shared.Next()) },
+                { "bool", Random.Shared.Next() % 2 == 0 },
+                { "dec", (decimal)Random.Shared.NextDouble() }
+            };
 
             var tuple1 = GetRandomizedTuple();
             var tuple2 = GetRandomizedTuple();
