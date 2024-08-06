@@ -1,0 +1,107 @@
+# name: test/sql/function/other/typeof.test
+# description: SYSTEM_RANGE function
+# group: [other]
+
+query I
+SELECT * FROM system_range(1, 4)
+----
+1
+2
+3
+4
+
+query I
+SELECT * FROM system_range(1, 4)
+----
+1
+2
+3
+4
+
+query I
+SELECT * FROM system_range(1, 4, 2)
+----
+1
+3
+
+query I
+SELECT * FROM system_range(4, 1, -1)
+----
+4
+3
+2
+1
+
+query I
+SELECT * FROM system_range(4, 1, -2)
+----
+4
+2
+
+query T
+SELECT (SELECT * FROM system_range(4, 1))
+----
+null
+
+query I
+SELECT (SELECT * FROM system_range(1, 1))
+----
+1
+
+statement error: Increment can't be 0
+SELECT * FROM table(system_range(1, 1, 0))
+
+statement error: Subquery returned more than 1 value
+SELECT (SELECT * FROM table(system_range(1, 10)))
+
+# With TABLE clause
+
+query I
+SELECT * FROM TABLE(system_range(1, 3))
+----
+1
+2
+3
+
+# other
+
+statement ok
+CREATE TABLE test(id INT PRIMARY KEY, val INT)
+
+statement ok
+INSERT INTO test (id, val) SELECT x, x FROM (SELECT * FROM system_range(0, 99)) AS t(x)
+
+query I rowsort
+SELECT t.val FROM test t WHERE t.val < 5 AND t.id in (SELECT x FROM table(system_range(t.val, t.val)))
+----
+0
+1
+2
+3
+4
+
+query I rowsort
+SELECT t.val FROM test t WHERE t.val < 5 AND EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0)
+----
+0
+2
+4
+
+query I rowsort
+SELECT t.val FROM test t WHERE t.val < 5 AND NOT EXISTS (SELECT x FROM table(system_range(t.val, t.val)) WHERE mod(x, 2) = 0)
+----
+1
+3
+
+query T rowsort
+SELECT t.val FROM test t WHERE EXISTS (SELECT x FROM table(system_range(t.val, null)))
+----
+
+query I rowsort
+SELECT t.val FROM test t JOIN table(system_range(1, 50)) as r ON t.id = r.x WHERE mod(r.x, 10) = 0
+----
+10
+20
+30
+40
+50

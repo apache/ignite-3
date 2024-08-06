@@ -142,11 +142,11 @@ wo
 NULL
 
 # Negative length
-statement error
+statement error: negative substring length
 SELECT substring(s, 2, -2) FROM strings ORDER BY id
 
 # negative offset and negative length
-statement error
+statement error: negative substring length
 SELECT substring(s, -2, -2) FROM strings ORDER BY id
 
 # length 0
@@ -176,7 +176,34 @@ SELECT substring(s, 2147483647, 2147483647) FROM strings ORDER BY id
 (empty)
 NULL
 
-statement error
+# BIGINT
+query T
+SELECT SUBSTRING('1234567', 1, 9223372036854775807)
+----
+1234567
+
+# BIGINT
+query T
+SELECT SUBSTRING('1234567', 9223372036854775807)
+----
+(empty)
+
+# BIGINT
+query T
+SELECT SUBSTRING('1234567', 1::BIGINT)
+----
+1234567
+
+# The second argument is a BIGINT
+query T
+SELECT SUBSTRING('1234567', -9223372036854775808)
+----
+1234567
+
+statement error: negative substring length
+SELECT SUBSTRING('1234567', -9223372036854775808, -9223372036854775808)
+
+statement error: negative substring length
 SELECT substring(s, 2147483647, -2147483647) FROM strings ORDER BY id
 
 query T
@@ -187,5 +214,37 @@ SELECT substring(s, -2147483647, 2147483647) FROM strings ORDER BY id
 (empty)
 NULL
 
-statement error
+statement error: negative substring length
 SELECT substring(s, -2147483647, -2147483647) FROM strings ORDER BY id
+
+statement error: Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <INTEGER> FOR <DECIMAL(2, 1)>)
+SELECT SUBSTRING('1234567', 2, 3.1)
+
+statement error: Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)> FOR <INTEGER>)
+SELECT SUBSTRING('1234567', 2.1, 3)
+
+statement error: Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)> FOR <DECIMAL(2, 1)>)
+SELECT SUBSTRING('1234567', 2.1, 3.1)
+
+# https://issues.apache.org/jira/browse/IGNITE-22417
+# Actual error while resolving method 'substring[class java.lang.String, class java.math.BigDecimal]' in class class org.apache.calcite.runtime.SqlFunctions
+skipif ignite3
+statement error: Cannot apply 'SUBSTRING' to arguments of type 'SUBSTRING(<CHAR(7)> FROM <DECIMAL(2, 1)>
+SELECT SUBSTRING('1234567', 2.1)
+
+# Coercion
+
+query T
+SELECT SUBSTRING('1234567', 2, '1')
+----
+2
+
+query T
+SELECT SUBSTRING('1234567', '2', 1)
+----
+2
+
+query T
+SELECT SUBSTRING('1234567', '2', '1')
+----
+2
