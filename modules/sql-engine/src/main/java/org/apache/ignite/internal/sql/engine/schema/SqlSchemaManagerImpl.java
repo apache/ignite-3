@@ -76,7 +76,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final Cache<Integer, SchemaPlus> schemaCache;
 
-    /** Table cache by (tableId, tableVersion).
+    /**
+     * Table cache by (tableId, tableVersion).
      * Only data that included in a catalog table descriptor itself is up-to-date.
      * Table related information from other object is not reliable.
      */
@@ -520,7 +521,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private static class ActualIgniteTable extends AbstractIgniteDataSource implements IgniteTable {
 
-        /** Cached table by id an version. */
+        /** Cached table by id and version. */
         private final IgniteTableImpl table;
 
         /** Index map with up-to-date information. */
