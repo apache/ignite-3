@@ -469,7 +469,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 .cmgNodes(Set.copyOf(msg.cmgNodes()))
                 .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
-                .clusterTag(clusterTag(msgFactory, msg.clusterName()))
+                .clusterTag(clusterTag(msgFactory, msg.clusterName(), msg.clusterId()))
                 .initialClusterConfiguration(msg.initialClusterConfiguration())
                 .build();
     }
