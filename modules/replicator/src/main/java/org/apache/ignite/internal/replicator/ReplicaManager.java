@@ -851,14 +851,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
         }
 
-        if (snapshotFactory != null) {
-            raftGroupOptions.snapshotStorageFactory(snapshotFactory);
-        }
-
-        if (raftCommandsMarshaller != null) {
-            raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
-        }
-
         return raftGroupOptions;
     }
 
