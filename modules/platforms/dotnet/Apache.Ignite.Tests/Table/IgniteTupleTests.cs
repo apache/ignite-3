@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Table
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using Ignite.Table;
     using NUnit.Framework;
 
@@ -133,9 +134,13 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestEquality()
         {
-            var t1 = CreateTuple(new IgniteTuple(2) { ["k"] = 1, ["v"] = "2" });
-            var t2 = CreateTuple(new IgniteTuple(3) { ["k"] = 1, ["v"] = "2" });
-            var t3 = CreateTuple(new IgniteTuple(4) { ["k"] = 1, ["v"] = null });
+            var guid = Guid.NewGuid();
+
+            var t1 = CreateTuple(new IgniteTuple(2) { ["k"] = 1, ["v"] = "2", ["v2"] = guid });
+            var t2 = CreateTuple(new IgniteTuple(3) { ["k"] = 1, ["v"] = "2", ["v2"] = guid });
+            var t3 = CreateTuple(new IgniteTuple(4) { ["k"] = 1, ["v"] = null, ["v2"] = guid });
+            var t4 = CreateTuple(new IgniteTuple(5) { ["v"] = "2", ["k"] = 1, ["v2"] = guid });
+            var t5 = CreateTuple(new IgniteTuple(6) { ["v"] = "2", ["k"] = 1, ["v2"] = guid, ["v3"] = 1 });
 
             Assert.AreEqual(t1, t2);
             Assert.AreEqual(t2, t1);
@@ -146,6 +151,34 @@ namespace Apache.Ignite.Tests.Table
 
             Assert.AreNotEqual(t2, t3);
             Assert.AreNotEqual(t2.GetHashCode(), t3.GetHashCode());
+
+            Assert.AreEqual(t1, t4);
+            Assert.AreEqual(t2, t4);
+            Assert.AreEqual(t2.GetHashCode(), t4.GetHashCode());
+
+            Assert.AreNotEqual(t4, t5);
+            Assert.AreNotEqual(t4.GetHashCode(), t5.GetHashCode());
+        }
+
+        [Test]
+        public void TestTupleEqualityDifferentColumnOrder()
+        {
+            var data = Enumerable.Range(1, 100)
+                .ToDictionary(x => $"col-{x}", x => Random.Shared.NextDouble());
+
+            var tuple1 = GetRandomizedTuple();
+            var tuple2 = GetRandomizedTuple();
+
+            Assert.AreEqual(tuple1, tuple2);
+
+            IgniteTuple GetRandomizedTuple() =>
+                data
+                    .OrderBy(_ => Random.Shared.Next())
+                    .Aggregate(new IgniteTuple(), (tuple, pair) =>
+                    {
+                        tuple[pair.Key] = pair.Value;
+                        return tuple;
+                    });
         }
 
         [Test]
