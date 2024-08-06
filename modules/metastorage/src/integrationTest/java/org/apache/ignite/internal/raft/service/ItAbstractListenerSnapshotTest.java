@@ -42,6 +42,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -61,6 +62,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -101,8 +104,13 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /** Servers. */
     private final List<JraftServerImpl> servers = new ArrayList<>();
 
+    private final List<LogStorageFactory> logStorageFactories = new ArrayList<>();
+
     /** Clients. */
     private final List<RaftGroupService> clients = new ArrayList<>();
+
+    /** Servers working dirs. */
+    private final List<ComponentWorkingDir> workingDirs = new ArrayList<>();
 
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
@@ -141,6 +149,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         Stream<AutoCloseable> beforeNodeStop = Stream.concat(servers.stream(), cluster.stream()).map(c -> c::beforeNodeStop);
 
         List<IgniteComponent> components = Stream.concat(servers.stream(), cluster.stream()).collect(toList());
+
+        components.addAll(logStorageFactories);
 
         Stream<AutoCloseable> nodeStop = Stream.of(() ->
                 assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
@@ -243,17 +253,17 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 .findAny()
                 .orElseThrow();
 
+        int stopIdx = servers.indexOf(toStop);
+
         beforeFollowerStop(service, toStop);
 
         var nodeId = new RaftNodeId(raftGroupId(), toStop.localPeers(raftGroupId()).get(0));
 
         // Get the path to that node's raft directory
-        Path serverDataPath = toStop.getServerDataPath(nodeId);
+        Path serverDataPath = JraftServerImpl.getServerDataPath(workingDirs.get(stopIdx).metaPath().get(), nodeId);
 
         // Get the path to that node's RocksDB key-value storage
         Path dbPath = getListenerPersistencePath(getListener(toStop, raftGroupId()), toStop);
-
-        int stopIdx = servers.indexOf(toStop);
 
         // Remove that node from the list of servers
         servers.remove(stopIdx);
@@ -264,8 +274,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         ComponentContext componentContext = new ComponentContext();
         assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(logStorageFactories.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
         assertThat(cluster.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
 
+        logStorageFactories.remove(stopIdx);
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
 
@@ -288,7 +300,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         }
 
         // Restart the node
-        JraftServerImpl restarted = startServer(testInfo, stopIdx);
+        JraftServerImpl restarted = startServer(testInfo, workingDirs.get(stopIdx), stopIdx);
 
         assertTrue(waitForTopology(cluster.get(0), servers.size(), 3_000));
 
@@ -350,10 +362,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      *
      * @param service                 The cluster service.
      * @param listenerPersistencePath Path to storage persistent data.
-     * @param index                   Index of node for which the listener is created.
      * @return Raft group listener.
      */
-    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index);
+    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath);
 
     /**
      * Returns raft group id for tests.
@@ -425,26 +436,34 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @param idx      Server index (affects port of the server).
      * @return Server.
      */
-    private JraftServerImpl startServer(TestInfo testInfo, int idx) {
+    private JraftServerImpl startServer(TestInfo testInfo, ComponentWorkingDir componentWorkDir, int idx) {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService service = clusterService(testInfo, PORT + idx, addr);
 
-        Path jraft = workDir.resolve("jraft" + idx);
+        LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                service.nodeName(),
+                componentWorkDir.raftLogPath()
+        );
+        assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        JraftServerImpl server = TestJraftServerFactory.create(service, jraft, systemConfiguration);
+        logStorageFactories.add(defaultLogStorageFactory);
+
+        JraftServerImpl server = TestJraftServerFactory.create(service);
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
-
-        Path listenerPersistencePath = workDir.resolve("db" + idx);
 
         servers.add(server);
 
         server.startRaftNode(
                 new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.topologyService().localMember().name())),
                 initialMemberConf,
-                createListener(service, listenerPersistencePath, idx),
-                defaults().commandsMarshaller(commandsMarshaller(service))
+                createListener(service, componentWorkDir.dbPath().get()),
+                defaults()
+                        .commandsMarshaller(commandsMarshaller(service))
+                        .setLogStorageFactory(logStorageFactories.get(idx))
+                        .serverDataPath(workingDirs.get(idx).metaPath())
+
         );
 
         return server;
@@ -457,7 +476,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     private RaftGroupService prepareRaftGroup(TestInfo testInfo) throws Exception {
         for (int i = 0; i < initialMemberConf.peers().size(); i++) {
-            startServer(testInfo, i);
+            ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("partitions" + i));
+            workingDirs.add(workingDir);
+
+            startServer(testInfo, workingDir, i);
         }
 
         assertTrue(waitForTopology(cluster.get(0), servers.size(), 3_000));

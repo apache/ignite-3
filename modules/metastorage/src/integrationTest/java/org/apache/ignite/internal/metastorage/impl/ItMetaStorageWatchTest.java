@@ -57,6 +57,7 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -82,9 +83,13 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -137,10 +142,18 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
+            ComponentWorkingDir workingDir = new ComponentWorkingDir(basePath.resolve("raft"));
+
+            LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    workingDir.raftLogPath()
+            );
+
+            components.add(defaultLogStorageFactory);
+
             var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
-                    basePath.resolve("raft"),
                     clock,
                     raftGroupEventsClientListener
             );
@@ -162,6 +175,21 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             FailureProcessor failureProcessor = new NoOpFailureProcessor();
             components.add(failureProcessor);
 
+            ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
+
+            LogStorageFactory cmgLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+
+            components.add(cmgLogStorageFactory);
+
+            RaftOptionsConfigurator cmgRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(cmgLogStorageFactory);
+                raftOptions.serverDataPath(cmgWorkDir.metaPath());
+            };
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -172,7 +200,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     cmgConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureProcessor,
-                    new ClusterIdHolder()
+                    new ClusterIdHolder(),
+                    cmgRaftConfigurator
             );
 
             components.add(cmgManager);
@@ -186,16 +215,34 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     raftGroupEventsClientListener
             );
 
+            ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(basePath.resolve("storage"));
+
+            LogStorageFactory mslogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    metastorageWorkDir.raftLogPath()
+            );
+
+            components.add(mslogStorageFactory);
+
+            RaftOptionsConfigurator msRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(mslogStorageFactory);
+                raftOptions.serverDataPath(metastorageWorkDir.metaPath());
+            };
+
             this.metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage"), new NoOpFailureProcessor()),
+                    new RocksDbKeyValueStorage(name(), metastorageWorkDir.dbPath(), new NoOpFailureProcessor()),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration
+                    metaStorageConfiguration,
+                    msRaftConfigurator
             );
 
             components.add(metaStorageManager);

@@ -41,7 +41,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -57,6 +56,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -64,6 +65,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
@@ -103,13 +105,12 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
     private final Map<NetworkAddress, JraftServerImpl> raftServers = new HashMap<>();
 
+    private final Map<NetworkAddress, LogStorageFactory> logStorageFactories = new HashMap<>();
+
     private final List<TopologyAwareRaftGroupService> raftClients = new ArrayList<>();
 
     @InjectConfiguration
     protected RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    protected SystemLocalConfiguration systemConfiguration;
 
     @AfterEach
     protected void tearDown() throws Exception {
@@ -296,6 +297,9 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         afterNodeStop(leader.name());
 
+        var logStorageToStop = logStorageFactories.remove(new NetworkAddress("localhost", leader.address().port()));
+        assertThat(logStorageToStop.stopAsync(componentContext), willCompleteSuccessfully());
+
         CompletableFuture<Void> stopFuture =
                 clusterServices.remove(new NetworkAddress("localhost", leader.address().port()))
                         .stopAsync(componentContext);
@@ -377,11 +381,14 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
                 assertThat(raftServers.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
             }
-
+            if (logStorageFactories.containsKey(addr)) {
+                assertThat(logStorageFactories.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
+            }
             assertThat(clusterServices.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
         }
 
         raftServers.clear();
+        logStorageFactories.clear();
         clusterServices.clear();
     }
 
@@ -434,10 +441,19 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 NodeOptions nodeOptions = new NodeOptions();
                 nodeOptions.setCommandsMarshaller(commandsMarshaller);
 
+                LazyPath workingDir = LazyPath.create(dataPath.resolve("partitions"));
+
+                LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                        cluster.nodeName(),
+                        workingDir.resolveLazy("log")
+                );
+
+                logStorageFactories.put(addr, defaultLogStorageFactory);
+
+                assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
                 var raftServer = TestJraftServerFactory.create(
                         cluster,
-                        dataPath,
-                        systemConfiguration,
                         nodeOptions,
                         eventsClientListener
                 );
@@ -447,7 +463,10 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                         new RaftNodeId(GROUP_ID, localPeer),
                         peersAndLearners,
                         new TestRaftGroupListener(),
-                        RaftGroupOptions.defaults().commandsMarshaller(commandsMarshaller)
+                        RaftGroupOptions.defaults()
+                                .commandsMarshaller(commandsMarshaller)
+                                .setLogStorageFactory(defaultLogStorageFactory)
+                                .serverDataPath(workingDir.resolveLazy("meta"))
                 );
 
                 raftServers.put(addr, raftServer);

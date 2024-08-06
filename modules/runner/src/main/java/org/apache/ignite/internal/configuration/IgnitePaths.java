@@ -42,19 +42,18 @@ public class IgnitePaths {
     /**
      * Path to the persistent storage used by the MetaStorageManager component.
      */
-    private static final Path METASTORAGE_DB_PATH = Paths.get("metastorage");
+    private static final Path METASTORAGE_PATH = Paths.get("metastorage");
 
     /**
      * Path to the persistent storage used by the ClusterManagementGroupManager component.
      */
-    private static final Path CMG_DB_PATH = Paths.get("cmg");
+    private static final Path CMG_PATH = Paths.get("cmg");
 
     /**
-     * Directory where partition data is stored. By default "partitions" subfolder of data storage path is used.
+     * Get paths where partition data is stored.
      *
      * @param systemConfiguration System configuration.
-     * @param workDir Ignite working dir. Will be used as a default place to store partitions dir, if it is not set in the
-     *         configuration.
+     * @param workDir Node's working dir.
      * @return Working dir subtree structure representation for partitions.
      */
     public static ComponentWorkingDir partitionsPath(SystemLocalConfiguration systemConfiguration, Path workDir) {
@@ -69,21 +68,29 @@ public class IgnitePaths {
     }
 
     /**
-     * Path to Metastorage store.
+     * Get paths where metastorage data is stored.
      *
-     * @param workDir Ignite working dir.
+     * @param systemConfiguration System configuration.
+     * @param workDir Node's working dir.
+     * @return Working dir subtree structure representation for metastorage.
      */
-    public static Path metastorageDbPath(Path workDir) {
-        return workDir.resolve(METASTORAGE_DB_PATH);
+    public static ComponentWorkingDir metastoragePath(SystemLocalConfiguration systemConfiguration, Path workDir) {
+        LazyPath basePath = lazy(systemConfiguration.metastoragePath(), () -> workDir.resolve(METASTORAGE_PATH));
+
+        return new ComponentWorkingDir(basePath);
     }
 
     /**
-     * Path to CMG store.
+     * Get paths where CMG data is stored.
      *
-     * @param workDir Ignite working dir.
+     * @param systemConfiguration System configuration.
+     * @param workDir Node's working dir.
+     * @return Working dir subtree structure representation for CMG.
      */
-    public static Path cmgDbPath(Path workDir) {
-        return workDir.resolve(CMG_DB_PATH);
+    public static ComponentWorkingDir cmgPath(SystemLocalConfiguration systemConfiguration, Path workDir) {
+        LazyPath basePath = lazy(systemConfiguration.cmgPath(), () -> workDir.resolve(CMG_PATH));
+
+        return new ComponentWorkingDir(basePath);
     }
 
     /**

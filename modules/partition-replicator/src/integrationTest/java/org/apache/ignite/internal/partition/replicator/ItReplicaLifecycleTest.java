@@ -133,8 +133,10 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.utils.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -867,6 +869,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         private final LogStorageFactory logStorageFactory;
 
+        private final LogStorageFactory msLogStorageFactory;
+
+        private final LogStorageFactory cmgLogStorageFactory;
+
         private final IndexMetaStorage indexMetaStorage;
 
         private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
@@ -927,14 +933,20 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
 
+            RaftOptionsConfigurator partitionRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(logStorageFactory);
+                raftOptions.serverDataPath(partitionsWorkDir.metaPath());
+            };
+
             raftManager = new Loza(
                     clusterService,
                     new NoOpMetricManager(),
                     raftConfiguration,
-                    partitionsWorkDir.metaPath(),
                     hybridClock,
-                    raftGroupEventsClientListener,
-                    logStorageFactory
+                    raftGroupEventsClientListener
             );
 
             var clusterStateStorage = new TestClusterStateStorage();
@@ -948,6 +960,19 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             failureProcessor = new NoOpFailureProcessor();
 
+            ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
+
+            cmgLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+
+            RaftOptionsConfigurator cmgRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(cmgLogStorageFactory);
+                raftOptions.serverDataPath(cmgWorkDir.metaPath());
+            };
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -958,7 +983,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributesConfigurations.get(idx), storageConfiguration),
                     failureProcessor,
-                    clusterIdHolder
+                    clusterIdHolder,
+                    cmgRaftConfigurator
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -972,6 +998,19 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     raftGroupEventsClientListener
             );
 
+            ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(dir.resolve("metastorage"));
+
+            msLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+            RaftOptionsConfigurator msRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(msLogStorageFactory);
+                raftOptions.serverDataPath(metastorageWorkDir.metaPath());
+            };
+
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
@@ -981,7 +1020,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration
+                    metaStorageConfiguration,
+                    msRaftConfigurator
             ) {
                 @Override
                 public CompletableFuture<Boolean> invoke(
@@ -1105,6 +1145,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
+                    partitionRaftConfigurator,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool(),
                     t -> converter.get().apply(t)
@@ -1223,6 +1264,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     failureProcessor,
                     clusterService,
                     logStorageFactory,
+                    msLogStorageFactory,
+                    cmgLogStorageFactory,
                     raftManager,
                     cmgManager
             );

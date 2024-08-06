@@ -86,6 +86,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
@@ -193,6 +194,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
+    private final RaftOptionsConfigurator partitionRaftConfigurator;
+
     /** Executor. */
     // TODO: IGNITE-20063 Maybe get rid of it
     private final ExecutorService executor;
@@ -243,6 +246,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
+            RaftOptionsConfigurator partitionRaftConfigurator,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
             Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
@@ -260,6 +264,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftCommandsMarshaller,
                 raftGroupServiceFactory,
                 raftManager,
+                partitionRaftConfigurator,
                 volatileLogStorageFactoryCreator,
                 replicaStartStopExecutor
         );
@@ -298,6 +303,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
+            RaftOptionsConfigurator partitionRaftConfigurator,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor
     ) {
@@ -315,6 +321,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftCommandsMarshaller = raftCommandsMarshaller;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
+        this.partitionRaftConfigurator = partitionRaftConfigurator;
         this.replicaStateManager = new ReplicaStateManager(replicaStartStopExecutor, clockService, placementDriver, this);
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
@@ -854,6 +861,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         raftGroupOptions.snapshotStorageFactory(snapshotFactory);
 
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
+
+        partitionRaftConfigurator.configure(raftGroupOptions);
 
         return raftGroupOptions;
     }

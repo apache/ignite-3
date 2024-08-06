@@ -50,6 +50,7 @@ import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
@@ -83,10 +84,14 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
@@ -133,6 +138,10 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         Loza raftManager;
 
+        LogStorageFactory defaultLogStorageFactory;
+
+        LogStorageFactory mslogStorageFactory;
+
         KeyValueStorage storage;
 
         MetaStorageManagerImpl metaStorageManager;
@@ -166,7 +175,14 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             Path lozaDir = workDir.resolve("loza" + index);
 
-            raftManager = TestLozaFactory.create(clusterService, raftConfiguration, lozaDir, clock, raftGroupEventsClientListener);
+            ComponentWorkingDir workingDir = new ComponentWorkingDir(lozaDir);
+
+            defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    workingDir.raftLogPath()
+            );
+
+            raftManager = TestLozaFactory.create(clusterService, raftConfiguration, clock, raftGroupEventsClientListener);
 
             var logicalTopologyService = mock(LogicalTopologyService.class);
 
@@ -179,11 +195,22 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             cmgManager = mock(ClusterManagementGroupManager.class);
 
-            Path metaStorageDir = workDir.resolve("metastorage" + index);
+            ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage" + index));
+
+            mslogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+            RaftOptionsConfigurator msRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(mslogStorageFactory);
+                raftOptions.serverDataPath(metastorageWorkDir.metaPath());
+            };
 
             storage = new RocksDbKeyValueStorage(
                     clusterService.nodeName(),
-                    metaStorageDir,
+                    metastorageWorkDir.dbPath(),
                     new NoOpFailureProcessor());
 
             metaStorageManager = new MetaStorageManagerImpl(
@@ -195,7 +222,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration
+                    metaStorageConfiguration,
+                    msRaftConfigurator
             );
 
             clockWaiter = new ClockWaiter(clusterService.nodeName(), clock);
@@ -213,7 +241,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             }
 
             assertThat(
-                    startAsync(new ComponentContext(), clusterService, raftManager, metaStorageManager, clockWaiter),
+                    startAsync(new ComponentContext(),
+                            clusterService, defaultLogStorageFactory, mslogStorageFactory, raftManager, metaStorageManager, clockWaiter),
                     willCompleteSuccessfully()
             );
         }
@@ -223,7 +252,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
 
         void stop() throws Exception {
-            List<IgniteComponent> components = List.of(clockWaiter, metaStorageManager, raftManager, clusterService);
+            List<IgniteComponent> components =
+                    List.of(clockWaiter, metaStorageManager, raftManager, defaultLogStorageFactory, mslogStorageFactory, clusterService);
 
             closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),

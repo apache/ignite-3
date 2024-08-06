@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -46,6 +47,8 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -93,6 +96,8 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /** Cluster service. */
     private ClusterService service;
 
+    private LogStorageFactory defaultLogStorageFactory;
+
     /**
      * Before each.
      */
@@ -102,7 +107,16 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         service = clusterService(PORT, List.of(addr), true);
 
-        server = TestJraftServerFactory.create(service, workDir, systemConfiguration);
+        ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir);
+
+        defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                service.nodeName(),
+                workingDir.raftLogPath()
+        );
+
+        assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        server = TestJraftServerFactory.create(service);
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -116,6 +130,9 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         var cmdMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
 
         RaftGroupOptions grpOptions = defaults().commandsMarshaller(cmdMarshaller);
+
+        grpOptions.setLogStorageFactory(defaultLogStorageFactory);
+        grpOptions.serverDataPath(workingDir.metaPath());
 
         assertTrue(
                 server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_0, serverPeer), memberConfiguration, new CounterListener(), grpOptions)
@@ -155,6 +172,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
                 () -> assertThat(server.stopAsync(componentContext), willCompleteSuccessfully()),
                 () -> assertThat(service.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(defaultLogStorageFactory.stopAsync(componentContext), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

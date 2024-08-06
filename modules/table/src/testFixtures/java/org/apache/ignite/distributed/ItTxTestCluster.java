@@ -98,11 +98,15 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -159,6 +163,7 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -212,6 +217,10 @@ public class ItTxTestCluster {
     protected Map<String, Loza> raftServers;
 
     protected Map<String, ReplicaManager> replicaManagers;
+
+    protected Map<String, RaftOptionsConfigurator> raftConfigurators;
+
+    protected Map<String, LogStorageFactory> logStorageFactories;
 
     protected Map<String, ReplicaService> replicaServices;
 
@@ -367,6 +376,8 @@ public class ItTxTestCluster {
         txInflights = new HashMap<>(nodes);
         cursorRegistries = new HashMap<>(nodes);
         txStateStorages = new HashMap<>(nodes);
+        raftConfigurators = new HashMap<>(nodes);
+        logStorageFactories = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
@@ -391,11 +402,32 @@ public class ItTxTestCluster {
             clocks.put(nodeName, clock);
             clockServices.put(nodeName, clockService);
 
+            LazyPath partitionsWorkDir = LazyPath.create(workDir.resolve("node" + i));
+
+            LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    partitionsWorkDir.resolveLazy("log")
+            );
+
+            logStorageFactories.put(nodeName, logStorageFactory);
+
+            assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+            RaftOptionsConfigurator partitionRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(logStorageFactory);
+                raftOptions.serverDataPath(partitionsWorkDir.resolveLazy("meta"));
+            };
+
+            raftConfigurators.put(nodeName, partitionRaftConfigurator);
+
             var raftSrv = TestLozaFactory.create(
                     clusterService,
                     raftConfig,
-                    workDir.resolve("node" + i),
-                    clock
+                    clock,
+                    new RaftGroupEventsClientListener()
             );
 
             assertThat(raftSrv.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -429,6 +461,7 @@ public class ItTxTestCluster {
                     commandMarshaller,
                     raftClientFactory,
                     raftSrv,
+                    partitionRaftConfigurator,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     ForkJoinPool.commonPool()
             );
@@ -678,7 +711,8 @@ public class ItTxTestCluster {
                         configuration,
                         partitionListener,
                         RaftGroupEventsListener.noopLsnr,
-                        topologyAwareRaftGroupServiceFactory
+                        topologyAwareRaftGroupServiceFactory,
+                        raftConfigurators.get(assignment)
                 ).thenAccept(
                         raftSvc -> {
                                 PartitionReplicaListener listener = newReplicaListener(
@@ -935,6 +969,12 @@ public class ItTxTestCluster {
 
                 assertThat(replicaMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
                 assertThat(rs.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+            }
+        }
+
+        if (logStorageFactories != null) {
+            for (LogStorageFactory logStorageFactory : logStorageFactories.values()) {
+                assertThat(logStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
 

@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
@@ -116,6 +118,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
 
+        RaftOptionsConfigurator partitionRaftConfigurator = mock(RaftOptionsConfigurator.class);
+
         replicaManager = new ReplicaManager(
                 nodeName,
                 clusterService,
@@ -129,6 +133,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 marshaller,
                 raftGroupServiceFactory,
                 raftManager,
+                partitionRaftConfigurator,
                 volatileLogStorageFactoryCreator,
                 ForkJoinPool.commonPool()
         );

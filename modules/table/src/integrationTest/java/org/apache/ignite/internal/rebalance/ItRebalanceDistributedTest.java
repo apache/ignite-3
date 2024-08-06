@@ -24,6 +24,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -165,8 +167,10 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
@@ -1080,6 +1084,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final LogStorageFactory logStorageFactory;
 
+        private final LogStorageFactory cmgLogStorageFactory;
+
+        private final LogStorageFactory msLogStorageFactory;
+
         final TestPlacementDriver placementDriver;
 
         private final IndexMetaStorage indexMetaStorage;
@@ -1141,18 +1149,24 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dir);
+            ComponentWorkingDir partitionsBasePath = partitionsPath(systemConfiguration, dir);
 
-            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
+            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsBasePath.raftLogPath());
+
+            RaftOptionsConfigurator partitionRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(logStorageFactory);
+                raftOptions.serverDataPath(partitionsBasePath.metaPath());
+            };
 
             raftManager = spy(new Loza(
                     clusterService,
                     metricManager,
                     raftConfiguration,
-                    partitionsWorkDir.metaPath(),
                     hybridClock,
-                    raftGroupEventsClientListener,
-                    logStorageFactory
+                    raftGroupEventsClientListener
             ));
 
             var clusterStateStorage = new TestClusterStateStorage();
@@ -1166,6 +1180,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             failureProcessor = new NoOpFailureProcessor();
 
+            ComponentWorkingDir cmgWorkDir = cmgPath(systemConfiguration, dir);
+
+            cmgLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+
+            RaftOptionsConfigurator cmgRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(cmgLogStorageFactory);
+                raftOptions.serverDataPath(cmgWorkDir.metaPath());
+            };
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -1176,7 +1203,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureProcessor,
-                    clusterIdService
+                    clusterIdService,
+                    cmgRaftConfigurator
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -1192,6 +1220,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftGroupEventsClientListener
             );
 
+            ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, dir);
+
+            msLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+            RaftOptionsConfigurator msRaftConfigurator = options -> {
+                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                raftOptions.setLogStorageFactory(msLogStorageFactory);
+                raftOptions.serverDataPath(metastorageWorkDir.metaPath());
+            };
+
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
@@ -1201,7 +1242,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
-                    metaStorageConfiguration
+                    metaStorageConfiguration,
+                    msRaftConfigurator
             );
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
@@ -1313,6 +1355,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
+                    partitionRaftConfigurator,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool()
             ));
@@ -1455,6 +1498,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     failureProcessor,
                     clusterService,
                     logStorageFactory,
+                    cmgLogStorageFactory,
+                    msLogStorageFactory,
                     raftManager,
                     cmgManager
             );

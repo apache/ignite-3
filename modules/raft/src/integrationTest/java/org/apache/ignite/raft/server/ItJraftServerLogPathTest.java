@@ -17,21 +17,22 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.network.NetworkAddress;
@@ -45,6 +46,7 @@ import org.junit.jupiter.api.Test;
 class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     private Path dataPath;
     private JraftServerImpl server;
+    private LogStorageFactory defaultLogStorageFactory;
 
     @BeforeEach
     void setUp() {
@@ -54,6 +56,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     @AfterEach
     void tearDown() {
         assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(defaultLogStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -79,18 +82,6 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
-    void testLogitFactory() {
-        Path partitionsPath = workDir.resolve("custom_partitions");
-        assertThat(systemConfiguration.partitionsBasePath().update(partitionsPath.toString()), willCompleteSuccessfully());
-
-        server = startServer(systemConfiguration);
-
-        LogitLogStorageFactory factory = (LogitLogStorageFactory) server.getLogStorageFactory();
-        assertEquals(partitionsPath.resolve("log").resolve("log-1"), factory.resolveLogStoragePath("1"));
-    }
-
-    @Test
     @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
     void testDefaultLogPathDefaultFactory() {
         server = startServer(systemConfiguration);
@@ -98,24 +89,22 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
         assertTrue(Files.exists(dataPath.resolve("partitions/log")));
     }
 
-    @Test
-    @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
-    void testDefaultLogPathLogitFactory() {
-        server = startServer(systemConfiguration);
-
-        LogitLogStorageFactory factory = (LogitLogStorageFactory) server.getLogStorageFactory();
-        assertEquals(dataPath.resolve("partitions/log/log-1"), factory.resolveLogStoragePath("1"));
-    }
-
     private JraftServerImpl startServer(SystemLocalConfiguration systemConfiguration) {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
 
+        ComponentWorkingDir workingDir = partitionsPath(systemConfiguration, dataPath);
+
+        defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                service.nodeName(),
+                workingDir.raftLogPath()
+        );
+
+        assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
         JraftServerImpl server = TestJraftServerFactory.create(
                 service,
-                dataPath,
-                systemConfiguration,
                 new NodeOptions(),
                 new RaftGroupEventsClientListener()
         );

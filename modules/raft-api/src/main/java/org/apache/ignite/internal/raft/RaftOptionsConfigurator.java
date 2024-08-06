@@ -15,16 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
-
-import org.apache.ignite.internal.util.LazyPath;
+package org.apache.ignite.internal.raft;
 
 /**
- * Test class for {@link RocksDbClusterStateStorage}.
+ * This interface allows to inject RAFT options configuration.
+ *
+ * <p>This is the example of using it:
+ * <pre>
+ *    RaftOptionsConfigurator raftOptionsConfigurator = options -> {
+ *        RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+ *
+ *        raftOptions.setLogStorageFactory(logStorageFactory);
+ *        raftOptions.serverDataPath(dataPath);
+ *    };
+ * </pre>
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-18273
  */
-public class RocksDbClusterStateStorageTest extends AbstractClusterStateStorageTest {
-    @Override
-    ClusterStateStorage createStorage(String nodeName) {
-        return new RocksDbClusterStateStorage(LazyPath.create(workDir), nodeName);
-    }
+@FunctionalInterface
+public interface RaftOptionsConfigurator {
+
+    void configure(Object options);
 }
