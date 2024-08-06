@@ -31,6 +31,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -156,15 +157,14 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     }
 
     private static class ModifyNodeShuttle extends IgniteRelShuttle {
-        @Nullable TargetMapping mapping;
-        boolean unionRaised = false;
+        List<TargetMapping> mapping;
         IgniteRel previous = null;
         private static final Map<Class<?>, Set<Class<?>>> allowRelTransfers = new HashMap<>();
 
         List<List<RexNode>> finalExpressions = new ArrayList<>();
         IgniteTable table;
 
-        @Nullable List<RexNode> prevProject;
+        List<List<RexNode>> prevProjects = new ArrayList<>();
 
         ModifyNodeShuttle(IgniteTable table) {
             this.table = table;
@@ -173,19 +173,14 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         static {
             allowRelTransfers.put(IgniteValues.class, Set.of(IgniteProject.class, IgniteExchange.class, IgniteTrimExchange.class));
             allowRelTransfers.put(IgniteProject.class, Set.of(IgniteTableModify.class, IgniteUnionAll.class, IgniteExchange.class,
-                    IgniteTrimExchange.class));
+                    IgniteTrimExchange.class, IgniteProject.class));
             allowRelTransfers.put(IgniteUnionAll.class, Set.of(IgniteProject.class, IgniteTableModify.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteProject rel) {
-            if (unionRaised && mapping == null && prevProject != null) {
-                mapping = RexUtils.inversePermutation(prevProject,
-                        table.getRowType(Commons.typeFactory()), false); // !!!fix
-            }
-
-            prevProject = rel.getProjects();
+            prevProjects.add(rel.getProjects());
 
             return super.visit(rel);
         }
@@ -195,40 +190,43 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         public IgniteRel visit(IgniteValues rel) {
             List<List<RexNode>> expressions = Commons.cast(rel.getTuples());
 
-            if (prevProject != null) {
-                List<RexNode> projectionsReplaced = replaceInputRefs(prevProject);
+            if (!prevProjects.isEmpty()) {
+                for (List<RexNode> prj : prevProjects) {
+                    List<RexNode> prevProject = prj;
+                    List<RexNode> projectionsReplaced = replaceInputRefs(prevProject);
 
-                boolean refFound = !projectionsReplaced.equals(prevProject);
+                    boolean refFound = !projectionsReplaced.equals(prevProject);
 
-                prevProject = projectionsReplaced;
+                    prevProject = projectionsReplaced;
 
-                assert rel.getTuples() != null;
+                    assert rel.getTuples() != null;
 
-                for (List<RexNode> exp : expressions) {
-                    if (!refFound) {
-                        // no references are found, all important in projections
-                        finalExpressions.add(prevProject);
-                    } else {
-                        // otherwise exchange references with appropriate representations
-                        List<RexNode> modifiedExpressions = new ArrayList<>(prevProject);
+                    for (List<RexNode> exp : expressions) {
+                        if (!refFound) {
+                            // no references are found, all important in projections
+                            finalExpressions.add(prevProject);
+                        } else {
+                            // otherwise exchange references with appropriate representations
+                            List<RexNode> modifiedExpressions = new ArrayList<>(prevProject);
 
-                        for (int i = 0; i < prevProject.size(); ++i) {
-                            RexNode prjNode = prevProject.get(i);
+                            for (int i = 0; i < prevProject.size(); ++i) {
+                                RexNode prjNode = prevProject.get(i);
 
-                            if (prjNode instanceof RexLocalRef) {
-                                RexLocalRef node0 = (RexLocalRef) prjNode;
-                                modifiedExpressions.set(i, exp.get(node0.getIndex()));
+                                if (prjNode instanceof RexLocalRef) {
+                                    RexLocalRef node0 = (RexLocalRef) prjNode;
+                                    modifiedExpressions.set(i, exp.get(node0.getIndex()));
+                                }
                             }
-                        }
 
-                        finalExpressions.add(modifiedExpressions);
+                            finalExpressions.add(modifiedExpressions);
+                        }
                     }
                 }
             } else if (expressions != null) {
                 finalExpressions.addAll(expressions);
             }
 
-            prevProject = null;
+            prevProjects.clear();
 
             return super.visit(rel);
         }
@@ -236,7 +234,17 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteUnionAll rel) {
-            unionRaised = true;
+            for (List<RexNode> prj: prevProjects) {
+                if (mapping == null) {
+                    mapping = new ArrayList<>(prevProjects.size());
+                }
+
+                mapping.add(RexUtils.inversePermutation(prj,
+                        table.getRowType(Commons.typeFactory()), false));
+            }
+
+            prevProjects.clear();
+
             return super.visit(rel);
         }
 
@@ -288,7 +296,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             long sourceId,
             IgniteTable table,
             List<List<RexNode>> finalExpressions,
-            @Nullable TargetMapping mapping,
+            @Nullable List<TargetMapping> mapping,
             RexBuilder rexBuilder
     ) {
         if (finalExpressions.isEmpty()) {
@@ -308,7 +316,16 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         for (List<RexNode> items : finalExpressions) {
             List<RexNode> andNodes = new ArrayList<>(keysList.size());
             for (int key : keysList) {
-                RexNode node = items.get(mapping != null ? mapping.getSourceOpt(key) : key);
+                RexNode node = null;
+                if (mapping != null) {
+                    assert !mapping.isEmpty();
+
+                    for (int i = mapping.size() - 1; i >= 0; i--) {
+                        node = items.get(mapping.get(i).getSourceOpt(key));
+                    }
+                } else {
+                    node = items.get(key);
+                }
 
                 if (!isValueExpr(node)) {
                     return;
