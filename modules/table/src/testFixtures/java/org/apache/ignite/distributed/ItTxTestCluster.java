@@ -576,7 +576,7 @@ public class ItTxTestCluster {
 
         Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
 
-        List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
+        List<CompletableFuture<?>> partitionReadyFutures = new ArrayList<>();
 
         ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
                 new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
