@@ -34,22 +34,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
-import org.apache.calcite.linq4j.tree.Expression;
-import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.prepare.RelOptTableImpl;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.rel.core.TableModify.Operation;
-import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeImpl;
-import org.apache.calcite.rel.type.RelProtoDataType;
-import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexLiteral;
-import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -58,24 +46,12 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
-import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadataExtractor;
-import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
-import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -134,56 +110,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
         assertArrayEquals(row(1, 2), root.next());
 
         assertFalse(root.hasNext());
-    }
-
-    @Test
-    public void test0() {
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
-        RelDataType rowType = typeFactory.builder().add("f1", SqlTypeName.INTEGER)
-                .add("f2", SqlTypeName.INTEGER)
-                .build();
-
-        RelDataType rowType1 = typeFactory.builder().add("f1", SqlTypeName.CHAR)
-                .build();
-
-        RelOptCluster cluster = Commons.emptyCluster();
-        RelTraitSet traitSet = RelTraitSet.createEmpty();
-
-        RexBuilder rexBuilder = Commons.rexBuilder();
-
-        IgniteTypeFactory tf = Commons.typeFactory();
-        RelDataType intType = tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.INTEGER), false);
-
-        RexLiteral condition = rexBuilder.makeLiteral("0");
-        IgniteValues values = new IgniteValues(cluster, rowType1, ImmutableList.of(ImmutableList.of(condition)), traitSet);
-
-        RexNode dyn1 = rexBuilder.makeDynamicParam(intType, 0);
-        RexNode dyn2 = rexBuilder.makeDynamicParam(intType, 1);
-        //rexBuilder.
-        IgniteRel proj1 = new IgniteProject(cluster, traitSet, values, List.of(dyn1, dyn2), rowType);
-
-        IgniteUnionAll union = new IgniteUnionAll(cluster, traitSet, List.of(proj1));
-
-        RexNode exp1 = rexBuilder.makeInputRef(intType, 0);
-        RexNode exp2 = rexBuilder.makeInputRef(intType, 1);
-        IgniteRel proj2 = new IgniteProject(cluster, traitSet, union, List.of(exp2, exp1), rowType);
-        IgniteRel proj3 = new IgniteProject(cluster, traitSet, proj2, List.of(exp1, exp2), rowType);
-
-        IgniteTable innerTbl = TestBuilders.table()
-                .name("tbl")
-                .addKeyColumn("f1", NativeTypes.INT32)
-                .addColumn("f2", NativeTypes.INT32, true)
-                .distribution(IgniteDistributions.affinity(List.of(0), 2, "3"))
-                .build();
-
-        RelOptTableImpl tbl = RelOptTableImpl.create(null, rowType, innerTbl, ImmutableList.of("f1", "f2"));
-
-        IgniteTableModify modify = new IgniteTableModify(cluster, traitSet, tbl, proj3, Operation.INSERT, null, null, true);
-
-        PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
-        PartitionPruningMetadata actual = extractor.go(modify);
-        System.err.println("!!!!: " + actual.toString());
     }
 
     @ParameterizedTest

@@ -31,7 +31,6 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -234,7 +233,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteUnionAll rel) {
-            for (List<RexNode> prj: prevProjects) {
+            for (List<RexNode> prj : prevProjects) {
                 if (mapping == null) {
                     mapping = new ArrayList<>(prevProjects.size());
                 }
@@ -313,19 +312,20 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
         RelDataType rowTypes = table.getRowType(Commons.typeFactory());
 
-        for (List<RexNode> items : finalExpressions) {
-            List<RexNode> andNodes = new ArrayList<>(keysList.size());
-            for (int key : keysList) {
-                RexNode node = null;
-                if (mapping != null) {
-                    assert !mapping.isEmpty();
+        for (List<RexNode> values : finalExpressions) {
+            List<RexNode> andNodes = new ArrayList<>(finalExpressions.size() * keysList.size());
+            List<RexNode> values0 = values;
 
-                    for (int i = mapping.size() - 1; i >= 0; i--) {
-                        node = items.get(mapping.get(i).getSourceOpt(key));
-                    }
-                } else {
-                    node = items.get(key);
+            if (mapping != null) {
+                assert !mapping.isEmpty();
+
+                for (int i = mapping.size() - 1; i >= 0; i--) {
+                    values0 = transform(values0, mapping.get(i));
                 }
+            }
+
+            for (int key : keysList) {
+                RexNode node = values0.get(key);
 
                 if (!isValueExpr(node)) {
                     return;
@@ -336,6 +336,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                 RexNode eq = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, node);
                 andNodes.add(eq);
             }
+
             if (andNodes.size() > 1) {
                 RexNode node0 = rexBuilder.makeCall(SqlStdOperatorTable.AND, andNodes);
                 andEqNodes.add(node0);
@@ -359,6 +360,16 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                 result.put(sourceId, metadata);
             }
         }
+    }
+
+    private List<RexNode> transform(List<RexNode> values, TargetMapping mapping) {
+        ArrayList<RexNode> values0 = new ArrayList<>(values);
+
+        for (int i = 0; i < values.size(); ++i) {
+            values0.set(i, values.get(mapping.getSourceOpt(i)));
+        }
+
+        return values0;
     }
 
     private void extractFromTable(
