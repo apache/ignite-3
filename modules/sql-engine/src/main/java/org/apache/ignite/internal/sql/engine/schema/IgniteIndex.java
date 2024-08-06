@@ -165,8 +165,7 @@ public class IgniteIndex {
             List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
 
             for (CatalogIndexColumnDescriptor column : columns) {
-                CatalogTableColumnDescriptor tableColumn = tableDescriptor.columnDescriptor(column.name());
-                int fieldIndex = tableDescriptor.columns().indexOf(tableColumn);
+                int fieldIndex = tableDescriptor.columnIndex(column.name());
 
                 RelFieldCollation fieldCollation;
                 switch (column.collation()) {

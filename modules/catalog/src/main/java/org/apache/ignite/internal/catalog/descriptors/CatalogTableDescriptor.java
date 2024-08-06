@@ -23,11 +23,11 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -61,7 +61,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private final List<String> colocationColumns;
 
     @IgniteToStringExclude
-    private Map<String, CatalogTableColumnDescriptor> columnsMap;
+    private Map<String, Map.Entry<Integer, CatalogTableColumnDescriptor>> columnsMap;
 
     private long creationToken;
 
@@ -128,7 +128,14 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.zoneId = zoneId;
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
         this.primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
-        this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
+
+        Map<String, Map.Entry<Integer, CatalogTableColumnDescriptor>> columnMap = new HashMap<>();
+        for (int i = 0; i < columns.size(); i ++) {
+            CatalogTableColumnDescriptor column = columns.get(i);
+            columnMap.put(column.name(), Map.entry(i, column));
+        }
+
+        this.columnsMap = columnMap;
         this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
@@ -160,7 +167,12 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * Returns column descriptor for column with given name.
      */
     public CatalogTableColumnDescriptor columnDescriptor(String columnName) {
-        return columnsMap.get(columnName);
+        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(columnName);
+        if (column != null) {
+            return column.getValue();
+        } else {
+            return null;
+        }
     }
 
     public int schemaId() {
@@ -196,7 +208,21 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     }
 
     public CatalogTableColumnDescriptor column(String name) {
-        return columnsMap.get(name);
+        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        if (column != null) {
+            return column.getValue();
+        } else {
+            return null;
+        }
+    }
+
+    public int columnIndex(String name) {
+        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        if (column != null) {
+            return column.getKey();
+        } else {
+            return -1;
+        }
     }
 
     public boolean isPrimaryKeyColumn(String name) {
