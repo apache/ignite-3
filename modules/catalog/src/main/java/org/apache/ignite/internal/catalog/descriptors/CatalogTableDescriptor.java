@@ -216,6 +216,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         }
     }
 
+    /** Returns an index of a column with the given name, or {@code -1} if such column does not exist. */
     public int columnIndex(String name) {
         Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
         if (column != null) {
