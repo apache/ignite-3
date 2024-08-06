@@ -63,7 +63,7 @@ public interface ClusterTag extends NetworkMessage, Serializable {
     static ClusterTag clusterTag(CmgMessagesFactory msgFactory, String name, UUID clusterId) {
         return msgFactory.clusterTag()
                 .clusterName(name)
-                .clusterId(UUID.randomUUID())
+                .clusterId(clusterId)
                 .build();
     }
 }
