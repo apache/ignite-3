@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests.Table
     using System.Collections.Generic;
     using System.Linq;
     using Ignite.Table;
+    using NodaTime;
     using NUnit.Framework;
 
     /// <summary>
@@ -178,14 +179,13 @@ namespace Apache.Ignite.Tests.Table
                 { "bytes", randomBytes },
                 { "str", "s-" + Random.Shared.Next() },
                 { "guid", Guid.NewGuid() },
-                { "dt", DateTime.Now },
-                { "ts", TimeSpan.FromMilliseconds(Random.Shared.Next()) },
+                { "dt", LocalDateTime.FromDateTime(DateTime.UtcNow) },
                 { "bool", Random.Shared.Next() % 2 == 0 },
                 { "dec", (decimal)Random.Shared.NextDouble() }
             };
 
-            var tuple1 = GetRandomizedTuple();
-            var tuple2 = GetRandomizedTuple();
+            var tuple1 = CreateTuple(GetRandomizedTuple());
+            var tuple2 = CreateTuple(GetRandomizedTuple());
 
             Assert.AreEqual(tuple1, tuple2);
             Assert.AreEqual(tuple1.GetHashCode(), tuple2.GetHashCode());
