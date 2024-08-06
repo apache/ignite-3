@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSe
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSer
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -129,7 +129,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
         this.primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
 
-        Map<String, Map.Entry<Integer, CatalogTableColumnDescriptor>> columnMap = new HashMap<>();
+        Map<String, Map.Entry<Integer, CatalogTableColumnDescriptor>> columnMap = IgniteUtils.newHashMap(columns.size());
         for (int i = 0; i < columns.size(); i ++) {
             CatalogTableColumnDescriptor column = columns.get(i);
             columnMap.put(column.name(), Map.entry(i, column));
