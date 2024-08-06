@@ -30,7 +30,11 @@ public enum HandshakeRejectionReason {
      */
     STALE_LAUNCH_ID,
     /** The sender has detected a clinch and decided to terminate this handshake in favor of the competitor. */
-    CLINCH;
+    CLINCH,
+    /**
+     * Cluster ID of the sender does not match the cluster ID of the counterpart.
+     */
+    CLUSTER_ID_MISMATCH;
 
     /**
      * Returns {@code true} iff the rejection is not expected and should be treated as a critical failure (requiring
@@ -38,5 +42,12 @@ public enum HandshakeRejectionReason {
      */
     public boolean critical() {
         return this == STALE_LAUNCH_ID;
+    }
+
+    /**
+     * Returns {@code true} iff the rejection should be logged at a WARN level.
+     */
+    public boolean logAsWarn() {
+        return this == STALE_LAUNCH_ID || this == CLUSTER_ID_MISMATCH;
     }
 }

@@ -77,6 +77,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
@@ -125,6 +126,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
@@ -907,10 +909,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
+            var clusterIdHolder = new ClusterIdHolder();
+
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
                     networkAddress.port(),
-                    finder
+                    finder,
+                    new InMemoryStaleIds(),
+                    clusterIdHolder
             );
 
             lockManager = new HeapLockManager();
@@ -951,7 +957,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     logicalTopology,
                     clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributesConfigurations.get(idx), storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    clusterIdHolder
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

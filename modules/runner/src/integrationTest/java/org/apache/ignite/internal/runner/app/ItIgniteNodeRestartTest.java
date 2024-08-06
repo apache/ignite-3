@@ -96,6 +96,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterIdService;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
@@ -328,6 +329,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         VaultManager vault = createVault(dir);
 
+        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
+
+        var clusterIdService = new ClusterIdService(clusterStateStorage);
+
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
         Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
@@ -374,6 +379,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
                 new VaultStaleIds(vault),
+                clusterIdService,
                 workerRegistry,
                 failureProcessor
         );
@@ -395,8 +401,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
-
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var clusterInitializer = new ClusterInitializer(
@@ -415,7 +419,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterManagementConfiguration,
                 new NodeAttributesCollector(nodeAttributes,
                         nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)),
-                failureProcessor
+                failureProcessor,
+                clusterIdService
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
@@ -747,11 +752,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager,
                 failureProcessor,
                 workerRegistry,
+                clusterStateStorage,
+                clusterIdService,
                 nettyBootstrapFactory,
                 nettyWorkersRegistrar,
                 clusterSvc,
                 raftMgr,
-                clusterStateStorage,
                 cmgManager,
                 replicaMgr,
                 txManager,

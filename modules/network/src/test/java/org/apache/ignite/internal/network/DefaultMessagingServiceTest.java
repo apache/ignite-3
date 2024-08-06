@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -117,16 +118,18 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private final MessageSerializationRegistry messageSerializationRegistry = defaultSerializationRegistry();
 
     private final ClusterNode senderNode = new ClusterNodeImpl(
-            UUID.randomUUID().toString(),
+            randomUUID().toString(),
             "sender",
             new NetworkAddress("localhost", SENDER_PORT)
     );
 
     private final ClusterNode receiverNode = new ClusterNodeImpl(
-            UUID.randomUUID().toString(),
+            randomUUID().toString(),
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)
     );
+
+    private final UUID clusterId = randomUUID();
 
     @BeforeEach
     void setUp() {
@@ -475,6 +478,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             MessageSerializationRegistry registry
     ) {
         StaleIdDetector staleIdDetector = new AllIdsAreFresh();
+        ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(clusterId);
 
         ClassDescriptorRegistry classDescriptorRegistry = new ClassDescriptorRegistry();
         ClassDescriptorFactory classDescriptorFactory = new ClassDescriptorFactory(classDescriptorRegistry);
@@ -506,7 +510,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 node.name(),
                 bootstrapFactory,
                 staleIdDetector,
-                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector),
+                clusterIdSupplier,
+                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
                 failureProcessor
         );
         connectionManager.start();
@@ -520,7 +525,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(
             Runnable beforeHandshake,
             NettyBootstrapFactory bootstrapFactory,
-            StaleIdDetector staleIdDetector
+            StaleIdDetector staleIdDetector,
+            ClusterIdSupplier clusterIdSupplier
     ) {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
@@ -535,6 +541,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         recoveryDescriptorProvider,
                         bootstrapFactory,
                         staleIdDetector,
+                        clusterIdSupplier,
                         channel -> {},
                         () -> false,
                         failureProcessor
