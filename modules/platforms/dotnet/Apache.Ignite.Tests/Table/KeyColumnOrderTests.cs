@@ -31,12 +31,12 @@ public class KeyColumnOrderTests : IgniteTestsBase
     [OneTimeSetUp]
     public async Task CreateTables()
     {
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test1 (key INT PRIMARY KEY, val1 STRING, val2 STRING)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test2 (val1 STRING, key INT PRIMARY KEY, val2 STRING)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test3 (val1 STRING, val2 STRING, key INT PRIMARY KEY)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test4 (key INT PRIMARY KEY, val1 STRING, val2 STRING)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test5 (val1 STRING, key INT PRIMARY KEY, val2 STRING)");
-        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test6 (val1 STRING, val2 STRING, key INT PRIMARY KEY)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test1 (key INT PRIMARY KEY, val1 VARCHAR, val2 VARCHAR)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test2 (val1 VARCHAR, key INT PRIMARY KEY, val2 VARCHAR)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test3 (val1 VARCHAR, val2 VARCHAR, key INT PRIMARY KEY)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test4 (key INT PRIMARY KEY, val1 VARCHAR, val2 VARCHAR)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test5 (val1 VARCHAR, key INT PRIMARY KEY, val2 VARCHAR)");
+        await Client.Sql.ExecuteAsync(null, "CREATE TABLE test6 (val1 VARCHAR, val2 VARCHAR, key INT PRIMARY KEY)");
     }
 
     [OneTimeTearDown]
@@ -57,6 +57,11 @@ public class KeyColumnOrderTests : IgniteTestsBase
         var table = await Client.Tables.GetTableAsync(tableName);
         var view = table!.RecordBinaryView;
 
+        var key = new IgniteTuple
+        {
+            ["key"] = 1
+        };
+
         var row = new IgniteTuple
         {
             ["key"] = 1,
@@ -65,7 +70,7 @@ public class KeyColumnOrderTests : IgniteTestsBase
         };
 
         await view.UpsertAsync(null, row);
-        var res = await view.GetAsync(null, row);
+        var res = await view.GetAsync(null, key);
 
         Assert.AreEqual(row, res.Value);
     }
