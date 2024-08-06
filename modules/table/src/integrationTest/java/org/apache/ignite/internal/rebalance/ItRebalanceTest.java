@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.rebalance;
 
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;

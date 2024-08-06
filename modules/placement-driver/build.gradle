@@ -66,6 +66,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-distribution-zones')))
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
+    integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
     integrationTestImplementation(testFixtures(project(':ignite-replicator')))
     integrationTestImplementation(testFixtures(project(':ignite-metrics:')))
     integrationTestImplementation(testFixtures(project(':ignite-raft')))

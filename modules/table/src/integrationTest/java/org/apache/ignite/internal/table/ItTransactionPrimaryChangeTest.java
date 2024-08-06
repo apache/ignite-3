@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;

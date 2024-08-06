@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.partition;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.table.TableRow.tuple;

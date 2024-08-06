@@ -60,9 +60,13 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.StringDescription;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.function.Executable;
 
 /**
@@ -386,5 +390,29 @@ public class SqlTestUtils {
             default:
                 throw new IllegalArgumentException("Unknown type " + columnType);
         }
+    }
+
+    /**
+     * Executes an update on a sql, possibly in a transaction.
+     *
+     * @param query SQL query to execute.
+     * @param sql Session on which to execute.
+     * @param transaction Transaction in which to execute the update, or {@code null} if the update should
+     *     be executed n an implicit transaction.
+     */
+    public static void executeUpdate(String query, IgniteSql sql, @Nullable Transaction transaction) {
+        try (ResultSet<?> ignored = sql.execute(transaction, query)) {
+            // Do nothing, just adhere to the syntactic ceremony...
+        }
+    }
+
+    /**
+     * Executes an update on a sql in an implicit transaction.
+     *
+     * @param query SQL query to execute.
+     * @param sql Session on which to execute.
+     */
+    public static void executeUpdate(String query, IgniteSql sql) {
+        executeUpdate(query, sql, null);
     }
 }
