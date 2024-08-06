@@ -188,6 +188,8 @@ namespace Apache.Ignite.Tests.Table
             var tuple2 = GetRandomizedTuple();
 
             Assert.AreEqual(tuple1, tuple2);
+            Assert.AreEqual(tuple1.GetHashCode(), tuple2.GetHashCode());
+            Assert.AreNotEqual(tuple1.ToString(), tuple2.ToString());
 
             IgniteTuple GetRandomizedTuple() =>
                 data
