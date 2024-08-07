@@ -81,7 +81,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static TestServer testServer2;
 
-    private static Ignite server2;
+    private static FakeIgnite server2;
 
     private static IgniteClient client2;
 

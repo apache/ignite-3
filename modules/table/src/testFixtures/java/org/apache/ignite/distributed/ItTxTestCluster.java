@@ -53,10 +53,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -102,6 +101,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -377,10 +377,8 @@ public class ItTxTestCluster {
         executor = new ScheduledThreadPoolExecutor(20,
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
-        partitionOperationsExecutor = new ThreadPoolExecutor(
-                0, 20,
-                0, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        partitionOperationsExecutor = Executors.newFixedThreadPool(
+                5,
                 NamedThreadFactory.create("test", "partition-operations", LOG)
         );
 
@@ -578,7 +576,7 @@ public class ItTxTestCluster {
                 .mapToObj(i -> new TablePartitionId(tableId, i))
                 .collect(toList());
 
-        List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
+        List<CompletableFuture<?>> partitionReadyFutures = new ArrayList<>();
 
         int indexId = globalCatalogId.getAndIncrement();
 
@@ -722,65 +720,17 @@ public class ItTxTestCluster {
                         schemaManager
                 );
 
-                // The reason to use such kind of implementation is that a honest implementation requires a metastore instance:
-                // PartitionSnapshotStorageFactory <- PartitionAccessImpl <- IndexMetaStorage <- FullStateTransferIndexChooser
-                // <- MetaStorageManager. But metastore module isn't accessible there. Moreover we don't need the honest instance there,
-                // because derived tests don't use snapshots' logic inside. Then, such skeleton instance is fine there.
-                SnapshotStorageFactory snapshotStorageFactory = (uri, raftOptions) -> new SnapshotStorage() {
-                    @Override
-                    public boolean setFilterBeforeCopyRemote() {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public SnapshotWriter create() {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public SnapshotReader open() {
-                        return null;
-                    }
-
-                    @Override
-                    public SnapshotReader copyFrom(String uri, SnapshotCopierOptions opts) {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public void setSnapshotThrottle(SnapshotThrottle snapshotThrottle) {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public boolean init(Void opts) {
-                        return true;
-                    }
-
-                    @Override
-                    public void shutdown() {
-                        // no-op
-                    }
-                };
-
-                CompletableFuture<Void> partitionReadyFuture = replicaManagers.get(assignment)
+                CompletableFuture<?> partitionReadyFuture = replicaManagers.get(assignment)
                         .startReplica(
                                 RaftGroupEventsListener.noopLsnr,
                                 partitionListener,
                                 false,
-                                snapshotStorageFactory,
+                                null,
                                 createReplicaListener,
                                 storageIndexTracker,
                                 grpId,
                                 configuration
-                        )
-                        .thenAccept(unused -> { });
-
+                        );
                 partitionReadyFutures.add(partitionReadyFuture);
             }
         }

@@ -35,6 +35,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -80,6 +82,8 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
 
     private final IgniteCompute compute;
 
+    private final FakePlacementDriver placementDriver;
+
     /** Data access listener. */
     private BiConsumer<String, Object> dataAccessListener;
 
@@ -89,12 +93,19 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
      * @param tableName Name.
      * @param tableId Id.
      * @param keyExtractor Function which converts given binary row to an index key.
+     * @param placementDriver Placement driver.
      */
-    FakeInternalTable(String tableName, int tableId, ColumnsExtractor keyExtractor, IgniteCompute compute) {
+    FakeInternalTable(
+            String tableName,
+            int tableId,
+            ColumnsExtractor keyExtractor,
+            IgniteCompute compute,
+            FakePlacementDriver placementDriver) {
         this.tableName = tableName;
         this.tableId = tableId;
         this.keyExtractor = keyExtractor;
         this.compute = compute;
+        this.placementDriver = placementDriver;
     }
 
     @Override
@@ -506,8 +517,15 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
 
     @Override
     public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partitionId) {
+        List<ReplicaMeta> replicaMetas = placementDriver.primaryReplicas();
+        ReplicaMeta replica = replicaMetas.get(partitionId.partitionId());
+
+        //noinspection DataFlowIssue
         return completedFuture(
-                new ClusterNodeImpl("server-1", "server-1", new NetworkAddress("localhost", 10800)));
+                new ClusterNodeImpl(
+                        replica.getLeaseholderId(),
+                        replica.getLeaseholder(),
+                        new NetworkAddress("localhost", 10800)));
     }
 
     @Override
