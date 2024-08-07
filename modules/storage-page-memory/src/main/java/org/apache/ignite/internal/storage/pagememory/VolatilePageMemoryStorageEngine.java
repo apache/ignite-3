@@ -106,14 +106,17 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
         });
 
         // TODO: remove this executor, see https://issues.apache.org/jira/browse/IGNITE-21683
-        destructionExecutor = new ThreadPoolExecutor(
-                0,
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                Runtime.getRuntime().availableProcessors(),
                 Runtime.getRuntime().availableProcessors(),
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(igniteInstanceName, "volatile-mv-partition-destruction", LOG)
         );
+        executor.allowCoreThreadTimeOut(true);
+
+        destructionExecutor = executor;
     }
 
     @Override
