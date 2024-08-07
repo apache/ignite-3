@@ -42,6 +42,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -107,7 +108,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     private ScheduledExecutorService executor;
 
     @InjectConfiguration
-    protected RaftConfiguration raftConfiguration;
+    private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    protected SystemLocalConfiguration systemConfiguration;
 
     /**
      * Create executor for raft group services.
@@ -428,7 +432,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JraftServerImpl server = TestJraftServerFactory.create(service, jraft, raftConfiguration);
+        JraftServerImpl server = TestJraftServerFactory.create(service, jraft, systemConfiguration);
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 

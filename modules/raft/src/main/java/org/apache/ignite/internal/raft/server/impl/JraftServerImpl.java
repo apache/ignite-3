@@ -65,6 +65,7 @@ import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -107,7 +108,7 @@ public class JraftServerImpl implements RaftServer {
     private final ClusterService service;
 
     /** Data path. */
-    private final Path dataPath;
+    private final LazyPath dataPath;
 
     /** Log storage provider. */
     private final LogStorageFactory logStorageFactory;
@@ -155,7 +156,7 @@ public class JraftServerImpl implements RaftServer {
      */
     public JraftServerImpl(
             ClusterService service,
-            Path dataPath,
+            LazyPath dataPath,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             LogStorageFactory logStorageFactory
@@ -415,7 +416,7 @@ public class JraftServerImpl implements RaftServer {
      * @return The path to persistence folder.
      */
     public Path getServerDataPath(RaftNodeId nodeId) {
-        return this.dataPath.resolve(nodeIdStr(nodeId));
+        return this.dataPath.get().resolve(nodeIdStr(nodeId));
     }
 
     private static String nodeIdStr(RaftNodeId nodeId) {

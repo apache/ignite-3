@@ -27,17 +27,15 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.LongSupplier;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
@@ -88,22 +86,14 @@ public class MetaStorageWriteHandler {
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
 
-    private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
-
-    private final ConfigurationValue<Long> idempotentCacheTtl;
-
-    private final CompletableFuture<LongSupplier> maxClockSkewMillisFuture;
+    private final Map<CommandId, @Nullable Serializable> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(
             KeyValueStorage storage,
-            ClusterTimeImpl clusterTime,
-            ConfigurationValue<Long> idempotentCacheTtl,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+            ClusterTimeImpl clusterTime
     ) {
         this.storage = storage;
         this.clusterTime = clusterTime;
-        this.idempotentCacheTtl = idempotentCacheTtl;
-        this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
     }
 
     /**
@@ -118,10 +108,10 @@ public class MetaStorageWriteHandler {
             IdempotentCommand idempotentCommand = ((IdempotentCommand) command);
             CommandId commandId = idempotentCommand.id();
 
-            IdempotentCommandCachedResult cachedResult = idempotentCommandCache.get(commandId);
+            Serializable cachedResult = idempotentCommandCache.get(commandId);
 
             if (cachedResult != null) {
-                clo.result(cachedResult.result);
+                clo.result(cachedResult);
 
                 return;
             } else {
@@ -214,6 +204,11 @@ public class MetaStorageWriteHandler {
             clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
+
+            clo.result(null);
+        } else if (command instanceof EvictIdempotentCommandsCacheCommand) {
+            EvictIdempotentCommandsCacheCommand cmd = (EvictIdempotentCommandsCacheCommand) command;
+            evictIdempotentCommandsCache(cmd.evictionTimestamp(), opTime);
 
             clo.result(null);
         }
@@ -352,14 +347,12 @@ public class MetaStorageWriteHandler {
         byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
 
         Cursor<Entry> cursor = storage.range(keyFrom, keyTo);
-        // It's fine to lose original command start time - in that case we will store the entry a little bit longer that necessary.
-        HybridTimestamp now = clusterTime.now();
 
         try (cursor) {
             for (Entry entry : cursor) {
                 if (!entry.tombstone()) {
                     CommandId commandId = CommandId.fromString(
-                            ByteUtils.stringFromBytes(entry.key()).substring(IDEMPOTENT_COMMAND_PREFIX.length(), entry.key().length));
+                            ByteUtils.stringFromBytes(entry.key()).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
 
                     Serializable result;
                     if (entry.value().length == 1) {
@@ -368,7 +361,7 @@ public class MetaStorageWriteHandler {
                         result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entry.value())).build();
                     }
 
-                    idempotentCommandCache.put(commandId, new IdempotentCommandCachedResult(result, now));
+                    idempotentCommandCache.put(commandId, result);
                 }
             }
         }
@@ -376,51 +369,41 @@ public class MetaStorageWriteHandler {
 
     /**
      * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     *
+     * @param evictionTimestamp Cached entries older than given timestamp will be evicted.
+     * @param operationTimestamp Command operation timestamp.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Call on meta storage compaction.
-    void evictIdempotentCommandsCache() {
-        HybridTimestamp cleanupTimestamp = clusterTime.now();
-        LOG.info("Idempotent command cache cleanup started [cleanupTimestamp={}].", cleanupTimestamp);
+    void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, HybridTimestamp operationTimestamp) {
+        LOG.info("Idempotent command cache cleanup started [evictionTimestamp={}].", evictionTimestamp);
 
-        maxClockSkewMillisFuture.thenAccept(maxClockSkewMillis -> {
-            List<CommandId> commandIdsToRemove = idempotentCommandCache.entrySet().stream()
-                    .filter(entry -> entry.getValue().commandStartTime.getPhysical()
-                            <= cleanupTimestamp.getPhysical() - (idempotentCacheTtl.value() + maxClockSkewMillis.getAsLong()))
-                    .map(Map.Entry::getKey)
+        long obsoleteRevision = storage.revisionByTimestamp(evictionTimestamp);
+
+        if (obsoleteRevision != -1) {
+            byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
+            byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
+
+            List<byte[]> evictionCandidateKeys = storage.range(keyFrom, keyTo, obsoleteRevision).stream()
+                    // Not sure whether it's possible to retrieve empty entry here, thus !entry.empty() was added just in case.
+                    .filter(entry -> !entry.tombstone() && !entry.empty())
+                    .map(Entry::key)
                     .collect(toList());
 
-            if (!commandIdsToRemove.isEmpty()) {
-                List<byte[]> commandIdStorageKeys = commandIdsToRemove.stream()
-                        .map(commandId -> ByteUtils.stringToBytes(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()))
-                        .collect(toList());
+            evictionCandidateKeys.forEach(evictionCandidateKeyBytes -> {
+                CommandId commandId = CommandId.fromString(
+                        ByteUtils.stringFromBytes(evictionCandidateKeyBytes).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-22819 Using clusterTime.currentSafeTime() as local operation
-                // TODO timestamp is incorrect. It's not possible to use null, because RocksDB may throw AssertionException, thus locally
-                // TODO triggered processing should be reworked with linearized leader based one.
-                storage.removeAll(commandIdStorageKeys, clusterTime.currentSafeTime());
+                idempotentCommandCache.remove(commandId);
+            });
 
-                commandIdsToRemove.forEach(idempotentCommandCache.keySet()::remove);
-            }
+            storage.removeAll(evictionCandidateKeys, operationTimestamp);
 
-            LOG.info("Idempotent command cache cleanup finished [cleanupTimestamp={}, cleanupCompletionTimestamp={},"
+            LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
                             + " removedEntriesCount={}, cacheSize={}].",
-                    cleanupTimestamp,
+                    evictionTimestamp,
                     clusterTime.now(),
-                    commandIdsToRemove.size(),
+                    evictionCandidateKeys.size(),
                     idempotentCommandCache.size()
             );
-        });
-    }
-
-    private static class IdempotentCommandCachedResult {
-        @Nullable
-        final Serializable result;
-
-        final HybridTimestamp commandStartTime;
-
-        IdempotentCommandCachedResult(@Nullable Serializable result, HybridTimestamp commandStartTime) {
-            this.result = result;
-            this.commandStartTime = commandStartTime;
         }
     }
 
@@ -454,7 +437,7 @@ public class MetaStorageWriteHandler {
 
             // Exceptions are not cached.
             if (!(res instanceof Throwable)) {
-                idempotentCommandCache.put(command.id(), new IdempotentCommandCachedResult(res, command.initiatorTime()));
+                idempotentCommandCache.put(command.id(), res);
             }
 
             closure.result(res);

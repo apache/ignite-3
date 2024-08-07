@@ -78,6 +78,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
@@ -719,7 +720,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteMapReduce() throws Exception {
-        TaskExecution<String> execution = client().compute().submitMapReduce(List.of(), MapReduceNodeNameTask.class.getName(), null);
+        IgniteCompute igniteCompute = client().compute();
+        TaskDescriptor<String, String> taskDescriptor = TaskDescriptor.builder(MapReduceNodeNameTask.class).build();
+        TaskExecution<String> execution = igniteCompute.submitMapReduce(taskDescriptor, null);
 
         List<Matcher<? super String>> nodeNames = sortedNodes().stream()
                 .map(ClusterNode::name)
@@ -736,8 +739,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteMapReduceWithArgs() {
-        TaskExecution<String> execution = client().compute()
-                .submitMapReduce(List.of(), MapReduceArgsTask.class.getName(), "1:2:3.3");
+        IgniteCompute igniteCompute = client().compute();
+        TaskDescriptor<String, String> taskDescriptor = TaskDescriptor.builder(MapReduceArgsTask.class).build();
+        TaskExecution<String> execution = igniteCompute.submitMapReduce(taskDescriptor, "1:2:3.3");
 
         assertThat(execution.resultAsync(), willBe(containsString("1_2_3.3")));
         assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.COMPLETED)));
@@ -746,9 +750,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22596")
-    void testExecuteMapReduceExceptionPropagation(Class<?> taskClass) {
+    <I, M, T> void testExecuteMapReduceExceptionPropagation(Class<? extends MapReduceTask<I, M, T, String>> taskClass) {
+        IgniteCompute igniteCompute = client().compute();
+        TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
         IgniteException cause = getExceptionInJobExecutionAsync(new TaskToJobExecutionWrapper<>(
-                client().compute().submitMapReduce(List.of(), taskClass.getName(), null))
+                igniteCompute.submitMapReduce(taskDescriptor, null))
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));

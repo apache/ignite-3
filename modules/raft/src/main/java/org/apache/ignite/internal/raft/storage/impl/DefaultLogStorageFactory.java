@@ -30,13 +30,13 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -62,7 +62,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
 
     /** Function to get path to the log storage. */
-    private final Supplier<Path> logPathSupplier;
+    private final LazyPath lazyLogPath;
 
     /** Executor for shared storages. */
     private final ExecutorService executorService;
@@ -99,16 +99,16 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @TestOnly
     public DefaultLogStorageFactory(Path path) {
-        this("test", () -> path);
+        this("test", LazyPath.create(path));
     }
 
     /**
      * Constructor.
      *
-     * @param logPathSupplier Function to get path to the log storage.
+     * @param lazyLogPath Function to get path to the log storage.
      */
-    public DefaultLogStorageFactory(String nodeName, Supplier<Path> logPathSupplier) {
-        this.logPathSupplier = logPathSupplier;
+    public DefaultLogStorageFactory(String nodeName, LazyPath lazyLogPath) {
+        this.lazyLogPath = lazyLogPath;
 
         executorService = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
@@ -127,7 +127,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     private void start() {
-        Path logPath = logPathSupplier.get();
+        Path logPath = lazyLogPath.get();
 
         try {
             Files.createDirectories(logPath);
@@ -202,7 +202,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     @Override
     public void sync() throws RocksDBException {
-        db.syncWal();
+        if (!dbOptions.useFsync()) {
+            db.syncWal();
+        }
     }
 
     /**

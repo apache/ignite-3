@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -74,7 +73,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
-    private final ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+    private final ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
 
     private final ClusterState state = msgFactory.clusterState()
             .cmgNodes(Set.copyOf(Set.of("foo")))

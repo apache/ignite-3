@@ -96,7 +96,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -295,7 +294,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HybridClockImpl(),
                 observableTimestampTracker,
                 new TestPlacementDriver(clusterNode),
-                new TableRaftServiceImpl("PUBLIC.TEST", PARTS, partRafts, new SingleClusterNodeResolver(clusterNode)),
                 transactionInflights,
                 3_000,
                 0,
@@ -367,13 +365,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> twoColumnsParameters() {
         List<Arguments> args = new ArrayList<>();
-        Set<NativeTypeSpec> unsupported = Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER);
 
         for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
             for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
-                if (unsupported.contains(t0) || unsupported.contains(t1)) {
-                    continue;
-                }
                 args.add(Arguments.of(t0, t1));
             }
         }

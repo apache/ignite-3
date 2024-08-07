@@ -976,23 +976,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
 
         try (WriteBatch batch = new WriteBatch()) {
-            byte[] tsBytes = hybridTsToArray(lowWatermark);
-            long maxRevision;
-
             // Find a revision with timestamp lesser or equal to the watermark.
-            try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
-                rocksIterator.seekForPrev(tsBytes);
+            long maxRevision = revisionByTimestamp(lowWatermark);
 
-                RocksUtils.checkIterator(rocksIterator);
-
-                byte[] tsValue = rocksIterator.value();
-
-                if (tsValue.length == 0) {
-                    // Nothing to compact yet.
-                    return;
-                }
-
-                maxRevision = bytesToLong(tsValue);
+            if (maxRevision == -1) {
+                // Nothing to compact yet.
+                return;
             }
 
             try (RocksIterator iterator = index.newIterator()) {
@@ -1516,6 +1505,26 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             return HybridTimestamp.hybridTimestamp(bytesToLong(tsBytes));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        }
+    }
+
+    @Override
+    public long revisionByTimestamp(HybridTimestamp timestamp) {
+        byte[] tsBytes = hybridTsToArray(timestamp);
+
+        // Find a revision with timestamp lesser or equal to the watermark.
+        try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
+            rocksIterator.seekForPrev(tsBytes);
+
+            RocksUtils.checkIterator(rocksIterator);
+
+            byte[] tsValue = rocksIterator.value();
+
+            if (tsValue.length == 0) {
+                return -1;
+            }
+
+            return bytesToLong(tsValue);
         }
     }
 

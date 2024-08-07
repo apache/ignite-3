@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -42,6 +40,7 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
@@ -191,7 +190,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     logicalTopology,
                     clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    new ClusterIdHolder()
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -212,9 +212,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                    metaStorageConfiguration
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();

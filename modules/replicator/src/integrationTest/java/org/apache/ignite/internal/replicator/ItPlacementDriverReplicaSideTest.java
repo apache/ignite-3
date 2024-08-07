@@ -50,9 +50,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -152,10 +151,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
-        partitionOperationsExecutor = new ThreadPoolExecutor(
-                0, 20,
-                0, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        partitionOperationsExecutor = Executors.newFixedThreadPool(
+                5,
                 NamedThreadFactory.create("test", "partition-operations", log)
         );
 
@@ -528,7 +525,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     return replicaManager.startReplica(
                             groupId,
                             newConfiguration,
-                            (unused) -> { },
                             (unused) -> listener,
                             new PendingComparableValuesTracker<>(Long.MAX_VALUE),
                             completedFuture(raftClient));

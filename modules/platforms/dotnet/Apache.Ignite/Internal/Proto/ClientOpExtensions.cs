@@ -54,6 +54,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.TupleContainsKey => ClientOperationType.TupleContainsKey,
                 ClientOp.ComputeExecute => ClientOperationType.ComputeExecute,
                 ClientOp.ComputeExecuteColocated => ClientOperationType.ComputeExecute,
+                ClientOp.ComputeExecuteMapReduce => ClientOperationType.ComputeExecuteMapReduce,
                 ClientOp.ComputeGetStatus => ClientOperationType.ComputeGetStatus,
                 ClientOp.ComputeCancel => ClientOperationType.ComputeCancel,
                 ClientOp.ComputeChangePriority => ClientOperationType.ComputeChangePriority,

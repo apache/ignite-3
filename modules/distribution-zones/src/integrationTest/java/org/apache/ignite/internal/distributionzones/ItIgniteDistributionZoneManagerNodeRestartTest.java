@@ -84,6 +84,7 @@ import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterIdService;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -183,6 +184,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         VaultManager vault = createVault(dir);
 
+        var clusterStateStorage = new TestClusterStateStorage();
+
+        var clusterIdService = new ClusterIdService(clusterStateStorage);
+
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
         Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
@@ -216,11 +221,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
                 new VaultStaleIds(vault),
+                clusterIdService,
                 new NoOpCriticalWorkerRegistry(),
                 mock(FailureProcessor.class)
         );
-
-        var clusterStateStorage = new TestClusterStateStorage();
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -294,9 +298,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
+                clusterStateStorage,
+                clusterIdService,
                 nettyBootstrapFactory,
                 clusterSvc,
-                clusterStateStorage,
                 cmgManager,
                 metastore,
                 clusterCfgMgr,

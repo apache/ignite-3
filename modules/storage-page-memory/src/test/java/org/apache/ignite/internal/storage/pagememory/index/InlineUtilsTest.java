@@ -34,7 +34,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
@@ -54,7 +53,6 @@ public class InlineUtilsTest extends BaseIgniteAbstractTest {
     @Test
     void testInlineSizeForNativeType() {
         EnumSet<NativeTypeSpec> nativeTypeSpecs = EnumSet.allOf(NativeTypeSpec.class);
-        nativeTypeSpecs.removeAll(Set.of(NativeTypeSpec.BITMASK, NativeTypeSpec.NUMBER));
 
         // Fixed length type checking.
 

@@ -100,10 +100,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         return this.lastSnapshotTerm;
     }
 
-    /**
-     * Only for test
-     */
-    @OnlyForTest
+    @Override
     public long getLastSnapshotIndex() {
         return this.lastSnapshotIndex;
     }

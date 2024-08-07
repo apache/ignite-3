@@ -277,7 +277,8 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                         "storage",
                         "criticalWorkers",
                         "sql",
-                        "failureHandler"
+                        "failureHandler",
+                        "system"
                 )
         );
     }

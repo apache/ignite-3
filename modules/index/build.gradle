@@ -81,6 +81,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-table'))
     integrationTestImplementation testFixtures(project(':ignite-storage-api'))
     integrationTestImplementation testFixtures(project(':ignite-catalog'))
+    integrationTestImplementation testFixtures(project(':ignite-replicator'))
     integrationTestImplementation libs.jetbrains.annotations
 }
 

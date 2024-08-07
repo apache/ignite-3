@@ -253,6 +253,15 @@ public class TcpIgniteClient implements IgniteClient {
     }
 
     /**
+     * Returns the underlying channel.
+     *
+     * @return Channel.
+     */
+    public ReliableChannel channel() {
+        return ch;
+    }
+
+    /**
      * Sends ClientMessage request to server side asynchronously and returns result future.
      *
      * @param opCode Operation code.

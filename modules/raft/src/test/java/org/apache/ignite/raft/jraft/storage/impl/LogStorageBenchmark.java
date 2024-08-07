@@ -29,6 +29,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -154,7 +155,7 @@ public class LogStorageBenchmark {
         int totalLogs = 100 * 1024;
 
 //        LogStorageFactory logStorageFactory = new DefaultLogStorageFactory(testPath);
-        LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", new StoreOptions(), () -> testPath);
+        LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", new StoreOptions(), LazyPath.create(testPath));
         assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
