@@ -213,7 +213,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
@@ -599,13 +598,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         LogSyncer logSyncer = logStorageFactory;
 
-        LazyPath lazyStoragePath = LazyPath.create(storagePath);
-
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
                         nodeCfgMgr.configurationRegistry(),
-                        lazyStoragePath,
+                        storagePath,
                         null,
                         failureProcessor,
                         logSyncer,
@@ -667,7 +664,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaService,
                 txManager,
                 dataStorageManager,
-                lazyStoragePath,
+                storagePath,
                 metaStorageMgr,
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),

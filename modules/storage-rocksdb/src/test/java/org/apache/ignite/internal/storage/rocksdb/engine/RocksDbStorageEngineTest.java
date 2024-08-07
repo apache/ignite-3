@@ -26,7 +26,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -49,7 +48,7 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
                 "test",
                 engineConfiguration,
                 storageConfiguration,
-                LazyPath.create(workDir),
+                workDir,
                 logSyncer
         );
     }

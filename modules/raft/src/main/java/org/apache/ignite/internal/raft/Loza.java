@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
@@ -117,7 +117,7 @@ public class Loza implements RaftManager {
             ClusterService clusterNetSvc,
             MetricManager metricManager,
             RaftConfiguration raftConfiguration,
-            LazyPath dataPath,
+            Path dataPath,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             LogStorageFactory defaultLogStorageFactory

@@ -22,7 +22,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.internal.util.LazyPath;
 
 /**
  * Manages storage paths for Ignite.
@@ -58,12 +57,12 @@ public class IgnitePaths {
      * @return Working dir subtree structure representation for partitions.
      */
     public static ComponentWorkingDir partitionsPath(SystemLocalConfiguration systemConfiguration, Path workDir) {
-        LazyPath basePath = lazy(systemConfiguration.partitionsBasePath(), () -> workDir.resolve(PARTITIONS_BASE_PATH));
+        Path basePath = pathOrDefault(systemConfiguration.partitionsBasePath(), () -> workDir.resolve(PARTITIONS_BASE_PATH));
 
         return new ComponentWorkingDir(basePath) {
             @Override
-            public LazyPath raftLogPath() {
-                return lazy(systemConfiguration.partitionsLogPath(), () -> super.raftLogPath().get());
+            public Path raftLogPath() {
+                return pathOrDefault(systemConfiguration.partitionsLogPath(), super::raftLogPath);
             }
         };
     }
@@ -99,7 +98,8 @@ public class IgnitePaths {
         // No-op.
     }
 
-    private static LazyPath lazy(ConfigurationValue<String> value, Supplier<Path> defaultPath) {
-        return LazyPath.create(value::value, defaultPath);
+    private static Path pathOrDefault(ConfigurationValue<String> value, Supplier<Path> defaultPathSupplier) {
+        String valueStr = value.value();
+        return valueStr.isEmpty() ? defaultPathSupplier.get() : Path.of(valueStr);
     }
 }

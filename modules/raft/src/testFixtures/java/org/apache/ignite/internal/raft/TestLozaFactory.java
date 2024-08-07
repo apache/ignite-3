@@ -27,7 +27,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /** Utilities for creating {@link Loza} instances. */
@@ -38,7 +37,7 @@ public class TestLozaFactory {
 
     /**
      * Factory method for {@link Loza}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path)},
      * and automatically wraps it in the Loza instance start/stop methods.
      *
      * @param clusterNetSvc Cluster network service.
@@ -57,7 +56,7 @@ public class TestLozaFactory {
 
     /**
      * Factory method for {@link Loza}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path)},
      * and automatically wraps it in the Loza instance start/stop methods.
      *
      * @param clusterNetSvc Cluster network service.

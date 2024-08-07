@@ -181,7 +181,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -1059,7 +1058,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     dataStorageModules.createStorageEngines(
                             name,
                             nodeCfgMgr.configurationRegistry(),
-                            LazyPath.create(dir.resolve("storage")),
+                            dir.resolve("storage"),
                             null,
                             failureProcessor,
                             logSyncer,
@@ -1168,7 +1167,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
-                    LazyPath.create(storagePath),
+                    storagePath,
                     metaStorageManager,
                     schemaManager,
                     threadPoolsManager.tableIoExecutor(),

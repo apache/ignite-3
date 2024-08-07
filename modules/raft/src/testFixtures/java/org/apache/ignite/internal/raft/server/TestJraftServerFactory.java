@@ -28,7 +28,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
@@ -40,7 +39,7 @@ public class TestJraftServerFactory {
 
     /**
      * Factory method for {@link JraftServerImpl}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path)},
      * and automatically wraps it in the JraftServerImpl instance start/stop methods.
      *
      * @param service Cluster service.
@@ -52,7 +51,7 @@ public class TestJraftServerFactory {
 
     /**
      * Factory method for {@link JraftServerImpl}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path)},
      * and automatically wraps it in the JraftServerImpl instance start/stop methods.
      *
      * @param service Cluster service.
@@ -70,7 +69,7 @@ public class TestJraftServerFactory {
 
     /**
      * Factory method for {@link JraftServerImpl}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
+     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, Path)},
      * and automatically wraps it in the JraftServerImpl instance start/stop methods.
      *
      * @param service Cluster service.
