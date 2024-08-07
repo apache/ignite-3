@@ -130,7 +130,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
 
         Map<String, Map.Entry<Integer, CatalogTableColumnDescriptor>> columnMap = IgniteUtils.newHashMap(columns.size());
-        for (int i = 0; i < columns.size(); i ++) {
+        for (int i = 0; i < columns.size(); i++) {
             CatalogTableColumnDescriptor column = columns.get(i);
             columnMap.put(column.name(), Map.entry(i, column));
         }
@@ -175,38 +175,65 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         }
     }
 
+    /**
+     * Returns an identifier of a schema this table descriptor belongs to.
+     */
     public int schemaId() {
         return schemaId;
     }
 
+    /**
+     * Returns versions of this table descriptor.
+     */
     public CatalogTableSchemaVersions schemaVersions() {
         return schemaVersions;
     }
 
+    /**
+     * Returns an identifier of a distribution zone this table descriptor belongs to.
+     */
     public int zoneId() {
         return zoneId;
     }
 
+    /**
+     * Returns a identifier of the primary key index.
+     */
     public int primaryKeyIndexId() {
         return pkIndexId;
     }
 
+    /**
+     * Returns a version of this table descriptor.
+     */
     public int tableVersion() {
         return schemaVersions.latestVersion();
     }
 
+    /**
+     * Returns a list primary key column names.
+     */
     public List<String> primaryKeyColumns() {
         return primaryKeyColumns;
     }
 
+    /**
+     * Returns a list colocation key column names.
+     */
     public List<String> colocationColumns() {
         return colocationColumns;
     }
 
+    /**
+     * Returns a list column descriptors for the table.
+     */
     public List<CatalogTableColumnDescriptor> columns() {
         return columns;
     }
 
+    /**
+     * Returns a column descriptor for column with given name.
+     */
     public CatalogTableColumnDescriptor column(String name) {
         Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
         if (column != null) {
@@ -216,7 +243,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         }
     }
 
-    /** Returns an index of a column with the given name, or {@code -1} if such column does not exist. */
+    /**
+     * Returns an index of a column with the given name, or {@code -1} if such column does not exist.
+     */
     public int columnIndex(String name) {
         Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
         if (column != null) {
@@ -226,27 +255,41 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         }
     }
 
+    /**
+     * Returns {@code true} if this the given column is a part of the primary key.
+     */
     public boolean isPrimaryKeyColumn(String name) {
         return primaryKeyColumns.contains(name);
     }
 
+    /**
+     * Returns {@code true} if this the given column is a part of collocation key.
+     */
     public boolean isColocationColumn(String name) {
         return colocationColumns.contains(name);
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(CatalogTableDescriptor.class, this, super.toString());
     }
 
+    /**
+     * Returns creation t
+     */
     public long creationToken() {
         return creationToken;
     }
 
+    /**
+     * Returns a name of a storage profile.
+     */
     public String storageProfile() {
         return storageProfile;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void updateToken(long updateToken) {
         super.updateToken(updateToken);
