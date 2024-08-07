@@ -723,7 +723,6 @@ public class ItTxTestCluster {
                                 grpId,
                                 configuration
                         );
-
                 partitionReadyFutures.add(partitionReadyFuture);
             }
         }
