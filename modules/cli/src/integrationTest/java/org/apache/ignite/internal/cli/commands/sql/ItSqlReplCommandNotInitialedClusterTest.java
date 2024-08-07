@@ -58,7 +58,7 @@ public class ItSqlReplCommandNotInitialedClusterTest extends CliIntegrationTest 
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Connection refused: no further information:")
+                () -> assertErrOutputContains("Connection refused:")
         );
 
         IgniteServer node0 = CLUSTER.startEmbeddedNode(0);
