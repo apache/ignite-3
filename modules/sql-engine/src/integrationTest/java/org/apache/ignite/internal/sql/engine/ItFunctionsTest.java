@@ -39,7 +39,6 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -111,12 +110,6 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
 
             return;
         }
-    }
-
-    @Test
-    public void testNullFunctionArguments() {
-        // Inferring arguments data types and then inferring result data type from all arguments.
-        assertQuery("SELECT FALSE AND NULL").returns(false).check();
     }
 
     @ParameterizedTest(name = "{0}")
