@@ -133,6 +133,7 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
     void cmgManagerDoesNotMissMessagesReceivedBeforeStart() {
         CmgInitMessage initMessage = cmgMessagesFactory.cmgInitMessage()
                 .clusterName("foo")
+                .clusterId(UUID.randomUUID())
                 .cmgNodes(Set.of(clusterService.nodeName()))
                 .metaStorageNodes(Set.of(clusterService.nodeName()))
                 .initialClusterConfiguration("")

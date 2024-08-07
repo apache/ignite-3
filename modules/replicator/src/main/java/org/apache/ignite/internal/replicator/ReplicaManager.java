@@ -295,7 +295,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Executor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
-            Marshaller raftCommandsMarshaller,
+            @Nullable Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
@@ -576,7 +576,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
-            SnapshotStorageFactory snapshotStorageFactory,
+            @Nullable SnapshotStorageFactory snapshotStorageFactory,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
@@ -627,7 +627,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
-            SnapshotStorageFactory snapshotStorageFactory,
+            @Nullable SnapshotStorageFactory snapshotStorageFactory,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
@@ -762,16 +762,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /**
      * Creates and start new replica.
-     * TODO: must be deleted or be private after https://issues.apache.org/jira/browse/IGNITE-22373
      *
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newReplicaListenerFut Future that returns ready ReplicaListener for replica creation.
      * @return Future that promises ready new replica when done.
      */
+    @TestOnly
     @VisibleForTesting
     @Deprecated
-    public CompletableFuture<Replica> startReplica(
+    private CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CompletableFuture<ReplicaListener> newReplicaListenerFut
@@ -839,7 +839,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
     }
 
-    private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, SnapshotStorageFactory snapshotFactory) {
+    private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
         RaftGroupOptions raftGroupOptions;
 
         if (isVolatileStorage) {

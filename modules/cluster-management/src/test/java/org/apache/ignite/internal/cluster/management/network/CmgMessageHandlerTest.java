@@ -98,6 +98,7 @@ class CmgMessageHandlerTest extends BaseIgniteAbstractTest {
 
         CmgInitMessage message1 = cmgMessagesFactory.cmgInitMessage()
                 .clusterName("foo")
+                .clusterId(UUID.randomUUID())
                 .cmgNodes(Set.of("foo"))
                 .metaStorageNodes(Set.of("foo"))
                 .initialClusterConfiguration("")

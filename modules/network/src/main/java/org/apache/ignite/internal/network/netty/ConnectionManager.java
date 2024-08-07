@@ -218,16 +218,19 @@ public class ConnectionManager implements ChannelCreationListener {
 
         this.clientBootstrap = bootstrapFactory.createClientBootstrap();
 
-        // We don't just use Executors#newSingleThreadExecutor() here because it defines corePoolSize=1, so the maintenance thread will
+        // We don't just use Executors#newSingleThreadExecutor() here because the maintenance thread will
         // be kept alive forever, and we only need it from time to time, so it seems a waste to keep the thread alive.
-        connectionMaintenanceExecutor = new ThreadPoolExecutor(
-                0,
+        ThreadPoolExecutor maintenanceExecutor = new ThreadPoolExecutor(
+                1,
                 1,
                 1,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(consistentId, "connection-maintenance", LOG)
         );
+        maintenanceExecutor.allowCoreThreadTimeOut(true);
+
+        connectionMaintenanceExecutor = maintenanceExecutor;
     }
 
     /**
