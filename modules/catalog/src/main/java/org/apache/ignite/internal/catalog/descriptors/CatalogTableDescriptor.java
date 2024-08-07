@@ -276,7 +276,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Returns creation t
+     * Returns a creation token.
      */
     public long creationToken() {
         return creationToken;
