@@ -20,14 +20,14 @@ package org.apache.ignite.internal.partition.replicator.network.command;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 
 /**
  * Command to store the minimum starting time among all active RW transactions
  * into transient state of each replication group.
  */
 @Transferable(UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND)
-public interface UpdateMinimumActiveTxBeginTimeCommand extends WriteCommand {
+public interface UpdateMinimumActiveTxBeginTimeCommand extends SafeTimePropagatingCommand {
     /** Returns the minimum starting time among all active RW transactions. */
     long timestamp();
 }

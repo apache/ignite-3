@@ -4142,6 +4142,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<?> processMinimumActiveTxTimeReplicaRequest(UpdateMinimumActiveTxBeginTimeReplicaRequest request) {
         Command cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateMinimumActiveTxBeginTimeCommand()
                 .timestamp(request.timestamp())
+                .safeTime(clockService.now())
                 .build();
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
@@ -4153,7 +4154,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 resultFuture
         );
 
-        return resultFuture.thenApply(res -> null);
+        return resultFuture;
     }
 
     /**

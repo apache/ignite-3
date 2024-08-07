@@ -129,10 +129,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private final IndexMetaStorage indexMetaStorage;
 
     /**
-     * Timestamp with minimum starting time among all pending RW transactions in the cluster.
+     * Timestamp with minimum starting time among all active RW transactions in the cluster.
      * This timestamp is used to prevent the catalog from being dropped, which may be used when applying raft commands.
      */
-    private volatile long minActiveTxStartTime = 0L;
+    private volatile long minActiveTxBeginTime = 0L;
 
     /** Constructor. */
     public PartitionListener(
@@ -584,11 +584,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     /**
-     * Returns minimum starting time among all pending RW transactions in the cluster.
+     * Returns minimum starting time among all active RW transactions in the cluster.
      */
     @TestOnly
-    public long minimumActiveTxStartTime() {
-        return minActiveTxStartTime;
+    public long minimumActiveTxBeginTime() {
+        return minActiveTxBeginTime;
     }
 
     /**
@@ -689,8 +689,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        long minActiveTxStartTime0 = minActiveTxStartTime;
-        minActiveTxStartTime = Math.max(cmd.timestamp(), minActiveTxStartTime0);
+        long minActiveTxBeginTime0 = minActiveTxBeginTime;
+        minActiveTxBeginTime = Math.max(cmd.timestamp(), minActiveTxBeginTime0);
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

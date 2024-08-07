@@ -211,11 +211,11 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 // When a future completes from `Invoke`, it is guaranteed that the leader will be updated,
                 // the remaining replicas can be updated later.
                 IgniteTestUtils.waitForCondition(
-                        () -> Long.valueOf(expTime.longValue()).equals(listener.minimumActiveTxStartTime()),
+                        () -> Long.valueOf(expTime.longValue()).equals(listener.minimumActiveTxBeginTime()),
                         5_000
                 );
 
-                assertThat(grp.getGroupId(), listener.minimumActiveTxStartTime(), equalTo(expTime.longValue()));
+                assertThat(grp.getGroupId(), listener.minimumActiveTxBeginTime(), equalTo(expTime.longValue()));
             }
         }
     }

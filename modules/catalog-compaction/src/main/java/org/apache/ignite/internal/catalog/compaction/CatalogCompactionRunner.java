@@ -61,7 +61,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
-import org.apache.ignite.internal.tx.ActiveTxMinimumBeginTimeProvider;
+import org.apache.ignite.internal.tx.ActiveLocalTxMinimumBeginTimeProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -113,7 +113,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final String localNodeName;
 
-    private final ActiveTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider;
+    private final ActiveLocalTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider;
 
     private final ReplicaService replicaService;
 
@@ -140,7 +140,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ReplicaService replicaService,
             ClockService clockService,
             Executor executor,
-            ActiveTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider
+            ActiveLocalTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider
     ) {
         this(localNodeName, catalogManager, messagingService, logicalTopologyService, placementDriver, replicaService, clockService,
                 executor, localActiveRwTxMinBeginTimeProvider, null);
@@ -158,7 +158,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ReplicaService replicaService,
             ClockService clockService,
             Executor executor,
-            ActiveTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider,
+            ActiveLocalTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider,
             @Nullable CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
     ) {
         this.localNodeName = localNodeName;
@@ -264,7 +264,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinimum)
                 .thenComposeAsync(timeHolder -> {
                     long minRequiredTime = timeHolder.minRequiredTime;
-                    long minActiveTxStartTime = timeHolder.minActiveTxBeginTime;
+                    long minActiveTxBeginTime = timeHolder.minActiveTxBeginTime;
                     Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
 
                     CompletableFuture<Boolean> catalogCompactionFut;
@@ -287,7 +287,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         });
                     }
 
-                    CompletableFuture<Void> propagateToReplicasFut = propagateTimeToReplicas(minActiveTxStartTime)
+                    CompletableFuture<Void> propagateToReplicasFut = propagateTimeToReplicas(minActiveTxBeginTime)
                             .whenComplete((res, ex) -> {
                                 if (ex != null) {
                                     LOG.warn("Failed to propagate minimum active tx start time to replicas", ex);
@@ -412,7 +412,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 clockService.nowLong()
         );
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22951
         return invokeOnReplicas(
+                logicalTopologyService.localLogicalTopology().nodes().stream().map(LogicalNode::name).collect(Collectors.toSet()),
                 tablesWithPartitions.entrySet().iterator(),
                 minimumRequiredTime,
                 clockService.now()
@@ -420,6 +422,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private CompletableFuture<Void> invokeOnReplicas(
+            Set<String> logicalNodes,
             Iterator<Map.Entry<Integer, Integer>> tabItr,
             long txBeginTime,
             HybridTimestamp nowTs
@@ -442,7 +445,23 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             throwAssignmentsNotReadyException(replicationGroupId);
                         }
 
-                        Assignment assignment = tokenizedAssignments.nodes().iterator().next();
+                        Set<String> assignments = tokenizedAssignments.nodes().stream()
+                                .map(Assignment::consistentId).collect(Collectors.toSet());
+
+                        String targetNodeName;
+
+                        if (assignments.contains(localNodeName)) {
+                            targetNodeName = localNodeName;
+                        } else {
+                            targetNodeName = assignments.stream()
+                                    .filter(logicalNodes::contains)
+                                    .findAny()
+                                    .orElseThrow(() -> new IllegalStateException("Current topology doesn't include assignment nodes "
+                                            + "(assignments=" + tokenizedAssignments.nodes()
+                                            + ", topology=" + logicalNodes
+                                            + ", replication group=" + replicationGroupId + ").")
+                                    );
+                        }
 
                         TablePartitionIdMessage partIdMessage = ReplicaMessageUtils.toTablePartitionIdMessage(
                                 REPLICA_MESSAGES_FACTORY,
@@ -455,14 +474,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                 .timestamp(txBeginTime)
                                 .build();
 
-                        return replicaService.invoke(assignment.consistentId(), msg);
+                        return replicaService.invoke(targetNodeName, msg);
                     });
 
             partitionFutures.add(fut);
         }
 
         return CompletableFutures.allOf(partitionFutures)
-                .thenCompose(ignore -> invokeOnReplicas(tabItr, txBeginTime, nowTs));
+                .thenCompose(ignore -> invokeOnReplicas(logicalNodes, tabItr, txBeginTime, nowTs));
     }
 
     private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {

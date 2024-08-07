@@ -24,7 +24,10 @@ import org.jetbrains.annotations.Nullable;
  * Provides the minimum begin time among all active RW transactions started locally.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface ActiveTxMinimumBeginTimeProvider {
-    /** Returns the minimum begin time among all active RW transactions started locally. */
+public interface ActiveLocalTxMinimumBeginTimeProvider {
+    /**
+     * Returns the minimum begin time among all active RW transactions started locally,
+     * or {@code null} if there are no active RW transactions.
+     */
     @Nullable HybridTimestamp minimumBeginTime();
 }
