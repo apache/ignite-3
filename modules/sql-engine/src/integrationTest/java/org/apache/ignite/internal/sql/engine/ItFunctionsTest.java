@@ -47,7 +47,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Test Ignite SQL functions.
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class ItFunctionsTest extends BaseSqlIntegrationTest {
 
     /**
