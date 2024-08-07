@@ -26,24 +26,28 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
-import org.apache.ignite.internal.binarytuple.inlineschema.TupleMarshalling;
+import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
-
+/** Packs job arguments and results. */
 public class ClientComputeJobPacker {
     private final ClientMessagePacker packer;
 
+    /**
+     * Constructor.
+     *
+     * @param packer that should be closed after usage outside of this class.
+     */
     public ClientComputeJobPacker(ClientMessagePacker packer) {
         this.packer = packer;
     }
 
     /**
-     * Packs compute job argument. If the marshaller is provided, it will be used to marshal the argument.
-     * If the marshaller is not provided and the argument is a native column type or a tuple, it will be packed
-     * accordingly.
+     * Packs compute job argument. If the marshaller is provided, it will be used to marshal the argument. If the marshaller is not provided
+     * and the argument is a native column type or a tuple, it will be packed accordingly.
      *
      * @param arg Argument.
      * @param marshaller Marshaller.
@@ -54,9 +58,8 @@ public class ClientComputeJobPacker {
     }
 
     /**
-     * Packs compute job result. If the marshaller is provided, it will be used to marshal the result.
-     * If the marshaller is not provided and the result is a native column type or a tuple, it will be packed
-     * accordingly.
+     * Packs compute job result. If the marshaller is provided, it will be used to marshal the result. If the marshaller is not provided and
+     * the result is a native column type or a tuple, it will be packed accordingly.
      *
      * @param res Result.
      * @param marshaller Marshaller.
@@ -66,11 +69,7 @@ public class ClientComputeJobPacker {
         pack(res, marshaller);
     }
 
-    /**
-     * | int    | byte[] |
-     * -------------------
-     * | typeId | value |
-     */
+    /** Packs object in the format: | typeId | value |. */
     private <T> void pack(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller) {
         if (marshaller != null) {
             packer.packInt(ComputeJobType.MARSHALLED_OBJECT_ID);
@@ -86,7 +85,7 @@ public class ClientComputeJobPacker {
         }
 
         if (obj instanceof Tuple) {
-            byte[] marshalledTuple = TupleMarshalling.marshal((Tuple) obj);
+            byte[] marshalledTuple = TupleWithSchemaMarshalling.marshal((Tuple) obj);
 
             packer.packInt(ComputeJobType.MARSHALLED_TUPLE_ID);
 

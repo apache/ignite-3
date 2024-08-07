@@ -996,5 +996,4 @@ public class ClientMessageUnpacker implements AutoCloseable {
     private void skipBytes(int bytes) {
         buf.readerIndex(buf.readerIndex() + bytes);
     }
-
 }

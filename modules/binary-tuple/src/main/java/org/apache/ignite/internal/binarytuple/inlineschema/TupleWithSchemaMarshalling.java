@@ -32,13 +32,23 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Tuple marshalling.
- */
-public class TupleMarshalling {
+/** Tuple with schema marshalling. */
+public final class TupleWithSchemaMarshalling {
 
     /**
-     * Marshal.
+     * Marshal tuple is the following format:
+     *
+     * <p>marshalledTuple       := | size | binaryTupleWithSchema |
+     *
+     * <p>size                  := int32
+     *
+     * <p>binaryTupleWithSchema := | column1 | ... | columnN | value1 | ... | valueN |
+     *
+     * <p>column                := | columnName | columnType |
+     *
+     * <p>columnName            := string
+     *
+     * <p>columnType            := int32.
      */
     public static byte @Nullable [] marshal(Tuple tup) {
         // Allocate all the memory we need upfront.
@@ -60,11 +70,49 @@ public class TupleMarshalling {
         byte[] arr = builder.build().array();
         byte[] result = new byte[arr.length + 1];
         // Put the size of the schema in the first byte.
-        result[0] = (byte) size;
+        result[0] = (byte) size; // todo should be int32
 
         System.arraycopy(arr, 0, result, 1, arr.length);
 
         return result;
+    }
+
+    /**
+     * Unmarshal tuple.
+     *
+     * @param raw byte[] bytes that are marshaled by {@link #marshal(Tuple)}.
+     */
+    public static @Nullable Tuple unmarshal(byte @Nullable [] raw) {
+        byte size = raw[0]; // todo should be int32
+
+        String[] columns = new String[size];
+        ColumnType[] types = new ColumnType[size];
+
+        byte[] arr = new byte[raw.length - 1];
+        System.arraycopy(raw, 1, arr, 0, arr.length);
+        BinaryTupleReader reader = new BinaryTupleReader(size * 3, arr);
+        Tuple tup = Tuple.create(size);
+
+        int readerInd = 0;
+        int i = 0;
+        while (i < size) {
+            String colName = reader.stringValue(readerInd++);
+            int colTypeId = reader.intValue(readerInd++);
+
+            columns[i] = colName;
+            types[i] = ColumnType.getById(colTypeId);
+
+            i += 1;
+        }
+
+        int offset = size * 2;
+        int k = 0;
+        while (k < size) {
+            setColumnValue(reader, tup, columns[k], types[k].id(), k + offset);
+            k += 1;
+        }
+
+        return tup;
     }
 
     private static BinaryTupleBuilder builder(Object[] values, String[] columns, ColumnType[] types) {
@@ -133,7 +181,7 @@ public class TupleMarshalling {
             return (T) o;
         }
 
-        throw new IllegalArgumentException("todo");
+        throw new IllegalArgumentException("Unsupported type: " + o.getClass());
     }
 
     private static ColumnType inferType(@Nullable Object value) {
@@ -194,44 +242,6 @@ public class TupleMarshalling {
         throw new IllegalArgumentException("Unsupported type: " + value.getClass());
     }
 
-    /**
-     * Unmarshal tuple.
-     *
-     * @param raw Raw tuple.
-     * @return Tuple.
-     */
-    public static @Nullable Tuple unmarshal(byte @Nullable [] raw) {
-        byte size = raw[0];
-
-        String[] columns = new String[size];
-        ColumnType[] types = new ColumnType[size];
-
-        byte[] arr = new byte[raw.length - 1];
-        System.arraycopy(raw, 1, arr, 0, arr.length);
-        BinaryTupleReader reader = new BinaryTupleReader(size * 3, arr);
-        Tuple tup = Tuple.create(size);
-
-        int readerInd = 0;
-        int i = 0;
-        while (i < size) {
-            String colName = reader.stringValue(readerInd++);
-            int colTypeId = reader.intValue(readerInd++);
-
-            columns[i] = colName;
-            types[i] = ColumnType.getById(colTypeId);
-
-            i += 1;
-        }
-
-        int offset = size * 2;
-        int k = 0;
-        while (k < size) {
-            setColumnValue(reader, tup, columns[k], types[k].id(), k + offset);
-            k += 1;
-        }
-
-        return tup;
-    }
 
     private static void setColumnValue(BinaryTupleReader reader, Tuple tup, String colName, int colTypeId, int i) {
         switch (ColumnType.getById(colTypeId)) {

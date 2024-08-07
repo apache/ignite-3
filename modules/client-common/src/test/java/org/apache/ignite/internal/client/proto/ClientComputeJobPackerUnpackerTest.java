@@ -42,10 +42,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Tests Ignite-specific MsgPack extensions.
- */
-public class ClientComputeJobPackerUnpackerTest {
+class ClientComputeJobPackerUnpackerTest {
     private static Stream<Arguments> nativeTypes() {
         return Stream.of(
                 (byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(),
@@ -69,13 +66,9 @@ public class ClientComputeJobPackerUnpackerTest {
         ).map(Arguments::of);
     }
 
-    /** Test fixtures start. */
-
     private ClientMessagePacker messagePacker;
 
     private ClientComputeJobPacker computeJobPacker;
-
-    /** Test fixtures end. */
 
     @BeforeEach
     void setUp() {

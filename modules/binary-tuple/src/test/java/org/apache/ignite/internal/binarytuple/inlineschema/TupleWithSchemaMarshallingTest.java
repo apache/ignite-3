@@ -32,7 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class TupleMarshallingTest {
+class TupleWithSchemaMarshallingTest {
     private static Stream<Arguments> oneFieldTuple() {
         return Stream.of(
                 Tuple.create().set("col", 1),
@@ -58,8 +58,8 @@ class TupleMarshallingTest {
     @ParameterizedTest
     @MethodSource("oneFieldTuple")
     void serDeOneFieldTuple(Tuple tuple) {
-        byte[] marshalled = TupleMarshalling.marshal(tuple);
-        assertEquals(tuple, TupleMarshalling.unmarshal(marshalled));
+        byte[] marshalled = TupleWithSchemaMarshalling.marshal(tuple);
+        assertEquals(tuple, TupleWithSchemaMarshalling.unmarshal(marshalled));
     }
 
     @Test
@@ -83,7 +83,7 @@ class TupleMarshallingTest {
                 .set("col16", Period.ofDays(10))
                 .set("col17", Duration.ofDays(10));
 
-        byte[] marshalled = TupleMarshalling.marshal(tuple);
-        assertEquals(tuple, TupleMarshalling.unmarshal(marshalled));
+        byte[] marshalled = TupleWithSchemaMarshalling.marshal(tuple);
+        assertEquals(tuple, TupleWithSchemaMarshalling.unmarshal(marshalled));
     }
 }

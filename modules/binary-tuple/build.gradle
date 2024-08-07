@@ -31,13 +31,3 @@ dependencies {
     testImplementation libs.jackson.databind
     testImplementation libs.jackson.datatype.jsr310
 }
-
-tasks.register("runnerPlatformBenchmark", JavaExec) {
-    mainClass = "org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner"
-
-    jvmArgs += defaultJvmArgs
-
-    classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
-}

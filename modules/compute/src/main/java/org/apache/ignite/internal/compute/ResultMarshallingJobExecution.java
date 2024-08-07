@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class ResultMarshallingJobExecution<R> implements JobExecution<R> {
     private final JobExecution<R> delegate;
-    public final Marshaller<R, byte[]> resultMarshaller; //todo
+    public final Marshaller<R, byte[]> resultMarshaller;
 
     ResultMarshallingJobExecution(JobExecution<R> delegate, Marshaller<R, byte[]> resultMarshaller) {
         this.delegate = delegate;

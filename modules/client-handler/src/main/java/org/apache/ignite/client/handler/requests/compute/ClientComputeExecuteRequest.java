@@ -108,7 +108,7 @@ public class ClientComputeExecuteRequest {
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            var marshaller = ((JobExecutionWrapper) e).resultMarshaller();
+                            var marshaller = ((JobExecutionWrapper) e).resultMarshaller(); // todo do not cast here
                             new ClientComputeJobPacker(w).packJobResult(val, marshaller);
                             packJobState(w, state);
                         }, err)));

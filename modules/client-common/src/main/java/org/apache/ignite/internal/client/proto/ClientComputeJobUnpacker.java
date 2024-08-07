@@ -19,29 +19,49 @@ package org.apache.ignite.internal.client.proto;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.apache.ignite.internal.binarytuple.inlineschema.TupleMarshalling;
+import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
+/** Unpacks job arguments and results. */
 public class ClientComputeJobUnpacker {
     private final ClientMessageUnpacker unpacker;
 
+    /**
+     * Constructor.
+     *
+     * @param unpacker that should be closed after usage outside of this class.
+     */
     public ClientComputeJobUnpacker(ClientMessageUnpacker unpacker) {
         this.unpacker = unpacker;
     }
 
+    /**
+     * Unpacks compute job argument. If the marshaller is provided, it will be used to unmarshal the argument.
+     * If the marshaller is not provided and the argument is a native column type or a tuple, it will be unpacked
+     * accordingly.
+     *
+     * @param marshaller Marshaller.
+     * @return Unpacked argument.
+     */
     public Object unpackJobArgument(@Nullable Marshaller<?, byte[]> marshaller) {
         return unpack(marshaller);
     }
 
+    /**
+     * Unpacks compute job result. If the marshaller is provided, it will be used to unmarshal the result.
+     * If the marshaller is not provided and the result is a native column type or a tuple, it will be unpacked
+     * accordingly.
+     *
+     * @param marshaller Marshaller.
+     * @return Unpacked result.
+     */
     public Object unpackJobResult(@Nullable Marshaller<?, byte[]> marshaller) {
         return unpack(marshaller);
     }
 
-    /**
-     * | int    | byte[] | ------------------ | typeId | value |
-     */
+    /** Underlying byte array expected to be in the following format: | typeId | value |. */
     private Object unpack(@Nullable Marshaller<?, byte[]> marshaller) {
         int typeId = unpacker.unpackInt();
 
@@ -58,7 +78,7 @@ public class ClientComputeJobUnpacker {
 
                 return unpackNativeType(columnType);
             case MARSHALLED_TUPLE:
-                return TupleMarshalling.unmarshal(unpacker.readBinary());
+                return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
             case MARSHALLED_OBJECT:
                 if (marshaller != null) {
                     byte[] bytes = unpacker.readBinary();

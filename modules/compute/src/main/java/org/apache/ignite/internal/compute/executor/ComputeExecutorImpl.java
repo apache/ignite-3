@@ -120,10 +120,6 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
 
     private static <R> @Nullable Object marshallOrNull(Object res, @Nullable Marshaller<R, byte[]> marshaller) {
-//        if (res instanceof Tuple && marshaller == null) {
-//            return TupleMarshalling.marshal((Tuple) res);
-//        }
-
         if (marshaller == null) {
             return res;
         }

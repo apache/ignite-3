@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.client.proto;
 
+/** This interface in not supposed to be used outside this module. */
 @FunctionalInterface
 interface Writer {
+    /** Writes the object to the packer. */
     void write(Object obj, ClientMessagePacker packer);
 }
