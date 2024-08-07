@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUS
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 
+import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,7 +63,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private final List<String> colocationColumns;
 
     @IgniteToStringExclude
-    private Map<String, Map.Entry<Integer, CatalogTableColumnDescriptor>> columnsMap;
+    private Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnsMap;
 
     private long creationToken;
 
@@ -129,10 +131,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
         this.primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
 
-        Map<String, Map.Entry<Integer, CatalogTableColumnDescriptor>> columnMap = IgniteUtils.newHashMap(columns.size());
+        Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnMap = IgniteUtils.newHashMap(columns.size());
         for (int i = 0; i < columns.size(); i++) {
             CatalogTableColumnDescriptor column = columns.get(i);
-            columnMap.put(column.name(), Map.entry(i, column));
+            columnMap.put(column.name(), new BasicEntry<>(i, column));
         }
 
         this.columnsMap = columnMap;
