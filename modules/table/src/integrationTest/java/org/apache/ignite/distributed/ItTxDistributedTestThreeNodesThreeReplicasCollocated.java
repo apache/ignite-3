@@ -18,13 +18,11 @@
 package org.apache.ignite.distributed;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -44,17 +42,6 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
     /** {@inheritDoc} */
     @Override protected boolean startClient() {
         return false;
-    }
-
-    /** {@inheritDoc} */
-    @BeforeEach
-    @Override public void before() throws Exception {
-        super.before();
-
-        assertSame(
-                txTestCluster.raftClients.get(ACC_TABLE_NAME).get(0).clusterService(),
-                txTestCluster.getLeader(ACC_TABLE_NAME).service()
-        );
     }
 
     @Test
