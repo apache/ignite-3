@@ -18,7 +18,6 @@
 package org.apache.ignite.distributed;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;

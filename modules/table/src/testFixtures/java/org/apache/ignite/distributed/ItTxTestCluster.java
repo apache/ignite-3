@@ -159,7 +159,6 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -719,18 +718,16 @@ public class ItTxTestCluster {
                         schemaManager
                 );
 
-                CompletableFuture<Void> partitionReadyFuture = replicaManagers.get(assignment)
-                        .startReplica(
-                                RaftGroupEventsListener.noopLsnr,
-                                partitionListener,
-                                false,
-                                null,
-                                createReplicaListener,
-                                storageIndexTracker,
-                                grpId,
-                                configuration
-                        )
-                        .thenAccept(unused -> { });
+                CompletableFuture<?> partitionReadyFuture = replicaManagers.get(assignment).startReplica(
+                        RaftGroupEventsListener.noopLsnr,
+                        partitionListener,
+                        false,
+                        null,
+                        createReplicaListener,
+                        storageIndexTracker,
+                        grpId,
+                        configuration
+                );
 
                 partitionReadyFutures.add(partitionReadyFuture);
             }
