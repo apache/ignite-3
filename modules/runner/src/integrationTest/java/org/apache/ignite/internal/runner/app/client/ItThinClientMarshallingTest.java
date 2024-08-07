@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app.client;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,6 +31,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -233,13 +235,19 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testIncompatibleTupleElementType() {
-        Table table = ignite().tables().table(TABLE_NAME);
+        var tableName = "testIncompatibleTupleElementType";
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+
+        Table table = ignite().tables().table(tableName);
         var tupleView = table.recordView();
 
-        Tuple rec = Tuple.create().set("KEY", "1").set("VAL", BigDecimal.ONE);
+        Tuple rec = Tuple.create().set("KEY", 1).set("VAL", 1L);
 
+        // The validation done on a client side (for a thin client), and messages may differ between embedded clients and thin clients.
+        // For an embedded client the message include type precision, but for a thin client it doesn't.
         Throwable ex = assertThrows(IgniteException.class, () -> tupleView.upsert(null, rec));
-        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
+        assertThat(ex.getMessage(), startsWith("Value type does not match expected STRING"));
+        assertThat(ex.getMessage(), endsWith("but got INT64 in column 'VAL'"));
     }
 
     @Test
@@ -311,6 +319,39 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 IgniteException.class);
 
         assertThat(ex.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
+    }
+
+    @Test
+    public void testVarcharColumnOverflow() {
+        var tableName = "testVarcharColumnOverflow";
+
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR(10))");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(
+                () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create().set("VAL", "1".repeat(20))),
+                IgniteException.class);
+
+        assertThat(ex.getMessage(), containsString("Value too long for type STRING(10) in column 'VAL'"));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22965")
+    public void testDecimalColumnOverflow() {
+        var tableName = "testDecimalColumnOverflow";
+
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL DECIMAL(3,1))");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(
+                () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create().set("VAL", new BigDecimal("12345.1"))),
+                IgniteException.class);
+
+        assertThat(ex.getMessage(), containsString("Numeric field overflow in column 'VAL'"));
     }
 
     private static class TestPojo2 {

@@ -106,22 +106,23 @@ public class NumericTypesSerializerTest {
         assertThrowsWithCause(
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("123456789.0123"))),
                 MarshallerException.class,
-                "Failed to set decimal value for column"
+                "Numeric field overflow"
         );
         assertThrowsWithCause(
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("-1234567890123"))),
                 MarshallerException.class,
-                "Failed to set decimal value for column"
+                "Numeric field overflow"
         );
         assertThrowsWithCause(
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("1234567"))),
                 MarshallerException.class,
-                "Failed to set decimal value for column"
+                "Numeric field overflow"
         );
+        //  Failed to set decimal value for column 'DECIMALCOL' (max precision exceeds allocated precision) [decimal=12345678.9, max precision=9]
         assertThrowsWithCause(
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("12345678.9"))),
                 MarshallerException.class,
-                "Failed to set decimal value for column"
+                "Numeric field overflow"
         );
     }
 

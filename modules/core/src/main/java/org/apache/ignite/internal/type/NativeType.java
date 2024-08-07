@@ -89,6 +89,14 @@ public class NativeType implements Comparable<NativeType> {
         return this != type && typeSpec != type.typeSpec;
     }
 
+    /**
+     * Return human readable name of this type.
+     * @return Human readable name of this type.
+     */
+    public String displayName() {
+        return typeSpec.asColumnType().name();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
