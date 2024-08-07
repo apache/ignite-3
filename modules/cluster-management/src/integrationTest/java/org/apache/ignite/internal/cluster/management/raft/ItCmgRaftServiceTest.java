@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -241,7 +240,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 .cmgNodes(Set.copyOf(node1.raftService.nodeNames()))
                 .metaStorageNodes(Set.copyOf(node1.raftService.nodeNames()))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
-                .clusterTag(clusterTag(msgFactory, "cluster"))
+                .clusterTag(ClusterTag.randomClusterTag(msgFactory, "cluster"))
                 .build();
 
         assertThat(node1.raftService.initClusterState(clusterState), willCompleteSuccessfully());
@@ -298,7 +297,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         Collection<String> cmgNodes = node1.raftService.nodeNames();
         Collection<String> msNodes = node1.raftService.nodeNames();
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         var clusterState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(cmgNodes))
                 .metaStorageNodes(Set.copyOf(msNodes))
@@ -370,7 +369,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         assertThat(node1.raftService.readClusterState(), willCompleteSuccessfully());
         assertThat(node2.raftService.readClusterState(), willCompleteSuccessfully());
 
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -392,7 +391,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         Node node1 = cluster.get(0);
         Node node2 = cluster.get(1);
 
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -406,7 +405,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         assertThat(node1.raftService.startJoinCluster(state.clusterTag(), null), willCompleteSuccessfully());
 
         // incorrect tag
-        var incorrectTag = clusterTag(msgFactory, "invalid");
+        var incorrectTag = ClusterTag.randomClusterTag(msgFactory, "invalid");
 
         assertThrowsWithCause(
                 () -> node2.raftService.startJoinCluster(incorrectTag, null).get(10, TimeUnit.SECONDS),
@@ -426,7 +425,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         CmgRaftService raftService = cluster.get(0).raftService;
 
         IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("1.2.3");
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -453,7 +452,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     void testValidationCommandOrder() {
         CmgRaftService raftService = cluster.get(0).raftService;
 
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -488,7 +487,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     void testClusterStateValidation() {
         CmgRaftService raftService = cluster.get(0).raftService;
 
-        ClusterTag clusterTag4 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag4 = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -502,7 +501,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
 
         // Invalid CMG nodes
-        ClusterTag clusterTag3 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag3 = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState invalidCmgState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("baz")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -520,7 +519,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         );
 
         // Invalid MetaStorage nodes
-        ClusterTag clusterTag2 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag2 = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState invalidMsState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("baz")))
@@ -540,7 +539,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         // Invalid version
         IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("1.2.3");
-        ClusterTag clusterTag1 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag1 = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState invalidVersionState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -558,7 +557,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         );
 
         // Invalid tag
-        ClusterTag clusterTag = clusterTag(msgFactory, "invalid");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "invalid");
         ClusterState invalidTagState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -581,7 +580,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testJoinCommandsIdempotence() {
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
