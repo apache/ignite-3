@@ -64,11 +64,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -310,15 +309,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
-        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
-                5, 5,
-                10, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        partitionOperationsExecutor = Executors.newFixedThreadPool(
+                5,
                 IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE)
         );
-        threadPoolExecutor.allowCoreThreadTimeOut(true);
-
-        partitionOperationsExecutor = threadPoolExecutor;
     }
 
     @AfterEach
