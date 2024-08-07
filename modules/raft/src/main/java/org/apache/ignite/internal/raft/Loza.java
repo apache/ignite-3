@@ -337,6 +337,7 @@ public class Loza implements RaftManager {
 
             storageConfigurator.configure(raftGroupOptions);
 
+            // TODO: Move to option configurator, see https://issues.apache.org/jira/browse/IGNITE-18273
             raftGroupOptions.ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration);
 
             return startRaftGroupNodeInternal(

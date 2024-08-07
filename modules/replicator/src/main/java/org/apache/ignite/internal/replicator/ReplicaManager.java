@@ -862,6 +862,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
+        // TODO: The options will be used by Loza only. Consider rafactoring. see https://issues.apache.org/jira/browse/IGNITE-18273
         partitionRaftConfigurator.configure(raftGroupOptions);
 
         return raftGroupOptions;
