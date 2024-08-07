@@ -128,7 +128,6 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.LazyPath;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -191,7 +190,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
     private volatile HybridTimestamp savedWatermark;
 
-    private final DataStorageModule dataStorageModule = createDataStorageModule();
+    private final DataStorageModule dataStorageModule = (DataStorageModule) createDataStorageModule();
 
     @AfterEach
     void after() throws Exception {
