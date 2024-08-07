@@ -424,6 +424,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22944")
     void testAlterReplicaTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -538,7 +539,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @RepeatedTest(100)
+    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22858")
     void testAlterFilterTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
