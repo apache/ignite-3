@@ -217,18 +217,18 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(basePath.resolve("storage"));
 
-            LogStorageFactory mslogStorageFactory = SharedLogStorageFactoryUtils.create(
+            LogStorageFactory msLogStorageFactory = SharedLogStorageFactoryUtils.create(
                     clusterService.nodeName(),
                     metastorageWorkDir.raftLogPath()
             );
 
-            components.add(mslogStorageFactory);
+            components.add(msLogStorageFactory);
 
             RaftOptionsConfigurator msRaftConfigurator = options -> {
                 RaftGroupOptions raftOptions = (RaftGroupOptions) options;
 
                 // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(mslogStorageFactory);
+                raftOptions.setLogStorageFactory(msLogStorageFactory);
                 raftOptions.serverDataPath(metastorageWorkDir.metaPath());
             };
 

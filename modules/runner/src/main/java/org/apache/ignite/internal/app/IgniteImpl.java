@@ -410,7 +410,7 @@ public class IgniteImpl implements Ignite {
     /** Default log storage factory for raft. */
     private final LogStorageFactory logStorageFactory;
 
-    private final LogStorageFactory mslogStorageFactory;
+    private final LogStorageFactory msLogStorageFactory;
 
     private final LogStorageFactory cmgLogStorageFactory;
 
@@ -613,7 +613,7 @@ public class IgniteImpl implements Ignite {
 
         ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
-        mslogStorageFactory =
+        msLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
 
         RaftOptionsConfigurator msRaftConfigurator = options -> {
@@ -621,7 +621,7 @@ public class IgniteImpl implements Ignite {
 
             // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
             if (raftOptions.getLogStorageFactory() == null) {
-                raftOptions.setLogStorageFactory(mslogStorageFactory);
+                raftOptions.setLogStorageFactory(msLogStorageFactory);
             }
             if (raftOptions.serverDataPath() == null) {
                 raftOptions.serverDataPath(metastorageWorkDir.metaPath());
@@ -749,7 +749,7 @@ public class IgniteImpl implements Ignite {
         LogSyncer logSyncer = () -> {
             logStorageFactory.sync();
             cmgLogStorageFactory.sync();
-            mslogStorageFactory.sync();
+            msLogStorageFactory.sync();
         };
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
@@ -1173,7 +1173,7 @@ public class IgniteImpl implements Ignite {
                     clusterSvc,
                     restComponent,
                     logStorageFactory,
-                    mslogStorageFactory,
+                    msLogStorageFactory,
                     cmgLogStorageFactory,
                     raftMgr,
                     cmgMgr,

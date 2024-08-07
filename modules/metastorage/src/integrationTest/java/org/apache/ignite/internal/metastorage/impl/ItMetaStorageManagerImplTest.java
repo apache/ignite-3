@@ -102,7 +102,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     private LogStorageFactory defaultLogStorageFactory;
 
-    private LogStorageFactory mslogStorageFactory;
+    private LogStorageFactory msLogStorageFactory;
 
     private KeyValueStorage storage;
 
@@ -148,14 +148,14 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-        mslogStorageFactory =
+        msLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
         RaftOptionsConfigurator msRaftConfigurator = options -> {
             RaftGroupOptions raftOptions = (RaftGroupOptions) options;
 
             // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftOptions.setLogStorageFactory(mslogStorageFactory);
+            raftOptions.setLogStorageFactory(msLogStorageFactory);
             raftOptions.serverDataPath(metastorageWorkDir.metaPath());
         };
 
@@ -179,7 +179,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(
                 startAsync(new ComponentContext(),
-                        clusterService, defaultLogStorageFactory, mslogStorageFactory, raftManager, metaStorageManager)
+                        clusterService, defaultLogStorageFactory, msLogStorageFactory, raftManager, metaStorageManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
@@ -188,7 +188,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         List<IgniteComponent> components =
-                List.of(metaStorageManager, raftManager, defaultLogStorageFactory, mslogStorageFactory, clusterService);
+                List.of(metaStorageManager, raftManager, defaultLogStorageFactory, msLogStorageFactory, clusterService);
 
         closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),

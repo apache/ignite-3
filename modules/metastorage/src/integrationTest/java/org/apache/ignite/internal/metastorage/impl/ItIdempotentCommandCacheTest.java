@@ -140,7 +140,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         LogStorageFactory defaultLogStorageFactory;
 
-        LogStorageFactory mslogStorageFactory;
+        LogStorageFactory msLogStorageFactory;
 
         KeyValueStorage storage;
 
@@ -197,14 +197,14 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage" + index));
 
-            mslogStorageFactory =
+            msLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
             RaftOptionsConfigurator msRaftConfigurator = options -> {
                 RaftGroupOptions raftOptions = (RaftGroupOptions) options;
 
                 // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(mslogStorageFactory);
+                raftOptions.setLogStorageFactory(msLogStorageFactory);
                 raftOptions.serverDataPath(metastorageWorkDir.metaPath());
             };
 
@@ -242,7 +242,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             assertThat(
                     startAsync(new ComponentContext(),
-                            clusterService, defaultLogStorageFactory, mslogStorageFactory, raftManager, metaStorageManager, clockWaiter),
+                            clusterService, defaultLogStorageFactory, msLogStorageFactory, raftManager, metaStorageManager, clockWaiter),
                     willCompleteSuccessfully()
             );
         }
@@ -253,7 +253,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         void stop() throws Exception {
             List<IgniteComponent> components =
-                    List.of(clockWaiter, metaStorageManager, raftManager, defaultLogStorageFactory, mslogStorageFactory, clusterService);
+                    List.of(clockWaiter, metaStorageManager, raftManager, defaultLogStorageFactory, msLogStorageFactory, clusterService);
 
             closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
