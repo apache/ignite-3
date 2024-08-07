@@ -22,25 +22,15 @@ import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Period;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
-import org.apache.ignite.internal.binarytuple.inlineschema.TupleMarshalling;
-import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -821,161 +811,5 @@ public class ClientMessagePacker implements AutoCloseable {
         }
 
         return 5;
-    }
-
-    public <T> void packJobArg(T arg, @Nullable Marshaller<T, byte[]> marshaller) {
-        if (marshaller != null) {
-            packInt(ColumnType.BYTE_ARRAY.id());
-            byte[] marshalled = marshaller.marshal(arg);
-
-            if (marshalled == null) {
-                packNil();
-                return;
-            }
-
-            packByteBuffer(ByteBuffer.wrap(marshalled));
-            return;
-        }
-
-        if (arg instanceof Tuple) {
-            byte[] marshalledTuple = TupleMarshalling.marshal((Tuple) arg);
-
-            packInt(1_000); //todo
-
-            assert marshalledTuple != null;
-            packByteBuffer(ByteBuffer.wrap(marshalledTuple));
-            return;
-        }
-
-        if (arg == null) {
-            packInt(-1); // todo
-            packNil();
-            return;
-        }
-
-        var type = getColumnTypeFrom(arg);
-        packInt(type.id());
-
-        var writer = writerForType(type);
-        writer.write(arg, this);
-    }
-
-    private Writer writerForType(ColumnType type) {
-        switch (type) {
-            case BOOLEAN:
-                return (obj, packer) -> packer.packBoolean(((Boolean) obj));
-            case INT8:
-                return ((obj, packer) -> packer.packByte((byte) obj));
-            case INT16:
-                return ((obj, packer) -> packer.packShort((short) obj));
-            case INT32:
-                return ((obj, packer) -> packer.packInt((int) obj));
-            case INT64:
-                return ((obj, packer) -> packer.packLong((long) obj));
-            case FLOAT:
-                return ((obj, packer) -> packer.packFloat((float) obj));
-            case DOUBLE:
-                return ((obj, packer) -> packer.packDouble((double) obj));
-            case DECIMAL:
-                return ((obj, packer) -> {
-                    BigDecimal bigDecimal = (BigDecimal) obj;
-                    int scale = bigDecimal.scale();
-                    byte[] unscaledBytes = bigDecimal.unscaledValue().toByteArray();
-                    packInt(scale);
-                    packByteBuffer(ByteBuffer.wrap(unscaledBytes));
-                });
-            case UUID:
-                return ((obj, packer) -> packUuid((UUID) obj));
-            case STRING:
-                return ((obj, packer) -> packer.packString((String) obj));
-            case BYTE_ARRAY:
-                return ((obj, packer) -> packer.packByteBuffer(ByteBuffer.wrap((byte[]) obj)));
-            case DATE:
-                return ((obj, packer) -> {});
-            case TIME:
-                return ((obj, packer) -> {});
-            case DATETIME:
-                return ((obj, packer) -> {});
-            case TIMESTAMP:
-                return ((obj, packer) -> {});
-            case DURATION:
-                return ((obj, packer) -> {});
-            case PERIOD:
-                return ((obj, packer) -> {});
-            default:
-                throw new IllegalArgumentException();
-        }
-    }
-
-    private static ColumnType getColumnTypeFrom(Object obj) {
-        if (obj instanceof Boolean) {
-            return ColumnType.BOOLEAN;
-        } else if (obj instanceof Byte) {
-            return ColumnType.INT8;
-        } else if (obj instanceof Short) {
-            return ColumnType.INT16;
-        } else if (obj instanceof Integer) {
-            return ColumnType.INT32;
-        } else if (obj instanceof Long) {
-            return ColumnType.INT64;
-        } else if (obj instanceof Float) {
-            return ColumnType.FLOAT;
-        } else if (obj instanceof Double) {
-            return ColumnType.DOUBLE;
-        } else if (obj instanceof BigDecimal) {
-            return ColumnType.DECIMAL;
-        } else if (obj instanceof UUID) {
-            return ColumnType.UUID;
-        } else if (obj instanceof String) {
-            return ColumnType.STRING;
-        } else if (obj instanceof byte[]) {
-            return ColumnType.BYTE_ARRAY;
-        } else if (obj instanceof LocalDate) {
-            return ColumnType.DATE;
-        } else if (obj instanceof LocalTime) {
-            return ColumnType.TIME;
-        } else if (obj instanceof LocalDateTime) {
-            return ColumnType.DATETIME;
-        } else if (obj instanceof Instant) {
-            return ColumnType.TIMESTAMP;
-        } else if (obj instanceof Duration) {
-            return ColumnType.DURATION;
-        } else if (obj instanceof Period) {
-            return ColumnType.PERIOD;
-        } else {
-            return null;
-        }
-    }
-
-    public <T> void packJobResult(T res, @Nullable Marshaller<T, byte[]> marshaller) {
-        if (marshaller != null) {
-            packInt(ColumnType.BYTE_ARRAY.id());
-            byte[] marshalled = marshaller.marshal(res);
-
-            if (marshalled == null) {
-                packNil();
-                return;
-            }
-
-            packByteBuffer(ByteBuffer.wrap(marshalled));
-            return;
-        }
-
-        if (res instanceof Tuple) {
-            byte[] marshalledTuple = TupleMarshalling.marshal((Tuple) res);
-
-            packInt(1_000); //todo
-
-            assert marshalledTuple != null;
-            packByteBuffer(ByteBuffer.wrap(marshalledTuple));
-            return;
-        }
-
-        var type = getColumnTypeFrom(res);
-        packInt(type.id());
-
-        var writer = writerForType(type);
-        writer.write(res, this);
-
     }
 }

@@ -35,12 +35,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
-import java.util.stream.Stream;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests Ignite-specific MsgPack extensions.
@@ -53,15 +48,6 @@ public class ClientMessagePackerUnpackerTest {
     private final Object[] argsAllTypes = new Object[]{(byte) 4, (short) 8, 15, 16L, 23.0f, 42.0d, "TEST_STRING", null, UUID.randomUUID(),
             LocalTime.now(), LocalDate.now(), LocalDateTime.now(), Instant.now(), Period.of(1, 2, 3),
             Duration.of(1, ChronoUnit.DAYS)};
-
-    private static Stream<Arguments> allJobArguments() {
-        return Stream.of(
-                Tuple.create(),
-                null,
-                Tuple.create().set("key", 1),
-                Tuple.create().set("key", "value")
-        ).map(Arguments::of);
-    }
 
     @Test
     public void testPackerCloseReleasesPooledBuffer() {
@@ -237,23 +223,6 @@ public class ClientMessagePackerUnpackerTest {
 
                 assertEquals(-2, unpacker.tryUnpackInt(-2));
                 assertEquals("s", unpacker.unpackString());
-            }
-        }
-    }
-
-    @MethodSource("allJobArguments")
-    @ParameterizedTest
-    void packUnpackJobArg(Object arg) {
-        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
-
-            packer.packJobArg(arg, null);
-
-            byte[] data = ByteBufUtil.getBytes(packer.getBuffer());
-
-            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data, 4, data.length - 4))) {
-                var res = unpacker.unpackJobArgument();
-
-                assertEquals(arg, res);
             }
         }
     }

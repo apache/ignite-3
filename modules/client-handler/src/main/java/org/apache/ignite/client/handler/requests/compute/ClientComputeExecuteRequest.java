@@ -28,6 +28,8 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -107,7 +109,7 @@ public class ClientComputeExecuteRequest {
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
                             var marshaller = ((JobExecutionWrapper) e).resultMarshaller();
-                            w.packJobResult(val, marshaller);
+                            new ClientComputeJobPacker(w).packJobResult(val, marshaller);
                             packJobState(w, state);
                         }, err)));
     }
@@ -119,6 +121,6 @@ public class ClientComputeExecuteRequest {
      * @return Args array.
      */
     static Object unpackPayload(ClientMessageUnpacker in) {
-        return in.unpackJobArgument();
+        return new ClientComputeJobUnpacker(in).unpackJobArgument(null);
     }
 }

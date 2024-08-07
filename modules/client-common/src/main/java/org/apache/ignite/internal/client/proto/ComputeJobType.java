@@ -19,11 +19,20 @@ package org.apache.ignite.internal.client.proto;
 
 import org.apache.ignite.sql.ColumnType;
 
-public class JobArgumentTypeId {
+public class ComputeJobType {
+    private static final int OFFSET = 1000;
+
+    public static final int MARSHALLED_TUPLE_ID = OFFSET + 1;
+    public static final int MARSHALLED_OBJECT_ID = OFFSET + 2;
+
+    /**
+     * [0, .., 1000] - native types. The id is the same as in {@link ColumnType}.
+     * (1000, .., Integer.MAX_VALUE] - marshalled types.
+     */
     private final int id;
     private final Type type;
 
-    JobArgumentTypeId(int id) {
+    ComputeJobType(int id) {
        this.id = id;
        this.type = Type.fromId(id);
     }
@@ -36,16 +45,28 @@ public class JobArgumentTypeId {
         return type;
     }
 
-    public static enum Type {
-        NATIVE, MARSHALLED_TUPLE;
+    public enum Type {
+        NATIVE, MARSHALLED_TUPLE, MARSHALLED_OBJECT;
 
-        static Type  fromId(int id) {
-            ColumnType nativeType = ColumnType.getById(id);
-            if (nativeType == null) {
+        static Type fromId(int id) {
+            if (id == MARSHALLED_TUPLE_ID) {
                 return MARSHALLED_TUPLE;
             }
 
+            if (id == MARSHALLED_OBJECT_ID) {
+                return MARSHALLED_OBJECT;
+            }
+
+            ColumnType nativeType = ColumnType.getById(id);
+            if (nativeType == null) {
+                throw new IllegalArgumentException("Unsupported type id: " + id);
+            }
+
             return NATIVE;
+        }
+
+        public static int id() {
+            return 0;
         }
     }
 

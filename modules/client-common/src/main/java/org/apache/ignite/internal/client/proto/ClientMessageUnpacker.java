@@ -20,8 +20,6 @@ package org.apache.ignite.internal.client.proto;
 import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -32,10 +30,8 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.binarytuple.inlineschema.TupleMarshalling;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
@@ -1001,82 +997,4 @@ public class ClientMessageUnpacker implements AutoCloseable {
         buf.readerIndex(buf.readerIndex() + bytes);
     }
 
-    public Object unpackJobArgument() {
-        int typeId = unpackInt();
-        if (typeId == -1) {
-            unpackNil();
-            return null;
-        }
-
-        var type = JobArgumentTypeId.Type.fromId(typeId);
-        switch (type) {
-            case NATIVE:
-                ColumnType columnType = ColumnType.getById(typeId);
-                return unpackNativeType(columnType);
-            case MARSHALLED_TUPLE:
-                return TupleMarshalling.unmarshal(readBinary());
-            default:
-                throw new IllegalArgumentException("Unsupported type id: " + typeId);
-        }
-    }
-
-    private Object unpackNativeType(ColumnType type) {
-        switch (type) {
-            case BOOLEAN:
-                return unpackBoolean();
-            case INT8:
-                return unpackByte();
-            case INT16:
-                return unpackShort();
-            case INT32:
-                return unpackInt();
-            case INT64:
-                return unpackLong();
-            case FLOAT:
-                return unpackFloat();
-            case DOUBLE:
-                return unpackDouble();
-            case DECIMAL:
-                int scale = unpackInt();
-                byte[] unscaledBytes = readBinary();
-                BigInteger unscaled = new BigInteger(unscaledBytes);
-                return new BigDecimal(unscaled, scale);
-            case UUID:
-                return unpackUuid();
-            case STRING:
-                return unpackString();
-            case BYTE_ARRAY:
-                return readBinary();
-            case DATE:
-                return null;
-            case TIME:
-                return null;
-            case DATETIME:
-                return null;
-            case TIMESTAMP:
-                return null;
-            case DURATION:
-                return null;
-            case PERIOD:
-                return null;
-            default:
-                throw new IllegalArgumentException();
-
-        }
-    }
-
-    public Object unpackJobResult() {
-        int typeId = unpackInt();
-
-        var type = JobArgumentTypeId.Type.fromId(typeId);
-        switch (type) {
-            case NATIVE:
-                ColumnType columnType = ColumnType.getById(typeId);
-                return unpackNativeType(columnType);
-            case MARSHALLED_TUPLE:
-                return TupleMarshalling.unmarshal(readBinary());
-            default:
-                throw new IllegalArgumentException("Unsupported type id: " + typeId);
-        }
-    }
 }
