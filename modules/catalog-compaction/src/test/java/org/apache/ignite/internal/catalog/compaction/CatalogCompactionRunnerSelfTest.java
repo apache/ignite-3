@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -37,11 +38,13 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,8 +72,10 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -101,6 +106,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     private MessagingService messagingService;
 
     private PlacementDriver placementDriver;
+
+    private ReplicaService replicaService;
 
     @Test
     public void routineSucceedOnCoordinator() throws InterruptedException {
@@ -179,21 +186,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
     @Test
     public void mustNotPerformWhenAssignmentNodeIsMissing() throws InterruptedException {
-        CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
-                .schemaName("PUBLIC")
-                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
-                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
-                .colocationColumns(List.of("key2"));
-
-        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(tableCmdBuilder.tableName("test1").build()), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(tableCmdBuilder.tableName("test2").build()), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(tableCmdBuilder.tableName("test3").build()), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-
-        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clockService.nowLong()));
-
-        assertNotNull(catalog);
+        Catalog catalog = prepareCatalogWithTables();
 
         // Node NODE3 from the assignment is missing in logical topology.
         {
@@ -373,6 +366,66 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
     }
 
+    @Test
+    public void minTxTimePropagation() {
+        Catalog catalog = prepareCatalogWithTables();
+
+        List<LogicalNode> logicalTopology = List.of(NODE2, NODE3, NODE1);
+        List<LogicalNode> assignments = List.of(NODE3, NODE2, NODE1);
+        CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
+
+        assertThat(compactor.propagateTimeToReplicas(catalog.time()), willCompleteSuccessfully());
+
+        // All invocations must be made locally, since coordinator is present in assignments for all tables.
+        verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
+        verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
+        verify(replicaService, times(/* tables */ 3 * /* partitions */ 25)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+    }
+
+    @Test
+    public void minTxTimePropagationSucceedWhenSomeAssignmentIsMissing() {
+        Catalog catalog = prepareCatalogWithTables();
+
+        List<LogicalNode> logicalTopology = List.of(NODE2, NODE1);
+        List<LogicalNode> assignments = List.of(NODE3, NODE2, NODE1);
+        CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
+
+        assertThat(compactor.propagateTimeToReplicas(catalog.time()), willCompleteSuccessfully());
+    }
+
+    @Test
+    public void minTxTimePropagationAbortedIfNoAssignmentsPresentInTopology() {
+        Catalog catalog = prepareCatalogWithTables();
+
+        List<LogicalNode> logicalTopology = List.of(NODE1, NODE2);
+        List<LogicalNode> assignments = List.of(NODE3);
+
+        CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
+
+        CompletableFuture<Void> fut = compactor.propagateTimeToReplicas(catalog.time());
+
+        //noinspection ThrowableNotThrown
+        assertThrowsWithCause(() -> await(fut), IllegalStateException.class, "Current topology doesn't include assignment nodes");
+    }
+
+    private Catalog prepareCatalogWithTables() {
+        CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
+                .schemaName("PUBLIC")
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
+                .colocationColumns(List.of("key2"));
+
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tableCmdBuilder.tableName("test1").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tableCmdBuilder.tableName("test2").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tableCmdBuilder.tableName("test3").build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clockService.nowLong()));
+
+        return Objects.requireNonNull(catalog);
+    }
+
     private CatalogCompactionRunner createRunner(
             ClusterNode localNode,
             ClusterNode coordinator,
@@ -392,8 +445,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         messagingService = mock(MessagingService.class);
         logicalTopologyService = mock(LogicalTopologyService.class);
         placementDriver = mock(PlacementDriver.class);
+        replicaService = mock(ReplicaService.class);
 
-        ReplicaService replicaService = mock(ReplicaService.class);
         CatalogCompactionMessagesFactory messagesFactory = new CatalogCompactionMessagesFactory();
 
         when(messagingService.invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong()))
@@ -420,7 +473,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         Set<Assignment> assignments = assignmentNodes.stream()
                 .map(node -> Assignment.forPeer(node.name()))
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         TokenizedAssignmentsImpl tokenizedAssignments = new TokenizedAssignmentsImpl(assignments, Long.MAX_VALUE);
         when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFuture.completedFuture(tokenizedAssignments));
@@ -429,7 +482,19 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         when(logicalTopologyService.localLogicalTopology()).thenReturn(logicalTop);
 
-        when(replicaService.invoke(any(String.class), any(ReplicaRequest.class))).thenReturn(CompletableFutures.nullCompletedFuture());
+        Set<String> logicalNodeNames = topology.stream().map(ClusterNodeImpl::name).collect(Collectors.toSet());
+
+        when(replicaService.invoke(any(String.class), any(ReplicaRequest.class)))
+                .thenAnswer(invocation ->
+                        CompletableFuture.supplyAsync(() -> {
+                            String nodeName = invocation.getArgument(0);
+
+                            if (!logicalNodeNames.contains(nodeName)) {
+                                throw new UnresolvableConsistentIdException(nodeName);
+                            }
+
+                            return null;
+                        }));
 
         CatalogCompactionRunner runner = new CatalogCompactionRunner(
                 localNode.name(),
