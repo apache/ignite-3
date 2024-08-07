@@ -36,6 +36,6 @@ public class ClusterManagementConfigurationModule implements ConfigurationModule
 
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(ClusterManagementConfiguration.KEY, NodeAttributesConfiguration.KEY);
+        return List.of(NodeAttributesConfiguration.KEY);
     }
 }

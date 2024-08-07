@@ -81,7 +81,6 @@ import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -222,9 +221,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static SystemLocalConfiguration systemConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration("mock.nodeAttributes: {region.attribute = US, storage.attribute = SSD}")
     private static NodeAttributesConfiguration nodeAttributes1;
@@ -955,7 +951,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributesConfigurations.get(idx), storageConfiguration),
                     failureProcessor,
                     clusterIdHolder
