@@ -17,33 +17,29 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import org.apache.ignite.internal.network.annotations.TransferableEnum;
+
 /**
  * Defines possible operation types.
  */
-public enum OperationType {
+public enum OperationType implements TransferableEnum {
     /** No-op operation. */
-    NO_OP,
+    NO_OP(0),
 
     /** Put (insert/replace) operation. */
-    PUT,
+    PUT(1),
 
     /** Remove operation. */
-    REMOVE;
+    REMOVE(2);
 
-    /** Cached array with all enum values. */
-    private static final OperationType[] VALUES = values();
+    private final int transferableId;
 
-    /**
-     * Returns the enumerated value from its ordinal.
-     *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
-     */
-    public static OperationType fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
-        }
+    OperationType(int transferableId) {
+        this.transferableId = transferableId;
+    }
 
-        return VALUES[ordinal];
+    @Override
+    public int transferableId() {
+        return transferableId;
     }
 }
