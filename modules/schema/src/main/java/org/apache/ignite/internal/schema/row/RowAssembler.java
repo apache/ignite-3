@@ -69,6 +69,17 @@ public class RowAssembler {
     }
 
     /**
+     * Creates a builder.
+     *
+     * @param schema Schema descriptor.
+     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
+     * @param exactEstimate Whether the total size is exact estimate or approximate.
+     */
+    public RowAssembler(SchemaDescriptor schema, int totalValueSize, boolean exactEstimate) {
+        this(schema.version(), schema.columns(), totalValueSize, exactEstimate);
+    }
+
+    /**
      * Create a builder.
      *
      * @param schemaVersion Version of the schema.

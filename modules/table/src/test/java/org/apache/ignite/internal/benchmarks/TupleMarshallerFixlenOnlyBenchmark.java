@@ -48,8 +48,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Serializer benchmark.
  */
 @State(Scope.Benchmark)
-@Warmup(iterations = 1, time = 15)
-@Measurement(iterations = 1, time = 30)
+@Warmup(iterations = 20, time = 1)
+@Measurement(iterations = 10, time = 1)
 @BenchmarkMode({Mode.AverageTime})
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Fork(jvmArgs = "-Djava.lang.invoke.stringConcat=BC_SB" /* Workaround for Java 9+ */, value = 1)
@@ -97,9 +97,9 @@ public class TupleMarshallerFixlenOnlyBenchmark {
 
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{new Column("KEY", NativeTypes.INT64, false)},
                 IntStream.range(0, fieldsCount).boxed()
-                        .map(i -> new Column("col" + i, NativeTypes.INT64, nullable))
+                        .map(i -> new Column("COL" + i, NativeTypes.INT64, nullable))
                         .toArray(Column[]::new)
         );
 
