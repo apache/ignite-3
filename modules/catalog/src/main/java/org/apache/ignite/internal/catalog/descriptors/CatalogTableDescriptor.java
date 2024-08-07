@@ -21,18 +21,20 @@ import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUS
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 
+import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -61,7 +63,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private final List<String> colocationColumns;
 
     @IgniteToStringExclude
-    private Map<String, CatalogTableColumnDescriptor> columnsMap;
+    private Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnsMap;
 
     private long creationToken;
 
@@ -128,7 +130,14 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.zoneId = zoneId;
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
         this.primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
-        this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
+
+        Map<String, Int2ObjectMap.Entry<CatalogTableColumnDescriptor>> columnMap = IgniteUtils.newHashMap(columns.size());
+        for (int i = 0; i < columns.size(); i++) {
+            CatalogTableColumnDescriptor column = columns.get(i);
+            columnMap.put(column.name(), new BasicEntry<>(i, column));
+        }
+
+        this.columnsMap = columnMap;
         this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
@@ -160,66 +169,129 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * Returns column descriptor for column with given name.
      */
     public CatalogTableColumnDescriptor columnDescriptor(String columnName) {
-        return columnsMap.get(columnName);
+        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(columnName);
+        if (column != null) {
+            return column.getValue();
+        } else {
+            return null;
+        }
     }
 
+    /**
+     * Returns an identifier of a schema this table descriptor belongs to.
+     */
     public int schemaId() {
         return schemaId;
     }
 
+    /**
+     * Returns versions of this table descriptor.
+     */
     public CatalogTableSchemaVersions schemaVersions() {
         return schemaVersions;
     }
 
+    /**
+     * Returns an identifier of a distribution zone this table descriptor belongs to.
+     */
     public int zoneId() {
         return zoneId;
     }
 
+    /**
+     * Returns a identifier of the primary key index.
+     */
     public int primaryKeyIndexId() {
         return pkIndexId;
     }
 
+    /**
+     * Returns a version of this table descriptor.
+     */
     public int tableVersion() {
         return schemaVersions.latestVersion();
     }
 
+    /**
+     * Returns a list primary key column names.
+     */
     public List<String> primaryKeyColumns() {
         return primaryKeyColumns;
     }
 
+    /**
+     * Returns a list colocation key column names.
+     */
     public List<String> colocationColumns() {
         return colocationColumns;
     }
 
+    /**
+     * Returns a list column descriptors for the table.
+     */
     public List<CatalogTableColumnDescriptor> columns() {
         return columns;
     }
 
+    /**
+     * Returns a column descriptor for column with given name.
+     */
     public CatalogTableColumnDescriptor column(String name) {
-        return columnsMap.get(name);
+        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        if (column != null) {
+            return column.getValue();
+        } else {
+            return null;
+        }
     }
 
+    /**
+     * Returns an index of a column with the given name, or {@code -1} if such column does not exist.
+     */
+    public int columnIndex(String name) {
+        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(name);
+        if (column != null) {
+            return column.getKey();
+        } else {
+            return -1;
+        }
+    }
+
+    /**
+     * Returns {@code true} if this the given column is a part of the primary key.
+     */
     public boolean isPrimaryKeyColumn(String name) {
         return primaryKeyColumns.contains(name);
     }
 
+    /**
+     * Returns {@code true} if this the given column is a part of collocation key.
+     */
     public boolean isColocationColumn(String name) {
         return colocationColumns.contains(name);
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(CatalogTableDescriptor.class, this, super.toString());
     }
 
+    /**
+     * Returns a creation token.
+     */
     public long creationToken() {
         return creationToken;
     }
 
+    /**
+     * Returns a name of a storage profile.
+     */
     public String storageProfile() {
         return storageProfile;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void updateToken(long updateToken) {
         super.updateToken(updateToken);
