@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery.message;
+package org.apache.ignite.internal.cluster.management;
 
 import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.network.message.ClusterNodeMessage;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 
 /**
- * Handshake start message, contains info about the node.
- * This message is sent from a server to a client at the connection opening.
+ * Holds cluster ID (allowing it to be changed).
  */
-@Transferable(NetworkMessageTypes.HANDSHAKE_START)
-public interface HandshakeStartMessage extends InternalMessage {
-    /** Returns the server node that sends this. */
-    ClusterNodeMessage serverNode();
+public class ClusterIdHolder implements ClusterIdSupplier, ClusterIdStore {
+    private volatile UUID clusterId;
 
-    /** ID of the cluster to which the server node belongs ({@code null} if it's not initialized yet. */
-    @Nullable
-    UUID serverClusterId();
+    @Override
+    public UUID clusterId() {
+        return clusterId;
+    }
+
+    /**
+     * Updates the stored cluster ID.
+     *
+     * @param newClusterId New cluster ID.
+     */
+    @Override
+    public void clusterId(UUID newClusterId) {
+        clusterId = newClusterId;
+    }
 }

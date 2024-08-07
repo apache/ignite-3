@@ -147,11 +147,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     /** Local node's attributes. */
     private final NodeAttributes nodeAttributes;
 
-    /** Future that resolves into the initial cluster configuration in HOCON format. */
-    private final CompletableFuture<String> initialClusterConfigurationFuture = new CompletableFuture<>();
-
     /** Failure processor that is used to handle critical errors. */
     private final FailureProcessor failureProcessor;
+
+    private final ClusterIdStore clusterIdStore;
+
+    /** Future that resolves into the initial cluster configuration in HOCON format. */
+    private final CompletableFuture<String> initialClusterConfigurationFuture = new CompletableFuture<>();
 
     private final CmgMessageHandler cmgMessageHandler;
 
@@ -166,7 +168,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ValidationManager validationManager,
             ClusterManagementConfiguration configuration,
             NodeAttributes nodeAttributes,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            ClusterIdHolder clusterIdChanger
     ) {
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
@@ -178,6 +181,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
         this.failureProcessor = failureProcessor;
+        this.clusterIdStore = clusterIdChanger;
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
@@ -224,7 +228,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration,
             NodeAttributes nodeAttributes,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            ClusterIdHolder clusterIdChanger
     ) {
         this(
                 vault,
@@ -236,7 +241,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 new ValidationManager(new ClusterStateStorageManager(clusterStateStorage), logicalTopology),
                 configuration,
                 nodeAttributes,
-                failureProcessor
+                failureProcessor,
+                clusterIdChanger
         );
     }
 
@@ -452,6 +458,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                     localStateStorage.saveLocalState(localState);
 
+                    clusterIdStore.clusterId(state.clusterTag().clusterId());
+
                     return joinCluster(service, state.clusterTag());
                 });
     }
@@ -461,7 +469,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 .cmgNodes(Set.copyOf(msg.cmgNodes()))
                 .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
-                .clusterTag(clusterTag(msgFactory, msg.clusterName()))
+                .clusterTag(clusterTag(msgFactory, msg.clusterName(), msg.clusterId()))
                 .initialClusterConfiguration(msg.initialClusterConfiguration())
                 .build();
     }
@@ -732,6 +740,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
                     localStateStorage.saveLocalState(localState);
+
+                    clusterIdStore.clusterId(state.clusterTag().clusterId());
 
                     return joinCluster(service, state.clusterTag());
                 });

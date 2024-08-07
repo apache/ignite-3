@@ -102,6 +102,7 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
@@ -154,6 +155,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
@@ -1094,6 +1096,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             vaultManager = createVault(dir);
 
+            var clusterIdService = new ClusterIdHolder();
+
             nodeCfgGenerator = new ConfigurationTreeGenerator(
                     List.of(
                             NetworkConfiguration.KEY,
@@ -1126,7 +1130,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
                     addr.port(),
-                    finder
+                    finder,
+                    new InMemoryStaleIds(),
+                    clusterIdService
             );
 
             lockManager = new HeapLockManager();
@@ -1169,7 +1175,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logicalTopology,
                     clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    clusterIdService
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

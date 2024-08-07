@@ -68,6 +68,7 @@ import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterIdService;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -279,6 +280,8 @@ public class IgniteImpl implements Ignite {
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
 
+    private final ClusterIdService clusterIdService;
+
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
 
@@ -429,6 +432,13 @@ public class IgniteImpl implements Ignite {
 
         metricManager = new MetricManagerImpl();
 
+        // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
+        Path cmgDbPath = cmgDbPath(workDir);
+
+        clusterStateStorage = new RocksDbClusterStateStorage(cmgDbPath, name);
+
+        clusterIdService = new ClusterIdService(clusterStateStorage);
+
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
@@ -485,6 +495,7 @@ public class IgniteImpl implements Ignite {
                 nettyBootstrapFactory,
                 serializationRegistry,
                 new VaultStaleIds(vaultMgr),
+                clusterIdService,
                 criticalWorkerRegistry,
                 failureProcessor
         );
@@ -522,11 +533,6 @@ public class IgniteImpl implements Ignite {
                 name,
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
-
-        // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
-        Path cmgDbPath = cmgDbPath(workDir);
-
-        clusterStateStorage = new RocksDbClusterStateStorage(cmgDbPath, name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -571,7 +577,8 @@ public class IgniteImpl implements Ignite {
                 validationManager,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
                 nodeAttributesCollector,
-                failureProcessor
+                failureProcessor,
+                clusterIdService
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
@@ -1104,6 +1111,8 @@ public class IgniteImpl implements Ignite {
                     threadPoolsManager,
                     clockWaiter,
                     failureProcessor,
+                    clusterStateStorage,
+                    clusterIdService,
                     criticalWorkerRegistry,
                     nettyBootstrapFactory,
                     nettyWorkersRegistrar,
@@ -1111,7 +1120,6 @@ public class IgniteImpl implements Ignite {
                     restComponent,
                     logStorageFactory,
                     raftMgr,
-                    clusterStateStorage,
                     cmgMgr,
                     lowWatermark
             ).thenRun(() -> {
@@ -1640,6 +1648,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public ClusterService clusterService() {
         return clusterSvc;
+    }
+
+    @TestOnly
+    public ClusterIdService clusterIdService() {
+        return clusterIdService;
     }
 
     /** Returns resources registry. */
