@@ -112,7 +112,8 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 logicalTopology,
                 clusterManagementConfiguration,
                 nodeAttributes,
-                failureProcessor
+                failureProcessor,
+                new ClusterIdHolder()
         );
 
         assertThat(clusterService.startAsync(componentContext), willCompleteSuccessfully());
@@ -132,6 +133,7 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
     void cmgManagerDoesNotMissMessagesReceivedBeforeStart() {
         CmgInitMessage initMessage = cmgMessagesFactory.cmgInitMessage()
                 .clusterName("foo")
+                .clusterId(UUID.randomUUID())
                 .cmgNodes(Set.of(clusterService.nodeName()))
                 .metaStorageNodes(Set.of(clusterService.nodeName()))
                 .initialClusterConfiguration("")

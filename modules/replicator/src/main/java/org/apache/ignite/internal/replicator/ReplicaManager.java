@@ -295,7 +295,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Executor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
-            Marshaller raftCommandsMarshaller,
+            @Nullable Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,

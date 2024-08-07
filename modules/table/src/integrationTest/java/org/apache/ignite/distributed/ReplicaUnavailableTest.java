@@ -46,9 +46,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -178,10 +177,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         raftClient = mock(TopologyAwareRaftGroupService.class);
         when(raftManager.startRaftGroupNode(any(), any(), any(), any(), any(), any())).thenReturn(completedFuture(raftClient));
 
-        requestsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        requestsExecutor = Executors.newFixedThreadPool(
+                5,
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
