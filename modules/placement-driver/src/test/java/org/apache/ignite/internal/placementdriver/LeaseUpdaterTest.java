@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -107,7 +108,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     void setUp() {
         Entry entry = new EntryImpl(
                 stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
-                Assignments.of(Assignment.forPeer(node.name())).toBytes(),
+                Assignments.of(HybridTimestamp.MIN_VALUE, Assignment.forPeer(node.name())).toBytes(),
                 1,
                 0
         );

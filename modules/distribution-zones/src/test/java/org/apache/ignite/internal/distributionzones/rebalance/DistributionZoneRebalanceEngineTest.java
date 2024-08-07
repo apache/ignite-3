@@ -75,6 +75,7 @@ import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -413,7 +414,11 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
-        byte[] assignmentsBytes = Assignments.of(Assignment.forPeer("node0")).toBytes();
+        int catalogVersion = catalogManager.latestCatalogVersion();
+        long time = catalogManager.catalog(catalogVersion).time();
+        HybridTimestamp timestamp = hybridTimestamp(time);
+
+        byte[] assignmentsBytes = Assignments.of(timestamp, Assignment.forPeer("node0")).toBytes();
 
         keyValueStorage.put(
                 stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), 0)).bytes(), assignmentsBytes,
@@ -443,8 +448,12 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
+        int catalogVersion = catalogManager.latestCatalogVersion();
+        long time = catalogManager.catalog(catalogVersion).time();
+        HybridTimestamp timestamp = hybridTimestamp(time);
+
         for (int i = 0; i < 25; i++) {
-            byte[] assignmentsBytes = Assignments.of(Assignment.forPeer("node0")).toBytes();
+            byte[] assignmentsBytes = Assignments.of(timestamp, Assignment.forPeer("node0")).toBytes();
 
             keyValueStorage.put(
                     stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), i)).bytes(), assignmentsBytes,
@@ -566,10 +575,14 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         List<Set<Assignment>> initialAssignments =
                 AffinityUtils.calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
 
+        int catalogVersion = catalogManager.latestCatalogVersion();
+        long time = catalogManager.catalog(catalogVersion).time();
+        HybridTimestamp timestamp = hybridTimestamp(time);
+
         for (int i = 0; i < initialAssignments.size(); i++) {
             var stableAssignmentPartitionKey = stablePartAssignmentsKey(new TablePartitionId(tableId, i)).bytes();
 
-            keyValueStorage.put(stableAssignmentPartitionKey, Assignments.toBytes(initialAssignments.get(i)), clock.now());
+            keyValueStorage.put(stableAssignmentPartitionKey, Assignments.toBytes(initialAssignments.get(i), timestamp), clock.now());
         }
     }
 

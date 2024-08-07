@@ -90,6 +90,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -387,7 +388,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
         TableManager tableManager = tblManagerFut.join();
-        List<Assignments> assignmentsList = List.of(Assignments.of(Assignment.forPeer(node.id())));
+        HybridTimestamp assignmentTimestamp =
+                HybridTimestamp.hybridTimestamp(catalogManager.catalog(catalogManager.latestCatalogVersion()).time());
+        List<Assignments> assignmentsList = List.of(Assignments.of(assignmentTimestamp, Assignment.forPeer(node.id())));
 
         // the first case scenario
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();

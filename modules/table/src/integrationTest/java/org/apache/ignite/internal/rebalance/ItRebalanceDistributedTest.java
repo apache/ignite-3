@@ -132,6 +132,7 @@ import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -723,7 +724,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-            byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
+            int catalogVersion = node.catalogManager.latestCatalogVersion();
+            long time = node.catalogManager.catalog(catalogVersion).time();
+            HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+
+            byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment, timestamp);
 
             node.metaStorageManager
                     .put(partAssignmentsPendingKey, bytesPendingAssignments)
@@ -793,7 +798,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-        byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment);
+        int catalogVersion = node.catalogManager.latestCatalogVersion();
+        long time = node.catalogManager.catalog(catalogVersion).time();
+        HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+
+        byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment, timestamp);
 
         AtomicBoolean dropMessages = new AtomicBoolean(true);
 
@@ -878,10 +887,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Set<Assignment> pendingAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 2);
         Set<Assignment> plannedAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 3);
 
-        byte[] bytesPendingAssignments = Assignments.toBytes(pendingAssignments);
-        byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments);
-
         Node node0 = getNode(0);
+
+        int catalogVersion = node0.catalogManager.latestCatalogVersion();
+        long time = node0.catalogManager.catalog(catalogVersion).time();
+        HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+
+        byte[] bytesPendingAssignments = Assignments.toBytes(pendingAssignments, timestamp);
+        byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments, timestamp);
 
         TablePartitionId partId = new TablePartitionId(getTableId(node0, TABLE_NAME), 0);
 

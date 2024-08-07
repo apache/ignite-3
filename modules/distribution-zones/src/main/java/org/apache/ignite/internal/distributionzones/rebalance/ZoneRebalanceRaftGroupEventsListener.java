@@ -53,6 +53,7 @@ import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -350,7 +351,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
-            Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
+            Assignments pendingAssignments = readAssignments(pendingEntry);
+            Set<Assignment> retrievedPending = pendingAssignments.nodes();
 
             if (!retrievedPending.equals(stableFromRaft)) {
                 return;
@@ -397,11 +399,13 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Update successCase;
             Update failCase;
 
-            byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft);
-            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition);
-            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction);
-            byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce);
-            byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend);
+            HybridTimestamp catalogTimestamp = pendingAssignments.timestamp();
+
+            byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft, catalogTimestamp);
+            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition, catalogTimestamp);
+            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction, catalogTimestamp);
+            byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce, catalogTimestamp);
+            byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend, catalogTimestamp);
 
             if (!calculatedSwitchAppend.isEmpty()) {
                 successCase = ops(
@@ -556,8 +560,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
-            int replicas, ZonePartitionId partId, WatchEvent event) {
+    public static CompletableFuture<Void> handleReduceChanged(
+            MetaStorageManager metaStorageMgr,
+            Collection<String> dataNodes,
+            int replicas,
+            ZonePartitionId partId,
+            WatchEvent event,
+            HybridTimestamp assignmentsTimestamp
+    ) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 
@@ -575,8 +585,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments);
-        byte[] assignmentsByteArray = Assignments.toBytes(assignments);
+        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments, assignmentsTimestamp);
+        byte[] assignmentsByteArray = Assignments.toBytes(assignments, assignmentsTimestamp);
 
         ByteArray changeTriggerKey = ZoneRebalanceUtil.pendingChangeTriggerKey(partId);
         byte[] rev = ByteUtils.longToBytesKeepingOrder(entry.revision());

@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -325,7 +326,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
-            Set<Assignment> retrievedPending = readAssignments(pendingEntry).nodes();
+
+            Assignments pendingAssignments = readAssignments(pendingEntry);
+            Set<Assignment> retrievedPending = pendingAssignments.nodes();
 
             if (!retrievedPending.equals(stableFromRaft)) {
                 return;
@@ -372,11 +375,13 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Update successCase;
             Update failCase;
 
-            byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft);
-            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition);
-            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction);
-            byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce);
-            byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend);
+            HybridTimestamp catalogTimestamp = pendingAssignments.timestamp();
+
+            byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft, catalogTimestamp);
+            byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition, catalogTimestamp);
+            byte[] reductionByteArray = Assignments.toBytes(calculatedPendingReduction, catalogTimestamp);
+            byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce, catalogTimestamp);
+            byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend, catalogTimestamp);
 
             if (!calculatedSwitchAppend.isEmpty()) {
                 successCase = ops(

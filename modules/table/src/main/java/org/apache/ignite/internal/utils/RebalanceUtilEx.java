@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -65,7 +66,8 @@ public class RebalanceUtilEx {
     public static CompletableFuture<Void> startPeerRemoval(
             TablePartitionId partId,
             Assignment peerAssignment,
-            MetaStorageManager metaStorageMgr
+            MetaStorageManager metaStorageMgr,
+            HybridTimestamp timestamp
     ) {
         ByteArray key = switchReduceKey(partId);
 
@@ -84,7 +86,7 @@ public class RebalanceUtilEx {
                                 Operations.noop()
                         );
                     } else {
-                        var newValue = Assignments.of(new HashSet<>());
+                        var newValue = Assignments.of(new HashSet<>(), timestamp);
 
                         newValue.add(peerAssignment);
 
@@ -96,7 +98,7 @@ public class RebalanceUtilEx {
                     }
                 }).thenCompose(res -> {
                     if (!res) {
-                        return startPeerRemoval(partId, peerAssignment, metaStorageMgr);
+                        return startPeerRemoval(partId, peerAssignment, metaStorageMgr, timestamp);
                     }
 
                     return nullCompletedFuture();
@@ -114,8 +116,14 @@ public class RebalanceUtilEx {
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
-            int replicas, TablePartitionId partId, WatchEvent event) {
+    public static CompletableFuture<Void> handleReduceChanged(
+            MetaStorageManager metaStorageMgr,
+            Collection<String> dataNodes,
+            int replicas,
+            TablePartitionId partId,
+            WatchEvent event,
+            HybridTimestamp timestamp
+    ) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 
@@ -133,8 +141,8 @@ public class RebalanceUtilEx {
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments);
-        byte[] assignmentsByteArray = Assignments.toBytes(assignments);
+        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments, timestamp);
+        byte[] assignmentsByteArray = Assignments.toBytes(assignments, timestamp);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
         byte[] rev = longToBytesKeepingOrder(entry.revision());

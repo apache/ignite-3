@@ -76,6 +76,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
@@ -586,12 +587,15 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             assignmentsFuture = completedFuture(
                     zoneAssignmentsGetLocally(metaStorageMgr, zoneDescriptor.id(), zoneDescriptor.partitions(), causalityToken));
         } else {
+            Catalog catalog = catalogMgr.catalog(catalogVersion);
+            HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(catalog.time());
+
             assignmentsFuture = distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
                     .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
                             dataNodes,
                             zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
-                    ).stream().map(Assignments::of).collect(toList()));
+                    ).stream().map(assignments -> Assignments.of(assignments, timestamp)).collect(toList()));
 
             assignmentsFuture.thenAccept(assignmentsList -> LOG.info(
                     "Assignments calculated from data nodes [zone={}, zoneId={}, assignments={}, revision={}]",
@@ -686,9 +690,13 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                     ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partitionId);
 
-                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version. Better to take the version from Assignments.
-                    int catalogVersion = catalogMgr.latestCatalogVersion();
+                    Assignments assignments = Assignments.fromBytes(evt.entryEvent().newEntry().value());
+
+                    HybridTimestamp assignmentsTimestamp = assignments.timestamp();
+
+                    long timestamp = assignmentsTimestamp.longValue();
+
+                    int catalogVersion = catalogMgr.activeCatalogVersion(timestamp);
 
                     CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zoneId, catalogVersion);
 
@@ -700,7 +708,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                                     dataNodes,
                                     zoneDescriptor.replicas(),
                                     replicaGrpId,
-                                    evt
+                                    evt,
+                                    assignmentsTimestamp
                             ));
 
                 });
@@ -922,7 +931,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         if (stableAssignments == null || stableAssignments.nodes().isEmpty()) {
             // This condition can only pass if all stable nodes are dead, and we start new raft group from scratch.
             // In this case new initial configuration must match new forced assignments.
-            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes);
+            computedStableAssignments = Assignments.forced(pendingAssignmentsNodes, pendingAssignments.timestamp());
         } else if (pendingAssignmentsAreForced) {
             // In case of forced assignments we need to remove nodes that are present in the stable set but are missing from the
             // pending set. Such operation removes dead stable nodes from the resulting stable set, which guarantees that we will

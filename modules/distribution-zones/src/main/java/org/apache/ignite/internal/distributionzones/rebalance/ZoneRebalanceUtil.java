@@ -55,6 +55,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -143,7 +144,8 @@ public class ZoneRebalanceUtil {
             long revision,
             MetaStorageManager metaStorageMgr,
             int partNum,
-            Set<Assignment> zoneCfgPartAssignments
+            Set<Assignment> zoneCfgPartAssignments,
+            HybridTimestamp assignmentTimestamp
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
 
@@ -157,7 +159,7 @@ public class ZoneRebalanceUtil {
 
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 
-        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments);
+        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments, assignmentTimestamp);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
@@ -277,7 +279,8 @@ public class ZoneRebalanceUtil {
             Set<String> dataNodes,
             long storageRevision,
             MetaStorageManager metaStorageManager,
-            IgniteSpinBusyLock busyLock
+            IgniteSpinBusyLock busyLock,
+            HybridTimestamp assignmentTimestamp
     ) {
         CompletableFuture<Map<Integer, Assignments>> zoneAssignmentsFut = zoneAssignments(
                 metaStorageManager,
@@ -304,7 +307,8 @@ public class ZoneRebalanceUtil {
                         storageRevision,
                         metaStorageManager,
                         finalPartId,
-                        zoneAssignments.get(finalPartId).nodes()
+                        zoneAssignments.get(finalPartId).nodes(),
+                        assignmentTimestamp
                 );
             }));
         }

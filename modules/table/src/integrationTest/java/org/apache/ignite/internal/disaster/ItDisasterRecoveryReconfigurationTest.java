@@ -67,6 +67,7 @@ import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -350,13 +351,18 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     public void testIncompleteRebalanceAfterResetPartitions() throws Exception {
         int partId = 0;
 
-        Assignments assignment013 = Assignments.of(
+        IgniteImpl node0 = cluster.node(0);
+
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long time = node0.catalogManager().catalog(catalogVersion).time();
+        HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+
+        Assignments assignment013 = Assignments.of(timestamp,
                 Assignment.forPeer(node(0).name()),
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(3).name())
         );
 
-        IgniteImpl node0 = cluster.node(0);
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);

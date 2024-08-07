@@ -106,6 +106,7 @@ import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -711,7 +712,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
                 Node node = nodes.get(0);
 
-                node.metaStorageManager.put(stablePartAssignmentsKey(partId), Assignments.of(Assignment.forPeer(node.name)).toBytes());
+                int catalogVersion = node.catalogManager.latestCatalogVersion();
+                long time = node.catalogManager.catalog(catalogVersion).time();
+                HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+
+                node.metaStorageManager.put(
+                        stablePartAssignmentsKey(partId),
+                        Assignments.of(timestamp, Assignment.forPeer(node.name)).toBytes()
+                );
             }
 
             return null;

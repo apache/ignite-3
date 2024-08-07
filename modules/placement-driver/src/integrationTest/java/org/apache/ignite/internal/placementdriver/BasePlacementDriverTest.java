@@ -28,6 +28,7 @@ import java.util.Set;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
@@ -44,7 +45,11 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
      *
      * @return Replication group id.
      */
-    protected TablePartitionId createTableAssignment(MetaStorageManager metastore, int tableId, List<String> dataNodes) {
+    protected TablePartitionId createTableAssignment(
+            MetaStorageManager metastore,
+            int tableId,
+            List<String> dataNodes,
+            HybridTimestamp assignmentTimestamp) {
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(dataNodes, 1, dataNodes.size());
 
         Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
@@ -52,7 +57,7 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
         for (int i = 0; i < assignments.size(); i++) {
             partitionAssignments.put(
                     stablePartAssignmentsKey(new TablePartitionId(tableId, i)),
-                    Assignments.toBytes(assignments.get(i)));
+                    Assignments.toBytes(assignments.get(i), assignmentTimestamp));
         }
 
         metastore.putAll(partitionAssignments).join();

@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -40,7 +41,8 @@ public class Assignments implements Serializable {
     private static final long serialVersionUID = -59553172012153869L;
 
     /** Empty assignments. */
-    public static final Assignments EMPTY = new Assignments(Collections.emptySet(), false);
+    public static final Assignments EMPTY =
+            new Assignments(Collections.emptySet(), false, HybridTimestamp.MIN_VALUE);
 
     /** Set of nodes. */
     @IgniteToStringInclude
@@ -53,14 +55,17 @@ public class Assignments implements Serializable {
      */
     private final boolean force;
 
+    private final HybridTimestamp timestamp;
+
     /**
      * Constructor.
      */
-    private Assignments(Collection<Assignment> nodes, boolean force) {
+    private Assignments(Collection<Assignment> nodes, boolean force, HybridTimestamp assignmentsTimestamp) {
         // A set of nodes must be a HashSet in order for serialization to produce stable results,
         // that could be compared as byte arrays.
         this.nodes = nodes instanceof HashSet ? ((HashSet<Assignment>) nodes) : new HashSet<>(nodes);
         this.force = force;
+        this.timestamp = assignmentsTimestamp;
     }
 
     /**
@@ -68,8 +73,8 @@ public class Assignments implements Serializable {
      *
      * @param nodes Set of nodes.
      */
-    public static Assignments of(Set<Assignment> nodes) {
-        return new Assignments(nodes, false);
+    public static Assignments of(Set<Assignment> nodes, HybridTimestamp timestamp) {
+        return new Assignments(nodes, false, timestamp);
     }
 
     /**
@@ -77,8 +82,8 @@ public class Assignments implements Serializable {
      *
      * @param nodes Array of nodes.
      */
-    public static Assignments of(Assignment... nodes) {
-        return new Assignments(Arrays.asList(nodes), false);
+    public static Assignments of(HybridTimestamp timestamp, Assignment... nodes) {
+        return new Assignments(Arrays.asList(nodes), false, timestamp);
     }
 
     /**
@@ -87,8 +92,8 @@ public class Assignments implements Serializable {
      * @param nodes Set of nodes.
      * @see #force()
      */
-    public static Assignments forced(Set<Assignment> nodes) {
-        return new Assignments(nodes, true);
+    public static Assignments forced(Set<Assignment> nodes, HybridTimestamp timestamp) {
+        return new Assignments(nodes, true, timestamp);
     }
 
     /**
@@ -105,6 +110,13 @@ public class Assignments implements Serializable {
      */
     public boolean force() {
         return force;
+    }
+
+    /**
+     * Returns the timestamp of the last assignment.
+     */
+    public HybridTimestamp timestamp() {
+        return timestamp;
     }
 
     /**
@@ -135,8 +147,8 @@ public class Assignments implements Serializable {
      *
      * @see #toBytes()
      */
-    public static byte[] toBytes(Set<Assignment> assignments) {
-        return new Assignments(assignments, false).toBytes();
+    public static byte[] toBytes(Set<Assignment> assignments, HybridTimestamp timestamp) {
+        return new Assignments(assignments, false, timestamp).toBytes();
     }
 
     /**

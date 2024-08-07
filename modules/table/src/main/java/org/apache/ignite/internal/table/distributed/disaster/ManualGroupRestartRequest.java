@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 
@@ -41,12 +42,22 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     private final Set<String> nodeNames;
 
-    ManualGroupRestartRequest(UUID operationId, int zoneId, int tableId, Set<Integer> partitionIds, Set<String> nodeNames) {
+    private final HybridTimestamp timestamp;
+
+    ManualGroupRestartRequest(
+            UUID operationId,
+            int zoneId,
+            int tableId,
+            Set<Integer> partitionIds,
+            Set<String> nodeNames,
+            HybridTimestamp timestamp
+    ) {
         this.operationId = operationId;
         this.zoneId = zoneId;
         this.tableId = tableId;
         this.partitionIds = Set.copyOf(partitionIds);
         this.nodeNames = Set.copyOf(nodeNames);
+        this.timestamp = timestamp;
     }
 
     @Override
@@ -89,7 +100,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                 TablePartitionId groupId = (TablePartitionId) raftNodeId.groupId();
 
                 if (groupId.tableId() == tableId && partitionIds.contains(groupId.partitionId())) {
-                    restartFutures.add(disasterRecoveryManager.tableManager.restartPartition(groupId, revision));
+                    restartFutures.add(disasterRecoveryManager.tableManager.restartPartition(groupId, revision, timestamp));
                 }
             }
         });
