@@ -92,7 +92,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     void testDropPartition() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
-        UUID txId = UUID.randomUUID();
+        UUID txId = newTransactionId();
 
         MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID_0);
 
@@ -133,7 +133,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     void testRestart() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
-        UUID txId = UUID.randomUUID();
+        UUID txId = newTransactionId();
 
         MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID);
 

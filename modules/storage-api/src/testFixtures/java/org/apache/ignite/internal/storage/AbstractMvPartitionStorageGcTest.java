@@ -31,21 +31,21 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionStorageTest {
     @Test
     void testEmptyStorage() {
-        assertNull(pollForVacuum(clock.now()));
+        assertNull(pollForVacuum(CLOCK.now()));
     }
 
     @Test
     void testSingleValueStorage() {
         addAndCommit(TABLE_ROW);
 
-        assertNull(pollForVacuum(clock.now()));
+        assertNull(pollForVacuum(CLOCK.now()));
     }
 
     @Test
     void testRegularPoll() {
         HybridTimestamp firstCommitTs = addAndCommit(TABLE_ROW);
 
-        HybridTimestamp tsBetweenCommits = clock.now();
+        HybridTimestamp tsBetweenCommits = CLOCK.now();
 
         HybridTimestamp secondCommitTs = addAndCommit(TABLE_ROW2);
 
@@ -148,11 +148,11 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
     @Test
     void testVacuumsSecondRowIfTombstoneIsFirstAddCommitted() {
-        addWriteCommitted(ROW_ID, null, clock.now());
+        addWriteCommitted(ROW_ID, null, CLOCK.now());
 
-        addWriteCommitted(ROW_ID, TABLE_ROW, clock.now());
+        addWriteCommitted(ROW_ID, TABLE_ROW, CLOCK.now());
 
-        addWriteCommitted(ROW_ID, TABLE_ROW2, clock.now());
+        addWriteCommitted(ROW_ID, TABLE_ROW2, CLOCK.now());
 
         BinaryRowAndRowId row = pollForVacuum(HybridTimestamp.MAX_VALUE);
 

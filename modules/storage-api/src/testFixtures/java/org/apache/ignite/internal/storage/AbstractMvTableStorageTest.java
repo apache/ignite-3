@@ -162,7 +162,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         TestRow(RowId rowId, BinaryRow row) {
             this.rowId = rowId;
             this.row = row;
-            this.timestamp = clock.now();
+            this.timestamp = CLOCK.now();
         }
     }
 
@@ -208,7 +208,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         var testData0 = binaryRow(new TestKey(1, "0"), new TestValue(10, "10"));
 
-        UUID txId = UUID.randomUUID();
+        UUID txId = newTransactionId();
 
         RowId rowId0 = new RowId(PARTITION_ID_0);
 
@@ -359,7 +359,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     public void testDestroySortedIndexIndependence() {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, CLOCK.nowLong());
 
         var catalogSortedIndex1 = new CatalogSortedIndexDescriptor(
                 200,
@@ -410,7 +410,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     public void testDestroyHashIndexIndependence() {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, CLOCK.nowLong());
 
         var catalogHashIndex1 = new CatalogHashIndexDescriptor(
                 200,
@@ -528,7 +528,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             RowId rowId = new RowId(PARTITION_ID);
             locker.tryLock(rowId);
 
-            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+            partitionStorage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, PARTITION_ID);
 
             return null;
         });
@@ -559,7 +559,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             RowId rowId = new RowId(PARTITION_ID);
             locker.tryLock(rowId);
 
-            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+            partitionStorage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, PARTITION_ID);
 
             return null;
         });
@@ -596,13 +596,16 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         RowId rowId = new RowId(partId);
 
-        HybridTimestamp timestamp = clock.now();
+        HybridTimestamp timestamp = CLOCK.now();
 
         assertThrows(StorageDestroyedException.class, () -> storage.read(new RowId(PARTITION_ID), timestamp));
 
         BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        assertThrows(StorageDestroyedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, partId));
+        assertThrows(
+                StorageDestroyedException.class,
+                () -> storage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, partId)
+        );
         assertThrows(StorageDestroyedException.class, () -> storage.commitWrite(rowId, timestamp));
         assertThrows(StorageDestroyedException.class, () -> storage.abortWrite(rowId));
         assertThrows(StorageDestroyedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
@@ -625,7 +628,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
+            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, CLOCK.now());
 
             return null;
         });
@@ -1125,7 +1128,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 locker.lock(rowId);
 
                 if ((finalI % 2) == 0) {
-                    mvPartitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, rowId.partitionId());
+                    mvPartitionStorage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, rowId.partitionId());
 
                     mvPartitionStorage.commitWrite(rowId, timestamp);
                 } else {
@@ -1225,12 +1228,12 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         this.tableStorage = createMvTableStorage();
 
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, CLOCK.nowLong());
         assertNotNull(catalogTableDescriptor);
 
-        CatalogIndexDescriptor catalogSortedIndexDescriptor = catalogService.aliveIndex(SORTED_INDEX_NAME, clock.nowLong());
-        CatalogIndexDescriptor catalogHashIndexDescriptor = catalogService.aliveIndex(HASH_INDEX_NAME, clock.nowLong());
-        CatalogIndexDescriptor catalogPkIndexDescriptor = catalogService.aliveIndex(PK_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor catalogSortedIndexDescriptor = catalogService.aliveIndex(SORTED_INDEX_NAME, CLOCK.nowLong());
+        CatalogIndexDescriptor catalogHashIndexDescriptor = catalogService.aliveIndex(HASH_INDEX_NAME, CLOCK.nowLong());
+        CatalogIndexDescriptor catalogPkIndexDescriptor = catalogService.aliveIndex(PK_INDEX_NAME, CLOCK.nowLong());
 
         assertNotNull(catalogSortedIndexDescriptor);
         assertNotNull(catalogHashIndexDescriptor);
@@ -1268,7 +1271,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
+            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, CLOCK.now());
 
             hashIndexStorage.put(hashIndexRow);
 
@@ -1277,7 +1280,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             return null;
         });
 
-        PartitionTimestampCursor scanAtTimestampCursor = mvPartitionStorage.scan(clock.now());
+        PartitionTimestampCursor scanAtTimestampCursor = mvPartitionStorage.scan(CLOCK.now());
         PartitionTimestampCursor scanLatestCursor = mvPartitionStorage.scan(HybridTimestamp.MAX_VALUE);
 
         Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.runConsistently(locker -> {
@@ -1338,7 +1341,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
-        PartitionTimestampCursor scanTimestampCursor = mvPartitionStorage.scan(clock.now());
+        PartitionTimestampCursor scanTimestampCursor = mvPartitionStorage.scan(CLOCK.now());
 
         IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), rows.get(0).row, rows.get(0).rowId);
         IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), rows.get(0).row, rows.get(0).rowId);
@@ -1501,14 +1504,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 () -> finalStorage.runConsistently(locker -> {
                     locker.lock(rowId1);
 
-                    finalStorage.addWriteCommitted(rowId1, null, clock.now());
+                    finalStorage.addWriteCommitted(rowId1, null, CLOCK.now());
 
                     return null;
                 }),
                 () -> finalStorage.runConsistently(locker -> {
                     locker.lock(rowId2);
 
-                    finalStorage.addWriteCommitted(rowId2, null, clock.now());
+                    finalStorage.addWriteCommitted(rowId2, null, CLOCK.now());
 
                     return null;
                 })
@@ -1599,10 +1602,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
             locker.lock(rowId);
 
-            assertThrows(StorageRebalanceException.class, () -> storage.read(rowId, clock.now()));
+            assertThrows(StorageRebalanceException.class, () -> storage.read(rowId, CLOCK.now()));
             assertThrows(StorageRebalanceException.class, () -> storage.abortWrite(rowId));
             assertThrows(StorageRebalanceException.class, () -> storage.scanVersions(rowId));
-            assertThrows(StorageRebalanceException.class, () -> storage.scan(clock.now()));
+            assertThrows(StorageRebalanceException.class, () -> storage.scan(CLOCK.now()));
             assertThrows(StorageRebalanceException.class, () -> storage.closestRowId(rowId));
 
             return null;

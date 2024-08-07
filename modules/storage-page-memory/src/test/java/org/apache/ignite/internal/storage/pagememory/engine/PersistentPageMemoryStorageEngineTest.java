@@ -62,7 +62,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
                 null,
                 mock(FailureProcessor.class),
                 logSyncer,
-                clock
+                CLOCK
         );
     }
 }

@@ -49,7 +49,7 @@ class VolatilePageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStor
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfig, ioRegistry, clock);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfig, ioRegistry, CLOCK);
 
         engine.start();
 
