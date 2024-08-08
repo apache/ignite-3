@@ -268,14 +268,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             LOG.debug("Error occurred during rebalance [partId={}]", zonePartitionId);
 
             if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
-                scheduleChangePeers(configuration, term);
+                scheduleChangePeersAndLearners(configuration, term);
             } else {
                 LOG.info("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", zonePartitionId,
                         REBALANCE_RETRY_THRESHOLD);
 
                 // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
                 // TODO: but rebalance cancel mechanism should be implemented. https://issues.apache.org/jira/browse/IGNITE-19087
-                scheduleChangePeers(configuration, term);
+                scheduleChangePeersAndLearners(configuration, term);
             }
         } finally {
             busyLock.leaveBusy();
@@ -288,7 +288,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param peersAndLearners Peers and learners.
      * @param term Current known leader term.
      */
-    private void scheduleChangePeers(PeersAndLearners peersAndLearners, long term) {
+    private void scheduleChangePeersAndLearners(PeersAndLearners peersAndLearners, long term) {
         rebalanceScheduler.schedule(() -> {
             if (!busyLock.enterBusy()) {
                 return;
@@ -331,10 +331,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     )
             ).get();
 
+            // TODO: IGNITE-22680 Find a better way to retrieve the catalog version.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
             Set<Assignment> calculatedAssignments = calculateZoneAssignments(
                     zonePartitionId,
                     catalogService,
-                    distributionZoneManager
+                    distributionZoneManager,
+                    catalogVersion
             ).get();
 
             Entry stableEntry = values.get(stablePartAssignmentsKey);
@@ -616,10 +620,9 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     private static CompletableFuture<Set<Assignment>> calculateZoneAssignments(
             ZonePartitionId zonePartitionId,
             CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            int catalogVersion
     ) {
-        int catalogVersion = catalogService.latestCatalogVersion();
-
         CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zonePartitionId.zoneId(), catalogVersion);
 
         int zoneId = zonePartitionId.zoneId();

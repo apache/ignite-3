@@ -33,7 +33,7 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
-import org.apache.ignite.marshaling.Marshaler;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -75,7 +75,7 @@ class ClientDataStreamer {
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
             A receiverArgs,
-            @Nullable Marshaler<A, byte[]> receiverArgsMarshaller
+            @Nullable Marshaller<A, byte[]> receiverArgsMarshaller
     ) {
         StreamerBatchSender<V, Integer, R> batchSender = (partitionId, items, deleted) ->
                 tbl.getPartitionAssignment().thenCompose(
@@ -90,10 +90,11 @@ class ClientDataStreamer {
                                     w.packDeploymentUnits(deploymentUnits);
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
-                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, receiverArgsMarshaller, items);
+                                    StreamerReceiverSerializer.serializeReceiverInfoOnClient(
+                                            w, receiverClassName, receiverArgs, receiverArgsMarshaller, items);
                                 },
                                 in -> resultSubscriber != null
-                                        ? StreamerReceiverSerializer.deserializeResults(in.in())
+                                        ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(in.in())
                                         : null,
                                 partitionAssignment.get(partitionId),
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),

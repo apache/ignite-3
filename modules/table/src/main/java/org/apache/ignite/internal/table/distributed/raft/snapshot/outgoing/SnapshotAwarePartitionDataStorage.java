@@ -95,8 +95,8 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
-        return partitionStorage.flush();
+    public CompletableFuture<Void> flush(boolean trigger) {
+        return partitionStorage.flush(trigger);
     }
 
     @Override

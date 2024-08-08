@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.marshaller;
 
-import static org.apache.ignite.internal.marshaller.BinaryMode.BITSET;
 import static org.apache.ignite.internal.marshaller.BinaryMode.BOOLEAN;
 import static org.apache.ignite.internal.marshaller.BinaryMode.BYTE;
 import static org.apache.ignite.internal.marshaller.BinaryMode.BYTE_ARR;
@@ -28,7 +27,6 @@ import static org.apache.ignite.internal.marshaller.BinaryMode.DOUBLE;
 import static org.apache.ignite.internal.marshaller.BinaryMode.FLOAT;
 import static org.apache.ignite.internal.marshaller.BinaryMode.INT;
 import static org.apache.ignite.internal.marshaller.BinaryMode.LONG;
-import static org.apache.ignite.internal.marshaller.BinaryMode.NUMBER;
 import static org.apache.ignite.internal.marshaller.BinaryMode.SHORT;
 import static org.apache.ignite.internal.marshaller.BinaryMode.STRING;
 import static org.apache.ignite.internal.marshaller.BinaryMode.TIME;
@@ -39,13 +37,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Objects;
 import java.util.Random;
 import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
@@ -110,10 +106,8 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
                 new MarshallerColumn("timestampCol", TIMESTAMP),
 
                 new MarshallerColumn("uuidCol", UUID),
-                new MarshallerColumn("bitmaskCol", BITSET),
                 new MarshallerColumn("stringCol", STRING),
                 new MarshallerColumn("bytesCol", BYTE_ARR),
-                new MarshallerColumn("numberCol", NUMBER),
                 new MarshallerColumn("decimalCol", DECIMAL),
         };
 
@@ -364,10 +358,8 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeDouble(Mockito.anyDouble());
 
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeUuid(Mockito.any(java.util.UUID.class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBitSet(Mockito.any(BitSet.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeString(Mockito.anyString());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBytes(Mockito.any(byte[].class));
-        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBigInt(Mockito.any(BigInteger.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBigDecimal(Mockito.any(BigDecimal.class), Mockito.anyInt());
 
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeDate(Mockito.any(LocalDate.class));
@@ -396,10 +388,8 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).readTimestamp();
 
         Mockito.doAnswer(rowAnswer).when(mockedRow).readUuid();
-        Mockito.doAnswer(rowAnswer).when(mockedRow).readBitSet();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readString();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBytes();
-        Mockito.doAnswer(rowAnswer).when(mockedRow).readBigInt();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBigDecimal(0);
 
         return new Pair<>(mockedAsm, mockedRow);

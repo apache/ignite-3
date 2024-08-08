@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
-import java.nio.charset.CoderResult;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -32,7 +29,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -42,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class BinaryTupleBuilder {
     /** The buffer size allocated for values when we do not know anything better. */
-    private static final int DEFAULT_BUFFER_SIZE = 4000;
+    private static final int DEFAULT_BUFFER_SIZE = 1024;
 
     /** Current element. */
     private int elementIndex = 0;
@@ -289,27 +285,6 @@ public class BinaryTupleBuilder {
      * Append a value for the current element.
      *
      * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendNumberNotNull(BigInteger value) {
-        putBytes(value.toByteArray());
-        return proceed();
-    }
-
-    /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendNumber(BigInteger value) {
-        return value == null ? appendNull() : appendNumberNotNull(value);
-    }
-
-    /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
      * @param scale Decimal scale.
      * @return {@code this} for chaining.
      */
@@ -408,27 +383,6 @@ public class BinaryTupleBuilder {
      */
     public BinaryTupleBuilder appendUuid(UUID value) {
         return value == null ? appendNull() : appendUuidNotNull(value);
-    }
-
-    /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendBitmaskNotNull(BitSet value) {
-        putBytesWithEmptyCheck(value.toByteArray());
-        return proceed();
-    }
-
-    /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendBitmask(BitSet value) {
-        return value == null ? appendNull() : appendBitmaskNotNull(value);
     }
 
     /**
@@ -736,26 +690,8 @@ public class BinaryTupleBuilder {
 
         int begin = buffer.position();
 
-        CharsetEncoder coder = encoder().reset();
-        CharBuffer input = CharBuffer.wrap(value);
-
-        CoderResult result = coder.encode(input, buffer, true);
-        while (result.isOverflow()) {
-            grow((int) coder.maxBytesPerChar());
-            result = coder.encode(input, buffer, true);
-        }
-
-        if (result.isUnderflow()) {
-            result = coder.flush(buffer);
-            while (result.isOverflow()) {
-                grow((int) coder.maxBytesPerChar());
-                result = coder.flush(buffer);
-            }
-        }
-
-        if (result.isError()) {
-            result.throwException();
-        }
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        putBytes(bytes);
 
         // UTF-8 encoded strings should not start with 0x80 (character codes larger than 127 have a multi-byte encoding).
         // We trust this but verify.

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,6 +30,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
@@ -138,7 +137,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     TestTransactionIds.newTransactionId(),
                     PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage()
                             .binaryRowMessage(binaryRowMessage(i))
-                            .timestamp(i % 2 == 0 ? clock.nowLong() : NULL_HYBRID_TIMESTAMP)
+                            .timestamp(i % 2 == 0 ? clock.now() : null)
                             .build()
             );
         }
@@ -166,8 +165,8 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
             assertEquals(val, readVal);
 
-            var readTs = readCmd.rowsToUpdate().get(entry.getKey()).commitTimestamp();
-            var ts = nullableHybridTimestamp(entry.getValue().timestamp());
+            HybridTimestamp readTs = readCmd.rowsToUpdate().get(entry.getKey()).commitTimestamp();
+            HybridTimestamp ts = entry.getValue().timestamp();
 
             assertEquals(ts, readTs);
         }
@@ -210,7 +209,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         WriteIntentSwitchCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
                 .txId(UUID.randomUUID())
                 .commit(true)
-                .commitTimestampLong(clock.nowLong())
+                .commitTimestamp(clock.now())
                 .build();
 
         WriteIntentSwitchCommand readCmd = copyCommand(cmd);
@@ -235,7 +234,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         FinishTxCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
                 .txId(UUID.randomUUID())
                 .commit(true)
-                .commitTimestampLong(clock.nowLong())
+                .commitTimestamp(clock.now())
                 .partitionIds(grps)
                 .build();
 
@@ -256,7 +255,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .txId(finishTxCommand.txId())
                     .commit(finishTxCommand.commit())
                     .partitionIds(finishTxCommand.partitionIds())
-                    .commitTimestampLong(finishTxCommand.commitTimestampLong())
+                    .commitTimestamp(finishTxCommand.commitTimestamp())
                     .build();
         } else if (cmd instanceof WriteIntentSwitchCommand) {
             WriteIntentSwitchCommand writeIntentSwitchCommand = (WriteIntentSwitchCommand) cmd;
@@ -264,7 +263,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
                     .txId(writeIntentSwitchCommand.txId())
                     .commit(writeIntentSwitchCommand.commit())
-                    .commitTimestampLong(writeIntentSwitchCommand.commitTimestampLong())
+                    .commitTimestamp(writeIntentSwitchCommand.commitTimestamp())
                     .build();
         } else if (cmd instanceof UpdateCommand) {
             UpdateCommand updateCommand = (UpdateCommand) cmd;

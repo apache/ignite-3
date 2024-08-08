@@ -131,17 +131,11 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             case BYTES:
                 return Arrays.compare(tuple1.bytesValue(index), tuple2.bytesValue(index));
 
-            case BITMASK:
-                return Arrays.compare(tuple1.bitmaskValue(index).toLongArray(), tuple2.bitmaskValue(index).toLongArray());
-
             case UUID:
                 return tuple1.uuidValue(index).compareTo(tuple2.uuidValue(index));
 
             case STRING:
                 return tuple1.stringValue(index).compareTo(tuple2.stringValue(index));
-
-            case NUMBER:
-                return tuple1.numberValue(index).compareTo(tuple2.numberValue(index));
 
             case DECIMAL:
                 return tuple1.decimalValue(index, Integer.MIN_VALUE).compareTo(tuple2.decimalValue(index, Integer.MIN_VALUE));

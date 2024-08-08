@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -28,13 +27,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.LongSupplier;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -71,7 +67,6 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -136,16 +131,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private volatile MetaStorageConfiguration metaStorageConfiguration;
 
-    private final ConfigurationValue<Long> idempotentCacheTtl;
-
-    private final CompletableFuture<LongSupplier> maxClockSkewMillisFuture;
-
     private volatile MetaStorageListener followerListener;
 
     private volatile MetaStorageListener learnerListener;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 Remove, cache eviction should be triggered by MS GC instead.
-    private final ScheduledExecutorService idempotentCacheVacumizer;
+    private final List<ElectionListener> electionListeners = new CopyOnWriteArrayList<>(); 
 
     /**
      * The constructor.
@@ -157,7 +147,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      * @param clock A hybrid logical clock.
      * @param metricManager Metric manager.
-     * @param maxClockSkewMillisFuture Future with maximum clock skew in milliseconds.
      */
     public MetaStorageManagerImpl(
             ClusterService clusterService,
@@ -167,9 +156,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             KeyValueStorage storage,
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            MetricManager metricManager,
-            ConfigurationValue<Long> idempotentCacheTtl,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+            MetricManager metricManager
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -180,10 +167,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metricManager = metricManager;
-        this.idempotentCacheTtl = idempotentCacheTtl;
-        this.maxClockSkewMillisFuture = maxClockSkewMillisFuture;
-        this.idempotentCacheVacumizer = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(clusterService.nodeName(), "idempotent-cache-vacumizer", LOG));
     }
 
     /**
@@ -199,9 +182,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
-            MetaStorageConfiguration configuration,
-            ConfigurationValue<Long> idempotentCacheTtl,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+            MetaStorageConfiguration configuration
     ) {
         this(
                 clusterService,
@@ -211,12 +192,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 storage,
                 clock,
                 topologyAwareRaftGroupServiceFactory,
-                metricManager,
-                idempotentCacheTtl,
-                maxClockSkewMillisFuture
+                metricManager
         );
 
         configure(configuration);
+    }
+
+    /** Adds new listener to notify with election events. */
+    public void addElectionListener(ElectionListener listener) {
+        electionListeners.add(listener);
     }
 
     private CompletableFuture<Long> recover(MetaStorageServiceImpl service) {
@@ -330,12 +314,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         assert localMetaStorageConfiguration != null : "Meta Storage configuration has not been set";
 
-        followerListener = new MetaStorageListener(
-                storage,
-                clusterTime,
-                idempotentCacheTtl,
-                maxClockSkewMillisFuture
-        );
+        followerListener = new MetaStorageListener(storage, clusterTime);
 
         CompletableFuture<TopologyAwareRaftGroupService> raftServiceFuture = raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
                 new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
@@ -356,7 +335,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         // We use the "deployWatchesFuture" to guarantee that the Configuration Manager will be started
                         // when the underlying code tries to read Meta Storage configuration. This is a consequence of having a circular
                         // dependency between these two components.
-                        deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration)
+                        deployWatchesFuture.thenApply(v -> localMetaStorageConfiguration),
+                        electionListeners
                 )))
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -378,12 +358,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         assert localPeer != null;
 
-        learnerListener = new MetaStorageListener(
-                storage,
-                clusterTime,
-                idempotentCacheTtl,
-                maxClockSkewMillisFuture
-        );
+        learnerListener = new MetaStorageListener(storage, clusterTime);
 
         return raftMgr.startRaftGroupNodeAndWaitNodeReadyFuture(
                 new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
@@ -447,8 +422,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         busyLock.block();
-
-        idempotentCacheVacumizer.shutdownNow();
 
         deployWatchesFuture.cancel(true);
 
@@ -514,8 +487,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                                 MetaStorageManagerImpl.this.onRevisionApplied(revision);
                             }
                         });
-
-                        idempotentCacheVacumizer.scheduleWithFixedDelay(this::evictIdempotentCommandsCache, 1, 1, MINUTES);
                     }))
                     .whenComplete((v, e) -> {
                         if (e == null) {
@@ -903,16 +874,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /**
-     * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     * Removes obsolete entries from both volatile and persistent idempotent command cache older than evictionTimestamp.
+     *
+     * @param evictionTimestamp Cached entries older than given timestamp will be evicted.
+     * @return Pending operation future.
      */
-    @Deprecated(forRemoval = true)
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19417 cache eviction should be triggered by MS GC instead.
-    public void evictIdempotentCommandsCache() {
-        if (followerListener != null) {
-            followerListener.evictIdempotentCommandsCache();
+    public CompletableFuture<Void> evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
         }
-        if (learnerListener != null) {
-            learnerListener.evictIdempotentCommandsCache();
+
+        try {
+            return metaStorageSvcFut.thenCompose(svc -> svc.evictIdempotentCommandsCache(evictionTimestamp));
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 }

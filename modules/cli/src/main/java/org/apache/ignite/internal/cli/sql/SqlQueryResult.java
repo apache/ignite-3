@@ -21,11 +21,13 @@ import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.sql.table.Table;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Composite object of sql query result.
  */
 public class SqlQueryResult {
+    @Nullable
     private final Table<String> table;
 
     private final String message;
@@ -35,7 +37,7 @@ public class SqlQueryResult {
      *
      * @param table non null result table.
      */
-    public SqlQueryResult(Table<String> table) {
+    public SqlQueryResult(@Nullable Table<String> table) {
         this(table, null);
     }
 
@@ -48,7 +50,7 @@ public class SqlQueryResult {
         this(null, message);
     }
 
-    private SqlQueryResult(Table<String> table, String message) {
+    private SqlQueryResult(@Nullable Table<String> table, String message) {
         this.table = table;
         this.message = message;
     }

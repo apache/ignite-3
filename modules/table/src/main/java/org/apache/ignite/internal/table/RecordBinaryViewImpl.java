@@ -34,6 +34,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -455,6 +456,19 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     }
 
     /**
+     * Unmarshal a row to tuple. Test-only public method.
+     *
+     * @param tx Transaction, if present.
+     * @param row Binary row.
+     * @return A future, with tuple as a result.
+     */
+    @TestOnly
+    @VisibleForTesting
+    public CompletableFuture<Tuple> binaryRowToTuple(@Nullable Transaction tx, BinaryRow row) {
+        return doOperation(tx, schemaVersion -> completedFuture(wrap(row, schemaVersion)));
+    }
+
+    /**
      * Returns table row tuple.
      *
      * @param row Binary row.
@@ -558,9 +572,32 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            A receiverArg) {
-        // TODO: IGNITE-22285 Embedded Data Streamer with Receiver.
-        throw new UnsupportedOperationException("Not implemented yet");
+            @Nullable A receiverArg) {
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(receiver);
+
+        var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
+
+        StreamerBatchSender<V, Integer, R> batchSender = (partitionId, rows, deleted) ->
+                PublicApiThreading.execUserAsyncOperation(() ->
+                        tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
+                                .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
+                                        receiver, receiverArg, rows, node, receiver.units())));
+
+        CompletableFuture<Void> future = DataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options,
+                batchSender,
+                resultSubscriber,
+                partitioner,
+                tbl.streamerFlushExecutor());
+
+        return convertToPublicFuture(future);
     }
 
     /**

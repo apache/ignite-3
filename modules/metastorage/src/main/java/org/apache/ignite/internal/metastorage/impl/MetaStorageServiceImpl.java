@@ -36,6 +36,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
@@ -132,7 +133,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         PutCommand putCommand = context.commandsFactory().putCommand()
                 .key(ByteBuffer.wrap(key.bytes()))
                 .value(ByteBuffer.wrap(value))
-                .initiatorTimeLong(clusterTime.nowLong())
+                .initiatorTime(clusterTime.now())
                 .build();
 
         return context.raftService().run(putCommand);
@@ -148,7 +149,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
         RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(ByteBuffer.wrap(key.bytes()))
-                .initiatorTimeLong(clusterTime.nowLong()).build();
+                .initiatorTime(clusterTime.now()).build();
 
         return context.raftService().run(removeCommand);
     }
@@ -175,7 +176,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .condition(condition)
                 .success(success)
                 .failure(failure)
-                .initiatorTimeLong(clusterTime.nowLong())
+                .initiatorTime(clusterTime.now())
                 .id(commandIdGenerator.newId())
                 .build();
 
@@ -186,7 +187,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<StatementResult> invoke(Iif iif) {
         MultiInvokeCommand multiInvokeCommand = context.commandsFactory().multiInvokeCommand()
                 .iif(iif)
-                .initiatorTimeLong(clusterTime.nowLong())
+                .initiatorTime(clusterTime.now())
                 .id(commandIdGenerator.newId())
                 .build();
 
@@ -248,7 +249,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      */
     public CompletableFuture<Void> syncTime(HybridTimestamp safeTime, long term) {
         SyncTimeCommand syncTimeCommand = context.commandsFactory().syncTimeCommand()
-                .initiatorTimeLong(safeTime.longValue())
+                .initiatorTime(safeTime)
                 .initiatorTerm(term)
                 .build();
 
@@ -266,6 +267,22 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         GetCurrentRevisionCommand cmd = context.commandsFactory().getCurrentRevisionCommand().build();
 
         return context.raftService().run(cmd);
+    }
+
+    /**
+     * Removes obsolete entries from both volatile and persistent idempotent command cache.
+     *
+     * @param evictionTimestamp Cached entries older than given timestamp will be evicted.
+     * @return Pending operation future.
+     */
+    CompletableFuture<Void> evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp) {
+        EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand = evictIdempotentCommandsCacheCommand(
+                context.commandsFactory(),
+                evictionTimestamp,
+                clusterTime.now()
+        );
+
+        return context.raftService().run(evictIdempotentCommandsCacheCommand);
     }
 
     @Override
@@ -312,7 +329,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return commandsFactory.putAllCommand()
                 .keys(keys)
                 .values(values)
-                .initiatorTimeLong(ts.longValue())
+                .initiatorTime(ts)
                 .build();
     }
 
@@ -330,6 +347,21 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             list.add(ByteBuffer.wrap(key.bytes()));
         }
 
-        return commandsFactory.removeAllCommand().keys(list).initiatorTimeLong(ts.longValue()).build();
+        return commandsFactory.removeAllCommand().keys(list).initiatorTime(ts).build();
+    }
+
+    /**
+     * Creates evict idempotent commands cache command.
+     *
+     * @param commandsFactory Commands factory.
+     * @param evictionTimestamp Cached entries older than given timestamp will be evicted.
+     * @param ts Local time.
+     */
+    private EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand(
+            MetaStorageCommandsFactory commandsFactory,
+            HybridTimestamp evictionTimestamp,
+            HybridTimestamp ts
+    ) {
+        return commandsFactory.evictIdempotentCommandsCacheCommand().evictionTimestamp(evictionTimestamp).initiatorTime(ts).build();
     }
 }

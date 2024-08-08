@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.util;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -97,14 +95,6 @@ public class ColocationUtils {
 
             case BYTES:
                 calc.appendBytes((byte[]) v);
-                return;
-
-            case BITMASK:
-                calc.appendBitmask((BitSet) v);
-                return;
-
-            case NUMBER:
-                calc.appendNumber((BigInteger) v);
                 return;
 
             case DATE:

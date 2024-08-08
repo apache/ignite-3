@@ -134,6 +134,11 @@ public class ReplicaImpl implements Replica {
     }
 
     @Override
+    public ReplicaListener listener() {
+        return listener;
+    }
+
+    @Override
     public final TopologyAwareRaftGroupService raftClient() {
         return (TopologyAwareRaftGroupService) listener.raftClient();
     }
@@ -196,7 +201,8 @@ public class ReplicaImpl implements Replica {
      * @return Future that contains a result.
      */
     private CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
-        LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
+        LOG.info("Received LeaseGrantedMessage for replica [groupId={}, leaseStartTime={}, force={}].", groupId(), msg.leaseStartTime(),
+                msg.force());
 
         return placementDriver.previousPrimaryExpired(groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
             HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
@@ -283,7 +289,7 @@ public class ReplicaImpl implements Replica {
         LOG.info("Waiting for actual storage state, group=" + groupId());
 
         if (!replicaReservationClosure.apply(groupId(), startTime)) {
-            throw new IllegalStateException("Replica reservation failed [groupId=" + groupId() + "].");
+            throw new IllegalStateException("Replica reservation failed [groupId=" + groupId() + ", leaseStartTime=" + startTime + "].");
         }
 
         long timeout = expirationTime - currentTimeMillis();

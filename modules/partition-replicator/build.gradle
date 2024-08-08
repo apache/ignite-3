@@ -39,6 +39,7 @@ dependencies {
     implementation project(':ignite-schema')
     implementation project(':ignite-transactions')
     implementation project(':ignite-storage-api')
+    implementation project(':ignite-low-watermark')
 
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
@@ -73,6 +74,7 @@ dependencies {
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-runner')
 }
 
 description = 'ignite-partition-replicator'

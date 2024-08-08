@@ -70,14 +70,14 @@ class RocksDbFlushListener extends AbstractEventListener {
     /** {@inheritDoc} */
     @Override
     public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
-        try {
-            logSyncer.sync();
-        } catch (Exception e) {
-            LOG.error("Couldn't sync RocksDB WAL on flush begin", e);
-        }
-
         if (lastEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
             lastFlushProcessed.join();
+
+            try {
+                logSyncer.sync();
+            } catch (Exception e) {
+                LOG.error("Couldn't sync RocksDB WAL on flush begin", e);
+            }
         }
     }
 

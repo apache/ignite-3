@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static java.util.Collections.singletonList;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,9 +40,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
@@ -61,6 +65,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
@@ -79,6 +84,7 @@ import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -629,7 +635,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RexBuilder rexBuilder = Commons.rexBuilder();
         IgniteTypeFactory tf = Commons.typeFactory();
 
-        RelDataType intType = tf.createSqlType(SqlTypeName.INTEGER);
+        RelDataType intType = tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.INTEGER), true);
         RelDataType rowType = new Builder(tf)
                 .add("c1", intType)
                 .build();
@@ -761,14 +767,113 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         assertEquals("42", actual);
     }
 
+    @ParameterizedTest
+    @MethodSource("numericLiterals")
+    public void testConvertNumericExact(RexLiteral lit, RelDataType dataType, @Nullable Object expected, boolean err) {
+        RelDataType rowType = new Builder(typeFactory).add("c1", dataType).build();
+
+        if (!err) {
+            Object[] rowValues = expFactory.rowSource(List.of(lit)).get();
+            assertArrayEquals(new Object[]{expected}, rowValues, "rowSource");
+
+            Object[] litValues = expFactory.values(List.of(lit), rowType).iterator().next();
+            assertArrayEquals(new Object[]{expected}, litValues, "values");
+        } else {
+            String errorMessage = "out of range";
+
+            Supplier<Object[]> rowExpr = expFactory.rowSource(List.of(lit));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, errorMessage, rowExpr::get);
+
+            assertThrowsSqlException(Sql.RUNTIME_ERR, errorMessage, () -> {
+                expFactory.values(List.of(lit), rowType).iterator().next();
+            });
+        }
+    }
+
+    private static Stream<Arguments> numericLiterals() {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+        // Make literal function
+        BiFunction<Object, RelDataType, RexLiteral> makeLit = (v, t) -> (RexLiteral) rexBuilder.makeLiteral(v, t, false, false);
+
+        RelDataType tinyInt = Commons.typeFactory().createSqlType(SqlTypeName.TINYINT);
+        Object tinyIntMax = SqlTypeName.TINYINT.getLimit(true, Limit.OVERFLOW, true, -1, -1);
+        Object tinyIntMin = SqlTypeName.TINYINT.getLimit(false, Limit.OVERFLOW, true, -1, -1);
+
+        RelDataType shortType = Commons.typeFactory().createSqlType(SqlTypeName.SMALLINT);
+        Object shortMax = SqlTypeName.SMALLINT.getLimit(true, Limit.OVERFLOW, true, -1, -1);
+        Object shortMin = SqlTypeName.SMALLINT.getLimit(false, Limit.OVERFLOW, true, -1, -1);
+
+        RelDataType intType = Commons.typeFactory().createSqlType(SqlTypeName.INTEGER);
+        Object maxInt = SqlTypeName.INTEGER.getLimit(true, Limit.OVERFLOW, true, -1, -1);
+        Object minInt = SqlTypeName.INTEGER.getLimit(false, Limit.OVERFLOW, true, -1, -1);
+
+        RelDataType bigIntType = Commons.typeFactory().createSqlType(SqlTypeName.BIGINT);
+        Object bigIntMax = SqlTypeName.BIGINT.getLimit(true, Limit.OVERFLOW, true, -1, -1);
+        Object bigIntMin = SqlTypeName.BIGINT.getLimit(false, Limit.OVERFLOW, true, -1, -1);
+
+        RelDataType realType = Commons.typeFactory().createSqlType(SqlTypeName.REAL);
+        BigDecimal realMax = new BigDecimal(String.valueOf(Float.MAX_VALUE)).add(BigDecimal.ONE);
+        Object realMin = realMax.negate();
+
+        RelDataType floatType = Commons.typeFactory().createSqlType(SqlTypeName.FLOAT);
+        BigDecimal floatMax = new BigDecimal(String.valueOf(Float.MAX_VALUE)).add(BigDecimal.ONE);
+        Object floatMin = realMax.negate();
+
+        RelDataType doubleType = Commons.typeFactory().createSqlType(SqlTypeName.DOUBLE);
+        BigDecimal doubleMax = new BigDecimal(String.valueOf(Double.MAX_VALUE)).add(BigDecimal.ONE);
+        Object doubleMin = doubleMax.negate();
+
+        // makeLiteral for decimal validates precision/scale, so it is not possible to create a decimal literal
+        // that lies outside of the range
+        RelDataType decimal5 = Commons.typeFactory().createSqlType(SqlTypeName.DECIMAL, 5);
+        RelDataType decimal52 = Commons.typeFactory().createSqlType(SqlTypeName.DECIMAL, 5, 2);
+
+        return Stream.of(
+                // TINYINT
+                Arguments.of(makeLit.apply(BigDecimal.ONE, tinyInt), tinyInt, (byte) 1, false),
+                Arguments.of(makeLit.apply(tinyIntMax, tinyInt), tinyInt, null, true),
+                Arguments.of(makeLit.apply(tinyIntMin, tinyInt), tinyInt, null, true),
+
+                // SMALLINT
+                Arguments.of(makeLit.apply(BigDecimal.ONE, shortType), shortType, (short) 1, false),
+                Arguments.of(makeLit.apply(shortMax, shortType), shortType, null, true),
+                Arguments.of(makeLit.apply(shortMin, shortType), shortType, null, true),
+
+                // INT
+                Arguments.of(makeLit.apply(BigDecimal.ONE, intType), intType, 1, false),
+                Arguments.of(makeLit.apply(maxInt, intType), intType, null, true),
+                Arguments.of(makeLit.apply(minInt, intType), intType, null, true),
+
+                // BIGINT
+                Arguments.of(makeLit.apply(BigDecimal.ONE, bigIntType), bigIntType, 1L, false),
+                Arguments.of(makeLit.apply(bigIntMax, bigIntType), bigIntType, null, true),
+                Arguments.of(makeLit.apply(bigIntMin, bigIntType), bigIntType, null, true),
+
+                // REAL
+                Arguments.of(makeLit.apply(BigDecimal.ONE, realType), realType, 1.0f, false),
+                Arguments.of(makeLit.apply(realMax, realType), realType, null, true),
+                Arguments.of(makeLit.apply(realMin, realType), realType, null, true),
+
+                // FLOAT
+                Arguments.of(makeLit.apply(BigDecimal.ONE, floatType), floatType, 1.0f, false),
+                Arguments.of(makeLit.apply(floatMax, floatType), floatType, null, true),
+                Arguments.of(makeLit.apply(floatMin, floatType), floatType, null, true),
+
+                // DOUBLE
+                Arguments.of(makeLit.apply(BigDecimal.ONE, doubleType), doubleType, 1.0d, false),
+                Arguments.of(makeLit.apply(doubleMax, doubleType), doubleType, null, true),
+                Arguments.of(makeLit.apply(doubleMin, doubleType), doubleType, null, true),
+
+                // DECIMAL
+                Arguments.of(makeLit.apply(new BigDecimal("1"), decimal5), decimal5, new BigDecimal("1"), false),
+                Arguments.of(makeLit.apply(new BigDecimal("1.0"), decimal52), decimal52, new BigDecimal("1.00"), false)
+        );
+    }
+
     private static List<Arguments> rowSourceTestArgs() {
         EnumSet<ColumnType> ignoredTypes = EnumSet.of(
-                // Not supported.
-                ColumnType.NUMBER,
                 // UUID literal doesn't exists.
                 ColumnType.UUID,
-                // TODO https://issues.apache.org/jira/browse/IGNITE-18431
-                ColumnType.BITMASK,
                 // TODO https://issues.apache.org/jira/browse/IGNITE-15200
                 ColumnType.DURATION,
                 ColumnType.PERIOD

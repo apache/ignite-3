@@ -18,11 +18,9 @@
 namespace Apache.Ignite.Tests.Proto;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Numerics;
 using System.Reflection;
 using System.Threading.Tasks;
 using Ignite.Compute;
@@ -88,16 +86,6 @@ public class ColocationHashTests : IgniteTestsBase
         ((char)BinaryTupleCommon.VarlenEmptyByte).ToString(),
         Guid.Empty,
         Guid.NewGuid(),
-        BigInteger.One,
-        BigInteger.Zero,
-        BigInteger.MinusOne,
-        (BigInteger)int.MaxValue,
-        (BigInteger)int.MinValue,
-        (BigInteger)ulong.MaxValue,
-        BigInteger.Pow(123, 100),
-        new BitArray(1, false),
-        new BitArray(new byte[] {0, 5, 0}),
-        new BitArray(17, true),
         new LocalDate(9876, 7, 30),
         new LocalDate(2, 1, 1),
         new LocalDate(1, 1, 1),
@@ -286,8 +274,6 @@ public class ColocationHashTests : IgniteTestsBase
             Guid => ColumnType.Uuid,
             byte[] => ColumnType.ByteArray,
             string => ColumnType.String,
-            BigInteger => ColumnType.Number,
-            BitArray => ColumnType.Bitmask,
             LocalTime => ColumnType.Time,
             LocalDate => ColumnType.Date,
             LocalDateTime => ColumnType.Datetime,

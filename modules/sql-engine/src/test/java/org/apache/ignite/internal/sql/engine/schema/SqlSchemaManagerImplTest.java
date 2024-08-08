@@ -31,12 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -46,6 +48,7 @@ import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -79,6 +82,7 @@ import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.RowTypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
@@ -276,9 +280,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(tableDescriptor, notNullValue());
 
         TableDescriptor descriptor = table.descriptor();
-        assertEquals(tableDescriptor.columns().size(), descriptor.columnsCount(), "column count");
+        assertEquals(tableDescriptor.columns().size(), RowTypeUtils.storedRowsCount(descriptor), "column count");
 
-        for (int i = 0; i < descriptor.columnsCount(); i++) {
+        for (int i = 0; i < tableDescriptor.columns().size(); i++) {
             CatalogTableColumnDescriptor expectedColumnDescriptor = tableDescriptor.columns().get(i);
             ColumnDescriptor actualColumnDescriptor = descriptor.columnDescriptor(i);
 
@@ -493,6 +497,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
             IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
             assertNull(index, "Index should not be available");
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK"), indexes.keySet());
         }
 
         makeIndexAvailable("VAL1_IDX");
@@ -515,6 +522,10 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertThat(index.collation(), equalTo(RelCollations.of(
                     new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
             )));
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK", "VAL1_IDX"), indexes.keySet());
+            assertSame(index, indexes.get("VAL1_IDX"), "VAL1_IDX cache entry");
         }
     }
 
@@ -544,6 +555,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
             IgniteIndex index2 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
             assertNull(index2);
+
+            Map<String, IgniteIndex> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK"), indexes.keySet());
         }
 
         makeIndexAvailable("IDX1");
@@ -567,6 +581,10 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                     new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),
                     new RelFieldCollation(2, Direction.ASCENDING, NullDirection.LAST)
             )));
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK", "IDX1"), indexes.keySet());
+            assertSame(index, indexes.get("IDX1"), "IDX1 cache entry");
         }
 
         makeIndexAvailable("IDX2");
@@ -590,7 +608,19 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                     new RelFieldCollation(1, Direction.DESCENDING, NullDirection.FIRST),
                     new RelFieldCollation(2, Direction.DESCENDING, NullDirection.LAST)
             )));
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK", "IDX1", "IDX2"), indexes.keySet());
+            assertSame(index, indexes.get("IDX2"), "IDX2 cache entry");
         }
+    }
+
+    private Map<String, IgniteIndex> findTableIndexes(int catalogVersion, String schemaName, String tableName) {
+        Catalog catalog = catalogManager.catalog(catalogVersion);
+        CatalogTableDescriptor table = catalog.schema(schemaName).table(tableName);
+
+        IgniteTable igniteTable = sqlSchemaManager.table(catalogVersion, table.id());
+        return igniteTable.indexes();
     }
 
     private void makeIndexAvailable(String name) {
@@ -749,15 +779,13 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(ColumnType.DOUBLE, -1, -1),
                 Arguments.of(ColumnType.DECIMAL, 4, 0),
                 Arguments.of(ColumnType.DECIMAL, 4, 2),
-                Arguments.of(ColumnType.NUMBER, 4, -1),
                 Arguments.of(ColumnType.STRING, 40, -1),
                 Arguments.of(ColumnType.BYTE_ARRAY, 40, -1),
                 Arguments.of(ColumnType.DATE, -1, -1),
                 Arguments.of(ColumnType.TIME, 2, -1),
                 Arguments.of(ColumnType.DATETIME, 2, -1),
                 Arguments.of(ColumnType.TIMESTAMP, 2, -1),
-                Arguments.of(ColumnType.UUID, -1, -1),
-                Arguments.of(ColumnType.BITMASK, 2, -1)
+                Arguments.of(ColumnType.UUID, -1, -1)
         );
     }
 
@@ -828,7 +856,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             case UUID:
             case BOOLEAN:
                 break;
-            case NUMBER:
             case TIME:
             case DATETIME:
             case TIMESTAMP:
@@ -840,7 +867,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 break;
             case STRING:
             case BYTE_ARRAY:
-            case BITMASK:
                 builder.length(precision);
                 break;
             default:

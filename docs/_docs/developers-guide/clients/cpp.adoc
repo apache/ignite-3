@@ -244,7 +244,7 @@ There are limitations to user types that can be used for such a mapping. Some li
 - Fields should be mapped to Ignite types;
 - All fields in user type should either be mapped to Table column or explicitly excluded;
 - All columns from Table should be mapped to some field in the user type;
-- *C++ only*: User has to provide marshaling functions explicitly as there is no reflection to generate them based on user type structure.
+- *C++ only*: User has to provide marshalling functions explicitly as there is no reflection to generate them based on user type structure.
 
 === Usage Examples
 

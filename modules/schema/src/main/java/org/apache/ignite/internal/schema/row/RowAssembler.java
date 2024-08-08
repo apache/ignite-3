@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -35,12 +33,10 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.util.TemporalTypeUtils;
 import org.jetbrains.annotations.Nullable;
@@ -70,6 +66,17 @@ public class RowAssembler {
      */
     public RowAssembler(SchemaDescriptor schema, int totalValueSize) {
         this(schema.version(), schema.columns(), totalValueSize);
+    }
+
+    /**
+     * Creates a builder.
+     *
+     * @param schema Schema descriptor.
+     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
+     * @param exactEstimate Whether the total size is exact estimate or approximate.
+     */
+    public RowAssembler(SchemaDescriptor schema, int totalValueSize, boolean exactEstimate) {
+        this(schema.version(), schema.columns(), totalValueSize, exactEstimate);
     }
 
     /**
@@ -154,12 +161,6 @@ public class RowAssembler {
             }
             case BYTES: {
                 return appendBytes((byte[]) val);
-            }
-            case BITMASK: {
-                return appendBitmask((BitSet) val);
-            }
-            case NUMBER: {
-                return appendNumber((BigInteger) val);
             }
             case DECIMAL: {
                 return appendDecimal((BigDecimal) val);
@@ -347,38 +348,6 @@ public class RowAssembler {
     }
 
     /**
-     * Appends BigInteger value for the current column to the chunk.
-     *
-     * @param val Column value.
-     * @return {@code this} for chaining.
-     * @throws SchemaMismatchException If a value doesn't match the current column type.
-     */
-    public RowAssembler appendNumberNotNull(BigInteger val) throws SchemaMismatchException {
-        checkType(NativeTypeSpec.NUMBER);
-
-        Column col = columns.get(curCol);
-
-        NumberNativeType type = (NumberNativeType) col.type();
-
-        // 0 is a magic number for "unlimited precision".
-        if (type.precision() > 0 && new BigDecimal(val).precision() > type.precision()) {
-            throw new SchemaMismatchException("Failed to set number value for column '" + col.name() + "' "
-                    + "(max precision exceeds allocated precision) "
-                    + "[number=" + val + ", max precision=" + type.precision() + "]");
-        }
-
-        builder.appendNumberNotNull(val);
-
-        shiftColumn();
-
-        return this;
-    }
-
-    public RowAssembler appendNumber(BigInteger val) throws SchemaMismatchException {
-        return val == null ? appendNull() : appendNumberNotNull(val);
-    }
-
-    /**
      * Appends BigDecimal value for the current column to the chunk.
      *
      * @param val Column value.
@@ -470,36 +439,6 @@ public class RowAssembler {
 
     public RowAssembler appendUuid(UUID value) {
         return value == null ? appendNull() : appendUuidNotNull(value);
-    }
-
-    /**
-     * Appends BitSet value for the current column to the chunk.
-     *
-     * @param bitSet Column value.
-     * @return {@code this} for chaining.
-     * @throws SchemaMismatchException If a value doesn't match the current column type.
-     */
-    public RowAssembler appendBitmaskNotNull(BitSet bitSet) throws SchemaMismatchException {
-        Column col = columns.get(curCol);
-
-        checkType(NativeTypeSpec.BITMASK);
-
-        BitmaskNativeType maskType = (BitmaskNativeType) col.type();
-
-        if (bitSet.length() > maskType.bits()) {
-            throw new IllegalArgumentException("Failed to set bitmask for column '" + col.name() + "' "
-                    + "(mask size exceeds allocated size) [mask=" + bitSet + ", maxSize=" + maskType.bits() + "]");
-        }
-
-        builder.appendBitmaskNotNull(bitSet);
-
-        shiftColumn();
-
-        return this;
-    }
-
-    public RowAssembler appendBitmask(BitSet value) {
-        return value == null ? appendNull() : appendBitmaskNotNull(value);
     }
 
     /**

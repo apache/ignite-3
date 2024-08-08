@@ -63,16 +63,18 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param indexDescriptor Index descriptor.
-     * @param initNew {@code True} if new tree should be created.
+     * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating it
+     *      for the first time), {@code false} if not necessary (for example, when restoring a tree).
      * @throws IgniteInternalCheckedException If failed.
      */
     private SortedIndexTree(
             int grpId,
-            @Nullable String grpName,
+            String grpName,
             int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
@@ -82,7 +84,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             StorageSortedIndexDescriptor indexDescriptor,
             boolean initNew
     ) throws IgniteInternalCheckedException {
-        super("SortedIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("SortedIndexTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = initNew
                 ? binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor)
@@ -101,14 +103,15 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @throws IgniteInternalCheckedException If failed.
      */
     private SortedIndexTree(
             int grpId,
-            @Nullable String grpName,
+            String grpName,
             int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
@@ -116,7 +119,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             long metaPageId,
             @Nullable ReuseList reuseList
     ) throws IgniteInternalCheckedException {
-        super("SortedIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("SortedIndexTree", grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         this.inlineSize = readInlineSizeFromMetaIo();
         this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
@@ -130,7 +133,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      */
     public static SortedIndexTree createNew(
             int grpId,
-            @Nullable String grpName,
+            String grpName,
             int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
@@ -164,7 +167,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      */
     public static SortedIndexTree restoreForDestroy(
             int grpId,
-            @Nullable String grpName,
+            String grpName,
             int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,

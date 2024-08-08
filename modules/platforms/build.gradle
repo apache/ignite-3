@@ -31,6 +31,9 @@ configurations {
     odbc
 }
 
+cmakeConfigure.enabled = false
+cmakeBuild.enabled = false
+
 task restoreTool(type: Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
 
@@ -76,25 +79,25 @@ cmake {
     getDef().CMAKE_CONFIGURATION_TYPES='Release'
 }
 
-task cmakeConfigureClient(type: net.freudasoft.CMakeConfigureTask) {
+task cmakeConfigureClient(type: dev.welbyseely.CMakeConfigureTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
     getDef().put('ENABLE_CLIENT', 'ON')
     getDef().put('ENABLE_ODBC', 'OFF')
 }
 
-task cmakeBuildClient(type: net.freudasoft.CMakeBuildTask) {
+task cmakeBuildClient(type: dev.welbyseely.CMakeBuildTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
 cmakeBuildClient.dependsOn cmakeConfigureClient
 
-task cmakeConfigureOdbc(type: net.freudasoft.CMakeConfigureTask) {
+task cmakeConfigureOdbc(type: dev.welbyseely.CMakeConfigureTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
     getDef().put('ENABLE_CLIENT', 'OFF')
     getDef().put('ENABLE_ODBC', 'ON')
 }
 
-task cmakeBuildOdbc(type: net.freudasoft.CMakeBuildTask) {
+task cmakeBuildOdbc(type: dev.welbyseely.CMakeBuildTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 

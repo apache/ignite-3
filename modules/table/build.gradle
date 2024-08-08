@@ -64,6 +64,7 @@ dependencies {
     testImplementation project(':ignite-page-memory')
     testImplementation project(':ignite-storage-rocksdb')
     testImplementation project(':ignite-placement-driver-api')
+    testImplementation project(':ignite-placement-driver')
     testImplementation project(':ignite-system-view-api')
     testImplementation project(':ignite-failure-handler')
     testImplementation(testFixtures(project(':ignite-api')))
@@ -115,6 +116,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-failure-handler')))
     testFixturesImplementation(testFixtures(project(':ignite-metrics')))
     testFixturesImplementation(testFixtures(project(':ignite-raft')))
+    testFixturesImplementation(testFixtures(project(':ignite-replicator')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
@@ -166,6 +168,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-failure-handler')))
     integrationTestImplementation(testFixtures(project(':ignite-metrics')))
     integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
+    integrationTestImplementation(testFixtures(project(':ignite-replicator')))
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core

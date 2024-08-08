@@ -306,7 +306,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ByteBuf byteBuf = (ByteBuf) msg;
 
         // Each inbound handler in a pipeline has to release the received messages.
-        var unpacker = getUnpacker(byteBuf);
+        var unpacker = new ClientMessageUnpacker(byteBuf);
         metrics.bytesReceivedAdd(byteBuf.readableBytes() + ClientMessageCommon.HEADER_SIZE);
 
         // Packer buffer is released by Netty on send, or by inner exception handlers below.
@@ -551,10 +551,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return new ClientMessagePacker(alloc.buffer());
     }
 
-    private static ClientMessageUnpacker getUnpacker(ByteBuf buf) {
-        return new ClientMessageUnpacker(buf);
-    }
-
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
         long requestId = -1;
         int opCode = -1;
@@ -797,7 +793,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, out, igniteTables);
 
             case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
-                return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables, compute);
+                return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
@@ -824,12 +820,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         if (primaryReplicasUpdated) {
             out.packLong(currentMaxStartTime);
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
-        ctx.flush();
     }
 
     /** {@inheritDoc} */

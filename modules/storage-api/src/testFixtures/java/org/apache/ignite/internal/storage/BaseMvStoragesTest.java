@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -234,5 +236,12 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
         assertThat(createMvPartitionStorageFuture, willCompleteSuccessfully());
 
         return createMvPartitionStorageFuture.join();
+    }
+
+    /**
+     * Creates a new transaction id.
+     */
+    public final UUID newTransactionId() {
+        return TransactionIds.transactionId(clock.now(), 0);
     }
 }

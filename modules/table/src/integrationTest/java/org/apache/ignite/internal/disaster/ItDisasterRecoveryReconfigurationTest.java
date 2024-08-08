@@ -26,7 +26,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.raftConfigurationAppliedKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -417,10 +417,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 SECONDS.toMillis(DEFAULT_IDLE_SAFE_TIME_PROP_DURATION) + node0.clockService().maxClockSkewMillis())
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21303
-        //  We need wait quite a bit before data is available. Log shows term mismatches, meaning that right now it only works due to some
-        //  miracle. For future improvements we must specify "stable" forced sub-assignments explicitly, instead of calculating them as an
-        //  intersection.
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22657
+        //  We need wait quite a bit before data is available for some reason.
         Thread.sleep(10_000);
 
         // "forEach" makes "i" effectively final, which is convenient for internal lambda.
@@ -446,12 +444,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                     UpdateStatement updateStatement = (UpdateStatement) andThen;
                     Collection<Operation> operations = updateStatement.update().operations();
 
-                    ByteArray raftConfigurationAppliedKey = raftConfigurationAppliedKey(new TablePartitionId(tableId, partId));
+                    ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, partId));
 
                     for (Operation operation : operations) {
                         ByteArray opKey = new ByteArray(toByteArray(operation.key()));
 
-                        if (operation.type() == OperationType.PUT && opKey.equals(raftConfigurationAppliedKey)) {
+                        if (operation.type() == OperationType.PUT && opKey.equals(stablePartAssignmentsKey)) {
                             return blockedAssignments.equals(ByteUtils.fromBytes(toByteArray(operation.value())));
                         }
                     }

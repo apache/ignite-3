@@ -81,4 +81,6 @@ public interface IgniteTablesInternal extends IgniteTables {
      * @param tableId Table id.
      */
     @Nullable TableViewInternal cachedTable(int tableId);
+
+    void setStreamerReceiverRunner(StreamerReceiverRunner runner);
 }

@@ -26,12 +26,6 @@ import org.apache.ignite.internal.type.NativeTypes;
  * <p>These constants is just shortcuts for variable length types to use in tests.
  */
 public final class Types {
-    public static final NativeType NUMBER_1 = NativeTypes.numberOf(1);
-    public static final NativeType NUMBER_2 = NativeTypes.numberOf(2);
-    public static final NativeType NUMBER_3 = NativeTypes.numberOf(3);
-    public static final NativeType NUMBER_5 = NativeTypes.numberOf(5);
-    public static final NativeType NUMBER_10 = NativeTypes.numberOf(10);
-    public static final NativeType NUMBER_19 = NativeTypes.numberOf(19);
 
     public static final NativeType DECIMAL_1_0 = NativeTypes.decimalOf(1, 0);
     public static final NativeType DECIMAL_2_1 = NativeTypes.decimalOf(2, 1);

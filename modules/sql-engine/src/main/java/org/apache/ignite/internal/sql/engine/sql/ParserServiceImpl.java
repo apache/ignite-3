@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriterConfig;
@@ -55,12 +56,28 @@ public class ParserServiceImpl implements ParserService {
 
         assert queryType != null : normalizedQuery;
 
+        AtomicReference<SqlNode> holder = new AtomicReference<>(parsedTree);
+
+        @SuppressWarnings("UnnecessaryLocalVariable")
         ParsedResult result = new ParsedResultImpl(
                 queryType,
                 query,
                 normalizedQuery,
                 parsedStatement.dynamicParamsCount(),
-                () -> IgniteSqlParser.parse(query, StatementParseResult.MODE).statement()
+                () -> {
+                    // Descendants of SqlNode class are mutable, thus we must use every
+                    // syntax node only once to avoid problem. But we already parsed the
+                    // query once to get normalized result. An `unparse` operation is known
+                    // to be safe, so let's reuse result of parsing for the first invocation
+                    // of `parsedTree` method to avoid double-parsing for one time queries.
+                    SqlNode ast = holder.getAndSet(null);
+
+                    if (ast != null) {
+                        return ast;
+                    }
+
+                    return IgniteSqlParser.parse(query, StatementParseResult.MODE).statement();
+                }
         );
 
         return result;

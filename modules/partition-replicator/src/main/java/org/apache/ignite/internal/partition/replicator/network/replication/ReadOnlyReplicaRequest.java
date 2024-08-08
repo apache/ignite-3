@@ -24,9 +24,5 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
  * Read only replica request.
  */
 public interface ReadOnlyReplicaRequest extends ReplicaRequest {
-    long readTimestampLong();
-
-    default HybridTimestamp readTimestamp() {
-        return HybridTimestamp.hybridTimestamp(readTimestampLong());
-    }
+    HybridTimestamp readTimestamp();
 }

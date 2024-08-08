@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -36,7 +34,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -52,7 +49,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -81,18 +77,10 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
 
     private final CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
 
-    @InjectConfiguration
-    private RaftConfiguration raftConfiguration;
-
     @BeforeEach
     public void setUp() {
         storage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
-        metaStorageListener = new MetaStorageListener(
-                storage,
-                new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock),
-                raftConfiguration.retryTimeout(),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-        );
+        metaStorageListener = new MetaStorageListener(storage, new ClusterTimeImpl(NODE_NAME, new IgniteSpinBusyLock(), clock));
     }
 
     @Test
@@ -106,8 +94,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
                 .condition(notExists(testKey))
                 .success(List.of(put(testKey, testValue.bytes())))
                 .failure(List.of(put(testKey, anotherValue.bytes())))
-                .safeTimeLong(clock.now().longValue())
-                .initiatorTimeLong(clock.now().longValue())
+                .safeTime(clock.now())
+                .initiatorTime(clock.now())
                 .build();
 
         metaStorageListener.onWrite(commandIterator(command));
@@ -138,8 +126,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         MultiInvokeCommand command = CMD_FACTORY.multiInvokeCommand()
                 .id(commandIdGenerator.newId())
                 .iif(iif)
-                .safeTimeLong(clock.now().longValue())
-                .initiatorTimeLong(clock.now().longValue())
+                .safeTime(clock.now())
+                .initiatorTime(clock.now())
                 .build();
 
         metaStorageListener.onWrite(commandIterator(command));
@@ -166,8 +154,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         PutCommand command0 = CMD_FACTORY.putCommand()
                 .key(ByteBuffer.wrap(testKey.bytes()))
                 .value(ByteBuffer.wrap(testValue0.bytes()))
-                .safeTimeLong(clock.now().longValue())
-                .initiatorTimeLong(clock.now().longValue())
+                .safeTime(clock.now())
+                .initiatorTime(clock.now())
                 .build();
 
         metaStorageListener.onWrite(commandIterator(command0));
@@ -183,8 +171,8 @@ public class IdempotentCommandCacheTest extends BaseIgniteAbstractTest {
         PutCommand command1 = CMD_FACTORY.putCommand()
                 .key(ByteBuffer.wrap(testKey.bytes()))
                 .value(ByteBuffer.wrap(testValue1.bytes()))
-                .safeTimeLong(clock.now().longValue())
-                .initiatorTimeLong(clock.now().longValue())
+                .safeTime(clock.now())
+                .initiatorTime(clock.now())
                 .build();
 
         metaStorageListener.onWrite(commandIterator(command1));

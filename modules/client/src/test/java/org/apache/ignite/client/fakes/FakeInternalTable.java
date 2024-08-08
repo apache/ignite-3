@@ -35,9 +35,16 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
+import org.apache.ignite.client.handler.FakePlacementDriver;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -46,19 +53,20 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableRaftService;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake internal table.
  */
-public class FakeInternalTable implements InternalTable {
+public class FakeInternalTable implements InternalTable, StreamerReceiverRunner {
     public static final int PARTITIONS = 4;
 
     /** Table name. */
@@ -72,6 +80,10 @@ public class FakeInternalTable implements InternalTable {
     /** Table data. */
     private final ConcurrentHashMap<ByteBuffer, BinaryRow> data = new ConcurrentHashMap<>();
 
+    private final IgniteCompute compute;
+
+    private final FakePlacementDriver placementDriver;
+
     /** Data access listener. */
     private BiConsumer<String, Object> dataAccessListener;
 
@@ -81,11 +93,19 @@ public class FakeInternalTable implements InternalTable {
      * @param tableName Name.
      * @param tableId Id.
      * @param keyExtractor Function which converts given binary row to an index key.
+     * @param placementDriver Placement driver.
      */
-    public FakeInternalTable(String tableName, int tableId, ColumnsExtractor keyExtractor) {
+    FakeInternalTable(
+            String tableName,
+            int tableId,
+            ColumnsExtractor keyExtractor,
+            IgniteCompute compute,
+            FakePlacementDriver placementDriver) {
         this.tableName = tableName;
         this.tableId = tableId;
         this.keyExtractor = keyExtractor;
+        this.compute = compute;
+        this.placementDriver = placementDriver;
     }
 
     @Override
@@ -451,12 +471,6 @@ public class FakeInternalTable implements InternalTable {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    @Override
-    public TableRaftService tableRaftService() {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
-
-
     @Override public TxStateTableStorage txStateStorage() {
         return null;
     }
@@ -503,7 +517,38 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partitionId) {
+        List<ReplicaMeta> replicaMetas = placementDriver.primaryReplicas();
+        ReplicaMeta replica = replicaMetas.get(partitionId.partitionId());
+
+        //noinspection DataFlowIssue
         return completedFuture(
-                new ClusterNodeImpl("server-1", "server-1", new NetworkAddress("localhost", 10800)));
+                new ClusterNodeImpl(
+                        replica.getLeaseholderId(),
+                        replica.getLeaseholder(),
+                        new NetworkAddress("localhost", 10800)));
+    }
+
+    @Override
+    public CompletableFuture<Long> estimatedSize() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    @Override
+    public StreamerReceiverRunner streamerReceiverRunner() {
+        return this;
+    }
+
+    @Override
+    public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(ReceiverDescriptor<A> receiver, @Nullable A receiverArg,
+            Collection<I> items, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+        return compute.executeAsync(
+                JobTarget.node(node),
+                JobDescriptor.builder(StreamerReceiverJob.class).units(deploymentUnits).build(),
+                payload);
     }
 }

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -47,23 +45,21 @@ public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, Timestamp
     UUID txId();
 
     /**
+     * Returns commit partition id.
+     *
+     * @return Commit partition id.
+     */
+    TablePartitionIdMessage commitPartitionId();
+
+    /**
      * Returns {@code True} if a commit request.
      *
      * @return {@code True} to commit.
      */
     boolean commit();
 
-    /**
-     * Transaction commit timestamp.
-     */
-    long commitTimestampLong();
-
-    /**
-     * Transaction commit timestamp.
-     */
-    default @Nullable HybridTimestamp commitTimestamp() {
-        return nullableHybridTimestamp(commitTimestampLong());
-    }
+    /** Transaction commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
 
     /** Enlisted partition groups aggregated by expected primary replica nodes. */
     Map<TablePartitionIdMessage, String> groups();

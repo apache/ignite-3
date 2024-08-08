@@ -30,7 +30,6 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
@@ -85,6 +84,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -98,7 +98,6 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -172,6 +171,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     ) {
         this(
                 replicaSvc,
+                new TestPlacementDriver(LOCAL_NODE),
                 new TestMvPartitionStorage(0),
                 schema,
                 txConfiguration,
@@ -183,6 +183,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Creates a new local table.
      *
      * @param replicaSvc Replica service.
+     * @param placementDriver Placement driver.
      * @param storage Storage.
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
@@ -190,6 +191,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
+            PlacementDriver placementDriver,
             MvPartitionStorage storage,
             SchemaDescriptor schema,
             TransactionConfiguration txConfiguration,
@@ -202,11 +204,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 null,
                 schema,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(LOCAL_NODE),
+                placementDriver,
                 storageUpdateConfiguration,
                 txConfiguration,
                 new RemotelyTriggeredResourceRegistry(),
-                new TransactionInflights(new TestPlacementDriver(LOCAL_NODE), CLOCK_SERVICE)
+                new TransactionInflights(placementDriver, CLOCK_SERVICE)
         );
     }
 
@@ -248,19 +250,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK,
                 tracker,
                 placementDriver,
-                new TableRaftServiceImpl(
-                        "test",
-                        1,
-                        Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
-                        new SingleClusterNodeResolver(LOCAL_NODE)
-                ),
                 transactionInflights,
                 3_000,
                 0,
-                null
+                null,
+                mock(StreamerReceiverRunner.class)
         );
 
-        RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
+        RaftGroupService svc = mock(RaftGroupService.class);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
 
@@ -386,7 +383,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
-                tableRaftService().partitionRaftGroupService(PART_ID),
+                svc,
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
@@ -404,7 +401,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(LOCAL_NODE),
+                placementDriver,
                 mock(ClusterNodeResolver.class),
                 resourcesRegistry,
                 schemaManager,

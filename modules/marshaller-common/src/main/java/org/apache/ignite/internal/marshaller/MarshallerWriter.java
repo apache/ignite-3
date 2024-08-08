@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 
@@ -112,20 +110,6 @@ public interface MarshallerWriter {
      * @param val Value.
      */
     void writeBytes(byte[] val);
-
-    /**
-     * Writes bit set.
-     *
-     * @param val Value.
-     */
-    void writeBitSet(BitSet val);
-
-    /**
-     * Writes big integer.
-     *
-     * @param val Value.
-     */
-    void writeBigInt(BigInteger val);
 
     /**
      * Writes big decimal.
@@ -243,16 +227,6 @@ public interface MarshallerWriter {
             }
             case BYTE_ARR: {
                 writeBytes((byte[]) val);
-
-                break;
-            }
-            case BITSET: {
-                writeBitSet((BitSet) val);
-
-                break;
-            }
-            case NUMBER: {
-                writeBigInt((BigInteger) val);
 
                 break;
             }

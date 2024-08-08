@@ -172,8 +172,8 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     ) {
         PlacementDriverReplicaMessage msg = MSG_FACTORY.leaseGrantedMessage()
                 .groupId(GRP_ID)
-                .leaseStartTimeLong(leaseStartTime.longValue())
-                .leaseExpirationTimeLong(leaseExpirationTime.longValue())
+                .leaseStartTime(leaseStartTime)
+                .leaseExpirationTime(leaseExpirationTime)
                 .force(force)
                 .build();
 

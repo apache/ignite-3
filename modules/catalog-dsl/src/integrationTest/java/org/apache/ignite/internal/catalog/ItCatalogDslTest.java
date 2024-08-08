@@ -29,23 +29,14 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
-import org.apache.ignite.catalog.SortOrder;
-import org.apache.ignite.catalog.annotations.Column;
-import org.apache.ignite.catalog.annotations.ColumnRef;
-import org.apache.ignite.catalog.annotations.Id;
-import org.apache.ignite.catalog.annotations.Index;
-import org.apache.ignite.catalog.annotations.Table;
-import org.apache.ignite.catalog.annotations.Zone;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.junit.jupiter.api.AfterEach;
@@ -54,11 +45,11 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("ThrowableNotThrown")
 class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
-    private static final String POJO_KV_TABLE_NAME = "pojo_kv_test";
+    static final String POJO_KV_TABLE_NAME = "pojo_kv_test";
 
-    private static final String POJO_RECORD_TABLE_NAME = "pojo_record_test";
+    static final String POJO_RECORD_TABLE_NAME = "pojo_record_test";
 
-    private static final String ZONE_NAME = "zone_test";
+    static final String ZONE_NAME = "zone_test";
 
     private static final int KEY = 1;
 
@@ -293,128 +284,5 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     private static IgniteCatalog catalog() {
         return CLUSTER.node(0).catalog();
-    }
-
-    private static IgniteTables tables() {
-        return CLUSTER.node(0).tables();
-    }
-
-    private static class PojoKey {
-        @Id
-        Integer id;
-
-        @Id
-        @Column(value = "id_str", length = 20)
-        String idStr;
-
-        PojoKey() {}
-
-        PojoKey(Integer id, String idStr) {
-            this.id = id;
-            this.idStr = idStr;
-        }
-
-    }
-
-    @Table(
-            value = POJO_KV_TABLE_NAME,
-            zone = @Zone(
-                    value = ZONE_NAME,
-                    storageProfiles = DEFAULT_AIPERSIST_PROFILE_NAME
-            ),
-            colocateBy = @ColumnRef("id"),
-            indexes = @Index(value = "ix_pojo", columns = {
-                    @ColumnRef("f_name"),
-                    @ColumnRef(value = "l_name", sort = SortOrder.DESC),
-            })
-    )
-    private static class PojoValue {
-        @Column("f_name")
-        String firstName;
-
-        @Column("l_name")
-        String lastName;
-
-        String str;
-
-        PojoValue() {}
-
-        PojoValue(String firstName, String lastName, String str) {
-            this.firstName = firstName;
-            this.lastName = lastName;
-            this.str = str;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            PojoValue pojoValue = (PojoValue) o;
-            return Objects.equals(firstName, pojoValue.firstName) && Objects.equals(lastName, pojoValue.lastName)
-                    && Objects.equals(str, pojoValue.str);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(firstName, lastName, str);
-        }
-    }
-
-    @Table(
-            value = POJO_RECORD_TABLE_NAME,
-            zone = @Zone(value = ZONE_NAME, storageProfiles = DEFAULT_AIPERSIST_PROFILE_NAME),
-            colocateBy = @ColumnRef("id"),
-            indexes = @Index(value = "ix_pojo", columns = {
-                    @ColumnRef("f_name"),
-                    @ColumnRef(value = "l_name", sort = SortOrder.DESC),
-            })
-    )
-    private static class Pojo {
-        @Id
-        Integer id;
-
-        @Id
-        @Column(value = "id_str", length = 20)
-        String idStr;
-
-        @Column(value = "f_name", columnDefinition = "varchar(20) not null default 'a'")
-        String firstName;
-
-        @Column("l_name")
-        String lastName;
-
-        String str;
-
-        Pojo() {}
-
-        Pojo(Integer id, String idStr, String firstName, String lastName, String str) {
-            this.id = id;
-            this.idStr = idStr;
-            this.firstName = firstName;
-            this.lastName = lastName;
-            this.str = str;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Pojo pojo = (Pojo) o;
-            return Objects.equals(id, pojo.id) && Objects.equals(idStr, pojo.idStr) && Objects.equals(firstName,
-                    pojo.firstName) && Objects.equals(lastName, pojo.lastName) && Objects.equals(str, pojo.str);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(id, idStr, firstName, lastName, str);
-        }
     }
 }

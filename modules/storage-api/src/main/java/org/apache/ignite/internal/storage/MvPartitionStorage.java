@@ -104,7 +104,18 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *
      * @return Future that's completed when flushing of the data is completed.
      */
-    CompletableFuture<Void> flush();
+    default CompletableFuture<Void> flush() {
+        return flush(true);
+    }
+
+    /**
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
+     *
+     * @param trigger {@code true} if the flush should be explicitly triggered, otherwise
+     *         the future for the next scheduled flush will be returned.
+     * @return Future that's completed when flushing of the data is completed.
+     */
+    CompletableFuture<Void> flush(boolean trigger);
 
     /**
      * Index of the write command with the highest index applied to the storage. {@code 0} if the index is unknown.
@@ -228,7 +239,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *
      * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
     PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;

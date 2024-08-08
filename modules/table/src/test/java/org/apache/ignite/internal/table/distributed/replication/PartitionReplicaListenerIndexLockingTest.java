@@ -337,13 +337,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_DELETE:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
                         .groupId(tablePartitionId(PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
-                        .requestTypeInt(arg.type.ordinal())
+                        .requestType(arg.type)
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -356,13 +358,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_UPSERT:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                         .groupId(tablePartitionId(PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testBinaryRow.schemaVersion())
                         .binaryTuple(testBinaryRow.tupleSlice())
-                        .requestTypeInt(arg.type.ordinal())
+                        .requestType(arg.type)
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
                 break;
 
@@ -423,13 +427,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_DELETE_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                         .groupId(tablePartitionId(PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
-                        .requestTypeInt(arg.type.ordinal())
+                        .requestType(arg.type)
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -439,13 +445,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_UPSERT_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                         .groupId(tablePartitionId(PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(rows.iterator().next().schemaVersion())
                         .binaryTuples(binaryRowsToBuffers(rows))
-                        .requestTypeInt(arg.type.ordinal())
+                        .requestType(arg.type)
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;

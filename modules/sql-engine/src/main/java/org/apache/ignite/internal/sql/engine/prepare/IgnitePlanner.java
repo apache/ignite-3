@@ -337,7 +337,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public RelRoot rel(SqlNode sql) {
-        SqlToRelConverter sqlToRelConverter = sqlToRelConverter(validator(), catalogReader, sqlToRelConverterCfg);
+        SqlToRelConverter sqlToRelConverter = sqlToRelConverter();
 
         return sqlToRelConverter.convertQuery(sql, false, true);
     }
@@ -603,9 +603,14 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return relShuttle.visit(rel);
     }
 
-    private SqlToRelConverter sqlToRelConverter(SqlValidator validator, CalciteCatalogReader reader,
+    private IgniteSqlToRelConvertor sqlToRelConverter(SqlValidator validator, CalciteCatalogReader reader,
             SqlToRelConverter.Config config) {
         return new IgniteSqlToRelConvertor(this, validator, reader, cluster(), convertletTbl, config);
+    }
+
+    /** Returns converter from ast to rel node tree. */
+    public IgniteSqlToRelConvertor sqlToRelConverter() {
+        return sqlToRelConverter(validator(), catalogReader, sqlToRelConverterCfg);
     }
 
     /**

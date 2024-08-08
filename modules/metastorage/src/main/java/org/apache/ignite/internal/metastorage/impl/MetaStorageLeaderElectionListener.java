@@ -77,6 +77,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private final CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture;
 
+    private final List<ElectionListener> electionListeners;
+
     /**
      * Leader term if this node is a leader, {@code null} otherwise.
      *
@@ -91,7 +93,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             LogicalTopologyService logicalTopologyService,
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
             ClusterTimeImpl clusterTime,
-            CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture
+            CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture,
+            List<ElectionListener> electionListeners
     ) {
         this.busyLock = busyLock;
         this.nodeName = clusterService.nodeName();
@@ -99,10 +102,13 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         this.metaStorageSvcFut = metaStorageSvcFut;
         this.clusterTime = clusterTime;
         this.metaStorageConfigurationFuture = metaStorageConfigurationFuture;
+        this.electionListeners = electionListeners;
     }
 
     @Override
     public void onLeaderElected(ClusterNode node, long term) {
+        electionListeners.forEach(listener -> listener.onLeaderElected(node));
+
         synchronized (serializationFutureMux) {
             if (node.name().equals(nodeName) && serializationFuture == null) {
                 LOG.info("Node has been elected as the leader, starting Idle Safe Time scheduler");
@@ -112,11 +118,12 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 logicalTopologyService.addEventListener(logicalTopologyEventListener);
 
                 metaStorageSvcFut
-                        .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) ->
-                                clusterTime.startSafeTimeScheduler(
-                                        safeTime -> service.syncTime(safeTime, term),
-                                        metaStorageConfiguration
-                                ))
+                        .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
+                            clusterTime.startSafeTimeScheduler(
+                                    safeTime -> service.syncTime(safeTime, term),
+                                    metaStorageConfiguration
+                            );
+                        })
                         .whenComplete((v, e) -> {
                             if (e != null) {
                                 LOG.error("Unable to start Idle Safe Time scheduler", e);
@@ -240,7 +247,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                     PeersAndLearners newPeerConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
 
                     // We can't use 'resetLearners' call here because it does not support empty lists of learners.
-                    return raftService.changePeersAsync(newPeerConfiguration, term);
+                    return raftService.changePeersAndLearnersAsync(newPeerConfiguration, term);
                 })));
     }
 

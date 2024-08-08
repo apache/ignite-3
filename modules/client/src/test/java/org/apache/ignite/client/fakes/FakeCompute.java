@@ -49,6 +49,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -93,6 +95,8 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
+            @Nullable Marshaller<R, byte[]> resultMarshaller,
             Object args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
@@ -126,8 +130,15 @@ public class FakeCompute implements IgniteComputeInternal {
     /** {@inheritDoc} */
     @Override
         public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
-                TableViewInternal table, Tuple key, List<DeploymentUnit> units, String jobClassName,
-            JobExecutionOptions options, Object args) {
+            TableViewInternal table,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
+            @Nullable Marshaller<R, byte[]> resultMarshaller,
+            Object args
+    ) {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 
@@ -135,7 +146,9 @@ public class FakeCompute implements IgniteComputeInternal {
     public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
-            return executeAsyncWithFailover(nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args);
+            return executeAsyncWithFailover(
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), null, null, args
+            );
         } else if (target instanceof ColocatedJobTarget) {
             return jobExecution(future != null ? future : completedFuture((R) nodeName));
         } else {
@@ -158,13 +171,13 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
+    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
         return taskExecution(future != null ? future : completedFuture((R) nodeName));
     }
 
     @Override
-    public <T, R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, T args) {
-        return sync(executeMapReduceAsync(units, taskClassName, args));
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return sync(executeMapReduceAsync(taskDescriptor, arg));
     }
 
     private <R> JobExecution<R> completedExecution(R result) {

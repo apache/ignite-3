@@ -18,14 +18,13 @@
 package org.apache.ignite.sql;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
+import java.util.Arrays;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,8 +78,7 @@ public enum ColumnType {
     /** 128-bit UUID. */
     UUID(13, UUID.class, false, false, false),
 
-    /** Bit mask. */
-    BITMASK(14, BitSet.class, false, false, true),
+    // UNUSED id = 14
 
     /** String. */
     STRING(15, String.class, false, false, true),
@@ -92,10 +90,7 @@ public enum ColumnType {
     PERIOD(17, Period.class, true, false, false),
 
     /** Time interval. */
-    DURATION(18, Duration.class, true, false, false),
-
-    /** Number. */
-    NUMBER(19, BigInteger.class, true, false, false);
+    DURATION(18, Duration.class, true, false, false);
 
     private final Class<?> javaClass;
     private final boolean precisionAllowed;
@@ -104,13 +99,19 @@ public enum ColumnType {
 
     private final int id;
 
-    private static final ColumnType[] VALS = new ColumnType[values().length];
+    private static ColumnType[] VALS;
 
     static {
+        int maxId = Arrays.stream(values()).mapToInt(ColumnType::id).max().orElse(0);
+        ColumnType[] vals = new ColumnType[maxId + 1];
+
         for (ColumnType columnType : values()) {
-            assert VALS[columnType.id] == null : "Found duplicate id " + columnType.id;
-            VALS[columnType.id()] = columnType;
+            ColumnType existing = vals[columnType.id];
+            assert existing == null : "Found duplicate id " + columnType.id;
+            vals[columnType.id] = columnType;
         }
+
+        VALS = vals;
     }
 
     ColumnType(int id, Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined) {

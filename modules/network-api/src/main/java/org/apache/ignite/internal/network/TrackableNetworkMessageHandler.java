@@ -19,9 +19,12 @@ package org.apache.ignite.internal.network;
 
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.ThreadAttributes;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,7 +51,25 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
         targetHandler.onReceived(message, sender, correlationId);
 
-        maybeLogLongProcessing(message, startTimeNanos);
+        if (!storageThread()) {
+            maybeLogLongProcessing(message, startTimeNanos);
+        }
+    }
+
+    private static boolean storageThread() {
+        Thread currentThread = Thread.currentThread();
+
+        if (!(currentThread instanceof ThreadAttributes)) {
+            return false;
+        }
+
+        ThreadAttributes current = (ThreadAttributes) currentThread;
+
+        Set<ThreadOperation> allowedOperations = current.allowedOperations();
+
+        return allowedOperations.contains(ThreadOperation.STORAGE_READ)
+                || allowedOperations.contains(ThreadOperation.STORAGE_WRITE)
+                || allowedOperations.contains(ThreadOperation.TX_STATE_STORAGE_ACCESS);
     }
 
     private static void maybeLogLongProcessing(NetworkMessage message, long startTimeNanos) {
@@ -56,10 +77,10 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
         if (durationMillis > MESSAGING_PROCESSING_LOG_THRESHOLD_MILLIS) {
             LOG.warn(
-                    "Message handling has been too long [duration={}ms, message=[{}]]",
+                    "Message handling has been too long [duration={}ms, message={}]",
                     durationMillis,
                     // Message may include sensitive data, however it seems useful to print full message content while testing.
-                    includeSensitive() ? message : message.getClass()
+                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging()
             );
         }
     }

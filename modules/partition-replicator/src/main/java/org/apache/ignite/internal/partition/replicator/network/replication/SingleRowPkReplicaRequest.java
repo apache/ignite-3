@@ -26,15 +26,6 @@ import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRe
 public interface SingleRowPkReplicaRequest extends SchemaVersionAwareReplicaRequest {
     ByteBuffer primaryKey();
 
-    /** Ordinal of {@link RequestType} value. */
-    int requestTypeInt();
-
     /** Transaction operation type. */
-    default RequestType requestType() {
-        RequestType requestType = RequestType.fromOrdinal(requestTypeInt());
-
-        assert requestType != null : requestTypeInt();
-
-        return requestType;
-    }
+    RequestType requestType();
 }

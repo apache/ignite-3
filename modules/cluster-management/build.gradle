@@ -44,12 +44,13 @@ dependencies {
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
 
-    testImplementation project(':ignite-configuration')
-    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation project(':ignite-core')
+    testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-network')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
-    testImplementation project(':ignite-network')
+    testImplementation testFixtures(project(':ignite-network'))
+
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
 

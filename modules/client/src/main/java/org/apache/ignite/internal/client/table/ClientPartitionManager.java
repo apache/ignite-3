@@ -21,9 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.TcpIgniteClient.unpackClusterNode;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -43,14 +40,14 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client partition manager implementation.
  */
-public class ClientPartitionManager implements PartitionManager {
+class ClientPartitionManager implements PartitionManager {
     private final ClientTable tbl;
 
     private final Lock lock = new ReentrantLock();
 
     private final Map<Partition, ClusterNode> cache = new HashMap<>();
 
-    private @Nullable Instant aliveUntil;
+    private long assignmentChangeTimestamp;
 
     ClientPartitionManager(ClientTable clientTable) {
         this.tbl = clientTable;
@@ -81,15 +78,12 @@ public class ClientPartitionManager implements PartitionManager {
             return completedFuture(cache);
         }
 
+        var currentTs = tbl.channel().partitionAssignmentTimestamp();
+
         return tbl.channel().serviceAsync(ClientOp.PRIMARY_REPLICAS_GET,
                 w -> w.out().packInt(tbl.tableId()),
                 r -> {
                     ClientMessageUnpacker in = r.in();
-
-                    if (in.tryUnpackNil()) {
-                        return Collections.<Partition, ClusterNode>emptyMap();
-                    }
-
                     int size = in.unpackInt();
 
                     Map<Partition, ClusterNode> res = new HashMap<>(size);
@@ -101,7 +95,7 @@ public class ClientPartitionManager implements PartitionManager {
 
                     return res;
                 })
-                .thenApply(this::updateCache);
+                .thenApply(map -> updateCache(map, currentTs));
     }
 
     @Override
@@ -121,12 +115,14 @@ public class ClientPartitionManager implements PartitionManager {
 
     private @Nullable ClusterNode getClusterNode(Partition partition) {
         lock.lock();
+
         try {
-            if (aliveUntil == null || Instant.now().isAfter(aliveUntil)) {
+            //noinspection resource
+            if (tbl.channel().partitionAssignmentTimestamp() > assignmentChangeTimestamp) {
                 cache.clear();
-                aliveUntil = null;
                 return null;
             }
+
             return cache.get(partition);
         } finally {
             lock.unlock();
@@ -135,23 +131,26 @@ public class ClientPartitionManager implements PartitionManager {
 
     private @Nullable Map<Partition, ClusterNode> lookupCache() {
         lock.lock();
+
         try {
-            if (aliveUntil == null || Instant.now().isAfter(aliveUntil)) {
+            //noinspection resource
+            if (tbl.channel().partitionAssignmentTimestamp() > assignmentChangeTimestamp) {
                 cache.clear();
-                aliveUntil = null;
                 return null;
             }
+
             return Map.copyOf(cache);
         } finally {
             lock.unlock();
         }
     }
 
-    private Map<Partition, ClusterNode> updateCache(Map<Partition, ClusterNode> map) {
+    private Map<Partition, ClusterNode> updateCache(Map<Partition, ClusterNode> map, long timestamp) {
         lock.lock();
+
         try {
             cache.putAll(map);
-            aliveUntil = Instant.now().plus(1, ChronoUnit.MINUTES);
+            assignmentChangeTimestamp = timestamp;
             return map;
         } finally {
             lock.unlock();

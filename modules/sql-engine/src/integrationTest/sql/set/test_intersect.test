@@ -74,7 +74,7 @@ statement ok
 CREATE TABLE t_float(f1 float);
 
 statement ok
-INSERT INTO t_float(f1) VALUES (-1.2345678901234e+200), (-34.84),  (123), (456), (456.1), (-456);
+INSERT INTO t_float(f1) VALUES (-1.2345678901234e+10), (-34.84),  (123), (456), (456.1), (-456);
 
 query I
 (SELECT f1 FROM t_float INTERSECT SELECT q1 FROM t_int)

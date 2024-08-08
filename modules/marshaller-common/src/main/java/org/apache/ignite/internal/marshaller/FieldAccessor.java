@@ -23,12 +23,10 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.lang.MarshallerException;
@@ -116,8 +114,6 @@ abstract class FieldAccessor {
                 case STRING:
                 case UUID:
                 case BYTE_ARR:
-                case BITSET:
-                case NUMBER:
                 case DECIMAL:
                 case TIME:
                 case DATE:
@@ -165,8 +161,6 @@ abstract class FieldAccessor {
             case STRING:
             case UUID:
             case BYTE_ARR:
-            case BITSET:
-            case NUMBER:
             case DECIMAL:
             case TIME:
             case DATE:
@@ -247,12 +241,6 @@ abstract class FieldAccessor {
 
             case BYTE_ARR:
                 return reader.readBytes();
-
-            case BITSET:
-                return reader.readBitSet();
-
-            case NUMBER:
-                return reader.readBigInt();
 
             case DECIMAL:
                 return reader.readBigDecimal(scale);
@@ -340,16 +328,6 @@ abstract class FieldAccessor {
 
             case BYTE_ARR:
                 writer.writeBytes((byte[]) val);
-
-                break;
-
-            case BITSET:
-                writer.writeBitSet((BitSet) val);
-
-                break;
-
-            case NUMBER:
-                writer.writeBigInt((BigInteger) val);
 
                 break;
 

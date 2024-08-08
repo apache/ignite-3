@@ -43,7 +43,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -92,7 +91,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     void testDropPartition() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
-        UUID txId = UUID.randomUUID();
+        UUID txId = newTransactionId();
 
         MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID_0);
 
@@ -133,7 +132,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     void testRestart() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
-        UUID txId = UUID.randomUUID();
+        UUID txId = newTransactionId();
 
         MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID);
 
@@ -162,17 +161,5 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @Test
     void storageAdvertisesItIsPersistent() {
         assertThat(tableStorage.isVolatile(), is(false));
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
-    @Override
-    public void testEstimatedSizeAfterRebalance() {
-        super.testEstimatedSizeAfterRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22617")
-    @Override
-    public void testEstimatedSizeAfterAbortRebalance() {
-        super.testEstimatedSizeAfterAbortRebalance();
     }
 }

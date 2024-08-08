@@ -30,11 +30,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.IntFunction;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -42,8 +48,9 @@ import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -171,9 +178,10 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         // Find the leader of the table's partition group.
-        RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
-        LeaderWithTerm leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
-        String leaderId = leaderWithTerm.leader().consistentId();
+        String leaderId = ignite.replicaManager()
+                .replica(new TablePartitionId(table.tableId(), 0))
+                .thenApply(replica -> replica.raftClient().leader().consistentId())
+                .get(15, TimeUnit.SECONDS);
 
         log.info("Leader is {}", leaderId);
 
@@ -196,17 +204,17 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         String restartingNodeConsistentId = restartingNode.name();
 
         TableViewInternal restartingTable = unwrapTableViewInternal(restartingNode.tables().table(TABLE_NAME));
-        InternalTableImpl internalTable = (InternalTableImpl) restartingTable.internalTable();
+        InternalTableImpl restartingInternalTable = (InternalTableImpl) restartingTable.internalTable();
 
         // Check that it restarts.
         waitForCondition(
-                () -> isRaftNodeStarted(table, loza) && solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
+                () -> isRaftNodeStarted(table, loza) && solePartitionAssignmentsContain(restartingNode, restartingInternalTable, 0),
                 TimeUnit.SECONDS.toMillis(10)
         );
 
         assertTrue(isRaftNodeStarted(table, loza), "Raft node of the partition is not started on " + restartingNodeConsistentId);
         assertTrue(
-                solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
+                solePartitionAssignmentsContain(restartingNode, restartingInternalTable, 0),
                 "Assignments do not contain node " + restartingNodeConsistentId
         );
 
@@ -214,12 +222,29 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         checkTableWithData(restartingNode, TABLE_NAME);
     }
 
-    private static boolean solePartitionAssignmentsContain(String restartingNodeConsistentId, InternalTableImpl internalTable) {
-        Map<Integer, List<String>> assignments = internalTable.tableRaftService().peersAndLearners();
+    private static boolean solePartitionAssignmentsContain(IgniteImpl restartingNode, InternalTableImpl table, int partId) {
+        String restartingNodeConsistentId = restartingNode.name();
 
-        List<String> partitionAssignments = assignments.get(0);
+        TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partId);
 
-        return partitionAssignments.contains(restartingNodeConsistentId);
+        CompletableFuture<Replica> replicaFut = restartingNode.replicaManager().replica(tablePartitionId);
+
+        if (replicaFut == null) {
+            return false;
+        }
+
+        try {
+            RaftGroupService raftClient = replicaFut.get(15, TimeUnit.SECONDS).raftClient();
+
+            return Stream.of(raftClient.peers(), raftClient.learners())
+                    .filter(Objects::nonNull)
+                    .flatMap(Collection::stream)
+                    .map(Peer::consistentId)
+                    .collect(Collectors.toSet())
+                    .contains(restartingNodeConsistentId);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            return false;
+        }
     }
 
     private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {

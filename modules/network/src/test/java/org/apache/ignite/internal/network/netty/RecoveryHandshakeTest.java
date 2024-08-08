@@ -37,7 +37,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -87,6 +89,8 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
     /** Test message factory. */
     private static final TestMessagesFactory TEST_MESSAGES_FACTORY = new TestMessagesFactory();
+
+    private final ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(UUID.randomUUID());
 
     @Test
     public void testHandshake() throws Exception {
@@ -715,6 +719,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 provider,
                 () -> List.of(clientSideChannel.eventLoop()),
                 staleIdDetector,
+                clusterIdSupplier,
                 channel -> {},
                 () -> false,
                 mock(FailureProcessor.class)
@@ -750,6 +755,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 provider,
                 () -> List.of(serverSideChannel.eventLoop()),
                 staleIdDetector,
+                clusterIdSupplier,
                 channel -> {},
                 () -> false,
                 mock(FailureProcessor.class)

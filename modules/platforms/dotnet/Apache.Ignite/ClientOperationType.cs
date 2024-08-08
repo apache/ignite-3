@@ -122,6 +122,11 @@ namespace Apache.Ignite
         ComputeExecute,
 
         /// <summary>
+        /// Compute (<see cref="ICompute.SubmitMapReduceAsync{TArg,TResult}"/>).
+        /// </summary>
+        ComputeExecuteMapReduce,
+
+        /// <summary>
         /// SQL (<see cref="ISql.ExecuteAsync"/>, <see cref="ISql.ExecuteAsync{T}"/>).
         /// </summary>
         SqlExecute,
@@ -132,7 +137,7 @@ namespace Apache.Ignite
         SqlExecuteScript,
 
         /// <summary>
-        /// Get status of a compute job (<see cref="IJobExecution{T}.GetStatusAsync"/>).
+        /// Get status of a compute job (<see cref="IJobExecution{T}.GetStateAsync"/>).
         /// </summary>
         ComputeGetStatus,
 
@@ -145,6 +150,11 @@ namespace Apache.Ignite
         /// Change compute job priority (<see cref="IJobExecution{T}.ChangePriorityAsync"/>).
         /// </summary>
         ComputeChangePriority,
+
+        /// <summary>
+        /// Get primary replicas (<see cref="IPartitionManager.GetPrimaryReplicasAsync"/>).
+        /// </summary>
+        PrimaryReplicasGet,
 
         /// <summary>
         /// Send data streamer batch (<see cref="IDataStreamerTarget{T}"/>).

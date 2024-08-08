@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.vault.persistence;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -87,8 +89,10 @@ public class PersistentVaultService implements VaultService {
     @Override
     public void start() {
         try {
+            Files.createDirectories(path);
+
             db = RocksDB.open(options, path.toString());
-        } catch (RocksDBException e) {
+        } catch (IOException | RocksDBException e) {
             throw new IgniteInternalException(e);
         }
     }

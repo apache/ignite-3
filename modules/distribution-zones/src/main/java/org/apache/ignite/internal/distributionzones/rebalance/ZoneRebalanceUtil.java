@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -273,7 +276,8 @@ public class ZoneRebalanceUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             long storageRevision,
-            MetaStorageManager metaStorageManager
+            MetaStorageManager metaStorageManager,
+            IgniteSpinBusyLock busyLock
     ) {
         CompletableFuture<Map<Integer, Assignments>> zoneAssignmentsFut = zoneAssignments(
                 metaStorageManager,
@@ -289,19 +293,20 @@ public class ZoneRebalanceUtil {
 
             int finalPartId = partId;
 
-            partitionFutures[partId] = zoneAssignmentsFut.thenCompose(zoneAssignments ->
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
-                    // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
-                    zoneAssignments.isEmpty() ? nullCompletedFuture() : updatePendingAssignmentsKeys(
-                            zoneDescriptor,
-                            replicaGrpId,
-                            dataNodes,
-                            zoneDescriptor.replicas(),
-                            storageRevision,
-                            metaStorageManager,
-                            finalPartId,
-                            zoneAssignments.get(finalPartId).nodes()
-                    ));
+            partitionFutures[partId] = zoneAssignmentsFut.thenCompose(zoneAssignments -> inBusyLockAsync(busyLock, () -> {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
+                // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
+                return zoneAssignments.isEmpty() ? nullCompletedFuture() : updatePendingAssignmentsKeys(
+                        zoneDescriptor,
+                        replicaGrpId,
+                        dataNodes,
+                        zoneDescriptor.replicas(),
+                        storageRevision,
+                        metaStorageManager,
+                        finalPartId,
+                        zoneAssignments.get(finalPartId).nodes()
+                );
+            }));
         }
 
         // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
@@ -437,7 +442,7 @@ public class ZoneRebalanceUtil {
     }
 
     /**
-     * Extract zone id from a metastorage key {@link RebalanceUtil#tablesCounterKey}.
+     * Extract zone id from a metastorage key {@link DistributionZonesUtil#zoneDataNodesKey()}.
      *
      * @param key Key.
      * @return Table id.

@@ -45,7 +45,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -82,7 +81,7 @@ public class ClientTableCommon {
 
             packer.packInt(7);
             packer.packString(col.name());
-            packer.packInt(getColumnType(col.type().spec()).ordinal());
+            packer.packInt(getColumnType(col.type().spec()).id());
             packer.packInt(col.positionInKey());
             packer.packBoolean(col.nullable());
             packer.packInt(col.positionInColocation());
@@ -444,10 +443,6 @@ public class ClientTableCommon {
      * @return Precision.
      */
     public static int getPrecision(NativeType type) {
-        if (type instanceof NumberNativeType) {
-            return ((NumberNativeType) type).precision();
-        }
-
         if (type instanceof TemporalNativeType) {
             return ((TemporalNativeType) type).precision();
         }

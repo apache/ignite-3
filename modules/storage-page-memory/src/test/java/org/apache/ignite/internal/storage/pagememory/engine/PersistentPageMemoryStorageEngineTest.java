@@ -38,10 +38,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngineTest {
     @InjectConfiguration("mock {checkpoint.checkpointDelayMillis = 0}")
-    private PersistentPageMemoryStorageEngineConfiguration engineConfiguration;
+    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\", size = 1048576}")
-    private StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfig;
 
     @WorkDirectory
     private Path workDir;
@@ -54,13 +54,14 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
 
         return new PersistentPageMemoryStorageEngine(
                 "test",
-                engineConfiguration,
-                storageConfiguration,
+                engineConfig,
+                storageConfig,
                 ioRegistry,
                 workDir,
                 null,
                 mock(FailureProcessor.class),
-                logSyncer
+                logSyncer,
+                clock
         );
     }
 }

@@ -38,9 +38,8 @@ import static org.mockito.Mockito.when;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
@@ -109,10 +108,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var clock = new HybridClockImpl();
 
-        requestsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        requestsExecutor = Executors.newFixedThreadPool(
+                5,
                 NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
 
@@ -180,10 +177,9 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         String nodeName = testNodeName(testInfo, 0);
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(nodeName));
 
-        CompletableFuture<Boolean> startReplicaFuture = replicaManager.startReplica(
+        CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
                 groupId,
                 newConfiguration,
-                (unused) -> { },
                 (unused) -> replicaListener,
                 new PendingComparableValuesTracker<>(0L),
                 completedFuture(raftGroupService)

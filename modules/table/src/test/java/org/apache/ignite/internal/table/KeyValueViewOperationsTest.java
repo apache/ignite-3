@@ -108,11 +108,9 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
             new Column("timestampCol".toUpperCase(), timestamp(6), true),
 
             new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
-            new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
             new Column("stringCol".toUpperCase(), STRING, true),
             new Column("nullBytesCol".toUpperCase(), BYTES, true),
             new Column("bytesCol".toUpperCase(), BYTES, true),
-            new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
             new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
     };
 
@@ -668,6 +666,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
+
         Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 

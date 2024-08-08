@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
@@ -30,6 +31,9 @@ import org.jetbrains.annotations.Nullable;
 public class StoragePartitionMeta extends PartitionMeta {
 
     public static final PartitionMetaFactory FACTORY = new StoragePartitionMetaFactory();
+
+    private static final AtomicLongFieldUpdater<StoragePartitionMeta> ESTIMATED_SIZE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(StoragePartitionMeta.class, "estimatedSize");
 
     private volatile long lastAppliedIndex;
 
@@ -49,6 +53,8 @@ public class StoragePartitionMeta extends PartitionMeta {
 
     private volatile long gcQueueMetaPageId;
 
+    private volatile long estimatedSize;
+
     /**
      * Constructor.
      *
@@ -61,6 +67,7 @@ public class StoragePartitionMeta extends PartitionMeta {
      * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param indexTreeMetaPageId Index tree meta page ID.
      * @param gcQueueMetaPageId Garbage collection queue meta page ID.
+     * @param estimatedSize Estimated size of the partition.
      */
     public StoragePartitionMeta(
             int pageCount,
@@ -71,7 +78,8 @@ public class StoragePartitionMeta extends PartitionMeta {
             long freeListRootPageId,
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
-            long gcQueueMetaPageId
+            long gcQueueMetaPageId,
+            long estimatedSize
     ) {
         super(pageCount);
         this.lastAppliedIndex = lastAppliedIndex;
@@ -82,6 +90,7 @@ public class StoragePartitionMeta extends PartitionMeta {
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
         this.indexTreeMetaPageId = indexTreeMetaPageId;
         this.gcQueueMetaPageId = gcQueueMetaPageId;
+        this.estimatedSize = estimatedSize;
     }
 
     /**
@@ -219,6 +228,31 @@ public class StoragePartitionMeta extends PartitionMeta {
         this.gcQueueMetaPageId = gcQueueMetaPageId;
     }
 
+    /**
+     * Returns the estimated size of this partition.
+     */
+    public long estimatedSize() {
+        return estimatedSize;
+    }
+
+    /**
+     * Increments the estimated size of this partition.
+     */
+    public void incrementEstimatedSize(@Nullable UUID checkpointId) {
+        updateSnapshot(checkpointId);
+
+        ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
+    }
+
+    /**
+     * Decrements the estimated size of this partition.
+     */
+    public void decrementEstimatedSize(@Nullable UUID checkpointId) {
+        updateSnapshot(checkpointId);
+
+        ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
+    }
+
     @Override
     protected StoragePartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId) {
         return new StoragePartitionMetaSnapshot(
@@ -231,7 +265,8 @@ public class StoragePartitionMeta extends PartitionMeta {
                 indexTreeMetaPageId,
                 gcQueueMetaPageId,
                 pageCount(),
-                leaseStartTime
+                leaseStartTime,
+                estimatedSize
         );
     }
 
@@ -305,6 +340,8 @@ public class StoragePartitionMeta extends PartitionMeta {
 
         private final long leaseStartTime;
 
+        private final long estimatedSize;
+
         private StoragePartitionMetaSnapshot(
                 @Nullable UUID checkpointId,
                 long lastAppliedIndex,
@@ -315,7 +352,8 @@ public class StoragePartitionMeta extends PartitionMeta {
                 long indexTreeMetaPageId,
                 long gcQueueMetaPageId,
                 int pageCount,
-                long leaseStartTime
+                long leaseStartTime,
+                long estimatedSize
         ) {
             this.checkpointId = checkpointId;
             this.lastAppliedIndex = lastAppliedIndex;
@@ -327,6 +365,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             this.gcQueueMetaPageId = gcQueueMetaPageId;
             this.pageCount = pageCount;
             this.leaseStartTime = leaseStartTime;
+            this.estimatedSize = estimatedSize;
         }
 
         /**
@@ -387,11 +426,16 @@ public class StoragePartitionMeta extends PartitionMeta {
 
         /**
          * Returns the lease start time.
-         *
-         * @return Lease start time.
          */
         public long leaseStartTime() {
             return leaseStartTime;
+        }
+
+        /**
+         * Returns the estimated size of this partition.
+         */
+        public long estimatedSize() {
+            return estimatedSize;
         }
 
         /**
@@ -412,6 +456,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             storageMetaIo.setGcQueueMetaPageId(pageAddr, gcQueueMetaPageId);
             storageMetaIo.setPageCount(pageAddr, pageCount);
             storageMetaIo.setLeaseStartTime(pageAddr, leaseStartTime);
+            storageMetaIo.setEstimatedSize(pageAddr, estimatedSize);
         }
 
         /**

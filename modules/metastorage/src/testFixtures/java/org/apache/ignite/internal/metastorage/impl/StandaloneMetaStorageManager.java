@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,7 +28,6 @@ import java.io.Serializable;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.LongSupplier;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -108,9 +106,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
-                clock,
-                mockRaftConfiguration().retryTimeout(),
-                completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                clock
         );
     }
 
@@ -131,9 +127,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             KeyValueStorage storage,
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
             MetaStorageConfiguration configuration,
-            HybridClock clock,
-            ConfigurationValue<Long> idempotentCacheTtl,
-            CompletableFuture<LongSupplier> maxClockSkewMillisFuture
+            HybridClock clock
     ) {
         super(
                 clusterService,
@@ -144,18 +138,16 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 clock,
                 raftServiceFactory,
                 new NoOpMetricManager(),
-                configuration,
-                idempotentCacheTtl,
-                maxClockSkewMillisFuture
+                configuration
         );
     }
 
     private static ClusterService mockClusterService() {
-        ClusterService clusterService = mock(ClusterService.class);
+        ClusterService clusterService = mock(ClusterService.class, LENIENT_SETTINGS);
 
         when(clusterService.nodeName()).thenReturn(TEST_NODE_NAME);
 
-        TopologyService topologyService = mock(TopologyService.class);
+        TopologyService topologyService = mock(TopologyService.class, LENIENT_SETTINGS);
         when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, mock(NetworkAddress.class)));
 
         when(clusterService.topologyService()).thenReturn(topologyService);

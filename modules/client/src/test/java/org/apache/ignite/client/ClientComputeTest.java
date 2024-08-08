@@ -51,6 +51,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
@@ -74,7 +75,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ClientComputeTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "tbl1";
 
-    private FakeIgnite ignite;
+    private FakeIgnite ignite1;
+    private FakeIgnite ignite2;
+    private FakeIgnite ignite3;
+
     private TestServer server1;
     private TestServer server2;
     private TestServer server3;
@@ -214,7 +218,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         String tableName = "drop-me";
 
         initServers(reqId -> false);
-        ((FakeIgniteTables) ignite.tables()).createTable(tableName);
+        createTable(tableName);
 
         try (var client = getClient(server3)) {
             Tuple key = Tuple.create().set("key", "k");
@@ -224,8 +228,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             );
 
             // Drop table and create a new one with a different ID.
-            ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
-            ((FakeIgniteTables) ignite.tables()).createTable(tableName);
+            dropTable(tableName);
+            createTable(tableName);
 
             if (forceLoadAssignment) {
                 Map<String, ClientTable> tables = IgniteTestUtils.getFieldValue(client.compute(), "tableCache");
@@ -254,7 +258,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
         try (var client = getClient(server1)) {
             Object args = "arg1";
-            String res1 = client.compute().executeMapReduce(List.of(), "job", args);
+            String res1 = client.compute().executeMapReduce(TaskDescriptor.<Object, String>builder("job").build(), args);
             assertEquals("s1", res1);
         }
     }
@@ -264,7 +268,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
-            TaskExecution<Object> task = client.compute().submitMapReduce(List.of(), "job", null);
+            IgniteCompute igniteCompute = client.compute();
+            TaskExecution<Object> task = igniteCompute.submitMapReduce(
+                    TaskDescriptor.builder("job").build(), null);
 
             assertThat(task.resultAsync(), willBe("s1"));
 
@@ -283,7 +289,9 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         try (var client = getClient(server1)) {
             FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("job failed"));
 
-            TaskExecution<Object> execution = client.compute().submitMapReduce(List.of(), "job", null);
+            IgniteCompute igniteCompute = client.compute();
+            TaskExecution<Object> execution = igniteCompute.submitMapReduce(
+                    TaskDescriptor.builder("job").build(), null);
 
             assertThat(execution.resultAsync(), willThrowFast(IgniteException.class));
             assertThat(execution.stateAsync(), willBe(taskStateWithStatus(TaskStatus.FAILED)));
@@ -328,13 +336,27 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     private void initServers(Function<Integer, Boolean> shouldDropConnection) {
-        ignite = new FakeIgnite();
-        ((FakeIgniteTables) ignite.tables()).createTable(TABLE_NAME);
+        ignite1 = new FakeIgnite("s1");
+        ignite2 = new FakeIgnite("s2");
+        ignite3 = new FakeIgnite("s3");
+        createTable(TABLE_NAME);
 
         var clusterId = UUID.randomUUID();
 
-        server1 = new TestServer(0, ignite, shouldDropConnection, null, "s1", clusterId, null, null);
-        server2 = new TestServer(0, ignite, shouldDropConnection, null, "s2", clusterId, null, null);
-        server3 = new TestServer(0, ignite, shouldDropConnection, null, "s3", clusterId, null, null);
+        server1 = new TestServer(0, ignite1, shouldDropConnection, null, "s1", clusterId, null, null);
+        server2 = new TestServer(0, ignite2, shouldDropConnection, null, "s2", clusterId, null, null);
+        server3 = new TestServer(0, ignite3, shouldDropConnection, null, "s3", clusterId, null, null);
+    }
+
+    private void createTable(String tableName) {
+        for (FakeIgnite ignite : List.of(ignite1, ignite2, ignite3)) {
+            ((FakeIgniteTables) ignite.tables()).createTable(tableName);
+        }
+    }
+
+    private void dropTable(String tableName) {
+        for (FakeIgnite ignite : List.of(ignite1, ignite2, ignite3)) {
+            ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
+        }
     }
 }

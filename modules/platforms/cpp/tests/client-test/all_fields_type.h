@@ -50,7 +50,6 @@ struct all_fields_type {
     double m_double{.0};
     ignite::uuid m_uuid;
     ignite::ignite_date m_date;
-    ignite::bit_array m_bitmask;
     ignite::ignite_time m_time;
     ignite::ignite_time m_time2;
     ignite::ignite_date_time m_datetime;
@@ -78,7 +77,6 @@ inline ignite_tuple convert_to_tuple(all_fields_type &&value) {
     tuple.set("double", value.m_double);
     tuple.set("uuid", value.m_uuid);
     tuple.set("date", value.m_date);
-    tuple.set("bitmask", value.m_bitmask);
     tuple.set("time", value.m_time);
     tuple.set("time2", value.m_time2);
     tuple.set("datetime", value.m_datetime);
@@ -108,7 +106,6 @@ inline all_fields_type convert_from_tuple(ignite_tuple &&value) {
         res.m_double = value.get<double>("double");
         res.m_uuid = value.get<uuid>("uuid");
         res.m_date = value.get<ignite_date>("date");
-        res.m_bitmask = value.get<bit_array>("bitmask");
         res.m_time = value.get<ignite_time>("time");
         res.m_time2 = value.get<ignite_time>("time2");
         res.m_datetime = value.get<ignite_date_time>("datetime");

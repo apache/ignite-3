@@ -37,7 +37,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -93,9 +92,7 @@ public class TestServer implements AutoCloseable {
 
     private final AuthenticationManager authenticationManager;
 
-    private final Ignite ignite;
-
-    private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
+    private final FakeIgnite ignite;
 
     /**
      * Constructor.
@@ -105,7 +102,7 @@ public class TestServer implements AutoCloseable {
      */
     public TestServer(
             long idleTimeout,
-            Ignite ignite
+            FakeIgnite ignite
     ) {
         this(
                 idleTimeout,
@@ -124,7 +121,7 @@ public class TestServer implements AutoCloseable {
      */
     public TestServer(
             long idleTimeout,
-            Ignite ignite,
+            FakeIgnite ignite,
             @Nullable Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
@@ -154,7 +151,7 @@ public class TestServer implements AutoCloseable {
      */
     public TestServer(
             long idleTimeout,
-            Ignite ignite,
+            FakeIgnite ignite,
             @Nullable Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
@@ -203,8 +200,6 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteComputeInternal compute = new FakeCompute(nodeName, ignite);
-
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
 
@@ -233,18 +228,17 @@ public class TestServer implements AutoCloseable {
                 shouldDropConnection,
                 responseDelay,
                 clusterService,
-                compute,
                 tag,
                 metrics,
                 authenticationManager,
                 clock,
-                placementDriver,
+                ignite.placementDriver(),
                 clientConnectorConfiguration)
                 : new ClientHandlerModule(
-                        ((FakeIgnite) ignite).queryEngine(),
+                        ignite.queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
                         (IgniteTransactionsImpl) ignite.transactions(),
-                        compute,
+                        (IgniteComputeInternal) ignite.compute(),
                         clusterService,
                         bootstrapFactory,
                         () -> CompletableFuture.completedFuture(tag),
@@ -254,7 +248,7 @@ public class TestServer implements AutoCloseable {
                         new TestClockService(clock),
                         new AlwaysSyncedSchemaSyncService(),
                         new FakeCatalogService(FakeInternalTable.PARTITIONS),
-                        placementDriver,
+                        ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark()
                 );
@@ -321,7 +315,7 @@ public class TestServer implements AutoCloseable {
      * @return Placement driver.
      */
     public FakePlacementDriver placementDriver() {
-        return placementDriver;
+        return ignite.placementDriver();
     }
 
     /** {@inheritDoc} */

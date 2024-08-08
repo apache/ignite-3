@@ -53,13 +53,11 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -111,6 +109,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.ThreadAttributes;
@@ -200,13 +199,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final ReplicaStateManager replicaStateManager;
 
+    private final ExecutorService replicasCreationExecutor;
+
     private volatile String localNodeId;
 
     private volatile String localNodeConsistentId;
 
     /* Temporary converter to support the zone based partitions in tests. **/
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
-    private Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter = Function.identity();
+    private Function<ReplicaRequest, ReplicationGroupId> groupIdConverter = r -> r.groupId().asReplicationGroupId();
 
     /**
      * Constructor for a replica service.
@@ -244,7 +245,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter
+            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
     ) {
         this(
                 nodeName,
@@ -294,7 +295,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Executor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
-            Marshaller raftCommandsMarshaller,
+            @Nullable Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
@@ -330,6 +331,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "replica", LOG)
+        );
+
+        replicasCreationExecutor = new ThreadPoolExecutor(
+                threadCount,
+                threadCount,
+                30,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create(nodeName, "replica-manager", LOG, STORAGE_READ, STORAGE_WRITE)
         );
     }
 
@@ -381,7 +391,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId().asReplicationGroupId());
+        ReplicationGroupId groupId = groupIdConverter.apply(request);
 
         String senderConsistentId = sender.name();
 
@@ -562,12 +572,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
     }
 
-    private CompletableFuture<Boolean> startReplicaInternal(
+    private CompletableFuture<Replica> startReplicaInternal(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
-            SnapshotStorageFactory snapshotStorageFactory,
-            Consumer<RaftGroupService> updateTableRaftService,
+            @Nullable SnapshotStorageFactory snapshotStorageFactory,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
@@ -593,10 +602,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return startReplica(
                 replicaGrpId,
                 newConfiguration,
-                updateTableRaftService,
                 createListener,
                 storageIndexTracker,
-                newRaftClientFut);
+                newRaftClientFut
+        );
     }
 
     /**
@@ -606,21 +615,19 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGroupListener Raft group listener for raft group starting.
      * @param isVolatileStorage is table storage volatile?
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
-     * @param updateTableRaftService Temporal consumer while TableRaftService wouldn't be removed in
-     *      TODO: https://issues.apache.org/jira/browse/IGNITE-22218.
      * @param createListener Due to creation of ReplicaListener in TableManager, the function returns desired listener by created
      *      raft-client inside {@link #startReplica} method.
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newConfiguration A configuration for new raft group.
+     *
      * @return Future that promises ready new replica when done.
      */
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             RaftGroupEventsListener raftGroupEventsListener,
             RaftGroupListener raftGroupListener,
             boolean isVolatileStorage,
-            SnapshotStorageFactory snapshotStorageFactory,
-            Consumer<RaftGroupService> updateTableRaftService,
+            @Nullable SnapshotStorageFactory snapshotStorageFactory,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
@@ -636,7 +643,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftGroupListener,
                     isVolatileStorage,
                     snapshotStorageFactory,
-                    updateTableRaftService,
                     createListener,
                     storageIndexTracker,
                     replicaGrpId,
@@ -650,7 +656,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
-     * @param listener Replica listener.
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
      * @param newConfiguration A configuration for new raft group.
      * @param raftGroupListener Raft group listener for raft group starting.
@@ -661,11 +666,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            ReplicaListener listener,
+            Function<RaftGroupService, ReplicaListener> listener,
             SnapshotStorageFactory snapshotStorageFactory,
             PeersAndLearners newConfiguration,
             RaftGroupListener raftGroupListener,
-            RaftGroupEventsListener raftGroupEventsListener
+            RaftGroupEventsListener raftGroupEventsListener,
+            IgniteSpinBusyLock busyLock
     ) throws NodeStoppingException {
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 false,
@@ -692,7 +698,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 Replica newReplica = new ZonePartitionReplicaImpl(
                         replicaGrpId,
-                        listener,
+                        listener.apply(raftClient),
                         raftClient
                 );
 
@@ -732,8 +738,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *
      * @param replicaGrpId Replication group id.
      * @param newConfiguration Peers and Learners of the Raft group.
-     * @param updateTableRaftService A temporal clojure that updates table raft service with new raft-client, but
-     *      TODO: will be removed https://issues.apache.org/jira/browse/IGNITE-22218
      * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
      * @param storageIndexTracker Storage index tracker.
      * @param newRaftClientFut A future that returns created raft-client.
@@ -742,42 +746,36 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     @VisibleForTesting
     @Deprecated
-    public CompletableFuture<Boolean> startReplica(
+    public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
-            Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut
     ) throws NodeStoppingException {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
-                .thenApply((v) -> true);
-
-        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
-
-        startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
-
-        return resultFuture;
+        return newRaftClientFut
+                .thenApplyAsync(createListener, replicasCreationExecutor)
+                .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, completedFuture(replicaListener)));
     }
 
     /**
      * Creates and start new replica.
-     * TODO: must be deleted or be private after https://issues.apache.org/jira/browse/IGNITE-22373
      *
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newReplicaListenerFut Future that returns ready ReplicaListener for replica creation.
      * @return Future that promises ready new replica when done.
      */
+    @TestOnly
     @VisibleForTesting
     @Deprecated
-    public CompletableFuture<Replica> startReplica(
+    private CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CompletableFuture<ReplicaListener> newReplicaListenerFut
-    ) throws NodeStoppingException {
+    ) {
 
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
@@ -821,30 +819,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Temporary public method for RAFT-client starting.
-     * TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
-     *
-     * @param replicaGrpId Replication Group ID.
-     * @param newConfiguration Peers and learners nodes for a raft group.
-     * @param raftClientCache Temporal supplier that returns RAFT-client from TableRaftService if it's already exists and was put into the
-     *      service's map.
-     * @return Future that returns started RAFT-client.
-     * @throws NodeStoppingException In case if node was stopping.
-     */
-    @Deprecated
-    public CompletableFuture<TopologyAwareRaftGroupService> startRaftClient(
-            ReplicationGroupId replicaGrpId,
-            PeersAndLearners newConfiguration,
-            Supplier<RaftGroupService> raftClientCache)
-            throws NodeStoppingException {
-        RaftGroupService cachedRaftClient = raftClientCache.get();
-        return cachedRaftClient != null
-                ? completedFuture((TopologyAwareRaftGroupService) cachedRaftClient)
-                // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-                : raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
-    }
-
-    /**
      * Returns future with a replica if it was created or null if there no any replicas starting with given identifier.
      *
      * @param replicationGroupId Table-Partition identifier.
@@ -865,13 +839,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
     }
 
-    /** Getter for wrapped write-ahead log syncer. */
-    // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22292
-    public LogSyncer getLogSyncer() {
-        return raftManager.getLogSyncer();
-    }
-
-    private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, SnapshotStorageFactory snapshotFactory) {
+    private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {
         RaftGroupOptions raftGroupOptions;
 
         if (isVolatileStorage) {
@@ -1021,6 +989,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(replicasCreationExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="
@@ -1063,7 +1032,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                             groupId,
                                             clusterNetSvc.topologyService().localMember())
                             )
-                            .timestampLong(clockService.updateClock(requestTimestamp).longValue())
+                            .timestamp(clockService.updateClock(requestTimestamp))
                             .build(),
                     correlationId);
         } else {
@@ -1101,7 +1070,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -1119,7 +1088,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestampLong(clockService.nowLong())
+                    .timestamp(clockService.now())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -1164,6 +1133,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @return True if the replica is started.
      */
+    @TestOnly
+    @VisibleForTesting
+    @Deprecated
     public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
         CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
         return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
@@ -1217,11 +1189,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     @TestOnly
     public boolean isReplicaTouched(ReplicationGroupId replicaGrpId) {
         return replicas.containsKey(replicaGrpId);
-    }
-
-    @TestOnly
-    public CompletableFuture<Replica> getReplica(ReplicationGroupId replicationGroupId) {
-        return replicas.get(replicationGroupId);
     }
 
     /**
@@ -1282,11 +1249,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             synchronized (context) {
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED : "Unexpected primary replica state STOPPED [groupId="
-                            + groupId + "].";
-
-                    context.assertReservation(groupId);
+                            + groupId + ", leaseStartTime=" + parameters.startTime() + "].";
                 } else if (context.reservedForPrimary) {
-                    context.assertReservation(groupId);
+                    context.assertReservation(groupId, parameters.startTime());
 
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
@@ -1309,7 +1274,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        context.assertReservation(parameters.groupId());
+                        context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
@@ -1362,6 +1327,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return trueCompletedFuture();
                 } else if (state == ReplicaState.PRIMARY_ONLY) {
                     context.replicaState = ReplicaState.ASSIGNED;
+
+                    LOG.debug("Weak replica start complete [state={}].", context.replicaState);
 
                     return trueCompletedFuture();
                 } // else no-op.
@@ -1563,9 +1530,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             leaseStartTime = null;
         }
 
-        void assertReservation(ReplicationGroupId groupId) {
-            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId=" + groupId + "].";
-            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId=" + groupId + "].";
+        void assertReservation(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+            assert reservedForPrimary : "Replica is elected as primary but not reserved [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
+            assert leaseStartTime != null : "Replica is reserved but lease start time is null [groupId="
+                    + groupId + ", leaseStartTime=" + leaseStartTime + "].";
         }
     }
 

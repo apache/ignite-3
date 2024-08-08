@@ -24,6 +24,7 @@ import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
@@ -72,6 +73,9 @@ import org.apache.ignite.internal.network.serialization.MessageSerializer;
  *     <li>Array of primitive types, corresponding boxed types or other directly marshallable types;</li>
  *     <li>{@code Collection} of boxed primitive types or other directly marshallable types;</li>
  *     <li>{@code Map} where both keys and values can be of a directly marshallable type.</li>
+ *     <li>{@link HybridTimestamp}.</li>
+ *     <li>{@link Enum} that must contain the method "public static SomeEnum fromOrdinal(int ordinal) @throws IllegalArgumentException ".
+ *     </li>
  * </ol>
  *
  * <p>After all marked interfaces in a module have been processed, the processor will use the

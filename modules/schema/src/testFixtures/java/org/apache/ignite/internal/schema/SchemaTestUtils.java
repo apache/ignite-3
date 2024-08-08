@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.TemporalTypeUtils.normalizeNanos;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,7 +37,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -66,9 +64,7 @@ public final class SchemaTestUtils {
             NativeTypes.DOUBLE,
             NativeTypes.DATE,
             NativeTypes.UUID,
-            NativeTypes.numberOf(20),
             NativeTypes.decimalOf(25, 5),
-            NativeTypes.bitmaskOf(22),
             NativeTypes.time(0),
             NativeTypes.datetime(6),
             NativeTypes.timestamp(6),
@@ -114,19 +110,10 @@ public final class SchemaTestUtils {
             case BYTES:
                 return IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
 
-            case NUMBER:
-                return BigInteger.probablePrime(12, rnd);
-
             case DECIMAL:
                 DecimalNativeType decimalType = (DecimalNativeType) type;
 
                 return BigDecimal.valueOf(rnd.nextInt(), decimalType.scale());
-
-            case BITMASK: {
-                BitmaskNativeType maskType = (BitmaskNativeType) type;
-
-                return IgniteTestUtils.randomBitSet(rnd, maskType.bits());
-            }
 
             case DATE: {
                 Year year = Year.of(rnd.nextInt(MAX_YEAR - MIN_YEAR) + MIN_YEAR);
@@ -184,16 +171,12 @@ public final class SchemaTestUtils {
                 return NativeTypes.datetime(6);
             case TIMESTAMP:
                 return NativeTypes.timestamp(6);
-            case NUMBER:
-                return NativeTypes.numberOf(10);
             case STRING:
                 return NativeTypes.stringOf(8);
             case UUID:
                 return NativeTypes.UUID;
             case BYTES:
                 return NativeTypes.blobOf(8);
-            case BITMASK:
-                return NativeTypes.bitmaskOf(16);
             default:
                 throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
         }

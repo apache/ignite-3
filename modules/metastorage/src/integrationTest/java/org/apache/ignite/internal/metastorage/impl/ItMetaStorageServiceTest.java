@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -189,11 +187,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private MetaStorageService metaStorageService;
 
-        private RaftConfiguration raftConfiguration;
-
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
-            this.raftConfiguration = raftConfiguration;
 
             HybridClock clock = new HybridClockImpl();
 
@@ -239,12 +234,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             assert peer != null;
 
-            var listener = new MetaStorageListener(
-                    mockStorage,
-                    clusterTime,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
-            );
+            var listener = new MetaStorageListener(mockStorage, clusterTime);
 
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 

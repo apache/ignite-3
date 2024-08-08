@@ -57,7 +57,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
      */
     public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int columnCount, @Nullable BitSet noValueSet) {
         assert binaryTuple != null : "binaryTuple != null";
-        assert columnCount > 0 : "columnCount > 0";
 
         this.binaryTuple = binaryTuple;
         this.columnCount = columnCount;
@@ -291,22 +290,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     /** {@inheritDoc} */
     @Override
-    public BitSet bitmaskValue(String columnName) {
-        return tuple != null
-                ? tuple.bitmaskValue(columnName)
-                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnName, ColumnType.BITMASK));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        return tuple != null
-                ? tuple.bitmaskValue(columnIndex)
-                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnIndex, ColumnType.BITMASK));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public LocalDate dateValue(String columnName) {
         return tuple != null
                 ? tuple.dateValue(columnName)
@@ -533,9 +516,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             case UUID:
                 return binaryTuple.uuidValue(binaryTupleIndex);
 
-            case BITMASK:
-                return binaryTuple.bitmaskValue(binaryTupleIndex);
-
             case STRING:
                 return binaryTuple.stringValue(binaryTupleIndex);
 
@@ -547,9 +527,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
             case DURATION:
                 return binaryTuple.durationValue(binaryTupleIndex);
-
-            case NUMBER:
-                return binaryTuple.numberValue(binaryTupleIndex);
 
             default:
                 throw new IllegalStateException("Unsupported type: " + type);

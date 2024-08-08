@@ -22,7 +22,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -67,13 +66,9 @@ public class AbstractSchemaConverterTest extends BaseIgniteAbstractTest {
         tmp.put(NativeTypeSpec.DATETIME, Arrays.asList(null, LocalDateTime.MIN, LocalDateTime.MAX, LocalDateTime.now()));
         tmp.put(NativeTypeSpec.TIMESTAMP, Arrays.asList(null, Instant.MIN, Instant.MAX, Instant.EPOCH, Instant.now()));
         tmp.put(NativeTypeSpec.UUID, Arrays.asList(null, UUID.randomUUID()));
-        tmp.put(NativeTypeSpec.BITMASK, Arrays.asList(null, fromBinString(""), fromBinString("1"),
-                fromBinString("10101010101010101010101")));
         tmp.put(NativeTypeSpec.STRING, Arrays.asList(null, "", UUID.randomUUID().toString()));
         tmp.put(NativeTypeSpec.BYTES, Arrays.asList(null, ArrayUtils.BYTE_EMPTY_ARRAY,
                 UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8)));
-        tmp.put(NativeTypeSpec.NUMBER, Arrays.asList(null, BigInteger.ONE, BigInteger.ZERO,
-                new BigInteger("10000000000000000000000000000000000000")));
 
         var missedTypes = new HashSet<>(Arrays.asList(NativeTypeSpec.values()));
 
