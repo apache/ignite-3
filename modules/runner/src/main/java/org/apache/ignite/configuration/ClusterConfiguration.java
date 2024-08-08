@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration;
 
+import org.apache.ignite.eventlog.config.schema.EventLogBuilder;
 import org.apache.ignite.security.configuration.SecurityBuilder;
 
 public interface ClusterConfiguration {
@@ -24,5 +25,6 @@ public interface ClusterConfiguration {
         return new ClusterConfigurationImpl();
     }
 
-    SecurityBuilder withSecurity();
+    ClusterConfiguration security(SecurityBuilder securityBuilder);
+    ClusterConfiguration eventlog(EventLogBuilder eventLogBuilder);
 }

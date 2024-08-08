@@ -22,21 +22,30 @@ import static org.apache.ignite.configuration.ConfigurationBuilderUtil.loadConfi
 import static org.apache.ignite.configuration.ConfigurationBuilderUtil.renderConfig;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 
+import org.apache.ignite.eventlog.config.schema.EventLogBuilder;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.eventlog.config.schema.EventLogBuilderImpl;
+import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityBuilderImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.security.configuration.SecurityBuilder;
 
 public class ClusterConfigurationImpl implements ClusterConfiguration {
     private SecurityBuilderImpl security;
+    private EventLogBuilderImpl eventLogBuilder;
 
     @Override
-    public SecurityBuilder withSecurity() {
-        SecurityBuilderImpl builder = new SecurityBuilderImpl();
-        security = builder;
-        return builder;
+    public ClusterConfiguration security(SecurityBuilder securityBuilder) {
+        this.security = (SecurityBuilderImpl) securityBuilder;
+        return this;
+    }
+
+    @Override
+    public ClusterConfiguration eventlog(EventLogBuilder eventLogBuilder) {
+        this.eventLogBuilder = (EventLogBuilderImpl) eventLogBuilder;
+        return this;
     }
 
     public String build(ClassLoader classLoader) {
@@ -52,12 +61,19 @@ public class ClusterConfigurationImpl implements ClusterConfiguration {
         changer.onDefaultsPersisted().join();
 
 
-        SecurityConfiguration securityConfiguration = (SecurityConfiguration) configurationGenerator.instantiateCfg(
-                SecurityConfiguration.KEY, changer);
-
         if (security != null) {
+            SecurityConfiguration securityConfiguration =
+                    (SecurityConfiguration) configurationGenerator.instantiateCfg(SecurityConfiguration.KEY, changer);
+
             securityConfiguration.change(security::change).join();
         }
+        if (eventLogBuilder != null) {
+            EventLogConfiguration eventLogConfiguration =
+                    (EventLogConfiguration) configurationGenerator.instantiateCfg(EventLogConfiguration.KEY, changer);
+
+            eventLogConfiguration.change(eventLogBuilder::change).join();
+        }
+
 
         String rendered = renderConfig(changer);
         changer.stop();

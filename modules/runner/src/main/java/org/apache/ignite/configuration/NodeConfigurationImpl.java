@@ -22,22 +22,31 @@ import static org.apache.ignite.configuration.ConfigurationBuilderUtil.loadConfi
 import static org.apache.ignite.configuration.ConfigurationBuilderUtil.renderConfig;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 
-import org.apache.ignite.failure.configuration.FailureProcessorConfigurationBuilder;
+import org.apache.ignite.failure.configuration.FailureProcessorBuilder;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorBuilderImpl;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
-import org.apache.ignite.internal.failure.configuration.FailureProcessorConfigurationBuilderImpl;
+import org.apache.ignite.internal.network.configuration.NetworkBuilderImpl;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.network.configuration.NetworkBuilder;
 import org.jetbrains.annotations.Nullable;
 
 public class NodeConfigurationImpl implements NodeConfiguration {
-    private FailureProcessorConfigurationBuilderImpl failureHandler;
+    private NetworkBuilderImpl network;
+    private FailureProcessorBuilderImpl failureHandler;
 
     @Override
-    public FailureProcessorConfigurationBuilder withFailureHandler() {
-        FailureProcessorConfigurationBuilderImpl builder = new FailureProcessorConfigurationBuilderImpl();
-        failureHandler = builder;
-        return builder;
+    public NodeConfiguration network(NetworkBuilder networkBuilder) {
+        this.network = (NetworkBuilderImpl) networkBuilder;
+        return this;
+    }
+
+    @Override
+    public NodeConfiguration failureHandler(FailureProcessorBuilder failureProcessorBuilder) {
+        this.failureHandler = (FailureProcessorBuilderImpl) failureProcessorBuilder;
+        return this;
     }
 
     public String build(@Nullable ClassLoader serviceLoaderClassLoader) {
@@ -53,10 +62,16 @@ public class NodeConfigurationImpl implements NodeConfiguration {
         changer.onDefaultsPersisted().join();
 
 
-        FailureProcessorConfiguration failureProcessorConfiguration = (FailureProcessorConfiguration) configurationGenerator.instantiateCfg(
-                FailureProcessorConfiguration.KEY, changer);
+        if (network != null) {
+            NetworkConfiguration networkConfiguration =
+                    (NetworkConfiguration) configurationGenerator.instantiateCfg(NetworkConfiguration.KEY, changer);
 
+            networkConfiguration.change(network::change).join();
+        }
         if (failureHandler != null) {
+            FailureProcessorConfiguration failureProcessorConfiguration =
+                    (FailureProcessorConfiguration) configurationGenerator.instantiateCfg(FailureProcessorConfiguration.KEY, changer);
+
             failureProcessorConfiguration.change(failureHandler::change).join();
         }
 

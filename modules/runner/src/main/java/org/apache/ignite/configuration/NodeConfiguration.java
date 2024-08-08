@@ -17,12 +17,14 @@
 
 package org.apache.ignite.configuration;
 
-import org.apache.ignite.failure.configuration.FailureProcessorConfigurationBuilder;
+import org.apache.ignite.failure.configuration.FailureProcessorBuilder;
+import org.apache.ignite.network.configuration.NetworkBuilder;
 
 public interface NodeConfiguration {
     static NodeConfiguration create() {
         return new NodeConfigurationImpl();
     }
 
-    FailureProcessorConfigurationBuilder withFailureHandler();
+    NodeConfiguration network(NetworkBuilder networkBuilder);
+    NodeConfiguration failureHandler(FailureProcessorBuilder failureProcessorBuilder);
 }

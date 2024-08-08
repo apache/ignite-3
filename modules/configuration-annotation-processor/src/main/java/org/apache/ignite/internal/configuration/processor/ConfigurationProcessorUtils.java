@@ -19,14 +19,19 @@ package org.apache.ignite.internal.configuration.processor;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static javax.lang.model.element.Modifier.STATIC;
 
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.TypeSpec;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
@@ -34,6 +39,12 @@ import javax.lang.model.element.VariableElement;
  * Annotation processing utilities.
  */
 class ConfigurationProcessorUtils {
+    /** Java file padding. */
+    static final String INDENT = "    ";
+
+    /** Postfix with which any configuration schema class name must end. */
+    static final String CONFIGURATION_SCHEMA_POSTFIX = "ConfigurationSchema";
+
     /**
      * Returns {@link ClassName} for configuration class public interface.
      *
@@ -54,7 +65,7 @@ class ConfigurationProcessorUtils {
     public static ClassName getViewName(ClassName schemaClassName) {
         return ClassName.get(
                 schemaClassName.packageName(),
-                schemaClassName.simpleName().replace("ConfigurationSchema", "View")
+                schemaClassName.simpleName().replace(CONFIGURATION_SCHEMA_POSTFIX, "View")
         );
     }
 
@@ -66,7 +77,33 @@ class ConfigurationProcessorUtils {
     public static ClassName getChangeName(ClassName schemaClassName) {
         return ClassName.get(
                 schemaClassName.packageName(),
-                schemaClassName.simpleName().replace("ConfigurationSchema", "Change")
+                schemaClassName.simpleName().replace(CONFIGURATION_SCHEMA_POSTFIX, "Change")
+        );
+    }
+
+    /**
+     * Returns {@link ClassName} for configuration BUILDER object interface.
+     *
+     * @param schemaClassName Configuration schema ClassName.
+     */
+    static ClassName getBuilderName(ClassName schemaClassName) {
+        // Builder interface is in public package
+        String packageName = schemaClassName.packageName().replace(".internal", "");
+        return ClassName.get(
+                packageName,
+                schemaClassName.simpleName().replace(CONFIGURATION_SCHEMA_POSTFIX, "Builder")
+        );
+    }
+
+    /**
+     * Returns {@link ClassName} for configuration BUILDER object class.
+     *
+     * @param schemaClassName Configuration schema ClassName.
+     */
+    static ClassName getBuilderImplName(ClassName schemaClassName) {
+        return ClassName.get(
+                schemaClassName.packageName(),
+                schemaClassName.simpleName().replace(CONFIGURATION_SCHEMA_POSTFIX, "BuilderImpl")
         );
     }
 
@@ -115,5 +152,34 @@ class ConfigurationProcessorUtils {
             Class<? extends Annotation> annotationClass
     ) {
         return fields.stream().filter(f -> f.getAnnotation(annotationClass) != null).collect(toList());
+    }
+
+    static String capitalize(String name) {
+        return name.substring(0, 1).toUpperCase() + name.substring(1);
+    }
+
+    /**
+     * Get class fields.
+     *
+     * @param type Class type.
+     * @return Class fields.
+     */
+    static List<VariableElement> fields(TypeElement type) {
+        return type.getEnclosedElements().stream()
+                .filter(el -> el.getKind() == ElementKind.FIELD)
+                .filter(el -> !el.getModifiers().contains(STATIC)) // ignore static members
+                .map(VariableElement.class::cast)
+                .collect(toList());
+    }
+
+    static void buildClass(ProcessingEnvironment processingEnv, String packageName, TypeSpec cls) {
+        try {
+            JavaFile.builder(packageName, cls)
+                    .indent(INDENT)
+                    .build()
+                    .writeTo(processingEnv.getFiler());
+        } catch (Throwable throwable) {
+            throw new ConfigurationProcessorException("Failed to generate class " + packageName + "." + cls.name, throwable);
+        }
     }
 }

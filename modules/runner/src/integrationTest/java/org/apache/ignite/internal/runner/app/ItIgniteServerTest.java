@@ -39,6 +39,8 @@ import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ClusterConfiguration;
 import org.apache.ignite.configuration.NodeConfiguration;
+import org.apache.ignite.failure.configuration.FailureProcessorBuilder;
+import org.apache.ignite.failure.handlers.configuration.StopNodeOrHaltFailureHandlerBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerView;
@@ -54,6 +56,8 @@ import org.apache.ignite.lang.ClusterNotInitializedException;
 import org.apache.ignite.lang.NodeStartException;
 import org.apache.ignite.security.authentication.basic.BasicAuthenticationProviderBuilder;
 import org.apache.ignite.security.authentication.basic.BasicUserBuilder;
+import org.apache.ignite.security.authentication.configuration.AuthenticationBuilder;
+import org.apache.ignite.security.configuration.SecurityBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -200,24 +204,25 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
 
     @Test
     void configurationPojo() {
-        NodeConfiguration nodeConfiguration = NodeConfiguration.create();
-        nodeConfiguration.withFailureHandler()
-                .withStopNodeOrHaltFailureHandler()
-                .setTimeoutMillis(1);
+        NodeConfiguration nodeConfiguration = NodeConfiguration.create().failureHandler(
+                FailureProcessorBuilder.create().handler(
+                        StopNodeOrHaltFailureHandlerBuilder.create().timeoutMillis(1)
+                ));
 
         String nodeName = nodesBootstrapCfg.keySet().stream().findFirst().orElseThrow();
         startNode(nodeName, name -> IgniteServer.start(name, nodeConfiguration, workDir.resolve(name), null));
 
         IgniteServer igniteServer = startedIgniteServers.get(0);
 
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.create();
-        clusterConfiguration.withSecurity()
-                .setEnabled(true)
-                .withAuthentication()
-                .addProvider(
-                        BasicAuthenticationProviderBuilder.create("basic")
-                                .addUser(BasicUserBuilder.create("username").setPassword("password"))
-                );
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.create().security(
+                SecurityBuilder.create()
+                        .enabled(true)
+                        .authentication(AuthenticationBuilder.create()
+                                .addProvider("basic",
+                                        BasicAuthenticationProviderBuilder.create()
+                                                .addUser("username", BasicUserBuilder.create().password("password"))
+                                ))
+        );
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(igniteServer)
                 .clusterName("cluster")
