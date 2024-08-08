@@ -398,7 +398,7 @@ public class SqlTestUtils {
      * @param query SQL query to execute.
      * @param sql Session on which to execute.
      * @param transaction Transaction in which to execute the update, or {@code null} if the update should
-     *     be executed n an implicit transaction.
+     *     be executed in an implicit transaction.
      */
     public static void executeUpdate(String query, IgniteSql sql, @Nullable Transaction transaction) {
         try (ResultSet<?> ignored = sql.execute(transaction, query)) {
