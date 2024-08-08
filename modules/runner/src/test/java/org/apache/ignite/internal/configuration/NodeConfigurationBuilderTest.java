@@ -51,7 +51,7 @@ class NodeConfigurationBuilderTest {
         String configString = ((NodeConfigurationImpl) nodeConfiguration).build(null);
         Config config = ConfigFactory.parseString(configString);
 
-        assertThat(config.getStringList("network.nodeFinder.netClusterNodes"), contains("localhost:3344"));
+        assertThat(config.getStringList("network.nodeFinder.netClusterNodes"), contains("localhost:3344", "localhost:3345"));
         assertThat(config.getString("network.nodeFinder.type"), is("STATIC"));
         assertThat(config.getInt("network.port"), is(3344));
     }

@@ -218,16 +218,16 @@ class ConfigurationBuilderProcessor {
             changeImplMtdBuilder.addStatement("super.change(change)");
             variableName = getVariableName(changeClsName.simpleName());
             boolean needLocalVariable = hasValueFields || !configFields.isEmpty() || !configListFields.isEmpty();
-            CodeBlock.Builder convertStatement = CodeBlock.builder();
-            if (needLocalVariable) {
-                convertStatement.add("var $L = ", variableName);
-            }
             if (isPolymorphicInstanceConfig) {
+                CodeBlock.Builder convertStatement = CodeBlock.builder();
+                if (needLocalVariable) {
+                    convertStatement.add("var $L = ", variableName);
+                }
                 convertStatement.add("change.convert($T.class)", changeClsName);
-            } else {
-                convertStatement.add("($T) change", changeClsName);
+                changeImplMtdBuilder.addStatement(convertStatement.build());
+            } else if (needLocalVariable) {
+                changeImplMtdBuilder.addStatement("var $L = ($T) change", variableName, changeClsName);
             }
-            changeImplMtdBuilder.addStatement(convertStatement.build());
         } else {
             variableName = "change";
         }
