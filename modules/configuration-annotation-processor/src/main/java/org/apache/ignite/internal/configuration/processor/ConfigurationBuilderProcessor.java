@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.configuration.processor.ConfigurationPr
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getViewName;
 
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
@@ -216,11 +217,17 @@ class ConfigurationBuilderProcessor {
         if (builderImplBaseSchemaClassType != null) {
             changeImplMtdBuilder.addStatement("super.change(change)");
             variableName = getVariableName(changeClsName.simpleName());
-            if (isPolymorphicInstanceConfig) {
-                changeImplMtdBuilder.addStatement("var $L = change.convert($T.class)", variableName, changeClsName);
-            } else {
-                changeImplMtdBuilder.addStatement("var $L = ($T) change", variableName, changeClsName);
+            boolean needLocalVariable = hasValueFields || !configFields.isEmpty() || !configListFields.isEmpty();
+            CodeBlock.Builder convertStatement = CodeBlock.builder();
+            if (needLocalVariable) {
+                convertStatement.add("var $L = ", variableName);
             }
+            if (isPolymorphicInstanceConfig) {
+                convertStatement.add("change.convert($T.class)", changeClsName);
+            } else {
+                convertStatement.add("($T) change", changeClsName);
+            }
+            changeImplMtdBuilder.addStatement(convertStatement.build());
         } else {
             variableName = "change";
         }
