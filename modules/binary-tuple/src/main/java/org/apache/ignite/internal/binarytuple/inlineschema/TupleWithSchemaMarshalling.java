@@ -38,17 +38,23 @@ public final class TupleWithSchemaMarshalling {
     /**
      * Marshal tuple is the following format:
      *
-     * <p>marshalledTuple       := | size | binaryTupleWithSchema |
+     * <p>marshalledTuple       := | size | valuePosition | binaryTupleWithSchema |
      *
      * <p>size                  := int32
      *
-     * <p>binaryTupleWithSchema := | column1 | ... | columnN | value1 | ... | valueN |
+     * <p>valuePosition := int32
+     *
+     * <p>binaryTupleWithSchema := | schemaBinaryTuple | valueBinaryTuple |
+     *
+     * <p>schemaBinaryTuple := | column1 | ... | columnN |
      *
      * <p>column                := | columnName | columnType |
      *
      * <p>columnName            := string
      *
      * <p>columnType            := int32.
+     *
+     * <p>valueBinaryTuple := | value1 | ... | valueN |
      */
     public static byte @Nullable [] marshal(Tuple tup) {
         // Allocate all the memory we need upfront.
@@ -65,17 +71,33 @@ public final class TupleWithSchemaMarshalling {
             types[i] = inferType(value);
         }
 
-        BinaryTupleBuilder builder = builder(values, columns, types);
+        BinaryTupleBuilder schemaBuilder = schemaBuilder(columns, types);
+        BinaryTupleBuilder valueBuilder = valueBuilder(values, types);
 
-        byte[] arr = builder.build().array();
-        byte[] result = new byte[arr.length + 1];
-        // Put the size of the schema in the first byte.
-        result[0] = (byte) size; // todo should be int32
+        byte[] schemaBt = schemaBuilder.build().array();
+        byte[] valueBt = valueBuilder.build().array();
+        // Size: int32 (tuple size), int32 (value offset), schema, value.
+        byte[] result = new byte[4 + 4 + schemaBt.length + valueBt.length];
 
-        System.arraycopy(arr, 0, result, 1, arr.length);
+        // Put the size of the schema in the first 4 bytes.
+        result[0] = (byte) (size >> 24);
+        result[1] = (byte) (size >> 16);
+        result[2] = (byte) (size >> 8);
+        result[3] = (byte) size;
+
+        // Put the value offset in the second 4 bytes.
+        int offset = schemaBt.length + 8;
+        result[4] = (byte) (offset >> 24);
+        result[5] = (byte) (offset >> 16);
+        result[6] = (byte) (offset >> 8);
+        result[7] = (byte) offset;
+
+        System.arraycopy(schemaBt, 0, result, 8, schemaBt.length);
+        System.arraycopy(valueBt, 0, result, schemaBt.length + 8, valueBt.length);
 
         return result;
     }
+
 
     /**
      * Unmarshal tuple.
@@ -83,21 +105,41 @@ public final class TupleWithSchemaMarshalling {
      * @param raw byte[] bytes that are marshaled by {@link #marshal(Tuple)}.
      */
     public static @Nullable Tuple unmarshal(byte @Nullable [] raw) {
-        byte size = raw[0]; // todo should be int32
+        // Read first int32.
+        int size = ((raw[0] & 0xFF) << 24) |
+                ((raw[1] & 0xFF) << 16) |
+                ((raw[2] & 0xFF) << 8) |
+                (raw[3] & 0xFF);
+
+        // Read second int32.
+        int valueOffset = ((raw[4] & 0xFF) << 24) |
+                ((raw[5] & 0xFF) << 16) |
+                ((raw[6] & 0xFF) << 8) |
+                (raw[7] & 0xFF);
 
         String[] columns = new String[size];
         ColumnType[] types = new ColumnType[size];
 
-        byte[] arr = new byte[raw.length - 1];
-        System.arraycopy(raw, 1, arr, 0, arr.length);
-        BinaryTupleReader reader = new BinaryTupleReader(size * 3, arr);
+        // Valueoffset (*) points at the index where the valueBt starts,
+        // the length of the destination schemaArr is calculated as
+        // | int32 | int32 | schema bytes |(*) value bytes |
+        // (*) - int32 - int32 = len(schema bytes)
+        byte[] schemaArr = new byte[valueOffset - 4 - 4];
+        byte[] valueArr = new byte[raw.length - valueOffset];
+
+        System.arraycopy(raw, 8, schemaArr, 0, schemaArr.length);
+        System.arraycopy(raw, valueOffset, valueArr, 0, valueArr.length);
+
+        BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2, schemaArr);
+        BinaryTupleReader valueReader = new BinaryTupleReader(size, valueArr);
+
         Tuple tup = Tuple.create(size);
 
         int readerInd = 0;
         int i = 0;
         while (i < size) {
-            String colName = reader.stringValue(readerInd++);
-            int colTypeId = reader.intValue(readerInd++);
+            String colName = schemaReader.stringValue(readerInd++);
+            int colTypeId = schemaReader.intValue(readerInd++);
 
             columns[i] = colName;
             types[i] = ColumnType.getById(colTypeId);
@@ -105,23 +147,28 @@ public final class TupleWithSchemaMarshalling {
             i += 1;
         }
 
-        int offset = size * 2;
         int k = 0;
         while (k < size) {
-            setColumnValue(reader, tup, columns[k], types[k].id(), k + offset);
+            setColumnValue(valueReader, tup, columns[k], types[k].id(), k);
             k += 1;
         }
 
         return tup;
     }
 
-    private static BinaryTupleBuilder builder(Object[] values, String[] columns, ColumnType[] types) {
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length * 3, values.length * 3);
+    private static BinaryTupleBuilder schemaBuilder(String[] columns, ColumnType[] types) {
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 2, columns.length * 2);
 
         for (int i = 0; i < columns.length; i++) {
             builder.appendString(columns[i]);
             builder.appendInt(types[i].id());
         }
+
+        return builder;
+    }
+
+    private static BinaryTupleBuilder valueBuilder(Object[] values, ColumnType[] types) {
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length, values.length);
 
         for (int i = 0; i < values.length; i++) {
             ColumnType type = types[i];
