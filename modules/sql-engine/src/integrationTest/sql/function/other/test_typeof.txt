@@ -1,0 +1,80 @@
+# name: test/sql/function/other/typeof.test
+# description: TYPEOF function
+# group: [other]
+
+query T
+SELECT typeof(1)
+----
+INTEGER
+
+query T
+SELECT typeof(100000000000)
+----
+BIGINT
+
+query T
+SELECT typeof(1.1::DOUBLE)
+----
+DOUBLE
+
+query T
+SELECT typeof(1.1::DECIMAL(3, 2))
+----
+DECIMAL(3, 2)
+
+query T
+SELECT typeof('a')
+----
+CHAR(1)
+
+query T
+SELECT typeof('00001111-0001-0002-0003-00002222333'::UUID)
+----
+UUID
+
+query T
+SELECT typeof(SELECT 1)
+----
+INTEGER
+
+query T
+SELECT '<' || typeof(NULL) || '>'
+----
+<NULL>
+
+query T
+SELECT typeof(NULL::VARCHAR(100))
+----
+VARCHAR(100)
+
+query T
+SELECT typeof('abcd' || COALESCE('efg', 'a'))
+----
+CHAR(7)
+
+statement error: Invalid input string for type INTEGER
+SELECT typeof(CAST('NONE' as INTEGER))
+
+statement error: Invalid number of arguments
+SELECT typeof()
+
+statement error: Invalid number of arguments
+SELECT typeof(1, 2)
+
+statement error: Failed to validate query. From line 1, column 15 to line 1, column 25: Cannot apply
+SELECT typeof(SELECT 1, 2)
+
+query T
+SELECT typeof(SELECT 1)
+----
+INTEGER
+
+query T
+SELECT typeof(INTERVAL '90' MONTH)
+----
+P7Y6M
+
+query T
+SELECT typeof(INTERVAL '12' HOURS)
+----
+P7Y6M
