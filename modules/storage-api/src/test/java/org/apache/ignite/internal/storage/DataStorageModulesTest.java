@@ -38,7 +38,6 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -79,7 +78,7 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
         Map<String, StorageEngine> engines = dataStorageModules.createStorageEngines(
                 "test",
                 mock(ConfigurationRegistry.class),
-                LazyPath.create(workDir),
+                workDir,
                 null,
                 mock(FailureProcessor.class),
                 mock(LogSyncer.class),

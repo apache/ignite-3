@@ -235,7 +235,6 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
@@ -462,6 +461,13 @@ public class IgniteImpl implements Ignite {
                 localConfigurationGenerator,
                 localConfigurationValidator
         );
+
+        // Start local configuration to be able to read all local properties.
+        try {
+            lifecycleManager.startComponentsAsync(new ComponentContext(), nodeCfgMgr);
+        } catch (NodeStoppingException e) {
+            assert false : "Unexpected exception: " + e;
+        }
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
 
@@ -690,7 +696,7 @@ public class IgniteImpl implements Ignite {
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
         );
 
-        LazyPath storagePath = partitionsWorkDir.dbPath();
+        Path storagePath = partitionsWorkDir.dbPath();
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
@@ -1105,7 +1111,6 @@ public class IgniteImpl implements Ignite {
                     componentContext,
                     longJvmPauseDetector,
                     vaultMgr,
-                    nodeCfgMgr,
                     threadPoolsManager,
                     clockWaiter,
                     failureProcessor,
