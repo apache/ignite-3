@@ -361,9 +361,16 @@ class ConfigurationBuilderProcessor {
 
             String setMethodName = setMethodName(field);
             String setParameterName = setParameterName(field);
-            builderImplClsBuilder.addMethod(createSetMethodBuilder(field, builderClsName)
-                    .addAnnotation(Override.class)
-                    .addStatement("super.$L($L)", setMethodName, setParameterName)
+            boolean namedListField = field.getAnnotation(NamedConfigValue.class) != null;
+            MethodSpec.Builder setMethodBuilder = createSetMethodBuilder(field, builderClsName)
+                    .addAnnotation(Override.class);
+            if (namedListField) {
+                setMethodBuilder.addStatement("super.$L(key, $L)", setMethodName, setParameterName);
+            } else {
+                setMethodBuilder.addStatement("super.$L($L)", setMethodName, setParameterName);
+            }
+
+            builderImplClsBuilder.addMethod(setMethodBuilder
                     .addStatement("return this")
                     .build());
         }
