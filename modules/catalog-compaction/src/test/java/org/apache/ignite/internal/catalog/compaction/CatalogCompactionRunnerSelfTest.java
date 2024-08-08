@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -386,11 +387,28 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     public void minTxTimePropagationSucceedWhenSomeAssignmentIsMissing() {
         Catalog catalog = prepareCatalogWithTables();
 
-        List<LogicalNode> logicalTopology = List.of(NODE2, NODE1);
-        List<LogicalNode> assignments = List.of(NODE3, NODE2, NODE1);
-        CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
+        {
+            List<LogicalNode> logicalTopology = List.of(NODE2, NODE1);
+            List<LogicalNode> assignments = List.of(NODE3, NODE2, NODE1);
+            CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
 
-        assertThat(compactor.propagateTimeToReplicas(catalog.time()), willCompleteSuccessfully());
+            assertThat(compactor.propagateTimeToReplicas(catalog.time()), willCompleteSuccessfully());
+            verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(/* tables */ 3 * /* partitions */ 25)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            clearInvocations(replicaService);
+        }
+
+        {
+            List<LogicalNode> logicalTopology = List.of(NODE2, NODE1);
+            List<LogicalNode> assignments = List.of(NODE3, NODE2);
+            CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
+
+            assertThat(compactor.propagateTimeToReplicas(catalog.time()), willCompleteSuccessfully());
+            verify(replicaService, times(0)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
+            verify(replicaService, times(/* tables */ 3 * /* partitions */ 25)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
+        }
     }
 
     @Test

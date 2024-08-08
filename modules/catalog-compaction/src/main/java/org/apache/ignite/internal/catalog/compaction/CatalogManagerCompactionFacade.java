@@ -37,6 +37,15 @@ class CatalogManagerCompactionFacade {
         this.catalogManager = catalogManager;
     }
 
+    /**
+     * Scans catalog versions in a given time interval (including interval boundaries).
+     * Extracts all tables contained in these catalog versions and creates a mapping
+     * tableId -> number of partitions in this table.
+     *
+     * @param minTsInclusive Lower timestamp (inclusive).
+     * @param maxTsInclusive Upper timestamp (inclusive).
+     * @return Mapping tableId to number of partitions in this table.
+     */
     Int2IntMap collectTablesWithPartitionsBetween(long minTsInclusive, long maxTsInclusive) {
         Int2IntMap tablesWithPartitions = new Int2IntOpenHashMap();
         int curVer = catalogManager.activeCatalogVersion(minTsInclusive);

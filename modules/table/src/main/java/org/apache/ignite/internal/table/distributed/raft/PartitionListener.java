@@ -690,7 +690,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         long minActiveTxBeginTime0 = minActiveTxBeginTime;
-        minActiveTxBeginTime = Math.max(cmd.timestamp(), minActiveTxBeginTime0);
+
+        assert minActiveTxBeginTime0 <= cmd.timestamp() : "maxTime=" + minActiveTxBeginTime0 + ", cmdTime=" + cmd.timestamp();
+
+        minActiveTxBeginTime = cmd.timestamp();
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

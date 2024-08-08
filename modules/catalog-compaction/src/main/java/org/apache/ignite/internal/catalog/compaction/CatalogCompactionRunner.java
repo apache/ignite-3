@@ -406,17 +406,17 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
-    CompletableFuture<Void> propagateTimeToReplicas(long minimumRequiredTime) {
+    CompletableFuture<Void> propagateTimeToReplicas(long minActiveTxBeginTime) {
         Map<Integer, Integer> tablesWithPartitions = catalogManagerFacade.collectTablesWithPartitionsBetween(
-                minimumRequiredTime,
+                minActiveTxBeginTime,
                 clockService.nowLong()
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22951
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22951 Method needs to be reworked to minimize the number of network requests
         return invokeOnReplicas(
                 logicalTopologyService.localLogicalTopology().nodes().stream().map(LogicalNode::name).collect(Collectors.toSet()),
                 tablesWithPartitions.entrySet().iterator(),
-                minimumRequiredTime,
+                minActiveTxBeginTime,
                 clockService.now()
         );
     }

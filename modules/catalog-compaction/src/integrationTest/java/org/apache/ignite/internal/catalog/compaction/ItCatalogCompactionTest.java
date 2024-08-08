@@ -31,10 +31,10 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import it.unimi.dsi.fastutil.ints.Int2IntMap;
-import it.unimi.dsi.fastutil.ints.Int2IntMap.Entry;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -42,6 +42,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -72,10 +73,13 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     void testRaftGroupsUpdate() throws InterruptedException {
         IgniteImpl ignite = CLUSTER.aliveNode();
         CatalogManagerImpl catalogManager = ((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager());
+        int partsCount = 16;
 
-        sql(format("create zone if not exists test with partitions=16, replicas={}, storage_profiles='default'",
-                initialNodes()));
+        sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
+                partsCount, initialNodes()));
         sql("alter zone test set default");
+
+        Map<Integer, Integer> expectedTablesWithPartitions = new HashMap<>();
 
         // Latest active catalog contains all required tables.
         {
@@ -86,6 +90,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
             sql("create table b(a int primary key)");
 
+            Catalog lastCatalog = catalogManager.catalog(
+                    catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
+            assertNotNull(lastCatalog);
+
+            Collection<CatalogTableDescriptor> tables = lastCatalog.tables();
+            assertThat(tables, hasSize(2));
+
+            tables.forEach(t -> expectedTablesWithPartitions.put(t.id(), partsCount));
+
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(minRequiredCatalog.time());
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
@@ -93,7 +106,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
             assertThat(fut, willCompleteSuccessfully());
 
-            ensureTimestampStoredInAllReplicas(expectedTime, 2);
+            ensureTimestampStoredInAllReplicas(expectedTime, expectedTablesWithPartitions);
         }
 
         // Latest active catalog does not contain all required tables.
@@ -111,19 +124,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
             assertThat(fut, willCompleteSuccessfully());
 
-            ensureTimestampStoredInAllReplicas(expectedTime, 2);
-        }
-
-        // Update to lower timestamp should not succeed.
-        {
-            HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime - 1);
-
-            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToReplicas(expectedTime.longValue());
-
-            assertThat(fut, willCompleteSuccessfully());
-
-            ensureTimestampStoredInAllReplicas(HybridTimestamp.hybridTimestamp(requiredTime), 2);
+            ensureTimestampStoredInAllReplicas(expectedTime, expectedTablesWithPartitions);
         }
     }
 
@@ -185,20 +186,16 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         readonlyTx.rollback();
     }
 
-    private static void ensureTimestampStoredInAllReplicas(HybridTimestamp expTime, int expTablesCount) throws InterruptedException {
-        Int2IntMap tablesWithPartitions = catalogManagerFacade().collectTablesWithPartitionsBetween(
-                expTime.longValue(),
-                CLUSTER.aliveNode().clockService().nowLong()
-        );
-
+    private static void ensureTimestampStoredInAllReplicas(HybridTimestamp expTime, Map<Integer, Integer> expectedTablesWithPartitions) throws InterruptedException {
         Loza loza = CLUSTER.aliveNode().raftManager();
         JraftServerImpl server = (JraftServerImpl) loza.server();
 
-        assertThat(tablesWithPartitions.keySet(), hasSize(expTablesCount));
+        for (Map.Entry<Integer, Integer> tableWithPartition : expectedTablesWithPartitions.entrySet()) {
+            int tableId = tableWithPartition.getKey();
+            int partitionsCount = tableWithPartition.getValue();
 
-        for (Entry e : tablesWithPartitions.int2IntEntrySet()) {
-            for (int p = 0; p < e.getIntValue(); p++) {
-                TablePartitionId groupId = new TablePartitionId(e.getIntKey(), p);
+            for (int p = 0; p < partitionsCount; p++) {
+                TablePartitionId groupId = new TablePartitionId(tableId, p);
                 List<Peer> peers = server.localPeers(groupId);
 
                 assertThat(peers, is(not(empty())));
