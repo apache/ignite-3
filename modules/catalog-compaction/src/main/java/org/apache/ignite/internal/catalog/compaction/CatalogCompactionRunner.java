@@ -290,7 +290,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     CompletableFuture<Void> propagateToReplicasFut = propagateTimeToReplicas(minActiveTxBeginTime)
                             .whenComplete((res, ex) -> {
                                 if (ex != null) {
-                                    LOG.warn("Failed to propagate minimum active tx start time to replicas", ex);
+                                    LOG.warn("Failed to propagate minimum active tx begin time to replicas", ex);
                                 }
                             });
 
