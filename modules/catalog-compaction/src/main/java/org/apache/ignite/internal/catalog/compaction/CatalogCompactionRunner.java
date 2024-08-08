@@ -346,6 +346,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return placementDriver.getAssignments(replicationGroupIds, nowTs)
                 .thenAccept(tokenizedAssignments -> {
+                    assert tokenizedAssignments.size() == replicationGroupIds.size();
+
                     for (int p = 0; p < partitions; p++) {
                         TokenizedAssignments assignment = tokenizedAssignments.get(p);
                         if (assignment == null) {

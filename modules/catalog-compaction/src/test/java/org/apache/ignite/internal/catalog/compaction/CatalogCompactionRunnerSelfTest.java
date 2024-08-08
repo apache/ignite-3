@@ -55,11 +55,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
@@ -83,7 +85,6 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.hamcrest.Matchers;
@@ -327,7 +328,9 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
         when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.failedFuture(new ArithmeticException()));
         assertThat(compactor.triggerCompaction(clockService.now()), willThrow(ArithmeticException.class));
 
-        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFutures.nullCompletedFuture());
+        List<?> assignments = IntStream.range(0, CatalogUtils.DEFAULT_PARTITION_COUNT).mapToObj(i -> null).collect(Collectors.toList());
+
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.completedFuture(assignments));
         assertThat(compactor.triggerCompaction(clockService.now()), willThrow(IllegalStateException.class));
     }
 
@@ -374,8 +377,11 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 .map(node -> Assignment.forPeer(node.name()))
                 .collect(Collectors.toSet());
 
-        TokenizedAssignmentsImpl tokenizedAssignments = new TokenizedAssignmentsImpl(assignments, Long.MAX_VALUE);
-        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.completedFuture(tokenizedAssignments));
+        List<?> tableAssignments = IntStream.range(0, CatalogUtils.DEFAULT_PARTITION_COUNT)
+                .mapToObj(i -> new TokenizedAssignmentsImpl(assignments, Long.MAX_VALUE))
+                .collect(Collectors.toList());
+
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.completedFuture(tableAssignments));
 
         LogicalTopologySnapshot logicalTop = new LogicalTopologySnapshot(1, topology);
 
