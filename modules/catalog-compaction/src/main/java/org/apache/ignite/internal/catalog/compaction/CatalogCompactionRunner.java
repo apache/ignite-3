@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -337,33 +336,26 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         assert zone != null : table.zoneId();
 
-        List<CompletableFuture<?>> partitionFutures = new ArrayList<>(zone.partitions());
+        int partitions = zone.partitions();
 
-        for (int p = 0; p < zone.partitions(); p++) {
-            ReplicationGroupId replicationGroupId = new TablePartitionId(table.id(), p);
+        List<ReplicationGroupId> replicationGroupIds = new ArrayList<>(partitions);
 
-            CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
-                    .whenComplete((tokenizedAssignments, ex) -> {
-                        if (ex != null) {
-                            return;
-                        }
-
-                        if (tokenizedAssignments == null) {
-                            throw new IllegalStateException("Cannot get assignments for table " + table.name()
-                                    + " (replication group=" + replicationGroupId + ").");
-                        }
-
-                        List<String> assignments = tokenizedAssignments.nodes().stream()
-                                .map(Assignment::consistentId)
-                                .collect(Collectors.toList());
-
-                        required.addAll(assignments);
-                    });
-
-            partitionFutures.add(assignmentsFut);
+        for (int p = 0; p < partitions; p++) {
+            replicationGroupIds.add(new TablePartitionId(table.id(), p));
         }
 
-        return CompletableFutures.allOf(partitionFutures)
+        return placementDriver.getAssignments(replicationGroupIds, nowTs)
+                .thenAccept(tokenizedAssignments -> {
+                    for (int p = 0; p < partitions; p++) {
+                        TokenizedAssignments assignment = tokenizedAssignments.get(p);
+                        if (assignment == null) {
+                            throw new IllegalStateException("Cannot get assignments for table " + table.name()
+                                    + " (replication group=" + replicationGroupIds.get(p) + ").");
+                        }
+
+                        assignment.nodes().forEach(a -> required.add(a.consistentId()));
+                    }
+                })
                 .thenCompose(ignore -> collectRequiredNodes(catalog, tabItr, required, nowTs));
     }
 
