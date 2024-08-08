@@ -317,21 +317,18 @@ public class CatalogCompactionRunner implements IgniteComponent {
         HybridTimestamp nowTs = clockService.now();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22722 This method needs to be simplified.
-        return collectRequiredNodes(catalog, new ArrayList<>(catalog.tables()).iterator(), required, nowTs);
+        return CompletableFutures.allOf(catalog.tables().stream()
+                .map(table -> collectRequiredNodes(catalog, table, required, nowTs))
+                .collect(Collectors.toList())
+        ).thenApply(ignore -> required);
     }
 
-    private CompletableFuture<Set<String>> collectRequiredNodes(
+    private CompletableFuture<Void> collectRequiredNodes(
             Catalog catalog,
-            Iterator<CatalogTableDescriptor> tabItr,
+            CatalogTableDescriptor table,
             Set<String> required,
             HybridTimestamp nowTs
     ) {
-        if (!tabItr.hasNext()) {
-            return CompletableFuture.completedFuture(required);
-        }
-
-        CatalogTableDescriptor table = tabItr.next();
         CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
         assert zone != null : table.zoneId();
@@ -357,8 +354,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                         assignment.nodes().forEach(a -> required.add(a.consistentId()));
                     }
-                })
-                .thenCompose(ignore -> collectRequiredNodes(catalog, tabItr, required, nowTs));
+                });
     }
 
     private static List<String> missingNodes(Set<String> requiredNodes, Collection<LogicalNode> logicalTopologyNodes) {
