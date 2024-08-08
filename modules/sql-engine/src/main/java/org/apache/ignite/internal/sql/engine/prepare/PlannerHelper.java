@@ -182,7 +182,7 @@ public final class PlannerHelper {
                 SqlException sqlEx = (SqlException) ex.getCause();
                 throw new SqlException(sqlEx.traceId(), sqlEx.code(), sqlEx.getMessage(), ex);
             }
-            
+
             throw ex;
         }
     }
