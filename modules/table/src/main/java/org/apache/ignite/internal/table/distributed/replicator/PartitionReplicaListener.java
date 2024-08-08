@@ -4139,7 +4139,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     // TODO sanpwc better check
     private boolean localNodeInPeers() {
-        for (Peer peer: ((TopologyAwareRaftGroupService)raftClient).peers()) {
+        for (Peer peer: ((TopologyAwareRaftGroupService)((ExecutorInclinedRaftCommandRunner) raftClient).decoratedCommandRunner()).peers()) {
             if (peer.consistentId().equals(localNode.name())) {
                 return true;
             }
