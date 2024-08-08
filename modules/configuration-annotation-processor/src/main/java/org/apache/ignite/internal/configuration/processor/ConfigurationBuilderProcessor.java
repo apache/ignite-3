@@ -236,16 +236,12 @@ class ConfigurationBuilderProcessor {
         });
 
         configListFields.forEach(configListField -> {
-            if (builderImplBaseSchemaClassType != null) {
-                changeImplMtdBuilder.addStatement(
-                        "var $NChange = change.convert($T.class).change$L()",
-                        configListField,
-                        changeClsName,
-                        capitalize(configListField.name)
-                );
-            } else {
-                changeImplMtdBuilder.addStatement("var $NChange = change.change$L()", configListField, capitalize(configListField.name));
-            }
+            changeImplMtdBuilder.addStatement(
+                    "var $NChange = $L.change$L()",
+                    configListField,
+                    variableName,
+                    capitalize(configListField.name)
+            );
             changeImplMtdBuilder.addStatement(
                     "$N.forEach((key, it) -> $NChange.create(key, it::change))",
                     configListField,
