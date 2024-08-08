@@ -233,6 +233,11 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteUnionAll rel) {
+            if (mapping != null) {
+                // unexpected multiple unions
+                throw Util.FoundOne.NULL;
+            }
+
             for (List<RexNode> prj : prevProjects) {
                 if (mapping == null) {
                     mapping = new ArrayList<>(prevProjects.size());
@@ -320,7 +325,11 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                 assert !mapping.isEmpty();
 
                 for (int i = mapping.size() - 1; i >= 0; i--) {
-                    values0 = transform(values0, mapping.get(i));
+                    try {
+                        values0 = transform(values0, mapping.get(i));
+                    } catch (Util.FoundOne e) {
+                        return;
+                    }
                 }
             }
 
@@ -362,11 +371,16 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         }
     }
 
-    private List<RexNode> transform(List<RexNode> values, TargetMapping mapping) {
+    private static List<RexNode> transform(List<RexNode> values, TargetMapping mapping) {
         ArrayList<RexNode> values0 = new ArrayList<>(values);
 
         for (int i = 0; i < values.size(); ++i) {
-            values0.set(i, values.get(mapping.getSourceOpt(i)));
+            int pos = mapping.getSourceOpt(i);
+            if (pos == -1) {
+                // unexpected mapping
+                throw Util.FoundOne.NULL;
+            }
+            values0.set(i, values.get(pos));
         }
 
         return values0;

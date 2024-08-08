@@ -608,6 +608,61 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         extractMetadataAndCheck(modify, List.of("c1", "c2", "c3"), List.of("[c1=?0, c3=?2]"));
     }
 
+    @Test
+    public void testUnexpectedProjectionsBeforeUnion() {
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        RelDataType rowType = typeFactory.builder().add("f1", SqlTypeName.INTEGER)
+                .add("f2", SqlTypeName.INTEGER)
+                .add("f3", SqlTypeName.INTEGER)
+                .build();
+
+        RelOptCluster cluster = Commons.emptyCluster();
+        RelTraitSet traitSet = RelTraitSet.createEmpty();
+
+        RexBuilder rexBuilder = Commons.rexBuilder();
+
+        IgniteTypeFactory tf = Commons.typeFactory();
+
+        RelDataType valRowType = typeFactory.builder().add("v", SqlTypeName.CHAR)
+                .build();
+        RexLiteral condition = rexBuilder.makeLiteral("0");
+        IgniteValues values = new IgniteValues(cluster, valRowType, ImmutableList.of(ImmutableList.of(condition)), traitSet);
+
+        RelDataType intType = tf.createTypeWithNullability(tf.createSqlType(SqlTypeName.INTEGER), false);
+
+        RexNode dyn1 = rexBuilder.makeDynamicParam(intType, 0);
+        RexNode dyn2 = rexBuilder.makeDynamicParam(intType, 1);
+        RexNode dyn3 = rexBuilder.makeDynamicParam(intType, 2);
+
+        IgniteRel proj1 = new IgniteProject(cluster, traitSet, values, List.of(dyn1, dyn2, dyn3), rowType);
+
+        IgniteUnionAll union = new IgniteUnionAll(cluster, traitSet, List.of(proj1));
+
+        RexNode exp1 = rexBuilder.makeInputRef(intType, 0);
+        RexNode exp2 = rexBuilder.makeInputRef(intType, 1);
+        RexNode exp3 = rexBuilder.makeInputRef(intType, 2);
+
+        RexNode lit = rexBuilder.makeLiteral(1, typeFactory.createSqlType(SqlTypeName.INTEGER));
+
+        IgniteRel proj2 = new IgniteProject(cluster, traitSet, union, List.of(lit, lit, lit), rowType);
+        IgniteRel proj3 = new IgniteProject(cluster, traitSet, proj2, List.of(exp3, exp2, exp1), rowType);
+
+        IgniteTable innerTbl = TestBuilders.table()
+                .name("tbl")
+                .addKeyColumn("c1", NativeTypes.INT32)
+                .addColumn("c2", NativeTypes.INT32, true)
+                .addKeyColumn("c3", NativeTypes.INT32)
+                .distribution(IgniteDistributions.affinity(List.of(0, 2), 2, "3"))
+                .build();
+
+        RelOptTableImpl tbl = RelOptTableImpl.create(null, rowType, innerTbl, ImmutableList.of("c1", "c2", "c3"));
+
+        IgniteTableModify modify = new IgniteTableModify(cluster, traitSet, tbl, proj3, Operation.INSERT, null, null, true);
+
+        extractMetadataAndCheck(modify, List.of("c1", "c2", "c3"), List.of());
+    }
+
     private static class TestCase {
 
         private final String condition;
