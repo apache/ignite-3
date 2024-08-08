@@ -74,7 +74,7 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
             = MARSHALLER_FACTORY.create(SCHEMA_DESCRIPTOR, TestKey.class, TestValue.class);
 
     /** Hybrid clock to generate timestamps. */
-    protected static final HybridClock CLOCK = new HybridClockImpl();
+    protected final HybridClock clock = new HybridClockImpl();
 
     protected static BinaryRow binaryRow(TestKey key, TestValue value) {
         return KV_MARSHALLER.marshal(key, value);
@@ -241,7 +241,7 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
     /**
      * Creates a new transaction id.
      */
-    public static UUID newTransactionId() {
-        return TransactionIds.transactionId(CLOCK.now(), 0);
+    public final UUID newTransactionId() {
+        return TransactionIds.transactionId(clock.now(), 0);
     }
 }

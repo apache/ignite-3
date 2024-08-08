@@ -48,53 +48,53 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 100;
 
-    private static final UUID TX_ID = newTransactionId();
+    private final UUID txId = newTransactionId();
 
     @Test
     void testAbortAndRead() {
         for (int i = 0; i < REPEATS; i++) {
-            addWrite(ROW_ID, TABLE_ROW, TX_ID);
+            addWrite(ROW_ID, TABLE_ROW, txId);
 
             runRace(
                     () -> abortWrite(ROW_ID),
-                    () -> read(ROW_ID, CLOCK.now()),
-                    () -> scanFirstEntry(CLOCK.now()),
+                    () -> read(ROW_ID, clock.now()),
+                    () -> scanFirstEntry(clock.now()),
                     () -> scanFirstEntry(HybridTimestamp.MAX_VALUE)
             );
 
-            assertNull(read(ROW_ID, CLOCK.now()));
+            assertNull(read(ROW_ID, clock.now()));
         }
     }
 
     @Test
     void testCommitAndRead() {
         for (int i = 0; i < REPEATS; i++) {
-            addWrite(ROW_ID, TABLE_ROW, TX_ID);
+            addWrite(ROW_ID, TABLE_ROW, txId);
 
             runRace(
-                    () -> commitWrite(ROW_ID, CLOCK.now()),
-                    () -> read(ROW_ID, CLOCK.now()),
-                    () -> scanFirstEntry(CLOCK.now()),
+                    () -> commitWrite(ROW_ID, clock.now()),
+                    () -> read(ROW_ID, clock.now()),
+                    () -> scanFirstEntry(clock.now()),
                     () -> scanFirstEntry(HybridTimestamp.MAX_VALUE)
             );
 
-            assertThat(read(ROW_ID, CLOCK.now()), isRow(TABLE_ROW));
+            assertThat(read(ROW_ID, clock.now()), isRow(TABLE_ROW));
         }
     }
 
     @Test
     void testUpdateAndRead() {
         for (int i = 0; i < REPEATS; i++) {
-            addWrite(ROW_ID, TABLE_ROW, TX_ID);
+            addWrite(ROW_ID, TABLE_ROW, txId);
 
             runRace(
-                    () -> addWrite(ROW_ID, TABLE_ROW2, TX_ID),
-                    () -> read(ROW_ID, CLOCK.now()),
-                    () -> scanFirstEntry(CLOCK.now()),
+                    () -> addWrite(ROW_ID, TABLE_ROW2, txId),
+                    () -> read(ROW_ID, clock.now()),
+                    () -> scanFirstEntry(clock.now()),
                     () -> scanFirstEntry(HybridTimestamp.MAX_VALUE)
             );
 
-            assertThat(read(ROW_ID, CLOCK.now()), isRow(TABLE_ROW2));
+            assertThat(read(ROW_ID, clock.now()), isRow(TABLE_ROW2));
         }
     }
 
@@ -146,7 +146,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             runRace(
                     () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> addWrite(ROW_ID, TABLE_ROW2, TX_ID)
+                    () -> addWrite(ROW_ID, TABLE_ROW2, txId)
             );
 
             assertThat(read(ROW_ID, HybridTimestamp.MAX_VALUE), isRow(TABLE_ROW2));
@@ -165,11 +165,11 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             addAndCommit.perform(this, null);
 
-            addWrite(ROW_ID, TABLE_ROW2, TX_ID);
+            addWrite(ROW_ID, TABLE_ROW2, txId);
 
             runRace(
                     () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> commitWrite(ROW_ID, CLOCK.now())
+                    () -> commitWrite(ROW_ID, clock.now())
             );
 
             assertThat(read(ROW_ID, HybridTimestamp.MAX_VALUE), isRow(TABLE_ROW2));
@@ -188,7 +188,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             addAndCommit.perform(this, null);
 
-            addWrite(ROW_ID, TABLE_ROW2, TX_ID);
+            addWrite(ROW_ID, TABLE_ROW2, txId);
 
             runRace(
                     () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
@@ -239,7 +239,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     for (int i = 0; i < firstBatch; i++) {
                         var rowId = new RowId(PARTITION_ID);
 
-                        addWriteCommitted(rowId, TABLE_ROW, CLOCK.now());
+                        addWriteCommitted(rowId, TABLE_ROW, clock.now());
 
                         queue.add(rowId);
                     }
@@ -248,7 +248,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     for (int i = 0; i < secondBatch; i++) {
                         var rowId = new RowId(PARTITION_ID);
 
-                        addWriteCommitted(rowId, TABLE_ROW, CLOCK.now());
+                        addWriteCommitted(rowId, TABLE_ROW, clock.now());
 
                         queue.add(rowId);
                     }
@@ -257,7 +257,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     for (int i = 0; i < REPEATS; i++) {
                         RowId rowId = queue.take();
 
-                        addWriteCommitted(rowId, null, CLOCK.now());
+                        addWriteCommitted(rowId, null, clock.now());
                     }
                 }
         );
@@ -301,7 +301,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         ATOMIC {
             @Override
             HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable BinaryRow binaryRow) {
-                HybridTimestamp ts = test.CLOCK.now();
+                HybridTimestamp ts = test.clock.now();
 
                 test.addWriteCommitted(ROW_ID, binaryRow, ts);
 

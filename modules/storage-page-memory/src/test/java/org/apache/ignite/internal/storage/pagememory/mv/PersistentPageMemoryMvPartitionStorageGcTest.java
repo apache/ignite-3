@@ -68,7 +68,7 @@ class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionSt
                 null,
                 mock(FailureProcessor.class),
                 mock(LogSyncer.class),
-                CLOCK
+                clock
         );
 
         engine.start();

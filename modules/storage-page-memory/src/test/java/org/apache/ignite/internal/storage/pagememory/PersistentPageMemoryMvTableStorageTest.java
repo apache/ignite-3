@@ -76,7 +76,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 null,
                 mock(FailureProcessor.class),
                 mock(LogSyncer.class),
-                CLOCK
+                clock
         );
 
         engine.start();
@@ -126,7 +126,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
             partition.runConsistently(locker -> {
                 locker.lock(rowId);
 
-                partition.addWriteCommitted(rowId, binaryRow, CLOCK.now());
+                partition.addWriteCommitted(rowId, binaryRow, clock.now());
 
                 return null;
             });

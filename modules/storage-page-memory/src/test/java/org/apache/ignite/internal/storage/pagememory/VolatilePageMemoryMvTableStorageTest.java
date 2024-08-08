@@ -66,7 +66,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfig, ioRegistry, CLOCK);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfig, ioRegistry, clock);
 
         engine.start();
 
@@ -118,7 +118,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
             locker.lock(rowId);
 
-            partitionStorage.addWriteCommitted(rowId, binaryRow, CLOCK.now());
+            partitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
 
             return null;
         });

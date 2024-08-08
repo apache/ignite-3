@@ -74,7 +74,7 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
                 new LongJvmPauseDetector(nodeName),
                 mock(FailureProcessor.class),
                 mock(LogSyncer.class),
-                CLOCK
+                clock
         );
 
         engine.start();

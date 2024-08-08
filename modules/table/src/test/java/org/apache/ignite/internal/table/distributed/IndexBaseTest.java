@@ -241,8 +241,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         }
     }
 
-    static HybridTimestamp now() {
-        return CLOCK.now();
+    HybridTimestamp now() {
+        return clock.now();
     }
 
     void commitWrite(RowId rowId) {

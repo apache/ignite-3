@@ -94,8 +94,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         RowId rowId = new RowId(PARTITION_ID);
         BinaryRow row = binaryRow(new TestKey(0, "key"), new TestValue(0, "value"));
 
-        addWriteCommitted(partitionStorage, rowId, row, CLOCK.now());
-        addWriteCommitted(partitionStorage, rowId, row, CLOCK.now());
+        addWriteCommitted(partitionStorage, rowId, row, clock.now());
+        addWriteCommitted(partitionStorage, rowId, row, clock.now());
 
         assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 1, strict));
         verify(partitionStorage).peek(lowWatermark);
@@ -118,11 +118,11 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         BinaryRow row0 = binaryRow(new TestKey(0, "key0"), new TestValue(0, "value0"));
         BinaryRow row1 = binaryRow(new TestKey(0, "key1"), new TestValue(0, "value0"));
 
-        addWriteCommitted(partitionStorage, rowId0, row0, CLOCK.now());
-        addWriteCommitted(partitionStorage, rowId0, row0, CLOCK.now());
+        addWriteCommitted(partitionStorage, rowId0, row0, clock.now());
+        addWriteCommitted(partitionStorage, rowId0, row0, clock.now());
 
-        addWriteCommitted(partitionStorage, rowId1, row1, CLOCK.now());
-        addWriteCommitted(partitionStorage, rowId1, row1, CLOCK.now());
+        addWriteCommitted(partitionStorage, rowId1, row1, clock.now());
+        addWriteCommitted(partitionStorage, rowId1, row1, clock.now());
 
         assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 5, strict));
 
@@ -145,14 +145,14 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         BinaryRow row1 = binaryRow(new TestKey(1, "key1"), new TestValue(1, "value1"));
 
         for (int i = 0; i < REPEATS; i++) {
-            addWriteCommitted(partitionStorage, rowId0, row0, CLOCK.now());
-            addWriteCommitted(partitionStorage, rowId1, row1, CLOCK.now());
+            addWriteCommitted(partitionStorage, rowId0, row0, clock.now());
+            addWriteCommitted(partitionStorage, rowId1, row1, clock.now());
 
-            addWriteCommitted(partitionStorage, rowId0, row0, CLOCK.now());
-            addWriteCommitted(partitionStorage, rowId1, row1, CLOCK.now());
+            addWriteCommitted(partitionStorage, rowId0, row0, clock.now());
+            addWriteCommitted(partitionStorage, rowId1, row1, clock.now());
 
-            addWriteCommitted(partitionStorage, rowId0, null, CLOCK.now());
-            addWriteCommitted(partitionStorage, rowId1, null, CLOCK.now());
+            addWriteCommitted(partitionStorage, rowId0, null, clock.now());
+            addWriteCommitted(partitionStorage, rowId1, null, clock.now());
 
             runRace(
                     () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2, true),
@@ -181,15 +181,15 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         BinaryRow row3 = binaryRow(new TestKey(3, "key3"), new TestValue(3, "value3"));
 
         for (int i = 0; i < REPEATS; i++) {
-            addWriteCommitted(partitionStorage, rowId0, row0, CLOCK.now());
-            addWriteCommitted(partitionStorage, rowId1, row1, CLOCK.now());
-            addWriteCommitted(partitionStorage, rowId2, row2, CLOCK.now());
-            addWriteCommitted(partitionStorage, rowId3, row3, CLOCK.now());
+            addWriteCommitted(partitionStorage, rowId0, row0, clock.now());
+            addWriteCommitted(partitionStorage, rowId1, row1, clock.now());
+            addWriteCommitted(partitionStorage, rowId2, row2, clock.now());
+            addWriteCommitted(partitionStorage, rowId3, row3, clock.now());
 
-            addWriteCommitted(partitionStorage, rowId0, null, CLOCK.now());
-            addWriteCommitted(partitionStorage, rowId1, null, CLOCK.now());
-            addWriteCommitted(partitionStorage, rowId2, null, CLOCK.now());
-            addWriteCommitted(partitionStorage, rowId3, null, CLOCK.now());
+            addWriteCommitted(partitionStorage, rowId0, null, clock.now());
+            addWriteCommitted(partitionStorage, rowId1, null, clock.now());
+            addWriteCommitted(partitionStorage, rowId2, null, clock.now());
+            addWriteCommitted(partitionStorage, rowId3, null, clock.now());
 
             runRace(
                     () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 4, false),
@@ -222,7 +222,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
 
         BinaryRow row = binaryRow(new TestKey(0, "key"), new TestValue(0, "value"));
 
-        HybridTimestamp timestamp = CLOCK.now();
+        HybridTimestamp timestamp = clock.now();
 
         for (int i = 0; i < numPartitions; i++) {
             TestPartitionDataStorage storage = partitionStorages.get(i);

@@ -68,7 +68,7 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
                 null,
                 mock(FailureProcessor.class),
                 mock(LogSyncer.class),
-                CLOCK
+                clock
         );
 
         engine.start();

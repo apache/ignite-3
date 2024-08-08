@@ -133,7 +133,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     }
 
     protected HybridTimestamp addAndCommit(@Nullable BinaryRow binaryRow) {
-        HybridTimestamp commitTs = CLOCK.now();
+        HybridTimestamp commitTs = clock.now();
 
         addWrite(ROW_ID, binaryRow, newTransactionId());
         commitWrite(ROW_ID, commitTs);
