@@ -449,7 +449,7 @@ public class PartitionReplicaLifecycleManager  extends
                     busyLock
                     ).thenCompose(unused ->
                             fireEvent(
-                                    PartitionReplicaLifecycleEvent.REPLICA_STARTED,
+                                    PartitionReplicaLifecycleEvent.AFTER_REPLICA_STARTED,
                                     new PartitionReplicaLifecycleEventParameters(revision, zoneDescriptor)
                             ))
                     .thenApply(ignored -> null);

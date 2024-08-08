@@ -20,5 +20,9 @@ public class PartitionReplicaLifecycleEventParameters extends CausalEventParamet
     public CatalogZoneDescriptor zoneDescriptor() {
         return zoneDescriptor;
     }
+
+    public int partitionId() {
+        throw new UnsupportedOperationException();
+    }
 }
 

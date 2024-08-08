@@ -388,6 +388,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     private byte @Nullable [] readLastAppliedIndexAndTerm(ReadOptions readOptions) {
         try {
             return sharedStorage.db().get(readOptions, lastAppliedIndexAndTermKey);
+        } catch (NullPointerException ex) {
+            System.out.println((sharedStorage == null) + " " + (sharedStorage.db() == null));
+            throw ex;
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,

@@ -193,8 +193,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -586,6 +586,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         Node node0 = getNode(0);
 
+        placementDriver.setPrimary(node0.clusterService.topologyService().localMember());
+
         createZone(node0, "test_zone", 1, 3);
         createTable(node0, "test_zone", "test_table");
 
@@ -609,6 +611,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         Node node2 = startNode(testInfo, 2);
 
         assertTrue(waitForCondition(() -> node2.replicaManager.isReplicaStarted(partId), 10_000L));
+        Thread.sleep(10000);
+        System.out.println(node2.replicaManager.replica(partId).get());
     }
 
     @Test
