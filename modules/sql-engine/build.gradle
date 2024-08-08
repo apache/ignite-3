@@ -106,6 +106,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-table')))
     testImplementation(testFixtures(project(':ignite-transactions')))
     testImplementation(testFixtures(project(':ignite-low-watermark')))
+    testImplementation(testFixtures(project(':ignite-metrics')))
 
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
