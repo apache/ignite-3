@@ -65,11 +65,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -294,7 +293,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
-        when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any(), any()))
+        when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
         when(replicaMgr.weakStartReplica(any(), any(), any())).thenAnswer(inv -> {
@@ -310,10 +309,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
-        partitionOperationsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        partitionOperationsExecutor = Executors.newFixedThreadPool(
+                5,
                 IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE)
         );
     }

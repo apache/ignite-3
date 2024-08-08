@@ -81,7 +81,7 @@ public class ClientTableCommon {
 
             packer.packInt(7);
             packer.packString(col.name());
-            packer.packInt(getColumnType(col.type().spec()).ordinal());
+            packer.packInt(getColumnType(col.type().spec()).id());
             packer.packInt(col.positionInKey());
             packer.packBoolean(col.nullable());
             packer.packInt(col.positionInColocation());

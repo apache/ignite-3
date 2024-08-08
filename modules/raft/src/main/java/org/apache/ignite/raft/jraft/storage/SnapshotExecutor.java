@@ -43,6 +43,12 @@ public interface SnapshotExecutor extends Lifecycle<SnapshotExecutorOptions>, De
     void doSnapshot(final Closure done);
 
     /**
+     * Returns the last snapshot index.
+     * @return
+     */
+    long getLastSnapshotIndex();
+
+    /**
      * Install snapshot according to the very RPC from leader After the installing succeeds (StateMachine is reset with
      * the snapshot) or fails, done will be called to respond Errors: - Term mismatches: which happens
      * interrupt_downloading_snapshot was called before install_snapshot, indicating that this RPC was issued by the old

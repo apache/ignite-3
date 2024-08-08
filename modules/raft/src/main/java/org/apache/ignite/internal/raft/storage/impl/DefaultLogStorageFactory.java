@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -61,8 +60,8 @@ import org.rocksdb.util.SizeUnit;
 public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
 
-    /** Function to get path to the log storage. */
-    private final Supplier<Path> logPathSupplier;
+    /** Path to the log storage. */
+    private final Path logPath;
 
     /** Executor for shared storages. */
     private final ExecutorService executorService;
@@ -99,16 +98,16 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @TestOnly
     public DefaultLogStorageFactory(Path path) {
-        this("test", () -> path);
+        this("test", path);
     }
 
     /**
      * Constructor.
      *
-     * @param logPathSupplier Function to get path to the log storage.
+     * @param logPath Function to get path to the log storage.
      */
-    public DefaultLogStorageFactory(String nodeName, Supplier<Path> logPathSupplier) {
-        this.logPathSupplier = logPathSupplier;
+    public DefaultLogStorageFactory(String nodeName, Path logPath) {
+        this.logPath = logPath;
 
         executorService = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
@@ -127,8 +126,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     private void start() {
-        Path logPath = logPathSupplier.get();
-
         try {
             Files.createDirectories(logPath);
         } catch (IOException e) {
@@ -202,7 +199,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     @Override
     public void sync() throws RocksDBException {
-        db.syncWal();
+        if (!dbOptions.useFsync()) {
+            db.syncWal();
+        }
     }
 
     /**

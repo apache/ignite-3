@@ -267,7 +267,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17373 Interval type support.
-    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION", "NUMBER", "BITMASK"}, mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void testIsNull(ColumnType columnType) {
         NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 3, 3, 0);
 
@@ -338,7 +338,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
     private static Set<ColumnType> columnTypes() {
         // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-15200
-        return EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION, ColumnType.NUMBER, ColumnType.BITMASK));
+        return EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION));
     }
 
     private List<ColumnType> shuffledColumnTypes() {

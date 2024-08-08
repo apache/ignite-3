@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -48,10 +46,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -110,9 +108,6 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -182,9 +177,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    cmgConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    new ClusterIdHolder()
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -205,9 +200,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                    metaStorageConfiguration
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();

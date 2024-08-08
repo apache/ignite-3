@@ -286,7 +286,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
-        when(replicaMgr.startReplica(any(), any(), any(), any(), any(PendingComparableValuesTracker.class), any()))
+        when(replicaMgr.startReplica(any(), any(), any(), any(PendingComparableValuesTracker.class), any()))
                 .thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
         when(replicaMgr.weakStartReplica(any(), any(), any())).thenReturn(trueCompletedFuture());
@@ -321,6 +321,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
+        dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule, clock);
+
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -334,7 +336,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule, clock),
+                dsm,
                 workDir,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
@@ -364,7 +366,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         lowWatermark,
                         ForkJoinPool.commonPool(),
                         mock(ScheduledExecutorService.class),
-                        partitionOperationsExecutor
+                        partitionOperationsExecutor,
+                        clockService,
+                        placementDriver
                 )
         ) {
 

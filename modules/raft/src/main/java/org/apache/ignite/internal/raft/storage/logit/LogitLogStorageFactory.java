@@ -23,7 +23,6 @@ import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -53,17 +52,17 @@ public class LogitLogStorageFactory implements LogStorageFactory {
 
     private final StoreOptions storeOptions;
 
-    /** Function to get base location of all log storages, created by this factory. */
-    private final Supplier<Path> logPathSupplier;
+    /** Base location of all log storages. */
+    private final Path logPath;
 
     /**
      * Constructor.
      *
-     * @param logPathSupplier Function to get base path of all log storages, created by this factory.
+     * @param logPath Function to get base path of all log storages, created by this factory.
      * @param storeOptions Logit log storage options.
      */
-    public LogitLogStorageFactory(String nodeName, StoreOptions storeOptions, Supplier<Path> logPathSupplier) {
-        this.logPathSupplier = logPathSupplier;
+    public LogitLogStorageFactory(String nodeName, StoreOptions storeOptions, Path logPath) {
+        this.logPath = logPath;
         this.storeOptions = storeOptions;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "logit-checkpoint-executor", LOG)
@@ -108,6 +107,6 @@ public class LogitLogStorageFactory implements LogStorageFactory {
 
     /** Returns path to log storage by group ID. */
     public Path resolveLogStoragePath(String groupId) {
-        return logPathSupplier.get().resolve(LOG_DIR_PREFIX + groupId);
+        return logPath.resolve(LOG_DIR_PREFIX + groupId);
     }
 }

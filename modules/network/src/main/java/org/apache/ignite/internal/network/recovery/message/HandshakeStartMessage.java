@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
+import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.message.ClusterNodeMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Handshake start message, contains info about the node.
@@ -29,4 +31,8 @@ import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 public interface HandshakeStartMessage extends InternalMessage {
     /** Returns the server node that sends this. */
     ClusterNodeMessage serverNode();
+
+    /** ID of the cluster to which the server node belongs ({@code null} if it's not initialized yet. */
+    @Nullable
+    UUID serverClusterId();
 }

@@ -92,9 +92,7 @@ public class TestServer implements AutoCloseable {
 
     private final AuthenticationManager authenticationManager;
 
-    private final Ignite ignite;
-
-    private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
+    private final FakeIgnite ignite;
 
     /**
      * Constructor.
@@ -104,7 +102,7 @@ public class TestServer implements AutoCloseable {
      */
     public TestServer(
             long idleTimeout,
-            Ignite ignite
+            FakeIgnite ignite
     ) {
         this(
                 idleTimeout,
@@ -123,7 +121,7 @@ public class TestServer implements AutoCloseable {
      */
     public TestServer(
             long idleTimeout,
-            Ignite ignite,
+            FakeIgnite ignite,
             @Nullable Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
@@ -153,7 +151,7 @@ public class TestServer implements AutoCloseable {
      */
     public TestServer(
             long idleTimeout,
-            Ignite ignite,
+            FakeIgnite ignite,
             @Nullable Function<Integer, Boolean> shouldDropConnection,
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
@@ -234,10 +232,10 @@ public class TestServer implements AutoCloseable {
                 metrics,
                 authenticationManager,
                 clock,
-                placementDriver,
+                ignite.placementDriver(),
                 clientConnectorConfiguration)
                 : new ClientHandlerModule(
-                        ((FakeIgnite) ignite).queryEngine(),
+                        ignite.queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
                         (IgniteTransactionsImpl) ignite.transactions(),
                         (IgniteComputeInternal) ignite.compute(),
@@ -250,7 +248,7 @@ public class TestServer implements AutoCloseable {
                         new TestClockService(clock),
                         new AlwaysSyncedSchemaSyncService(),
                         new FakeCatalogService(FakeInternalTable.PARTITIONS),
-                        placementDriver,
+                        ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark()
                 );
@@ -317,7 +315,7 @@ public class TestServer implements AutoCloseable {
      * @return Placement driver.
      */
     public FakePlacementDriver placementDriver() {
-        return placementDriver;
+        return ignite.placementDriver();
     }
 
     /** {@inheritDoc} */

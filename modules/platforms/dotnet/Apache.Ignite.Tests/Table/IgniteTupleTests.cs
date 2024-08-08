@@ -19,7 +19,9 @@ namespace Apache.Ignite.Tests.Table
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using Ignite.Table;
+    using NodaTime;
     using NUnit.Framework;
 
     /// <summary>
@@ -133,9 +135,13 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestEquality()
         {
-            var t1 = CreateTuple(new IgniteTuple(2) { ["k"] = 1, ["v"] = "2" });
-            var t2 = CreateTuple(new IgniteTuple(3) { ["k"] = 1, ["v"] = "2" });
-            var t3 = CreateTuple(new IgniteTuple(4) { ["k"] = 1, ["v"] = null });
+            var guid = Guid.NewGuid();
+
+            var t1 = CreateTuple(new IgniteTuple(2) { ["k"] = 1, ["v"] = "2", ["v2"] = guid });
+            var t2 = CreateTuple(new IgniteTuple(3) { ["K"] = 1, ["V"] = "2", ["V2"] = guid });
+            var t3 = CreateTuple(new IgniteTuple(4) { ["k"] = 1, ["v"] = null, ["v2"] = guid });
+            var t4 = CreateTuple(new IgniteTuple(5) { ["v"] = "2", ["k"] = 1, ["V2"] = guid });
+            var t5 = CreateTuple(new IgniteTuple(6) { ["v"] = "2", ["k"] = 1, ["v2"] = guid, ["v3"] = 1 });
 
             Assert.AreEqual(t1, t2);
             Assert.AreEqual(t2, t1);
@@ -146,6 +152,58 @@ namespace Apache.Ignite.Tests.Table
 
             Assert.AreNotEqual(t2, t3);
             Assert.AreNotEqual(t2.GetHashCode(), t3.GetHashCode());
+
+            Assert.AreEqual(t1, t4);
+            Assert.AreEqual(t2, t4);
+            Assert.AreEqual(t2.GetHashCode(), t4.GetHashCode());
+
+            Assert.AreNotEqual(t4, t5);
+            Assert.AreNotEqual(t4.GetHashCode(), t5.GetHashCode());
+        }
+
+        [Test]
+        public void TestTupleEqualityDifferentColumnOrder()
+        {
+            var randomBytes = new byte[100];
+            Random.Shared.NextBytes(randomBytes);
+
+            var data = new Dictionary<string, object?>
+            {
+                { "nil", null },
+                { "int", Random.Shared.Next() },
+                { "short", (short)Random.Shared.Next() },
+                { "sbyte", (sbyte)Random.Shared.Next() },
+                { "long", Random.Shared.NextInt64() },
+                { "dbl", Random.Shared.NextDouble() },
+                { "flt", Random.Shared.NextSingle() },
+                { "bytes", randomBytes },
+                { "str", "s-" + Random.Shared.Next() },
+                { "guid", Guid.NewGuid() },
+                { "dt", LocalDateTime.FromDateTime(DateTime.UtcNow) },
+                { "bool", Random.Shared.Next() % 2 == 0 },
+                { "dec", (decimal)Random.Shared.NextDouble() }
+            };
+
+            var tuple1 = CreateTuple(GetRandomizedTuple());
+            var tuple2 = CreateTuple(GetRandomizedTuple());
+
+            Assert.AreEqual(tuple1, tuple2);
+            Assert.AreEqual(tuple1.GetHashCode(), tuple2.GetHashCode());
+            Assert.AreNotEqual(tuple1.ToString(), tuple2.ToString());
+
+            IgniteTuple GetRandomizedTuple() =>
+                data
+                    .OrderBy(_ => Random.Shared.Next())
+                    .Aggregate(new IgniteTuple(), (tuple, pair) =>
+                    {
+                        var name = Random.Shared.Next() % 2 == 0
+                            ? pair.Key.ToUpperInvariant()
+                            : pair.Key.ToLowerInvariant();
+
+                        tuple[name] = pair.Value;
+
+                        return tuple;
+                    });
         }
 
         [Test]

@@ -271,13 +271,13 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                         "rest",
                         "clientConnector",
                         "network",
-                        "cluster",
                         "deployment",
                         "nodeAttributes",
                         "storage",
                         "criticalWorkers",
                         "sql",
-                        "failureHandler"
+                        "failureHandler",
+                        "system"
                 )
         );
     }

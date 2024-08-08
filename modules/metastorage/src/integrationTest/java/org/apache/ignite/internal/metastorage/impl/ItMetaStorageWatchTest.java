@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -50,10 +48,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -170,9 +168,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    cmgConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    new ClusterIdHolder()
             );
 
             components.add(cmgManager);
@@ -195,9 +193,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                    metaStorageConfiguration
             );
 
             components.add(metaStorageManager);
@@ -228,9 +224,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration cmgConfiguration;
 
     private final List<Node> nodes = new ArrayList<>();
 

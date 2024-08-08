@@ -31,12 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -46,6 +48,7 @@ import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -494,6 +497,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
             IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
             assertNull(index, "Index should not be available");
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK"), indexes.keySet());
         }
 
         makeIndexAvailable("VAL1_IDX");
@@ -516,6 +522,10 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertThat(index.collation(), equalTo(RelCollations.of(
                     new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
             )));
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK", "VAL1_IDX"), indexes.keySet());
+            assertSame(index, indexes.get("VAL1_IDX"), "VAL1_IDX cache entry");
         }
     }
 
@@ -545,6 +555,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
             IgniteIndex index2 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
             assertNull(index2);
+
+            Map<String, IgniteIndex> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK"), indexes.keySet());
         }
 
         makeIndexAvailable("IDX1");
@@ -568,6 +581,10 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                     new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),
                     new RelFieldCollation(2, Direction.ASCENDING, NullDirection.LAST)
             )));
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK", "IDX1"), indexes.keySet());
+            assertSame(index, indexes.get("IDX1"), "IDX1 cache entry");
         }
 
         makeIndexAvailable("IDX2");
@@ -591,7 +608,19 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                     new RelFieldCollation(1, Direction.DESCENDING, NullDirection.FIRST),
                     new RelFieldCollation(2, Direction.DESCENDING, NullDirection.LAST)
             )));
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK", "IDX1", "IDX2"), indexes.keySet());
+            assertSame(index, indexes.get("IDX2"), "IDX2 cache entry");
         }
+    }
+
+    private Map<String, IgniteIndex> findTableIndexes(int catalogVersion, String schemaName, String tableName) {
+        Catalog catalog = catalogManager.catalog(catalogVersion);
+        CatalogTableDescriptor table = catalog.schema(schemaName).table(tableName);
+
+        IgniteTable igniteTable = sqlSchemaManager.table(catalogVersion, table.id());
+        return igniteTable.indexes();
     }
 
     private void makeIndexAvailable(String name) {

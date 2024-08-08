@@ -316,6 +316,25 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
+        /// Gets active sockets.
+        /// </summary>
+        /// <returns>Active sockets.</returns>
+        internal IEnumerable<ClientSocket> GetSockets()
+        {
+            var res = new List<ClientSocket>(_endpoints.Count);
+
+            foreach (var endpoint in _endpoints)
+            {
+                if (endpoint.Socket is { IsDisposed: false })
+                {
+                    res.Add(endpoint.Socket);
+                }
+            }
+
+            return res;
+        }
+
+        /// <summary>
         /// Gets a socket. Reconnects if necessary.
         /// </summary>
         /// <param name="preferredNode">Preferred node.</param>

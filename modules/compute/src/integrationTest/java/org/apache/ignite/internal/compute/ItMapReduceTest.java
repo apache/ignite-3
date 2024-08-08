@@ -36,7 +36,9 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.time.Instant;
 import java.util.List;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -68,9 +70,9 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(
-                List.of(), InteractiveTasks.GlobalApi.name(), null
-        );
+        IgniteCompute igniteCompute = entryNode.compute();
+        TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
+                TaskDescriptor.<Object, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null);
         TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
@@ -181,9 +183,9 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteImpl entryNode = CLUSTER.node(0);
 
         // Given running task.
-        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(
-                List.of(), InteractiveTasks.GlobalApi.name(), null
-        );
+        IgniteCompute igniteCompute = entryNode.compute();
+        TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
+                TaskDescriptor.<Object, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null);
         TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
@@ -240,9 +242,9 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
         // Given running task.
         String arg = cooperativeCancel ? "NO_INTERRUPT" : null;
-        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(
-                List.of(), InteractiveTasks.GlobalApi.name(), arg
-        );
+        IgniteCompute igniteCompute = entryNode.compute();
+        TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
+                TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), arg);
         TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
@@ -273,7 +275,9 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
     }
 
     private static TaskExecution<List<String>> startTask(IgniteImpl entryNode, String args) throws InterruptedException {
-        TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(List.of(), InteractiveTasks.GlobalApi.name(), args);
+        IgniteCompute igniteCompute = entryNode.compute();
+        TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
+                TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), args);
         new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution)).assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
         return taskExecution;

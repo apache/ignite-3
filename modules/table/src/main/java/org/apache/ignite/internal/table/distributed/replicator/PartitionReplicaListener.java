@@ -1189,10 +1189,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Closes a cursor if the batch is not fully retrieved.
      *
      * @param batchSize Requested batch size.
-     * @param rows List of retrieved rows.
+     * @param rows List of retrieved batch items.
      * @param cursorId Cursor id.
      */
-    private ArrayList<BinaryRow> closeCursorIfBatchNotFull(ArrayList<BinaryRow> rows, int batchSize, FullyQualifiedResourceId cursorId) {
+    private <T> ArrayList<T> closeCursorIfBatchNotFull(ArrayList<T> rows, int batchSize, FullyQualifiedResourceId cursorId) {
         if (rows.size() < batchSize) {
             try {
                 remotelyTriggeredResourceRegistry.close(cursorId);
