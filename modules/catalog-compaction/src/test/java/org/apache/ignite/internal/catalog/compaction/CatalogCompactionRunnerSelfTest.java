@@ -324,10 +324,10 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 logicalNodes
         );
 
-        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFuture.failedFuture(new ArithmeticException()));
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.failedFuture(new ArithmeticException()));
         assertThat(compactor.triggerCompaction(clockService.now()), willThrow(ArithmeticException.class));
 
-        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFutures.nullCompletedFuture());
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFutures.nullCompletedFuture());
         assertThat(compactor.triggerCompaction(clockService.now()), willThrow(IllegalStateException.class));
     }
 
@@ -375,7 +375,7 @@ public class CatalogCompactionRunnerSelfTest extends BaseIgniteAbstractTest {
                 .collect(Collectors.toSet());
 
         TokenizedAssignmentsImpl tokenizedAssignments = new TokenizedAssignmentsImpl(assignments, Long.MAX_VALUE);
-        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFuture.completedFuture(tokenizedAssignments));
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.completedFuture(tokenizedAssignments));
 
         LogicalTopologySnapshot logicalTop = new LogicalTopologySnapshot(1, topology);
 
