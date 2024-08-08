@@ -30,7 +30,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.FeatureChecker;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
@@ -54,7 +53,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     private final StoreOptions storeOptions;
 
     /** Base location of all log storages. */
-    private final LazyPath logPath;
+    private final Path logPath;
 
     /**
      * Constructor.
@@ -62,7 +61,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
      * @param logPath Function to get base path of all log storages, created by this factory.
      * @param storeOptions Logit log storage options.
      */
-    public LogitLogStorageFactory(String nodeName, StoreOptions storeOptions, LazyPath logPath) {
+    public LogitLogStorageFactory(String nodeName, StoreOptions storeOptions, Path logPath) {
         this.logPath = logPath;
         this.storeOptions = storeOptions;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
@@ -108,6 +107,6 @@ public class LogitLogStorageFactory implements LogStorageFactory {
 
     /** Returns path to log storage by group ID. */
     public Path resolveLogStoragePath(String groupId) {
-        return logPath.get().resolve(LOG_DIR_PREFIX + groupId);
+        return logPath.resolve(LOG_DIR_PREFIX + groupId);
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.network.messages;
 
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -40,6 +41,11 @@ public interface CmgInitMessage extends NetworkMessage {
      * Name of the cluster that will be a part of the generated cluster tag.
      */
     String clusterName();
+
+    /**
+     * ID of the cluster.
+     */
+    UUID clusterId();
 
     /**
      * Cluster configuration that should be applied after init.

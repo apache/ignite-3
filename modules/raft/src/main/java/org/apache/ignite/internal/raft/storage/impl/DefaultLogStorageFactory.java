@@ -36,7 +36,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -61,8 +60,8 @@ import org.rocksdb.util.SizeUnit;
 public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
 
-    /** Function to get path to the log storage. */
-    private final LazyPath lazyLogPath;
+    /** Path to the log storage. */
+    private final Path logPath;
 
     /** Executor for shared storages. */
     private final ExecutorService executorService;
@@ -99,16 +98,16 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @TestOnly
     public DefaultLogStorageFactory(Path path) {
-        this("test", LazyPath.create(path));
+        this("test", path);
     }
 
     /**
      * Constructor.
      *
-     * @param lazyLogPath Function to get path to the log storage.
+     * @param logPath Function to get path to the log storage.
      */
-    public DefaultLogStorageFactory(String nodeName, LazyPath lazyLogPath) {
-        this.lazyLogPath = lazyLogPath;
+    public DefaultLogStorageFactory(String nodeName, Path logPath) {
+        this.logPath = logPath;
 
         executorService = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
@@ -127,8 +126,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     private void start() {
-        Path logPath = lazyLogPath.get();
-
         try {
             Files.createDirectories(logPath);
         } catch (IOException e) {

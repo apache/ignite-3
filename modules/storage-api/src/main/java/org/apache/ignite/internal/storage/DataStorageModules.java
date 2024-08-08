@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +30,6 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.util.LazyPath;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -84,7 +84,7 @@ public class DataStorageModules {
     public Map<String, StorageEngine> createStorageEngines(
             String igniteInstanceName,
             ConfigurationRegistry configRegistry,
-            LazyPath storagePath,
+            Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
             LogSyncer logSyncer,

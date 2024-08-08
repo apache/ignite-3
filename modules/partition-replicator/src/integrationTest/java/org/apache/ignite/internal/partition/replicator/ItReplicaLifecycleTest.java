@@ -77,10 +77,10 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -125,6 +125,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
@@ -179,7 +180,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -192,7 +192,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -221,9 +220,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static SystemLocalConfiguration systemConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration("mock.nodeAttributes: {region.attribute = US, storage.attribute = SSD}")
     private static NodeAttributesConfiguration nodeAttributes1;
@@ -422,6 +418,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22944")
     void testAlterReplicaTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -536,7 +533,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @RepeatedTest(100)
+    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22858")
     void testAlterFilterTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
@@ -907,10 +904,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
+            var clusterIdHolder = new ClusterIdHolder();
+
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
                     networkAddress.port(),
-                    finder
+                    finder,
+                    new InMemoryStaleIds(),
+                    clusterIdHolder
             );
 
             lockManager = new HeapLockManager();
@@ -949,9 +950,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributesConfigurations.get(idx), storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    clusterIdHolder
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -1052,7 +1053,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     dataStorageModules.createStorageEngines(
                             name,
                             nodeCfgMgr.configurationRegistry(),
-                            LazyPath.create(dir.resolve("storage")),
+                            dir.resolve("storage"),
                             null,
                             failureProcessor,
                             logSyncer,
@@ -1161,7 +1162,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
-                    LazyPath.create(storagePath),
+                    storagePath,
                     metaStorageManager,
                     schemaManager,
                     threadPoolsManager.tableIoExecutor(),

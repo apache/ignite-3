@@ -753,7 +753,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             return null;
         });
 
-        UUID txId2 = UUID.randomUUID();
+        UUID txId2 = newTransactionId();
 
         storage.runConsistently(locker -> {
             addWrite(rowId, binaryRow2, txId2);
@@ -934,8 +934,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void testReadingNothingByTxIdWithLowerRowId() {
         RowId higherRowId = new RowId(PARTITION_ID);
         RowId lowerRowId = decrement(higherRowId);
-
-        UUID txId = UUID.randomUUID();
 
         storage.runConsistently(locker -> {
             addWrite(higherRowId, binaryRow, txId);
@@ -1459,8 +1457,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     public void estimatedSizeNeverFallsBelowZeroUsingCommitWrite() {
         assertThat(storage.estimatedSize(), is(0L));
 
-        UUID txId = UUID.randomUUID();
-
         addWrite(ROW_ID, null, txId);
 
         assertThat(storage.estimatedSize(), is(0L));
@@ -1507,8 +1503,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
     @Test
     public void estimatedSizeIncreasedAfterTombstoneUsingCommiteWrite() {
-        UUID txId = UUID.randomUUID();
-
         addWrite(ROW_ID, binaryRow, txId);
         commitWrite(ROW_ID, clock.now());
 
@@ -1549,8 +1543,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         var rowId1 = new RowId(PARTITION_ID);
         var rowId2 = new RowId(PARTITION_ID);
-
-        UUID txId = UUID.randomUUID();
 
         addWrite(rowId1, binaryRow, txId);
         addWrite(rowId2, binaryRow, txId);

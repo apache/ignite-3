@@ -49,6 +49,7 @@ import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
@@ -84,6 +85,9 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final int PORT = 1000;
 
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
+
+    private static final UUID CORRECT_CLUSTER_ID = new UUID(11, 12);
+    private static final UUID WRONG_CLUSTER_ID = new UUID(13, 14);
 
     @Mock
     private Channel channel;
@@ -179,6 +183,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
                 recoveryDescriptorProvider,
                 () -> List.of(channel.eventLoop()),
                 new AllIdsAreFresh(),
+                new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
                 failureProcessor

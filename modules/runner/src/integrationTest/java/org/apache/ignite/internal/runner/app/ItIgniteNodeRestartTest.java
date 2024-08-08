@@ -96,10 +96,10 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterIdService;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -212,7 +212,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
@@ -263,9 +262,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static SystemLocalConfiguration systemConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -328,6 +324,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         VaultManager vault = createVault(dir);
 
+        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
+
+        var clusterIdService = new ClusterIdService(clusterStateStorage);
+
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
         Path configFile = workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME);
@@ -374,6 +374,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nettyBootstrapFactory,
                 defaultSerializationRegistry(),
                 new VaultStaleIds(vault),
+                clusterIdService,
                 workerRegistry,
                 failureProcessor
         );
@@ -395,8 +396,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
-
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var clusterInitializer = new ClusterInitializer(
@@ -412,10 +411,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
-                clusterManagementConfiguration,
                 new NodeAttributesCollector(nodeAttributes,
                         nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)),
-                failureProcessor
+                failureProcessor,
+                clusterIdService
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
@@ -594,13 +593,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         LogSyncer logSyncer = logStorageFactory;
 
-        LazyPath lazyStoragePath = LazyPath.create(storagePath);
-
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
                         nodeCfgMgr.configurationRegistry(),
-                        lazyStoragePath,
+                        storagePath,
                         null,
                         failureProcessor,
                         logSyncer,
@@ -662,7 +659,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaService,
                 txManager,
                 dataStorageManager,
-                lazyStoragePath,
+                storagePath,
                 metaStorageMgr,
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
@@ -747,11 +744,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager,
                 failureProcessor,
                 workerRegistry,
+                clusterStateStorage,
+                clusterIdService,
                 nettyBootstrapFactory,
                 nettyWorkersRegistrar,
                 clusterSvc,
                 raftMgr,
-                clusterStateStorage,
                 cmgManager,
                 replicaMgr,
                 txManager,

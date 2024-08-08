@@ -35,8 +35,9 @@ dependencies {
 }
 
 def tokens = [
-        LIB_DIR     : "/usr/lib",
-        INCLUDE_DIR : "/usr/include"
+        PRODUCT_NAME    : "ignite3-cpp-client",
+        LIB_DIR         : "/usr/lib",
+        INCLUDE_DIR     : "/usr/include"
 ]
 
 configurations {
@@ -52,7 +53,7 @@ artifacts {
 
 distributions {
     main {
-        distributionBaseName = 'ignite3-client'
+        distributionBaseName = tokens.PRODUCT_NAME
         contents {
             into('') {
                 from "$rootDir/LICENSE"
@@ -83,10 +84,10 @@ def signCppClientZip = tasks.register('signCppClientZip', Sign) {
 
 ospackage {
     license "ASL 2.0"
-    packageName "ignite3-client"
+    packageName tokens.PRODUCT_NAME
     packageGroup "Development/Libraries"
     url "https://ignite.apache.org"
-    packageDescription "This package will install Apache Ignite 3 client library"
+    packageDescription "This package will install Apache Ignite 3 client library for C++"
     os LINUX
 
     into(tokens.LIB_DIR) {

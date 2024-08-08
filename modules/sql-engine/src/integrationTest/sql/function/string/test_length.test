@@ -24,3 +24,8 @@ SELECT length(s || ' ' || 'a') FROM strings ORDER BY s NULLS LAST
 7
 NULL
 
+query T
+SELECT length(null)
+----
+NULL
+
