@@ -260,7 +260,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         var nodeId = new RaftNodeId(raftGroupId(), toStop.localPeers(raftGroupId()).get(0));
 
         // Get the path to that node's raft directory
-        Path serverDataPath = JraftServerImpl.getServerDataPath(workingDirs.get(stopIdx).metaPath().get(), nodeId);
+        Path serverDataPath = JraftServerImpl.getServerDataPath(workingDirs.get(stopIdx).metaPath(), nodeId);
 
         // Get the path to that node's RocksDB key-value storage
         Path dbPath = getListenerPersistencePath(getListener(toStop, raftGroupId()), toStop);
@@ -458,12 +458,11 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.startRaftNode(
                 new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.topologyService().localMember().name())),
                 initialMemberConf,
-                createListener(service, componentWorkDir.dbPath().get()),
+                createListener(service, componentWorkDir.dbPath()),
                 defaults()
                         .commandsMarshaller(commandsMarshaller(service))
                         .setLogStorageFactory(logStorageFactories.get(idx))
                         .serverDataPath(workingDirs.get(idx).metaPath())
-
         );
 
         return server;

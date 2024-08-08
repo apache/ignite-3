@@ -36,7 +36,6 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -70,7 +69,7 @@ public class LozaTest extends IgniteAbstractTest {
 
         LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
                 clusterNetSvc.nodeName(),
-                LazyPath.create(workDir.resolve("partitions/log"))
+                workDir.resolve("partitions/log")
         );
 
         assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());

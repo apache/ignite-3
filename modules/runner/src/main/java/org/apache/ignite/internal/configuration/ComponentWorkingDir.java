@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.apache.ignite.internal.util.LazyPath;
 
 /**
  * Working dir subtree structure representation for components.
@@ -40,41 +39,37 @@ public class ComponentWorkingDir {
      */
     private static final Path METADATA_PATH = Paths.get("meta");
 
-    private final LazyPath basePath;
-
-    public ComponentWorkingDir(LazyPath basePath) {
-        this.basePath = basePath;
-    }
+    private final Path basePath;
 
     public ComponentWorkingDir(Path basePath) {
-        this(LazyPath.create(basePath));
+        this.basePath = basePath;
     }
 
     /**
      * Returns base path for the component.
      */
-    public LazyPath basePath() {
+    public Path basePath() {
         return basePath;
     }
 
     /**
      * Returns metadata path for the component. A subdirectory in the base path.
      */
-    public LazyPath metaPath() {
-        return basePath.resolveLazy(METADATA_PATH);
+    public Path metaPath() {
+        return basePath.resolve(METADATA_PATH);
     }
 
     /**
      * Returns raft log path for the component. A subdirectory in the base path.
      */
-    public LazyPath raftLogPath() {
-        return basePath.resolveLazy(RAFT_LOG_PATH);
+    public Path raftLogPath() {
+        return basePath.resolve(RAFT_LOG_PATH);
     }
 
     /**
      * Returns storage path for the component. A subdirectory in the base path.
      */
-    public LazyPath dbPath() {
-        return basePath.resolveLazy(STORAGE_PATH);
+    public Path dbPath() {
+        return basePath.resolve(STORAGE_PATH);
     }
 }

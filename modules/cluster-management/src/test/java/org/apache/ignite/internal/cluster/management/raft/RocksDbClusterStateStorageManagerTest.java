@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import org.apache.ignite.internal.util.LazyPath;
-
 /**
  * Tests for {@link ClusterStateStorageManager} based on {@link RocksDbClusterStateStorage}.
  */
 public class RocksDbClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
     @Override
     ClusterStateStorage clusterStateStorage(String nodeName) {
-        return new RocksDbClusterStateStorage(LazyPath.create(workDir), nodeName);
+        return new RocksDbClusterStateStorage(workDir, nodeName);
     }
 }

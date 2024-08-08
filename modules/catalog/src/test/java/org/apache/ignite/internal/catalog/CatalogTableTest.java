@@ -171,6 +171,12 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertNotNull(desc);
         // INT32 key
         assertThat(desc.precision(), is(DEFAULT_PRECISION));
+
+        int key1ColIndex = schema.table(TABLE_NAME).columnIndex("key1");
+        assertEquals(0, key1ColIndex);
+
+        int key2ColIndex = schema.table(TABLE_NAME).columnIndex("key2");
+        assertEquals(1, key2ColIndex);
     }
 
     @Test
@@ -322,6 +328,9 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertEquals(11, column.length());
         assertEquals(DEFAULT_PRECISION, column.precision());
         assertEquals(DEFAULT_SCALE, column.scale());
+
+        int newColumnIndex = schema.table(TABLE_NAME).columnIndex(NEW_COLUMN_NAME);
+        assertEquals(6, newColumnIndex);
     }
 
     @Test

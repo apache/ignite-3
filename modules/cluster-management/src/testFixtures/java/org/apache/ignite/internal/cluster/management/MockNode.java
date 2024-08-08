@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -54,7 +53,6 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -85,7 +83,6 @@ public class MockNode {
             NodeFinder nodeFinder,
             Path workDir,
             RaftConfiguration raftConfiguration,
-            ClusterManagementConfiguration cmgConfiguration,
             NodeAttributesConfiguration nodeAttributes,
             StorageConfiguration storageProfilesConfiguration
     ) {
@@ -108,20 +105,20 @@ public class MockNode {
 
         LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 clusterService.nodeName(),
-                LazyPath.create(this.workDir.resolve("partitions/log"))
+                this.workDir.resolve("partitions/log")
         );
 
         var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
 
         var clusterStateStorage =
-                new RocksDbClusterStateStorage(LazyPath.create(this.workDir.resolve("cmg/data")), clusterService.nodeName());
+                new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.nodeName());
 
         FailureProcessor failureProcessor = new NoOpFailureProcessor();
 
         LogStorageFactory cmgLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(
                         clusterService.nodeName(),
-                        LazyPath.create(this.workDir.resolve("cmg/log"))
+                        this.workDir.resolve("cmg/log")
                 );
 
         RaftOptionsConfigurator cmgRaftConfigurator = options -> {
@@ -129,7 +126,7 @@ public class MockNode {
 
             // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
             raftOptions.setLogStorageFactory(cmgLogStorageFactory);
-            raftOptions.serverDataPath(LazyPath.create(this.workDir.resolve("cmg/meta")));
+            raftOptions.serverDataPath(this.workDir.resolve("cmg/meta"));
         };
 
         this.clusterManager = new ClusterManagementGroupManager(
@@ -139,7 +136,6 @@ public class MockNode {
                 raftManager,
                 clusterStateStorage,
                 new LogicalTopologyImpl(clusterStateStorage),
-                cmgConfiguration,
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureProcessor,
                 clusterIdHolder,

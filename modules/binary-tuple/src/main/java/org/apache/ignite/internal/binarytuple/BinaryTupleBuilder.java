@@ -20,10 +20,8 @@ package org.apache.ignite.internal.binarytuple;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
-import java.nio.charset.CoderResult;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class BinaryTupleBuilder {
     /** The buffer size allocated for values when we do not know anything better. */
-    private static final int DEFAULT_BUFFER_SIZE = 4000;
+    private static final int DEFAULT_BUFFER_SIZE = 1024;
 
     /** Current element. */
     private int elementIndex = 0;
@@ -692,26 +690,8 @@ public class BinaryTupleBuilder {
 
         int begin = buffer.position();
 
-        CharsetEncoder coder = encoder().reset();
-        CharBuffer input = CharBuffer.wrap(value);
-
-        CoderResult result = coder.encode(input, buffer, true);
-        while (result.isOverflow()) {
-            grow((int) coder.maxBytesPerChar());
-            result = coder.encode(input, buffer, true);
-        }
-
-        if (result.isUnderflow()) {
-            result = coder.flush(buffer);
-            while (result.isOverflow()) {
-                grow((int) coder.maxBytesPerChar());
-                result = coder.flush(buffer);
-            }
-        }
-
-        if (result.isError()) {
-            result.throwException();
-        }
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        putBytes(bytes);
 
         // UTF-8 encoded strings should not start with 0x80 (character codes larger than 127 have a multi-byte encoding).
         // We trust this but verify.

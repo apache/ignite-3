@@ -65,7 +65,6 @@ import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -441,11 +440,11 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setLogUri(nodeIdStr(nodeId));
 
-            LazyPath dataPath = groupOptions.serverDataPath();
+            Path dataPath = groupOptions.serverDataPath();
 
             assert dataPath != null : "Raft metadata path was not set.";
 
-            Path serverDataPath = getServerDataPath(dataPath.get(), nodeId);
+            Path serverDataPath = getServerDataPath(dataPath, nodeId);
 
             if (!groupOptions.volatileStores()) {
                 try {

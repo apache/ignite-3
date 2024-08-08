@@ -271,7 +271,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                         "rest",
                         "clientConnector",
                         "network",
-                        "cluster",
                         "deployment",
                         "nodeAttributes",
                         "storage",

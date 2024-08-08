@@ -163,7 +163,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -401,11 +400,11 @@ public class ItTxTestCluster {
             clocks.put(nodeName, clock);
             clockServices.put(nodeName, clockService);
 
-            LazyPath partitionsWorkDir = LazyPath.create(workDir.resolve("node" + i));
+            Path partitionsWorkDir = workDir.resolve("node" + i);
 
             LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
                     clusterService.nodeName(),
-                    partitionsWorkDir.resolveLazy("log")
+                    partitionsWorkDir.resolve("log")
             );
 
             logStorageFactories.put(nodeName, logStorageFactory);
@@ -417,7 +416,7 @@ public class ItTxTestCluster {
 
                 // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
                 raftOptions.setLogStorageFactory(logStorageFactory);
-                raftOptions.serverDataPath(partitionsWorkDir.resolveLazy("meta"));
+                raftOptions.serverDataPath(partitionsWorkDir.resolve("meta"));
             };
 
             raftConfigurators.put(nodeName, partitionRaftConfigurator);

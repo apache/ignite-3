@@ -290,14 +290,14 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         client2.snapshot(localPeer1).get();
 
         Path snapshotDir0 = JraftServerImpl.getServerDataPath(
-                serverWorkingDir.metaPath().get(),
+                serverWorkingDir.metaPath(),
                 new RaftNodeId(COUNTER_GROUP_0, localPeer0)
         ).resolve("snapshot");
 
         assertEquals(1L, countFiles(snapshotDir0));
 
         Path snapshotDir1 = JraftServerImpl.getServerDataPath(
-                serverWorkingDir.metaPath().get(),
+                serverWorkingDir.metaPath(),
                 new RaftNodeId(COUNTER_GROUP_1, localPeer1)
         ).resolve("snapshot");
 
@@ -736,7 +736,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         int serverIdx = servers.indexOf(server);
 
         return JraftServerImpl.getServerDataPath(
-                serverWorkingDirs.get(serverIdx).metaPath().get(),
+                serverWorkingDirs.get(serverIdx).metaPath(),
                 new RaftNodeId(groupId, peer)
         ).resolve("snapshot");
     }
@@ -823,7 +823,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         int stopIdx = servers.indexOf(toStop);
 
-        Path basePath = serverWorkingDirs.get(stopIdx).metaPath().get();
+        Path basePath = serverWorkingDirs.get(stopIdx).metaPath();
 
         Path serverDataPath0 = JraftServerImpl.getServerDataPath(basePath, raftNodeId0);
         Path serverDataPath1 = JraftServerImpl.getServerDataPath(basePath, raftNodeId1);

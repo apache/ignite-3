@@ -65,7 +65,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
@@ -441,11 +440,11 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 NodeOptions nodeOptions = new NodeOptions();
                 nodeOptions.setCommandsMarshaller(commandsMarshaller);
 
-                LazyPath workingDir = LazyPath.create(dataPath.resolve("partitions"));
+                Path workingDir = dataPath.resolve("partitions");
 
                 LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
                         cluster.nodeName(),
-                        workingDir.resolveLazy("log")
+                        workingDir.resolve("log")
                 );
 
                 logStorageFactories.put(addr, defaultLogStorageFactory);
@@ -466,7 +465,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                         RaftGroupOptions.defaults()
                                 .commandsMarshaller(commandsMarshaller)
                                 .setLogStorageFactory(defaultLogStorageFactory)
-                                .serverDataPath(workingDir.resolveLazy("meta"))
+                                .serverDataPath(workingDir.resolve("meta"))
                 );
 
                 raftServers.put(addr, raftServer);

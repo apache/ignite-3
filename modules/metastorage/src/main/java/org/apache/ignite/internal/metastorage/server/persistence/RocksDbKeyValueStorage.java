@@ -32,7 +32,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
-import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
+import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
@@ -94,11 +94,9 @@ import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.LazyPath;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.AbstractNativeReference;
@@ -161,7 +159,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private final ExecutorService snapshotExecutor;
 
     /** Path to the rocksdb database. */
-    private final LazyPath dbPath;
+    private final Path dbPath;
 
     /** RockDB options. */
     private volatile DBOptions options;
@@ -245,22 +243,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
      */
-    public RocksDbKeyValueStorage(String nodeName, LazyPath dbPath, FailureProcessor failureProcessor) {
+    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureProcessor failureProcessor) {
         this.dbPath = dbPath;
 
         this.watchProcessor = new WatchProcessor(nodeName, this::get, failureProcessor);
 
         this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param nodeName Node name.
-     * @param dbPath RocksDB path.
-     */
-    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureProcessor failureProcessor) {
-        this(nodeName, LazyPath.create(dbPath), failureProcessor);
     }
 
     @Override
@@ -338,7 +326,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         options = createDbOptions();
 
-        db = RocksDB.open(options, dbPath.get().toAbsolutePath().toString(), descriptors, handles);
+        db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
         rocksResources.add(db);
         rocksResources.addAll(handles);
 
@@ -380,11 +368,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      */
     protected void destroyRocksDb() throws IOException {
         // For unknown reasons, RocksDB#destroyDB(String, Options) throws RocksDBException with ".../LOCK: No such file or directory".
-        Path path = dbPath.get();
+        IgniteUtils.deleteIfExists(dbPath);
 
-        IgniteUtils.deleteIfExists(path);
-
-        Files.createDirectories(path);
+        Files.createDirectories(dbPath);
     }
 
     @Override
@@ -696,7 +682,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             Collection<Operation> ops = branch ? new ArrayList<>(success) : new ArrayList<>(failure);
 
             ops.add(Operations.put(
-                    new ByteArray(ArrayUtils.concat(IDEMPOTENT_COMMAND_PREFIX_BYTES, ByteUtils.toBytes(commandId))),
+                    new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
                     branch ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES)
             );
 
@@ -736,7 +722,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     Collection<Operation> ops = new ArrayList<>(update.operations());
 
                     ops.add(Operations.put(
-                            new ByteArray(ArrayUtils.concat(IDEMPOTENT_COMMAND_PREFIX_BYTES, ByteUtils.toBytes(commandId))),
+                            new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
                             update.result().result())
                     );
 
@@ -1577,7 +1563,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @TestOnly
     public Path getDbPath() {
-        return dbPath.get();
+        return dbPath;
     }
 
     private static class UpdatedEntries {

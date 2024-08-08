@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OP
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
 
+import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -36,10 +37,16 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
+import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
+import org.apache.ignite.rest.client.api.ClusterManagementApi;
+import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -67,6 +74,12 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
         private File file;
     }
 
+    @Inject
+    private Session session;
+
+    @Inject
+    private ApiClientFactory clientFactory;
+
     private static String extract(File file) {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
@@ -90,7 +103,19 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
                     .verbose(verbose)
                     .build().runPipeline();
         } catch (SQLException e) {
-            return new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);
+            String url = session.info() == null ? null : session.info().nodeUrl();
+
+            ExceptionWriter exceptionWriter = ExceptionWriter.fromPrintWriter(spec.commandLine().getErr());
+            try {
+                if (url != null) {
+                    new ClusterManagementApi(clientFactory.getClient(url)).clusterState();
+                }
+
+                return new SqlExceptionHandler().handle(exceptionWriter, e);
+            } catch (ApiException apiE) {
+                return new ClusterNotInitializedExceptionHandler("Failed to start sql repl mode", "cluster init")
+                        .handle(exceptionWriter, new IgniteCliApiException(apiE, url));
+            }
         }
     }
 }

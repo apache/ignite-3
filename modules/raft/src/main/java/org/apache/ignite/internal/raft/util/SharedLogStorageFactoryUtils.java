@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.raft.util;
 
+import java.nio.file.Path;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 
 /** Utility methods for creating {@link LogStorageFactory}is for the Shared Log. */
@@ -33,7 +33,7 @@ public class SharedLogStorageFactoryUtils {
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
 
     /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation. */
-    public static LogStorageFactory create(String nodeName, LazyPath lazyLogStoragePath) {
+    public static LogStorageFactory create(String nodeName, Path lazyLogStoragePath) {
         return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
                 ? new LogitLogStorageFactory(nodeName, new StoreOptions(), lazyLogStoragePath)
                 : new DefaultLogStorageFactory(nodeName, lazyLogStoragePath);
