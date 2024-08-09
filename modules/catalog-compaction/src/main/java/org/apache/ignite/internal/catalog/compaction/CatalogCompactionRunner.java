@@ -61,6 +61,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.ActiveLocalTxMinimumBeginTimeProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -117,6 +118,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final ReplicaService replicaService;
 
+    private final SchemaSyncService schemaSyncService;
+
     private CompletableFuture<Void> lastRunFuture = CompletableFutures.nullCompletedFuture();
 
     /**
@@ -139,11 +142,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
             PlacementDriver placementDriver,
             ReplicaService replicaService,
             ClockService clockService,
+            SchemaSyncService schemaSyncService,
             Executor executor,
             ActiveLocalTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider
     ) {
         this(localNodeName, catalogManager, messagingService, logicalTopologyService, placementDriver, replicaService, clockService,
-                executor, localActiveRwTxMinBeginTimeProvider, null);
+                schemaSyncService, executor, localActiveRwTxMinBeginTimeProvider, null);
     }
 
     /**
@@ -157,6 +161,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             PlacementDriver placementDriver,
             ReplicaService replicaService,
             ClockService clockService,
+            SchemaSyncService schemaSyncService,
             Executor executor,
             ActiveLocalTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider,
             @Nullable CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
@@ -166,6 +171,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.logicalTopologyService = logicalTopologyService;
         this.catalogManagerFacade = new CatalogManagerCompactionFacade(catalogManager);
         this.clockService = clockService;
+        this.schemaSyncService = schemaSyncService;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
         this.executor = executor;
@@ -407,18 +413,24 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     CompletableFuture<Void> propagateTimeToReplicas(long minActiveTxBeginTime) {
-        Map<Integer, Integer> tablesWithPartitions = catalogManagerFacade.collectTablesWithPartitionsBetween(
-                minActiveTxBeginTime,
-                clockService.nowLong()
-        );
+        HybridTimestamp nowTs = clockService.now();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22951 Method needs to be reworked to minimize the number of network requests
-        return invokeOnReplicas(
-                logicalTopologyService.localLogicalTopology().nodes().stream().map(LogicalNode::name).collect(Collectors.toSet()),
-                tablesWithPartitions.entrySet().iterator(),
-                minActiveTxBeginTime,
-                clockService.now()
-        );
+        return schemaSyncService.waitForMetadataCompleteness(nowTs)
+                .thenComposeAsync(ignore -> {
+                    Map<Integer, Integer> tablesWithPartitions = catalogManagerFacade.collectTablesWithPartitionsBetween(
+                            minActiveTxBeginTime,
+                            nowTs.longValue()
+                    );
+
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22951 Method needs to be reworked to minimize the number of network requests
+                    return invokeOnReplicas(
+                            logicalTopologyService.localLogicalTopology().nodes().stream().map(LogicalNode::name)
+                                    .collect(Collectors.toSet()),
+                            tablesWithPartitions.entrySet().iterator(),
+                            minActiveTxBeginTime,
+                            clockService.now()
+                    );
+                }, executor);
     }
 
     private CompletableFuture<Void> invokeOnReplicas(

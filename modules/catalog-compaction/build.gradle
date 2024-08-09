@@ -34,6 +34,7 @@ dependencies {
     implementation project(':ignite-replicator')
     implementation project(':ignite-partition-replicator')
     implementation project(':ignite-system-view-api')
+    implementation project(':ignite-table')
     implementation project(':ignite-transactions')
 
     implementation libs.jetbrains.annotations

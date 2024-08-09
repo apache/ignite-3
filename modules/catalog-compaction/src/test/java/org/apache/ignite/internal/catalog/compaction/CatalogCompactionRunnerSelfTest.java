@@ -80,6 +80,7 @@ import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
@@ -464,6 +465,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         logicalTopologyService = mock(LogicalTopologyService.class);
         placementDriver = mock(PlacementDriver.class);
         replicaService = mock(ReplicaService.class);
+        SchemaSyncService schemaSyncService = mock(SchemaSyncService.class);
 
         CatalogCompactionMessagesFactory messagesFactory = new CatalogCompactionMessagesFactory();
 
@@ -514,6 +516,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                             return null;
                         }));
 
+        when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(CompletableFutures.nullCompletedFuture());
+
         CatalogCompactionRunner runner = new CatalogCompactionRunner(
                 localNode.name(),
                 catalogManager,
@@ -522,6 +526,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 placementDriver,
                 replicaService,
                 clockService,
+                schemaSyncService,
                 ForkJoinPool.commonPool(),
                 () -> null,
                 () -> (Long) timeSupplier.apply(coordinator.name())

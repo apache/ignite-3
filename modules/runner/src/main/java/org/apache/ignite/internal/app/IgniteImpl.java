@@ -792,6 +792,7 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 replicaSvc,
                 clockService,
+                schemaSyncService,
                 threadPoolsManager.commonScheduler(),
                 indexNodeFinishedRwTransactionsChecker
         );
