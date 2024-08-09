@@ -83,6 +83,7 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -223,7 +224,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    @RepeatedTest(200)
     public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
         AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
 
@@ -235,7 +236,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
             return Cursor.fromBareIterator(entries.iterator());
         });
 
-        List<Pair<RaftServer, RaftGroupService>> raftServersRaftGroups = prepareJraftMetaStorages();
+        List<Pair<RaftServer, RaftGroupService>> raftServersRaftGroups = prepareJraftMetaStorages(replicatorStartedCounter,
+                replicatorStoppedCounter);
 
         List<RaftServer> raftServers = raftServersRaftGroups.stream().map(p -> p.key).collect(Collectors.toList());
 
@@ -369,7 +371,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         assertThat(resultFuture, willCompleteSuccessfully());
     }
 
-    private List<Pair<RaftServer, RaftGroupService>> prepareJraftMetaStorages() throws InterruptedException {
+    private List<Pair<RaftServer, RaftGroupService>> prepareJraftMetaStorages(AtomicInteger replicatorStartedCounter,
+            AtomicInteger replicatorStoppedCounter) throws InterruptedException {
         PeersAndLearners membersConfiguration = cluster.stream()
                 .map(ItMetaStorageRaftGroupTest::localMemberName)
                 .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
@@ -379,12 +382,18 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         var commandsMarshaller = new ThreadLocalOptimizedMarshaller(cluster.get(0).serializationRegistry());
 
         NodeOptions opt1 = new NodeOptions();
+        opt1.setReplicationStateListeners(
+                List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt1.setCommandsMarshaller(commandsMarshaller);
 
         NodeOptions opt2 = new NodeOptions();
+        opt2.setReplicationStateListeners(
+                List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt2.setCommandsMarshaller(commandsMarshaller);
 
         NodeOptions opt3 = new NodeOptions();
+        opt3.setReplicationStateListeners(
+                List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt3.setCommandsMarshaller(commandsMarshaller);
 
         metaStorageRaftSrv1 = TestJraftServerFactory.create(
