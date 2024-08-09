@@ -79,8 +79,11 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
             for (Assignment a : assignment.nodes()) {
                 long node = nodeNameToId.getOrDefault(a.consistentId(), -1);
-                assert node >= 0 : "invalid node";
-                partitionNodes[idx] |= node;
+
+                // TODO Ignore unknown node until IGNITE-22969
+                if (node != -1) {
+                    partitionNodes[idx] |= node;
+                }
             }
 
             enlistmentConsistencyTokens[idx] = assignment.token();
@@ -114,8 +117,11 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
         for (String name : nodes) {
             long node = nodeNameToId.getOrDefault(name, -1);
-            assert node >= 0 : "invalid node";
-            nodesMap |= node;
+
+            // TODO Ignore unknown node until IGNITE-22969
+            if (node != -1) {
+                nodesMap |= node;
+            }
         }
 
         return nodesMap;
