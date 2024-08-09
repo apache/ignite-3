@@ -484,8 +484,12 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     public void testFunctionArgsToNumericImplicitConversion() {
         assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(0).returns(new BigDecimal("0.0")).check();
         assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(1, 0, 0, ?, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.0")).returns(new BigDecimal("1.0")).check();
         assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
         assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
+        assertQuery("select decode(1, 0, 0, ?, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.00")).returns(new BigDecimal("1.00")).check();
         assertQuery("select decode(?, 0, 0.0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
         assertQuery("select decode(?, 0, 0.000, 1, 1.0)").withParams(1).returns(new BigDecimal("1.000")).check();
 
@@ -501,7 +505,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE tbl(id int PRIMARY KEY, val DECIMAL(32, 5))");
 
         assertQuery("SELECT DECIMAL '-123.0'").returns(new BigDecimal(("-123.0"))).check();
-        assertQuery("SELECT DECIMAL '10'").returns(new Integer(("10"))).check();
+        assertQuery("SELECT DECIMAL '10'").returns(Integer.valueOf("10")).check();
         assertQuery("SELECT DECIMAL '10.000'").returns(new BigDecimal(("10.000"))).check();
 
         assertQuery("SELECT DECIMAL '10.000' + DECIMAL '0.1'").returns(new BigDecimal(("10.100"))).check();
