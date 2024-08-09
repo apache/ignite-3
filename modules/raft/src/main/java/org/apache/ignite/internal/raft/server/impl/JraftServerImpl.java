@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.server.impl;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -269,7 +270,7 @@ public class JraftServerImpl implements RaftServer {
 
         requestExecutor = Executors.newFixedThreadPool(
                 opts.getRaftRpcThreadPoolSize(),
-                IgniteThreadFactory.create(opts.getServerName(), "JRaft-Request-Processor", LOG, STORAGE_READ, STORAGE_WRITE)
+                IgniteThreadFactory.create(opts.getServerName(), "JRaft-Request-Processor", LOG, PROCESS_RAFT_REQ)
         );
 
         rpcServer = new IgniteRpcServer(
