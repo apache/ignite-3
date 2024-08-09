@@ -35,6 +35,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -43,8 +44,11 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -83,6 +87,10 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      * Servers list.
      */
     protected final List<JraftServerImpl> servers = new ArrayList<>();
+
+    protected final List<LogStorageFactory> logStorageFactories = new ArrayList<>();
+
+    protected final List<ComponentWorkingDir> serverWorkingDirs = new ArrayList<>();
 
     protected final List<ClusterService> serverServices = new ArrayList<>();
 
@@ -158,6 +166,9 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         assertThat(IgniteUtils.stopAsync(new ComponentContext(), serverServices), willCompleteSuccessfully());
         serverServices.clear();
+
+        assertThat(IgniteUtils.stopAsync(new ComponentContext(), logStorageFactories), willCompleteSuccessfully());
+        logStorageFactories.clear();
     }
 
     /**
@@ -173,17 +184,31 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(PORT + idx, List.of(addr), true);
 
+        ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("node" + idx + "/partitions"));
+
+        serverWorkingDirs.add(workingDir);
+
+        LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                service.nodeName(),
+                workingDir.raftLogPath()
+        );
+
+        assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        logStorageFactories.add(defaultLogStorageFactory);
+
         NodeOptions opts = new NodeOptions();
 
         optionsUpdater.accept(opts);
 
-        JraftServerImpl server = jraftServer(idx, service, opts);
+        JraftServerImpl server = TestJraftServerFactory.create(service, opts);
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         clo.accept(server);
 
         servers.add(server);
+
         serverServices.add(service);
 
         assertTrue(waitForTopology(service, servers.size(), 15_000));

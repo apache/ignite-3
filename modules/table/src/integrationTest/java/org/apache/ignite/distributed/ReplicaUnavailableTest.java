@@ -199,6 +199,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
+                options -> {},
                 view -> new LocalLogStorageFactory(),
                 ForkJoinPool.commonPool()
         );

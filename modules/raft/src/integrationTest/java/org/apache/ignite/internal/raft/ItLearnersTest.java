@@ -48,6 +48,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -56,9 +57,12 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -89,9 +93,9 @@ public class ItLearnersTest extends IgniteAbstractTest {
     }
 
     private static final List<NetworkAddress> ADDRS = List.of(
-            new NetworkAddress("localhost", 5000),
             new NetworkAddress("localhost", 5001),
-            new NetworkAddress("localhost", 5002)
+            new NetworkAddress("localhost", 5002),
+            new NetworkAddress("localhost", 5003)
     );
 
     @InjectConfiguration
@@ -105,12 +109,23 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         final Loza loza;
 
+        final LogStorageFactory logStorageFactory;
+
+        ComponentWorkingDir partitionsWorkDir;
+
         RaftNode(ClusterService clusterService) {
             this.clusterService = clusterService;
 
             Path raftDir = workDir.resolve(clusterService.nodeName());
 
-            loza = TestLozaFactory.create(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
+            partitionsWorkDir = new ComponentWorkingDir(raftDir);
+
+            logStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    partitionsWorkDir.raftLogPath()
+            );
+
+            loza = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
         }
 
         String consistentId() {
@@ -122,7 +137,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(new ComponentContext(), clusterService, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, logStorageFactory, loza), willCompleteSuccessfully());
         }
 
         @Override
@@ -134,6 +149,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     loza == null ? null : loza::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
                     loza == null ? null : () -> assertThat(loza.stopAsync(componentContext), willCompleteSuccessfully()),
+                    logStorageFactory == null ? null : () -> logStorageFactory.stopAsync(componentContext),
                     clusterService == null ? null :
                             () -> assertThat(clusterService.stopAsync(componentContext), willCompleteSuccessfully())
             );
@@ -410,7 +426,14 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     new RaftNodeId(RAFT_GROUP_ID, serverPeer),
                     memberConfiguration,
                     listener,
-                    RaftGroupEventsListener.noopLsnr
+                    RaftGroupEventsListener.noopLsnr,
+                    options -> {
+                        RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+
+                        // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                        raftOptions.setLogStorageFactory(node.logStorageFactory);
+                        raftOptions.serverDataPath(node.partitionsWorkDir.metaPath());
+                    }
             );
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);

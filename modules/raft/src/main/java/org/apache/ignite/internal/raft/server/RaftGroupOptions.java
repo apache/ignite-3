@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import java.nio.file.Path;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -45,6 +46,9 @@ public class RaftGroupOptions {
 
     /** Marshaller to marshall/unmarshall commands. */
     private @Nullable Marshaller commandsMarshaller;
+
+    /** Path to store raft data. */
+    private @Nullable Path serverDataPath;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -170,4 +174,24 @@ public class RaftGroupOptions {
 
         return this;
     }
+
+    /**
+     * Returns path to store raft data.
+     */
+    public @Nullable Path serverDataPath() {
+        return serverDataPath;
+    }
+
+    /**
+     * Sets path to store raft data.
+     *
+     * @param serverDataPath Path
+     * @return This object.
+     */
+    public RaftGroupOptions serverDataPath(Path serverDataPath) {
+        this.serverDataPath = serverDataPath;
+
+        return this;
+    }
+
 }

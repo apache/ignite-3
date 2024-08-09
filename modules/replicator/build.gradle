@@ -46,6 +46,7 @@ dependencies {
     integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -68,8 +69,6 @@ dependencies {
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-cluster-management')
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22564 runner should not be in test fixtures
-    testFixturesImplementation project(':ignite-runner')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-configuration:'))

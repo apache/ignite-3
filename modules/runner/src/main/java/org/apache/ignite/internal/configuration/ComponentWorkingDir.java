@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-
 import java.nio.file.Path;
 import java.nio.file.Paths;
 

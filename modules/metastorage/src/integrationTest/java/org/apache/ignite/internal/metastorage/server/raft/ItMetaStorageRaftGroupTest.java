@@ -43,6 +43,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -64,9 +65,12 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -127,6 +131,12 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
     /** Cluster. */
     private final ArrayList<ClusterService> cluster = new ArrayList<>();
+
+    private LogStorageFactory logStorageFactory1;
+
+    private LogStorageFactory logStorageFactory2;
+
+    private LogStorageFactory logStorageFactory3;
 
     /** First meta storage raft server. */
     private RaftServer metaStorageRaftSrv1;
@@ -191,6 +201,18 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     @AfterEach
     public void afterTest() {
         ComponentContext componentContext = new ComponentContext();
+
+        if (logStorageFactory3 != null) {
+            assertThat(logStorageFactory3.stopAsync(componentContext), willCompleteSuccessfully());
+        }
+
+        if (logStorageFactory2 != null) {
+            assertThat(logStorageFactory2.stopAsync(componentContext), willCompleteSuccessfully());
+        }
+
+        if (logStorageFactory1 != null) {
+            assertThat(logStorageFactory1.stopAsync(componentContext), willCompleteSuccessfully());
+        }
 
         if (metaStorageRaftSrv3 != null) {
             metaStorageRaftSrv3.stopRaftNodes(MetastorageGroupId.INSTANCE);
@@ -381,60 +403,95 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt3.setCommandsMarshaller(commandsMarshaller);
 
+        ComponentWorkingDir workingDir1 = new ComponentWorkingDir(workDir.resolve("node1"));
+
+        logStorageFactory1 = SharedLogStorageFactoryUtils.create(
+                cluster.get(0).nodeName(),
+                workingDir1.raftLogPath()
+        );
+
         metaStorageRaftSrv1 = TestJraftServerFactory.create(
                 cluster.get(0),
-                workDir.resolve("node1"),
-                systemConfiguration,
                 opt1,
                 new RaftGroupEventsClientListener()
         );
 
+        ComponentWorkingDir workingDir2 = new ComponentWorkingDir(workDir.resolve("node2"));
+
+        logStorageFactory2 = SharedLogStorageFactoryUtils.create(
+                cluster.get(1).nodeName(),
+                workingDir2.raftLogPath()
+        );
+
         metaStorageRaftSrv2 = TestJraftServerFactory.create(
                 cluster.get(1),
-                workDir.resolve("node2"),
-                systemConfiguration,
                 opt2,
                 new RaftGroupEventsClientListener()
         );
 
+        ComponentWorkingDir workingDir3 = new ComponentWorkingDir(workDir.resolve("node3"));
+
+        logStorageFactory3 = SharedLogStorageFactoryUtils.create(
+                cluster.get(2).nodeName(),
+                workingDir3.raftLogPath()
+        );
+
         metaStorageRaftSrv3 = TestJraftServerFactory.create(
                 cluster.get(2),
-                workDir.resolve("node3"),
-                systemConfiguration,
                 opt3,
                 new RaftGroupEventsClientListener()
         );
 
         assertThat(
-                startAsync(new ComponentContext(), metaStorageRaftSrv1, metaStorageRaftSrv2, metaStorageRaftSrv3),
+                startAsync(
+                        new ComponentContext(),
+                        logStorageFactory1,
+                        logStorageFactory2,
+                        logStorageFactory3,
+                        metaStorageRaftSrv1,
+                        metaStorageRaftSrv2,
+                        metaStorageRaftSrv3
+                ),
                 willCompleteSuccessfully()
         );
 
         var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(0))));
 
+        RaftGroupOptions groupOptions1 = defaults();
+        groupOptions1.serverDataPath(workingDir1.metaPath());
+        groupOptions1.setLogStorageFactory(logStorageFactory1);
+
         metaStorageRaftSrv1.startRaftNode(
                 raftNodeId1,
                 membersConfiguration,
                 new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
-                defaults()
+                groupOptions1
         );
 
         var raftNodeId2 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(1))));
+
+        RaftGroupOptions groupOptions2 = defaults();
+        groupOptions2.serverDataPath(workingDir2.metaPath());
+        groupOptions2.setLogStorageFactory(logStorageFactory2);
 
         metaStorageRaftSrv2.startRaftNode(
                 raftNodeId2,
                 membersConfiguration,
                 new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
-                defaults()
+                groupOptions2
         );
 
         var raftNodeId3 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(2))));
+
+        RaftGroupOptions groupOptions3 = defaults();
+        groupOptions3.serverDataPath(workingDir3.metaPath());
+        groupOptions3.setLogStorageFactory(logStorageFactory3);
 
         metaStorageRaftSrv3.startRaftNode(
                 raftNodeId3,
                 membersConfiguration,
                 new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
-                defaults()
+                groupOptions3
         );
 
         metaStorageRaftGrpSvc1 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(

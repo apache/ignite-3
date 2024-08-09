@@ -43,6 +43,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -106,7 +107,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
-                clock
+                clock,
+                options -> {}
         );
     }
 
@@ -127,7 +129,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             KeyValueStorage storage,
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
             MetaStorageConfiguration configuration,
-            HybridClock clock
+            HybridClock clock,
+            RaftOptionsConfigurator raftOptionsConfigurator
     ) {
         super(
                 clusterService,
@@ -138,7 +141,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 clock,
                 raftServiceFactory,
                 new NoOpMetricManager(),
-                configuration
+                configuration,
+                raftOptionsConfigurator
         );
     }
 
@@ -173,6 +177,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                     any(),
                     listenerCaptor.capture(),
                     any(),
+                    any(),
                     any()
             )).thenReturn(completedFuture(raftGroupService));
 
@@ -180,6 +185,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                     any(),
                     any(),
                     listenerCaptor.capture(),
+                    any(),
                     any(),
                     any(),
                     any()
