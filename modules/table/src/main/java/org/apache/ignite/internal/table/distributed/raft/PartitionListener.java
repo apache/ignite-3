@@ -96,6 +96,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
+    /** Undefined value for {@link #minActiveTxBeginTime}. */
+    private static final long UNDEFINED_MIN_TX_TIME = 0L;
+
     /** Transaction manager. */
     private final TxManager txManager;
 
@@ -132,7 +135,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * Timestamp with minimum starting time among all active RW transactions in the cluster.
      * This timestamp is used to prevent the catalog from being dropped, which may be used when applying raft commands.
      */
-    private volatile long minActiveTxBeginTime = 0L;
+    private volatile long minActiveTxBeginTime = UNDEFINED_MIN_TX_TIME;
 
     /** Constructor. */
     public PartitionListener(
@@ -584,11 +587,18 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     /**
-     * Returns minimum starting time among all active RW transactions in the cluster.
+     * Returns minimum starting time among all active RW transactions in the cluster,
+     * or {@code null} if the value has not yet been set.
      */
     @TestOnly
-    public long minimumActiveTxBeginTime() {
-        return minActiveTxBeginTime;
+    public @Nullable Long minimumActiveTxBeginTime() {
+        long minActiveTxBeginTime0 = minActiveTxBeginTime;
+
+        if (minActiveTxBeginTime0 == UNDEFINED_MIN_TX_TIME) {
+            return null;
+        }
+
+        return minActiveTxBeginTime0;
     }
 
     /**

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -376,7 +376,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         List<LogicalNode> assignments = List.of(NODE3, NODE2, NODE1);
         CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
 
-        assertThat(compactor.propagateTimeToReplicas(catalog.time()), willCompleteSuccessfully());
+        assertThat(compactor.propagateTimeToReplicas(catalog.time(), logicalTopology), willCompleteSuccessfully());
 
         // All invocations must be made locally, since coordinator is present in assignments for all tables.
         verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
@@ -393,7 +393,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             List<LogicalNode> assignments = List.of(NODE3, NODE2, NODE1);
             CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
 
-            assertThat(compactor.propagateTimeToReplicas(catalog.time()), willCompleteSuccessfully());
+            assertThat(compactor.propagateTimeToReplicas(catalog.time(), logicalTopology), willCompleteSuccessfully());
             verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
             verify(replicaService, times(/* tables */ 3 * /* partitions */ 25)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
@@ -405,7 +405,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             List<LogicalNode> assignments = List.of(NODE3, NODE2);
             CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
 
-            assertThat(compactor.propagateTimeToReplicas(catalog.time()), willCompleteSuccessfully());
+            assertThat(compactor.propagateTimeToReplicas(catalog.time(), logicalTopology), willCompleteSuccessfully());
             verify(replicaService, times(0)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
             verify(replicaService, times(/* tables */ 3 * /* partitions */ 25)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
@@ -421,10 +421,10 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalTopology, assignments);
 
-        CompletableFuture<Void> fut = compactor.propagateTimeToReplicas(catalog.time());
+        CompletableFuture<Void> fut = compactor.propagateTimeToReplicas(catalog.time(), logicalTopology);
 
         //noinspection ThrowableNotThrown
-        assertThrowsWithCause(() -> await(fut), IllegalStateException.class, "Current topology doesn't include assignment nodes");
+        assertThrows(IllegalStateException.class, () -> await(fut), "Current topology doesn't include assignment nodes");
     }
 
     private Catalog prepareCatalogWithTables() {

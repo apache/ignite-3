@@ -27,8 +27,8 @@ public class CatalogCompactionMessageGroup {
     public static final short GROUP_TYPE = 14;
 
     /** See {@link CatalogCompactionMinimumTimesRequest} for the details. */
-    public static final short MINIMUM_REQUIRED_TIME_REQUEST = 0;
+    public static final short MINIMUM_TIMES_REQUEST = 0;
 
     /** See {@link CatalogCompactionMinimumTimesResponse} for the details. */
-    public static final short MINIMUM_REQUIRED_TIME_RESPONSE = 1;
+    public static final short MINIMUM_TIMES_RESPONSE = 1;
 }

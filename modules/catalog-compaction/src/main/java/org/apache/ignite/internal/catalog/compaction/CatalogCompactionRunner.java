@@ -114,7 +114,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final String localNodeName;
 
-    private final ActiveLocalTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider;
+    private final ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider;
 
     private final ReplicaService replicaService;
 
@@ -144,10 +144,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             Executor executor,
-            ActiveLocalTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider
+            ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider
     ) {
         this(localNodeName, catalogManager, messagingService, logicalTopologyService, placementDriver, replicaService, clockService,
-                schemaSyncService, executor, localActiveRwTxMinBeginTimeProvider, null);
+                schemaSyncService, executor, activeLocalTxMinimumBeginTimeProvider, null);
     }
 
     /**
@@ -163,7 +163,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             Executor executor,
-            ActiveLocalTxMinimumBeginTimeProvider localActiveRwTxMinBeginTimeProvider,
+            ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider,
             @Nullable CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
     ) {
         this.localNodeName = localNodeName;
@@ -175,7 +175,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
         this.executor = executor;
-        this.localActiveRwTxMinBeginTimeProvider = localActiveRwTxMinBeginTimeProvider;
+        this.activeLocalTxMinimumBeginTimeProvider = activeLocalTxMinimumBeginTimeProvider;
         this.localMinTimeProvider = localMinTimeProvider == null ? this::determineLocalMinimumRequiredTime : localMinTimeProvider;
     }
 
@@ -184,7 +184,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         messagingService.addMessageHandler(CatalogCompactionMessageGroup.class, (message, sender, correlationId) -> {
             assert message.groupType() == CatalogCompactionMessageGroup.GROUP_TYPE : message.groupType();
 
-            if (message.messageType() == CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST) {
+            if (message.messageType() == CatalogCompactionMessageGroup.MINIMUM_TIMES_REQUEST) {
                 assert correlationId != null;
 
                 CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
@@ -293,12 +293,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         });
                     }
 
-                    CompletableFuture<Void> propagateToReplicasFut = propagateTimeToReplicas(minActiveTxBeginTime)
-                            .whenComplete((res, ex) -> {
-                                if (ex != null) {
-                                    LOG.warn("Failed to propagate minimum active tx begin time to replicas", ex);
-                                }
-                            });
+                    CompletableFuture<Void> propagateToReplicasFut =
+                            propagateTimeToReplicas(minActiveTxBeginTime, topologySnapshot.nodes())
+                                    .whenComplete((res, ex) -> {
+                                        if (ex != null) {
+                                            LOG.warn("Failed to propagate minimum active tx begin time to replicas", ex);
+                                        }
+                                    });
 
                     return CompletableFuture.allOf(
                             catalogCompactionFut,
@@ -412,29 +413,30 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
-    CompletableFuture<Void> propagateTimeToReplicas(long minActiveTxBeginTime) {
+    CompletableFuture<Void> propagateTimeToReplicas(long timestamp, Collection<? extends ClusterNode> topologyNodes) {
         HybridTimestamp nowTs = clockService.now();
 
         return schemaSyncService.waitForMetadataCompleteness(nowTs)
                 .thenComposeAsync(ignore -> {
-                    Map<Integer, Integer> tablesWithPartitions = catalogManagerFacade.collectTablesWithPartitionsBetween(
-                            minActiveTxBeginTime,
-                            nowTs.longValue()
-                    );
+                    Map<Integer, Integer> tablesWithPartitions =
+                            catalogManagerFacade.collectTablesWithPartitionsBetween(timestamp, nowTs.longValue());
 
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-22951 Method needs to be reworked to minimize the number of network requests
+                    Set<String> topologyNodeNames = topologyNodes.stream()
+                            .map(ClusterNode::name)
+                            .collect(Collectors.toSet());
+
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22951 Minimize the number of network requests
                     return invokeOnReplicas(
-                            logicalTopologyService.localLogicalTopology().nodes().stream().map(LogicalNode::name)
-                                    .collect(Collectors.toSet()),
+                            topologyNodeNames,
                             tablesWithPartitions.entrySet().iterator(),
-                            minActiveTxBeginTime,
+                            timestamp,
                             clockService.now()
                     );
                 }, executor);
     }
 
     private CompletableFuture<Void> invokeOnReplicas(
-            Set<String> logicalNodes,
+            Set<String> logicalTopologyNodes,
             Iterator<Map.Entry<Integer, Integer>> tabItr,
             long txBeginTime,
             HybridTimestamp nowTs
@@ -466,11 +468,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             targetNodeName = localNodeName;
                         } else {
                             targetNodeName = assignments.stream()
-                                    .filter(logicalNodes::contains)
+                                    .filter(logicalTopologyNodes::contains)
                                     .findAny()
                                     .orElseThrow(() -> new IllegalStateException("Current topology doesn't include assignment nodes "
                                             + "(assignments=" + tokenizedAssignments.nodes()
-                                            + ", topology=" + logicalNodes
+                                            + ", topology=" + logicalTopologyNodes
                                             + ", replication group=" + replicationGroupId + ").")
                                     );
                         }
@@ -493,7 +495,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
 
         return CompletableFutures.allOf(partitionFutures)
-                .thenCompose(ignore -> invokeOnReplicas(logicalNodes, tabItr, txBeginTime, nowTs));
+                .thenCompose(ignore -> invokeOnReplicas(logicalTopologyNodes, tabItr, txBeginTime, nowTs));
     }
 
     private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
@@ -517,7 +519,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         HybridTimestamp beforeDetermineTxTime = clockService.now();
 
         return Objects.requireNonNullElse(
-                localActiveRwTxMinBeginTimeProvider.minimumBeginTime(),
+                activeLocalTxMinimumBeginTimeProvider.minimumBeginTime(),
                 beforeDetermineTxTime
         ).longValue();
     }
@@ -527,7 +529,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 + "(replication group=" + replicationGroupId + ").");
     }
 
-    /** Minimum required time supplier. */
+    /** Minimum required time provider. */
     @FunctionalInterface
     interface MinimumRequiredTimeProvider {
         /** Returns minimum required timestamp. */

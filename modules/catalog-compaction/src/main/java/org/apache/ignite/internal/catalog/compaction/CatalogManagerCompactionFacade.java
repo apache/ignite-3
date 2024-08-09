@@ -68,12 +68,18 @@ class CatalogManagerCompactionFacade {
         return tablesWithPartitions;
     }
 
-    @Nullable Catalog catalogByTsNullable(long ts) {
+    /**
+     * Returns the catalog version that is active at the given timestamp.
+     *
+     * @param timestamp Timestamp.
+     * @return Catalog or {@code null} if such version of the catalog doesn't exist.
+     */
+    @Nullable Catalog catalogByTsNullable(long timestamp) {
         try {
-            int catalogVer = catalogManager.activeCatalogVersion(ts);
+            int catalogVer = catalogManager.activeCatalogVersion(timestamp);
 
             return catalogManager.catalog(catalogVer - 1);
-        } catch (IllegalStateException e) {
+        } catch (IllegalStateException ignore) {
             return null;
         }
     }

@@ -21,9 +21,11 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Request to obtain timestamps from the entire cluster required to safely perform catalog compaction.
+ * Request to obtain timestamps required to safely perform catalog compaction.
+ *
+ * @see CatalogCompactionMinimumTimesResponse
  */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST)
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_TIMES_REQUEST)
 public interface CatalogCompactionMinimumTimesRequest extends NetworkMessage {
 
 }

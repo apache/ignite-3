@@ -29,7 +29,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  *     <li>the minimum starting time among locally started active RW transactions</li>
  * </ol>
  */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_TIMES_RESPONSE)
 public interface CatalogCompactionMinimumTimesResponse extends NetworkMessage {
     /** Returns node's minimum required time. */
     long minimumRequiredTime();

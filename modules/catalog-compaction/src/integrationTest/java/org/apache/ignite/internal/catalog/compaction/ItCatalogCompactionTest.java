@@ -102,7 +102,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(minRequiredCatalog.time());
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToReplicas(expectedTime.longValue());
+                    .propagateTimeToReplicas(expectedTime.longValue(), ignite.clusterNodes());
 
             assertThat(fut, willCompleteSuccessfully());
 
@@ -120,7 +120,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime);
 
             CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToReplicas(expectedTime.longValue());
+                    .propagateTimeToReplicas(expectedTime.longValue(), ignite.clusterNodes());
 
             assertThat(fut, willCompleteSuccessfully());
 
@@ -186,7 +186,10 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         readonlyTx.rollback();
     }
 
-    private static void ensureTimestampStoredInAllReplicas(HybridTimestamp expTime, Map<Integer, Integer> expectedTablesWithPartitions) throws InterruptedException {
+    private static void ensureTimestampStoredInAllReplicas(
+            HybridTimestamp expectedTimestamp,
+            Map<Integer, Integer> expectedTablesWithPartitions
+    ) throws InterruptedException {
         Loza loza = CLUSTER.aliveNode().raftManager();
         JraftServerImpl server = (JraftServerImpl) loza.server();
 
@@ -208,16 +211,12 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 // When a future completes from `Invoke`, it is guaranteed that the leader will be updated,
                 // the remaining replicas can be updated later.
                 IgniteTestUtils.waitForCondition(
-                        () -> Long.valueOf(expTime.longValue()).equals(listener.minimumActiveTxBeginTime()),
+                        () -> Long.valueOf(expectedTimestamp.longValue()).equals(listener.minimumActiveTxBeginTime()),
                         5_000
                 );
 
-                assertThat(grp.getGroupId(), listener.minimumActiveTxBeginTime(), equalTo(expTime.longValue()));
+                assertThat(grp.getGroupId(), listener.minimumActiveTxBeginTime(), equalTo(expectedTimestamp.longValue()));
             }
         }
-    }
-
-    private static CatalogManagerCompactionFacade catalogManagerFacade() {
-        return new CatalogManagerCompactionFacade((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager());
     }
 }
