@@ -83,6 +83,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -223,8 +224,9 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22891")
+    //@Test
+    @RepeatedTest(100)
+    //@Disabled("https://issues.apache.org/jira/browse/IGNITE-22891")
     public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
         AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
 
@@ -248,11 +250,15 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
+        log.info("Test: old raft leader=" + oldLeaderServer.clusterService().nodeName());
+
         // Server that will be alive after we stop leader.
         RaftServer liveServer = raftServers.stream()
                 .filter(s -> !localMemberName(s.clusterService()).equals(oldLeaderId))
                 .findFirst()
                 .orElseThrow();
+
+        log.info("Test: liveServer=" + liveServer.clusterService().nodeName());
 
         RaftGroupService raftGroupServiceOfLiveServer = raftServersRaftGroups.stream()
                 .filter(p -> p.key.equals(liveServer))
@@ -285,6 +291,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                     String.valueOf(replicatorStartedCounter.get())
                             );
 
+                            log.info("Test: onSubscribe.");
+
                             subscription.request(1);
                         } catch (InterruptedException e) {
                             resultFuture.completeExceptionally(e);
@@ -295,14 +303,24 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                     public void onNext(Entry item) {
                         try {
                             if (state == 0) {
+                                log.info("Test: onNext state=0 begin.");
+
                                 assertEquals(EXPECTED_RESULT_ENTRY1, item);
 
                                 // Ensure that leader has not been changed.
                                 // In a stable topology unexpected leader election shouldn't happen.
-                                assertTrue(
-                                        waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000),
-                                        String.valueOf(replicatorStartedCounter.get())
-                                );
+                                try {
+                                    assertTrue(
+                                            waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000),
+                                            String.valueOf(replicatorStartedCounter.get())
+                                    );
+                                } catch (AssertionError e) {
+                                    log.error("Test: Leader changed unexpectedly.", e);
+
+                                    throw e;
+                                }
+
+                                log.info("Test: onNext state=0 leader check ok.");
 
                                 // stop leader
                                 oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
@@ -316,22 +334,30 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                         .stopAsync(componentContext);
                                 assertThat(stopFuture, willCompleteSuccessfully());
 
+                                log.info("Test: onNext state=0 stop leader ok.");
                                 raftGroupServiceOfLiveServer.refreshLeader().get();
 
                                 assertNotSame(oldLeaderId, raftGroupServiceOfLiveServer.leader().consistentId());
+
+                                log.info("Test: onNext state=0 refresh leader ok, not same.");
 
                                 // ensure that leader has been changed only once
                                 assertTrue(
                                         waitForCondition(() -> replicatorStartedCounter.get() == 4, 5_000),
                                         String.valueOf(replicatorStartedCounter.get())
                                 );
+                                log.info("Test: onNext state=0 replicatorStoppedCounter ok.");
                                 assertTrue(
                                         waitForCondition(() -> replicatorStoppedCounter.get() == 2, 5_000),
                                         String.valueOf(replicatorStoppedCounter.get())
                                 );
 
+                                log.info("Test: Entry 1 processed.");
+
                             } else if (state == 1) {
                                 assertEquals(EXPECTED_RESULT_ENTRY2, item);
+
+                                log.info("Test: Entry 2 processed.");
                             }
 
                             state++;
@@ -344,6 +370,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                     @Override
                     public void onError(Throwable throwable) {
+                        log.error("Test: error.", throwable);
+
                         resultFuture.completeExceptionally(throwable);
                     }
 
