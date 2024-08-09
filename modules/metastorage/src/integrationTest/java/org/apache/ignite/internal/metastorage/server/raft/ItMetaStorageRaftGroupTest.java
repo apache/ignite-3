@@ -225,7 +225,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     //@Test
-    @RepeatedTest(50)
+    @RepeatedTest(100)
     //@Disabled("https://issues.apache.org/jira/browse/IGNITE-22891")
     public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
         AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
