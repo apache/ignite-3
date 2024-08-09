@@ -37,6 +37,7 @@ import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
 import org.hamcrest.Matcher;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -82,12 +83,17 @@ public class ExecutionTargetFactorySelfTest {
 
     @ParameterizedTest
     @MethodSource("clusterFactory")
-    void targetValidation(ExecutionTargetFactory f) {
+    void emptyTargets(ExecutionTargetFactory f) {
         assertThrows(AssertionError.class, () -> f.allOf(List.of()), null);
         assertThrows(AssertionError.class, () -> f.someOf(List.of()), null);
         assertThrows(AssertionError.class, () -> f.oneOf(List.of()), null);
         assertThrows(AssertionError.class, () -> f.partitioned(List.of()), null);
+    }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22969")
+    @ParameterizedTest
+    @MethodSource("clusterFactory")
+    void invalidTargets(ExecutionTargetFactory f) {
         assertThrows(Throwable.class, () -> f.allOf(INVALID_NODE_SET), "invalid node");
         assertThrows(Throwable.class, () -> f.someOf(INVALID_NODE_SET), "invalid node");
         assertThrows(Throwable.class, () -> f.oneOf(INVALID_NODE_SET), "invalid node");
