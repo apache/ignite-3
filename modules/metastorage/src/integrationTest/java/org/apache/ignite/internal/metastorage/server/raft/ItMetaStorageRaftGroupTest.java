@@ -239,8 +239,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
             return Cursor.fromBareIterator(entries.iterator());
         });
 
-        List<Pair<RaftServer, RaftGroupService>> raftServersRaftGroups = prepareJraftMetaStorages(replicatorStartedCounter,
-                replicatorStoppedCounter);
+        List<Pair<RaftServer, RaftGroupService>> raftServersRaftGroups = prepareJraftMetaStorages();
 
         List<RaftServer> raftServers = raftServersRaftGroups.stream().map(p -> p.key).collect(Collectors.toList());
 
@@ -258,7 +257,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        log.info("Test: old raft leader=" + oldLeaderServer.clusterService().nodeName());
+        log.info("Test: old raft leader: " + oldLeaderServer.clusterService().nodeName());
 
         // Server that will be alive after we stop leader.
         RaftServer liveServer = raftServers.stream()
@@ -266,7 +265,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        log.info("Test: liveServer=" + liveServer.clusterService().nodeName());
+        log.info("Test: liveServer: " + liveServer.clusterService().nodeName());
 
         RaftGroupService raftGroupServiceOfLiveServer = raftServersRaftGroups.stream()
                 .filter(p -> p.key.equals(liveServer))
@@ -299,8 +298,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                     String.valueOf(replicatorStartedCounter.get())
                             );
 
-                            log.info("Test: onSubscribe.");
-
                             subscription.request(1);
                         } catch (InterruptedException e) {
                             resultFuture.completeExceptionally(e);
@@ -311,24 +308,14 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                     public void onNext(Entry item) {
                         try {
                             if (state == 0) {
-                                log.info("Test: onNext state=0 begin.");
-
                                 assertEquals(EXPECTED_RESULT_ENTRY1, item);
 
                                 // Ensure that leader has not been changed.
                                 // In a stable topology unexpected leader election shouldn't happen.
-                                try {
-                                    assertTrue(
-                                            waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000),
-                                            String.valueOf(replicatorStartedCounter.get())
-                                    );
-                                } catch (AssertionError e) {
-                                    log.error("Test: Leader changed unexpectedly.", e);
-
-                                    throw e;
-                                }
-
-                                log.info("Test: onNext state=0 leader check ok.");
+                                assertTrue(
+                                        waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000),
+                                        String.valueOf(replicatorStartedCounter.get())
+                                );
 
                                 // stop leader
                                 oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
@@ -342,7 +329,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                         .stopAsync(componentContext);
                                 assertThat(stopFuture, willCompleteSuccessfully());
 
-                                log.info("Test: onNext state=0 stop leader ok.");
                                 CompletableFuture<LeaderWithTerm> newLeaderWithTermFut = raftGroupServiceOfLiveServer
                                         .refreshAndGetLeaderWithTerm();
                                 assertThat(newLeaderWithTermFut, willCompleteSuccessfully());
@@ -353,8 +339,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                 // Check that the leader changed only once.
                                 assertEquals(oldLeaderTerm + 1, newLeaderWithTerm.term());
 
-                                log.info("Test: onNext state=0 refresh leader ok, not same: "
-                                        + raftGroupServiceOfLiveServer.leader().consistentId());
+                                log.info("Test: new leader: " + raftGroupServiceOfLiveServer.leader().consistentId());
 
                                 log.info("Test: Entry 1 processed.");
 
@@ -388,8 +373,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         assertThat(resultFuture, willCompleteSuccessfully());
     }
 
-    private List<Pair<RaftServer, RaftGroupService>> prepareJraftMetaStorages(AtomicInteger replicatorStartedCounter,
-            AtomicInteger replicatorStoppedCounter) throws InterruptedException {
+    private List<Pair<RaftServer, RaftGroupService>> prepareJraftMetaStorages() throws InterruptedException {
         PeersAndLearners membersConfiguration = cluster.stream()
                 .map(ItMetaStorageRaftGroupTest::localMemberName)
                 .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
@@ -399,18 +383,12 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         var commandsMarshaller = new ThreadLocalOptimizedMarshaller(cluster.get(0).serializationRegistry());
 
         NodeOptions opt1 = new NodeOptions();
-        opt1.setReplicationStateListeners(
-                List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt1.setCommandsMarshaller(commandsMarshaller);
 
         NodeOptions opt2 = new NodeOptions();
-        opt2.setReplicationStateListeners(
-                List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt2.setCommandsMarshaller(commandsMarshaller);
 
         NodeOptions opt3 = new NodeOptions();
-        opt3.setReplicationStateListeners(
-                List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt3.setCommandsMarshaller(commandsMarshaller);
 
         metaStorageRaftSrv1 = TestJraftServerFactory.create(
