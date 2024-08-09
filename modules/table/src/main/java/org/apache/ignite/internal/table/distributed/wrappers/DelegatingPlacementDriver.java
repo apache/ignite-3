@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.wrappers;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
@@ -65,10 +66,10 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
     }
 
     @Override
-    public CompletableFuture<TokenizedAssignments> getAssignments(
-            ReplicationGroupId replicationGroupId,
+    public CompletableFuture<List<TokenizedAssignments>> getAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
             HybridTimestamp clusterTimeToAwait
     ) {
-        return delegate.getAssignments(replicationGroupId, clusterTimeToAwait);
+        return delegate.getAssignments(replicationGroupIds, clusterTimeToAwait);
     }
 }
