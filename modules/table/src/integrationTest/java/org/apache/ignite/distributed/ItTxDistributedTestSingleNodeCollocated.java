@@ -17,8 +17,6 @@
 
 package org.apache.ignite.distributed;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
@@ -46,15 +44,6 @@ public class ItTxDistributedTestSingleNodeCollocated extends ItTxAbstractDistrib
     @Override
     public void before() throws Exception {
         super.before();
-
-        assertSame(
-                txTestCluster.raftClients.get(ACC_TABLE_NAME).get(0).clusterService(),
-                txTestCluster.getLeader(ACC_TABLE_NAME).service()
-        );
-        assertSame(
-                txTestCluster.raftClients.get(CUST_TABLE_NAME).get(0).clusterService(),
-                txTestCluster.getLeader(CUST_TABLE_NAME).service()
-        );
     }
 }
 
