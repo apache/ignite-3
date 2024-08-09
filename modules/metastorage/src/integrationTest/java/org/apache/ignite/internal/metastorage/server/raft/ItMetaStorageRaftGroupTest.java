@@ -66,6 +66,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -225,7 +226,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     //@Test
-    @RepeatedTest(100)
+    @RepeatedTest(200)
     //@Disabled("https://issues.apache.org/jira/browse/IGNITE-22891")
     public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
         AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
@@ -243,7 +244,13 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         List<RaftServer> raftServers = raftServersRaftGroups.stream().map(p -> p.key).collect(Collectors.toList());
 
-        String oldLeaderId = raftServersRaftGroups.get(0).value.leader().consistentId();
+        CompletableFuture<LeaderWithTerm> oldLeaderFut = raftServersRaftGroups.get(0).value.refreshAndGetLeaderWithTerm();
+
+        assertThat(oldLeaderFut, willCompleteSuccessfully());
+
+        LeaderWithTerm leaderWithTerm = oldLeaderFut.join();
+
+        String oldLeaderId = leaderWithTerm.leader().consistentId();
 
         RaftServer oldLeaderServer = raftServers.stream()
                 .filter(s -> localMemberName(s.clusterService()).equals(oldLeaderId))
@@ -339,7 +346,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                                 assertNotSame(oldLeaderId, raftGroupServiceOfLiveServer.leader().consistentId());
 
-                                log.info("Test: onNext state=0 refresh leader ok, not same.");
+                                log.info("Test: onNext state=0 refresh leader ok, not same: "
+                                        + raftGroupServiceOfLiveServer.leader().consistentId());
 
                                 // ensure that leader has been changed only once
                                 assertTrue(
