@@ -250,11 +250,15 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
+        log.info("Test: old raft leader=" + oldLeaderServer.clusterService().nodeName());
+
         // Server that will be alive after we stop leader.
         RaftServer liveServer = raftServers.stream()
                 .filter(s -> !localMemberName(s.clusterService()).equals(oldLeaderId))
                 .findFirst()
                 .orElseThrow();
+
+        log.info("Test: liveServer=" + liveServer.clusterService().nodeName());
 
         RaftGroupService raftGroupServiceOfLiveServer = raftServersRaftGroups.stream()
                 .filter(p -> p.key.equals(liveServer))
