@@ -91,6 +91,7 @@ public class NativeType implements Comparable<NativeType> {
 
     /**
      * Return human readable name of this type.
+     *
      * @return Human readable name of this type.
      */
     public String displayName() {

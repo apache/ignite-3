@@ -118,7 +118,6 @@ public class NumericTypesSerializerTest {
                 MarshallerException.class,
                 "Numeric field overflow"
         );
-        //  Failed to set decimal value for column 'DECIMALCOL' (max precision exceeds allocated precision) [decimal=12345678.9, max precision=9]
         assertThrowsWithCause(
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("12345678.9"))),
                 MarshallerException.class,
