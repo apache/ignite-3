@@ -299,6 +299,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                     public void onNext(Entry item) {
                         try {
                             if (state == 0) {
+                                log.info("Test: onNext state=0 begin.");
+
                                 assertEquals(EXPECTED_RESULT_ENTRY1, item);
 
                                 // Ensure that leader has not been changed.
@@ -314,6 +316,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                     throw e;
                                 }
 
+                                log.info("Test: onNext state=0 leader check ok.");
+
                                 // stop leader
                                 oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
                                 ComponentContext componentContext = new ComponentContext();
@@ -326,15 +330,19 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                         .stopAsync(componentContext);
                                 assertThat(stopFuture, willCompleteSuccessfully());
 
+                                log.info("Test: onNext state=0 stop leader ok.");
                                 raftGroupServiceOfLiveServer.refreshLeader().get();
 
                                 assertNotSame(oldLeaderId, raftGroupServiceOfLiveServer.leader().consistentId());
+
+                                log.info("Test: onNext state=0 refresh leader ok, not same.");
 
                                 // ensure that leader has been changed only once
                                 assertTrue(
                                         waitForCondition(() -> replicatorStartedCounter.get() == 4, 5_000),
                                         String.valueOf(replicatorStartedCounter.get())
                                 );
+                                log.info("Test: onNext state=0 replicatorStoppedCounter ok.");
                                 assertTrue(
                                         waitForCondition(() -> replicatorStoppedCounter.get() == 2, 5_000),
                                         String.valueOf(replicatorStoppedCounter.get())
