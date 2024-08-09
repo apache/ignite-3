@@ -77,8 +77,10 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
             BitSet nodes = new BitSet(assignment.nodes().size());
             for (Assignment a : assignment.nodes()) {
                 int node = nodeNameToId.getOrDefault(a.consistentId(), -1);
-                assert node >= 0 : "invalid node";
-                nodes.set(node);
+
+                if (node != -1) {
+                    nodes.set(node);
+                }
             }
 
             partitionNodes[idx] = nodes;
@@ -112,9 +114,10 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
 
         for (String name : nodes) {
             int id = nodeNameToId.getOrDefault(name, -1);
-            assert id >= 0 : "invalid node";
 
-            nodesMap.set(id);
+            if (id != -1) {
+                nodesMap.set(id);
+            }
         }
 
         return nodesMap;
