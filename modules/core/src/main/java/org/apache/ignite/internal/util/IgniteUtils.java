@@ -75,6 +75,9 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.thread.ThreadAttributes;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.jetbrains.annotations.Nullable;
 
@@ -1259,5 +1262,39 @@ public class IgniteUtils {
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
         return stopAsync(componentContext, components.stream());
+    }
+
+    /**
+     * The method checks the list of allowed operations in the current thread and returns false if the thread is fit to continue or true if
+     * we must switch to another.
+     *
+     * @param requiredOperationPermissions Set of thread operations that have to be supported by the current thread.
+     * @return True if we have to switch to a specific pool, otherwise we can continue in the current thread.
+     */
+    public static boolean shouldSwitchToRequestsExecutor(ThreadOperation... requiredOperationPermissions) {
+        if (Thread.currentThread() instanceof ThreadAttributes) {
+            ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
+
+            for (ThreadOperation op : requiredOperationPermissions) {
+                if (!thread.allows(op)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } else {
+            if (PublicApiThreading.executingSyncPublicApi()) {
+                // It's a user thread, it executes a sync public API call, so it can do anything, no switch is needed.
+                return false;
+            }
+            if (PublicApiThreading.executingAsyncPublicApi()) {
+                // It's a user thread, it executes an async public API call, so it cannot do anything, a switch is needed.
+                return true;
+            }
+
+            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
+            // let's switch: false negative can produce assertion errors.
+            return true;
+        }
     }
 }
