@@ -251,6 +251,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         LeaderWithTerm leaderWithTerm = oldLeaderFut.join();
 
         String oldLeaderId = leaderWithTerm.leader().consistentId();
+        long oldLeaderTerm = leaderWithTerm.term();
 
         RaftServer oldLeaderServer = raftServers.stream()
                 .filter(s -> localMemberName(s.clusterService()).equals(oldLeaderId))
@@ -342,23 +343,18 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                 assertThat(stopFuture, willCompleteSuccessfully());
 
                                 log.info("Test: onNext state=0 stop leader ok.");
-                                raftGroupServiceOfLiveServer.refreshLeader().get();
+                                CompletableFuture<LeaderWithTerm> newLeaderWithTermFut = raftGroupServiceOfLiveServer
+                                        .refreshAndGetLeaderWithTerm();
+                                assertThat(newLeaderWithTermFut, willCompleteSuccessfully());
+                                LeaderWithTerm newLeaderWithTerm = newLeaderWithTermFut.join();
 
-                                assertNotSame(oldLeaderId, raftGroupServiceOfLiveServer.leader().consistentId());
+                                assertNotSame(oldLeaderId, newLeaderWithTerm.leader().consistentId());
+
+                                // Check that the leader changed only once.
+                                assertEquals(oldLeaderTerm + 1, newLeaderWithTerm.term());
 
                                 log.info("Test: onNext state=0 refresh leader ok, not same: "
                                         + raftGroupServiceOfLiveServer.leader().consistentId());
-
-                                // ensure that leader has been changed only once
-                                assertTrue(
-                                        waitForCondition(() -> replicatorStartedCounter.get() == 4, 5_000),
-                                        String.valueOf(replicatorStartedCounter.get())
-                                );
-                                log.info("Test: onNext state=0 replicatorStoppedCounter ok.");
-                                assertTrue(
-                                        waitForCondition(() -> replicatorStoppedCounter.get() == 2, 5_000),
-                                        String.valueOf(replicatorStoppedCounter.get())
-                                );
 
                                 log.info("Test: Entry 1 processed.");
 
