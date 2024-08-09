@@ -361,10 +361,9 @@ public class RowAssembler {
 
         DecimalNativeType type = (DecimalNativeType) col.type();
 
-        if (val.setScale(type.scale(), RoundingMode.HALF_UP).precision() > type.precision()) {
-            throw new SchemaMismatchException("Failed to set decimal value for column '" + col.name() + "' "
-                    + "(max precision exceeds allocated precision)"
-                    + " [decimal=" + val + ", max precision=" + type.precision() + "]");
+        BigDecimal scaled = val.setScale(type.scale(), RoundingMode.HALF_UP);
+        if (scaled.precision() > type.precision()) {
+            throw new SchemaMismatchException(Column.numericFieldOverflow(col.name()));
         }
 
         builder.appendDecimalNotNull(val, type.scale());

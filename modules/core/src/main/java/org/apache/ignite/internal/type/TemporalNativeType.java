@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.type;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -85,6 +87,12 @@ public class TemporalNativeType extends NativeType {
      */
     public int precision() {
         return precision;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String displayName() {
+        return format("{}({})", super.displayName(), precision);
     }
 
     /** {@inheritDoc} */
