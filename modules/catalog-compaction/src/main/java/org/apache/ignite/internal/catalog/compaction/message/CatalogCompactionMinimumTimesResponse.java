@@ -17,18 +17,23 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message types used in catalog compaction module.
+ * Response message containing timestamps from the entire cluster required to safely perform catalog compaction.
+ *
+ * <p>This includes the following:
+ * <ol>
+ *     <li>the minimum timestamp to which, from the local node's perspective, the catalog history can be safely truncated</li>
+ *     <li>the minimum starting time among locally started active RW transactions</li>
+ * </ol>
  */
-@MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
-public class CatalogCompactionMessageGroup {
-    public static final short GROUP_TYPE = 14;
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_TIMES_RESPONSE)
+public interface CatalogCompactionMinimumTimesResponse extends NetworkMessage {
+    /** Returns node's minimum required time. */
+    long minimumRequiredTime();
 
-    /** See {@link CatalogCompactionMinimumTimesRequest} for the details. */
-    public static final short MINIMUM_TIMES_REQUEST = 0;
-
-    /** See {@link CatalogCompactionMinimumTimesResponse} for the details. */
-    public static final short MINIMUM_TIMES_RESPONSE = 1;
+    /** Returns node's minimum starting time among locally started active RW transactions. */
+    long minimumActiveTxTime();
 }

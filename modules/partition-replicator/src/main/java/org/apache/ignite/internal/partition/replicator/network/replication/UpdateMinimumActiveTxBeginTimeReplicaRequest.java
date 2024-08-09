@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.compaction.message;
+package org.apache.ignite.internal.partition.replicator.network.replication;
 
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
- * Request to obtain the minimum timestamp to which, from the local
- * node's perspective, the catalog history can be safely truncated.
+ * Request to update the minimum starting time among all active RW transactions.
  */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST)
-public interface CatalogMinimumRequiredTimeRequest extends NetworkMessage {
-
+@Transferable(PartitionReplicationMessageGroup.UPDATE_MINIMUM_ACTIVE_TX_TIME_REPLICA_REQUEST)
+public interface UpdateMinimumActiveTxBeginTimeReplicaRequest extends ReplicaRequest {
+    /** Returns the minimum starting time among all active RW transactions. */
+    long timestamp();
 }

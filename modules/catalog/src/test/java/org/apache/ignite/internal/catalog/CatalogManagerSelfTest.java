@@ -427,14 +427,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
         assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
-        long timestamp = clock.nowLong();
+        int compactToVer = manager.latestCatalogVersion();
         Catalog catalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 
         // Add more updates
         assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
         assertThat(manager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
-        assertThat(manager.compactCatalog(timestamp), willBe(Boolean.TRUE));
+        assertThat(manager.compactCatalog(compactToVer), willBe(Boolean.TRUE));
         assertTrue(waitForCondition(() -> catalog.version() == manager.earliestCatalogVersion(), 3_000));
 
         assertNull(manager.catalog(0));
@@ -444,9 +444,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(0));
         assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
         assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
-        assertSame(catalog.version(), manager.activeCatalogVersion(timestamp));
+        assertSame(catalog.version(), compactToVer);
 
-        assertThat(manager.compactCatalog(timestamp), willBe(false));
+        assertThat(manager.compactCatalog(compactToVer), willBe(false));
         assertEquals(catalog.version(), manager.earliestCatalogVersion());
     }
 
@@ -454,9 +454,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testEmptyCatalogCompaction() {
         assertEquals(1, manager.latestCatalogVersion());
 
-        long timestamp = clock.nowLong();
-
-        assertThat(manager.compactCatalog(timestamp), willBe(false));
+        assertThat(manager.compactCatalog(1), willBe(false));
 
         assertEquals(0, manager.earliestCatalogVersion());
         assertEquals(1, manager.latestCatalogVersion());
@@ -464,6 +462,5 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(manager.catalog(1));
 
         assertEquals(0, manager.activeCatalogVersion(0));
-        assertEquals(1, manager.activeCatalogVersion(timestamp));
     }
 }
