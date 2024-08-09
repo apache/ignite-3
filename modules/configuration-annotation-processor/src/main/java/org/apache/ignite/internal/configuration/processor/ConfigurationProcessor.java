@@ -23,7 +23,10 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.CONFIGURATION_SCHEMA_POSTFIX;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.capitalize;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.collectFieldsWithAnnotation;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.fields;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.findFirstPresentAnnotation;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getChangeName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getConfigurationInterfaceName;
@@ -37,7 +40,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
-import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
@@ -94,9 +96,6 @@ import org.jetbrains.annotations.Nullable;
 // TODO: IGNITE-17166 Split into classes/methods for regular/internal/polymorphic/abstract configuration
 @AutoService(Processor.class)
 public class ConfigurationProcessor extends AbstractProcessor {
-    /** Java file padding. */
-    private static final String INDENT = "    ";
-
     /** {@link RootKey} class name. */
     private static final ClassName ROOT_KEY_CLASSNAME = ClassName.get("org.apache.ignite.configuration", "RootKey");
 
@@ -113,9 +112,6 @@ public class ConfigurationProcessor extends AbstractProcessor {
     private static final String FIELD_MUST_BE_SPECIFIC_CLASS_ERROR_FORMAT = "%s %s.%s field must be a %s";
 
     private static final String SECRET_FIELD_MUST_BE_STRING = "%s.%s must be String. Only String field can be annotated with @Secret";
-
-    /** Postfix with which any configuration schema class name must end. */
-    private static final String CONFIGURATION_SCHEMA_POSTFIX = "ConfigurationSchema";
 
     /** {@inheritDoc} */
     @Override
@@ -151,6 +147,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
         if (annotatedConfigs.isEmpty()) {
             return false;
         }
+
+        ConfigurationBuilderProcessor configurationBuilderProcessor = new ConfigurationBuilderProcessor(processingEnv);
 
         for (TypeElement clazz : annotatedConfigs) {
             // Find all the fields of the schema.
@@ -259,6 +257,14 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     (isExtendingConfig && !isRootConfig) || isPolymorphicInstance,
                     clazz,
                     isPolymorphicConfig,
+                    isPolymorphicInstance
+            );
+
+            configurationBuilderProcessor.createBuilders(
+                    fields,
+                    schemaClassName,
+                    (isExtendingConfig && !isRootConfig) || isPolymorphicInstance,
+                    clazz,
                     isPolymorphicInstance
             );
 
@@ -580,18 +586,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
     }
 
     private void buildClass(String packageName, TypeSpec cls) {
-        try {
-            JavaFile.builder(packageName, cls)
-                    .indent(INDENT)
-                    .build()
-                    .writeTo(processingEnv.getFiler());
-        } catch (Throwable throwable) {
-            throw new ConfigurationProcessorException("Failed to generate class " + packageName + "." + cls.name, throwable);
-        }
-    }
-
-    private static String capitalize(String name) {
-        return name.substring(0, 1).toUpperCase() + name.substring(1);
+        ConfigurationProcessorUtils.buildClass(processingEnv, packageName, cls);
     }
 
     /**
@@ -611,20 +606,6 @@ public class ConfigurationProcessor extends AbstractProcessor {
         }
 
         return isClass(type, String.class) || isClass(type, UUID.class);
-    }
-
-    /**
-     * Get class fields.
-     *
-     * @param type Class type.
-     * @return Class fields.
-     */
-    private static List<VariableElement> fields(TypeElement type) {
-        return type.getEnclosedElements().stream()
-                .filter(el -> el.getKind() == ElementKind.FIELD)
-                .filter(el -> !el.getModifiers().contains(STATIC)) // ignore static members
-                .map(VariableElement.class::cast)
-                .collect(toList());
     }
 
     /**
