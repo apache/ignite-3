@@ -226,7 +226,7 @@ class ClientComputeJobPackerUnpackerTest {
     void packByteArrayUnpackStringWithMarshaller_jobArgument() {
         // Given.
         var str = "Hi, marshal me!";
-        var bytes = str.getBytes();
+        byte[] bytes = str.getBytes();
 
         // When pack job argument without marshaller.
         computeJobPacker.packJobArgument(bytes, null);

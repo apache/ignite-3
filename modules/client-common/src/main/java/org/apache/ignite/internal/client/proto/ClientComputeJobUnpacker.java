@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
@@ -38,9 +36,8 @@ public class ClientComputeJobUnpacker {
     }
 
     /**
-     * Unpacks compute job argument. If the marshaller is provided, it will be used to unmarshal the argument.
-     * If the marshaller is not provided and the argument is a native column type or a tuple, it will be unpacked
-     * accordingly.
+     * Unpacks compute job argument. If the marshaller is provided, it will be used to unmarshal the argument. If the marshaller is not
+     * provided and the argument is a native column type or a tuple, it will be unpacked accordingly.
      *
      * @param marshaller Marshaller.
      * @return Unpacked argument.
@@ -50,9 +47,8 @@ public class ClientComputeJobUnpacker {
     }
 
     /**
-     * Unpacks compute job result. If the marshaller is provided, it will be used to unmarshal the result.
-     * If the marshaller is not provided and the result is a native column type or a tuple, it will be unpacked
-     * accordingly.
+     * Unpacks compute job result. If the marshaller is provided, it will be used to unmarshal the result. If the marshaller is not provided
+     * and the result is a native column type or a tuple, it will be unpacked accordingly.
      *
      * @param marshaller Marshaller.
      * @return Unpacked result.
@@ -73,10 +69,10 @@ public class ClientComputeJobUnpacker {
                     if (columnType != ColumnType.BYTE_ARRAY) {
                         throw new IllegalArgumentException("Can not unmarshal object that is not `byte[]`.");
                     }
-                    return marshaller.unmarshal(unpacker.readBinary());
+                    return marshaller.unmarshal((byte[]) unpacker.unpackObjectFromBinaryTuple());
                 }
 
-                return unpackNativeType(columnType);
+                return unpacker.unpackObjectFromBinaryTuple();
             case MARSHALLED_TUPLE:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
             case MARSHALLED_OBJECT:
@@ -89,53 +85,4 @@ public class ClientComputeJobUnpacker {
                 throw new IllegalArgumentException("Unsupported type id: " + typeId);
         }
     }
-
-
-    private @Nullable Object unpackNativeType(ColumnType type) {
-        switch (type) {
-            case NULL:
-                return null;
-            case BOOLEAN:
-                return unpacker.unpackBoolean();
-            case INT8:
-                return unpacker.unpackByte();
-            case INT16:
-                return unpacker.unpackShort();
-            case INT32:
-                return unpacker.unpackInt();
-            case INT64:
-                return unpacker.unpackLong();
-            case FLOAT:
-                return unpacker.unpackFloat();
-            case DOUBLE:
-                return unpacker.unpackDouble();
-            case DECIMAL:
-                int scale = unpacker.unpackInt();
-                byte[] unscaledBytes = unpacker.readBinary();
-                BigInteger unscaled = new BigInteger(unscaledBytes);
-                return new BigDecimal(unscaled, scale);
-            case UUID:
-                return unpacker.unpackUuid();
-            case STRING:
-                return unpacker.unpackString();
-            case BYTE_ARRAY:
-                return unpacker.readBinary();
-            case DATE:
-                return null;
-            case TIME:
-                return null;
-            case DATETIME:
-                return null;
-            case TIMESTAMP:
-                return null;
-            case DURATION:
-                return null;
-            case PERIOD:
-                return null;
-            default:
-                throw new IllegalArgumentException();
-
-        }
-    }
-
 }

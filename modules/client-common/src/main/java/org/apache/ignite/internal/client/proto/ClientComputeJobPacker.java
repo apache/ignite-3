@@ -109,55 +109,7 @@ public class ClientComputeJobPacker {
 
         packer.packInt(type.id());
 
-        var writer = writerForType(type);
-        writer.write(obj, packer);
-    }
-
-    private static Writer writerForType(ColumnType type) {
-        switch (type) {
-            case BOOLEAN:
-                return (obj, packer) -> packer.packBoolean(((Boolean) obj));
-            case INT8:
-                return ((obj, packer) -> packer.packByte((byte) obj));
-            case INT16:
-                return ((obj, packer) -> packer.packShort((short) obj));
-            case INT32:
-                return ((obj, packer) -> packer.packInt((int) obj));
-            case INT64:
-                return ((obj, packer) -> packer.packLong((long) obj));
-            case FLOAT:
-                return ((obj, packer) -> packer.packFloat((float) obj));
-            case DOUBLE:
-                return ((obj, packer) -> packer.packDouble((double) obj));
-            case DECIMAL:
-                return ((obj, packer) -> {
-                    BigDecimal bigDecimal = (BigDecimal) obj;
-                    int scale = bigDecimal.scale();
-                    byte[] unscaledBytes = bigDecimal.unscaledValue().toByteArray();
-                    packer.packInt(scale);
-                    packer.packByteBuffer(ByteBuffer.wrap(unscaledBytes));
-                });
-            case UUID:
-                return ((obj, packer) -> packer.packUuid((UUID) obj));
-            case STRING:
-                return ((obj, packer) -> packer.packString((String) obj));
-            case BYTE_ARRAY:
-                return ((obj, packer) -> packer.packByteBuffer(ByteBuffer.wrap((byte[]) obj)));
-            case DATE:
-                return ((obj, packer) -> {});
-            case TIME:
-                return ((obj, packer) -> {});
-            case DATETIME:
-                return ((obj, packer) -> {});
-            case TIMESTAMP:
-                return ((obj, packer) -> {});
-            case DURATION:
-                return ((obj, packer) -> {});
-            case PERIOD:
-                return ((obj, packer) -> {});
-            default:
-                throw new IllegalArgumentException("Unsupported type: " + type);
-        }
+        packer.packObjectAsBinaryTuple(obj);
     }
 
     private static @Nullable ColumnType getColumnTypeFrom(Object obj) {
