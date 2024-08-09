@@ -40,8 +40,8 @@ import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.MarshallerException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleHelper;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -53,8 +53,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     private final SchemaDescriptor schema;
 
-    private final int keyOnlyFixedLengthColumnSize; 
-    private final int valueOnlyFixedLengthColumnSize; 
+    private final int keyOnlyFixedLengthColumnSize;
+    private final int valueOnlyFixedLengthColumnSize;
 
     /**
      * Creates marshaller for given schema.
@@ -105,9 +105,10 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 }
             }
 
+            TuplePart part = TuplePart.KEY_VALUE;
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(TuplePart.KEY_VALUE, tuple, valuesWithStatistics);
+            gatherStatistics(part, tuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns != tuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -115,7 +116,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                                 schema.version(), extraColumnNames(tuple, schema)));
             }
 
-            return buildRow(false, valuesWithStatistics);
+            return buildRow(part, valuesWithStatistics);
         } catch (Exception ex) {
             throw new MarshallerException(ex.getMessage(), ex);
         }
@@ -146,7 +147,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 }
             }
 
-            return buildRow(keyOnly, valuesWithStatistics);
+            return buildRow(keyOnly ? TuplePart.KEY : TuplePart.KEY_VALUE, valuesWithStatistics);
         } catch (Exception ex) {
             throw new MarshallerException(ex.getMessage(), ex);
         }
@@ -157,31 +158,32 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     public Row marshalKey(Tuple keyTuple) throws MarshallerException {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
+            TuplePart part = TuplePart.KEY;
 
-            gatherStatistics(TuplePart.KEY, keyTuple, valuesWithStatistics);
+            gatherStatistics(part, keyTuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns < keyTuple.columnCount()) {
                 throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
             }
 
-            return buildRow(true, valuesWithStatistics);
+            return buildRow(part, valuesWithStatistics);
         } catch (Exception ex) {
             throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
     private Row buildRow(
-            boolean keyOnly,
+            TuplePart part,
             ValuesWithStatistics values
     ) throws SchemaMismatchException {
-        List<Column> columns = keyOnly ? schema.keyColumns() : schema.columns();
+        List<Column> columns = part.deriveColumnList(schema);
         RowAssembler rowBuilder = new RowAssembler(schema.version(), columns, values.estimatedValueSize, false);
 
         for (Column col : columns) {
             rowBuilder.appendValue(values.value(col.name()));
         }
 
-        return keyOnly
+        return part == TuplePart.KEY
                 ? Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build())
                 : Row.wrapBinaryRow(schema, rowBuilder.build());
     }
@@ -196,7 +198,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         for (Column col : part.deriveColumnList(schema)) {
             NativeType colType = col.type();
 
-            Object val = tuple.valueOrDefault(IgniteNameUtils.quote(col.name()), POISON_OBJECT);
+            Object val = TupleHelper.valueOrDefault(tuple, col.name(), POISON_OBJECT);
 
             if (val == POISON_OBJECT && col.positionInKey() != -1) {
                 throw new SchemaMismatchException("Missed key column: " + col.name());

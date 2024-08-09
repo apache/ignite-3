@@ -73,19 +73,15 @@ When the exception happens, Ignite 3 provides a UUID of the specific exception, 
 |===
 |Exception	|Description
 
-|`IGN-SQL-1`|Failed to read a page after last existing one.
-|`IGN-SQL-2`|Failed to read response from a query that does not return rows.
-|`IGN-SQL-3`|Schema not found error.
-|`IGN-SQL-4`|Cursor is already closed error.
-|`IGN-SQL-5`|Statement parsing error. SQL string is not grammatically valid.
-|`IGN-SQL-6`|Statement validation error.SQL string is not semantically valid or contains prohibited operations.
-|`IGN-SQL-7`|Constraint violation error, for example, primary key violation.
-|`IGN-SQL-8`|Statement got cancelled.
-|`IGN-SQL-9`|Runtime error. Usually caused an SQL error, for example numeric overflow.
-|`IGN-SQL-10`|Planning timed out without finding any valid plan.
-|`IGN-SQL-11`|Operation got rejected because SQL session was closed.
-|`IGN-SQL-12`|SQL engine was unable to map query on current cluster topology. Most likely, the partition or view is not available because all nodes containing it are offline.
-|`IGN-SQL-13`|Execution of transaction control statement inside an external transaction is forbidden.
+|`IGN-SQL-1`|Failed to read response from a query that does not return rows.
+|`IGN-SQL-2`|Schema not found error.
+|`IGN-SQL-3`|Statement parsing error. SQL string is not grammatically valid.
+|`IGN-SQL-4`|Statement validation error.SQL string is not semantically valid or contains prohibited operations.
+|`IGN-SQL-5`|Constraint violation error, for example, primary key violation.
+|`IGN-SQL-6`|Statement got cancelled.
+|`IGN-SQL-7`|Runtime error. Usually caused an SQL error, for example numeric overflow.
+|`IGN-SQL-8`|SQL engine was unable to map query on current cluster topology. Most likely, the partition or view is not available because all nodes containing it are offline.
+|`IGN-SQL-9`|Execution of transaction control statement inside an external transaction is forbidden.
 |===
 
 == Meta Storage Exceptions

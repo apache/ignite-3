@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.sql.engine.datatypes;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 
 /**
- * Cluster management configuration schema.
+ * Set of tests to ensure correctness of CAST expression to INTEGER
+ * without fast query optimization.
+ *
+ * @see ItCastToIntTest
+ * @see Commons#fastQueryOptimizationEnabled()
  */
-@ConfigurationRoot(rootName = "cluster", type = ConfigurationType.LOCAL)
-public class ClusterManagementConfigurationSchema {
-    /** Invoke timeout used by Cluster Management module (ms). */
-    @Value(hasDefault = true)
-    @Range(min = 1)
-    public long networkInvokeTimeout = 500;
+@WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
+public class ItCastToIntWithoutFastQueryOptimizationTest extends ItCastToIntTest {
 }

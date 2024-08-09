@@ -33,7 +33,6 @@ configurations {
 
 cmakeConfigure.enabled = false
 cmakeBuild.enabled = false
-cmakeClean.enabled = false
 
 task restoreTool(type: Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"

@@ -34,7 +34,7 @@ set(SOURCES
     ssl/ssl_gateway.cpp
 )
 
-if (WIN32)
+if(WIN32)
     list(APPEND SOURCES
         detail/win/dynamic_module.cpp
         detail/win/sockets.cpp
@@ -71,12 +71,10 @@ add_library(${TARGET} OBJECT ${SOURCES})
 target_link_libraries(${TARGET} PUBLIC ignite-common ignite-protocol)
 target_include_directories(${TARGET} PRIVATE ${OPENSSL_INCLUDE_DIR})
 
-if (WIN32)
+if(WIN32)
     add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
     target_link_libraries(${TARGET} PUBLIC wsock32 ws2_32 iphlpapi crypt32)
-elseif(UNIX)
-    target_link_libraries(${TARGET} PUBLIC ${CMAKE_DL_LIBS})
-elseif (APPLE)
+elseif(APPLE)
     if (${USE_LOCAL_DEPS})
         find_package(epoll-shim REQUIRED)
         target_link_libraries(${TARGET} PUBLIC epoll-shim::epoll-shim ${CMAKE_DL_LIBS})
@@ -85,6 +83,8 @@ elseif (APPLE)
         target_link_libraries(${TARGET} PUBLIC epoll-shim)
     endif()
     add_compile_definitions(EPOLL_SHIM_NO_VARIADICS)
+elseif(UNIX)
+    target_link_libraries(${TARGET} PUBLIC ${CMAKE_DL_LIBS})
 endif()
 
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})

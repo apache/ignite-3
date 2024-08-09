@@ -73,7 +73,6 @@ import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
@@ -236,7 +235,6 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
@@ -464,6 +462,13 @@ public class IgniteImpl implements Ignite {
                 localConfigurationValidator
         );
 
+        // Start local configuration to be able to read all local properties.
+        try {
+            lifecycleManager.startComponentsAsync(new ComponentContext(), nodeCfgMgr);
+        } catch (NodeStoppingException e) {
+            assert false : "Unexpected exception: " + e;
+        }
+
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
 
         NetworkConfiguration networkConfiguration = nodeConfigRegistry.getConfiguration(NetworkConfiguration.KEY);
@@ -575,7 +580,6 @@ public class IgniteImpl implements Ignite {
                 clusterStateStorageMgr,
                 logicalTopology,
                 validationManager,
-                nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
                 nodeAttributesCollector,
                 failureProcessor,
                 clusterIdService
@@ -692,7 +696,7 @@ public class IgniteImpl implements Ignite {
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
         );
 
-        LazyPath storagePath = partitionsWorkDir.dbPath();
+        Path storagePath = partitionsWorkDir.dbPath();
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
@@ -1107,7 +1111,6 @@ public class IgniteImpl implements Ignite {
                     componentContext,
                     longJvmPauseDetector,
                     vaultMgr,
-                    nodeCfgMgr,
                     threadPoolsManager,
                     clockWaiter,
                     failureProcessor,
@@ -1187,12 +1190,12 @@ public class IgniteImpl implements Ignite {
                                 metricManager,
                                 distributionZoneManager,
                                 computeComponent,
+                                volatileLogStorageFactoryCreator,
                                 replicaMgr,
                                 indexNodeFinishedRwTransactionsChecker,
                                 txManager,
                                 dataStorageMgr,
                                 schemaManager,
-                                volatileLogStorageFactoryCreator,
                                 outgoingSnapshotsManager,
                                 partitionReplicaLifecycleManager,
                                 distributedTblMgr,

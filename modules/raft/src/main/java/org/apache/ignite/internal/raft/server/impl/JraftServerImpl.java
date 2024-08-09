@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -39,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
@@ -65,7 +68,7 @@ import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.util.LazyPath;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -108,7 +111,7 @@ public class JraftServerImpl implements RaftServer {
     private final ClusterService service;
 
     /** Data path. */
-    private final LazyPath dataPath;
+    private final Path dataPath;
 
     /** Log storage provider. */
     private final LogStorageFactory logStorageFactory;
@@ -156,7 +159,7 @@ public class JraftServerImpl implements RaftServer {
      */
     public JraftServerImpl(
             ClusterService service,
-            LazyPath dataPath,
+            Path dataPath,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             LogStorageFactory logStorageFactory
@@ -265,7 +268,10 @@ public class JraftServerImpl implements RaftServer {
             opts.setSnapshotTimer(JRaftUtils.createTimer(opts, "JRaft-SnapshotTimer"));
         }
 
-        requestExecutor = JRaftUtils.createRequestExecutor(opts);
+        requestExecutor = Executors.newFixedThreadPool(
+                opts.getRaftRpcThreadPoolSize(),
+                IgniteThreadFactory.create(opts.getServerName(), "JRaft-Request-Processor", LOG, PROCESS_RAFT_REQ)
+        );
 
         rpcServer = new IgniteRpcServer(
                 service,
@@ -398,7 +404,7 @@ public class JraftServerImpl implements RaftServer {
             ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
         }
 
-        ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
+        IgniteUtils.shutdownAndAwaitTermination(requestExecutor, 10, SECONDS);
 
         return nullCompletedFuture();
     }
@@ -416,7 +422,7 @@ public class JraftServerImpl implements RaftServer {
      * @return The path to persistence folder.
      */
     public Path getServerDataPath(RaftNodeId nodeId) {
-        return this.dataPath.get().resolve(nodeIdStr(nodeId));
+        return this.dataPath.resolve(nodeIdStr(nodeId));
     }
 
     private static String nodeIdStr(RaftNodeId nodeId) {

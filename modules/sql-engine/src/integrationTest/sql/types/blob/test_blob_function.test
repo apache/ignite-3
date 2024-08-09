@@ -68,3 +68,23 @@ SELECT OCTET_LENGTH(b) FROM blobs ORDER BY 1
 ----
 1
 10
+
+query I
+SELECT OCTET_LENGTH('TEST')
+----
+4
+
+query I
+SELECT OCTET_LENGTH('我愛Java')
+----
+10
+
+query I
+SELECT OCTET_LENGTH(x'012F')
+----
+2
+
+query T
+SELECT OCTET_LENGTH(NULL)
+----
+null

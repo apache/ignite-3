@@ -54,7 +54,6 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.LazyPath;
 import org.jetbrains.annotations.Nullable;
 
 /** Storage engine implementation based on {@link PersistentPageMemory}. */
@@ -79,7 +78,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private final PageIoRegistry ioRegistry;
 
-    private final LazyPath storagePath;
+    private final Path storagePath;
 
     @Nullable
     private final LongJvmPauseDetector longJvmPauseDetector;
@@ -119,7 +118,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
-            LazyPath storagePath,
+            Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
             LogSyncer logSyncer,
@@ -158,8 +157,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                     ? new AsyncFileIoFactory()
                     : new RandomAccessFileIoFactory();
 
-            filePageStoreManager =
-                    createFilePageStoreManager(igniteInstanceName, storagePath.get(), fileIoFactory, pageSize, failureProcessor);
+            filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureProcessor);
 
             filePageStoreManager.start();
         } catch (IgniteInternalCheckedException e) {
