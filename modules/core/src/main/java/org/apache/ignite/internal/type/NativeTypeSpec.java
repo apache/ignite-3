@@ -333,8 +333,9 @@ public enum NativeTypeSpec {
      * Returns a {@link NativeTypeSpec} that corresponds to the given {@link ColumnType}.
      *
      * @param columnType Column type.
-     * @throws IllegalArgumentException if ColumnType is {@link ColumnType#NULL} or is not supported.
+     *
      * @return Native type.
+     * @throws IllegalArgumentException if ColumnType is {@link ColumnType#NULL} or is not supported.
      */
     public static NativeTypeSpec fromColumnType(ColumnType columnType) {
         switch (columnType) {
