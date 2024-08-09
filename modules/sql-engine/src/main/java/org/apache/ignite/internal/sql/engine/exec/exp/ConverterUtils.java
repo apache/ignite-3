@@ -32,13 +32,15 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 
 /**
- * ConverterUtils.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Utility class to convert from/to internal and external representations of different data types and their internal representations.
+ * Uses to modify default Calcite behaviour when it doesn't meet our rules and common sense.
  */
 public class ConverterUtils {
     private ConverterUtils() {
@@ -186,6 +188,21 @@ public class ConverterUtils {
                 operand,
                 Expressions.constant(targetType.getPrecision()),
                 Expressions.constant(targetType.getScale()));
+    }
+
+    /**
+     * Convert {@code operand} to {@code targetType}.
+     *
+     * @param operand The expression to convert
+     * @param targetType Target type
+     * @return A new expression with java type corresponding to {@code targetType} or original expression if there is no need to convert.
+     */
+    public static Expression convert(Expression operand, RelDataType targetType) {
+        if (SqlTypeUtil.isDecimal(targetType)) {
+            return convertToDecimal(operand, targetType);
+        } else {
+            return convert(operand, Commons.typeFactory().getJavaClass(targetType));
+        }
     }
 
     /**

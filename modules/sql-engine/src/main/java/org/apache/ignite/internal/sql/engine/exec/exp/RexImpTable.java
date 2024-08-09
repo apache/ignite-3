@@ -4013,7 +4013,7 @@ public class RexImpTable {
         convertedCallValue =
                 noConvert
                         ? callValue
-                        : EnumUtils.convert(callValue, returnType);
+                        : ConverterUtils.convert(callValue, call.getType());
       }
 
       final Expression valueExpression =
