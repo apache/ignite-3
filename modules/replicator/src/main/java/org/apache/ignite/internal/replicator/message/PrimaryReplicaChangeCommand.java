@@ -30,4 +30,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 public interface PrimaryReplicaChangeCommand extends WriteCommand {
     /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. */
     long leaseStartTime();
+
+    /** Primary replica node id. */
+    String primaryReplicaNodeId();
 }

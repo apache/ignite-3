@@ -221,6 +221,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private IndexMetaStorage indexMetaStorage;
 
+    private ClusterService clusterService;
+
     /**
      * Initializes a table listener before tests.
      */
@@ -228,9 +230,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     public void before() {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
 
-        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
 
         when(clusterService.topologyService().localMember().address()).thenReturn(addr);
+        when(clusterService.topologyService().localMember().id()).thenReturn(addr.toString());
 
         safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
@@ -285,7 +288,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 catalogService,
                 SCHEMA_REGISTRY,
                 clockService,
-                indexMetaStorage
+                indexMetaStorage,
+                clusterService.topologyService().localMember().id()
         );
     }
 
@@ -473,7 +477,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 catalogService,
                 SCHEMA_REGISTRY,
                 clockService,
-                indexMetaStorage
+                indexMetaStorage,
+                clusterService.topologyService().localMember().id()
         );
 
         txStateStorage.lastApplied(3L, 1L);

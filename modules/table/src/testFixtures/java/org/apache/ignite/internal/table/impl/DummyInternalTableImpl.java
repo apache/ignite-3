@@ -418,7 +418,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 catalogService,
                 schemaManager,
                 CLOCK_SERVICE,
-                mock(IndexMetaStorage.class)
+                mock(IndexMetaStorage.class),
+                LOCAL_NODE.id()
         );
     }
 

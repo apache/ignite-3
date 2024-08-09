@@ -130,6 +130,8 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ScanC
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -207,7 +209,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -2694,22 +2695,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     HybridTimestamp safeTimeForRetry = clockService.now();
 
-                    // Within primary replica it's required to update safe time in order to prevent double storage updates in case of !1PC.
-                    // Otherwise, it may be possible that a newer entry will be overwritten by an older one that came as part of the raft
-                    // replication flow:
-                    // tx1 = transactions.begin();
-                    // tx1.put(k1, v1) -> primary.apply(k1,v1) + asynchronous raft replication (k1,v1)
-                    // tx1.put(k1, v2) -> primary.apply(k1,v2) + asynchronous raft replication (k1,v1)
-                    // (k1,v1) replication overrides newer (k1, v2). Eventually (k1,v2) replication will restore proper value.
-                    // However it's possible that tx1.get(k1) will see v1 instead of v2.
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Better solution requied. Given one is correct, but fragile.
-                    if ((cmd instanceof UpdateCommand && !((UpdateCommand) cmd).full())
-                            || (cmd instanceof UpdateAllCommand && !((UpdateAllCommand) cmd).full())) {
-                        synchronized (safeTime) {
-                            updateTrackerIgnoringTrackerClosedException(safeTime, safeTimeForRetry);
-                        }
-                    }
-
                     SafeTimePropagatingCommand clonedSafeTimePropagatingCommand =
                             (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
                     clonedSafeTimePropagatingCommand.safeTime(safeTimeForRetry);
@@ -2765,23 +2750,18 @@ public class PartitionReplicaListener implements ReplicaListener {
             );
 
             if (!cmd.full()) {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                synchronized (safeTime) {
-                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                    storageUpdateHandler.handleUpdate(
-                            cmd.txId(),
-                            cmd.rowUuid(),
-                            cmd.tablePartitionId().asTablePartitionId(),
-                            cmd.rowToUpdate(),
-                            true,
-                            null,
-                            null,
-                            null,
-                            indexIdsAtRwTxBeginTs(txId)
-                    );
-
-                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                }
+                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                storageUpdateHandler.handleUpdate(
+                        cmd.txId(),
+                        cmd.rowUuid(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.rowToUpdate(),
+                        true,
+                        null,
+                        null,
+                        null,
+                        indexIdsAtRwTxBeginTs(txId)
+                );
 
                 CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                         .thenApply(res -> cmd.txId());
@@ -2792,35 +2772,34 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 applyCmdWithExceptionHandling(cmd, resultFuture);
 
-                return resultFuture.thenApply(res -> {
+                return resultFuture.thenCompose(res -> {
                     UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
-                    if (full && !updateCommandResult.isPrimaryReplicaMatch()) {
-                        throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
+                    if (!updateCommandResult.isPrimaryReplicaMatch()) {
+                        throw new PrimaryReplicaMissException(
+                                txId,
+                                cmd.leaseStartTime(),
+                                updateCommandResult.currentLeaseStartTime()
+                        );
                     }
+                    if (localNodeInPeers()) {
+                        return safeTime.waitFor(cmd.safeTime()).thenApply(ignored -> null);
+                    } else {
+                        // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                        storageUpdateHandler.handleUpdate(
+                                cmd.txId(),
+                                cmd.rowUuid(),
+                                cmd.tablePartitionId().asTablePartitionId(),
+                                cmd.rowToUpdate(),
+                                false,
+                                null,
+                                cmd.safeTime(),
+                                null,
+                                indexIdsAtRwTxBeginTs(txId)
+                        );
 
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                    // Try to avoid double write if an entry is already replicated.
-                    synchronized (safeTime) {
-                        if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                            // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                            storageUpdateHandler.handleUpdate(
-                                    cmd.txId(),
-                                    cmd.rowUuid(),
-                                    cmd.tablePartitionId().asTablePartitionId(),
-                                    cmd.rowToUpdate(),
-                                    false,
-                                    null,
-                                    cmd.safeTime(),
-                                    null,
-                                    indexIdsAtRwTxBeginTs(txId)
-                            );
-
-                            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                        }
+                        return null;
                     }
-
-                    return null;
                 });
             }
         }
@@ -2896,39 +2875,29 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             if (!cmd.full()) {
                 if (skipDelayedAck) {
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                    synchronized (safeTime) {
-                        // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                        storageUpdateHandler.handleUpdateAll(
-                                cmd.txId(),
-                                cmd.rowsToUpdate(),
-                                cmd.tablePartitionId().asTablePartitionId(),
-                                true,
-                                null,
-                                null,
-                                indexIdsAtRwTxBeginTs(txId)
-                        );
-
-                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                    }
+                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                    storageUpdateHandler.handleUpdateAll(
+                            cmd.txId(),
+                            cmd.rowsToUpdate(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            true,
+                            null,
+                            null,
+                            indexIdsAtRwTxBeginTs(txId)
+                    );
 
                     return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>()).thenApply(res -> null);
                 } else {
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                    synchronized (safeTime) {
-                        // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                        storageUpdateHandler.handleUpdateAll(
-                                cmd.txId(),
-                                cmd.rowsToUpdate(),
-                                cmd.tablePartitionId().asTablePartitionId(),
-                                true,
-                                null,
-                                null,
-                                indexIdsAtRwTxBeginTs(txId)
-                        );
-
-                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                    }
+                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                    storageUpdateHandler.handleUpdateAll(
+                            cmd.txId(),
+                            cmd.rowsToUpdate(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            true,
+                            null,
+                            null,
+                            indexIdsAtRwTxBeginTs(txId)
+                    );
 
                     CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                             .thenApply(res -> cmd.txId());
@@ -2937,34 +2906,32 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
             } else {
                 return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
-                        .thenApply(res -> {
+                        .thenCompose(res -> {
                             UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
-                            if (full && !updateCommandResult.isPrimaryReplicaMatch()) {
-                                throw new PrimaryReplicaMissException(cmd.txId(), cmd.leaseStartTime(),
-                                        updateCommandResult.currentLeaseStartTime());
+                            if (!updateCommandResult.isPrimaryReplicaMatch()) {
+                                throw new PrimaryReplicaMissException(
+                                        cmd.txId(),
+                                        cmd.leaseStartTime(),
+                                        updateCommandResult.currentLeaseStartTime()
+                                );
                             }
+                            if (localNodeInPeers()) {
+                                return safeTime.waitFor(cmd.safeTime()).thenApply(ignored -> null);
+                            } else {
+                                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                                storageUpdateHandler.handleUpdateAll(
+                                        cmd.txId(),
+                                        cmd.rowsToUpdate(),
+                                        cmd.tablePartitionId().asTablePartitionId(),
+                                        false,
+                                        null,
+                                        cmd.safeTime(),
+                                        indexIdsAtRwTxBeginTs(txId)
+                                );
 
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                            // Try to avoid double write if an entry is already replicated.
-                            synchronized (safeTime) {
-                                if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                                    storageUpdateHandler.handleUpdateAll(
-                                            cmd.txId(),
-                                            cmd.rowsToUpdate(),
-                                            cmd.tablePartitionId().asTablePartitionId(),
-                                            false,
-                                            null,
-                                            cmd.safeTime(),
-                                            indexIdsAtRwTxBeginTs(txId)
-                                    );
-
-                                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                                }
+                                return null;
                             }
-
-                            return null;
                         });
             }
         }
@@ -3976,18 +3943,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         ));
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
-            PendingComparableValuesTracker<T, Void> tracker,
-            T newValue
-    ) {
-        try {
-            tracker.update(newValue, null);
-        } catch (TrackerClosedException ignored) {
-            // No-op.
-        }
-    }
-
     private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
                 .indexId(request.indexId())
@@ -4190,5 +4145,23 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return result;
+    }
+
+    // TODO sanpwc better check
+    private boolean localNodeInPeers() {
+        TopologyAwareRaftGroupService raftClient0;
+        if (raftClient instanceof TopologyAwareRaftGroupService) {
+            raftClient0 = (TopologyAwareRaftGroupService) raftClient;
+        } else {
+            raftClient0 = (TopologyAwareRaftGroupService) ((ExecutorInclinedRaftCommandRunner) raftClient).decoratedCommandRunner();
+        }
+
+        for (Peer peer : raftClient0.peers()) {
+            if (peer.consistentId().equals(localNode.name())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

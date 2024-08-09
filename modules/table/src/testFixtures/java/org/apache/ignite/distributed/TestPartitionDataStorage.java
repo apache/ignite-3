@@ -159,12 +159,17 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
-        partitionStorage.updateLease(leaseStartTime);
+    public void updateLease(long leaseStartTime, String primaryReplicaNodeId) {
+        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId);
     }
 
     @Override
     public long leaseStartTime() {
         return partitionStorage.leaseStartTime();
+    }
+
+    @Override
+    public String primaryReplicaNodeId() {
+        return partitionStorage.primaryReplicaNodeId();
     }
 }
