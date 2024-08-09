@@ -8,12 +8,50 @@ CREATE TABLE integers(i INTEGER)
 statement ok
 INSERT INTO integers VALUES (1), (2), (3), (NULL)
 
-# this now orders by the actual grouping column
-query IIR
-SELECT i, i % 2 AS k, SUM(i) FROM integers GROUP BY i ORDER BY i;
+# use alias in HAVING clause
+# CONTROVERSIAL: this query DOES NOT work in PostgreSQL
+query IR
+SELECT i % 2 AS k, SUM(i) FROM integers WHERE i IS NOT NULL GROUP BY k HAVING k>0;
 ----
-1	1	1.000000
+1	4.000000
+
+# this is identical to this query
+# CONTROVERSIAL: this query does not work in MonetDB
+query IR
+SELECT i % 2 AS k, SUM(i) FROM integers WHERE i IS NOT NULL GROUP BY k HAVING i%2>0;
+----
+1	4.000000
+
+# select groups by constant (similar to order by constant)
+query IR
+SELECT i % 2 AS k, SUM(i) FROM integers WHERE i IS NOT NULL GROUP BY 1 HAVING i%2>0;
+----
+1	4.000000
+
+# constant out of range
+statement error
+SELECT i % 2 AS k, SUM(i) FROM integers WHERE i IS NOT NULL GROUP BY 42 HAVING i%2>0;
+
+# entry in GROUP BY should refer to base column
+# ...BUT the alias in ORDER BY should refer to the alias from the select list
+# note that both Postgres and MonetDB reject this query because of ambiguity. SQLite accepts it though so we do
+# too.
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18412
+query IIR
+SELECT i, i % 2 AS i, SUM(i) FROM integers GROUP BY i ORDER BY i, 3;
+----
+NULL	NULL	NULL
 2	0	2.000000
+1	1	1.000000
+3	1	3.000000
+
+# changing the name of the alias makes it more explicit what should happen
+query IIR
+SELECT i, i % 2 AS k, SUM(i) FROM integers GROUP BY i ORDER BY k, 3;
+----
+2	0	2.000000
+1	1	1.000000
 3	1	3.000000
 NULL	NULL	NULL
 
@@ -35,4 +73,5 @@ NULL	NULL
 # but SQLite resolves it by first pushing a "FIRST(i)" aggregate into the projection, and then ordering by that
 # aggregate
 statement error
-SELECT (10-i) AS k, SUM(i) FROM integers GROUP BY k ORDER BY i;
+SELECT (10-i) AS k, SUM(i) FROM integers GROUP BY k ORDER BY FIRST(i);
+
