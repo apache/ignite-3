@@ -188,7 +188,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packString(sqlQry);
         packer.packBoolean(multiStatement);
 
-        packer.packObjectArrayAsBinaryTuple(args, null);
+        packer.packObjectArrayAsBinaryTuple(args);
         packer.packLong(queryTimeoutMillis);
     }
 

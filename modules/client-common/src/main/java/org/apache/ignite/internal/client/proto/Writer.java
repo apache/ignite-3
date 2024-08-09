@@ -15,19 +15,11 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.client.proto;
 
-description = 'ignite-binary-tuple'
-
-dependencies {
-    annotationProcessor project(':ignite-configuration-annotation-processor')
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.jackson.core
-    testImplementation libs.jackson.databind
-    testImplementation libs.jackson.datatype.jsr310
+/** This interface in not supposed to be used outside this module. */
+@FunctionalInterface
+interface Writer {
+    /** Writes the object to the packer. */
+    void write(Object obj, ClientMessagePacker packer);
 }

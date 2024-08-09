@@ -28,9 +28,12 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.JobExecutionWrapper;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.ClusterNode;
 
@@ -101,10 +104,12 @@ public class ClientComputeExecuteRequest {
             JobExecution<Object> execution,
             NotificationSender notificationSender
     ) {
+        var e = execution;
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            w.packObjectAsBinaryTuple(val, null);
+                            var marshaller = ((JobExecutionWrapper) e).resultMarshaller(); // todo do not cast here
+                            new ClientComputeJobPacker(w).packJobResult(val, marshaller);
                             packJobState(w, state);
                         }, err)));
     }
@@ -116,6 +121,6 @@ public class ClientComputeExecuteRequest {
      * @return Args array.
      */
     static Object unpackPayload(ClientMessageUnpacker in) {
-        return in.unpackObjectFromBinaryTuple();
+        return new ClientComputeJobUnpacker(in).unpackJobArgument(null);
     }
 }
