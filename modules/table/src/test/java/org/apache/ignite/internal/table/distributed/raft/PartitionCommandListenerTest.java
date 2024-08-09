@@ -233,6 +233,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
 
         when(clusterService.topologyService().localMember().address()).thenReturn(addr);
+        when(clusterService.topologyService().localMember().id()).thenReturn(addr.toString());
 
         safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
