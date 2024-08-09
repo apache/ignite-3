@@ -83,6 +83,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -223,8 +224,9 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22891")
+    //@Test
+    @RepeatedTest(50)
+    //@Disabled("https://issues.apache.org/jira/browse/IGNITE-22891")
     public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
         AtomicInteger replicatorStartedCounter = new AtomicInteger(0);
 
@@ -285,6 +287,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                     String.valueOf(replicatorStartedCounter.get())
                             );
 
+                            log.info("Test: onSubscribe.");
+
                             subscription.request(1);
                         } catch (InterruptedException e) {
                             resultFuture.completeExceptionally(e);
@@ -299,10 +303,16 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                                 // Ensure that leader has not been changed.
                                 // In a stable topology unexpected leader election shouldn't happen.
-                                assertTrue(
-                                        waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000),
-                                        String.valueOf(replicatorStartedCounter.get())
-                                );
+                                try {
+                                    assertTrue(
+                                            waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000),
+                                            String.valueOf(replicatorStartedCounter.get())
+                                    );
+                                } catch (AssertionError e) {
+                                    log.error("Test: Leader changed unexpectedly.", e);
+
+                                    throw e;
+                                }
 
                                 // stop leader
                                 oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
@@ -330,8 +340,12 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                         String.valueOf(replicatorStoppedCounter.get())
                                 );
 
+                                log.info("Test: Entry 1 processed.");
+
                             } else if (state == 1) {
                                 assertEquals(EXPECTED_RESULT_ENTRY2, item);
+
+                                log.info("Test: Entry 2 processed.");
                             }
 
                             state++;
@@ -344,6 +358,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                     @Override
                     public void onError(Throwable throwable) {
+                        log.error("Test: error.", throwable);
+
                         resultFuture.completeExceptionally(throwable);
                     }
 
