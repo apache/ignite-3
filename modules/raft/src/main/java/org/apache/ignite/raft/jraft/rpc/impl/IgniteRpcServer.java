@@ -16,8 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
-import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -179,7 +178,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
             try {
-                if (shouldSwitchToRequestsExecutor()) {
+                if (shouldSwitchToRaftRequestsExecutor()) {
                     executor.execute(() -> finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message));
                 } else {
                     finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message);
@@ -190,10 +189,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
             }
         }
 
-        private boolean shouldSwitchToRequestsExecutor() {
+        private boolean shouldSwitchToRaftRequestsExecutor() {
             if (Thread.currentThread() instanceof ThreadAttributes) {
                 ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
-                return !thread.allows(STORAGE_READ) || !thread.allows(STORAGE_WRITE);
+                return !thread.allows(PROCESS_RAFT_REQ);
             } else {
                 if (PublicApiThreading.executingSyncPublicApi()) {
                     // It's a user thread, it executes a sync public API call, so it can do anything, no switch is needed.

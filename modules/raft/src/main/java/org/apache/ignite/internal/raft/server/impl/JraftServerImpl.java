@@ -40,8 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
@@ -268,11 +267,8 @@ public class JraftServerImpl implements RaftServer {
             opts.setSnapshotTimer(JRaftUtils.createTimer(opts, "JRaft-SnapshotTimer"));
         }
 
-        requestExecutor = new ThreadPoolExecutor(
+        requestExecutor = Executors.newFixedThreadPool(
                 opts.getRaftRpcThreadPoolSize(),
-                opts.getRaftRpcThreadPoolSize(),
-                0, SECONDS,
-                new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(opts.getServerName(), "JRaft-Request-Processor", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
