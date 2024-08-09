@@ -21,6 +21,7 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
@@ -41,13 +42,11 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 import java.io.IOException;
-import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -598,6 +597,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             long stopTime,
             CompletableFuture<? extends NetworkMessage> fut
     ) {
+        err = unwrapCause(err);
+
         if (recoverable(err)) {
             Peer randomPeer = randomNode(peer);
 
@@ -713,11 +714,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return {@code True} if this is a recoverable exception.
      */
     private static boolean recoverable(Throwable t) {
-        if (t instanceof ExecutionException || t instanceof CompletionException) {
-            t = t.getCause();
-        }
+        t = unwrapCause(t);
 
-        return t instanceof TimeoutException || t instanceof IOException;
+        return t instanceof TimeoutException || t instanceof IOException || t instanceof PeerUnavailableException;
     }
 
     private Peer randomNode() {
@@ -811,9 +810,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         ClusterNode node = cluster.topologyService().getByConsistentId(peer.consistentId());
 
         if (node == null) {
-            return CompletableFuture.failedFuture(new ConnectException("Peer " + peer.consistentId() + " is unavailable"));
+            return CompletableFuture.failedFuture(new PeerUnavailableException("Peer " + peer.consistentId() + " is unavailable"));
         }
 
         return CompletableFuture.completedFuture(node);
+    }
+
+    /**
+     * Special type of exception used during {@link #sendWithRetry} when a target peer is not present in the physical topology.
+     *
+     * <p>The stacktrace is omitted on purpose as to reduce log pollution (this exception is thrown and logged nearly immediately).
+     */
+    private static class PeerUnavailableException extends RuntimeException {
+        PeerUnavailableException(String message) {
+            super(message, null, true, false);
+        }
     }
 }
