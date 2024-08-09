@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,27 +36,19 @@ import org.jetbrains.annotations.Nullable;
 
 /** Tuple with schema marshalling. */
 public final class TupleWithSchemaMarshalling {
+    private static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /**
-     * Marshal tuple is the following format:
-     *
-     * <p>marshalledTuple       := | size | valuePosition | binaryTupleWithSchema |
-     *
-     * <p>size                  := int32
-     *
-     * <p>valuePosition := int32
-     *
-     * <p>binaryTupleWithSchema := | schemaBinaryTuple | valueBinaryTuple |
-     *
-     * <p>schemaBinaryTuple := | column1 | ... | columnN |
-     *
-     * <p>column                := | columnName | columnType |
-     *
-     * <p>columnName            := string
-     *
-     * <p>columnType            := int32.
-     *
-     * <p>valueBinaryTuple := | value1 | ... | valueN |
+     * Marshal tuple is the following format (LITTLE_ENDIAN):
+     * marshalledTuple       := | size | valuePosition | binaryTupleWithSchema |
+     * size                  := int32
+     * valuePosition := int32
+     * binaryTupleWithSchema := | schemaBinaryTuple | valueBinaryTuple |
+     * schemaBinaryTuple := | column1 | ... | columnN |
+     * column                := | columnName | columnType |
+     * columnName            := string
+     * columnType            := int32
+     * valueBinaryTuple := | value1 | ... | valueN |.
      */
     public static byte @Nullable [] marshal(Tuple tup) {
         // Allocate all the memory we need upfront.
@@ -78,19 +72,14 @@ public final class TupleWithSchemaMarshalling {
         byte[] valueBt = valueBuilder.build().array();
         // Size: int32 (tuple size), int32 (value offset), schema, value.
         byte[] result = new byte[4 + 4 + schemaBt.length + valueBt.length];
+        ByteBuffer buff = ByteBuffer.wrap(result).order(BYTE_ORDER);
 
         // Put the size of the schema in the first 4 bytes.
-        result[0] = (byte) (size >> 24);
-        result[1] = (byte) (size >> 16);
-        result[2] = (byte) (size >> 8);
-        result[3] = (byte) size;
+        buff.putInt(0, size);
 
         // Put the value offset in the second 4 bytes.
         int offset = schemaBt.length + 8;
-        result[4] = (byte) (offset >> 24);
-        result[5] = (byte) (offset >> 16);
-        result[6] = (byte) (offset >> 8);
-        result[7] = (byte) offset;
+        buff.putInt(4, offset);
 
         System.arraycopy(schemaBt, 0, result, 8, schemaBt.length);
         System.arraycopy(valueBt, 0, result, schemaBt.length + 8, valueBt.length);
@@ -98,40 +87,31 @@ public final class TupleWithSchemaMarshalling {
         return result;
     }
 
-
     /**
-     * Unmarshal tuple.
+     * Unmarshal tuple (LITTLE_ENDIAN).
      *
      * @param raw byte[] bytes that are marshaled by {@link #marshal(Tuple)}.
      */
     public static @Nullable Tuple unmarshal(byte @Nullable [] raw) {
         // Read first int32.
-        int size = ((raw[0] & 0xFF) << 24) |
-                ((raw[1] & 0xFF) << 16) |
-                ((raw[2] & 0xFF) << 8) |
-                (raw[3] & 0xFF);
+        ByteBuffer buff = ByteBuffer.wrap(raw).order(BYTE_ORDER);
+        int size = buff.getInt(0);
 
         // Read second int32.
-        int valueOffset = ((raw[4] & 0xFF) << 24) |
-                ((raw[5] & 0xFF) << 16) |
-                ((raw[6] & 0xFF) << 8) |
-                (raw[7] & 0xFF);
+        int valueOffset = buff.getInt(4);
 
         String[] columns = new String[size];
         ColumnType[] types = new ColumnType[size];
 
-        // Valueoffset (*) points at the index where the valueBt starts,
-        // the length of the destination schemaArr is calculated as
-        // | int32 | int32 | schema bytes |(*) value bytes |
-        // (*) - int32 - int32 = len(schema bytes)
-        byte[] schemaArr = new byte[valueOffset - 4 - 4];
-        byte[] valueArr = new byte[raw.length - valueOffset];
+        ByteBuffer schemaBuff = buff
+                .position(8).limit(valueOffset)
+                .slice().order(BYTE_ORDER);
+        ByteBuffer valueBuff = buff
+                .position(valueOffset).limit(raw.length)
+                .slice().order(BYTE_ORDER);
 
-        System.arraycopy(raw, 8, schemaArr, 0, schemaArr.length);
-        System.arraycopy(raw, valueOffset, valueArr, 0, valueArr.length);
-
-        BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2, schemaArr);
-        BinaryTupleReader valueReader = new BinaryTupleReader(size, valueArr);
+        BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2, schemaBuff);
+        BinaryTupleReader valueReader = new BinaryTupleReader(size, valueBuff);
 
         Tuple tup = Tuple.create(size);
 
