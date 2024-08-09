@@ -80,6 +80,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
             for (Assignment a : assignment.nodes()) {
                 long node = nodeNameToId.getOrDefault(a.consistentId(), -1);
 
+                // TODO Ignore unknown node until IGNITE-22969
                 if (node != -1) {
                     partitionNodes[idx] |= node;
                 }
@@ -117,6 +118,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
         for (String name : nodes) {
             long node = nodeNameToId.getOrDefault(name, -1);
 
+            // TODO Ignore unknown node until IGNITE-22969
             if (node != -1) {
                 nodesMap |= node;
             }

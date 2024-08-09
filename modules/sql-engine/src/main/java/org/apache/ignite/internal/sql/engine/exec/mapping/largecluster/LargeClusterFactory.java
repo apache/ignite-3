@@ -78,6 +78,7 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
             for (Assignment a : assignment.nodes()) {
                 int node = nodeNameToId.getOrDefault(a.consistentId(), -1);
 
+                // TODO Ignore unknown node until IGNITE-22969
                 if (node != -1) {
                     nodes.set(node);
                 }
@@ -115,6 +116,7 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
         for (String name : nodes) {
             int id = nodeNameToId.getOrDefault(name, -1);
 
+            // TODO Ignore unknown node until IGNITE-22969
             if (id != -1) {
                 nodesMap.set(id);
             }
