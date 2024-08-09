@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
+import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,8 +27,6 @@ import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
-import org.apache.ignite.internal.thread.PublicApiThreading;
-import org.apache.ignite.internal.thread.ThreadAttributes;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.internal.network.ClusterService;
@@ -178,7 +177,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
             try {
-                if (shouldSwitchToRaftRequestsExecutor()) {
+                if (shouldSwitchToRequestsExecutor(PROCESS_RAFT_REQ)) {
                     executor.execute(() -> finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message));
                 } else {
                     finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message);
@@ -186,26 +185,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
             } catch (RejectedExecutionException e) {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
                 LOG.warn("A request execution was rejected [sender={} req={} reason={}]", sender, S.toString(message), e.getMessage());
-            }
-        }
-
-        private boolean shouldSwitchToRaftRequestsExecutor() {
-            if (Thread.currentThread() instanceof ThreadAttributes) {
-                ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
-                return !thread.allows(PROCESS_RAFT_REQ);
-            } else {
-                if (PublicApiThreading.executingSyncPublicApi()) {
-                    // It's a user thread, it executes a sync public API call, so it can do anything, no switch is needed.
-                    return false;
-                }
-                if (PublicApiThreading.executingAsyncPublicApi()) {
-                    // It's a user thread, it executes an async public API call, so it cannot do anything, a switch is needed.
-                    return true;
-                }
-
-                // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
-                // let's switch: false negative can produce assertion errors.
-                return true;
             }
         }
 
