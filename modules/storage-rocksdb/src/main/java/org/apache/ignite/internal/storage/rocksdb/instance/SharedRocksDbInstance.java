@@ -119,6 +119,8 @@ public final class SharedRocksDbInstance {
     /** Column Family for GC queue. */
     public final ColumnFamily gcQueueCf;
 
+    public final ColumnFamily dataCf;
+
     /** Column Family for Hash Index data. */
     private final ColumnFamily hashIndexCf;
 
@@ -143,6 +145,7 @@ public final class SharedRocksDbInstance {
             RocksDbMetaStorage meta,
             ColumnFamily partitionCf,
             ColumnFamily gcQueueCf,
+            ColumnFamily dataCf,
             ColumnFamily hashIndexCf,
             List<ColumnFamily> sortedIndexCfs,
             List<AutoCloseable> resources
@@ -157,6 +160,7 @@ public final class SharedRocksDbInstance {
         this.meta = meta;
         this.partitionCf = partitionCf;
         this.gcQueueCf = gcQueueCf;
+        this.dataCf = dataCf;
         this.hashIndexCf = hashIndexCf;
 
         this.resources = new ArrayList<>(resources);
@@ -363,6 +367,7 @@ public final class SharedRocksDbInstance {
                     .array();
 
             deleteByPrefix(writeBatch, partitionCf, tableIdBytes);
+            deleteByPrefix(writeBatch, dataCf, tableIdBytes);
             deleteByPrefix(writeBatch, gcQueueCf, tableIdBytes);
             deleteByPrefix(writeBatch, hashIndexCf, tableIdBytes);
 

@@ -42,11 +42,14 @@ public class ColumnFamilyUtils {
     /** Name of the meta column family matches default columns family, meaning that it always exist when new table is created. */
     private static final String META_CF_NAME = "default";
 
-    /** Name of the Column Family that stores partition data. */
+    /** Name of the Column Family that stores partition data with references to row data. */
     private static final String PARTITION_CF_NAME = "cf-part";
 
     /** Name of the Column Family that stores garbage collection queue. */
     private static final String GC_QUEUE_CF_NAME = "cf-gc";
+
+    /** Name of the Column Family that stores row data. */
+    private static final String DATA_CF_NAME = "cf-data";
 
     /** Name of the Column Family that stores hash index data. */
     private static final String HASH_INDEX_CF_NAME = "cf-hash";
@@ -58,6 +61,7 @@ public class ColumnFamilyUtils {
     public static final List<byte[]> DEFAULT_CF_NAMES = List.of(
             META_CF_NAME.getBytes(UTF_8),
             PARTITION_CF_NAME.getBytes(UTF_8),
+            DATA_CF_NAME.getBytes(UTF_8),
             GC_QUEUE_CF_NAME.getBytes(UTF_8),
             HASH_INDEX_CF_NAME.getBytes(UTF_8)
     );
@@ -70,7 +74,7 @@ public class ColumnFamilyUtils {
 
     /** Utility enum to describe a type of the column family - meta or partition. */
     public enum ColumnFamilyType {
-        META, PARTITION, GC_QUEUE, HASH_INDEX, SORTED_INDEX, UNKNOWN;
+        META, PARTITION, GC_QUEUE, DATA, HASH_INDEX, SORTED_INDEX, UNKNOWN;
 
         /**
          * Determines column family type by its name.
@@ -85,6 +89,8 @@ public class ColumnFamilyUtils {
                 return PARTITION;
             } else if (GC_QUEUE_CF_NAME.equals(cfName)) {
                 return GC_QUEUE;
+            } else if (DATA_CF_NAME.equals(cfName)) {
+                return DATA;
             } else if (HASH_INDEX_CF_NAME.equals(cfName)) {
                 return HASH_INDEX;
             } else if (cfName.startsWith(SORTED_INDEX_CF_PREFIX)) {
