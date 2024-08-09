@@ -40,10 +40,10 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -101,9 +101,6 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -187,9 +184,9 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    new ClusterIdHolder()
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

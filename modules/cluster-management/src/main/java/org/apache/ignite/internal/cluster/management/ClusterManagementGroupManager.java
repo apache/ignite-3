@@ -41,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.events.BeforeStartRaftGroupEventParameters;
 import org.apache.ignite.internal.cluster.management.events.ClusterManagerGroupEvent;
 import org.apache.ignite.internal.cluster.management.events.EmptyEventParameters;
@@ -102,6 +101,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
 
+    private static final int NETWORK_INVOKE_TIMEOUT_MS = 3000;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -136,8 +137,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final ValidationManager validationManager;
 
-    private final ClusterManagementConfiguration configuration;
-
     /** Local state. */
     private final LocalStateStorage localStateStorage;
 
@@ -147,11 +146,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     /** Local node's attributes. */
     private final NodeAttributes nodeAttributes;
 
-    /** Future that resolves into the initial cluster configuration in HOCON format. */
-    private final CompletableFuture<String> initialClusterConfigurationFuture = new CompletableFuture<>();
-
     /** Failure processor that is used to handle critical errors. */
     private final FailureProcessor failureProcessor;
+
+    private final ClusterIdStore clusterIdStore;
+
+    /** Future that resolves into the initial cluster configuration in HOCON format. */
+    private final CompletableFuture<String> initialClusterConfigurationFuture = new CompletableFuture<>();
 
     private final CmgMessageHandler cmgMessageHandler;
 
@@ -164,9 +165,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterStateStorageManager clusterStateStorageMgr,
             LogicalTopology logicalTopology,
             ValidationManager validationManager,
-            ClusterManagementConfiguration configuration,
             NodeAttributes nodeAttributes,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            ClusterIdHolder clusterIdChanger
     ) {
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
@@ -174,10 +175,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.clusterStateStorageMgr = clusterStateStorageMgr;
         this.logicalTopology = logicalTopology;
         this.validationManager = validationManager;
-        this.configuration = configuration;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
         this.failureProcessor = failureProcessor;
+        this.clusterIdStore = clusterIdChanger;
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
@@ -222,9 +223,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             RaftManager raftManager,
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
-            ClusterManagementConfiguration configuration,
             NodeAttributes nodeAttributes,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            ClusterIdHolder clusterIdChanger
     ) {
         this(
                 vault,
@@ -234,9 +235,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 new ClusterStateStorageManager(clusterStateStorage),
                 logicalTopology,
                 new ValidationManager(new ClusterStateStorageManager(clusterStateStorage), logicalTopology),
-                configuration,
                 nodeAttributes,
-                failureProcessor
+                failureProcessor,
+                clusterIdChanger
         );
     }
 
@@ -452,6 +453,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                     localStateStorage.saveLocalState(localState);
 
+                    clusterIdStore.clusterId(state.clusterTag().clusterId());
+
                     return joinCluster(service, state.clusterTag());
                 });
     }
@@ -461,7 +464,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 .cmgNodes(Set.copyOf(msg.cmgNodes()))
                 .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
-                .clusterTag(clusterTag(msgFactory, msg.clusterName()))
+                .clusterTag(clusterTag(msgFactory, msg.clusterName(), msg.clusterId()))
                 .initialClusterConfiguration(msg.initialClusterConfiguration())
                 .build();
     }
@@ -733,6 +736,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                     localStateStorage.saveLocalState(localState);
 
+                    clusterIdStore.clusterId(state.clusterTag().clusterId());
+
                     return joinCluster(service, state.clusterTag());
                 });
     }
@@ -809,7 +814,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     private void sendWithRetry(ClusterNode node, NetworkMessage msg, CompletableFuture<Void> result, int attempts) {
-        clusterService.messagingService().invoke(node, msg, configuration.networkInvokeTimeout().value())
+        clusterService.messagingService().invoke(node, msg, NETWORK_INVOKE_TIMEOUT_MS)
                 .whenComplete((response, e) -> {
                     if (e == null) {
                         result.complete(null);

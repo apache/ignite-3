@@ -19,7 +19,6 @@ package org.apache.ignite.client.benchmarks;
 
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.ResourceLeakDetector.Level;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.TestServer;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -67,7 +66,7 @@ public class ClientPutGetBenchmark {
 
     private TestServer testServer;
 
-    private Ignite ignite;
+    private FakeIgnite ignite;
 
     private IgniteClient client;
 

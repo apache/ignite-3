@@ -448,8 +448,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ColumnType.Boolean => GetBoolNullable(index),
                 ColumnType.Period => GetPeriodNullable(index),
                 ColumnType.Duration => GetDurationNullable(index),
-                ColumnType.Bitmask => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType),
-                ColumnType.Number => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType),
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
             };
 

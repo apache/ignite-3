@@ -56,7 +56,9 @@ public final class MarshallerUtil {
 
             case STRING:
                 CharSequence chars = (CharSequence) val;
-                return chars.length() == 0 ? 1 : utf8EncodedLength(chars);
+                int length = chars.length();
+
+                return length == 0 ? 1 : length /* optimistically assume string value contains only ASCII symbols */;
 
             case DECIMAL:
                 return sizeInBytes((BigDecimal) val);
@@ -85,34 +87,6 @@ public final class MarshallerUtil {
      * Stub.
      */
     private MarshallerUtil() {
-    }
-
-    /**
-     * Calculates encoded string length.
-     *
-     * @param seq Char sequence.
-     * @return Encoded string length.
-     * @implNote This implementation is not tolerant to malformed char sequences.
-     */
-    public static int utf8EncodedLength(CharSequence seq) {
-        int cnt = 0;
-
-        for (int i = 0, len = seq.length(); i < len; i++) {
-            char ch = seq.charAt(i);
-
-            if (ch <= 0x7F) {
-                cnt++;
-            } else if (ch <= 0x7FF) {
-                cnt += 2;
-            } else if (Character.isHighSurrogate(ch)) {
-                cnt += 4;
-                ++i;
-            } else {
-                cnt += 3;
-            }
-        }
-
-        return cnt;
     }
 
     /**

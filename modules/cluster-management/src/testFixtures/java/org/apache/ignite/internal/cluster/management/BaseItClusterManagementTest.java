@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -44,9 +43,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
     private static final int PORT_BASE = 10000;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
@@ -74,7 +70,6 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                         nodeFinder,
                         workDir,
                         raftConfiguration,
-                        cmgConfiguration,
                         userNodeAttributes,
                         storageConfiguration
 
@@ -97,7 +92,6 @@ public abstract class BaseItClusterManagementTest extends IgniteAbstractTest {
                 createNodeFinder(clusterSize),
                 workDir,
                 raftConfiguration,
-                cmgConfiguration,
                 userNodeAttributes,
                 storageConfiguration
         );

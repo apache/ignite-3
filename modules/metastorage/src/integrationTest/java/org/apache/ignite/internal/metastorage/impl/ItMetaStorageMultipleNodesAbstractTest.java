@@ -46,10 +46,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -108,9 +108,6 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -180,9 +177,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    cmgConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
-                    failureProcessor
+                    failureProcessor,
+                    new ClusterIdHolder()
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

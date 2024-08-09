@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runInExecutor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
@@ -44,10 +45,8 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -109,7 +108,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             + "  compute.threadPoolSize: 1\n"
             + "}";
 
-    private ExecutorService txStateStorageExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService txStateStorageExecutor = Executors.newSingleThreadExecutor(
+            IgniteThreadFactory.create("test", "tx-state-storage-test-pool-itrvt", log, ThreadOperation.STORAGE_READ)
+    );
 
     @BeforeEach
     @Override
@@ -124,9 +125,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             executeUpdate(zoneSql, session);
             executeUpdate(sql, session);
         });
-
-        txStateStorageExecutor = Executors.newSingleThreadExecutor(IgniteThreadFactory.create("test", "tx-state-storage-test-pool", log,
-                ThreadOperation.STORAGE_READ));
     }
 
     @Override
@@ -1045,23 +1043,13 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
     @Nullable
     private TransactionMeta persistentTxState(IgniteImpl node, UUID txId, String tableName, int partId) {
-        TransactionMeta[] meta = new TransactionMeta[1];
-
-        Future f = txStateStorageExecutor.submit(() -> {
+        return runInExecutor(txStateStorageExecutor, () -> {
             TxStateStorage txStateStorage = table(node, tableName).internalTable().txStateStorage().getTxStateStorage(partId);
 
             assertNotNull(txStateStorage);
 
-            meta[0] = txStateStorage.get(txId);
+            return txStateStorage.get(txId);
         });
-
-        try {
-            f.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-
-        return meta[0];
     }
 
     private IgniteImpl findNode(Predicate<IgniteImpl> filter) {

@@ -15,20 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+#include "dynamic_module.h"
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+#include <sstream>
 
-/**
- * Cluster management configuration schema.
- */
-@ConfigurationRoot(rootName = "cluster", type = ConfigurationType.LOCAL)
-public class ClusterManagementConfigurationSchema {
-    /** Invoke timeout used by Cluster Management module (ms). */
-    @Value(hasDefault = true)
-    @Range(min = 1)
-    public long networkInvokeTimeout = 500;
+#include <dlfcn.h>
+
+namespace ignite::network
+{
+
+void* dynamic_module::find_symbol(const char* name)
+{
+    return dlsym(m_handle, name);
+}
+
+bool dynamic_module::is_loaded() const
+{
+    return m_handle != nullptr;
+}
+
+void dynamic_module::unload()
+{
+    if (is_loaded())
+        dlclose(m_handle);
+}
+
+dynamic_module load_module(const char* path)
+{
+    void* handle = dlopen(path, RTLD_NOW);
+
+    return dynamic_module(handle);
+}
+
+dynamic_module load_module(const std::string& path)
+{
+    return load_module(path.c_str());
+}
+
+dynamic_module get_current()
+{
+    return load_module(NULL);
+}
+
 }

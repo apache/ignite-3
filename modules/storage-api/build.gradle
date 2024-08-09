@@ -55,6 +55,7 @@ dependencies {
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation project(':ignite-system-view-api')
     testFixturesImplementation project(':ignite-failure-handler')
+    testFixturesImplementation project(':ignite-transactions')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation(testFixtures(project(':ignite-schema')))

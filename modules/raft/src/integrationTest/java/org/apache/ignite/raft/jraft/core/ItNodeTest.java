@@ -45,6 +45,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.codahale.metrics.ConsoleReporter;
+import com.lmax.disruptor.EventHandler;
+import com.lmax.disruptor.RingBuffer;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -68,6 +70,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
@@ -98,7 +101,10 @@ import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
+import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
+import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.entity.UserLog;
@@ -257,7 +263,101 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22261")
+    public void testSmallestBufferSize() throws Exception {
+        TestPeer peer = new TestPeer(testInfo, TestUtils.INIT_PORT);
+
+        NodeOptions nodeOptions = createNodeOptions(0);
+        RaftOptions raftOptions = new RaftOptions();
+        raftOptions.setDisruptorBufferSize(1);
+        nodeOptions.setRaftOptions(raftOptions);
+        MockStateMachine fsm = new MockStateMachine(peer.getPeerId());
+        nodeOptions.setFsm(fsm);
+        nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
+        nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
+        nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer.getPeerId())));
+
+        AtomicBoolean block = new AtomicBoolean();
+        CountDownLatch latch = new CountDownLatch(1);
+
+        nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
+                "unit-test",
+                "JRaft-FSMCaller-Disruptor",
+                1,
+                () -> new ApplyTask(),
+                1,
+                false,
+                false,
+                null
+        ) {
+            @Override
+            public RingBuffer<ApplyTask> subscribe(
+                    NodeId group,
+                    EventHandler<ApplyTask> handler,
+                    BiConsumer<ApplyTask, Throwable> exceptionHandler
+            ) {
+                return super.subscribe(group, (event, sequence, endOfBatch) -> {
+                    if (block.compareAndSet(true, false)) {
+                        log.info("Raft task is blocked.");
+
+                        latch.await();
+
+                        log.info("Raft task is continue executing.");
+                    }
+
+                    handler.onEvent(event, sequence, endOfBatch);
+                }, exceptionHandler);
+            }
+        });
+
+        RaftGroupService service = createService("unittest", peer, nodeOptions, List.of());
+
+        Node node = service.start();
+
+        assertEquals(1, node.listPeers().size());
+        assertTrue(node.listPeers().contains(peer.getPeerId()));
+        assertTrue(waitForCondition(node::isLeader, 10_000));
+
+        AtomicInteger c = new AtomicInteger();
+
+        Task task1 = new Task(ByteBuffer.wrap(("Test task").getBytes(UTF_8)), new JoinableClosure(status -> {
+            log.info("First task is started.");
+
+            if (!status.isOk()) {
+                assertTrue(
+                        status.getRaftError() == RaftError.EBUSY || status.getRaftError() == RaftError.EPERM);
+            }
+            c.incrementAndGet();
+        }));
+
+        Task task2 = new Task(ByteBuffer.wrap(("Test task").getBytes(UTF_8)), new JoinableClosure(status -> {
+            log.info("Second task is started.");
+
+            if (!status.isOk()) {
+                assertTrue(
+                        status.getRaftError() == RaftError.EBUSY || status.getRaftError() == RaftError.EPERM);
+            }
+            c.incrementAndGet();
+        }));
+
+        try {
+            block.set(true);
+
+            node.apply(task1);
+
+            assertTrue(waitForCondition(() -> !block.get(), 10_000));
+
+            node.apply(task2);
+
+            latch.countDown();
+
+            Task.joinAll(List.of(task1, task2), TimeUnit.SECONDS.toMillis(30));
+            assertEquals(2, c.get());
+        } finally {
+            latch.countDown();
+        }
+    }
+
+    @Test
     public void testNodeTaskOverload() throws Exception {
         TestPeer peer = new TestPeer(testInfo, TestUtils.INIT_PORT);
 
