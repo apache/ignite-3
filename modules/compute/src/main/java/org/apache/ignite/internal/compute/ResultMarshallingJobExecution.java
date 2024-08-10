@@ -29,9 +29,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-class ResultMarshallingJobExecution<R> implements JobExecution<R> {
+class ResultMarshallingJobExecution<R> implements JobExecution<R>, MarshallerProvider<R> {
     private final JobExecution<R> delegate;
-    public final Marshaller<R, byte[]> resultMarshaller;
+    private final Marshaller<R, byte[]> resultMarshaller;
 
     ResultMarshallingJobExecution(JobExecution<R> delegate, Marshaller<R, byte[]> resultMarshaller) {
         this.delegate = delegate;
@@ -56,5 +56,10 @@ class ResultMarshallingJobExecution<R> implements JobExecution<R> {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return delegate.changePriorityAsync(newPriority);
+    }
+
+    @Override
+    public Marshaller<R, byte[]> resultMarshaller() {
+        return resultMarshaller;
     }
 }

@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-public class JobExecutionWrapper<R> implements JobExecution<R> {
+public class JobExecutionWrapper<R> implements JobExecution<R>, MarshallerProvider<R> {
     private final JobExecution<R> delegate;
 
     JobExecutionWrapper(JobExecution<R> delegate) {
@@ -58,7 +58,15 @@ public class JobExecutionWrapper<R> implements JobExecution<R> {
         return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
     }
 
+    @Override
     public Marshaller<R, byte[]> resultMarshaller() {
-        return ((ResultMarshallingJobExecution) delegate).resultMarshaller;
+        if (delegate instanceof MarshallerProvider) {
+            return ((MarshallerProvider<R>) delegate).resultMarshaller();
+        }
+
+        throw new IllegalArgumentException(
+                "Can not return marshaller because " + delegate.getClass().getName()
+                        + " does not implement " + MarshallerProvider.class.getName()
+        );
     }
 }

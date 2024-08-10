@@ -33,8 +33,9 @@ import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.compute.JobExecutionWrapper;
+import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -108,10 +109,21 @@ public class ClientComputeExecuteRequest {
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            var marshaller = ((JobExecutionWrapper) e).resultMarshaller(); // todo do not cast here
+                            Marshaller<Object, byte[]> marshaller = extractMarshaller(e);
                             new ClientComputeJobPacker(w).packJobResult(val, marshaller);
                             packJobState(w, state);
                         }, err)));
+    }
+
+    private static <T> Marshaller<T, byte[]> extractMarshaller(JobExecution<T> e) {
+        if (e instanceof MarshallerProvider) {
+            return ((MarshallerProvider<T>) e).resultMarshaller();
+        }
+
+        throw new IllegalArgumentException(
+                "Can not return marshaller because " + e.getClass().getName()
+                        + " does not implement " + MarshallerProvider.class.getName()
+        );
     }
 
     /**
