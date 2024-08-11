@@ -70,7 +70,6 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
-import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
@@ -112,8 +111,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        Marshaller<Object, byte[]> argumentMarshaller = (Marshaller<Object, byte[]>) descriptor.argumentMarshaller();
-        Marshaller<Object, byte[]> resultMarshaller = (Marshaller<Object, byte[]>) descriptor.resultMarshaller();
+        // todo.
+        // Marshaller<Object, byte[]> argumentMarshaller = (Marshaller<Object, byte[]>) descriptor.argumentMarshaller();
+        // Marshaller<Object, byte[]> resultMarshaller = (Marshaller<Object, byte[]>) descriptor.resultMarshaller();
 
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
@@ -122,15 +122,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 ClusterNode node = nodes.iterator().next();
                 if (node.id().equals(topologyService.localMember().id())) {
                     return (JobExecution<R>) executeAsyncWithFailover(
-                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
-                            argumentMarshaller, resultMarshaller, args
+                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
                     );
                 }
             }
 
             return (JobExecution<R>) executeAsyncWithFailover(
-                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
-                    argumentMarshaller, resultMarshaller, args
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
             );
         }
 
@@ -150,8 +148,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                         descriptor.units(),
                                         descriptor.jobClassName(),
                                         descriptor.options(),
-                                        argumentMarshaller,
-                                        resultMarshaller,
                                         args
                                 )));
 
@@ -163,8 +159,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                 descriptor.units(),
                                 descriptor.jobClassName(),
                                 descriptor.options(),
-                                argumentMarshaller,
-                                resultMarshaller,
                                 args))
                         .thenApply(job -> (JobExecution<R>) job);
             }
@@ -186,8 +180,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
-            @Nullable Marshaller<R, byte[]> resultMarshaller,
             Object args
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
@@ -213,8 +205,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         units,
                         jobClassName,
                         options,
-                        argumentMarshaller,
-                        resultMarshaller,
                         args
                 ));
     }
@@ -236,24 +226,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
-            @Nullable Marshaller<T, byte[]> argumentMarshaller,
-            @Nullable Marshaller<R, byte[]> resultMarshaller,
             @Nullable T payload
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
-        Object marshalledArg = argumentMarshaller == null ? payload : argumentMarshaller.marshal(payload);
 
         if (isLocal(targetNode)) {
-            return new ResultMarshallingJobExecution<>(
-                    computeComponent.executeLocally(options, units, jobClassName, marshalledArg),
-                    resultMarshaller
-            );
+            return computeComponent.executeLocally(options, units, jobClassName, payload);
         } else {
-            return new ResultMarshallingJobExecution<>(
-                    computeComponent.executeRemotelyWithFailover(
-                            targetNode, nextWorkerSelector, units, jobClassName, options, marshalledArg
-                    ),
-                    resultMarshaller
+            return computeComponent.executeRemotelyWithFailover(
+                    targetNode, nextWorkerSelector, units, jobClassName, options, payload
             );
         }
     }
@@ -286,14 +267,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
-            @Nullable Marshaller<R, byte[]> resultMarshaller,
             Object arg) {
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenApply(primaryNode -> (JobExecution<R>) executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
-                        units, jobClassName, options, argumentMarshaller, (Marshaller<Object, byte[]>) resultMarshaller, arg
+                        units, jobClassName, options,  arg
                 ));
     }
 
@@ -343,7 +322,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
-        Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
+        // todo.
+        // Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
+        // Marshaller<T, byte[]> resultMarshaller = descriptor.argumentMarshaller();
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
@@ -354,8 +335,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                             }
                             return new JobExecutionWrapper<>((JobExecution<R>) executeOnOneNodeWithFailover(
                                     node, CompletableFutures::nullCompletedFuture,
-                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(),
-                                    argumentMarshaller, (Marshaller<Object, byte[]>) descriptor.resultMarshaller(), args));
+                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
                         }));
     }
 
@@ -417,7 +397,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 deploymentUnits,
                 StreamerReceiverJob.class.getName(),
                 JobExecutionOptions.DEFAULT,
-                null, null,
                 payload);
 
         return jobExecution.resultAsync()

@@ -67,7 +67,7 @@ public class ClientComputeExecuteRequest {
         Object arg = unpackPayload(in);
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(
-                candidates, deploymentUnits, jobClassName, options, null, null, arg
+                candidates, deploymentUnits, jobClassName, options,  arg
         );
         sendResultAndState(execution, notificationSender);
 

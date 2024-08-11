@@ -96,8 +96,6 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
-            @Nullable Marshaller<R, byte[]> resultMarshaller,
             Object args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
@@ -136,8 +134,6 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable Marshaller<Object, byte[]> argumentMarshaller,
-            @Nullable Marshaller<R, byte[]> resultMarshaller,
             Object args
     ) {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
@@ -148,7 +144,7 @@ public class FakeCompute implements IgniteComputeInternal {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
             return executeAsyncWithFailover(
-                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), null, null, args
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
             );
         } else if (target instanceof ColocatedJobTarget) {
             return jobExecution(future != null ? future : completedFuture((R) nodeName));

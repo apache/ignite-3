@@ -238,7 +238,7 @@ public class ComputeMessaging {
 
     private void sendJobResultResponse(@Nullable Object result, @Nullable Throwable ex, ClusterNode sender, long correlationId) {
         JobResultResponse jobResultResponse = messagesFactory.jobResultResponse()
-                .result(result)
+                .result(result) // todo: marshal?
                 .throwable(ex)
                 .build();
 

@@ -67,7 +67,8 @@ public class ClientComputeJobUnpacker {
                 ColumnType columnType = ColumnType.getById(typeId);
                 if (marshaller != null) {
                     if (columnType != ColumnType.BYTE_ARRAY) {
-                        throw new IllegalArgumentException("Can not unmarshal object that is not `byte[]`.");
+                        // todo log.
+                        return unpacker.unpackObjectFromBinaryTuple();
                     }
                     return marshaller.unmarshal((byte[]) unpacker.unpackObjectFromBinaryTuple());
                 }

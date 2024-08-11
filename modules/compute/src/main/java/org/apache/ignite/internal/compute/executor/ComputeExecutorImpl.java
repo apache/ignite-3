@@ -94,37 +94,21 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
 
         QueueExecution<R> execution = executorService.submit(
-                unmarshalExecMarshal(input, jobInstance, context, inputMarshaller, resultMarshaller),
+                unmarshalExecMarshal(input, jobInstance, context, inputMarshaller),
                 options.priority(),
                 options.maxRetries()
         );
 
-        return new JobExecutionInternal<>(execution, isInterrupted);
+        return new JobExecutionInternal<>(execution, isInterrupted, resultMarshaller);
     }
 
     private static <T, R> Callable<CompletableFuture<R>> unmarshalExecMarshal(
             T input,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,
-            @Nullable Marshaller<T, byte[]> inputMarshaller,
-            @Nullable Marshaller<R, byte[]> resultMarshaller
+            @Nullable Marshaller<T, byte[]> inputMarshaller
     ) {
-        return () -> {
-            var fut = jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
-            if (fut != null) {
-                return (CompletableFuture<R>) fut.thenApply(res -> marshallOrNull(res, null));
-            }
-            return null;
-        };
-    }
-
-
-    private static <R> @Nullable Object marshallOrNull(Object res, @Nullable Marshaller<R, byte[]> marshaller) {
-        if (marshaller == null) {
-            return res;
-        }
-
-        return marshaller.marshal((R) res);
+        return () -> jobInstance.executeAsync(context, unmarshallOrNotIfNull(inputMarshaller, input));
     }
 
     private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaller<T, byte[]> marshaller, Object input) {
