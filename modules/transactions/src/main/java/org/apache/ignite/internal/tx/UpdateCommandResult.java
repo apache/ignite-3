@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.io.Serializable;
+import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,26 +33,35 @@ public class UpdateCommandResult implements Serializable {
     @Nullable
     private final Long currentLeaseStartTime;
 
+    // TODO sanpwc Explain.
+    private final boolean primaryInPeersAndLearners;
+
     /**
      * Constructor.
      *
      * @param primaryReplicaMatch Whether the command should be successfully applied on primary replica.
      */
-    public UpdateCommandResult(boolean primaryReplicaMatch) {
-        this(primaryReplicaMatch, null);
+    public UpdateCommandResult(boolean primaryReplicaMatch, boolean primaryInPeersAndLearners) {
+        this(primaryReplicaMatch, null, primaryInPeersAndLearners);
     }
 
+    // TODO sanpwc javadoc
     /**
      * Constructor.
      *
      * @param primaryReplicaMatch Whether the command should be successfully applied on primary replica.
      * @param currentLeaseStartTime Actual lease start time.
      */
-    public UpdateCommandResult(boolean primaryReplicaMatch, @Nullable Long currentLeaseStartTime) {
+    public UpdateCommandResult(
+            boolean primaryReplicaMatch,
+            @Nullable Long currentLeaseStartTime,
+            boolean primaryInPeersAndLearners
+    ) {
         assert primaryReplicaMatch || currentLeaseStartTime != null : "Incorrect UpdateCommandResult.";
 
         this.primaryReplicaMatch = primaryReplicaMatch;
         this.currentLeaseStartTime = currentLeaseStartTime;
+        this.primaryInPeersAndLearners = primaryInPeersAndLearners;
     }
 
     /**
@@ -73,6 +83,11 @@ public class UpdateCommandResult implements Serializable {
         return currentLeaseStartTime;
     }
 
+    // TODO sanpwc javadoc.
+    public boolean isPrimaryInPeersAndLearners() {
+        return primaryInPeersAndLearners;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -81,20 +96,13 @@ public class UpdateCommandResult implements Serializable {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
         UpdateCommandResult that = (UpdateCommandResult) o;
-
-        if (primaryReplicaMatch != that.primaryReplicaMatch) {
-            return false;
-        }
-        return currentLeaseStartTime != null ? currentLeaseStartTime.equals(that.currentLeaseStartTime)
-                : that.currentLeaseStartTime == null;
+        return primaryReplicaMatch == that.primaryReplicaMatch && primaryInPeersAndLearners == that.primaryInPeersAndLearners
+                && Objects.equals(currentLeaseStartTime, that.currentLeaseStartTime);
     }
 
     @Override
     public int hashCode() {
-        int result = (primaryReplicaMatch ? 1 : 0);
-        result = 31 * result + (currentLeaseStartTime != null ? currentLeaseStartTime.hashCode() : 0);
-        return result;
+        return Objects.hash(primaryReplicaMatch, currentLeaseStartTime, primaryInPeersAndLearners);
     }
 }

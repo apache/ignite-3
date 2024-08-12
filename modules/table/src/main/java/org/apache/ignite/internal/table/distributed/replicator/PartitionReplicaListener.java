@@ -130,8 +130,6 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ScanC
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -2782,7 +2780,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 updateCommandResult.currentLeaseStartTime()
                         );
                     }
-                    if (localNodeInPeers()) {
+
+                    if (updateCommandResult.isPrimaryInPeersAndLearners()) {
                         return safeTime.waitFor(cmd.safeTime()).thenApply(ignored -> null);
                     } else {
                         // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
@@ -2916,7 +2915,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         updateCommandResult.currentLeaseStartTime()
                                 );
                             }
-                            if (localNodeInPeers()) {
+                            if (updateCommandResult.isPrimaryInPeersAndLearners()) {
                                 return safeTime.waitFor(cmd.safeTime()).thenApply(ignored -> null);
                             } else {
                                 // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
@@ -4145,23 +4144,5 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return result;
-    }
-
-    // TODO sanpwc better check
-    private boolean localNodeInPeers() {
-        TopologyAwareRaftGroupService raftClient0;
-        if (raftClient instanceof TopologyAwareRaftGroupService) {
-            raftClient0 = (TopologyAwareRaftGroupService) raftClient;
-        } else {
-            raftClient0 = (TopologyAwareRaftGroupService) ((ExecutorInclinedRaftCommandRunner) raftClient).decoratedCommandRunner();
-        }
-
-        for (Peer peer : raftClient0.peers()) {
-            if (peer.consistentId().equals(localNode.name())) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
