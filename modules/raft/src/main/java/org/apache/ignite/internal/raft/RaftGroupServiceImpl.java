@@ -708,7 +708,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /**
-     * Checks if an error is recoverable, for example, {@link java.net.ConnectException}.
+     * Checks if an error is recoverable.
+     *
+     * <p>An error is considered recoverable if it's an instance of {@link TimeoutException}, {@link IOException}
+     * or {@link PeerUnavailableException}.
      *
      * @param t The throwable.
      * @return {@code True} if this is a recoverable exception.
@@ -810,20 +813,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         ClusterNode node = cluster.topologyService().getByConsistentId(peer.consistentId());
 
         if (node == null) {
-            return CompletableFuture.failedFuture(new PeerUnavailableException("Peer " + peer.consistentId() + " is unavailable"));
+            return CompletableFuture.failedFuture(new PeerUnavailableException(peer.consistentId()));
         }
 
         return CompletableFuture.completedFuture(node);
-    }
-
-    /**
-     * Special type of exception used during {@link #sendWithRetry} when a target peer is not present in the physical topology.
-     *
-     * <p>The stacktrace is omitted on purpose as to reduce log pollution (this exception is thrown and logged nearly immediately).
-     */
-    private static class PeerUnavailableException extends RuntimeException {
-        PeerUnavailableException(String message) {
-            super(message, null, true, false);
-        }
     }
 }
