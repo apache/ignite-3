@@ -829,13 +829,12 @@ public class ItTxTestCluster {
         };
     }
 
-    protected RaftGroupService getRaftClientForGroup(ReplicationGroupId groupId) {
+    private CompletableFuture<RaftGroupService> getRaftClientForGroup(ReplicationGroupId groupId) {
         int partId = 0;
 
         return replicaManagers.get(extractConsistentId(cluster.get(partId)))
                 .replica(groupId)
-                .thenApply(Replica::raftClient)
-                .join();
+                .thenApply(Replica::raftClient);
     }
 
     protected Peer getLeaderId(String tableName) {
