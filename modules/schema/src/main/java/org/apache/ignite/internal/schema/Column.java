@@ -215,7 +215,7 @@ public class Column {
                 throw new InvalidTypeException(error);
             } else {
                 String error = format(
-                        "Value type does not match expected {} but got {} in column '{}'",
+                        "Value type does not match. Expected {} but got {} in column '{}'",
                         type.displayName(), objType.displayName(), name
                 );
                 throw new InvalidTypeException(error);

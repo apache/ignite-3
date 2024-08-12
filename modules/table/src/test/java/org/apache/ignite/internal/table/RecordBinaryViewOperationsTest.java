@@ -280,7 +280,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         final Tuple tuple1 = new TestTupleBuilder().set("id", 1L).set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
 
         assertThrowsWithCause(InvalidTypeException.class, () -> tbl.get(null, keyTuple0),
-                "Value type does not match expected INT64 but got INT32");
+                "Value type does not match. Expected INT64 but got INT32");
         assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.get(null, keyTuple1),
                 "Missed key column: ID");
 
