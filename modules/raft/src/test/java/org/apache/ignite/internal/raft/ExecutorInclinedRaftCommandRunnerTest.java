@@ -40,7 +40,6 @@ import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -143,8 +142,11 @@ class ExecutorInclinedRaftCommandRunnerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    //@Test
-    @RepeatedTest(100)
+    /**
+     * The synchronous API proposes that the client thread wait for operation completion.
+     * In this case, we can avoid switching to an intermediate pool and return to the client thread.
+     */
+    @Test
     void completeFutureInCaseOfSyncApi() {
         CountDownLatch latch = new CountDownLatch(1);
         CompletableFuture<Void> originalFuture = new CompletableFuture<>();
@@ -159,8 +161,6 @@ class ExecutorInclinedRaftCommandRunnerTest extends BaseIgniteAbstractTest {
 
         anotherExecutor.submit(() -> {
             try {
-//                Thread.sleep(1_000);
-
                 latch.await();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
