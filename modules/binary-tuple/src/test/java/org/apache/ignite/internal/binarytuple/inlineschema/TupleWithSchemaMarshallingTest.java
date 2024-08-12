@@ -18,14 +18,20 @@
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.Period;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.apache.ignite.marshalling.UnmarshallingException;
+import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -52,6 +58,25 @@ class TupleWithSchemaMarshallingTest {
                 Tuple.create().set("col15", new byte[]{1, 2, 3}),
                 Tuple.create().set("col16", Period.ofDays(10)),
                 Tuple.create().set("col17", Duration.ofDays(10))
+        ).map(Arguments::of);
+    }
+
+    private static Stream<Arguments> unsupportedTypes() {
+        return Stream.of(
+                Tuple.create().set("col", new Object()),
+                Tuple.create().set("col1", 1).set("col2", new Object()),
+                Tuple.create().set("col", new ArrayList<>()),
+                Tuple.create().set("col", new HashMap<>()),
+                Tuple.create().set("col", new HashMap<>()),
+                Tuple.create().set("col", Tuple.create())
+        ).map(Arguments::of);
+    }
+
+    private static Stream<Arguments> wrongByteLayout() {
+        return Stream.of(
+                new byte[]{},
+                new byte[]{1},
+                new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9}
         ).map(Arguments::of);
     }
 
@@ -85,5 +110,23 @@ class TupleWithSchemaMarshallingTest {
 
         byte[] marshalled = TupleWithSchemaMarshalling.marshal(tuple);
         assertEquals(tuple, TupleWithSchemaMarshalling.unmarshal(marshalled));
+    }
+
+    @Test
+    void nullTuple() {
+        byte[] marshalled = TupleWithSchemaMarshalling.marshal(null);
+        assertNull(TupleWithSchemaMarshalling.unmarshal(marshalled));
+    }
+
+    @MethodSource("unsupportedTypes")
+    @ParameterizedTest
+    void unsupportedTypesMarshal(Tuple tup) {
+        assertThrows(UnsupportedObjectTypeMarshallingException.class, () -> TupleWithSchemaMarshalling.marshal(tup));
+    }
+
+    @MethodSource("wrongByteLayout")
+    @ParameterizedTest
+    void unsupportedTypesUnmarshal(byte[] obj) {
+        assertThrows(UnmarshallingException.class, () -> TupleWithSchemaMarshalling.unmarshal(obj));
     }
 }

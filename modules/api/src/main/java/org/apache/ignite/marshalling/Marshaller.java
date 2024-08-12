@@ -57,15 +57,14 @@ public interface Marshaller<T, R> {
      * @param self the marshaller instance.
      * @param object to marshal.
      * @param <T> The object (T)ype.
-     * @param <R> The (R)aw type, for example, {@code byte[]} or {@link org.apache.ignite.table.Tuple}.
+     * @param <R> The (R)aw type, for example.
      */
     static <T, R> @Nullable R tryMarshalOrCast(@Nullable Marshaller<T, R> self, @Nullable Object object) {
         if (self != null) {
             try {
                 T castedObj = (T) object;
                 return self.marshal(castedObj);
-            } catch (ClassCastException e) {
-                // todo: log.
+            } catch (ClassCastException ignored) {
             }
         }
 
@@ -84,8 +83,7 @@ public interface Marshaller<T, R> {
             try {
                 R rawType = (R) raw;
                 return self.unmarshal(rawType);
-            } catch (ClassCastException e) {
-                // todo: log.
+            } catch (ClassCastException ignored) {
             }
         }
 

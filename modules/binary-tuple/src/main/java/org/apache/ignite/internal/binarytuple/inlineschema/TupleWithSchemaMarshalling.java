@@ -30,6 +30,8 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.marshalling.UnmarshallingException;
+import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -50,7 +52,11 @@ public final class TupleWithSchemaMarshalling {
      * columnType            := int32
      * valueBinaryTuple := | value1 | ... | valueN |.
      */
-    public static byte @Nullable [] marshal(Tuple tup) {
+    public static byte @Nullable [] marshal(@Nullable Tuple tup) {
+        if (tup == null) {
+            return null;
+        }
+
         // Allocate all the memory we need upfront.
         int size = tup.columnCount();
         Object[] values = new Object[size];
@@ -93,12 +99,31 @@ public final class TupleWithSchemaMarshalling {
      * @param raw byte[] bytes that are marshaled by {@link #marshal(Tuple)}.
      */
     public static @Nullable Tuple unmarshal(byte @Nullable [] raw) {
+        if (raw == null) {
+            return null;
+        }
+        if (raw.length < 8) {
+            throw new UnmarshallingException("byte[] length can not be less than 8");
+        }
+
         // Read first int32.
         ByteBuffer buff = ByteBuffer.wrap(raw).order(BYTE_ORDER);
         int size = buff.getInt(0);
+        if (size < 0) {
+            throw new UnmarshallingException("Size of the tuple can not be less than zero");
+        }
 
         // Read second int32.
         int valueOffset = buff.getInt(4);
+        if (valueOffset < 0) {
+            throw new UnmarshallingException("valueOffset can not be less than zero");
+        }
+        if (valueOffset > raw.length) {
+            throw new UnmarshallingException(
+                    "valueOffset can not be greater than byte[] length, valueOffset: "
+                    + valueOffset + ", length: " + raw.length
+            );
+        }
 
         ByteBuffer schemaBuff = buff
                 .position(8).limit(valueOffset)
@@ -265,7 +290,7 @@ public final class TupleWithSchemaMarshalling {
         if (value instanceof Duration) {
             return ColumnType.DURATION;
         }
-        throw new IllegalArgumentException("Unsupported type: " + value.getClass());
+        throw new UnsupportedObjectTypeMarshallingException("Tuple field is of unsupported type: " + value.getClass());
     }
 
 
