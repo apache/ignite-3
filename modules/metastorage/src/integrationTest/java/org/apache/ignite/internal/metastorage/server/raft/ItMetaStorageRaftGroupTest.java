@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -237,6 +238,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         LeaderWithTerm leaderWithTerm = oldLeaderFut.join();
 
+        assertNotNull(leaderWithTerm.leader());
         String oldLeaderId = leaderWithTerm.leader().consistentId();
         long oldLeaderTerm = leaderWithTerm.term();
 
@@ -306,6 +308,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                 assertThat(newLeaderWithTermFut, willCompleteSuccessfully());
                                 LeaderWithTerm newLeaderWithTerm = newLeaderWithTermFut.join();
 
+                                assertNotNull(newLeaderWithTerm.leader());
                                 assertNotSame(oldLeaderId, newLeaderWithTerm.leader().consistentId());
 
                                 // Check that the leader changed only once.
