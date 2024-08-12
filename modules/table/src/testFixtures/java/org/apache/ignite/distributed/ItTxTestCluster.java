@@ -101,8 +101,10 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -827,6 +829,15 @@ public class ItTxTestCluster {
         };
     }
 
+    protected RaftGroupService getRaftClientForGroup(ReplicationGroupId groupId) {
+        int partId = 0;
+
+        return replicaManagers.get(extractConsistentId(cluster.get(partId)))
+                .replica(groupId)
+                .thenApply(Replica::raftClient)
+                .join();
+    }
+
     protected Peer getLeaderId(String tableName) {
         int partId = 0;
 
@@ -922,7 +933,7 @@ public class ItTxTestCluster {
                 try {
                     replicaManager.stopReplica(id);
                 } catch (NodeStoppingException e) {
-                    // no-op
+                    throw new AssertionError(e);
                 }
             });
         }
