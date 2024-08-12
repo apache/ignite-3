@@ -48,11 +48,33 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("resource")
 public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
     @Test
-    void embeddedOk() {
+    void embeddedExecOnAnotherNode() {
         // Given entry node that are not supposed to execute job.
         var node = server(0);
         // And another target node.
         var targetNode = node(1);
+
+        // When run job with custom marshaller for pojo argument and result but for embedded.
+        var embeddedCompute = node.compute();
+        PojoResult result = embeddedCompute.execute(
+                JobTarget.node(targetNode),
+                JobDescriptor.builder(PojoJob.class)
+                        .argumentMarshaller(new JsonMarshaller<>(PojoArg.class))
+                        .resultMarshaller(new JsonMarshaller<>(PojoResult.class))
+                        .build(),
+                new PojoArg().setIntValue(2).setStrValue("1")
+        );
+
+        // Then the job returns the expected result.
+        assertEquals(3L, result.getLongValue());
+    }
+
+    @Test
+    void embeddedExecOnSame() {
+        // Given entry node.
+        var node = server(0);
+        // And target node.
+        var targetNode = node(0);
 
         // When run job with custom marshaller for pojo argument and result but for embedded.
         var embeddedCompute = node.compute();
