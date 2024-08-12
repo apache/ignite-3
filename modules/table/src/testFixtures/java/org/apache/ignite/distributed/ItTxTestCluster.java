@@ -857,7 +857,6 @@ public class ItTxTestCluster {
             assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
-
         if (executor != null) {
             IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
         }
