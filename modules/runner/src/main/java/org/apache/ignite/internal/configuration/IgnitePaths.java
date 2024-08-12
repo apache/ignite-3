@@ -49,7 +49,7 @@ public class IgnitePaths {
     private static final Path CMG_PATH = Paths.get("cmg");
 
     /**
-     * Get paths where partition data is stored.
+     * Gets paths where partition data is stored.
      *
      * @param systemConfiguration System configuration.
      * @param workDir Node's working dir.
@@ -67,7 +67,7 @@ public class IgnitePaths {
     }
 
     /**
-     * Get paths where metastorage data is stored.
+     * Gets paths where metastorage data is stored.
      *
      * @param systemConfiguration System configuration.
      * @param workDir Node's working dir.
@@ -80,7 +80,7 @@ public class IgnitePaths {
     }
 
     /**
-     * Get paths where CMG data is stored.
+     * Gets paths where CMG data is stored.
      *
      * @param systemConfiguration System configuration.
      * @param workDir Node's working dir.
