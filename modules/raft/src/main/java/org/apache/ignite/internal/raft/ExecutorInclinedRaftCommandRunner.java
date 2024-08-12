@@ -46,8 +46,8 @@ public class ExecutorInclinedRaftCommandRunner implements RaftCommandRunner {
             return future;
         }
 
-        // We can wait for replication completion right here, because client thread waits the entire operation in synchronous API any case.
-        // Moreover, this code guarantees that the rest of the operation will execute outside a replication thread.
+        // We can wait for replication completion right here, because client thread waits the entire operation in synchronous API in any
+        // case. Moreover, this code guarantees that the rest of the operation will execute outside a replication thread.
         if (PublicApiThreading.executingSyncPublicApi()) {
             try {
                 return completedFuture(future.get());
