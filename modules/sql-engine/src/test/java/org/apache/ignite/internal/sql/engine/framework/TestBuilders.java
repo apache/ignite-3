@@ -212,6 +212,11 @@ public class TestBuilders {
                     RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
+
+            @Override
+            public CompletableFuture<Long> estimatedSize() {
+                return CompletableFuture.completedFuture(dataProvider.estimatedSize());
+            }
         };
     }
 
@@ -257,6 +262,11 @@ public class TestBuilders {
                     RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
+
+            @Override
+            public CompletableFuture<Long> estimatedSize() {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 
@@ -300,6 +310,11 @@ public class TestBuilders {
             @Override
             public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
                     RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompletableFuture<Long> estimatedSize() {
                 throw new UnsupportedOperationException();
             }
         };

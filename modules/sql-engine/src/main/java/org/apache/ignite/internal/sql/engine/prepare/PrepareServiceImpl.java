@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
@@ -35,7 +36,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
@@ -59,8 +59,10 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverte
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -238,26 +240,90 @@ public class PrepareServiceImpl implements PrepareService {
                 .parameters(Commons.arrayToMap(operationContext.parameters()))
                 .build();
 
-        result = prepareAsync0(parsedResult, planningContext);
+        QueryTransactionContext txContext = operationContext.txContext();
+
+        // Validate statement
+        CompletableFuture<ValidStatement> validFut = validateStatement(parsedResult, planningContext);
+
+        // Try optimize to fast
+        CompletableFuture<FastOptimizationResult> plannedOrValidated =
+                validFut.thenApply(stmt -> tryOptimizeFast(stmt, planningContext, txContext));
+
+        result = plannedOrValidated.thenCompose(optResult -> {
+            ValidStatement stmt = optResult.stmt;
+            QueryPlan plan = optResult.plan;
+
+            // If optimize fast returned a plan, return it.
+            if (plan != null) {
+                return CompletableFuture.completedFuture(plan);
+            } else {
+                // Otherwise, continue with the regular planning.
+
+                return prepareAsync0(stmt, planningContext, txContext);
+            }
+        });
 
         return result.exceptionally(ex -> {
-                    Throwable th = ExceptionUtils.unwrapCause(ex);
+            Throwable th = ExceptionUtils.unwrapCause(ex);
 
-                    throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
-                }
-        );
+            throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
+        });
     }
 
-    private CompletableFuture<QueryPlan> prepareAsync0(ParsedResult parsedResult, PlanningContext planningContext) {
+    private FastOptimizationResult tryOptimizeFast(
+            ValidStatement stmt,
+            PlanningContext planningContext,
+            @Nullable QueryTransactionContext txContext
+    ) {
+        // If fast query optimization is disabled, then proceed with the regular planning.
+        if (!fastQueryOptimizationEnabled()) {
+            return new FastOptimizationResult(stmt, null);
+        }
+
+        IgniteRel fastOptRel = PlannerHelper.tryOptimizeSelectCount(planningContext.planner(), txContext, stmt.value.sqlNode());
+        if (fastOptRel == null) {
+            return new FastOptimizationResult(stmt, null);
+        }
+
+        RelDataType rowType = fastOptRel.getRowType();
+        ResultSetMetadata resultSetMetadata = resultSetMetadata(rowType, null, rowType.getFieldNames());
+
+        QueryPlan plan;
+
+        if (fastOptRel instanceof IgniteSelectCount) {
+            plan = new SelectCountPlan(
+                    nextPlanId(),
+                    planningContext.catalogVersion(),
+                    (IgniteSelectCount) fastOptRel,
+                    resultSetMetadata,
+                    stmt.parameterMetadata
+            );
+        } else {
+            throw new IllegalStateException("Unexpected optimized node: " + fastOptRel);
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Plan prepared: \n{}\n\n{}", stmt.parsedResult.originalQuery(), fastOptRel.explain());
+        }
+
+        return new FastOptimizationResult(stmt, plan);
+    }
+
+    private CompletableFuture<QueryPlan> prepareAsync0(
+            ValidStatement validStatement,
+            PlanningContext planningContext,
+            @Nullable QueryTransactionContext txContext
+    ) {
+        ParsedResult parsedResult = validStatement.parsedResult;
         switch (parsedResult.queryType()) {
             case QUERY:
-                return prepareQuery(parsedResult, planningContext);
+                return prepareQuery(validStatement, planningContext);
             case DDL:
                 return prepareDdl(parsedResult, planningContext);
             case DML:
-                return prepareDml(parsedResult, planningContext);
+                return prepareDml(validStatement, planningContext);
             case EXPLAIN:
-                return prepareExplain(parsedResult, planningContext);
+                return prepareExplain(validStatement, planningContext, txContext);
             default:
                 throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
         }
@@ -271,7 +337,12 @@ public class PrepareServiceImpl implements PrepareService {
         return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert((SqlDdl) sqlNode, ctx)));
     }
 
-    private CompletableFuture<QueryPlan> prepareExplain(ParsedResult parsedResult, PlanningContext ctx) {
+    private CompletableFuture<QueryPlan> prepareExplain(
+            ValidStatement validStatement,
+            PlanningContext ctx,
+            @Nullable QueryTransactionContext txContext
+    ) {
+        ParsedResult parsedResult = validStatement.parsedResult;
         SqlNode parsedTree = parsedResult.parsedTree();
 
         assert single(parsedTree);
@@ -295,19 +366,36 @@ public class PrepareServiceImpl implements PrepareService {
                 explicandum
         );
 
-        CompletableFuture<QueryPlan> result;
-        switch (queryType) {
-            case QUERY:
-                result = prepareQuery(newParsedResult, ctx);
-                break;
-            case DML:
-                result = prepareDml(newParsedResult, ctx);
-                break;
-            default:
-                throw new AssertionError("should not get here");
-        }
+        // Validate statement.
 
-        return result.thenApply(plan -> {
+        CompletableFuture<ValidStatement> validFut = validateStatement(newParsedResult, ctx);
+
+        // Try optimize to fast
+        CompletableFuture<FastOptimizationResult> plannedOrValidated =
+                validFut.thenApply(stmt -> tryOptimizeFast(stmt, ctx, txContext));
+
+        // Plan or pass alredy optimized plan.
+        CompletableFuture<QueryPlan> planFut = plannedOrValidated.thenCompose(optResult -> {
+            ValidStatement stmt = optResult.stmt;
+            QueryPlan plan = optResult.plan;
+
+            // If optimize fast returned a plan, return it.
+            if (plan != null) {
+                return CompletableFuture.completedFuture(plan);
+            } else {
+                // Otherwise, continue with the regular planning.
+                switch (queryType) {
+                    case QUERY:
+                        return prepareQuery(stmt, ctx);
+                    case DML:
+                        return prepareDml(stmt, ctx);
+                    default:
+                        throw new AssertionError("should not get here");
+                }
+            }
+        });
+
+        return planFut.thenApply(plan -> {
             assert plan instanceof ExplainablePlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
 
             return new ExplainPlan(nextPlanId(), (ExplainablePlan) plan);
@@ -318,16 +406,11 @@ public class PrepareServiceImpl implements PrepareService {
         return !(sqlNode instanceof SqlNodeList);
     }
 
-    private CompletableFuture<QueryPlan> prepareQuery(ParsedResult parsedResult, PlanningContext ctx) {
-        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
-
-        if (f != null) {
-            return f;
-        }
-
-        // First validate statement
-
-        CompletableFuture<ValidStatement<ValidationResult>> validFut = CompletableFuture.supplyAsync(() -> {
+    private CompletableFuture<ValidStatement> validateStatement(
+            ParsedResult parsedResult,
+            PlanningContext ctx
+    ) {
+        return CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             SqlNode sqlNode = parsedResult.parsedTree();
@@ -335,118 +418,151 @@ public class PrepareServiceImpl implements PrepareService {
             assert single(sqlNode);
 
             // Validate
-            ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
+            ValidationResult validated;
+            ParameterMetadata parameterMetadata;
 
-            // Get parameter metadata.
-            RelDataType parameterRowType = planner.getParameterRowType();
-            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
+            switch (parsedResult.queryType()) {
+                case QUERY: {
+                    validated = planner.validateAndGetTypeMetadata(sqlNode);
+                    parameterMetadata = createParameterMetadata(planner.getParameterRowType());
+                    break;
+                }
+                case DML: {
+                    SqlNode validatedNode = planner.validate(sqlNode);
 
-            return new ValidStatement<>(parsedResult, validated, parameterMetadata);
+                    // Validated data type is not used by DML.
+                    RelDataType unknownType = planner.validator().getUnknownType();
+                    validated = new ValidationResult(validatedNode, unknownType, List.of(), List.of());
+
+                    parameterMetadata = createParameterMetadata(planner.getParameterRowType());
+                    break;
+                }
+                case DDL: {
+                    // DDL is not validated by the validator, use a SQLNode as is.
+
+                    // Validated data type is not used by DML.
+                    RelDataType unknownType = planner.validator().getUnknownType();
+                    validated = new ValidationResult(sqlNode, unknownType, List.of(), List.of());
+
+                    // DDLs are not parameterizable.
+                    parameterMetadata = EMPTY_PARAMETER_METADATA;
+                    break;
+                }
+                case EXPLAIN: {
+                    // EXPLAIN root node is not validated, use a SQLNode as is.
+
+                    RelDataType unknownType = planner.validator().getUnknownType();
+                    validated = new ValidationResult(sqlNode, unknownType, List.of(), List.of());
+
+                    // Explain uses parameters of its inner plan.
+                    parameterMetadata = EMPTY_PARAMETER_METADATA;
+                    break;
+                }
+                default:
+                    throw new IllegalArgumentException("Unexpected query type: " + parsedResult.queryType());
+            }
+
+            return new ValidStatement(parsedResult, validated, parameterMetadata);
         }, planningPool);
+    }
 
-        return validFut.thenCompose(stmt -> {
-            // Use parameter metadata to compute a cache key.
-            CacheKey key = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
+    private CompletableFuture<QueryPlan> prepareQuery(
+            ValidStatement stmt,
+            PlanningContext ctx
+    ) {
+        ParsedResult parsedResult = stmt.parsedResult;
 
-            CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
-                IgnitePlanner planner = ctx.planner();
+        // Check if plan is cached.
+        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
+        if (f != null) {
+            return f;
+        }
 
-                ValidationResult validated = stmt.value;
-                ParameterMetadata parameterMetadata = stmt.parameterMetadata;
+        // Otherwise optimize and cache
 
-                SqlNode validatedNode = validated.sqlNode();
+        // Use parameter metadata to compute a cache key.
+        CacheKey key = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
-                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, key);
+        return cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
+            IgnitePlanner planner = ctx.planner();
 
-                ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
+            ValidationResult validated = stmt.value;
+            ParameterMetadata parameterMetadata = stmt.parameterMetadata;
 
-                int catalogVersion = ctx.catalogVersion();
+            SqlNode validatedNode = validated.sqlNode();
 
-                if (optimizedRel instanceof IgniteKeyValueGet) {
-                    return new KeyValueGetPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueGet) optimizedRel, resultSetMetadata, parameterMetadata
-                    );
-                }
+            IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, key);
 
-                var plan = new MultiStepPlan(
-                        nextPlanId(), SqlQueryType.QUERY, optimizedRel, resultSetMetadata, parameterMetadata, catalogVersion
+            ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
+
+            int catalogVersion = ctx.catalogVersion();
+
+            if (optimizedRel instanceof IgniteKeyValueGet) {
+                return new KeyValueGetPlan(
+                        nextPlanId(), catalogVersion, (IgniteKeyValueGet) optimizedRel, resultSetMetadata, parameterMetadata
                 );
+            }
 
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
-                }
+            var plan = new MultiStepPlan(
+                    nextPlanId(), SqlQueryType.QUERY, optimizedRel, resultSetMetadata, parameterMetadata, catalogVersion
+            );
 
-                return plan;
-            }, planningPool));
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
+            }
 
-            return planFut.thenApply(Function.identity());
-        });
+            return plan;
+        }, planningPool));
     }
 
     private PlanId nextPlanId() {
         return new PlanId(prepareServiceId, planIdGen.getAndIncrement());
     }
 
-    private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
-        // If a caller passes all the parameters, then get parameter types and check to see whether a plan future already exists.
+    private CompletableFuture<QueryPlan> prepareDml(
+            ValidStatement stmt,
+            PlanningContext ctx
+    ) {
+        ParsedResult parsedResult = stmt.parsedResult;
+
+        // Check if plan is cached.
         CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
         if (f != null) {
             return f;
         }
 
-        CompletableFuture<ValidStatement<SqlNode>> validFut = CompletableFuture.supplyAsync(() -> {
+        // Otherwise optimize and cache
+
+        // Use parameter metadata to compute a cache key.
+        CacheKey key = createCacheKeyFromParameterMetadata(parsedResult, ctx, stmt.parameterMetadata);
+
+        return cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
-            SqlNode sqlNode = parsedResult.parsedTree();
+            SqlNode validatedNode = stmt.value.sqlNode();
+            ParameterMetadata parameterMetadata = stmt.parameterMetadata;
 
-            assert single(sqlNode);
+            IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, key);
 
-            // Validate
-            SqlNode validatedNode = planner.validate(sqlNode);
+            int catalogVersion = ctx.catalogVersion();
 
-            // Get parameter metadata.
-            RelDataType parameterRowType = planner.getParameterRowType();
-            ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
+            ExplainablePlan plan;
+            if (optimizedRel instanceof IgniteKeyValueModify) {
+                plan = new KeyValueModifyPlan(
+                        nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
+                );
+            } else {
+                plan = new MultiStepPlan(
+                        nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, catalogVersion
+                );
+            }
 
-            return new ValidStatement<>(parsedResult, validatedNode, parameterMetadata);
-        }, planningPool);
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
+            }
 
-        // Optimize
-
-        return validFut.thenCompose(stmt -> {
-            // Use parameter metadata to compute a cache key.
-            CacheKey key = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
-
-            CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
-                IgnitePlanner planner = ctx.planner();
-
-                SqlNode validatedNode = stmt.value;
-                ParameterMetadata parameterMetadata = stmt.parameterMetadata;
-
-                IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, key);
-
-                int catalogVersion = ctx.catalogVersion();
-
-                ExplainablePlan plan;
-                if (optimizedRel instanceof IgniteKeyValueModify) {
-                    plan = new KeyValueModifyPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
-                    );
-                } else {
-                    plan = new MultiStepPlan(
-                            nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, catalogVersion
-                    );
-                }
-
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
-                }
-
-                return plan;
-            }, planningPool));
-
-            return planFut.thenApply(Function.identity());
-        });
+            return plan;
+        }, planningPool));
     }
 
     /**
@@ -674,15 +790,26 @@ public class PrepareServiceImpl implements PrepareService {
         }
     }
 
-    private static class ValidStatement<T> {
+    private static class ValidStatement {
         final ParsedResult parsedResult;
-        final T value;
+        final ValidationResult value;
         final ParameterMetadata parameterMetadata;
 
-        private ValidStatement(ParsedResult parsedResult, T value, ParameterMetadata parameterMetadata) {
+        private ValidStatement(ParsedResult parsedResult, ValidationResult value, ParameterMetadata parameterMetadata) {
             this.parsedResult = parsedResult;
             this.value = value;
             this.parameterMetadata = parameterMetadata;
+        }
+    }
+
+    private static class FastOptimizationResult {
+        final ValidStatement stmt;
+
+        final @Nullable QueryPlan plan;
+
+        private FastOptimizationResult(ValidStatement stmt, @Nullable QueryPlan plan) {
+            this.stmt = stmt;
+            this.plan = plan;
         }
     }
 }

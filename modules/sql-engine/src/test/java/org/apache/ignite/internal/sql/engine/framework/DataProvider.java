@@ -29,7 +29,6 @@ import java.util.NoSuchElementException;
  *
  * @param <T> A type of the produced elements.
  */
-@FunctionalInterface
 public interface DataProvider<T> extends Iterable<T> {
     /**
      * Creates data provider from given collection.
@@ -39,8 +38,21 @@ public interface DataProvider<T> extends Iterable<T> {
      * @return A data provider instance backed by given collection.
      */
     static <T> DataProvider<T> fromCollection(Collection<T> collection) {
-        return collection::iterator;
+        return new DataProvider<T>() {
+            @Override
+            public long estimatedSize() {
+                return collection.size();
+            }
+
+            @Override
+            public Iterator<T> iterator() {
+                return collection.iterator();
+            }
+        };
     }
+
+    /** Returns the number of rows in the data provider. */
+    long estimatedSize();
 
     /**
      * Creates data provider from repeating the given row specified amount of times.
@@ -52,6 +64,11 @@ public interface DataProvider<T> extends Iterable<T> {
      */
     static <T> DataProvider<T> fromRow(T row, int repeatTimes) {
         return new DataProvider<>() {
+            @Override
+            public long estimatedSize() {
+                return repeatTimes;
+            }
+
             private final int times = repeatTimes;
 
             /** {@inheritDoc} */

@@ -240,6 +240,11 @@ public class ScannableTableImpl implements ScannableTable {
                 });
     }
 
+    @Override
+    public CompletableFuture<Long> estimatedSize() {
+        return internalTable.estimatedSize();
+    }
+
     private static <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(
             int searchBoundSize,
             RowHandler<RowT> handler,

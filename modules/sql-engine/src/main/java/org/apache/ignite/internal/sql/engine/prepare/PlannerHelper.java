@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,15 +38,27 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.rules.CoreRules;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -56,10 +69,14 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -341,6 +358,173 @@ public final class PlannerHelper {
             }
 
             return super.visit(call);
+        }
+    }
+
+
+    /**
+     * Tries to optimize a query that looks like {@code SELECT count(*)}.
+     *
+     * @param planner Planner.
+     * @param txContext Transactional context.
+     * @param node Query node.
+     * @return Plan node, if the optimization is applicable.
+     */
+    public static @Nullable IgniteRel tryOptimizeSelectCount(
+            IgnitePlanner planner,
+            @Nullable QueryTransactionContext txContext,
+            SqlNode node
+    ) {
+        if (txContext != null && txContext.explicitTx() != null) {
+            return null;
+        }
+
+        if (!(node instanceof SqlSelect)) {
+            return null;
+        }
+
+        SqlSelect select = (SqlSelect) node;
+
+        if (select.getGroup() != null
+                || select.getWhere() != null
+                || select.getHaving() != null
+                || select.getQualify() != null
+                || !select.getWindowList().isEmpty()
+                || select.getOffset() != null
+                || select.getFetch() != null) {
+            return null;
+        }
+
+        IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
+
+        RelOptTable targetTable;
+
+        if (select.getFrom() != null) {
+            SqlNode from = SqlUtil.stripAs(select.getFrom());
+            // Skip non-references such as VALUES ..
+            if (from.getKind() != SqlKind.IDENTIFIER) {
+                return null;
+            }
+
+            targetTable = converter.getTargetTable(select.getFrom());
+            IgniteDataSource dataSource = targetTable.unwrap(IgniteDataSource.class);
+            if (!(dataSource instanceof IgniteTable)) {
+                return null;
+            }
+        } else {
+            // Try to optimize SELECT count(*) as well
+            targetTable = null;
+        }
+
+        IgniteTypeFactory typeFactory = planner.getTypeFactory();
+
+        // SELECT COUNT(*) ... row type
+        RelDataType countResultType = typeFactory.createSqlType(SqlTypeName.BIGINT);
+
+        RelDataTypeFactory.Builder inputRowBuilder = new Builder(typeFactory);
+        inputRowBuilder.add("ROWCOUNT", countResultType);
+        RelDataType inputRowType = inputRowBuilder.build();
+
+        RelDataType getCountType = inputRowType.getFieldList().get(0).getType();
+
+        // Build projection
+        // Rewrites SELECT count(*) ... as Project(exprs = [lit, $0, ... ]), where $0 references a row that stores a count.
+        // So we can feed results of get count operation into a projection to compute final results.
+
+        List<RexNode> expressions = new ArrayList<>();
+        List<String> expressionNames = new ArrayList<>();
+        boolean countAdded = false;
+
+        for (SqlNode selectItem : select.getSelectList()) {
+            SqlNode expr = SqlUtil.stripAs(selectItem);
+
+            if (isCountStar(planner.validator(), expr)) {
+                SqlCall call = (SqlCall) expr;
+
+                // Reject COUNT(DISTINCT id), but allow COUNT(DISTINCT 1)
+                if (call.getFunctionQuantifier() != null && call.getOperandList().get(0).getKind() != SqlKind.LITERAL) {
+                    return null;
+                }
+
+                RexBuilder rexBuilder = planner.cluster().getRexBuilder();
+                RexSlot countValRef = rexBuilder.makeInputRef(getCountType, 0);
+
+                expressions.add(countValRef);
+
+                countAdded = true;
+            } else if (isCountNull(expr)) {
+                // Optimize COUNT(NULL) to 0 (BIGINT)
+                RexBuilder rexBuilder = planner.cluster().getRexBuilder();
+                RexLiteral zeroLit = rexBuilder.makeLiteral(BigDecimal.ZERO, countResultType);
+
+                expressions.add(zeroLit);
+
+                countAdded = true;
+            } else if (expr instanceof SqlLiteral || expr instanceof SqlDynamicParam) {
+                RexNode rexNode = converter.convertExpression(expr);
+
+                expressions.add(rexNode);
+            } else {
+                return null;
+            }
+
+            String alias = planner.validator().deriveAlias(selectItem, expressionNames.size());
+            expressionNames.add(alias);
+        }
+
+        if (!countAdded) {
+            return null;
+        }
+
+        // Projection row type
+        RelDataTypeFactory.Builder rowBuilder = new Builder(typeFactory);
+        for (int i = 0; i < expressions.size(); i++) {
+            RexNode expr = expressions.get(i);
+            rowBuilder.add(expressionNames.get(i), expr.getType());
+        }
+        RelDataType rowType = rowBuilder.build();
+
+        return new IgniteSelectCount(
+                planner.cluster(),
+                planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
+                targetTable,
+                rowType,
+                expressions
+        );
+    }
+
+    private static boolean isCountStar(SqlValidator validator, SqlNode node) {
+        if (!SqlUtil.isCallTo(node, SqlStdOperatorTable.COUNT)) {
+            return false;
+        } else {
+            SqlCall call = (SqlCall) node;
+            SqlNode operand = call.getOperandList().get(0);
+
+            return !isNullableOperand(validator, operand);
+        }
+    }
+
+    private static boolean isNullableOperand(SqlValidator validator, SqlNode node) {
+        if (SqlUtil.isNull(node)) {
+            return true;
+        } else if (SqlUtil.isLiteral(node)) {
+            return false;
+        } else if (node instanceof SqlIdentifier && ((SqlIdentifier) node).isStar()) {
+            return false;
+        } else if (node instanceof SqlIdentifier) {
+            RelDataType type = validator.getValidatedNodeType(node);
+            return type.isNullable();
+        } else {
+            return true;
+        }
+    }
+
+    private static boolean isCountNull(SqlNode node) {
+        if (SqlUtil.isCallTo(node, SqlStdOperatorTable.COUNT)) {
+            SqlCall call = (SqlCall) node;
+            return SqlUtil.isNull(call.getOperandList().get(0));
+        } else {
+            return false;
         }
     }
 }

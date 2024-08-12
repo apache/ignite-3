@@ -60,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
@@ -392,6 +393,11 @@ class FragmentMapper {
 
         @Override
         public Mapping visit(IgniteKeyValueModify rel) {
+            throw new AssertionError(rel.getClass());
+        }
+
+        @Override
+        public Mapping visit(IgniteSelectCount rel) {
             throw new AssertionError(rel.getClass());
         }
 
