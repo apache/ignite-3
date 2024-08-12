@@ -285,6 +285,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         UUID txId = cmd.txId();
 
+        // TODO sanpwc Re-think whether it's valid and check with tests.
+        assert storage.primaryReplicaNodeId() != null;
+        assert localNodeId != null;
+
         if (cmd.full() || (!cmd.full() && !localNodeId.equals(storage.primaryReplicaNodeId()))) {
             storageUpdateHandler.handleUpdate(
                     txId,

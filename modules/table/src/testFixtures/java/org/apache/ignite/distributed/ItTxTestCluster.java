@@ -91,6 +91,7 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -107,6 +108,8 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -174,6 +177,8 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private final List<NetworkAddress> localAddresses;
 
@@ -750,6 +755,27 @@ public class ItTxTestCluster {
                         .thenApply(Replica::raftClient);
 
             partitionReadyFutures.add(txExecutionRaftClient.thenAccept(leaderClient -> clients.put(grpId.partitionId(), leaderClient)));
+
+            // TODO sanpwc 1. Use proper clock and add an assertion for getPrimaryReplica completition future.
+            // TODO sanpwc 2. Add message to assert primary.getLeaseholderId() != null;
+            CompletableFuture<ReplicaMeta> primaryFuture = placementDriver.getPrimaryReplica(grpId,
+                    clockServices.values().iterator().next().now());
+
+            // TestPlacementDriver always returns completed futures.
+            assert primaryFuture.isDone();
+
+            ReplicaMeta primary = primaryFuture.join();
+
+            assert primary.getLeaseholderId() != null;
+
+            PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                    .leaseStartTime(primary.getStartTime().longValue())
+                    .primaryReplicaNodeId(primary.getLeaseholderId())
+                    .build();
+
+            CompletableFuture<?> primaryReplicaChangePropagationFuture = clients.get(grpId.partitionId()).run(cmd);
+
+            partitionReadyFutures.add(primaryReplicaChangePropagationFuture);
         }
 
         allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();

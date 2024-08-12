@@ -70,7 +70,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long lastAppliedTerm;
 
-    private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
+    private volatile long leaseStartTime = -1;
 
     private volatile String primaryReplicaNodeId;
 
