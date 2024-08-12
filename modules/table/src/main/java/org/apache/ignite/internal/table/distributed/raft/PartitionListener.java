@@ -32,8 +32,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -52,6 +54,8 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateAll
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
@@ -128,6 +132,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private final IndexMetaStorage indexMetaStorage;
 
     private final String localNodeId;
+
+    private Set<String> currentGroupTopology;
 
     /** Constructor. */
     public PartitionListener(
@@ -270,7 +276,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new UpdateCommandResult(true);
+            return new UpdateCommandResult(true, currentGroupTopology.contains(storage.primaryReplicaNodeId()));
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -279,7 +285,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             long storageLeaseStartTime = storage.leaseStartTime();
 
             if (leaseStartTime != storageLeaseStartTime) {
-                return new UpdateCommandResult(false, storageLeaseStartTime);
+                return new UpdateCommandResult(
+                        false,
+                        storageLeaseStartTime,
+                        currentGroupTopology.contains(storage.primaryReplicaNodeId())
+                );
             }
         }
 
@@ -309,7 +319,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true);
+        return new UpdateCommandResult(true, currentGroupTopology.contains(storage.primaryReplicaNodeId()));
     }
 
     /**
@@ -322,7 +332,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new UpdateCommandResult(true);
+            return new UpdateCommandResult(true, currentGroupTopology.contains(storage.primaryReplicaNodeId()));
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -331,7 +341,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             long storageLeaseStartTime = storage.leaseStartTime();
 
             if (leaseStartTime != storageLeaseStartTime) {
-                return new UpdateCommandResult(false, storageLeaseStartTime);
+                return new UpdateCommandResult(
+                        false,
+                        storageLeaseStartTime,
+                        currentGroupTopology.contains(storage.primaryReplicaNodeId())
+                );
             }
         }
 
@@ -355,7 +369,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true);
+        return new UpdateCommandResult(true, currentGroupTopology.contains(storage.primaryReplicaNodeId()));
     }
 
     /**
@@ -481,6 +495,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         // Note that we do not need to protect from a concurrent command execution by this listener because
         // configuration is committed in the same thread in which commands are applied.
         storage.acquirePartitionSnapshotsReadLock();
+
+        currentGroupTopology = new HashSet<>(config.peers());
+        currentGroupTopology.addAll(config.learners());
 
         try {
             storage.runConsistently(locker -> {
