@@ -128,10 +128,11 @@ public class IgniteException extends RuntimeException implements TraceableExcept
     }
 
     /**
-     * Creates an exception with the given error code and detailed message.
+     * Creates an exception with the given error code and detailed message with the ability to skip filling in the stacktrace.
      *
      * @param code Full error code.
      * @param message Detailed message.
+     * @param writableStackTrace Whether or not the stack trace should be writable.
      */
     public IgniteException(int code, String message, boolean writableStackTrace) {
         this(UUID.randomUUID(), code, message, null, true, writableStackTrace);
