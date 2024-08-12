@@ -857,6 +857,7 @@ public class ItTxTestCluster {
             assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
+
         if (executor != null) {
             IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
         }
@@ -914,27 +915,6 @@ public class ItTxTestCluster {
 
         if (clientTxManager != null) {
             assertThat(clientTxManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-        }
-
-        Set<TablePartitionId> grpIds = tables.values()
-                .stream()
-                .map(table -> new TablePartitionId(table.tableId(), 0))
-                .collect(toSet());
-
-        for (String consistentId : clusterServices.keySet()) {
-            ReplicaManager replicaManager = replicaManagers.get(consistentId);
-
-            if (replicaManager == null) {
-                continue;
-            }
-
-            grpIds.forEach(id -> {
-                try {
-                    replicaManager.stopReplica(id);
-                } catch (NodeStoppingException e) {
-                    throw new AssertionError(e);
-                }
-            });
         }
     }
 
