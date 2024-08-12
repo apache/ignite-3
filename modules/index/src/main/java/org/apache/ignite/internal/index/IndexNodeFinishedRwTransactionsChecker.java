@@ -148,8 +148,17 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     @Override
-    public @Nullable HybridTimestamp minimumBeginTime() {
-        return txCatalogVersionByBeginTxTs.keySet().stream().min(HybridTimestamp::compareTo).orElse(null);
+    public HybridTimestamp minimumBeginTime() {
+        readWriteLock.writeLock().lock();
+
+        try {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22975 Improve minimum begin time determination
+            return txCatalogVersionByBeginTxTs.keySet().stream()
+                    .min(HybridTimestamp::compareTo)
+                    .orElse(clock.now());
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
     }
 
     /**

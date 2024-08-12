@@ -27,7 +27,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -189,7 +188,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                 CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                         .minimumRequiredTime(localMinTimeProvider.time())
-                        .minimumActiveTxTime(computeLocalMinTxBeginTime())
+                        .minimumActiveTxTime(activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue())
                         .build();
 
                 messagingService.respond(sender, response, correlationId);
@@ -329,7 +328,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
                 .thenApply(ignore -> {
                     long globalMinimumRequiredTime = localMinimumRequiredTime;
-                    long globalMinimumActiveTxTime = computeLocalMinTxBeginTime();
+                    long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
 
                     for (CompletableFuture<CatalogCompactionMinimumTimesResponse> fut : responseFutures) {
                         CatalogCompactionMinimumTimesResponse response = fut.join();
@@ -511,17 +510,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                     return catalogManagerFacade.compactCatalog(catalog.version());
                 });
-    }
-
-    private long computeLocalMinTxBeginTime() {
-        // To help compaction progress when there are no active RW transactions,
-        // it is safe to return the current time as minimum tx begin time.
-        HybridTimestamp beforeDetermineTxTime = clockService.now();
-
-        return Objects.requireNonNullElse(
-                activeLocalTxMinimumBeginTimeProvider.minimumBeginTime(),
-                beforeDetermineTxTime
-        ).longValue();
     }
 
     private static void throwAssignmentsNotReadyException(TablePartitionId replicationGroupId) {
