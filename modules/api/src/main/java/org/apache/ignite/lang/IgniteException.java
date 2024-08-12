@@ -49,8 +49,13 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      */
     private final int code;
 
-    /** Unique identifier of the exception that helps locate the error message in a log file. */
-    private final UUID traceId;
+    /**
+     * Unique identifier of the exception that helps locate the error message in a log file.
+     *
+     * <p>Not {@code final} because it gets accessed via reflection when creating a copy.
+     */
+    @SuppressWarnings({"NonFinalFieldOfException", "FieldMayBeFinal"})
+    private UUID traceId;
 
     /**
      * Creates an empty exception.
