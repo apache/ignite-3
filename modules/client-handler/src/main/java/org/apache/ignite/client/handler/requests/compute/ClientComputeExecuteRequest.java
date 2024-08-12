@@ -111,7 +111,7 @@ public class ClientComputeExecuteRequest {
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
                             Marshaller<Object, byte[]> marshaller = extractMarshaller(e);
-                            new ClientComputeJobPacker(w).packJobResult(val, marshaller);
+                            ClientComputeJobPacker.packJobResult(val, marshaller, w);
                             packJobState(w, state);
                         }, err)));
     }
@@ -131,6 +131,6 @@ public class ClientComputeExecuteRequest {
      * @return Args array.
      */
     static @Nullable Object unpackPayload(ClientMessageUnpacker in) {
-        return new ClientComputeJobUnpacker(in).unpackJobArgument(null);
+        return ClientComputeJobUnpacker.unpackJobArgument(null, in);
     }
 }

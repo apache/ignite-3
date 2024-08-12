@@ -24,13 +24,12 @@ import org.apache.ignite.sql.ColumnType;
  * {@link ColumnType} or a marshalled object/tuple.
  */
 public class ComputeJobType {
-    private static final int OFFSET = 1000;
-
-    static final int MARSHALLED_TUPLE_ID = OFFSET + 1;
-    static final int MARSHALLED_OBJECT_ID = OFFSET + 2;
+    static final int MARSHALLED_TUPLE_ID = -1;
+    static final int MARSHALLED_OBJECT_ID = -2;
 
     /**
-     * [0, .., 1000] - native types. The id is the same as in {@link ColumnType}. (1000, .., Integer.MAX_VALUE] - marshalled types.
+     * [0, .., Integer.MAX_VALUE] - native types.
+     * The id is the same as in {@link ColumnType}. (0, .., Integer.MIN_VALUE] - marshalled types.
      */
     private final int id;
     private final Type type;

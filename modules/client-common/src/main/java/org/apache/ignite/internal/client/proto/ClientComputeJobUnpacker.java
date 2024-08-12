@@ -25,27 +25,17 @@ import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /** Unpacks job arguments and results. */
-public class ClientComputeJobUnpacker {
-    private final ClientMessageUnpacker unpacker;
-
-    /**
-     * Constructor.
-     *
-     * @param unpacker that should be closed after usage outside of this class.
-     */
-    public ClientComputeJobUnpacker(ClientMessageUnpacker unpacker) {
-        this.unpacker = unpacker;
-    }
-
+public final class ClientComputeJobUnpacker {
     /**
      * Unpacks compute job argument. If the marshaller is provided, it will be used to unmarshal the argument. If the marshaller is not
      * provided and the argument is a native column type or a tuple, it will be unpacked accordingly.
      *
      * @param marshaller Marshaller.
+     * @param unpacker Unpacker.
      * @return Unpacked argument.
      */
-    public @Nullable Object unpackJobArgument(@Nullable Marshaller<?, byte[]> marshaller) {
-        return unpack(marshaller);
+    public static @Nullable Object unpackJobArgument(@Nullable Marshaller<?, byte[]> marshaller, ClientMessageUnpacker unpacker) {
+        return unpack(marshaller, unpacker);
     }
 
     /**
@@ -53,14 +43,15 @@ public class ClientComputeJobUnpacker {
      * and the result is a native column type or a tuple, it will be unpacked accordingly.
      *
      * @param marshaller Marshaller.
+     * @param unpacker Unpacker.
      * @return Unpacked result.
      */
-    public @Nullable Object unpackJobResult(@Nullable Marshaller<?, byte[]> marshaller) {
-        return unpack(marshaller);
+    public static @Nullable Object unpackJobResult(@Nullable Marshaller<?, byte[]> marshaller, ClientMessageUnpacker unpacker) {
+        return unpack(marshaller, unpacker);
     }
 
     /** Underlying byte array expected to be in the following format: | typeId | value |. */
-    private @Nullable Object unpack(@Nullable Marshaller<?, byte[]> marshaller) {
+    private static @Nullable Object unpack(@Nullable Marshaller<?, byte[]> marshaller, ClientMessageUnpacker unpacker) {
         int typeId = unpacker.unpackInt();
 
         var type = ComputeJobType.Type.fromId(typeId);

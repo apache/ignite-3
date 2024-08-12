@@ -68,12 +68,9 @@ class ClientComputeJobPackerUnpackerTest {
 
     private ClientMessagePacker messagePacker;
 
-    private ClientComputeJobPacker computeJobPacker;
-
     @BeforeEach
     void setUp() {
         messagePacker = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer());
-        computeJobPacker = new ClientComputeJobPacker(messagePacker);
     }
 
     @AfterEach
@@ -85,14 +82,12 @@ class ClientComputeJobPackerUnpackerTest {
     @ParameterizedTest
     void packUnpackNoMarshalling_jobArgument(Object arg) {
         // When pack job argument without marshaller.
-        computeJobPacker.packJobArgument(arg, null);
+        ClientComputeJobPacker.packJobArgument(arg, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job argument without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var computeJobUnpacker = new ClientComputeJobUnpacker(messageUnpacker);
-
-            var res = computeJobUnpacker.unpackJobArgument(null);
+            var res = ClientComputeJobUnpacker.unpackJobArgument(null, messageUnpacker);
 
             // Then.
             assertEquals(arg, res);
@@ -107,13 +102,12 @@ class ClientComputeJobPackerUnpackerTest {
     @ParameterizedTest
     void packUnpackNoMarshalling_jobResult(Object arg) {
         // When pack job result without marshaller.
-        computeJobPacker.packJobResult(arg, null);
+        ClientComputeJobPacker.packJobResult(arg, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var unpacker = new ClientComputeJobUnpacker(messageUnpacker);
-            var res = unpacker.unpackJobResult(null);
+            var res = ClientComputeJobUnpacker.unpackJobResult(null, messageUnpacker);
 
             // Then.
             assertEquals(arg, res);
@@ -127,13 +121,12 @@ class ClientComputeJobPackerUnpackerTest {
         var str = "Hi, marshal me!";
 
         // When pack job result with marshaller.
-        computeJobPacker.packJobResult(str, marshaller);
+        ClientComputeJobPacker.packJobResult(str, marshaller, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result with marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var unpacker = new ClientComputeJobUnpacker(messageUnpacker);
-            Object res = unpacker.unpackJobResult(marshaller);
+            Object res = ClientComputeJobUnpacker.unpackJobResult(marshaller, messageUnpacker);
 
             // Then.
             assertEquals(str, res);
@@ -147,13 +140,12 @@ class ClientComputeJobPackerUnpackerTest {
         var str = "Hi, marshal me!";
 
         // When pack job argument with marshaller.
-        computeJobPacker.packJobArgument(str, marshaller);
+        ClientComputeJobPacker.packJobArgument(str, marshaller, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job argument with marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var unpacker = new ClientComputeJobUnpacker(messageUnpacker);
-            Object res = unpacker.unpackJobArgument(marshaller);
+            Object res = ClientComputeJobUnpacker.unpackJobArgument(marshaller, messageUnpacker);
 
             // Then.
             assertEquals(str, res);
@@ -167,13 +159,12 @@ class ClientComputeJobPackerUnpackerTest {
         var str = "Hi, marshal me!";
 
         // When pack job result with marshaller.
-        computeJobPacker.packJobResult(str, marshaller);
+        ClientComputeJobPacker.packJobResult(str, marshaller, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var unpacker = new ClientComputeJobUnpacker(messageUnpacker);
-            Object res = unpacker.unpackJobResult(null);
+            Object res = ClientComputeJobUnpacker.unpackJobResult(null, messageUnpacker);
 
             // Then the result is byte[] and we can convert it to string manually.
             assertInstanceOf(byte[].class, res);
@@ -188,13 +179,12 @@ class ClientComputeJobPackerUnpackerTest {
         var str = "Hi, marshal me!";
 
         // When pack job argument with marshaller.
-        computeJobPacker.packJobArgument(str, marshaller);
+        ClientComputeJobPacker.packJobArgument(str, marshaller, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job argument without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var unpacker = new ClientComputeJobUnpacker(messageUnpacker);
-            Object res = unpacker.unpackJobArgument(null);
+            Object res = ClientComputeJobUnpacker.unpackJobArgument(null, messageUnpacker);
 
             // Then the result is byte[] and we can convert it to string manually.
             assertInstanceOf(byte[].class, res);
@@ -209,13 +199,12 @@ class ClientComputeJobPackerUnpackerTest {
         var bytes = str.getBytes();
 
         // When pack job result without marshaller.
-        computeJobPacker.packJobResult(bytes, null);
+        ClientComputeJobPacker.packJobResult(bytes, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result with marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var unpacker = new ClientComputeJobUnpacker(messageUnpacker);
-            Object res = unpacker.unpackJobResult(new TestStringMarshaller());
+            Object res = ClientComputeJobUnpacker.unpackJobResult(new TestStringMarshaller(), messageUnpacker);
 
             // Then.
             assertEquals(str, res);
@@ -229,13 +218,12 @@ class ClientComputeJobPackerUnpackerTest {
         byte[] bytes = str.getBytes();
 
         // When pack job argument without marshaller.
-        computeJobPacker.packJobArgument(bytes, null);
+        ClientComputeJobPacker.packJobArgument(bytes, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job argument with marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var unpacker = new ClientComputeJobUnpacker(messageUnpacker);
-            Object res = unpacker.unpackJobArgument(new TestStringMarshaller());
+            Object res = ClientComputeJobUnpacker.unpackJobArgument(new TestStringMarshaller(), messageUnpacker);
 
             // Then.
             assertEquals(str, res);

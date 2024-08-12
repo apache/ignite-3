@@ -33,28 +33,18 @@ import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /** Packs job arguments and results. */
-public class ClientComputeJobPacker {
-    private final ClientMessagePacker packer;
-
-    /**
-     * Constructor.
-     *
-     * @param packer that should be closed after usage outside of this class.
-     */
-    public ClientComputeJobPacker(ClientMessagePacker packer) {
-        this.packer = packer;
-    }
-
+public final class ClientComputeJobPacker {
     /**
      * Packs compute job argument. If the marshaller is provided, it will be used to marshal the argument. If the marshaller is not provided
      * and the argument is a native column type or a tuple, it will be packed accordingly.
      *
      * @param arg Argument.
      * @param marshaller Marshaller.
+     * @param packer Packer.
      * @param <T> Argument type.
      */
-    public <T> void packJobArgument(@Nullable T arg, @Nullable Marshaller<T, byte[]> marshaller) {
-        pack(arg, marshaller);
+    public static <T> void packJobArgument(@Nullable T arg, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
+        pack(arg, marshaller, packer);
     }
 
     /**
@@ -63,14 +53,15 @@ public class ClientComputeJobPacker {
      *
      * @param res Result.
      * @param marshaller Marshaller.
+     * @param packer Packer.
      * @param <T> Result type.
      */
-    public <T> void packJobResult(@Nullable T res, @Nullable Marshaller<T, byte[]> marshaller) {
-        pack(res, marshaller);
+    public static <T> void packJobResult(@Nullable T res, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
+        pack(res, marshaller, packer);
     }
 
     /** Packs object in the format: | typeId | value |. */
-    private <T> void pack(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller) {
+    private static <T> void pack(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
         if (marshaller != null) {
             packer.packInt(ComputeJobType.MARSHALLED_OBJECT_ID);
             byte[] marshalled = marshaller.marshal(obj);

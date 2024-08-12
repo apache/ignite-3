@@ -66,7 +66,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 .thenApply(r -> {
                     // Notifications require explicit input close.
                     try (r) {
-                        Object result = new ClientComputeJobUnpacker(r.in()).unpackJobResult(marshaller);
+                        Object result = ClientComputeJobUnpacker.unpackJobResult(marshaller, r.in());
                         stateFuture.complete(unpackJobState(r));
                         return (R) result;
                     }

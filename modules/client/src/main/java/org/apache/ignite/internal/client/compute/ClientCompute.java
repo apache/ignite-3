@@ -422,7 +422,7 @@ public class ClientCompute implements IgniteCompute {
         w.packString(jobClassName);
         w.packInt(options.priority());
         w.packInt(options.maxRetries());
-        new ClientComputeJobPacker(w).packJobArgument(args, marshaller);
+        ClientComputeJobPacker.packJobArgument(args, marshaller, w);
     }
 
     private static void packTask(ClientMessagePacker w,
@@ -432,7 +432,7 @@ public class ClientCompute implements IgniteCompute {
             @Nullable Marshaller<Object, byte[]> marshaller) {
         w.packDeploymentUnits(units);
         w.packString(taskClassName);
-        new ClientComputeJobPacker(w).packJobArgument(arg, marshaller);
+        ClientComputeJobPacker.packJobArgument(arg, marshaller, w);
     }
 
     /**

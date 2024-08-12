@@ -65,6 +65,7 @@ public interface Marshaller<T, R> {
                 T castedObj = (T) object;
                 return self.marshal(castedObj);
             } catch (ClassCastException ignored) {
+                // ignore.
             }
         }
 
@@ -84,6 +85,7 @@ public interface Marshaller<T, R> {
                 R rawType = (R) raw;
                 return self.unmarshal(rawType);
             } catch (ClassCastException ignored) {
+                // ignore.
             }
         }
 

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -30,6 +32,7 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.sql.ColumnType;
@@ -41,16 +44,10 @@ public final class TupleWithSchemaMarshalling {
     private static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /**
-     * Marshal tuple is the following format (LITTLE_ENDIAN):
-     * marshalledTuple       := | size | valuePosition | binaryTupleWithSchema |
-     * size                  := int32
-     * valuePosition := int32
-     * binaryTupleWithSchema := | schemaBinaryTuple | valueBinaryTuple |
-     * schemaBinaryTuple := | column1 | ... | columnN |
-     * column                := | columnName | columnType |
-     * columnName            := string
-     * columnType            := int32
-     * valueBinaryTuple := | value1 | ... | valueN |.
+     * Marshal tuple is the following format (LITTLE_ENDIAN): marshalledTuple       := | size | valuePosition | binaryTupleWithSchema | size
+     *                  := int32 valuePosition := int32 binaryTupleWithSchema := | schemaBinaryTuple | valueBinaryTuple | schemaBinaryTuple
+     * := | column1 | ... | columnN | column                := | columnName | columnType | columnName            := string columnType
+     * := int32 valueBinaryTuple := | value1 | ... | valueN |.
      */
     public static byte @Nullable [] marshal(@Nullable Tuple tup) {
         if (tup == null) {
@@ -72,7 +69,7 @@ public final class TupleWithSchemaMarshalling {
         }
 
         BinaryTupleBuilder schemaBuilder = schemaBuilder(columns, types);
-        BinaryTupleBuilder valueBuilder = valueBuilder(values, types);
+        BinaryTupleBuilder valueBuilder = valueBuilder(columns, types, values);
 
         byte[] schemaBt = schemaBuilder.build().array();
         byte[] valueBt = valueBuilder.build().array();
@@ -121,7 +118,7 @@ public final class TupleWithSchemaMarshalling {
         if (valueOffset > raw.length) {
             throw new UnmarshallingException(
                     "valueOffset can not be greater than byte[] length, valueOffset: "
-                    + valueOffset + ", length: " + raw.length
+                            + valueOffset + ", length: " + raw.length
             );
         }
 
@@ -171,68 +168,71 @@ public final class TupleWithSchemaMarshalling {
         return builder;
     }
 
-    private static BinaryTupleBuilder valueBuilder(Object[] values, ColumnType[] types) {
+    private static BinaryTupleBuilder valueBuilder(String[] columnNames, ColumnType[] types, Object[] values) {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length, values.length);
 
         for (int i = 0; i < values.length; i++) {
             ColumnType type = types[i];
             Object v = values[i];
 
-            appender(type).accept(builder, v);
+            appender(type, columnNames[i]).accept(builder, v);
         }
 
         return builder;
     }
 
-    private static BiConsumer<BinaryTupleBuilder, Object> appender(ColumnType type) {
-        switch (type) {
-            case NULL:
-                return (b, v) -> b.appendNull();
-            case BOOLEAN:
-                return (b, v) -> b.appendBoolean(checkType(Boolean.class, v));
-            case INT8:
-                return (b, v) -> b.appendByte(checkType(Byte.class, v));
-            case INT16:
-                return (b, v) -> b.appendShort(checkType(Short.class, v));
-            case INT32:
-                return (b, v) -> b.appendInt(checkType(Integer.class, v));
-            case INT64:
-                return (b, v) -> b.appendLong(checkType(Long.class, v));
-            case FLOAT:
-                return (b, v) -> b.appendFloat(checkType(Float.class, v));
-            case DOUBLE:
-                return (b, v) -> b.appendDouble(checkType(Double.class, v));
-            case STRING:
-                return (b, v) -> b.appendString(checkType(String.class, v));
-            case DECIMAL:
-                return (b, v) -> b.appendDecimal(checkType(BigDecimal.class, v), ((BigDecimal) v).scale());
-            case DATE:
-                return (b, v) -> b.appendDate(checkType(LocalDate.class, v));
-            case TIME:
-                return (b, v) -> b.appendTime(checkType(LocalTime.class, v));
-            case DATETIME:
-                return (b, v) -> b.appendDateTime(checkType(LocalDateTime.class, v));
-            case TIMESTAMP:
-                return (b, v) -> b.appendTimestamp(checkType(Instant.class, v));
-            case UUID:
-                return (b, v) -> b.appendUuid(checkType(UUID.class, v));
-            case BYTE_ARRAY:
-                return (b, v) -> b.appendBytes(checkType(byte[].class, v));
-            case PERIOD:
-                return (b, v) -> b.appendPeriod(checkType(Period.class, v));
-            case DURATION:
-                return (b, v) -> b.appendDuration(checkType(Duration.class, v));
-            default:
-                throw new IllegalArgumentException("Unsupported type: " + type);
+    private static BiConsumer<BinaryTupleBuilder, Object> appender(ColumnType type, String name) {
+        try {
+            switch (type) {
+                case NULL:
+                    return (b, v) -> b.appendNull();
+                case BOOLEAN:
+                    return (b, v) -> b.appendBoolean((Boolean) v);
+                case INT8:
+                    return (b, v) -> b.appendByte((Byte) v);
+                case INT16:
+                    return (b, v) -> b.appendShort((Short) v);
+                case INT32:
+                    return (b, v) -> b.appendInt((Integer) v);
+                case INT64:
+                    return (b, v) -> b.appendLong((Long) v);
+                case FLOAT:
+                    return (b, v) -> b.appendFloat((Float) v);
+                case DOUBLE:
+                    return (b, v) -> b.appendDouble((Double) v);
+                case STRING:
+                    return (b, v) -> b.appendString((String) v);
+                case DECIMAL:
+                    return (b, v) -> {
+                        BigDecimal d = (BigDecimal) v;
+                        b.appendDecimal(d, d.scale());
+                    };
+                case DATE:
+                    return (b, v) -> b.appendDate((LocalDate) v);
+                case TIME:
+                    return (b, v) -> b.appendTime((LocalTime) v);
+                case DATETIME:
+                    return (b, v) -> b.appendDateTime((LocalDateTime) v);
+                case TIMESTAMP:
+                    return (b, v) -> b.appendTimestamp((Instant) v);
+                case UUID:
+                    return (b, v) -> b.appendUuid((UUID) v);
+                case BYTE_ARRAY:
+                    return (b, v) -> b.appendBytes((byte[]) v);
+                case PERIOD:
+                    return (b, v) -> b.appendPeriod((Period) v);
+                case DURATION:
+                    return (b, v) -> b.appendDuration((Duration) v);
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + type);
+            }
+        } catch (ClassCastException e) {
+            throw new IgniteException(PROTOCOL_ERR, "Column's type mismatch ["
+                    + "column=" + name
+                    + ", expectedType=" + type.javaClass(),
+                    e
+            );
         }
-    }
-
-    private static <T> T checkType(Class<T> cl, Object o) {
-        if (o.getClass().isAssignableFrom(cl)) {
-            return (T) o;
-        }
-
-        throw new IllegalArgumentException("Unsupported type: " + o.getClass());
     }
 
     private static ColumnType inferType(@Nullable Object value) {
