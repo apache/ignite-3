@@ -36,6 +36,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -103,7 +103,7 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(nodeName, addr.port(), nodeFinder);
 
-        LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 clusterService.nodeName(),
                 this.workDir.resolve("partitions/log")
         );
@@ -121,13 +121,8 @@ public class MockNode {
                         this.workDir.resolve("cmg/log")
                 );
 
-        RaftOptionsConfigurator cmgRaftConfigurator = options -> {
-            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-            // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftOptions.setLogStorageFactory(cmgLogStorageFactory);
-            raftOptions.serverDataPath(this.workDir.resolve("cmg/meta"));
-        };
+        RaftOptionsConfigurator cmgRaftConfigurator =
+                RaftOptionsConfigurationHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
@@ -145,7 +140,7 @@ public class MockNode {
         components = List.of(
                 vaultManager,
                 clusterService,
-                defaultLogStorageFactory,
+                partitionsLogStorageFactory,
                 cmgLogStorageFactory,
                 raftManager,
                 clusterStateStorage,

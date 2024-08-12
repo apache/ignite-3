@@ -68,6 +68,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -199,7 +200,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
-                options -> {},
+                RaftOptionsConfigurator.EMPTY,
                 view -> new LocalLogStorageFactory(),
                 ForkJoinPool.commonPool()
         );

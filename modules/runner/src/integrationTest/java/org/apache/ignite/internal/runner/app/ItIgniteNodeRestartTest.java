@@ -112,6 +112,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -165,7 +166,6 @@ import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
@@ -387,16 +387,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dir);
 
-        LogStorageFactory logStorageFactory =
+        LogStorageFactory partitionsLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
-        RaftOptionsConfigurator partitionRaftConfigurator = options -> {
-            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-            // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftOptions.setLogStorageFactory(logStorageFactory);
-            raftOptions.serverDataPath(partitionsWorkDir.metaPath());
-        };
+        RaftOptionsConfigurator partitionRaftConfigurator =
+                RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
         var raftMgr = TestLozaFactory.create(
                 clusterSvc,
@@ -418,13 +413,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LogStorageFactory cmgLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
 
-        RaftOptionsConfigurator cmgRaftConfigurator = options -> {
-            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-            // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftOptions.setLogStorageFactory(cmgLogStorageFactory);
-            raftOptions.serverDataPath(cmgWorkDir.metaPath());
-        };
+        RaftOptionsConfigurator cmgRaftConfigurator =
+                RaftOptionsConfigurationHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
@@ -481,13 +471,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LogStorageFactory msLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
 
-        RaftOptionsConfigurator msRaftConfigurator = options -> {
-            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-            // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftOptions.setLogStorageFactory(msLogStorageFactory);
-            raftOptions.serverDataPath(metastorageWorkDir.metaPath());
-        };
+        RaftOptionsConfigurator msRaftConfigurator =
+                RaftOptionsConfigurationHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 clusterSvc,
@@ -629,7 +614,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Path storagePath = getPartitionsStorePath(dir);
 
-        LogSyncer logSyncer = logStorageFactory;
+        LogSyncer logSyncer = partitionsLogStorageFactory;
 
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
@@ -787,7 +772,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nettyBootstrapFactory,
                 nettyWorkersRegistrar,
                 clusterSvc,
-                logStorageFactory,
+                partitionsLogStorageFactory,
                 cmgLogStorageFactory,
                 msLogStorageFactory,
                 raftMgr,

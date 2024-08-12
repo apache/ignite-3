@@ -256,7 +256,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         private Loza raftManager;
 
-        private LogStorageFactory defaultLogStorageFactory;
+        private LogStorageFactory partitionsLogStorageFactory;
 
         private RaftGroupService raftClient;
 
@@ -271,12 +271,12 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
 
-            defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
 
-            assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             raftManager = TestLozaFactory.create(
                     clusterService,
@@ -307,7 +307,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             RaftGroupEventsListener.noopLsnr,
                             RaftGroupOptions.defaults()
                                     .serverDataPath(workingDir.metaPath())
-                                    .setLogStorageFactory(defaultLogStorageFactory)
+                                    .setLogStorageFactory(partitionsLogStorageFactory)
                     )
                     .thenApply(raftClient -> {
                         this.raftClient = raftClient;
@@ -322,8 +322,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     clusterService == null ? null : clusterService::beforeNodeStop,
                     raftManager == null ? null :
                             () -> assertThat(raftManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
-                    defaultLogStorageFactory == null ? null :
-                            () -> assertThat(defaultLogStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
+                    partitionsLogStorageFactory == null ? null :
+                            () -> assertThat(partitionsLogStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                     clusterService == null ? null :
                             () -> assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully())
             );

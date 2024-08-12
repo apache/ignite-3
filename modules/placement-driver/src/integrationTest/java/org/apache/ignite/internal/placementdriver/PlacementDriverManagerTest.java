@@ -62,6 +62,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -91,7 +92,6 @@ import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -130,7 +130,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     private Loza raftManager;
 
-    private LogStorageFactory defaultLogStorageFactory;
+    private LogStorageFactory partitionsLogStorageFactory;
 
     private LogStorageFactory msLogStorageFactory;
 
@@ -193,7 +193,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("loza"));
 
-        defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 clusterService.nodeName(),
                 workingDir.raftLogPath()
         );
@@ -214,13 +214,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         msLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-        RaftOptionsConfigurator msRaftConfigurator = options -> {
-            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-            // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftOptions.setLogStorageFactory(msLogStorageFactory);
-            raftOptions.serverDataPath(metastorageWorkDir.metaPath());
-        };
+        RaftOptionsConfigurator msRaftConfigurator =
+                RaftOptionsConfigurationHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
@@ -253,7 +248,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 startAsync(componentContext,
                         clusterService,
                         anotherClusterService,
-                        defaultLogStorageFactory,
+                        partitionsLogStorageFactory,
                         msLogStorageFactory,
                         raftManager,
                         metaStorageManager
@@ -305,7 +300,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 placementDriverManager,
                 metaStorageManager,
                 raftManager,
-                defaultLogStorageFactory,
+                partitionsLogStorageFactory,
                 msLogStorageFactory,
                 clusterService,
                 anotherClusterService

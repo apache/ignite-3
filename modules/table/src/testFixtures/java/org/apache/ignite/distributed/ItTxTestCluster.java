@@ -72,6 +72,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -100,7 +101,6 @@ import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
@@ -402,22 +402,17 @@ public class ItTxTestCluster {
 
             Path partitionsWorkDir = workDir.resolve("node" + i);
 
-            LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                     clusterService.nodeName(),
                     partitionsWorkDir.resolve("log")
             );
 
-            logStorageFactories.put(nodeName, logStorageFactory);
+            logStorageFactories.put(nodeName, partitionsLogStorageFactory);
 
-            assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            RaftOptionsConfigurator partitionRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(logStorageFactory);
-                raftOptions.serverDataPath(partitionsWorkDir.resolve("meta"));
-            };
+            RaftOptionsConfigurator partitionRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.resolve("meta"));
 
             raftConfigurators.put(nodeName, partitionRaftConfigurator);
 

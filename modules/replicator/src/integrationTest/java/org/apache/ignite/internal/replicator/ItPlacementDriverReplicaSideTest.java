@@ -59,6 +59,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
@@ -182,18 +183,13 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
 
-            LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                     clusterService.nodeName(),
                     partitionsWorkDir.raftLogPath()
             );
 
-            RaftOptionsConfigurator partitionRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(logStorageFactory);
-                raftOptions.serverDataPath(partitionsWorkDir.metaPath());
-            };
+            RaftOptionsConfigurator partitionRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
             raftConfigurators.put(nodeName, partitionRaftConfigurator);
 
@@ -237,7 +233,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             replicaManagers.put(nodeName, replicaManager);
 
             assertThat(
-                    startAsync(new ComponentContext(), clusterService, logStorageFactory, raftManager, replicaManager),
+                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, raftManager, replicaManager),
                     willCompleteSuccessfully()
             );
 
@@ -248,7 +244,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                             raftManager::beforeNodeStop,
                             clusterService::beforeNodeStop,
                             () -> assertThat(
-                                    stopAsync(new ComponentContext(), replicaManager, raftManager, logStorageFactory, clusterService),
+                                    stopAsync(new ComponentContext(),
+                                            replicaManager, raftManager, partitionsLogStorageFactory, clusterService),
                                     willCompleteSuccessfully()
                             )
                     );

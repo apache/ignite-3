@@ -51,6 +51,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
@@ -78,7 +79,6 @@ import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -100,7 +100,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     private Loza raftManager;
 
-    private LogStorageFactory defaultLogStorageFactory;
+    private LogStorageFactory partitionsLogStorageFactory;
 
     private LogStorageFactory msLogStorageFactory;
 
@@ -126,7 +126,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("loza"));
 
-        defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 clusterService.nodeName(),
                 workingDir.raftLogPath()
         );
@@ -151,13 +151,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         msLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-        RaftOptionsConfigurator msRaftConfigurator = options -> {
-            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-            // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftOptions.setLogStorageFactory(msLogStorageFactory);
-            raftOptions.serverDataPath(metastorageWorkDir.metaPath());
-        };
+        RaftOptionsConfigurator msRaftConfigurator =
+                RaftOptionsConfigurationHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
         storage = new RocksDbKeyValueStorage(
                 clusterService.nodeName(),
@@ -179,7 +174,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(
                 startAsync(new ComponentContext(),
-                        clusterService, defaultLogStorageFactory, msLogStorageFactory, raftManager, metaStorageManager)
+                        clusterService, partitionsLogStorageFactory, msLogStorageFactory, raftManager, metaStorageManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
@@ -188,7 +183,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         List<IgniteComponent> components =
-                List.of(metaStorageManager, raftManager, defaultLogStorageFactory, msLogStorageFactory, clusterService);
+                List.of(metaStorageManager, raftManager, partitionsLogStorageFactory, msLogStorageFactory, clusterService);
 
         closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
@@ -264,7 +259,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 new HybridClockImpl(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
-                options -> {}
+                RaftOptionsConfigurator.EMPTY
         );
 
         assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());

@@ -118,6 +118,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -170,7 +171,6 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
@@ -1148,13 +1148,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsBasePath.raftLogPath());
 
-            RaftOptionsConfigurator partitionRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(logStorageFactory);
-                raftOptions.serverDataPath(partitionsBasePath.metaPath());
-            };
+            RaftOptionsConfigurator partitionRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(logStorageFactory, partitionsBasePath.metaPath());
 
             raftManager = spy(new Loza(
                     clusterService,
@@ -1180,13 +1175,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             cmgLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
 
-            RaftOptionsConfigurator cmgRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(cmgLogStorageFactory);
-                raftOptions.serverDataPath(cmgWorkDir.metaPath());
-            };
+            RaftOptionsConfigurator cmgRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -1219,13 +1209,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             msLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-            RaftOptionsConfigurator msRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(msLogStorageFactory);
-                raftOptions.serverDataPath(metastorageWorkDir.metaPath());
-            };
+            RaftOptionsConfigurator msRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,

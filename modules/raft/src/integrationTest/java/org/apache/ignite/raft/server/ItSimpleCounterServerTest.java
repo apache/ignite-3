@@ -96,7 +96,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /** Cluster service. */
     private ClusterService service;
 
-    private LogStorageFactory defaultLogStorageFactory;
+    private LogStorageFactory partitionsLogStorageFactory;
 
     /**
      * Before each.
@@ -109,12 +109,12 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir);
 
-        defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 service.nodeName(),
                 workingDir.raftLogPath()
         );
 
-        assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         server = TestJraftServerFactory.create(service);
 
@@ -131,7 +131,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         RaftGroupOptions grpOptions = defaults().commandsMarshaller(cmdMarshaller);
 
-        grpOptions.setLogStorageFactory(defaultLogStorageFactory);
+        grpOptions.setLogStorageFactory(partitionsLogStorageFactory);
         grpOptions.serverDataPath(workingDir.metaPath());
 
         assertTrue(
@@ -172,7 +172,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
                 () -> assertThat(server.stopAsync(componentContext), willCompleteSuccessfully()),
                 () -> assertThat(service.stopAsync(componentContext), willCompleteSuccessfully()),
-                () -> assertThat(defaultLogStorageFactory.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(partitionsLogStorageFactory.stopAsync(componentContext), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

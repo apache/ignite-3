@@ -37,6 +37,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
@@ -144,20 +145,15 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("node" + idx));
 
-        LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 service.nodeName(),
                 workingDir.raftLogPath()
         );
 
-        assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        RaftOptionsConfigurator storageConfigurator = options -> {
-            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-            // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftOptions.setLogStorageFactory(defaultLogStorageFactory);
-            raftOptions.serverDataPath(workingDir.metaPath());
-        };
+        RaftOptionsConfigurator storageConfigurator =
+                RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
 
         raftConfigurators.add(storageConfigurator);
 

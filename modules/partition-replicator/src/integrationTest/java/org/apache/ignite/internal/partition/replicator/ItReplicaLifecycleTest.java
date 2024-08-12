@@ -91,6 +91,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -135,7 +136,6 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -862,7 +862,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         private AtomicReference<Function<ReplicaRequest, ReplicationGroupId>> converter =
                 new AtomicReference<>(request -> request.groupId().asReplicationGroupId());
 
-        private final LogStorageFactory logStorageFactory;
+        private final LogStorageFactory partitionsLogStorageFactory;
 
         private final LogStorageFactory msLogStorageFactory;
 
@@ -926,15 +926,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dir);
 
-            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
+            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
 
-            RaftOptionsConfigurator partitionRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(logStorageFactory);
-                raftOptions.serverDataPath(partitionsWorkDir.metaPath());
-            };
+            RaftOptionsConfigurator partitionRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
             raftManager = new Loza(
                     clusterService,
@@ -960,13 +955,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             cmgLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
 
-            RaftOptionsConfigurator cmgRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(cmgLogStorageFactory);
-                raftOptions.serverDataPath(cmgWorkDir.metaPath());
-            };
+            RaftOptionsConfigurator cmgRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -997,13 +987,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             msLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-            RaftOptionsConfigurator msRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(msLogStorageFactory);
-                raftOptions.serverDataPath(metastorageWorkDir.metaPath());
-            };
+            RaftOptionsConfigurator msRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
@@ -1087,7 +1072,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             Path storagePath = dir.resolve("storage");
 
-            LogSyncer logSyncer = logStorageFactory;
+            LogSyncer logSyncer = partitionsLogStorageFactory;
 
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
@@ -1257,7 +1242,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     nodeCfgMgr,
                     failureProcessor,
                     clusterService,
-                    logStorageFactory,
+                    partitionsLogStorageFactory,
                     msLogStorageFactory,
                     cmgLogStorageFactory,
                     raftManager,

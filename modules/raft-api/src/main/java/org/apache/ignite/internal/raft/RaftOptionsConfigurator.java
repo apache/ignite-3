@@ -34,5 +34,7 @@ package org.apache.ignite.internal.raft;
 @FunctionalInterface
 public interface RaftOptionsConfigurator {
 
+    RaftOptionsConfigurator EMPTY = options -> {};
+
     void configure(Object options);
 }

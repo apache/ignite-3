@@ -45,6 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -163,22 +164,17 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
-        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 spyService.nodeName(),
                 partitionsWorkDir.raftLogPath()
         );
 
-        RaftOptionsConfigurator storageConfigurator = options -> {
-            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+        RaftOptionsConfigurator storageConfigurator =
+                RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
-            // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftOptions.setLogStorageFactory(logStorageFactory);
-            raftOptions.serverDataPath(partitionsWorkDir.metaPath());
-        };
+        allComponents.add(partitionsLogStorageFactory);
 
-        allComponents.add(logStorageFactory);
-
-        assertThat(logStorageFactory.startAsync(componentContext), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageFactory.startAsync(componentContext), willCompleteSuccessfully());
 
         loza = TestLozaFactory.create(spyService, raftConfiguration, new HybridClockImpl());
 

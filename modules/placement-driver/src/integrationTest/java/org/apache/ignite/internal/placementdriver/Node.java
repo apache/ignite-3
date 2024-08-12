@@ -40,7 +40,7 @@ class Node implements AutoCloseable {
 
     final Loza loza;
 
-    LogStorageFactory defaultLogStorageFactory;
+    LogStorageFactory partitionsLogStorageFactory;
 
     LogStorageFactory msLogStorageFactory;
 
@@ -52,7 +52,7 @@ class Node implements AutoCloseable {
             String name,
             ClusterService clusterService,
             Loza loza,
-            LogStorageFactory defaultLogStorageFactory,
+            LogStorageFactory partitionsLogStorageFactory,
             LogStorageFactory msLogStorageFactory,
             MetaStorageManagerImpl metastore,
             PlacementDriverManager placementDriverManager
@@ -62,14 +62,14 @@ class Node implements AutoCloseable {
         this.loza = loza;
         this.metastore = metastore;
         this.placementDriverManager = placementDriverManager;
-        this.defaultLogStorageFactory = defaultLogStorageFactory;
+        this.partitionsLogStorageFactory = partitionsLogStorageFactory;
         this.msLogStorageFactory = msLogStorageFactory;
     }
 
     CompletableFuture<Void> startAsync() {
         ComponentContext componentContext = new ComponentContext();
 
-        return IgniteUtils.startAsync(componentContext, clusterService, defaultLogStorageFactory, msLogStorageFactory, loza, metastore)
+        return IgniteUtils.startAsync(componentContext, clusterService, partitionsLogStorageFactory, msLogStorageFactory, loza, metastore)
                 .thenCompose(unused -> metastore.recoveryFinishedFuture())
                 .thenCompose(unused -> placementDriverManager.startAsync(componentContext))
                 .thenCompose(unused -> metastore.notifyRevisionUpdateListenerOnStart())
@@ -79,7 +79,7 @@ class Node implements AutoCloseable {
     @Override
     public void close() throws Exception {
         List<IgniteComponent> igniteComponents =
-                List.of(placementDriverManager, metastore, loza, msLogStorageFactory, defaultLogStorageFactory, clusterService);
+                List.of(placementDriverManager, metastore, loza, msLogStorageFactory, partitionsLogStorageFactory, clusterService);
 
         closeAll(Stream.concat(
                 igniteComponents.stream().map(component -> component::beforeNodeStop),

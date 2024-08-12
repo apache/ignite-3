@@ -71,6 +71,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -109,7 +110,6 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -192,9 +192,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private MetaStorageService metaStorageService;
 
-        private final LogStorageFactory defaultLogStorageFactory;
+        private final LogStorageFactory partitionsLogStorageFactory;
 
-        private final RaftOptionsConfigurator raftConfigurator;
+        private final RaftOptionsConfigurator partitionsRaftConfigurator;
 
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
@@ -203,18 +203,13 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(dataPath.resolve(name()));
 
-            defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
 
-            raftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(defaultLogStorageFactory);
-                raftOptions.serverDataPath(workingDir.metaPath());
-            };
+            partitionsRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
 
             this.raftManager = TestLozaFactory.create(
                     clusterService,
@@ -228,7 +223,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         void start(PeersAndLearners configuration) {
             CompletableFuture<RaftGroupService> raftService =
-                    startAsync(new ComponentContext(), clusterService, defaultLogStorageFactory, raftManager)
+                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, raftManager)
                             .thenCompose(unused -> startRaftService(configuration));
 
             assertThat(raftService, willCompleteSuccessfully());
@@ -267,7 +262,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                         configuration,
                         listener,
                         RaftGroupEventsListener.noopLsnr,
-                        raftConfigurator
+                        partitionsRaftConfigurator
                 );
             } catch (NodeStoppingException e) {
                 throw new IllegalStateException(e);
@@ -284,7 +279,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             Stream<AutoCloseable> nodeStop = Stream.of(
                     () -> assertThat(
-                            stopAsync(new ComponentContext(), raftManager, defaultLogStorageFactory, clusterService),
+                            stopAsync(new ComponentContext(), raftManager, partitionsLogStorageFactory, clusterService),
                             willCompleteSuccessfully()
                     )
             );

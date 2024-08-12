@@ -442,14 +442,14 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
                 Path workingDir = dataPath.resolve("partitions");
 
-                LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                         cluster.nodeName(),
                         workingDir.resolve("log")
                 );
 
-                logStorageFactories.put(addr, defaultLogStorageFactory);
+                logStorageFactories.put(addr, partitionsLogStorageFactory);
 
-                assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 var raftServer = TestJraftServerFactory.create(
                         cluster,
@@ -464,7 +464,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                         new TestRaftGroupListener(),
                         RaftGroupOptions.defaults()
                                 .commandsMarshaller(commandsMarshaller)
-                                .setLogStorageFactory(defaultLogStorageFactory)
+                                .setLogStorageFactory(partitionsLogStorageFactory)
                                 .serverDataPath(workingDir.resolve("meta"))
                 );
 

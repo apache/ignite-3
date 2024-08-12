@@ -188,14 +188,14 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         serverWorkingDirs.add(workingDir);
 
-        LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 service.nodeName(),
                 workingDir.raftLogPath()
         );
 
-        assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        logStorageFactories.add(defaultLogStorageFactory);
+        logStorageFactories.add(partitionsLogStorageFactory);
 
         NodeOptions opts = new NodeOptions();
 

@@ -72,7 +72,6 @@ import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -125,7 +124,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
         private final Loza raftManager;
 
-        private final LogStorageFactory defaultLogStorageFactory;
+        private final LogStorageFactory partitionsLogStorageFactory;
 
         private final LogStorageFactory cmgLogStorageFactory;
 
@@ -171,7 +170,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir);
 
-            defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
@@ -199,13 +198,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             cmgLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
 
-            RaftOptionsConfigurator cmgRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(cmgLogStorageFactory);
-                raftOptions.serverDataPath(cmgWorkDir.metaPath());
-            };
+            RaftOptionsConfigurator cmgRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -234,13 +228,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             msLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-            RaftOptionsConfigurator msRaftConfigurator = options -> {
-                RaftGroupOptions raftOptions = (RaftGroupOptions) options;
-
-                // TODO: use interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                raftOptions.setLogStorageFactory(msLogStorageFactory);
-                raftOptions.serverDataPath(metastorageWorkDir.metaPath());
-            };
+            RaftOptionsConfigurator msRaftConfigurator =
+                    RaftOptionsConfigurationHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
@@ -289,7 +278,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     startAsync(new ComponentContext(),
                             vaultManager,
                             clusterService,
-                            defaultLogStorageFactory,
+                            partitionsLogStorageFactory,
                             cmgLogStorageFactory,
                             msLogStorageFactory,
                             raftManager,
@@ -322,7 +311,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     failureProcessor,
                     metaStorageManager,
                     raftManager,
-                    defaultLogStorageFactory,
+                    partitionsLogStorageFactory,
                     cmgLogStorageFactory,
                     msLogStorageFactory,
                     clusterService,

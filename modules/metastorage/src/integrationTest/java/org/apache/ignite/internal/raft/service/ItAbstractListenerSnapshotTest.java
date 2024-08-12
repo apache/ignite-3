@@ -441,13 +441,13 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         ClusterService service = clusterService(testInfo, PORT + idx, addr);
 
-        LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 service.nodeName(),
                 componentWorkDir.raftLogPath()
         );
-        assertThat(defaultLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        logStorageFactories.add(defaultLogStorageFactory);
+        logStorageFactories.add(partitionsLogStorageFactory);
 
         JraftServerImpl server = TestJraftServerFactory.create(service);
 

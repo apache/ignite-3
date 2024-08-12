@@ -108,7 +108,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
                 clock,
-                options -> {}
+                RaftOptionsConfigurator.EMPTY
         );
     }
 
