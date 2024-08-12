@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
+
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
@@ -42,7 +44,7 @@ public class ClientComputeJobUnpacker {
      * @param marshaller Marshaller.
      * @return Unpacked argument.
      */
-    public Object unpackJobArgument(@Nullable Marshaller<?, byte[]> marshaller) {
+    public @Nullable Object unpackJobArgument(@Nullable Marshaller<?, byte[]> marshaller) {
         return unpack(marshaller);
     }
 
@@ -53,35 +55,31 @@ public class ClientComputeJobUnpacker {
      * @param marshaller Marshaller.
      * @return Unpacked result.
      */
-    public Object unpackJobResult(@Nullable Marshaller<?, byte[]> marshaller) {
+    public @Nullable Object unpackJobResult(@Nullable Marshaller<?, byte[]> marshaller) {
         return unpack(marshaller);
     }
 
     /** Underlying byte array expected to be in the following format: | typeId | value |. */
-    private Object unpack(@Nullable Marshaller<?, byte[]> marshaller) {
+    private @Nullable Object unpack(@Nullable Marshaller<?, byte[]> marshaller) {
         int typeId = unpacker.unpackInt();
 
         var type = ComputeJobType.Type.fromId(typeId);
         switch (type) {
             case NATIVE:
                 ColumnType columnType = ColumnType.getById(typeId);
+                if (columnType != ColumnType.BYTE_ARRAY) {
+                    return unpacker.unpackObjectFromBinaryTuple();
+                }
+
                 if (marshaller != null) {
-                    if (columnType != ColumnType.BYTE_ARRAY) {
-                        // todo log.
-                        return unpacker.unpackObjectFromBinaryTuple();
-                    }
-                    return marshaller.unmarshal((byte[]) unpacker.unpackObjectFromBinaryTuple());
+                    return tryUnmarshalOrCast(marshaller, unpacker.unpackObjectFromBinaryTuple());
                 }
 
                 return unpacker.unpackObjectFromBinaryTuple();
             case MARSHALLED_TUPLE:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
             case MARSHALLED_OBJECT:
-                if (marshaller != null) {
-                    byte[] bytes = unpacker.readBinary();
-                    return marshaller.unmarshal(bytes);
-                }
-                return unpacker.readBinary();
+                return tryUnmarshalOrCast(marshaller, unpacker.readBinary());
             default:
                 throw new IllegalArgumentException("Unsupported type id: " + typeId);
         }

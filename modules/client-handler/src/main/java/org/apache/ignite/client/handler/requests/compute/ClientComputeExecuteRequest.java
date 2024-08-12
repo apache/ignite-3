@@ -37,6 +37,7 @@ import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute execute request.
@@ -115,15 +116,12 @@ public class ClientComputeExecuteRequest {
                         }, err)));
     }
 
-    private static <T> Marshaller<T, byte[]> extractMarshaller(JobExecution<T> e) {
+    private static <T> @Nullable Marshaller<T, byte[]> extractMarshaller(JobExecution<T> e) {
         if (e instanceof MarshallerProvider) {
             return ((MarshallerProvider<T>) e).resultMarshaller();
         }
 
-        throw new IllegalArgumentException(
-                "Can not return marshaller because " + e.getClass().getName()
-                        + " does not implement " + MarshallerProvider.class.getName()
-        );
+        return null;
     }
 
     /**
@@ -132,7 +130,7 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    static Object unpackPayload(ClientMessageUnpacker in) {
+    static @Nullable Object unpackPayload(ClientMessageUnpacker in) {
         return new ClientComputeJobUnpacker(in).unpackJobArgument(null);
     }
 }

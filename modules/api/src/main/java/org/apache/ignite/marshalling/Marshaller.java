@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * define a custom marshaller on the client, you must also define the marshaller on the server as well.
  *
  * @param <T> The object (T)ype.
- * @param <R> The (R)aw type, for example, {@code byte[]} or {@link org.apache.ignite.table.Tuple}.
+ * @param <R> The (R)aw type, for example, {@code byte[]}.
  */
 public interface Marshaller<T, R> {
     /**
@@ -51,9 +51,13 @@ public interface Marshaller<T, R> {
     @Nullable
     T unmarshal(@Nullable R raw) throws UnsupportedObjectTypeMarshallingException;
 
-
     /**
-     * TBD.
+     * Try to marshal given object if marshaller if not null, else the object is casted directly to the target type.
+     *
+     * @param self the marshaller instance.
+     * @param object to marshal.
+     * @param <T> The object (T)ype.
+     * @param <R> The (R)aw type, for example, {@code byte[]} or {@link org.apache.ignite.table.Tuple}.
      */
     static <T, R> @Nullable R tryMarshalOrCast(@Nullable Marshaller<T, R> self, @Nullable Object object) {
         if (self != null) {
@@ -69,7 +73,11 @@ public interface Marshaller<T, R> {
     }
 
     /**
-     * TBD.
+     * Try to unmarshal given object if marshaller if not null, else the object is casted directly to the target type.
+     *
+     * @param self the marshaller instance.
+     * @param <T> The object (T)ype.
+     * @param <R> The (R)aw type, for example, {@code byte[]}.
      */
     static <T, R> @Nullable T tryUnmarshalOrCast(@Nullable Marshaller<T, R> self, @Nullable Object raw) {
         if (self != null) {

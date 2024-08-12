@@ -100,9 +100,6 @@ public final class TupleWithSchemaMarshalling {
         // Read second int32.
         int valueOffset = buff.getInt(4);
 
-        String[] columns = new String[size];
-        ColumnType[] types = new ColumnType[size];
-
         ByteBuffer schemaBuff = buff
                 .position(8).limit(valueOffset)
                 .slice().order(BYTE_ORDER);
@@ -113,6 +110,8 @@ public final class TupleWithSchemaMarshalling {
         BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2, schemaBuff);
         BinaryTupleReader valueReader = new BinaryTupleReader(size, valueBuff);
 
+        String[] columns = new String[size];
+        ColumnType[] types = new ColumnType[size];
         Tuple tup = Tuple.create(size);
 
         int readerInd = 0;

@@ -105,14 +105,13 @@ public class ClientComputeJobPacker {
         }
 
         var type = getColumnTypeFrom(obj);
-        assert type != null;
 
         packer.packInt(type.id());
 
         packer.packObjectAsBinaryTuple(obj);
     }
 
-    private static @Nullable ColumnType getColumnTypeFrom(Object obj) {
+    private static ColumnType getColumnTypeFrom(Object obj) {
         if (obj instanceof Boolean) {
             return ColumnType.BOOLEAN;
         } else if (obj instanceof Byte) {
@@ -148,8 +147,7 @@ public class ClientComputeJobPacker {
         } else if (obj instanceof Period) {
             return ColumnType.PERIOD;
         } else {
-            return null;
+            throw new IllegalArgumentException("Unknown type: " + obj.getClass());
         }
     }
-
 }

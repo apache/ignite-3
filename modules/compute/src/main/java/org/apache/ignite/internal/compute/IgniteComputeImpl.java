@@ -278,7 +278,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             JobExecutionOptions options,
             @Nullable Object arg) {
         return primaryReplicaForPartitionByTupleKey(table, key)
-                .thenApply(primaryNode -> (JobExecution<R>) executeOnOneNodeWithFailover(
+                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
                         units, jobClassName, options, arg
@@ -331,9 +331,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
-        // todo.
-        // Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
-        // Marshaller<T, byte[]> resultMarshaller = descriptor.argumentMarshaller();
+        Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
+        Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
+
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
@@ -342,9 +342,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                             if (topologyService.getByConsistentId(node.name()) == null) {
                                 return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
                             }
-                            return new JobExecutionWrapper<>((JobExecution<R>) executeOnOneNodeWithFailover(
-                                    node, CompletableFutures::nullCompletedFuture,
-                                    descriptor.units(), descriptor.jobClassName(), descriptor.options(), args));
+                            return new ResultUnmarshallingJobExecution<>(
+                                    new JobExecutionWrapper<>(
+                                            executeOnOneNodeWithFailover(
+                                                    node, CompletableFutures::nullCompletedFuture,
+                                                    descriptor.units(), descriptor.jobClassName(),
+                                                    descriptor.options(), tryMarshalOrCast(argumentMarshaller, args))),
+                                    resultMarshaller);
                         }));
     }
 

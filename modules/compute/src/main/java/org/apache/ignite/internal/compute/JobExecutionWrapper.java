@@ -59,14 +59,11 @@ public class JobExecutionWrapper<R> implements JobExecution<R>, MarshallerProvid
     }
 
     @Override
-    public Marshaller<R, byte[]> resultMarshaller() {
+    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
         if (delegate instanceof MarshallerProvider) {
             return ((MarshallerProvider<R>) delegate).resultMarshaller();
         }
 
-        throw new IllegalArgumentException(
-                "Can not return marshaller because " + delegate.getClass().getName()
-                        + " does not implement " + MarshallerProvider.class.getName()
-        );
+        return null;
     }
 }

@@ -24,7 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.ColumnType;
@@ -32,6 +34,7 @@ import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
@@ -183,7 +186,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     }
 
     @Test
-    void broadcast() {
+    void executeBroadcast() {
         // Given entry node.
         var node = server(0);
 
@@ -204,6 +207,42 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
 
         assertEquals(resultExpected, result);
+    }
+
+
+
+    @Test
+    void submitBroadcast() {
+        // Given entry node.
+        var node = server(0);
+
+        // When.
+        Map<ClusterNode, String> result = computeClientOn(node).submitBroadcast(
+                Set.of(node(0), node(1)),
+                JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
+                        .argumentMarshaller(new ArgumentStringMarshaller())
+                        .resultMarshaller(new ResultStringUnMarshaller())
+                        .build(),
+                "Input"
+        ).entrySet().stream().collect(
+                Collectors.toMap(Entry::getKey, ItThinClientComputeMarshallingTest::extractResult, (v, i) -> v)
+        );
+
+        // Then.
+        Map<ClusterNode, String> resultExpected = Map.of(
+                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
+                node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
+        );
+
+        assertEquals(resultExpected, result);
+    }
+
+    private static String extractResult(Entry<ClusterNode, JobExecution<String>> e) {
+        try {
+            return e.getValue().resultAsync().get();
+        } catch (InterruptedException | ExecutionException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     @Test
