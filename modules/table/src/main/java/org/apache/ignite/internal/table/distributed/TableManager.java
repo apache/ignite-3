@@ -585,7 +585,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
 
-        tableProcessorsStorage = new TableProcessorsStorage();
+        tableProcessorsStorage = new TableProcessorsStorage(partitionReplicaLifecycleManager);
 
         partitionReplicaLifecycleManager.listen(PartitionReplicaLifecycleEvent.AFTER_REPLICA_STARTED, (PartitionReplicaLifecycleEventParameters params) -> {
             return onZoneReplicaCreated(params);
@@ -658,7 +658,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return started.thenCompose((vvvv) -> {
 
             /// KKK: catalog for the right moment and causality token for the right moment?
-            return tableProcessorsStorage.forEveryTableFromZoneIfNotExists(parameters.zoneDescriptor().id(), tbl -> {
+            return tableProcessorsStorage.forEveryTableFromZoneIfNotExists(parameters.zoneDescriptor().id(), parameters.partitionId(), tbl -> {
                 PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.partitionId());
 
                 lowWatermark.getLowWatermarkSafe(lwm ->
@@ -668,7 +668,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return preparePartitionResourcesAndLoadToZoneReplica(tbl, parameters.partitionId(), parameters.zoneDescriptor().id());
             });
 
-        });
+        }).thenApply(u -> false);
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
@@ -785,7 +785,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     partitionUpdateHandlers,
                     raftClient);
 
-            return replicaMgr.replica(new ZonePartitionId(zoneId, partId))
+            return partitionReplicaLifecycleManager.replica(new ZonePartitionId(zoneId, partId))
                     .thenAcceptAsync(zoneReplica ->
                             ((ZonePartitionReplicaListener) zoneReplica.listener()).addTableReplicaListener(
                                     new TablePartitionId(tableId, partId), createListener

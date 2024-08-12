@@ -15,31 +15,21 @@ import org.apache.ignite.internal.table.TableImpl;
 public class TableProcessorsStorage {
 
     // (zoneId -> set<TableImpl>)
-    private final ConcurrentHashMap<Integer, Set<TableImpl>> zones;
-
-    // (tableId -> partitionSet)
-    private final ConcurrentHashMap<Integer, PartitionSet> tablePartitions;
+    private final ConcurrentHashMap<Integer, Set<TableImpl>> zones = new ConcurrentHashMap<>();
 
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
+    public TableProcessorsStorage(PartitionReplicaLifecycleManager partitionReplicaLifecycleManager) {
+        this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
+    }
+
+    // can be synch
     public CompletionStage<Void> forEveryTableFromZoneIfNotExists(int zoneId, int partid, Function<TableImpl, CompletableFuture<Void>> tablePartitionLoader) {
         List<CompletableFuture<?>> fut = new ArrayList<>();
 
         zones.computeIfPresent(zoneId, (id, tables) -> {
             tables.forEach(t -> {
-                tablePartitions.compute(t.tableId(), (tableId, partitionSet) -> {
-                    // KKK: do we need to check if partitionSet have this partition already?
-                    fut.add(tablePartitionLoader.apply(t));
-
-                    if (partitionSet == null) {
-                        partitionSet = new BitSetPartitionSet();
-                        partitionSet.set(partid);
-                    } else {
-                        partitionSet.set(partid);
-                    }
-
-                    return partitionSet;
-                });
+                fut.add(tablePartitionLoader.apply(t));
             });
 
             return tables;
@@ -48,10 +38,9 @@ public class TableProcessorsStorage {
         return CompletableFuture.allOf(fut.toArray(new CompletableFuture[]{}));
     }
 
-    public CompletionStage<Void> initTableForZoneAndStartNeededPartitions(int zoneId, TableImpl table, int partitions, Function<Integer, CompletableFuture<Void>> partitionInitializer) {
+    public CompletableFuture<Void> initTableForZoneAndStartNeededPartitions(int zoneId, TableImpl table, int partitions, Function<Integer, CompletableFuture<Void>> partitionInitializer) {
 
-
-        List<CompletableFuture<?>> fut = new ArrayList<>();
+        final CompletableFuture<Void>[] fut = new CompletableFuture<Void>[1];
 
         zones.compute(zoneId, (id, tables) -> {
             Set<TableImpl> actualTables = tables;
@@ -62,24 +51,15 @@ public class TableProcessorsStorage {
 
             assert !actualTables.contains(table);
 
-            PartitionSet partitionSet = new BitSetPartitionSet();
 
-            for (int p = 0; p < partitions; p++) {
-                if (partitionReplicaLifecycleManager.hasLocalPartition(new ZonePartitionId(zoneId, p))) {
-                    fut.add(partitionInitializer.apply(p));
-
-                    partitionSet.set(p);
-                }
-            }
-
-            tablePartitions.put(table.tableId(), partitionSet);
+            fut[0] = partitionReplicaLifecycleManager.forAllPartitions(zoneId, (p) -> partitionInitializer.apply(p));
 
             actualTables.add(table);
 
             return actualTables;
         });
 
-        return CompletableFuture.allOf(fut.toArray(new CompletableFuture[]{}));
+        return fut[0];
 
     }
 }

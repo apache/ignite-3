@@ -58,6 +58,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -69,7 +70,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -158,7 +162,11 @@ public class PartitionReplicaLifecycleManager  extends
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaLifecycleManager.class);
 
-    private final Set<ReplicationGroupId> replicationGroupIds = ConcurrentHashMap.newKeySet();
+    private final Map<Integer, Set<Integer>> replicationGroupIds = new ConcurrentHashMap<>();
+
+    private final Map<Integer, ReadWriteLock> partitionsPerZone = new ConcurrentHashMap<>();
+
+//    private final Map<ZoneParReplica> replicas = null;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -434,7 +442,6 @@ public class PartitionReplicaLifecycleManager  extends
                 distributionZoneMgr
         );
 
-        replicationGroupIds.add(replicaGrpId);
         CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(replicaGrpId.zoneId(), catalogMgr.latestCatalogVersion());
 
         try {
@@ -447,12 +454,38 @@ public class PartitionReplicaLifecycleManager  extends
                     raftGroupListener,
                     raftGroupEventsListener,
                     busyLock
-                    ).thenCompose(unused ->
-                            fireEvent(
-                                    PartitionReplicaLifecycleEvent.AFTER_REPLICA_STARTED,
-                                    new PartitionReplicaLifecycleEventParameters(revision, zoneDescriptor)
-                            ))
-                    .thenApply(ignored -> null);
+                    ).thenCompose(unused -> {
+                        partitionsPerZone.compute(zoneId, (id, lock) -> {
+                            if (lock == null) {
+                                lock = new ReentrantReadWriteLock();
+                            }
+
+                            lock.writeLock().lock();
+
+                            return lock;
+                        });
+
+                        return fireEvent(
+                                PartitionReplicaLifecycleEvent.AFTER_REPLICA_STARTED,
+                                new PartitionReplicaLifecycleEventParameters(revision, zoneDescriptor)
+                        );
+                    })
+                    .thenApply(unused -> {
+                        return partitionsPerZone.compute(zoneId, (id, lock) -> {
+                            replicationGroupIds.compute(zoneId, (_id, partitions) -> {
+                                if (partitions == null) {
+                                    partitions = new HashSet<>();
+                                }
+
+                                partitions.add(replicaGrpId.partitionId());
+
+                                return partitions;
+                            });
+
+                            return lock;
+                        });
+                    }).whenComplete((unused, throwable) -> { partitionsPerZone.get(zoneId).writeLock().unlock(); })
+                    .thenApply(u -> {return null; });
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
@@ -622,7 +655,21 @@ public class PartitionReplicaLifecycleManager  extends
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 replace this method by the replicas await process.
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
-        return replicationGroupIds.contains(zonePartitionId);
+        // KKK NOT SAFE
+        return replicationGroupIds.get(zonePartitionId).contains(zonePartitionId.partitionId());
+    }
+
+    public void stopReplica() {
+        /**
+         * order of first 2???
+         * - remove from replicationGroupIds
+         * - fire event about replica stop
+         * - stop replica
+         */
+    }
+
+    public CompletableFuture<Replica> replica(ZonePartitionId zonePartitionId) {
+        return replicaMgr.replica(zonePartitionId);
     }
 
 
@@ -1205,5 +1252,26 @@ public class PartitionReplicaLifecycleManager  extends
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             LOG.error("Unable to clean zones resources", e);
         }
+    }
+
+    public CompletableFuture<Void> forAllPartitions(int zoneId,  Function<Integer, CompletableFuture<Void>> partitionInitializer) {
+        List<CompletableFuture<?>> futs = new ArrayList<>();
+
+        partitionsPerZone.compute(zoneId, (id, lock) -> {
+            lock.readLock().lock();
+
+            try {
+
+                replicationGroupIds.get(zoneId).forEach(p -> {
+                    futs.add(partitionInitializer.apply(p));
+                });
+            } finally {
+                lock.readLock().unlock();
+            }
+
+            return lock;
+        });
+
+        return allOf(futs.toArray(new CompletableFuture[]{}));
     }
 }
