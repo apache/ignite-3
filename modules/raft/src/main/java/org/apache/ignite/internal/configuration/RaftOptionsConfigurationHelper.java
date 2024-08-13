@@ -36,7 +36,7 @@ public interface RaftOptionsConfigurationHelper {
      */
     static RaftOptionsConfigurator configureProperties(LogStorageFactory logStorageFactory, Path serverDataPath) {
         return options -> {
-            RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+            RaftGroupOptions groupOptions = (RaftGroupOptions) options;
 
             if (raftOptions.getLogStorageFactory() == null) {
                 raftOptions.setLogStorageFactory(logStorageFactory);
