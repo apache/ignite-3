@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Compute;
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 
 /// <summary>
@@ -34,5 +35,5 @@ public sealed record JobDescriptor<TArg, TResult>(
     string JobClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null,
     JobExecutionOptions? Options = null,
-    Func<TArg, Memory<byte>?>? ArgMarshaller = null, // TODO: This forces the user to allocate?
+    Action<TArg, IBufferWriter<byte>>? ArgMarshaller = null, // TODO: This forces the user to allocate?
     Func<Memory<byte>?, TResult>? ResultMarshaller = null);

@@ -848,7 +848,7 @@ namespace Apache.Ignite.Tests.Compute
 
             var job = new JobDescriptor<MyArg, MyResult>(PlatformTestNodeRunner + "$JsonMarshallerJob")
             {
-                ArgMarshaller = arg => JsonSerializer.SerializeToUtf8Bytes(arg, jsonOpts),
+                ArgMarshaller = (arg, writer) => JsonSerializer.Serialize(new Utf8JsonWriter(writer), arg, jsonOpts),
                 ResultMarshaller = bytes => JsonSerializer.Deserialize<MyResult>(bytes!.Value.Span, jsonOpts)!
             };
 
