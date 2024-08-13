@@ -38,11 +38,11 @@ public interface RaftOptionsConfigurationHelper {
         return options -> {
             RaftGroupOptions groupOptions = (RaftGroupOptions) options;
 
-            if (raftOptions.getLogStorageFactory() == null) {
-                raftOptions.setLogStorageFactory(logStorageFactory);
+            if (groupOptions.getLogStorageFactory() == null) {
+                groupOptions.setLogStorageFactory(logStorageFactory);
             }
-            if (raftOptions.serverDataPath() == null) {
-                raftOptions.serverDataPath(serverDataPath);
+            if (groupOptions.serverDataPath() == null) {
+                groupOptions.serverDataPath(serverDataPath);
             }
         };
     }
