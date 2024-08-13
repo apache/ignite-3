@@ -664,7 +664,7 @@ public class ErrorGroups {
     @ErrorCodeGroup
     public static class Marshalling {
         /** Marshalling error group. */
-        static final ErrorGroup MARSHALLING_ERR_GROUP = registerGroup("MARSHALLING", (short) 22);
+        public static final ErrorGroup MARSHALLING_ERR_GROUP = registerGroup("MARSHALLING", (short) 22);
 
         /** Marshalling error. */
         public static final int COMMON_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 1);

@@ -39,7 +39,7 @@ class ComputeJobTypeTest {
 
     private static Stream<Arguments> marshalledTypes() {
         return Stream.of(
-                Arguments.of(1001, Type.MARSHALLED_TUPLE, 1001)
+                Arguments.of(-1, Type.MARSHALLED_TUPLE, -1)
         );
     }
 
@@ -60,6 +60,6 @@ class ComputeJobTypeTest {
     }
 
     private Stream<Arguments> unsupportedTypesArgs() {
-        return Stream.of(-1, Integer.MAX_VALUE).map(Arguments::of);
+        return Stream.of(Integer.MIN_VALUE, Integer.MAX_VALUE).map(Arguments::of);
     }
 }
