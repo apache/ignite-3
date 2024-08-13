@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -72,6 +73,8 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
+import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -89,6 +92,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.RecordView;
@@ -875,6 +879,45 @@ public class PlatformTestNodeRunner {
             }
 
             return null;
+        }
+    }
+
+
+    private static class Nested {
+        UUID id;
+        BigDecimal price;
+    }
+
+    private static class MyArg {
+        int id;
+        String name;
+        Nested nested;
+    }
+
+    private static class MyResult {
+        String data;
+        Nested nested;
+    }
+
+    private static class JsonMarshallerJob implements ComputeJob<MyArg, MyResult> {
+        @Override
+        public @Nullable CompletableFuture<MyResult> executeAsync(JobExecutionContext context, MyArg arg) {
+            var res = new MyResult();
+
+            res.data = arg.name + "_" + arg.id;
+            res.nested = arg.nested;
+
+            return completedFuture(res);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyArg, byte[]> inputMarshaller() {
+            return new JsonMarshaller<>(MyArg.class);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyResult, byte[]> resultMarshaller() {
+            return new JsonMarshaller<>(MyResult.class);
         }
     }
 }

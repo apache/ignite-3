@@ -846,7 +846,7 @@ namespace Apache.Ignite.Tests.Compute
                 ResultMarshaller = bytes => JsonSerializer.Deserialize<MyResult>(bytes.Span)!
             };
 
-            var arg = new MyArg(1, "foo", true, new Nested(Guid.NewGuid(), 1.234m));
+            var arg = new MyArg(1, "foo", new Nested(Guid.NewGuid(), 1.234m));
 
             var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
             MyResult res = await exec.GetResultAsync();
@@ -881,7 +881,7 @@ namespace Apache.Ignite.Tests.Compute
 
         private record Nested(Guid Id, decimal Price);
 
-        private record MyArg(int Id, string Name, bool Flag, Nested Nested);
+        private record MyArg(int Id, string Name, Nested Nested);
 
         private record MyResult(string Data, Nested Nested);
     }
