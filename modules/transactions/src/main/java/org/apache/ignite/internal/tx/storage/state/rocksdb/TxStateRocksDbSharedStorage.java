@@ -147,7 +147,8 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
                     threadPool,
                     flushDelaySupplier,
                     logSyncer,
-                    () -> {} // No-op.
+                    () -> {}, // No-op.
+                    "TX state storage"
             );
 
             this.dbOptions = new DBOptions()

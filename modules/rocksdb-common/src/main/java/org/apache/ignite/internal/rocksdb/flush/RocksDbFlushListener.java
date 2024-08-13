@@ -54,23 +54,30 @@ class RocksDbFlushListener extends AbstractEventListener {
      */
     private volatile CompletableFuture<?> lastFlushProcessed = nullCompletedFuture();
 
+    private volatile long time;
+    private final String name;
+
     /**
      * Constructor.
      *
      * @param flusher Flusher instance to delegate events processing to.
      * @param logSyncer Write-ahead log synchronizer.
      */
-    RocksDbFlushListener(RocksDbFlusher flusher, LogSyncer logSyncer) {
+    RocksDbFlushListener(RocksDbFlusher flusher, LogSyncer logSyncer, String name) {
         super(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED);
 
         this.flusher = flusher;
         this.logSyncer = logSyncer;
+        this.name = name;
     }
 
     /** {@inheritDoc} */
     @Override
     public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
         if (lastEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
+            LOG.info("Starting rocksdb flush process [name='{}']", name);
+            time = System.nanoTime();
+
             lastFlushProcessed.join();
 
             try {
@@ -85,6 +92,9 @@ class RocksDbFlushListener extends AbstractEventListener {
     @Override
     public void onFlushCompleted(RocksDB db, FlushJobInfo flushJobInfo) {
         if (lastEventType.compareAndSet(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED)) {
+            long duration = System.nanoTime() - time;
+            LOG.info("Finishing rocksdb flush process [name='{}', duration={}ms]", name, duration / 1_000_000L);
+
             lastFlushProcessed = flusher.onFlushCompleted();
         }
 
