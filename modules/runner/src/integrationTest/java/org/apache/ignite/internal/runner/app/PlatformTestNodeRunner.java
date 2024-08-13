@@ -884,19 +884,19 @@ public class PlatformTestNodeRunner {
 
 
     private static class Nested {
-        UUID id;
-        BigDecimal price;
+        public UUID id;
+        public BigDecimal price;
     }
 
     private static class MyArg {
-        int id;
-        String name;
-        Nested nested;
+        public int id;
+        public String name;
+        public Nested nested;
     }
 
     private static class MyResult {
-        String data;
-        Nested nested;
+        public String data;
+        public Nested nested;
     }
 
     private static class JsonMarshallerJob implements ComputeJob<MyArg, MyResult> {
