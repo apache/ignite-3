@@ -386,7 +386,7 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            return GetJobExecution<TResult>(res, readSchema: false);
+            return GetJobExecution<TResult>(res, readSchema: false, jobDescriptor.ResultMarshaller);
 
             void Write()
             {
