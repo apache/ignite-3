@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Compute;
 
+using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -25,9 +26,13 @@ using System.Collections.Generic;
 /// <param name="JobClassName">Java class name of the job to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
 /// <param name="Options">Options.</param>
+/// <param name="ArgMarshaller">Argument marshaller (serializer).</param>
+/// <param name="ResultMarshaller">Result marshaller (deserializer).</param>
 /// <typeparam name="TArg">Argument type.</typeparam>
 /// <typeparam name="TResult">Result type.</typeparam>
 public sealed record JobDescriptor<TArg, TResult>(
     string JobClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null,
-    JobExecutionOptions? Options = null);
+    JobExecutionOptions? Options = null,
+    Func<TArg, Memory<byte>>? ArgMarshaller = null,
+    Func<Memory<byte>, TResult>? ResultMarshaller = null);
