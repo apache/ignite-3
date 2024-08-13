@@ -227,8 +227,12 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void updateLease(long leaseStartTime, String primaryReplicaNodeId) {
-        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId);
+    public void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
+        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
     }
 
     @Override
@@ -239,5 +243,10 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public String primaryReplicaNodeId() {
         return partitionStorage.primaryReplicaNodeId();
+    }
+
+    @Override
+    public String primaryReplicaNodeName() {
+        return partitionStorage.primaryReplicaNodeName();
     }
 }

@@ -45,6 +45,8 @@ public class StoragePartitionMeta extends PartitionMeta {
 
     private volatile String primaryReplicaNodeId;
 
+    private volatile String primaryReplicaNodeName;
+
     private volatile long freeListRootPageId;
 
     private volatile long versionChainTreeRootPageId;
@@ -286,8 +288,14 @@ public class StoragePartitionMeta extends PartitionMeta {
      * @param checkpointId Checkpoint ID.
      * @param leaseStartTime Lease start time.
      * @param primaryReplicaNodeId Primary replica node id.
+     * @param primaryReplicaNodeName Primary replica node name.
      */
-    public void updateLease(@Nullable UUID checkpointId, long leaseStartTime, String primaryReplicaNodeId) {
+    public void updateLease(
+            @Nullable UUID checkpointId,
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
         updateSnapshot(checkpointId);
 
         if (leaseStartTime <= this.leaseStartTime) {
@@ -296,6 +304,7 @@ public class StoragePartitionMeta extends PartitionMeta {
 
         this.leaseStartTime = leaseStartTime;
         this.primaryReplicaNodeId = primaryReplicaNodeId;
+        this.primaryReplicaNodeName = primaryReplicaNodeName;
     }
 
     /**
@@ -314,6 +323,15 @@ public class StoragePartitionMeta extends PartitionMeta {
      */
     public String primaryReplicaNodeId() {
         return primaryReplicaNodeId;
+    }
+
+    /**
+     * Return the node name of the known lease for this replication group.
+     *
+     * @return Primary replica node name.
+     */
+    public String primaryReplicaNodeName() {
+        return primaryReplicaNodeName;
     }
 
     /**

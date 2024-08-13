@@ -71,6 +71,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     /** Primary replica node id. */
     private volatile String primaryReplicaNodeId;
 
+    /** Primary replica node name. */
+    private volatile String primaryReplicaNodeName;
+
     /** Last group configuration. */
     private volatile byte @Nullable [] groupConfig;
 
@@ -200,7 +203,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public void updateLease(long leaseStartTime, String primaryReplicaNodeId) {
+    public void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -210,6 +217,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
             this.leaseStartTime = leaseStartTime;
             this.primaryReplicaNodeId = primaryReplicaNodeId;
+            this.primaryReplicaNodeName = primaryReplicaNodeName;
 
             return null;
         });
@@ -230,6 +238,15 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             throwExceptionIfStorageNotInRunnableState();
 
             return primaryReplicaNodeId;
+        });
+    }
+
+    @Override
+    public String primaryReplicaNodeName() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            return primaryReplicaNodeName;
         });
     }
 

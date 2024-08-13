@@ -276,7 +276,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new UpdateCommandResult(true, currentGroupTopology.contains(storage.primaryReplicaNodeId()));
+            return new UpdateCommandResult(true, isPrimaryInGroupTopology());
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -288,7 +288,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 return new UpdateCommandResult(
                         false,
                         storageLeaseStartTime,
-                        currentGroupTopology.contains(storage.primaryReplicaNodeId())
+                        isPrimaryInGroupTopology()
                 );
             }
         }
@@ -319,7 +319,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true, currentGroupTopology.contains(storage.primaryReplicaNodeId()));
+        return new UpdateCommandResult(true, isPrimaryInGroupTopology());
     }
 
     /**
@@ -332,7 +332,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new UpdateCommandResult(true, currentGroupTopology.contains(storage.primaryReplicaNodeId()));
+            return new UpdateCommandResult(true, isPrimaryInGroupTopology());
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -344,7 +344,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 return new UpdateCommandResult(
                         false,
                         storageLeaseStartTime,
-                        currentGroupTopology.contains(storage.primaryReplicaNodeId())
+                        isPrimaryInGroupTopology()
                 );
             }
         }
@@ -369,7 +369,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true, currentGroupTopology.contains(storage.primaryReplicaNodeId()));
+        // TODO sanpwc fix currentGroupTopology is a set of node names, and storage.primaryReplicaNodeId() is a node id.
+        return new UpdateCommandResult(true,
+                true);
+//                currentGroupTopology.contains(storage.primaryReplicaNodeId()));
     }
 
     /**
@@ -655,7 +658,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         storage.runConsistently(locker -> {
-            storage.updateLease(cmd.leaseStartTime(), cmd.primaryReplicaNodeId());
+            storage.updateLease(cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
 
             storage.lastApplied(commandIndex, commandTerm);
 
@@ -770,5 +773,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         BinaryRow upgradedBinaryRow = upgrader.upgrade(sourceBinaryRow);
 
         return upgradedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(upgradedBinaryRow, source.rowId());
+    }
+
+    // TODO sanpwc javadoc
+    private boolean isPrimaryInGroupTopology() {
+        // TODO comments for assertions.
+        assert currentGroupTopology != null;
+        assert storage.primaryReplicaNodeName() != null;
+        return currentGroupTopology.contains(storage.primaryReplicaNodeName());
     }
 }

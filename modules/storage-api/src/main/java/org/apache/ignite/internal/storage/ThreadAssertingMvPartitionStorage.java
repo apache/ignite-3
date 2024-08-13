@@ -155,10 +155,14 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public void updateLease(long leaseStartTime, String primaryReplicaNodeId) {
+    public void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
         assertThreadAllowsToWrite();
 
-        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId);
+        partitionStorage.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
     }
 
     @Override
@@ -169,6 +173,11 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     @Override
     public String primaryReplicaNodeId() {
         return partitionStorage.primaryReplicaNodeId();
+    }
+
+    @Override
+    public String primaryReplicaNodeName() {
+        return partitionStorage.primaryReplicaNodeName();
     }
 
     @Override

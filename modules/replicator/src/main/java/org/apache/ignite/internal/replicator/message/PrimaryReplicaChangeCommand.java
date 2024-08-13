@@ -33,4 +33,7 @@ public interface PrimaryReplicaChangeCommand extends WriteCommand {
 
     /** Primary replica node id. */
     String primaryReplicaNodeId();
+
+    /** Primary replica node name. */
+    String primaryReplicaNodeName();
 }

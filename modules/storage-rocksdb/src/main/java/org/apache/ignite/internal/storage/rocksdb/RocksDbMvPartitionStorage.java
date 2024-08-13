@@ -170,6 +170,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** On-heap-cached lease node id. */
     private volatile String primaryReplicaNodeId;
 
+    /** On-heap-cached lease node name. */
+    private volatile String primaryReplicaNodeName;
+
     /** On-heap-cached last committed group configuration. */
     private volatile byte @Nullable [] lastGroupConfig;
 
@@ -223,7 +226,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             byte[] estimatedSizeBytes = db.get(meta, readOpts, estimatedSizeKey);
 
             estimatedSize = estimatedSizeBytes == null ? 0 : bytesToLong(estimatedSizeBytes);
-            // TODO restore primary replica node id.
+            // TODO sanpwc !!! restore primary replica node id and node name.
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
@@ -1027,7 +1030,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void updateLease(long leaseStartTime, String primaryReplicaNodeId) {
+    public void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
         busy(() -> {
             if (leaseStartTime <= this.leaseStartTime) {
                 return null;
@@ -1041,10 +1048,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 putLongToBytes(leaseStartTime, leaseBytes, 0);
 
                 writeBatch.put(meta, leaseKey, leaseBytes);
-                // TODO sanpwc write primaryReplica node Id
+                // TODO sanpwc !!! write primaryReplica node Id and name.
 
                 this.leaseStartTime = leaseStartTime;
                 this.primaryReplicaNodeId = primaryReplicaNodeId;
+                this.primaryReplicaNodeName = primaryReplicaNodeName;
             } catch (RocksDBException e) {
                 throw new StorageException(e);
             }
@@ -1061,6 +1069,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public String primaryReplicaNodeId() {
         return busy(() -> primaryReplicaNodeId);
+    }
+
+    @Override
+    public String primaryReplicaNodeName() {
+        return busy(() -> primaryReplicaNodeName);
     }
 
     /**

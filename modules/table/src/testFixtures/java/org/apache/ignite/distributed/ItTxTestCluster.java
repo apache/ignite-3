@@ -771,6 +771,7 @@ public class ItTxTestCluster {
             PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
                     .leaseStartTime(primary.getStartTime().longValue())
                     .primaryReplicaNodeId(primary.getLeaseholderId())
+                    .primaryReplicaNodeName(primary.getLeaseholder())
                     .build();
 
             CompletableFuture<?> primaryReplicaChangePropagationFuture = clients.get(grpId.partitionId()).run(cmd);

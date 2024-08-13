@@ -275,8 +275,13 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *
      * @param leaseStartTime Lease start time.
      * @param primaryReplicaNodeId Primary replica node id.
+     * @param primaryReplicaNodeName Primary replica node name.
      */
-    void updateLease(long leaseStartTime, String primaryReplicaNodeId);
+    void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    );
 
     /**
      * Returns the start time of the known lease for this replication group.
@@ -291,6 +296,13 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @return Primary replica node id.
      */
     String primaryReplicaNodeId();
+
+    /**
+     * Return the node name of the known lease for this replication group.
+     *
+     * @return Primary replica node name.
+     */
+    String primaryReplicaNodeName();
 
     /**
      * Returns the <em>estimated size</em> of this partition.

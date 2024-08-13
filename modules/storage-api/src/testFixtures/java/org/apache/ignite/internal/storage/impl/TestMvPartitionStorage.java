@@ -74,6 +74,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile String primaryReplicaNodeId;
 
+    private volatile String primaryReplicaNodeName;
+
     private volatile long estimatedSize;
 
     private volatile byte @Nullable [] groupConfig;
@@ -635,7 +637,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized void updateLease(long leaseStartTime, String primaryReplicaNodeId) {
+    public synchronized void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
         checkStorageClosed();
 
         if (leaseStartTime <= this.leaseStartTime) {
@@ -644,6 +650,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         this.leaseStartTime = leaseStartTime;
         this.primaryReplicaNodeId = primaryReplicaNodeId;
+        this.primaryReplicaNodeName = primaryReplicaNodeName;
     }
 
     @Override
@@ -658,6 +665,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         return primaryReplicaNodeId;
+    }
+
+    @Override
+    public String primaryReplicaNodeName() {
+        checkStorageClosed();
+
+        return primaryReplicaNodeName;
     }
 
     @Override

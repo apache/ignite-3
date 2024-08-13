@@ -216,8 +216,13 @@ public class ReplicaImpl implements Replica {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
 
+                // TODO sanpwc check whether localNode is a primary replica.
                 return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
-                        .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue(), localNode.id()))
+                        .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
+                                msg.leaseStartTime().longValue(),
+                                localNode.id(),
+                                localNode.name()
+                        ))
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
                                     acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
@@ -232,7 +237,11 @@ public class ReplicaImpl implements Replica {
             } else {
                 if (leader.equals(localNode)) {
                     return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
-                            .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue(), localNode.id()))
+                            .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
+                                    msg.leaseStartTime().longValue(),
+                                    localNode.id(),
+                                    localNode.name()
+                            ))
                             .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);
@@ -241,10 +250,15 @@ public class ReplicaImpl implements Replica {
         }));
     }
 
-    private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(long leaseStartTime, String primaryReplicaNodeId) {
+    private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
         PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
                 .leaseStartTime(leaseStartTime)
                 .primaryReplicaNodeId(primaryReplicaNodeId)
+                .primaryReplicaNodeName(primaryReplicaNodeName)
                 .build();
 
         return raftClient.run(cmd);
