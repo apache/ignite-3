@@ -212,7 +212,7 @@ public class TcpIgniteClient implements IgniteClient {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         ch.close();
 
         if (metricManager != null) {

@@ -110,7 +110,7 @@ public class ClientTableTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testGetReturningTupleWithUnknownSchemaRequestsNewSchema() throws Exception {
+    public void testGetReturningTupleWithUnknownSchemaRequestsNewSchema() {
         var embeddedView = defaultTable().recordView();
 
         try (var client2 = startClient()) {

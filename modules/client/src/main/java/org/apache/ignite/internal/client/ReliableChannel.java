@@ -59,7 +59,6 @@ import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -143,21 +142,18 @@ public final class ReliableChannel implements AutoCloseable {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void close() throws Exception {
+    public synchronized void close() {
         closed = true;
 
         List<ClientChannelHolder> holders = channels;
 
-        IgniteUtils.closeAllManually(
-                () -> {
-                    if (holders != null) {
-                        for (ClientChannelHolder hld : holders) {
-                            hld.close();
-                        }
-                    }
-                },
-                connMgr::stop,
-                () -> shutdownAndAwaitTermination(streamerFlushExecutor, 10, TimeUnit.SECONDS));
+        if (holders != null) {
+            for (ClientChannelHolder hld : holders) {
+                hld.close();
+            }
+        }
+        connMgr.stop();
+        shutdownAndAwaitTermination(streamerFlushExecutor, 10, TimeUnit.SECONDS);
     }
 
     /**
