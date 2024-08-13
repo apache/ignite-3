@@ -68,14 +68,14 @@ public class AbstractMultiNodeBenchmark {
 
     protected static IgniteImpl clusterNode;
 
-    @Param({"false", "true"})
+    @Param({"false"})
     private boolean fsync;
 
     /**
      * Starts ignite node and creates table {@link #TABLE_NAME}.
      */
     @Setup
-    public final void nodeSetUp() throws Exception {
+    public void nodeSetUp() throws Exception {
         System.setProperty("jraft.available_processors", "2");
         startCluster();
 
@@ -187,6 +187,10 @@ public class AbstractMultiNodeBenchmark {
                 + "    \"nodeFinder\":{\n"
                 + "      \"netClusterNodes\": [ {} ]\n"
                 + "    }\n"
+                + "  },\n"
+                + "  storage.profiles: {"
+                + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
+                + "        " + DEFAULT_STORAGE_PROFILE + ".size: 2073741824 " // Avoid page replacement.
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"
                 + "  rest.port: {},\n"

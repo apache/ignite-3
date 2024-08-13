@@ -238,8 +238,7 @@ class SchemaCompatibilityValidator {
         );
     }
 
-    void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
-        HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
+    void failIfSchemaChangedAfterTxStart(HybridTimestamp beginTs, HybridTimestamp operationTimestamp, int tableId) {
         CatalogTableDescriptor tableAtBeginTs = catalogService.table(tableId, beginTs.longValue());
         CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
 

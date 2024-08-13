@@ -101,6 +101,13 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
+    public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        TablePartitionId id = (TablePartitionId) replicationGroupId;
+
+        return primaryReplicas.get(id.partitionId());
+    }
+
+    @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return nullCompletedFuture();
     }

@@ -77,6 +77,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
@@ -93,6 +94,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -128,6 +130,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -483,7 +486,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId,
             @Nullable Long leaseStartTime) {
-        if (request instanceof SchemaVersionAwareReplicaRequest) {
+        boolean hasSchemaVersion = request instanceof SchemaVersionAwareReplicaRequest;
+
+        if (hasSchemaVersion) {
             assert ((SchemaVersionAwareReplicaRequest) request).schemaVersion() > 0 : "No schema version passed?";
         }
 
@@ -513,13 +518,38 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processGetEstimatedSizeRequest();
         }
 
-        HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? clockService.now() : null;
+        @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
+        @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
+        @Nullable HybridTimestamp txTs = getTxStartTimestamp(request);
+        if (txTs == null) {
+            txTs = opTsIfDirectRo;
+        }
 
-        return validateTableExistence(request, opTsIfDirectRo)
-                .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
-                .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
-                .thenCompose(unused ->
-                        processOperationRequestWithTxRwCounter(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
+        // Don't need to validate schema.
+        if (opTs == null) {
+            assert opTsIfDirectRo == null;
+            return processOperationRequestWithTxRwCounter(senderId, request, isPrimary, null, leaseStartTime);
+        }
+
+        assert txTs != null && opTs.compareTo(txTs) >= 0 : "Invalid request timestamps";
+
+        @Nullable HybridTimestamp finalTxTs = txTs;
+        Runnable clo = () -> {
+            schemaCompatValidator.failIfSchemaChangedAfterTxStart(finalTxTs, opTs, tableId());
+
+            if (hasSchemaVersion) {
+                SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
+
+                schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
+                        finalTxTs,
+                        versionAwareRequest.schemaVersion(),
+                        tableId()
+                );
+            }
+        };
+
+        return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(clo).thenCompose(ignored ->
+                processOperationRequestWithTxRwCounter(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
     }
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
@@ -591,96 +621,25 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Validates that the table exists at a timestamp corresponding to the request operation.
+     * Return tx operation timestamp.
      *
-     * <ul>
-     *     <li>For a read/write in an RW transaction, it's 'now'</li>
-     *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
-     *     <li>For a direct read in an RO implicit transaction, it's the timestamp chosen (as 'now') to process the request</li>
-     * </ul>
-     *
-     * <p>For other requests, the validation is skipped.
-     *
-     * @param request Replica request corresponding to the operation.
-     * @param opTsIfDirectRo Operation timestamp for a direct RO, {@code null} otherwise.
-     * @return Future completed when the validation is finished.
+     * @param request The request.
+     * @return The timestamp or {@code null} if not a tx operation request.
      */
-    private CompletableFuture<Void> validateTableExistence(ReplicaRequest request, @Nullable HybridTimestamp opTsIfDirectRo) {
+    private @Nullable HybridTimestamp getTxOpTimestamp(ReplicaRequest request) {
         HybridTimestamp opStartTs;
 
-        if (request instanceof ScanCloseReplicaRequest) {
-            // We don't need to validate close request for table existence.
-            opStartTs = null;
-        } else if (request instanceof ReadWriteReplicaRequest) {
+        if (request instanceof ReadWriteReplicaRequest) {
             opStartTs = clockService.now();
         } else if (request instanceof ReadOnlyReplicaRequest) {
             opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
         } else if (request instanceof ReadOnlyDirectReplicaRequest) {
-            assert opTsIfDirectRo != null;
-
-            opStartTs = opTsIfDirectRo;
+            opStartTs = clockService.now();
         } else {
             opStartTs = null;
         }
 
-        if (opStartTs == null) {
-            return nullCompletedFuture();
-        }
-
-        return schemaSyncService.waitForMetadataCompleteness(opStartTs)
-                .thenRun(() -> schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, tableId()));
-    }
-
-    /**
-     * Makes sure that {@link SchemaVersionAwareReplicaRequest#schemaVersion()} sent in a request matches table schema version
-     * corresponding to the operation.
-     *
-     * @param request Replica request corresponding to the operation.
-     * @param opTsIfDirectRo Operation timestamp for a direct RO, {@code null} otherwise.
-     * @return Future completed when the validation is finished.
-     */
-    private CompletableFuture<Void> validateSchemaMatch(ReplicaRequest request, @Nullable HybridTimestamp opTsIfDirectRo) {
-        if (!(request instanceof SchemaVersionAwareReplicaRequest)) {
-            return nullCompletedFuture();
-        }
-
-        HybridTimestamp tsToWaitForSchema = getTxStartTimestamp(request);
-        if (tsToWaitForSchema == null) {
-            tsToWaitForSchema = opTsIfDirectRo;
-        }
-
-        if (tsToWaitForSchema == null) {
-            return nullCompletedFuture();
-        }
-
-        HybridTimestamp finalTsToWaitForSchema = tsToWaitForSchema;
-        return schemaSyncService.waitForMetadataCompleteness(finalTsToWaitForSchema)
-                .thenRun(() -> {
-                    SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
-
-                    schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
-                            finalTsToWaitForSchema,
-                            versionAwareRequest.schemaVersion(),
-                            tableId()
-                    );
-                });
-    }
-
-    /**
-     * Makes sure that we have schemas corresponding to the moment of tx start; this makes PK extraction safe WRT
-     * {@link SchemaRegistry#schema(int)}.
-     *
-     * @param request Replica request corresponding to the operation.
-     * @param opTsIfDirectRo Operation timestamp for a direct RO, {@code null} otherwise.
-     * @return Future completed when the validation is finished.
-     */
-    private CompletableFuture<Void> waitForSchemasBeforeReading(ReplicaRequest request, @Nullable HybridTimestamp opTsIfDirectRo) {
-        HybridTimestamp tsToWaitForSchema = getTxStartTimestamp(request);
-        if (tsToWaitForSchema == null) {
-            tsToWaitForSchema = opTsIfDirectRo;
-        }
-
-        return tsToWaitForSchema == null ? nullCompletedFuture() : schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchema);
+        return opStartTs;
     }
 
     /**
@@ -768,14 +727,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), opId, RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
-                    .thenCompose(rows -> {
-                        if (allElementsAreNull(rows)) {
-                            return completedFuture(rows);
-                        } else {
-                            return validateRwReadAgainstSchemaAfterTakingLocks(req.transactionId())
-                                    .thenApply(ignored -> rows);
-                        }
-                    })
                     .handle((rows, err) -> {
                         if (req.full() && (err != null || rows.size() < req.batchSize())) {
                             releaseTxLocks(req.transactionId());
@@ -1063,16 +1014,17 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Void> validateBackwardCompatibility(BinaryRow row, UUID txId) {
-        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
-                .thenAccept(validationResult -> {
-                    if (!validationResult.isSuccessful()) {
-                        throw new IncompatibleSchemaVersionException(String.format(
-                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
-                                        + "txSchemaVersion=%d, rowSchemaVersion=%d]",
-                                validationResult.failedTableName(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
-                        ));
-                    }
-                });
+//        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
+//                .thenAccept(validationResult -> {
+//                    if (!validationResult.isSuccessful()) {
+//                        throw new IncompatibleSchemaVersionException(String.format(
+//                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
+//                                        + "txSchemaVersion=%d, rowSchemaVersion=%d]",
+//                                validationResult.failedTableName(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
+//                        ));
+//                    }
+//                });
+        return nullCompletedFuture();
     }
 
     /**
@@ -1982,28 +1934,34 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         assert pkLocker != null;
 
-        return pkLocker.locksForLookupByKey(txId, pk)
-                .thenCompose(ignored -> {
+        CompletableFuture<Void> lockFut = pkLocker.locksForLookupByKey(txId, pk);
 
-                    boolean cursorClosureSetUp = false;
-                    Cursor<RowId> cursor = null;
+        Supplier<CompletableFuture<T>> sup = () -> {
+            boolean cursorClosureSetUp = false;
+            Cursor<RowId> cursor = null;
 
-                    try {
-                        cursor = getFromPkIndex(pk);
+            try {
+                cursor = getFromPkIndex(pk);
 
-                        Cursor<RowId> finalCursor = cursor;
-                        CompletableFuture<T> resolvingFuture = continueResolvingByPk(cursor, txId, action)
-                                .whenComplete((res, ex) -> finalCursor.close());
+                Cursor<RowId> finalCursor = cursor;
+                CompletableFuture<T> resolvingFuture = continueResolvingByPk(cursor, txId, action)
+                        .whenComplete((res, ex) -> finalCursor.close());
 
-                        cursorClosureSetUp = true;
+                cursorClosureSetUp = true;
 
-                        return resolvingFuture;
-                    } finally {
-                        if (!cursorClosureSetUp && cursor != null) {
-                            cursor.close();
-                        }
-                    }
-                });
+                return resolvingFuture;
+            } finally {
+                if (!cursorClosureSetUp && cursor != null) {
+                    cursor.close();
+                }
+            }
+        };
+
+        if (lockFut.isDone()) {
+            return sup.get();
+        } else {
+            return lockFut.thenCompose(ignored -> sup.get());
+        }
     }
 
     private <T> CompletableFuture<T> continueResolvingByPk(
@@ -2554,7 +2512,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowFuts)
-                        .thenCompose(ignored -> {
+                        .thenApply(ignored -> {
                             var result = new ArrayList<BinaryRow>(primaryKeys.size());
 
                             for (CompletableFuture<BinaryRow> rowFut : rowFuts) {
@@ -2562,11 +2520,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             if (allElementsAreNull(result)) {
-                                return completedFuture(result);
+                                return result;
                             }
 
-                            return validateRwReadAgainstSchemaAfterTakingLocks(txId)
-                                    .thenApply(unused -> new ReplicaResult(result, null));
+                            return new ReplicaResult(result, null);
                         });
             }
             case RW_DELETE_ALL: {
@@ -2795,7 +2752,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return resultFuture.thenApply(res -> {
                     UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
-                    if (full && !updateCommandResult.isPrimaryReplicaMatch()) {
+                    if (full && updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
                         throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
                     }
 
@@ -2803,18 +2760,20 @@ public class PartitionReplicaListener implements ReplicaListener {
                     // Try to avoid double write if an entry is already replicated.
                     synchronized (safeTime) {
                         if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                            // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                            storageUpdateHandler.handleUpdate(
-                                    cmd.txId(),
-                                    cmd.rowUuid(),
-                                    cmd.tablePartitionId().asTablePartitionId(),
-                                    cmd.rowToUpdate(),
-                                    false,
-                                    null,
-                                    cmd.safeTime(),
-                                    null,
-                                    indexIdsAtRwTxBeginTs(txId)
-                            );
+                            if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.SKIP_STORAGE_UPDATE_IN_BENCHMARK)) {
+                                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                                storageUpdateHandler.handleUpdate(
+                                        cmd.txId(),
+                                        cmd.rowUuid(),
+                                        cmd.tablePartitionId().asTablePartitionId(),
+                                        cmd.rowToUpdate(),
+                                        false,
+                                        null,
+                                        cmd.safeTime(),
+                                        null,
+                                        indexIdsAtRwTxBeginTs(txId)
+                                );
+                            }
 
                             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                         }
@@ -3095,7 +3054,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     boolean insert = rowId == null;
 
-                    RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
+                    // TODO slow randomUUID
+                    ThreadLocalRandom current = ThreadLocalRandom.current();
+                    RowId rowId0 = insert ? new RowId(partId(), new UUID(current.nextLong(), current.nextLong())) : rowId;
 
                     CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = insert
                             ? takeLocksForInsert(searchRow, rowId0, txId)
@@ -3241,7 +3202,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForGet(rowId, txId)
-                            .thenCompose(ignored -> validateRwReadAgainstSchemaAfterTakingLocks(txId))
                             .thenApply(ignored -> new ReplicaResult(row, null));
                 });
             }
@@ -3395,8 +3355,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForInsert(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
-                .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
+//        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
+//                .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
+//                .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
+
+        return takePutLockOnIndexes(binaryRow, rowId, txId)
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
 
@@ -3580,48 +3543,50 @@ public class PartitionReplicaListener implements ReplicaListener {
      *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
-        HybridTimestamp now = clockService.now();
-
         if (request instanceof PrimaryReplicaRequest) {
             Long enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
 
-            return placementDriver.getPrimaryReplica(replicationGroupId, now)
-                    .thenCompose(primaryReplicaMeta -> {
-                        if (primaryReplicaMeta == null) {
-                            return failedFuture(
-                                    new PrimaryReplicaMissException(
-                                            localNode.name(),
-                                            null,
-                                            localNode.id(),
-                                            null,
-                                            enlistmentConsistencyToken,
-                                            null,
-                                            null
-                                    )
-                            );
-                        }
+            ReplicaMeta primaryReplicaMeta = placementDriver.getCurrentPrimaryReplica(replicationGroupId,
+                    hybridTimestamp(enlistmentConsistencyToken));
 
-                        long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
+            // We can skip waiting on primary replica, because it's already implemented on a coordinator side.
+            if (primaryReplicaMeta == null) {
+                return failedFuture(
+                        new PrimaryReplicaMissException(
+                                localNode.name(),
+                                null,
+                                localNode.id(),
+                                null,
+                                enlistmentConsistencyToken,
+                                null,
+                                null
+                        )
+                );
+            }
 
-                        if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
-                                || clockService.before(primaryReplicaMeta.getExpirationTime(), now)
-                                || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
-                        ) {
-                            return failedFuture(
-                                    new PrimaryReplicaMissException(
-                                            localNode.name(),
-                                            primaryReplicaMeta.getLeaseholder(),
-                                            localNode.id(),
-                                            primaryReplicaMeta.getLeaseholderId(),
-                                            enlistmentConsistencyToken,
-                                            currentEnlistmentConsistencyToken,
-                                            null)
-                            );
-                        }
+            long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
-                        return completedFuture(new IgniteBiTuple<>(null, primaryReplicaMeta.getStartTime().longValue()));
-                    });
+            // Test if a lease is valid at current timestamp.
+            if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
+                    || clockService.before(primaryReplicaMeta.getExpirationTime(), clockService.now())
+                    || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
+            ) {
+                return failedFuture(
+                        new PrimaryReplicaMissException(
+                                localNode.name(),
+                                primaryReplicaMeta.getLeaseholder(),
+                                localNode.id(),
+                                primaryReplicaMeta.getLeaseholderId(),
+                                enlistmentConsistencyToken,
+                                currentEnlistmentConsistencyToken,
+                                null)
+                );
+            }
+
+            return completedFuture(new IgniteBiTuple<>(null, primaryReplicaMeta.getStartTime().longValue()));
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
+            HybridTimestamp now = clockService.now();
+
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenApply(primaryReplica -> new IgniteBiTuple<>(
                             primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId()),
@@ -3807,30 +3772,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Takes current timestamp and makes schema related validations at this timestamp.
      *
      * @param txId Transaction ID.
-     * @return Future that will complete when validation completes.
-     */
-    private CompletableFuture<Void> validateRwReadAgainstSchemaAfterTakingLocks(UUID txId) {
-        HybridTimestamp operationTimestamp = clockService.now();
-
-        return schemaSyncService.waitForMetadataCompleteness(operationTimestamp)
-                .thenRun(() -> failIfSchemaChangedSinceTxStart(txId, operationTimestamp));
-    }
-
-    /**
-     * Takes current timestamp and makes schema related validations at this timestamp.
-     *
-     * @param txId Transaction ID.
      * @return Future that will complete with catalog version associated with given operation though the operation timestamp.
      */
     private CompletableFuture<Integer> validateWriteAgainstSchemaAfterTakingLocks(UUID txId) {
         HybridTimestamp operationTimestamp = clockService.now();
 
-        return reliableCatalogVersionFor(operationTimestamp)
-                .thenApply(catalogVersion -> {
-                    failIfSchemaChangedSinceTxStart(txId, operationTimestamp);
-
-                    return catalogVersion;
-                });
+        return reliableCatalogVersionFor(operationTimestamp);
     }
 
     private UpdateCommand updateCommand(
@@ -3899,10 +3846,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .requiredCatalogVersion(catalogVersion)
                 .leaseStartTime(leaseStartTime)
                 .build();
-    }
-
-    private void failIfSchemaChangedSinceTxStart(UUID txId, HybridTimestamp operationTimestamp) {
-        schemaCompatValidator.failIfSchemaChangedAfterTxStart(txId, operationTimestamp, tableId());
     }
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {

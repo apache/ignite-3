@@ -1933,19 +1933,32 @@ public class InternalTableImpl implements InternalTable {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
         tx.assignCommitPartition(tablePartitionId);
 
-        return partitionMeta(tablePartitionId).thenApply(meta -> {
+        ReplicaMeta meta = partitionMeta(tablePartitionId, tx.startTimestamp());
+
+        Function<ReplicaMeta, IgniteBiTuple<ClusterNode, Long>> clo = replicaMeta -> {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-            return tx.enlist(partGroupId, new IgniteBiTuple<>(
-                    getClusterNode(meta),
-                    enlistmentConsistencyToken(meta))
-            );
-        });
+            IgniteBiTuple<ClusterNode, Long> enlistState = new IgniteBiTuple<>(getClusterNode(replicaMeta),
+                    enlistmentConsistencyToken(replicaMeta));
+            tx.enlist(partGroupId, enlistState);
+
+            return enlistState;
+        };
+
+        if (meta != null) {
+            return completedFuture(clo.apply(meta));
+        }
+
+        return partitionMeta(tablePartitionId).thenApply(clo);
     }
 
     @Override
     public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId tablePartitionId) {
         return partitionMeta(tablePartitionId).thenApply(this::getClusterNode);
+    }
+
+    private @Nullable ReplicaMeta partitionMeta(TablePartitionId tablePartitionId, HybridTimestamp now) {
+        return placementDriver.getCurrentPrimaryReplica(tablePartitionId, now);
     }
 
     private CompletableFuture<ReplicaMeta> partitionMeta(TablePartitionId tablePartitionId) {
