@@ -369,10 +369,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        // TODO sanpwc fix currentGroupTopology is a set of node names, and storage.primaryReplicaNodeId() is a node id.
-        return new UpdateCommandResult(true,
-                true);
-//                currentGroupTopology.contains(storage.primaryReplicaNodeId()));
+        return new UpdateCommandResult(true, isPrimaryInGroupTopology());
     }
 
     /**
@@ -512,6 +509,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
                 return null;
             });
+        } catch (Exception e) {
+            System.out.println("!!!");
         } finally {
             storage.releasePartitionSnapshotsReadLock();
         }
