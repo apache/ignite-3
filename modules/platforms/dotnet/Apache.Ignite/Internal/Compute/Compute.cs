@@ -90,16 +90,12 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobDescriptor);
             IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
 
-            var options = jobDescriptor.Options ?? JobExecutionOptions.Default;
-            var units = GetUnitsCollection(jobDescriptor.DeploymentUnits);
-
             var res = new Dictionary<IClusterNode, Task<IJobExecution<TResult>>>();
 
             foreach (var node in nodes)
             {
-                Task<IJobExecution<TResult>> task = ExecuteOnNodes<TArg, TResult>(
-                    new[] { node }, units, jobDescriptor.JobClassName, options, arg);
-
+                // TODO: Remove array allocation.
+                Task<IJobExecution<TResult>> task = ExecuteOnNodes(new[] { node }, jobDescriptor, arg);
                 res[node] = task;
             }
 
@@ -374,13 +370,11 @@ namespace Apache.Ignite.Internal.Compute
 
         private async Task<IJobExecution<TResult>> ExecuteOnNodes<TArg, TResult>(
             ICollection<IClusterNode> nodes,
-            IEnumerable<DeploymentUnit>? units,
-            string jobClassName,
-            JobExecutionOptions? options,
+            JobDescriptor<TArg, TResult> jobDescriptor,
             TArg arg)
         {
             IClusterNode node = GetRandomNode(nodes);
-            options ??= JobExecutionOptions.Default;
+            JobExecutionOptions options = jobDescriptor.Options ?? JobExecutionOptions.Default;
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
@@ -396,8 +390,8 @@ namespace Apache.Ignite.Internal.Compute
                 var w = writer.MessageWriter;
 
                 WriteNodeNames(nodes, writer);
-                WriteUnits(units, writer);
-                w.Write(jobClassName);
+                WriteUnits(GetUnitsCollection(jobDescriptor.DeploymentUnits), writer);
+                w.Write(jobDescriptor.JobClassName);
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
@@ -505,15 +499,10 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobDescriptor);
             IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
 
-            var nodesCol = GetNodesCollection(nodes);
+            ICollection<IClusterNode> nodesCol = GetNodesCollection(nodes);
             IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
 
-            return await ExecuteOnNodes<TArg, TResult>(
-                nodesCol,
-                jobDescriptor.DeploymentUnits,
-                jobDescriptor.JobClassName,
-                jobDescriptor.Options,
-                arg).ConfigureAwait(false);
+            return await ExecuteOnNodes(nodesCol, jobDescriptor, arg).ConfigureAwait(false);
         }
 
         private async Task<IJobExecution<TResult>> SubmitColocatedAsync<TArg, TResult, TKey>(

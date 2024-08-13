@@ -840,7 +840,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJsonMarshaller()
         {
-            var job = new JobDescriptor<MyArg, MyResult>(ItThinClientComputeTest + "$JsonMarshallerJob")
+            var job = new JobDescriptor<MyArg, MyResult>(PlatformTestNodeRunner + "$JsonMarshallerJob")
             {
                 ArgMarshaller = arg => JsonSerializer.SerializeToUtf8Bytes(arg),
                 ResultMarshaller = bytes => JsonSerializer.Deserialize<MyResult>(bytes.Span)!
