@@ -1061,7 +1061,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
             // TODO: IGNITE-22980 We can use synchronous API here after Lock manager will be fixed.
             view.upsertAsync(rwTx, Tuple.create().set("key", 42).set("val", "val2")).get();
 
-            fail("Lock conflict have to be detected.");
+            fail("Lock conflict has to be detected.");
         } catch (ExecutionException e) {
             assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e.getCause()));
 
