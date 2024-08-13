@@ -838,7 +838,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestJsonMarshaller()
+        public async Task TestNestedObjectsWithJsonMarshaller()
         {
             var jsonOpts = new JsonSerializerOptions
             {
@@ -857,7 +857,7 @@ namespace Apache.Ignite.Tests.Compute
             var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
             MyResult res = await exec.GetResultAsync();
 
-            Assert.AreEqual("bar", res.Data);
+            Assert.AreEqual("foo_1", res.Data);
             Assert.AreEqual(arg.Nested, res.Nested);
         }
 

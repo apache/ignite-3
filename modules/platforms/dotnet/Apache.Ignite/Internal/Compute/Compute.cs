@@ -323,15 +323,15 @@ namespace Apache.Ignite.Internal.Compute
 
             return new JobExecution<T>(jobId, resultTask, this);
 
-            static async Task<(T, JobState)> GetResult(NotificationHandler handler)
+            async Task<(T, JobState)> GetResult(NotificationHandler handler)
             {
                 using var notificationRes = await handler.Task.ConfigureAwait(false);
                 return Read(notificationRes.GetReader());
             }
 
-            static (T, JobState) Read(MsgPackReader reader)
+            (T, JobState) Read(MsgPackReader reader)
             {
-                var res = (T)reader.ReadObjectFromBinaryTuple()!;
+                var res = (T)reader.ReadObjectFromBinaryTuple(marshaller)!;
                 var status = ReadJobState(reader);
 
                 return (res, status);
@@ -386,7 +386,7 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            return GetJobExecution<TResult>(res, readSchema: false, jobDescriptor.ResultMarshaller);
+            return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller);
 
             void Write()
             {
@@ -451,7 +451,7 @@ namespace Apache.Ignite.Internal.Compute
                             ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
-                    return GetJobExecution<TResult>(res, readSchema: true);
+                    return GetJobExecution(res, readSchema: true, descriptor.ResultMarshaller);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
