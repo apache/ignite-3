@@ -306,7 +306,10 @@ namespace Apache.Ignite.Internal.Compute
             return new TaskState(id, status, createTime.GetValueOrDefault(), startTime, endTime);
         }
 
-        private IJobExecution<T> GetJobExecution<T>(PooledBuffer computeExecuteResult, bool readSchema)
+        private IJobExecution<T> GetJobExecution<T>(
+            PooledBuffer computeExecuteResult,
+            bool readSchema,
+            Func<Memory<byte>?, T>? marshaller)
         {
             var reader = computeExecuteResult.GetReader();
 

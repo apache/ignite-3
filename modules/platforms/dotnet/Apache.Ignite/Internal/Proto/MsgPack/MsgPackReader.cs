@@ -22,6 +22,7 @@ using System.Buffers.Binary;
 using System.IO;
 using BinaryTuple;
 using Ignite.Sql;
+using Marshalling;
 using NodaTime;
 
 /// <summary>
@@ -363,6 +364,37 @@ internal ref struct MsgPackReader
                     throw GetInvalidCodeException("valid type code", code);
             }
         }
+    }
+
+    /// <summary>
+    /// Reads <see cref="ColumnType"/> and value with optional marshaller.
+    /// </summary>
+    /// <param name="marshaller">Optional marshaller.</param>
+    /// <returns>Value.</returns>
+    /// <typeparam name="T">Type of the value.</typeparam>
+    public T ReadObjectFromBinaryTuple<T>(Func<Memory<byte>?, T>? marshaller)
+    {
+        var obj = ReadObjectFromBinaryTuple();
+
+        if (marshaller == null)
+        {
+            return (T)obj!;
+        }
+
+        if (obj == null)
+        {
+            return marshaller(null);
+        }
+
+        if (obj is byte[] bytes)
+        {
+            return marshaller(bytes);
+        }
+
+        throw new UnsupportedObjectTypeMarshallingException(
+            Guid.NewGuid(),
+            ErrorGroups.Marshalling.UnsupportedObjectType,
+            "Unsupported object type. Expected byte[], got " + obj.GetType());
     }
 
     /// <summary>
