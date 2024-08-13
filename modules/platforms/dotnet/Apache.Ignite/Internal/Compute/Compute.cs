@@ -146,7 +146,7 @@ namespace Apache.Ignite.Internal.Compute
                 return;
             }
 
-            WriteEnumerable(units, buf, writerFunc: unit =>
+            WriteEnumerable(units, buf, writerFunc: static (unit, buf) =>
             {
                 IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
                 IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
@@ -245,7 +245,7 @@ namespace Apache.Ignite.Internal.Compute
                 var u => u.ToList()
             };
 
-        private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T> writerFunc)
+        private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T, PooledArrayBuffer> writerFunc)
         {
             var w = buf.MessageWriter;
 
@@ -254,7 +254,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(count);
                 foreach (var item in items)
                 {
-                    writerFunc(item);
+                    writerFunc(item, buf);
                 }
 
                 return;
@@ -268,21 +268,15 @@ namespace Apache.Ignite.Internal.Compute
             foreach (var item in items)
             {
                 count++;
-                writerFunc(item);
+                writerFunc(item, buf);
             }
 
             countSpan[0] = MsgPackCode.Array32;
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
         }
 
-        private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf)
-        {
-            WriteEnumerable(nodes, buf, writerFunc: node =>
-            {
-                var w = buf.MessageWriter;
-                w.Write(node.Name);
-            });
-        }
+        private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf) =>
+            WriteEnumerable(nodes, buf, writerFunc: static (node, buf) => buf.MessageWriter.Write(node.Name));
 
         private static JobState ReadJobState(MsgPackReader reader)
         {
