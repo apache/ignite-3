@@ -15,37 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.distributed;
+package org.apache.ignite.internal.sql.engine.datatypes;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 
 /**
- * Distributed transaction test using a single partition table, collocated on a leader.
+ * Set of tests to ensure correctness of CAST expression to INTEGER
+ * without fast query optimization.
+ *
+ * @see ItCastToIntTest
+ * @see Commons#fastQueryOptimizationEnabled()
  */
-public class ItTxDistributedTestSingleNodeCollocated extends ItTxAbstractDistributedTestSingleNode {
-    /**
-     * The constructor.
-     *
-     * @param testInfo Test info.
-     */
-    public ItTxDistributedTestSingleNodeCollocated(TestInfo testInfo) {
-        super(testInfo);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected boolean startClient() {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @BeforeEach
-    @Override
-    public void before() throws Exception {
-        super.before();
-    }
+@WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
+public class ItCastToIntWithoutFastQueryOptimizationTest extends ItCastToIntTest {
 }
-
-
-
