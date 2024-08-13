@@ -34,5 +34,5 @@ public sealed record JobDescriptor<TArg, TResult>(
     string JobClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null,
     JobExecutionOptions? Options = null,
-    Func<TArg, Memory<byte>>? ArgMarshaller = null,
+    Func<TArg, Memory<byte>>? ArgMarshaller = null, // TODO: This forces the user to allocate?
     Func<Memory<byte>, TResult>? ResultMarshaller = null);

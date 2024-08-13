@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests.Compute
     using System.Globalization;
     using System.Linq;
     using System.Net;
+    using System.Text.Json;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Table;
@@ -841,6 +842,8 @@ namespace Apache.Ignite.Tests.Compute
         {
             var job = new JobDescriptor<MyArg, MyResult>(ItThinClientComputeTest + "$JsonMarshallerJob")
             {
+                ArgMarshaller = arg => JsonSerializer.SerializeToUtf8Bytes(arg),
+                ResultMarshaller = bytes => JsonSerializer.Deserialize<MyResult>(bytes.Span)!
             };
 
             var arg = new MyArg(1, "foo", true, new Nested(Guid.NewGuid(), 1.234m));
