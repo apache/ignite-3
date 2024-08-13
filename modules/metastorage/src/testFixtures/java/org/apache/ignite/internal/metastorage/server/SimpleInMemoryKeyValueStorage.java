@@ -20,7 +20,7 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
-import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
+import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
@@ -55,8 +55,6 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -255,7 +253,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source operations
             // were added in order to have matching revisions count through all storages.
             ops.add(Operations.put(
-                    new ByteArray(ArrayUtils.concat(IDEMPOTENT_COMMAND_PREFIX_BYTES, ByteUtils.toBytes(commandId))),
+                    new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
                     branch ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES)
             );
 
@@ -312,7 +310,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                     // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source
                     // operations were added in order to have matching revisions count through all storages.
                     ops.add(Operations.put(
-                            new ByteArray(ArrayUtils.concat(IDEMPOTENT_COMMAND_PREFIX_BYTES, ByteUtils.toBytes(commandId))),
+                            new ByteArray(IDEMPOTENT_COMMAND_PREFIX + commandId.toMgKeyAsString()),
                             branch.update().result().result())
                     );
 
@@ -388,6 +386,20 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     public HybridTimestamp timestampByRevision(long revision) {
         synchronized (mux) {
             return Objects.requireNonNull(revToTsMap.get(revision), "Revision " + revision + " not found");
+        }
+    }
+
+    @Override
+    public long revisionByTimestamp(HybridTimestamp timestamp) {
+        synchronized (mux) {
+            Map.Entry<Long, Long> revisionEntry = tsToRevMap.floorEntry(timestamp.longValue());
+
+            if (revisionEntry == null) {
+                // Nothing to compact yet.
+                return -1;
+            }
+
+            return revisionEntry.getValue();
         }
     }
 
@@ -493,14 +505,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new TreeMap<>();
 
-            Map.Entry<Long, Long> revisionEntry = tsToRevMap.floorEntry(lowWatermark.longValue());
+            long maxRevision = revisionByTimestamp(lowWatermark);
 
-            if (revisionEntry == null) {
-                // Nothing to compact yet.
+            if (maxRevision == -1) {
                 return;
             }
-
-            long maxRevision = revisionEntry.getValue();
 
             keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx, maxRevision));
 

@@ -120,6 +120,10 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
     }
 
+    public List<ReplicaMeta> primaryReplicas() {
+        return primaryReplicas;
+    }
+
     private static ReplicaMeta getReplicaMeta(String leaseholder, long leaseStartTime) {
         //noinspection serial
         return new ReplicaMeta() {

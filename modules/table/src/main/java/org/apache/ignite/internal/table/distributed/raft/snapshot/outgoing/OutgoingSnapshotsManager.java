@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static java.util.Collections.unmodifiableList;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -105,11 +104,15 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        executor = new ThreadPoolExecutor(
-                0, 4, 0L, MILLISECONDS,
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                4, 4,
+                10, SECONDS,
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "outgoing-snapshots", LOG, STORAGE_READ)
         );
+        threadPoolExecutor.allowCoreThreadTimeOut(true);
+
+        executor = threadPoolExecutor;
 
         messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
 
@@ -120,7 +123,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         // At this moment, all RAFT groups should already be stopped, so all snapshots are already closed and finished.
 
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, SECONDS);
 
         return nullCompletedFuture();
     }

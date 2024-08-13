@@ -56,6 +56,7 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')
     implementation project(':ignite-metastorage')
+    implementation project(':ignite-metastorage-cache')
     implementation project(':ignite-affinity')
     implementation project(':ignite-table')
     implementation project(':ignite-index')
@@ -147,6 +148,7 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
     }
     integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-metastorage-cache')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-transactions')
@@ -181,6 +183,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
+    integrationTestImplementation testFixtures(project(':ignite-replicator'))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni

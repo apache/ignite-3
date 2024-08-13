@@ -55,9 +55,11 @@ public class MarshallerUtilTest extends BaseIgniteAbstractTest {
                 Arguments.of("", NativeTypes.STRING, 1),
                 Arguments.of("1", NativeTypes.STRING, 1),
                 Arguments.of("abc", NativeTypes.STRING, 3),
-                Arguments.of(new String(new byte[]{-36, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 2),
-                Arguments.of(new String(new byte[]{-30, -104, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 3),
-                Arguments.of(new String(new byte[]{97, -36, -128, -30, -104, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 6),
+                // although following string consists of 2-bytes character, optimistic size estimation assumes
+                // that every character occupies exactly one byte
+                Arguments.of(new String(new byte[]{-36, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 1),
+                Arguments.of(new String(new byte[]{-30, -104, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 1),
+                Arguments.of(new String(new byte[]{97, -36, -128, -30, -104, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 3),
                 // decimal
                 Arguments.of(BigDecimal.ONE, NativeTypes.decimalOf(12, 1), 3),
                 Arguments.of(BigDecimal.valueOf(123456789), NativeTypes.decimalOf(12, 3), 6)

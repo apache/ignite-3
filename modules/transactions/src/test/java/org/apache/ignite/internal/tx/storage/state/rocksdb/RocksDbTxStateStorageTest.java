@@ -68,7 +68,8 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @Override
     @BeforeEach
     protected void beforeTest() {
-        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
+        sharedStorage =
+                new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
         sharedStorage.start();
 
         super.beforeTest();

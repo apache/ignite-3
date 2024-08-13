@@ -37,6 +37,7 @@ import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -99,6 +100,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
 
+    private final ClusterIdSupplier clusterIdSupplier;
+
     private final BooleanSupplier stopping;
 
     /** Recovery descriptor. */
@@ -120,6 +123,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             RecoveryDescriptorProvider recoveryDescriptorProvider,
             ChannelEventLoopsSource channelEventLoopsSource,
             StaleIdDetector staleIdDetector,
+            ClusterIdSupplier clusterIdSupplier,
             ChannelCreationListener channelCreationListener,
             BooleanSupplier stopping,
             FailureProcessor failureProcessor
@@ -129,6 +133,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
         this.channelEventLoopsSource = channelEventLoopsSource;
         this.staleIdDetector = staleIdDetector;
+        this.clusterIdSupplier = clusterIdSupplier;
         this.stopping = stopping;
         this.failureProcessor = failureProcessor;
 
@@ -166,6 +171,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     public void onConnectionOpen() {
         HandshakeStartMessage handshakeStartMessage = messageFactory.handshakeStartMessage()
                 .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
+                .serverClusterId(clusterIdSupplier.clusterId())
                 .build();
 
         ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList(), false));
@@ -341,19 +347,17 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     }
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
-        boolean ignorable = stopping.getAsBoolean() || !msg.reason().critical();
-
-        if (ignorable) {
-            LOG.debug("Handshake rejected by client: {}", msg.message());
-        } else {
+        if (!stopping.getAsBoolean() && msg.reason().logAsWarn()) {
             LOG.warn("Handshake rejected by client: {}", msg.message());
+        } else {
+            LOG.debug("Handshake rejected by client: {}", msg.message());
         }
 
         HandshakeException err = new HandshakeException(msg.message());
 
         handshakeCompleteFuture.completeExceptionally(err);
 
-        if (!ignorable) {
+        if (!stopping.getAsBoolean() && msg.reason().critical()) {
             failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
         }
     }

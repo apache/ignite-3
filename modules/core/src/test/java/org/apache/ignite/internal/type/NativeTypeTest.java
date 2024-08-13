@@ -141,16 +141,4 @@ public class NativeTypeTest {
     public void compareVarlenTypesByDesc() {
         assertTrue(BYTES.compareTo(STRING) < 0);
     }
-
-    /**
-     * Validate data size of bitmap type.
-     */
-    @Test
-    public void bitmaskSizeTest() {
-        assertEquals(1, new BitmaskNativeType(0).sizeInBytes());
-
-        assertEquals(1, new BitmaskNativeType(8).sizeInBytes());
-
-        assertEquals(2, new BitmaskNativeType(9).sizeInBytes());
-    }
 }

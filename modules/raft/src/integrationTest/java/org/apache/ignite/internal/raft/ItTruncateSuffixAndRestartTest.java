@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.IntStream.range;
+import static org.apache.ignite.internal.network.ConstantClusterIdSupplier.withoutClusterId;
 import static org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema.DEFAULT_PORT;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
@@ -180,8 +181,10 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     nettyBootstrapFactory,
                     defaultSerializationRegistry(),
                     new InMemoryStaleIds(),
+                    withoutClusterId(),
                     new NoOpCriticalWorkerRegistry(),
-                    mock(FailureProcessor.class));
+                    mock(FailureProcessor.class)
+            );
 
             assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(clusterSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully()));

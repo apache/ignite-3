@@ -77,7 +77,7 @@ public interface Statement {
 
     /**
      * Statement builder provides methods for building a statement object, which represents a query and holds query-specific 
-     * settings that overrides the session defaults.
+     * settings that overrides the query execution context defaults.
      */
     interface StatementBuilder {
         /**

@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -44,6 +43,7 @@ import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -56,13 +56,8 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
 
     private static final int TEST_SCALE = 5;
 
-    private static Stream<NativeTypeSpec> nativeTypeSpecs() {
-        return Stream.of(NativeTypeSpec.values())
-                .filter(t -> t != NativeTypeSpec.NUMBER && t != NativeTypeSpec.BITMASK);
-    }
-
     @ParameterizedTest
-    @MethodSource("nativeTypeSpecs")
+    @EnumSource(NativeTypeSpec.class)
     public void convertColumnType(NativeTypeSpec typeSpec) {
         CatalogTableColumnDescriptor columnDescriptor = TestColumnDescriptors.forSpec(typeSpec);
 

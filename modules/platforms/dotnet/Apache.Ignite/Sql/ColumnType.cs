@@ -26,6 +26,7 @@ namespace Apache.Ignite.Sql
         "Microsoft.Naming",
         "CA1720:IdentifiersShouldNotContainTypeNames",
         Justification = "Ignite-specific SQL column type names are required.")]
+    [SuppressMessage("Design", "CA1027:Mark enums with FlagsAttribute", Justification = "Not a flags enum.")]
     public enum ColumnType
     {
         /** Null. */
@@ -70,9 +71,6 @@ namespace Apache.Ignite.Sql
         /** 128-bit UUID. */
         Uuid = 13,
 
-        /** Bit mask. */
-        Bitmask = 14,
-
         /** String. */
         String = 15,
 
@@ -83,9 +81,6 @@ namespace Apache.Ignite.Sql
         Period = 17,
 
         /** Time interval. */
-        Duration = 18,
-
-        /** Number. */
-        Number = 19
+        Duration = 18
     }
 }

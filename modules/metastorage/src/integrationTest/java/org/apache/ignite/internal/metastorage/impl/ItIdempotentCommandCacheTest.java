@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -196,9 +195,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
-                    raftConfiguration.retryTimeout(),
-                    completedFuture(() -> TEST_MAX_CLOCK_SKEW_MILLIS)
+                    metaStorageConfiguration
             );
 
             clockWaiter = new ClockWaiter(clusterService.nodeName(), clock);
@@ -415,10 +412,10 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             ), willCompleteSuccessfully());
         }
 
-        for (Node node : nodes) {
-            node.metaStorageManager.evictIdempotentCommandsCache();
-        }
+        HybridTimestamp evictionTimestamp = HybridTimestamp.hybridTimestamp(nodes.get(0).clockService.nowLong()
+                - (raftConfiguration.retryTimeout().value() + nodes.get(0).clockService.maxClockSkewMillis()));
 
+        assertThat(nodes.get(0).metaStorageManager.evictIdempotentCommandsCache(evictionTimestamp), willCompleteSuccessfully());
 
         // Run same idempotent command one more time and check that condition **was** re-evaluated and not retrieved from the cache.
         CompletableFuture<Object> commandProcessingResultFuture3 = raftClient().run(idempotentCommand);

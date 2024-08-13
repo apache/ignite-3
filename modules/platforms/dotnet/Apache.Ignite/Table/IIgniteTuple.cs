@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Table
 {
     using System;
+    using System.Collections;
     using Internal.Common;
 
     /// <summary>
@@ -60,7 +61,7 @@ namespace Apache.Ignite.Table
         int GetOrdinal(string name);
 
         /// <summary>
-        /// Gets a hash code for the current tuple according to column names and values.
+        /// Gets a hash code for the current tuple according to column names and values, ignoring column order.
         /// </summary>
         /// <param name="tuple">Tuple.</param>
         /// <returns>A hash code for the specified tuple.</returns>
@@ -68,22 +69,25 @@ namespace Apache.Ignite.Table
         {
             IgniteArgumentCheck.NotNull(tuple);
 
-            var hash = default(HashCode);
+            int hash = 0;
 
             for (int i = 0; i < tuple.FieldCount; i++)
             {
                 var name = tuple.GetName(i);
                 var val = tuple[i];
 
-                hash.Add(name);
-                hash.Add(val);
+                var valHash = val != null
+                    ? StructuralComparisons.StructuralEqualityComparer.GetHashCode(val)
+                    : 0;
+
+                hash += name.GetHashCode(StringComparison.Ordinal) ^ valHash;
             }
 
-            return hash.ToHashCode();
+            return hash;
         }
 
         /// <summary>
-        /// Determines whether the specified object instances are considered equal.
+        /// Determines whether the specified object instances are considered equal. Ignores column order.
         /// </summary>
         /// <param name="tuple1">The first tuple to compare.</param>
         /// <param name="tuple2">The second tuple to compare.</param>
@@ -113,14 +117,19 @@ namespace Apache.Ignite.Table
                 return false;
             }
 
-            for (int i = 0; i < tuple1.FieldCount; i++)
+            for (int idx1 = 0; idx1 < tuple1.FieldCount; idx1++)
             {
-                if (tuple1.GetName(i) != tuple2.GetName(i))
+                var idx2 = tuple2.GetOrdinal(tuple1.GetName(idx1));
+
+                if (idx2 < 0)
                 {
                     return false;
                 }
 
-                if (!Equals(tuple1[i], tuple2[i]))
+                var val1 = tuple1[idx1];
+                var val2 = tuple2[idx2];
+
+                if (!StructuralComparisons.StructuralEqualityComparer.Equals(val1, val2))
                 {
                     return false;
                 }

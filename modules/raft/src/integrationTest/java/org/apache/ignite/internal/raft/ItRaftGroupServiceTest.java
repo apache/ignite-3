@@ -154,7 +154,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testChangePeersAsync(TestInfo testInfo) throws InterruptedException {
+    public void testChangePeersAndLearnersAsync(TestInfo testInfo) throws InterruptedException {
         // Start some new followers.
         List<TestNode> newFollowers = List.of(startNode(testInfo), startNode(testInfo));
 
@@ -185,7 +185,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
         CompletableFuture<Void> changePeersFuture = nodes.get(0).raftGroupService
                 .thenCompose(service -> service.refreshAndGetLeaderWithTerm()
-                        .thenCompose(l -> service.changePeersAsync(configuration, l.term()))
+                        .thenCompose(l -> service.changePeersAndLearnersAsync(configuration, l.term()))
                 );
 
         assertThat(changePeersFuture, willCompleteSuccessfully());

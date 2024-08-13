@@ -19,6 +19,7 @@ package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
@@ -72,12 +73,17 @@ public class ThreadPoolsManager implements IgniteComponent {
                 IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
 
         int partitionsOperationsThreads = Math.min(cpus * 3, 25);
-        partitionOperationsExecutor = new ThreadPoolExecutor(
+        partitionOperationsExecutor = Executors.newFixedThreadPool(
                 partitionsOperationsThreads,
-                partitionsOperationsThreads,
-                0, SECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "partition-operations", LOG, STORAGE_READ, STORAGE_WRITE, TX_STATE_STORAGE_ACCESS)
+                IgniteThreadFactory.create(
+                        nodeName,
+                        "partition-operations",
+                        LOG,
+                        STORAGE_READ,
+                        STORAGE_WRITE,
+                        TX_STATE_STORAGE_ACCESS,
+                        PROCESS_RAFT_REQ
+                )
         );
 
         commonScheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "common-scheduler", LOG));

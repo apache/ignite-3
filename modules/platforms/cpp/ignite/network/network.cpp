@@ -18,6 +18,7 @@
 #include "network.h"
 
 #include "async_client_pool_adapter.h"
+#include "ssl/secure_socket_client.h"
 
 #include "ignite/common/detail/config.h"
 
@@ -28,6 +29,8 @@
 # include "detail/linux/linux_async_client_pool.h"
 # include "detail/linux/tcp_socket_client.h"
 #endif
+
+# include "ignite/network/ssl/ssl_gateway.h"
 
 namespace ignite::network {
 
@@ -40,6 +43,18 @@ std::shared_ptr<async_client_pool> make_async_client_pool(data_filters filters) 
         std::make_shared<IGNITE_SWITCH_WIN_OTHER(detail::win_async_client_pool, detail::linux_async_client_pool)>();
 
     return std::make_shared<async_client_pool_adapter>(std::move(filters), std::move(pool));
+}
+
+void ensure_ssl_loaded()
+{
+    ssl_gateway::get_instance().load_all();
+}
+
+std::unique_ptr<socket_client> make_secure_socket_client(secure_configuration cfg)
+{
+    ensure_ssl_loaded();
+
+    return std::make_unique<secure_socket_client>(std::move(cfg));
 }
 
 } // namespace ignite::network

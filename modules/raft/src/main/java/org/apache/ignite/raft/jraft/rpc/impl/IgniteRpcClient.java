@@ -27,6 +27,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.PeerUnavailableException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.internal.network.ClusterService;
@@ -135,8 +136,8 @@ public class IgniteRpcClient implements RpcClientEx {
         ClusterNode targetNode = service.topologyService().getByConsistentId(peerId.getConsistentId());
 
         if (targetNode == null) {
-            // ConnectException will force a retry by the enclosing components.
-            fut.completeExceptionally(new ConnectException());
+            // PeerUnavailableException will force a retry by the enclosing components.
+            fut.completeExceptionally(new PeerUnavailableException(peerId.getConsistentId()));
 
             return;
         }
