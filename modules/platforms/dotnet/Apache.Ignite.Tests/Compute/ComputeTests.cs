@@ -840,10 +840,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJsonMarshaller()
         {
+            var jsonOpts = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                PropertyNameCaseInsensitive = true
+            };
+
             var job = new JobDescriptor<MyArg, MyResult>(PlatformTestNodeRunner + "$JsonMarshallerJob")
             {
-                ArgMarshaller = arg => JsonSerializer.SerializeToUtf8Bytes(arg),
-                ResultMarshaller = bytes => JsonSerializer.Deserialize<MyResult>(bytes.Span)!
+                ArgMarshaller = arg => JsonSerializer.SerializeToUtf8Bytes(arg, jsonOpts),
+                ResultMarshaller = bytes => JsonSerializer.Deserialize<MyResult>(bytes.Span, jsonOpts)!
             };
 
             var arg = new MyArg(1, "foo", new Nested(Guid.NewGuid(), 1.234m));
