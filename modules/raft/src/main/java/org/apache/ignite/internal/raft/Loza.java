@@ -197,11 +197,11 @@ public class Loza implements RaftManager {
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
             RaftServiceFactory<T> factory,
-            RaftOptionsConfigurator storageConfigurator
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException {
         RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
 
-        storageConfigurator.configure(groupOptions);
+        groupOptionsConfigurer.configure(groupOptions);
 
         return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, groupOptions, factory);
     }
@@ -289,11 +289,11 @@ public class Loza implements RaftManager {
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            RaftOptionsConfigurator storageConfigurator
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException {
         RaftGroupOptions raftOptions = RaftGroupOptions.defaults();
 
-        storageConfigurator.configure(raftOptions);
+        groupOptionsConfigurer.configure(raftOptions);
 
         return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, raftOptions);
     }
@@ -305,7 +305,7 @@ public class Loza implements RaftManager {
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
             RaftNodeDisruptorConfiguration disruptorConfiguration,
-            RaftOptionsConfigurator storageConfigurator
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException {
         return startRaftGroupNodeAndWaitNodeReadyFuture(
                 nodeId,
@@ -314,7 +314,7 @@ public class Loza implements RaftManager {
                 eventsLsnr,
                 disruptorConfiguration,
                 null,
-                storageConfigurator
+                groupOptionsConfigurer
         );
     }
 
@@ -326,7 +326,7 @@ public class Loza implements RaftManager {
             RaftGroupEventsListener eventsLsnr,
             RaftNodeDisruptorConfiguration disruptorConfiguration,
             @Nullable RaftServiceFactory<T> factory,
-            RaftOptionsConfigurator storageConfigurator
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -335,7 +335,7 @@ public class Loza implements RaftManager {
         try {
             RaftGroupOptions raftGroupOptions = RaftGroupOptions.defaults();
 
-            storageConfigurator.configure(raftGroupOptions);
+            groupOptionsConfigurer.configure(raftGroupOptions);
 
             // TODO: Move to option configurator, see https://issues.apache.org/jira/browse/IGNITE-18273
             raftGroupOptions.ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration);

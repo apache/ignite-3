@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -257,7 +257,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
                         configuration,
                         mock(RaftGroupListener.class),
                         eventsListener,
-                        RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath())
+                        RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath())
                 );
             } catch (NodeStoppingException e) {
                 return CompletableFuture.failedFuture(e);

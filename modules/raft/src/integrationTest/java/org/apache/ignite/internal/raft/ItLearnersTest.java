@@ -49,7 +49,7 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -427,7 +427,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     memberConfiguration,
                     listener,
                     RaftGroupEventsListener.noopLsnr,
-                    RaftOptionsConfigurationHelper.configureProperties(node.logStorageFactory, node.partitionsWorkDir.metaPath())
+                    RaftGroupOptionsConfigHelper.configureProperties(node.logStorageFactory, node.partitionsWorkDir.metaPath())
             );
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);

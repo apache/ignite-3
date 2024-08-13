@@ -37,14 +37,14 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
@@ -87,7 +87,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
      */
     private final List<JraftServerImpl> servers = new ArrayList<>();
 
-    private final List<RaftOptionsConfigurator> raftConfigurators = new ArrayList<>();
+    private final List<RaftGroupOptionsConfigurer> raftConfigurators = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -152,8 +152,8 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        RaftOptionsConfigurator storageConfigurator =
-                RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
+        RaftGroupOptionsConfigurer storageConfigurator =
+                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
 
         raftConfigurators.add(storageConfigurator);
 

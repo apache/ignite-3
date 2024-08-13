@@ -79,9 +79,9 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -157,7 +157,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final CmgMessageHandler cmgMessageHandler;
 
-    private final RaftOptionsConfigurator raftOptionsConfigurator;
+    private final RaftGroupOptionsConfigurer raftGroupOptionsConfigurer;
 
     /** Constructor. */
     public ClusterManagementGroupManager(
@@ -171,7 +171,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor,
             ClusterIdHolder clusterIdChanger,
-            RaftOptionsConfigurator raftOptionsConfigurator
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
@@ -183,7 +183,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.nodeAttributes = nodeAttributes;
         this.failureProcessor = failureProcessor;
         this.clusterIdStore = clusterIdChanger;
-        this.raftOptionsConfigurator = raftOptionsConfigurator;
+        this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
@@ -231,7 +231,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor,
             ClusterIdHolder clusterIdChanger,
-            RaftOptionsConfigurator raftOptionsConfigurator
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this(
                 vault,
@@ -244,7 +244,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 nodeAttributes,
                 failureProcessor,
                 clusterIdChanger,
-                raftOptionsConfigurator
+                raftGroupOptionsConfigurer
         );
     }
 
@@ -717,7 +717,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             new CmgRaftGroupListener(clusterStateStorageMgr, logicalTopology, validationManager,
                                     this::onLogicalTopologyChanged),
                             this::onElectedAsLeader,
-                            raftOptionsConfigurator
+                            raftGroupOptionsConfigurer
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {

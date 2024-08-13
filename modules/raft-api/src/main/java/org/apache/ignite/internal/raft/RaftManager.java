@@ -57,7 +57,7 @@ public interface RaftManager extends IgniteComponent {
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
             RaftServiceFactory<T> factory,
-            RaftOptionsConfigurator storageConfigurator
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException;
 
     /**
@@ -69,7 +69,7 @@ public interface RaftManager extends IgniteComponent {
      * @param configuration Peers and Learners of the Raft group.
      * @param lsnr Raft group listener.
      * @param eventsLsnr Raft group events listener.
-     * @param storageConfigurator Configures raft log and snapshot storages.
+     * @param groupOptionsConfigurer Configures raft log and snapshot storages.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
@@ -78,7 +78,7 @@ public interface RaftManager extends IgniteComponent {
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            RaftOptionsConfigurator storageConfigurator
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException;
 
     /**
@@ -91,7 +91,7 @@ public interface RaftManager extends IgniteComponent {
      * @param lsnr Raft group listener.
      * @param eventsLsnr Raft group events listener.
      * @param disruptorConfiguration Configuration own (not shared) striped disruptor for FSMCaller service of raft node.
-     * @param storageConfigurator Configures raft log and snapshot storages.
+     * @param groupOptionsConfigurer Configures raft log and snapshot storages.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
@@ -101,7 +101,7 @@ public interface RaftManager extends IgniteComponent {
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
             RaftNodeDisruptorConfiguration disruptorConfiguration,
-            RaftOptionsConfigurator storageConfigurator
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException;
 
     /**
@@ -114,7 +114,7 @@ public interface RaftManager extends IgniteComponent {
      * @param lsnr Raft group listener.
      * @param eventsLsnr Raft group events listener.
      * @param factory Service factory.
-     * @param storageConfigurator Configures raft log and snapshot storages.
+     * @param groupOptionsConfigurer Configures raft log and snapshot storages.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
@@ -125,7 +125,7 @@ public interface RaftManager extends IgniteComponent {
             RaftGroupEventsListener eventsLsnr,
             RaftNodeDisruptorConfiguration disruptorConfiguration,
             RaftServiceFactory<T> factory,
-            RaftOptionsConfigurator storageConfigurator
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException;
 
     /**

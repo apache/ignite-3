@@ -59,7 +59,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
@@ -81,8 +81,8 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -143,7 +143,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     /** Cluster service by node name. */
     private Map<String, ClusterService> clusterServices;
 
-    protected Map<String, RaftOptionsConfigurator> raftConfigurators = new HashMap<>();
+    protected Map<String, RaftGroupOptionsConfigurer> raftConfigurators = new HashMap<>();
 
     private final Map<String, ReplicaManager> replicaManagers = new HashMap<>();
     private final Map<String, Loza> raftManagers = new HashMap<>();
@@ -188,8 +188,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     partitionsWorkDir.raftLogPath()
             );
 
-            RaftOptionsConfigurator partitionRaftConfigurator =
-                    RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
+            RaftGroupOptionsConfigurer partitionRaftConfigurator =
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
             raftConfigurators.put(nodeName, partitionRaftConfigurator);
 
@@ -517,9 +517,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
 
-            RaftOptionsConfigurator raftOptionsConfigurator = raftConfigurators.get(nodeName);
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer = raftConfigurators.get(nodeName);
 
-            raftOptionsConfigurator.configure(groupOptions);
+            raftGroupOptionsConfigurer.configure(groupOptions);
 
             CompletableFuture<TopologyAwareRaftGroupService> raftClientFut = raftManager.startRaftGroupNode(
                     rftNodeId,

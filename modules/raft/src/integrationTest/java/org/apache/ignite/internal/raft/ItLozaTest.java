@@ -45,7 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -130,7 +130,7 @@ public class ItLozaTest extends IgniteAbstractTest {
     private RaftGroupService startClient(
             TestReplicationGroupId groupId,
             ClusterNode node,
-            RaftOptionsConfigurator storageConfigurator) throws Exception {
+            RaftGroupOptionsConfigurer storageConfigurator) throws Exception {
         RaftGroupListener raftGroupListener = mock(RaftGroupListener.class);
 
         when(raftGroupListener.onSnapshotLoad(any())).thenReturn(true);
@@ -169,8 +169,8 @@ public class ItLozaTest extends IgniteAbstractTest {
                 partitionsWorkDir.raftLogPath()
         );
 
-        RaftOptionsConfigurator storageConfigurator =
-                RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
+        RaftGroupOptionsConfigurer storageConfigurator =
+                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
         allComponents.add(partitionsLogStorageFactory);
 

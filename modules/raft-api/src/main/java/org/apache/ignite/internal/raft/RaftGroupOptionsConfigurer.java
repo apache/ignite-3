@@ -22,19 +22,19 @@ package org.apache.ignite.internal.raft;
  *
  * <p>This is the example of using it:
  * <pre>
- *    RaftOptionsConfigurator raftOptionsConfigurator = options -> {
- *        RaftGroupOptions raftOptions = (RaftGroupOptions) options;
+ *    RaftGroupOptionsConfigurer groupOptionsConfigurer = options -> {
+ *        RaftGroupOptions groupOptions = (RaftGroupOptions) options;
  *
- *        raftOptions.setLogStorageFactory(logStorageFactory);
- *        raftOptions.serverDataPath(dataPath);
+ *        groupOptions.setLogStorageFactory(logStorageFactory);
+ *        groupOptions.serverDataPath(dataPath);
  *    };
  * </pre>
  * TODO: https://issues.apache.org/jira/browse/IGNITE-18273
  */
 @FunctionalInterface
-public interface RaftOptionsConfigurator {
+public interface RaftGroupOptionsConfigurer {
 
-    RaftOptionsConfigurator EMPTY = options -> {};
+    RaftGroupOptionsConfigurer EMPTY = options -> {};
 
     void configure(Object options);
 }

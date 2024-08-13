@@ -71,7 +71,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.RaftOptionsConfigurationHelper;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -105,9 +105,9 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -194,7 +194,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private final LogStorageFactory partitionsLogStorageFactory;
 
-        private final RaftOptionsConfigurator partitionsRaftConfigurator;
+        private final RaftGroupOptionsConfigurer partitionsRaftConfigurator;
 
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
@@ -209,7 +209,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             );
 
             partitionsRaftConfigurator =
-                    RaftOptionsConfigurationHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
 
             this.raftManager = TestLozaFactory.create(
                     clusterService,

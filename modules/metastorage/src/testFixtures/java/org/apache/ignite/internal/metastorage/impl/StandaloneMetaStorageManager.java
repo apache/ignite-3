@@ -42,8 +42,8 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.RaftOptionsConfigurator;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -108,7 +108,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
                 clock,
-                RaftOptionsConfigurator.EMPTY
+                RaftGroupOptionsConfigurer.EMPTY
         );
     }
 
@@ -130,7 +130,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
             MetaStorageConfiguration configuration,
             HybridClock clock,
-            RaftOptionsConfigurator raftOptionsConfigurator
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         super(
                 clusterService,
@@ -142,7 +142,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 raftServiceFactory,
                 new NoOpMetricManager(),
                 configuration,
-                raftOptionsConfigurator
+                raftGroupOptionsConfigurer
         );
     }
 
