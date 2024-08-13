@@ -1058,7 +1058,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         RecordView view = node.tables().table(TABLE_NAME).recordView();
 
         try {
-            //TODO: IGNITE-22980 We can use synchronous API here after Lock manager will be fixed.
+            // TODO: IGNITE-22980 We can use synchronous API here after Lock manager will be fixed.
             view.upsertAsync(rwTx, Tuple.create().set("key", 42).set("val", "val2")).get();
 
             fail("Lock conflict have to be detected.");
