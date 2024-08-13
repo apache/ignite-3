@@ -58,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -69,6 +70,7 @@ import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -606,13 +608,33 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 20_000L
         );
 
+        assertTrue(waitForCondition(() -> IntStream.range(0, 3)
+                .allMatch(i  -> {
+                    try {
+                        return (((ZonePartitionReplicaListener) getNode(i).replicaManager.replica(partId).get().listener()).replicas.size() == 1);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    } catch (ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }), 10_000L));
+
         stopNode(2);
 
         Node node2 = startNode(testInfo, 2);
 
         assertTrue(waitForCondition(() -> node2.replicaManager.isReplicaStarted(partId), 10_000L));
-        Thread.sleep(10000);
-        System.out.println(node2.replicaManager.replica(partId).get());
+
+        assertTrue(waitForCondition(() -> IntStream.range(0, 3)
+                .allMatch(i  -> {
+                    try {
+                        return (((ZonePartitionReplicaListener) getNode(i).replicaManager.replica(partId).get().listener()).replicas.size() == 1);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    } catch (ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }), 10_000L));
     }
 
     @Test

@@ -70,10 +70,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.StampedLock;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -88,8 +87,8 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
-import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -164,7 +163,7 @@ public class PartitionReplicaLifecycleManager  extends
 
     private final Map<Integer, Set<Integer>> replicationGroupIds = new ConcurrentHashMap<>();
 
-    private final Map<Integer, ReadWriteLock> partitionsPerZone = new ConcurrentHashMap<>();
+    private final Map<Integer, StampedLock> partitionsPerZone = new ConcurrentHashMap<>();
 
 //    private final Map<ZoneParReplica> replicas = null;
 
@@ -444,6 +443,8 @@ public class PartitionReplicaLifecycleManager  extends
 
         CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(replicaGrpId.zoneId(), catalogMgr.latestCatalogVersion());
 
+        AtomicLong stamp = new AtomicLong();
+
         try {
             return replicaMgr.startReplica(
                     replicaGrpId,
@@ -457,13 +458,17 @@ public class PartitionReplicaLifecycleManager  extends
                     ).thenCompose(unused -> {
                         partitionsPerZone.compute(zoneId, (id, lock) -> {
                             if (lock == null) {
-                                lock = new ReentrantReadWriteLock();
+                                lock = new StampedLock();
                             }
 
-                            lock.writeLock().lock();
+                            stamp.set(lock.writeLock());
 
                             return lock;
                         });
+
+                        if (zoneDescriptor.id() != 0) {
+                            System.out.println("KKK fire event about replica started");
+                        }
 
                         return fireEvent(
                                 PartitionReplicaLifecycleEvent.AFTER_REPLICA_STARTED,
@@ -484,7 +489,7 @@ public class PartitionReplicaLifecycleManager  extends
 
                             return lock;
                         });
-                    }).whenComplete((unused, throwable) -> { partitionsPerZone.get(zoneId).writeLock().unlock(); })
+                    }).whenComplete((unused, throwable) -> { partitionsPerZone.get(zoneId).unlockWrite(stamp.get()); })
                     .thenApply(u -> {return null; });
         } catch (NodeStoppingException e) {
             return failedFuture(e);
@@ -514,7 +519,13 @@ public class PartitionReplicaLifecycleManager  extends
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        cleanUpPartitionsResources(replicationGroupIds);
+        Set<ReplicationGroupId> rpIds = new HashSet<>();
+        replicationGroupIds.forEach((zoneId, parts) -> {
+            parts.forEach(p -> {
+                rpIds.add(new ZonePartitionId(zoneId, p));
+            });
+        });
+        cleanUpPartitionsResources(rpIds);
     }
 
     /**
@@ -655,8 +666,9 @@ public class PartitionReplicaLifecycleManager  extends
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 replace this method by the replicas await process.
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
+        assert partitionsPerZone.get(zonePartitionId.zoneId()).tryWriteLock() == 0;
         // KKK NOT SAFE
-        return replicationGroupIds.get(zonePartitionId).contains(zonePartitionId.partitionId());
+        return replicationGroupIds.get(zonePartitionId.zoneId()).contains(zonePartitionId.partitionId());
     }
 
     public void stopReplica() {
@@ -668,8 +680,16 @@ public class PartitionReplicaLifecycleManager  extends
          */
     }
 
-    public CompletableFuture<Replica> replica(ZonePartitionId zonePartitionId) {
-        return replicaMgr.replica(zonePartitionId);
+    public Replica replica(ZonePartitionId zonePartitionId) {
+        assert replicaMgr.replica(zonePartitionId).isDone();
+
+        try {
+            return replicaMgr.replica(zonePartitionId).get();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 
@@ -1254,24 +1274,22 @@ public class PartitionReplicaLifecycleManager  extends
         }
     }
 
-    public CompletableFuture<Void> forAllPartitions(int zoneId,  Function<Integer, CompletableFuture<Void>> partitionInitializer) {
-        List<CompletableFuture<?>> futs = new ArrayList<>();
-
-        partitionsPerZone.compute(zoneId, (id, lock) -> {
-            lock.readLock().lock();
-
-            try {
-
-                replicationGroupIds.get(zoneId).forEach(p -> {
-                    futs.add(partitionInitializer.apply(p));
-                });
-            } finally {
-                lock.readLock().unlock();
+    public long lockZoneIdForRead(int zoneId) {
+        AtomicLong stamp = new AtomicLong();
+        partitionsPerZone.compute(zoneId, (id, l) -> {
+            if (l == null) {
+                l = new StampedLock();
             }
 
-            return lock;
+            stamp.set(l.readLock());
+
+            return l;
         });
 
-        return allOf(futs.toArray(new CompletableFuture[]{}));
+        return stamp.get();
+    }
+
+    public void unlockZoneIdForRead(int zoneId, long stamp) {
+        partitionsPerZone.get(zoneId).unlockRead(stamp);
     }
 }
