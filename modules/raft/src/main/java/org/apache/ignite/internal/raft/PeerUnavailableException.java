@@ -15,37 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.distributed;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
+package org.apache.ignite.internal.raft;
 
 /**
- * Distributed transaction test using a single partition table, collocated on a leader.
+ * Special type of exception used when a target peer is not present in the physical topology.
+ *
+ * <p>The stacktrace is omitted on purpose as to reduce log pollution (this exception is thrown and logged nearly immediately).
  */
-public class ItTxDistributedTestSingleNodeCollocated extends ItTxAbstractDistributedTestSingleNode {
-    /**
-     * The constructor.
-     *
-     * @param testInfo Test info.
-     */
-    public ItTxDistributedTestSingleNodeCollocated(TestInfo testInfo) {
-        super(testInfo);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected boolean startClient() {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @BeforeEach
-    @Override
-    public void before() throws Exception {
-        super.before();
+public class PeerUnavailableException extends RuntimeException {
+    public PeerUnavailableException(String consistentId) {
+        super("Peer " + consistentId + " is unavailable", null, true, false);
     }
 }
-
-
-
