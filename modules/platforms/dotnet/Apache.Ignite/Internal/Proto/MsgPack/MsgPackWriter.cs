@@ -22,6 +22,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using BinaryTuple;
 using Buffers;
+using Ignite.Sql;
 
 /// <summary>
 /// MsgPack writer. Wraps <see cref="PooledArrayBuffer"/>. Writer index is kept by the buffer, so this struct is readonly.
@@ -353,6 +354,31 @@ internal readonly ref struct MsgPackWriter
         else
         {
             Write(txId.Value);
+        }
+    }
+
+    /// <summary>
+    /// Writes an object with type code.
+    /// </summary>
+    /// <param name="obj">Object.</param>
+    /// <param name="marshaller">Marshaller.</param>
+    /// <typeparam name="T">Object type.</typeparam>
+    public void WriteObjectAsBinaryTuple<T>(T obj, Func<T, Memory<byte>>? marshaller)
+    {
+        if (marshaller != null)
+        {
+            var bytes = marshaller(obj);
+
+            using var builder = new BinaryTupleBuilder(3);
+            builder.AppendInt((int)ColumnType.ByteArray);
+            builder.AppendInt(0); // Scale.
+            builder.AppendBytes(bytes.Span);
+
+            Write(builder.Build().Span);
+        }
+        else
+        {
+            WriteObjectAsBinaryTuple(obj);
         }
     }
 
