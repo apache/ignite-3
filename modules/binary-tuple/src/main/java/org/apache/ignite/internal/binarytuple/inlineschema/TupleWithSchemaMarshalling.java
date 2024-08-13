@@ -44,27 +44,37 @@ public final class TupleWithSchemaMarshalling {
     private static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /**
-     * Marshal tuple is the following format (LITTLE_ENDIAN): marshalledTuple       := | size | valuePosition | binaryTupleWithSchema | size
-     *                  := int32 valuePosition := int32 binaryTupleWithSchema := | schemaBinaryTuple | valueBinaryTuple | schemaBinaryTuple
-     * := | column1 | ... | columnN | column                := | columnName | columnType | columnName            := string columnType
-     * := int32 valueBinaryTuple := | value1 | ... | valueN |.
+     * Marshal tuple in the following format (LITTLE_ENDIAN):
+     *
+     * <pre>
+     * marshalledTuple := | size | valuePosition | binaryTupleWithSchema |
+     *
+     * size            := int32
+     * valuePosition   := int32
+     * binaryTupleWithSchema := | schemaBinaryTuple | valueBinaryTuple |
+     * schemaBinaryTuple := | column1 | ... | columnN |
+     * column              := | columnName | columnType |
+     * columnName          := string
+     * columnType          := int32
+     * valueBinaryTuple := | value1 | ... | valueN |
+     * </pre>
      */
-    public static byte @Nullable [] marshal(@Nullable Tuple tup) {
-        if (tup == null) {
+    public static byte @Nullable [] marshal(@Nullable Tuple tuple) {
+        if (tuple == null) {
             return null;
         }
 
         // Allocate all the memory we need upfront.
-        int size = tup.columnCount();
+        int size = tuple.columnCount();
         Object[] values = new Object[size];
         String[] columns = new String[size];
         ColumnType[] types = new ColumnType[size];
 
         // Fill in the values, column names, and types.
         for (int i = 0; i < size; i++) {
-            var value = tup.value(i);
+            var value = tuple.value(i);
             values[i] = value;
-            columns[i] = tup.columnName(i);
+            columns[i] = tuple.columnName(i);
             types[i] = inferType(value);
         }
 
@@ -294,62 +304,62 @@ public final class TupleWithSchemaMarshalling {
     }
 
 
-    private static void setColumnValue(BinaryTupleReader reader, Tuple tup, String colName, int colTypeId, int i) {
+    private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, int colTypeId, int i) {
         switch (ColumnType.getById(colTypeId)) {
             case NULL:
-                tup.set(colName, null);
+                tuple.set(colName, null);
                 break;
             case BOOLEAN:
-                tup.set(colName, reader.booleanValue(i));
+                tuple.set(colName, reader.booleanValue(i));
                 break;
             case INT8:
-                tup.set(colName, reader.byteValue(i));
+                tuple.set(colName, reader.byteValue(i));
                 break;
             case INT16:
-                tup.set(colName, reader.shortValue(i));
+                tuple.set(colName, reader.shortValue(i));
                 break;
             case INT32:
-                tup.set(colName, reader.intValue(i));
+                tuple.set(colName, reader.intValue(i));
                 break;
             case INT64:
-                tup.set(colName, reader.longValue(i));
+                tuple.set(colName, reader.longValue(i));
                 break;
             case FLOAT:
-                tup.set(colName, reader.floatValue(i));
+                tuple.set(colName, reader.floatValue(i));
                 break;
             case DOUBLE:
-                tup.set(colName, reader.doubleValue(i));
+                tuple.set(colName, reader.doubleValue(i));
                 break;
             case STRING:
-                tup.set(colName, reader.stringValue(i));
+                tuple.set(colName, reader.stringValue(i));
                 break;
             case DECIMAL:
                 BigDecimal decimal = reader.decimalValue(i, Integer.MIN_VALUE);
-                tup.set(colName, decimal);
+                tuple.set(colName, decimal);
                 break;
             case DATE:
-                tup.set(colName, reader.dateValue(i));
+                tuple.set(colName, reader.dateValue(i));
                 break;
             case TIME:
-                tup.set(colName, reader.timeValue(i));
+                tuple.set(colName, reader.timeValue(i));
                 break;
             case DATETIME:
-                tup.set(colName, reader.dateTimeValue(i));
+                tuple.set(colName, reader.dateTimeValue(i));
                 break;
             case TIMESTAMP:
-                tup.set(colName, reader.timestampValue(i));
+                tuple.set(colName, reader.timestampValue(i));
                 break;
             case UUID:
-                tup.set(colName, reader.uuidValue(i));
+                tuple.set(colName, reader.uuidValue(i));
                 break;
             case BYTE_ARRAY:
-                tup.set(colName, reader.bytesValue(i));
+                tuple.set(colName, reader.bytesValue(i));
                 break;
             case PERIOD:
-                tup.set(colName, reader.periodValue(i));
+                tuple.set(colName, reader.periodValue(i));
                 break;
             case DURATION:
-                tup.set(colName, reader.durationValue(i));
+                tuple.set(colName, reader.durationValue(i));
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported type: " + colTypeId);
