@@ -836,6 +836,22 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsFalse(changePriorityRes);
         }
 
+        [Test]
+        public async Task TestJsonMarshaller()
+        {
+            var job = new JobDescriptor<MyArg, MyResult>(ItThinClientComputeTest + "$JsonMarshallerJob")
+            {
+            };
+
+            var arg = new MyArg(1, "foo", true, new Nested(Guid.NewGuid(), 1.234m));
+
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
+            MyResult res = await exec.GetResultAsync();
+
+            Assert.AreEqual("bar", res.Data);
+            Assert.AreEqual(arg.Nested, res.Nested);
+        }
+
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
         {
             JobState? state = await jobExecution.GetStateAsync();
@@ -859,5 +875,11 @@ namespace Apache.Ignite.Tests.Compute
         private async Task<IJobTarget<IClusterNode>> GetNodeAsync(int index) =>
             JobTarget.Node(
                 (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).First());
+
+        private record Nested(Guid Id, decimal Price);
+
+        private record MyArg(int Id, string Name, bool Flag, Nested Nested);
+
+        private record MyResult(string Data, Nested Nested);
     }
 }
