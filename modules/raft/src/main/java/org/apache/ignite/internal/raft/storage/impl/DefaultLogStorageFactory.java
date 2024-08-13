@@ -35,7 +35,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -90,6 +92,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<WriteBatch> threadLocalWriteBatch = new ThreadLocal<>();
+    private RocksDbFlusher flusher;
 
     /**
      * Constructor.
@@ -146,14 +149,28 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         );
 
         try {
+            flusher = new RocksDbFlusher(new IgniteSpinBusyLock(),
+                    Executors.newScheduledThreadPool(1),
+                    executorService,
+                    () -> 0,
+                    () -> {},
+                    () -> {},
+                    "Default log storage"
+            );
+
+            dbOptions.setListeners(List.of(flusher.listener()));
+
             this.db = RocksDB.open(this.dbOptions, logPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
+
+            flusher.init(db, columnFamilyHandles);
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
             // all the raft groups
             Env env = db.getEnv();
             // Setup background flushes pool
             env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
-            // Setup background  compactions pool
+            // Setup background compactions pool
+            // The fuck? Shouldn't this be normal?
             env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
 
             assert (columnFamilyHandles.size() == 2);

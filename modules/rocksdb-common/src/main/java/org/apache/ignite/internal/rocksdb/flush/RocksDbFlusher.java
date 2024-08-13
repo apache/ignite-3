@@ -110,6 +110,7 @@ public class RocksDbFlusher {
      *      roughly the same time from different threads. For example, several partitions might be flushed at the same time, because they
      *      started at the same time and their flush frequency is also the same.
      * @param onFlushCompleted Flush completion callback. Executed on every individual column family flush.
+     * @param name
      */
     public RocksDbFlusher(
             IgniteSpinBusyLock busyLock,
@@ -117,14 +118,15 @@ public class RocksDbFlusher {
             ExecutorService threadPool,
             IntSupplier delaySupplier,
             LogSyncer logSyncer,
-            Runnable onFlushCompleted
+            Runnable onFlushCompleted,
+            String name
     ) {
         this.busyLock = busyLock;
         this.scheduledPool = scheduledPool;
         this.threadPool = threadPool;
         this.delaySupplier = delaySupplier;
         this.onFlushCompleted = onFlushCompleted;
-        this.flushListener = new RocksDbFlushListener(this, logSyncer);
+        this.flushListener = new RocksDbFlushListener(this, logSyncer, name);
     }
 
     /**
