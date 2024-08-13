@@ -44,7 +44,7 @@ public final class TupleWithSchemaMarshalling {
     private static final ByteOrder BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /**
-     * Marshal tuple in the following format (LITTLE_ENDIAN):
+     * Marshal tuple in the following format (LITTLE_ENDIAN).
      *
      * <pre>
      * marshalledTuple := | size | valuePosition | binaryTupleWithSchema |
@@ -56,7 +56,7 @@ public final class TupleWithSchemaMarshalling {
      * column              := | columnName | columnType |
      * columnName          := string
      * columnType          := int32
-     * valueBinaryTuple := | value1 | ... | valueN |
+     * valueBinaryTuple := | value1 | ... | valueN |.
      * </pre>
      */
     public static byte @Nullable [] marshal(@Nullable Tuple tuple) {
@@ -78,25 +78,35 @@ public final class TupleWithSchemaMarshalling {
             types[i] = inferType(value);
         }
 
-        BinaryTupleBuilder schemaBuilder = schemaBuilder(columns, types);
-        BinaryTupleBuilder valueBuilder = valueBuilder(columns, types, values);
+        ByteBuffer schemaBf = schemaBuilder(columns, types).build();
+        ByteBuffer valueBf = valueBuilder(columns, types, values).build();
 
-        byte[] schemaBt = schemaBuilder.build().array();
-        byte[] valueBt = valueBuilder.build().array();
+        byte[] schemaArr = getByteArray(schemaBf);
+        byte[] valueArr = getByteArray(valueBf);
         // Size: int32 (tuple size), int32 (value offset), schema, value.
-        byte[] result = new byte[4 + 4 + schemaBt.length + valueBt.length];
+        byte[] result = new byte[4 + 4 + schemaArr.length + valueArr.length];
         ByteBuffer buff = ByteBuffer.wrap(result).order(BYTE_ORDER);
 
         // Put the size of the schema in the first 4 bytes.
         buff.putInt(0, size);
 
         // Put the value offset in the second 4 bytes.
-        int offset = schemaBt.length + 8;
+        int offset = schemaArr.length + 8;
         buff.putInt(4, offset);
 
-        System.arraycopy(schemaBt, 0, result, 8, schemaBt.length);
-        System.arraycopy(valueBt, 0, result, schemaBt.length + 8, valueBt.length);
+        System.arraycopy(schemaArr, 0, result, 8, schemaArr.length);
+        System.arraycopy(valueArr, 0, result, schemaArr.length + 8, valueArr.length);
 
+        return result;
+    }
+
+    /** Get byte array from ByteBuffer without capacity overhead, only meaningful bytes are returned. */
+    private static byte[] getByteArray(ByteBuffer buff) {
+        int offset = buff.arrayOffset();
+        int limit = buff.limit();
+        byte[] result = new byte[limit - offset];
+
+        buff.get(result, offset, limit);
         return result;
     }
 
