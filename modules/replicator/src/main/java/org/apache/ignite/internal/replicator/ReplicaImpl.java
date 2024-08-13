@@ -41,6 +41,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
@@ -305,5 +306,11 @@ public class ReplicaImpl implements Replica {
     public CompletableFuture<Void> shutdown() {
         listener.onShutdown();
         return raftClient.unsubscribeLeader();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void updateConfiguration(PeersAndLearners configuration) {
+        raftClient.updateConfiguration(configuration);
     }
 }
