@@ -194,7 +194,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
-    private final RaftGroupOptionsConfigurer partitionRaftConfigurator;
+    private final RaftGroupOptionsConfigurer partitionRaftConfigurer;
 
     /** Executor. */
     // TODO: IGNITE-20063 Maybe get rid of it
@@ -246,7 +246,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
-            RaftGroupOptionsConfigurer partitionRaftConfigurator,
+            RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
             Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
@@ -264,7 +264,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftCommandsMarshaller,
                 raftGroupServiceFactory,
                 raftManager,
-                partitionRaftConfigurator,
+                partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
                 replicaStartStopExecutor
         );
@@ -303,7 +303,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             @Nullable Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
-            RaftGroupOptionsConfigurer partitionRaftConfigurator,
+            RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor
     ) {
@@ -321,7 +321,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftCommandsMarshaller = raftCommandsMarshaller;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
-        this.partitionRaftConfigurator = partitionRaftConfigurator;
+        this.partitionRaftConfigurer = partitionRaftConfigurer;
         this.replicaStateManager = new ReplicaStateManager(replicaStartStopExecutor, clockService, placementDriver, this);
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
@@ -863,7 +863,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         // TODO: The options will be used by Loza only. Consider rafactoring. see https://issues.apache.org/jira/browse/IGNITE-18273
-        partitionRaftConfigurator.configure(raftGroupOptions);
+        partitionRaftConfigurer.configure(raftGroupOptions);
 
         return raftGroupOptions;
     }

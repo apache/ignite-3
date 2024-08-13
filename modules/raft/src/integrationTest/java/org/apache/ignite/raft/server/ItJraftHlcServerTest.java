@@ -87,7 +87,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
      */
     private final List<JraftServerImpl> servers = new ArrayList<>();
 
-    private final List<RaftGroupOptionsConfigurer> raftConfigurators = new ArrayList<>();
+    private final List<RaftGroupOptionsConfigurer> raftConfigurers = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -152,10 +152,10 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        RaftGroupOptionsConfigurer storageConfigurator =
+        RaftGroupOptionsConfigurer partitionsConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
 
-        raftConfigurators.add(storageConfigurator);
+        raftConfigurers.add(partitionsConfigurer);
 
         JraftServerImpl server = TestJraftServerFactory.create(service, opts);
 
@@ -186,7 +186,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             RaftGroupOptions options = defaults().commandsMarshaller(commandsMarshaller);
 
-            raftConfigurators.get(0).configure(options);
+            raftConfigurers.get(0).configure(options);
 
             raftServer.startRaftNode(nodeId, initialConf, listenerFactory.get(), options);
         }, opts -> {});
@@ -203,7 +203,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
                 RaftGroupOptions options = defaults().commandsMarshaller(commandsMarshaller);
 
-                raftConfigurators.get(j).configure(options);
+                raftConfigurers.get(j).configure(options);
 
                 server.startRaftNode(nodeId, initialConf, listenerFactory.get(), options);
             }

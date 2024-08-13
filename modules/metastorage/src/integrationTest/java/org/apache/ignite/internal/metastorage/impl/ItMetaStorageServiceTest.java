@@ -194,7 +194,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private final LogStorageFactory partitionsLogStorageFactory;
 
-        private final RaftGroupOptionsConfigurer partitionsRaftConfigurator;
+        private final RaftGroupOptionsConfigurer partitionsRaftConfigurer;
 
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
@@ -208,7 +208,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                     workingDir.raftLogPath()
             );
 
-            partitionsRaftConfigurator =
+            partitionsRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
 
             this.raftManager = TestLozaFactory.create(
@@ -262,7 +262,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                         configuration,
                         listener,
                         RaftGroupEventsListener.noopLsnr,
-                        partitionsRaftConfigurator
+                        partitionsRaftConfigurer
                 );
             } catch (NodeStoppingException e) {
                 throw new IllegalStateException(e);

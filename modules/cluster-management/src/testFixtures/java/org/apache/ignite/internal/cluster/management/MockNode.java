@@ -121,7 +121,7 @@ public class MockNode {
                         this.workDir.resolve("cmg/log")
                 );
 
-        RaftGroupOptionsConfigurer cmgRaftConfigurator =
+        RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
         this.clusterManager = new ClusterManagementGroupManager(
@@ -134,7 +134,7 @@ public class MockNode {
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureProcessor,
                 clusterIdHolder,
-                cmgRaftConfigurator
+                cmgRaftConfigurer
         );
 
         components = List.of(

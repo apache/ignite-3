@@ -412,7 +412,7 @@ public class IgniteImpl implements Ignite {
 
     private final LogStorageFactory cmgLogStorageFactory;
 
-    private final RaftGroupOptionsConfigurer partitionRaftConfigurator;
+    private final RaftGroupOptionsConfigurer partitionRaftConfigurer;
 
     private IndexMetaStorage indexMetaStorage;
 
@@ -548,7 +548,7 @@ public class IgniteImpl implements Ignite {
         cmgLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
 
-        RaftGroupOptionsConfigurer cmgRaftConfigurator =
+        RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -595,7 +595,7 @@ public class IgniteImpl implements Ignite {
                 nodeAttributesCollector,
                 failureProcessor,
                 clusterIdService,
-                cmgRaftConfigurator
+                cmgRaftConfigurer
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
@@ -612,7 +612,7 @@ public class IgniteImpl implements Ignite {
         msLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
 
-        RaftGroupOptionsConfigurer msRaftConfigurator =
+        RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
         metaStorageMgr = new MetaStorageManagerImpl(
@@ -624,7 +624,7 @@ public class IgniteImpl implements Ignite {
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
-                msRaftConfigurator
+                msRaftConfigurer
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -693,7 +693,7 @@ public class IgniteImpl implements Ignite {
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
 
-        partitionRaftConfigurator =
+        partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
         replicaMgr = new ReplicaManager(
@@ -709,7 +709,7 @@ public class IgniteImpl implements Ignite {
                 raftMarshaller,
                 topologyAwareRaftGroupServiceFactory,
                 raftMgr,
-                partitionRaftConfigurator,
+                partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor()
         );

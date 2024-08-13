@@ -115,7 +115,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
 
-        RaftGroupOptionsConfigurer partitionRaftConfigurator = mock(RaftGroupOptionsConfigurer.class);
+        RaftGroupOptionsConfigurer partitionsConfigurer = mock(RaftGroupOptionsConfigurer.class);
 
         replicaManager = new ReplicaManager(
                 nodeName,
@@ -130,7 +130,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 marshaller,
                 raftGroupServiceFactory,
                 raftManager,
-                partitionRaftConfigurator,
+                partitionsConfigurer,
                 volatileLogStorageFactoryCreator,
                 ForkJoinPool.commonPool()
         );

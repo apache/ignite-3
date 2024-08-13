@@ -217,7 +217,7 @@ public class ItTxTestCluster {
 
     protected Map<String, ReplicaManager> replicaManagers;
 
-    protected Map<String, RaftGroupOptionsConfigurer> raftConfigurators;
+    protected Map<String, RaftGroupOptionsConfigurer> raftConfigurers;
 
     protected Map<String, LogStorageFactory> logStorageFactories;
 
@@ -376,7 +376,7 @@ public class ItTxTestCluster {
         txInflights = new HashMap<>(nodes);
         cursorRegistries = new HashMap<>(nodes);
         txStateStorages = new HashMap<>(nodes);
-        raftConfigurators = new HashMap<>(nodes);
+        raftConfigurers = new HashMap<>(nodes);
         logStorageFactories = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
@@ -411,10 +411,10 @@ public class ItTxTestCluster {
 
             assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            RaftGroupOptionsConfigurer partitionRaftConfigurator =
+            RaftGroupOptionsConfigurer partitionRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.resolve("meta"));
 
-            raftConfigurators.put(nodeName, partitionRaftConfigurator);
+            raftConfigurers.put(nodeName, partitionRaftConfigurer);
 
             var raftSrv = TestLozaFactory.create(
                     clusterService,
@@ -454,7 +454,7 @@ public class ItTxTestCluster {
                     commandMarshaller,
                     raftClientFactory,
                     raftSrv,
-                    partitionRaftConfigurator,
+                    partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     ForkJoinPool.commonPool()
             );

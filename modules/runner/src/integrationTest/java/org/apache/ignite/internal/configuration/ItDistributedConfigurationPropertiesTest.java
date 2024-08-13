@@ -198,7 +198,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             cmgLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
 
-            RaftGroupOptionsConfigurer cmgRaftConfigurator =
+            RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
             cmgManager = new ClusterManagementGroupManager(
@@ -211,7 +211,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureProcessor,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurator
+                    cmgRaftConfigurer
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -228,7 +228,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             msLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-            RaftGroupOptionsConfigurer msRaftConfigurator =
+            RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             metaStorageManager = new MetaStorageManagerImpl(
@@ -241,7 +241,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurator
+                    msRaftConfigurer
             );
 
             deployWatchesFut = metaStorageManager.deployWatches();

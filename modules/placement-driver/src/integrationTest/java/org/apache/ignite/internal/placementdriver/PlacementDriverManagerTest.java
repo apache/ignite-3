@@ -214,7 +214,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         msLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-        RaftGroupOptionsConfigurer msRaftConfigurator =
+        RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
         metaStorageManager = new MetaStorageManagerImpl(
@@ -227,7 +227,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                msRaftConfigurator
+                msRaftConfigurer
         );
 
         placementDriverManager = new PlacementDriverManager(

@@ -390,7 +390,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LogStorageFactory partitionsLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
-        RaftGroupOptionsConfigurer partitionRaftConfigurator =
+        RaftGroupOptionsConfigurer partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
         var raftMgr = TestLozaFactory.create(
@@ -413,7 +413,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LogStorageFactory cmgLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
 
-        RaftGroupOptionsConfigurer cmgRaftConfigurator =
+        RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
         var cmgManager = new ClusterManagementGroupManager(
@@ -427,7 +427,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)),
                 failureProcessor,
                 clusterIdService,
-                cmgRaftConfigurator
+                cmgRaftConfigurer
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
@@ -471,7 +471,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LogStorageFactory msLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
 
-        RaftGroupOptionsConfigurer msRaftConfigurator =
+        RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
         var metaStorageMgr = new MetaStorageManagerImpl(
@@ -484,7 +484,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
                 metaStorageConfiguration,
-                msRaftConfigurator
+                msRaftConfigurer
         ) {
             @Override
             public CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
@@ -559,7 +559,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry()),
                 topologyAwareRaftGroupServiceFactory,
                 raftMgr,
-                partitionRaftConfigurator,
+                partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor()
         );

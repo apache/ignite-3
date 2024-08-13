@@ -928,7 +928,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
 
-            RaftGroupOptionsConfigurer partitionRaftConfigurator =
+            RaftGroupOptionsConfigurer partitionRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
             raftManager = new Loza(
@@ -955,7 +955,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             cmgLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
 
-            RaftGroupOptionsConfigurer cmgRaftConfigurator =
+            RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
             cmgManager = new ClusterManagementGroupManager(
@@ -968,7 +968,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new NodeAttributesCollector(nodeAttributesConfigurations.get(idx), storageConfiguration),
                     failureProcessor,
                     clusterIdHolder,
-                    cmgRaftConfigurator
+                    cmgRaftConfigurer
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -987,7 +987,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             msLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-            RaftGroupOptionsConfigurer msRaftConfigurator =
+            RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             metaStorageManager = new MetaStorageManagerImpl(
@@ -1000,7 +1000,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurator
+                    msRaftConfigurer
             ) {
                 @Override
                 public CompletableFuture<Boolean> invoke(
@@ -1124,7 +1124,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
-                    partitionRaftConfigurator,
+                    partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool(),
                     t -> converter.get().apply(t)

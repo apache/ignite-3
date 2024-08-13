@@ -130,7 +130,7 @@ public class ItLozaTest extends IgniteAbstractTest {
     private RaftGroupService startClient(
             TestReplicationGroupId groupId,
             ClusterNode node,
-            RaftGroupOptionsConfigurer storageConfigurator) throws Exception {
+            RaftGroupOptionsConfigurer groupOptionsConfigurer) throws Exception {
         RaftGroupListener raftGroupListener = mock(RaftGroupListener.class);
 
         when(raftGroupListener.onSnapshotLoad(any())).thenReturn(true);
@@ -144,7 +144,7 @@ public class ItLozaTest extends IgniteAbstractTest {
                         configuration,
                         raftGroupListener,
                         RaftGroupEventsListener.noopLsnr,
-                        storageConfigurator
+                        groupOptionsConfigurer
                 )
                 .get(10, TimeUnit.SECONDS);
     }
@@ -169,7 +169,7 @@ public class ItLozaTest extends IgniteAbstractTest {
                 partitionsWorkDir.raftLogPath()
         );
 
-        RaftGroupOptionsConfigurer storageConfigurator =
+        RaftGroupOptionsConfigurer partitionsConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
         allComponents.add(partitionsLogStorageFactory);
@@ -193,7 +193,7 @@ public class ItLozaTest extends IgniteAbstractTest {
                     .doCallRealMethod()
                     .when(messagingServiceMock).invoke(any(ClusterNode.class), any(), anyLong());
 
-            startClient(new TestReplicationGroupId(Integer.toString(i)), spyService.topologyService().localMember(), storageConfigurator);
+            startClient(new TestReplicationGroupId(Integer.toString(i)), spyService.topologyService().localMember(), partitionsConfigurer);
 
             verify(messagingServiceMock, times(3 * (i + 1)))
                     .invoke(any(ClusterNode.class), any(), anyLong());

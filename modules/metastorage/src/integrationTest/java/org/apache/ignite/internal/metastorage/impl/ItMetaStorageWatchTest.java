@@ -181,7 +181,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             components.add(cmgLogStorageFactory);
 
-            RaftGroupOptionsConfigurer cmgRaftConfigurator =
+            RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
             this.cmgManager = new ClusterManagementGroupManager(
@@ -194,7 +194,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureProcessor,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurator
+                    cmgRaftConfigurer
             );
 
             components.add(cmgManager);
@@ -217,7 +217,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             components.add(msLogStorageFactory);
 
-            RaftGroupOptionsConfigurer msRaftConfigurator =
+            RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             this.metaStorageManager = new MetaStorageManagerImpl(
@@ -230,7 +230,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurator
+                    msRaftConfigurer
             );
 
             components.add(metaStorageManager);

@@ -200,7 +200,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             msLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-            RaftGroupOptionsConfigurer msRaftConfigurator =
+            RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             storage = new RocksDbKeyValueStorage(
@@ -218,7 +218,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurator
+                    msRaftConfigurer
             );
 
             clockWaiter = new ClockWaiter(clusterService.nodeName(), clock);

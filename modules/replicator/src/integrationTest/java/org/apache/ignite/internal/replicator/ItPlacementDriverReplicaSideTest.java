@@ -143,7 +143,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     /** Cluster service by node name. */
     private Map<String, ClusterService> clusterServices;
 
-    protected Map<String, RaftGroupOptionsConfigurer> raftConfigurators = new HashMap<>();
+    protected Map<String, RaftGroupOptionsConfigurer> raftConfigurers = new HashMap<>();
 
     private final Map<String, ReplicaManager> replicaManagers = new HashMap<>();
     private final Map<String, Loza> raftManagers = new HashMap<>();
@@ -188,10 +188,10 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     partitionsWorkDir.raftLogPath()
             );
 
-            RaftGroupOptionsConfigurer partitionRaftConfigurator =
+            RaftGroupOptionsConfigurer partitionsConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
-            raftConfigurators.put(nodeName, partitionRaftConfigurator);
+            raftConfigurers.put(nodeName, partitionsConfigurer);
 
             var raftManager = TestLozaFactory.create(
                     clusterService,
@@ -225,7 +225,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     null,
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
-                    partitionRaftConfigurator,
+                    partitionsConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     ForkJoinPool.commonPool()
             );
@@ -517,7 +517,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
 
-            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer = raftConfigurators.get(nodeName);
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer = raftConfigurers.get(nodeName);
 
             raftGroupOptionsConfigurer.configure(groupOptions);
 

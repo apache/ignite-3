@@ -151,7 +151,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         msLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-        RaftGroupOptionsConfigurer msRaftConfigurator =
+        RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
         storage = new RocksDbKeyValueStorage(
@@ -169,7 +169,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                msRaftConfigurator
+                msRaftConfigurer
         );
 
         assertThat(

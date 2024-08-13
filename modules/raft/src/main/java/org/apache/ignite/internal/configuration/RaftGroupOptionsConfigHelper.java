@@ -32,7 +32,7 @@ public interface RaftGroupOptionsConfigHelper {
      *
      * @param logStorageFactory Log storage factory.
      * @param serverDataPath Server data path.
-     * @return Raft options configurator.
+     * @return Raft options configurer.
      */
     static RaftGroupOptionsConfigurer configureProperties(LogStorageFactory logStorageFactory, Path serverDataPath) {
         return options -> {

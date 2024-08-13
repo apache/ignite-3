@@ -273,7 +273,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             LogStorageFactory msLogStorageFactory =
                     SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
-            RaftGroupOptionsConfigurer msRaftConfigurator =
+            RaftGroupOptionsConfigurer msRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             var metaStorageManager = new MetaStorageManagerImpl(
@@ -286,7 +286,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
                     metaStorageConfiguration,
-                    msRaftConfigurator
+                    msRaftConfigurer
             );
 
             if (this.metaStorageManager == null) {
