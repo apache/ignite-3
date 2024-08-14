@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests.Marshalling;
 
+using System.Buffers;
+using System.Text;
 using Ignite.Marshalling;
 using NUnit.Framework;
 
@@ -28,7 +30,17 @@ public class JsonMarshallerTests
     [Test]
     public void TestMarshalUnmarshal()
     {
-        Assert.Fail("TODO");
+        var marshaller = new JsonMarshaller<Poco>();
+        var poco = new Poco(42, "foo");
+
+        var writer = new ArrayBufferWriter<byte>();
+        marshaller.Marshal(poco, writer);
+
+        var bytes = writer.WrittenSpan.ToArray();
+        var result = marshaller.Unmarshal(bytes);
+
+        Assert.AreEqual(poco, result);
+        Assert.AreEqual("{\"id\":42,\"name\":\"foo\"}", Encoding.UTF8.GetString(bytes));
     }
 
     [Test]
@@ -38,4 +50,6 @@ public class JsonMarshallerTests
             "JsonMarshaller`1[Int32] { Options = System.Text.Json.JsonSerializerOptions }",
             new JsonMarshaller<int>().ToString());
     }
+
+    private record Poco(int Id, string Name);
 }
