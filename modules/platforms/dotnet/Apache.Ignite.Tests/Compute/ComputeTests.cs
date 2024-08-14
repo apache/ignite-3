@@ -18,11 +18,13 @@
 namespace Apache.Ignite.Tests.Compute
 {
     using System;
+    using System.Buffers;
     using System.Collections;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
     using System.Net;
+    using System.Text;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Marshalling;
@@ -855,6 +857,24 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(arg.Nested, res.Nested);
         }
 
+        [Test]
+        public async Task TestCustomMarshaller()
+        {
+            var job = new JobDescriptor<Nested, Nested>(PlatformTestNodeRunner + "$ToStringMarshallerJob")
+            {
+                ArgMarshaller = new ToStringMarshaller(),
+                ResultMarshaller = new ToStringMarshaller()
+            };
+
+            var arg = new Nested(Guid.NewGuid(), 1.234m);
+
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
+            Nested res = await exec.GetResultAsync();
+
+            Assert.AreEqual(arg.Id, res.Id);
+            Assert.AreEqual(arg.Price + 1, res.Price);
+        }
+
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
         {
             JobState? state = await jobExecution.GetStateAsync();
@@ -884,5 +904,21 @@ namespace Apache.Ignite.Tests.Compute
         private record MyArg(int Id, string Name, Nested Nested);
 
         private record MyResult(string Data, Nested Nested);
+
+        private class ToStringMarshaller : IMarshaller<Nested>
+        {
+            public void Marshal(Nested obj, IBufferWriter<byte> writer)
+            {
+                var str = obj.Id + ":" + obj.Price;
+                Encoding.ASCII.GetBytes(str, writer);
+            }
+
+            public Nested Unmarshal(ReadOnlySpan<byte> bytes)
+            {
+                var str = Encoding.ASCII.GetString(bytes);
+                var parts = str.Split(':');
+                return new(Guid.Parse(parts[0]), decimal.Parse(parts[1]));
+            }
+        }
     }
 }
