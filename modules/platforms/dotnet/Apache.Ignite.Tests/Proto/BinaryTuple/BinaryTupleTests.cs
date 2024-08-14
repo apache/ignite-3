@@ -401,6 +401,24 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestBytesBufferWriter([Values(0, 1, 123, 65537)] int count)
+        {
+            var bytes = Enumerable.Range(1, count).Select(x => (byte)x).ToArray();
+
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(
+                (writer, arg) =>
+                {
+                    arg.CopyTo(writer.GetSpan(arg.Length));
+                    writer.Advance(arg.Length);
+                },
+                bytes));
+
+            var res = reader.GetBytesSpan(0).ToArray();
+
+            CollectionAssert.AreEqual(bytes, res);
+        }
+
+        [Test]
         public void TestDecimal()
         {
             Test(0, 3);
