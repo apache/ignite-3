@@ -374,23 +374,30 @@ internal ref struct MsgPackReader
     /// <typeparam name="T">Type of the value.</typeparam>
     public T ReadObjectFromBinaryTuple<T>(IMarshaller<T>? marshaller)
     {
-        var obj = ReadObjectFromBinaryTuple();
-
-        if (marshaller == null || obj == null)
+        if (TryReadNil())
         {
-            return (T)obj!;
+            return (T)(object)null!;
         }
 
-        // TODO: Avoid allocating byte array, pass a span from BinaryTupleReader.
-        if (obj is byte[] bytes)
+        if (marshaller == null)
         {
-            return marshaller.Unmarshal(bytes);
+            return (T)ReadObjectFromBinaryTuple()!;
         }
 
-        throw new UnsupportedObjectTypeMarshallingException(
-            Guid.NewGuid(),
-            ErrorGroups.Marshalling.UnsupportedObjectType,
-            "Unsupported object type. Expected byte[], got " + obj.GetType());
+        var tuple = new BinaryTupleReader(ReadBinary(), 3);
+        var type = (ColumnType)tuple.GetInt(0);
+
+        if (type != ColumnType.ByteArray)
+        {
+            throw new UnsupportedObjectTypeMarshallingException(
+                Guid.NewGuid(),
+                ErrorGroups.Marshalling.UnsupportedObjectType,
+                "Unsupported object type. Expected byte[], got " + type);
+        }
+
+        var bytes = tuple.GetBytesSpan(2);
+
+        return marshaller.Unmarshal(bytes);
     }
 
     /// <summary>
