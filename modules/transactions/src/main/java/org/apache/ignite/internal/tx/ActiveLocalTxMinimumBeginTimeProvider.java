@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.compaction.message;
+package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * Message types used in catalog compaction module.
+ * Provides the minimum begin time among all active RW transactions started locally.
  */
-@MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
-public class CatalogCompactionMessageGroup {
-    public static final short GROUP_TYPE = 14;
-
-    /** See {@link CatalogCompactionMinimumTimesRequest} for the details. */
-    public static final short MINIMUM_TIMES_REQUEST = 0;
-
-    /** See {@link CatalogCompactionMinimumTimesResponse} for the details. */
-    public static final short MINIMUM_TIMES_RESPONSE = 1;
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ActiveLocalTxMinimumBeginTimeProvider {
+    /**
+     * Returns the minimum begin time among all active RW transactions started locally,
+     * or the current time if there are no active RW transactions.
+     */
+    HybridTimestamp minimumBeginTime();
 }

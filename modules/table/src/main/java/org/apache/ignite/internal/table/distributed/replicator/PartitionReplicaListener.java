@@ -127,6 +127,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
@@ -812,6 +813,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
         } else if (request instanceof VacuumTxStateReplicaRequest) {
             return processVacuumTxStateReplicaRequest((VacuumTxStateReplicaRequest) request);
+        } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
+            return processMinimumActiveTxTimeReplicaRequest((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -4088,6 +4091,24 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .build();
 
         return raftClient.run(cmd);
+    }
+
+    private CompletableFuture<?> processMinimumActiveTxTimeReplicaRequest(UpdateMinimumActiveTxBeginTimeReplicaRequest request) {
+        Command cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateMinimumActiveTxBeginTimeCommand()
+                .timestamp(request.timestamp())
+                .safeTime(clockService.now())
+                .build();
+
+        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+
+        // The timestamp must increase monotonically, otherwise it will have to be
+        // stored on disk so that reordering does not occur after the node is restarted.
+        applyCmdWithRetryOnSafeTimeReorderException(
+                cmd,
+                resultFuture
+        );
+
+        return resultFuture;
     }
 
     /**
