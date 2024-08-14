@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -59,6 +60,8 @@ import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -253,6 +256,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         private Loza raftManager;
 
+        private LogStorageFactory partitionsLogStorageFactory;
+
         private RaftGroupService raftClient;
 
         PartialNode(String nodeName) {
@@ -264,10 +269,18 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
+            ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
+
+            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    workingDir.raftLogPath()
+            );
+
+            assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
             raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
-                    workDir.resolve(nodeName + "_loza"),
                     new HybridClockImpl(),
                     new RaftGroupEventsClientListener()
             );
@@ -294,6 +307,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             RaftGroupOptions.defaults()
+                                    .serverDataPath(workingDir.metaPath())
+                                    .setLogStorageFactory(partitionsLogStorageFactory)
                     )
                     .thenApply(raftClient -> {
                         this.raftClient = raftClient;
@@ -308,6 +323,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     clusterService == null ? null : clusterService::beforeNodeStop,
                     raftManager == null ? null :
                             () -> assertThat(raftManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
+                    partitionsLogStorageFactory == null ? null :
+                            () -> assertThat(partitionsLogStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                     clusterService == null ? null :
                             () -> assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully())
             );

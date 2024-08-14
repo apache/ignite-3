@@ -43,4 +43,30 @@ public class SystemLocalConfigurationSchema {
     /** Directory where log is stored. By default "log" subfolder of partition base path is used. */
     @Value(hasDefault = true)
     public String partitionsLogPath = "";
+
+    /**
+     * Directory where CMG data is stored. By default "cmg" subfolder of data storage path is used.
+     *
+     * <pre>
+     * The internal directory structure contains:
+     * - `log` directory - raft log directory.
+     * - `meta` directory - raft meta directory (raft log metadata and snapshots).
+     * - `db` directory - persistent storage directory.
+     * </pre>
+     */
+    @Value(hasDefault = true)
+    public String cmgPath = "";
+
+    /**
+     * Directory where Metastorage data is stored. By default "metastorage" subfolder of data storage path is used.
+     *
+     * <pre>
+     * The internal directory structure contains:
+     * - `log` directory - raft log directory.
+     * - `meta` directory - raft meta directory (raft log metadata and snapshots).
+     * - `db` directory - persistent storage directory.
+     * </pre>
+     */
+    @Value(hasDefault = true)
+    public String metastoragePath = "";
 }

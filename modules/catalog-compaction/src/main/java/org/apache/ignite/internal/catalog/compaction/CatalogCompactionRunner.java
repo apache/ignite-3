@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -31,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -318,53 +316,44 @@ public class CatalogCompactionRunner implements IgniteComponent {
         HybridTimestamp nowTs = clockService.now();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22722 This method needs to be simplified.
-        return collectRequiredNodes(catalog, new ArrayList<>(catalog.tables()).iterator(), required, nowTs);
+        return CompletableFutures.allOf(catalog.tables().stream()
+                .map(table -> collectRequiredNodes(catalog, table, required, nowTs))
+                .collect(Collectors.toList())
+        ).thenApply(ignore -> required);
     }
 
-    private CompletableFuture<Set<String>> collectRequiredNodes(
+    private CompletableFuture<Void> collectRequiredNodes(
             Catalog catalog,
-            Iterator<CatalogTableDescriptor> tabItr,
+            CatalogTableDescriptor table,
             Set<String> required,
             HybridTimestamp nowTs
     ) {
-        if (!tabItr.hasNext()) {
-            return CompletableFuture.completedFuture(required);
-        }
-
-        CatalogTableDescriptor table = tabItr.next();
         CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
         assert zone != null : table.zoneId();
 
-        List<CompletableFuture<?>> partitionFutures = new ArrayList<>(zone.partitions());
+        int partitions = zone.partitions();
 
-        for (int p = 0; p < zone.partitions(); p++) {
-            ReplicationGroupId replicationGroupId = new TablePartitionId(table.id(), p);
+        List<ReplicationGroupId> replicationGroupIds = new ArrayList<>(partitions);
 
-            CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
-                    .whenComplete((tokenizedAssignments, ex) -> {
-                        if (ex != null) {
-                            return;
-                        }
-
-                        if (tokenizedAssignments == null) {
-                            throw new IllegalStateException("Cannot get assignments for table " + table.name()
-                                    + " (replication group=" + replicationGroupId + ").");
-                        }
-
-                        List<String> assignments = tokenizedAssignments.nodes().stream()
-                                .map(Assignment::consistentId)
-                                .collect(Collectors.toList());
-
-                        required.addAll(assignments);
-                    });
-
-            partitionFutures.add(assignmentsFut);
+        for (int p = 0; p < partitions; p++) {
+            replicationGroupIds.add(new TablePartitionId(table.id(), p));
         }
 
-        return CompletableFutures.allOf(partitionFutures)
-                .thenCompose(ignore -> collectRequiredNodes(catalog, tabItr, required, nowTs));
+        return placementDriver.getAssignments(replicationGroupIds, nowTs)
+                .thenAccept(tokenizedAssignments -> {
+                    assert tokenizedAssignments.size() == replicationGroupIds.size();
+
+                    for (int p = 0; p < partitions; p++) {
+                        TokenizedAssignments assignment = tokenizedAssignments.get(p);
+                        if (assignment == null) {
+                            throw new IllegalStateException("Cannot get assignments for table " + table.name()
+                                    + " (replication group=" + replicationGroupIds.get(p) + ").");
+                        }
+
+                        assignment.nodes().forEach(a -> required.add(a.consistentId()));
+                    }
+                });
     }
 
     private static List<String> missingNodes(Set<String> requiredNodes, Collection<LogicalNode> logicalTopologyNodes) {
