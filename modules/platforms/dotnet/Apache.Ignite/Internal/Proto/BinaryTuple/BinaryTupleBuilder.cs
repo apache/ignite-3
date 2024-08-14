@@ -448,6 +448,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             action(_buffer, arg);
 
             var length = _buffer.Position - oldPos;
+
+            if (length == 0)
+            {
+                GetSpan(1)[0] = BinaryTupleCommon.VarlenEmptyByte;
+                OnWrite();
+                return;
+            }
+
             var writtenSpan = _buffer.GetWrittenMemory().Span.Slice(oldPos, length);
 
             if (length > 0 && writtenSpan[0] == BinaryTupleCommon.VarlenEmptyByte)
