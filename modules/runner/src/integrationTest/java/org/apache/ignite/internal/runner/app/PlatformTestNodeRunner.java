@@ -47,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -74,7 +75,6 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
-import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -93,6 +93,7 @@ import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.RecordView;
@@ -899,6 +900,7 @@ public class PlatformTestNodeRunner {
         public Nested nested;
     }
 
+    @SuppressWarnings("unused") // Used by platform tests.
     private static class JsonMarshallerJob implements ComputeJob<MyArg, MyResult> {
         @Override
         public @Nullable CompletableFuture<MyResult> executeAsync(JobExecutionContext context, MyArg arg) {
@@ -918,6 +920,47 @@ public class PlatformTestNodeRunner {
         @Override
         public @Nullable Marshaller<MyResult, byte[]> resultMarshaller() {
             return new JsonMarshaller<>(MyResult.class);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class ToStringMarshallerJob implements ComputeJob<Nested, Nested> {
+        @Override
+        public @Nullable CompletableFuture<Nested> executeAsync(JobExecutionContext context, Nested arg) {
+            arg.price = arg.price.add(BigDecimal.ONE);
+
+            return completedFuture(arg);
+        }
+
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> inputMarshaller() {
+            return new ToStringMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> resultMarshaller() {
+            return new ToStringMarshaller();
+        }
+    }
+
+    private static class ToStringMarshaller implements Marshaller<Nested, byte[]> {
+        @Override
+        public byte[] marshal(Nested object) throws UnsupportedObjectTypeMarshallingException {
+            var str = object.id + ":" + object.price;
+
+            return str.getBytes(StandardCharsets.US_ASCII);
+        }
+
+        @Override
+        public @Nullable Nested unmarshal(byte[] raw) throws UnsupportedObjectTypeMarshallingException {
+            var str = new String(raw, StandardCharsets.US_ASCII);
+            var parts = str.split(":");
+
+            var res = new Nested();
+            res.id = java.util.UUID.fromString(parts[0]);
+            res.price = new BigDecimal(parts[1]);
+
+            return res;
         }
     }
 }
