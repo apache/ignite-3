@@ -36,6 +36,7 @@ import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -53,8 +54,6 @@ public class ExecutionTargetFactorySelfTest {
     private static final List<String> NODE_SET2 = List.of("node2", "node3", "node5");
     private static final List<String> NODE_SUBSET = List.of("node2", "node5");
     private static final List<String> SINGLE_NODE_SET = List.of("node4");
-    private static final List<String> INVALID_NODE_SET = List.of("node0");
-    private static final List<String> PARTIALLY_INVALID_NODE_SET = List.of("node4", "node6");
 
     private static List<ExecutionTargetFactory> clusterFactory() {
         return List.of(
@@ -92,15 +91,18 @@ public class ExecutionTargetFactorySelfTest {
     @ParameterizedTest
     @MethodSource("clusterFactory")
     void invalidTargets(ExecutionTargetFactory f) {
-        assertThrows(AssertionError.class, () -> f.allOf(INVALID_NODE_SET), "invalid node");
-        assertThrows(AssertionError.class, () -> f.someOf(INVALID_NODE_SET), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.oneOf(INVALID_NODE_SET), "Empty target is not allowed");
-        assertThrows(AssertionError.class, () -> f.partitioned(assignmentFromPrimaries(INVALID_NODE_SET)), "No partition node found");
+        List<String> invalidNodeSet = List.of("node100");
+        List<String> partiallyInvalidNodeSet = CollectionUtils.concat(SINGLE_NODE_SET, invalidNodeSet);
 
-        assertThrows(Throwable.class, () -> f.allOf(PARTIALLY_INVALID_NODE_SET), "invalid node");
-        assertThat(f.resolveNodes(f.someOf(PARTIALLY_INVALID_NODE_SET)), equalTo(SINGLE_NODE_SET));
-        assertThat(f.resolveNodes(f.oneOf(PARTIALLY_INVALID_NODE_SET)), equalTo(SINGLE_NODE_SET));
-        assertThat(f.resolveNodes(f.partitioned(assignment(PARTIALLY_INVALID_NODE_SET, PARTIALLY_INVALID_NODE_SET))), equalTo(SINGLE_NODE_SET));
+        assertThrows(AssertionError.class, () -> f.allOf(invalidNodeSet), "invalid node");
+        assertThrows(AssertionError.class, () -> f.someOf(invalidNodeSet), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.oneOf(invalidNodeSet), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.partitioned(assignmentFromPrimaries(invalidNodeSet)), "No partition node found");
+
+        assertThrows(Throwable.class, () -> f.allOf(partiallyInvalidNodeSet), "invalid node");
+        assertThat(f.resolveNodes(f.someOf(partiallyInvalidNodeSet)), equalTo(SINGLE_NODE_SET));
+        assertThat(f.resolveNodes(f.oneOf(partiallyInvalidNodeSet)), equalTo(SINGLE_NODE_SET));
+        assertThat(f.resolveNodes(f.partitioned(assignment(partiallyInvalidNodeSet, partiallyInvalidNodeSet))), equalTo(SINGLE_NODE_SET));
     }
 
     @ParameterizedTest
