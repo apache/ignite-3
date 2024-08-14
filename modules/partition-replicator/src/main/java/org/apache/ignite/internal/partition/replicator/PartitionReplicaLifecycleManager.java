@@ -461,6 +461,7 @@ public class PartitionReplicaLifecycleManager  extends
                                 lock = new StampedLock();
                             }
 
+                            System.out.println("KKK getting writeLock");
                             stamp.set(lock.writeLock());
 
                             return lock;
@@ -489,7 +490,10 @@ public class PartitionReplicaLifecycleManager  extends
 
                             return lock;
                         });
-                    }).whenComplete((unused, throwable) -> { partitionsPerZone.get(zoneId).unlockWrite(stamp.get()); })
+                    }).whenComplete((unused, throwable) -> {
+                        System.out.println("KKK removing writeLock");
+                        partitionsPerZone.get(zoneId).unlockWrite(stamp.get());
+                    })
                     .thenApply(u -> {return null; });
         } catch (NodeStoppingException e) {
             return failedFuture(e);
@@ -668,7 +672,7 @@ public class PartitionReplicaLifecycleManager  extends
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
         assert partitionsPerZone.get(zonePartitionId.zoneId()).tryWriteLock() == 0;
         // KKK NOT SAFE
-        return replicationGroupIds.get(zonePartitionId.zoneId()).contains(zonePartitionId.partitionId());
+        return replicationGroupIds.getOrDefault(zonePartitionId.zoneId(), new HashSet<>()).contains(zonePartitionId.partitionId());
     }
 
     public void stopReplica() {
@@ -1281,7 +1285,9 @@ public class PartitionReplicaLifecycleManager  extends
                 l = new StampedLock();
             }
 
+            System.out.println("KKK trying to get read lock");
             stamp.set(l.readLock());
+            System.out.println("KKK read lock received");
 
             return l;
         });
