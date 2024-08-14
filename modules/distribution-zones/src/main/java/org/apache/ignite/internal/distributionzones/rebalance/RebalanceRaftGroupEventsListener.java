@@ -41,7 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -121,7 +121,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
     /** Function that calculates assignments for table's partition. */
-    private final Function<TablePartitionId, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
+    private final BiFunction<TablePartitionId, HybridTimestamp, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
 
     /**
      * Constructs new listener.
@@ -138,7 +138,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             TablePartitionId tablePartitionId,
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
-            Function<TablePartitionId, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
+            BiFunction<TablePartitionId, HybridTimestamp, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
             ScheduledExecutorService rebalanceScheduler
     ) {
         this.metaStorageMgr = metaStorageMgr;
@@ -315,8 +315,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     )
             ).get();
 
-            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tablePartitionId).get();
-
             Entry stableEntry = values.get(stablePartAssignmentsKey);
             Entry pendingEntry = values.get(pendingPartAssignmentsKey);
             Entry plannedEntry = values.get(plannedPartAssignmentsKey);
@@ -333,6 +331,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             if (!retrievedPending.equals(stableFromRaft)) {
                 return;
             }
+
+            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tablePartitionId, pendingAssignments.timestamp()).get();
 
             // Were reduced
             Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stableFromRaft);

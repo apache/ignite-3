@@ -283,7 +283,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Versioned value for tracking RAFT groups initialization and starting completion.
      *
-     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int, boolean)}.
+     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int, boolean, HybridTimestamp)}.
      *
      * <p>Completed strictly after {@link #localPartitionsVv}.
      */
@@ -1211,10 +1211,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
-    private CompletableFuture<Set<Assignment>> calculateAssignments(TablePartitionId tablePartitionId) {
-        // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
-        //  in the catalog. Better to take the version from Assignments.
-        int catalogVersion = catalogService.latestCatalogVersion();
+    private CompletableFuture<Set<Assignment>> calculateAssignments(
+            TablePartitionId tablePartitionId,
+            HybridTimestamp assignmentsTimestamp
+    ) {
+        int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp.longValue());
 
         CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
 
@@ -2769,9 +2770,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
 
-                // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
-                //  in the catalog. Better to store this version in ManualGroupRestartRequest.
-                int catalogVersion = catalogService.latestCatalogVersion();
+                int catalogVersion = catalogService.activeCatalogVersion(timestamp.longValue());
 
                 int zoneId = getTableDescriptor(tablePartitionId.tableId(), catalogVersion).zoneId();
 

@@ -42,7 +42,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     private final Set<String> nodeNames;
 
-    private final HybridTimestamp timestamp;
+    private final HybridTimestamp assignmentsTimestamp;
 
     ManualGroupRestartRequest(
             UUID operationId,
@@ -50,14 +50,14 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
             int tableId,
             Set<Integer> partitionIds,
             Set<String> nodeNames,
-            HybridTimestamp timestamp
+            HybridTimestamp assignmentsTimestamp
     ) {
         this.operationId = operationId;
         this.zoneId = zoneId;
         this.tableId = tableId;
         this.partitionIds = Set.copyOf(partitionIds);
         this.nodeNames = Set.copyOf(nodeNames);
-        this.timestamp = timestamp;
+        this.assignmentsTimestamp = assignmentsTimestamp;
     }
 
     @Override
@@ -100,7 +100,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                 TablePartitionId groupId = (TablePartitionId) raftNodeId.groupId();
 
                 if (groupId.tableId() == tableId && partitionIds.contains(groupId.partitionId())) {
-                    restartFutures.add(disasterRecoveryManager.tableManager.restartPartition(groupId, revision, timestamp));
+                    restartFutures.add(disasterRecoveryManager.tableManager.restartPartition(groupId, revision, assignmentsTimestamp));
                 }
             }
         });

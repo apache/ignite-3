@@ -206,7 +206,7 @@ public class DistributionZoneRebalanceEngine {
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+                    // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
                     //  in the catalog. Better to store this version when writing datanodes.
                     int catalogVersion = catalogService.latestCatalogVersion();
 
