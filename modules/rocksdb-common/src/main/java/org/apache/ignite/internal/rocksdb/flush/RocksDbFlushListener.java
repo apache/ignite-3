@@ -22,6 +22,7 @@ import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_BE
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_COMPLETED;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -54,14 +55,18 @@ class RocksDbFlushListener extends AbstractEventListener {
      */
     private volatile CompletableFuture<?> lastFlushProcessed = nullCompletedFuture();
 
-    private volatile long time;
+    /** Listener name, for logs. */
     private final String name;
+
+    /** This field is used for determining flush duration. */
+    private volatile long lastFlushStartTimeNanos;
 
     /**
      * Constructor.
      *
      * @param flusher Flusher instance to delegate events processing to.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param name Listener name, for logs.
      */
     RocksDbFlushListener(RocksDbFlusher flusher, LogSyncer logSyncer, String name) {
         super(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED);
@@ -75,8 +80,8 @@ class RocksDbFlushListener extends AbstractEventListener {
     @Override
     public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
         if (lastEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
-            LOG.info("Starting rocksdb flush process [name='{}']", name);
-            time = System.nanoTime();
+            LOG.info("Starting rocksdb flush process [name='{}', reason={}]", name, flushJobInfo.getFlushReason());
+            lastFlushStartTimeNanos = System.nanoTime();
 
             lastFlushProcessed.join();
 
@@ -92,8 +97,9 @@ class RocksDbFlushListener extends AbstractEventListener {
     @Override
     public void onFlushCompleted(RocksDB db, FlushJobInfo flushJobInfo) {
         if (lastEventType.compareAndSet(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED)) {
-            long duration = System.nanoTime() - time;
-            LOG.info("Finishing rocksdb flush process [name='{}', duration={}ms]", name, duration / 1_000_000L);
+            long duration = System.nanoTime() - lastFlushStartTimeNanos;
+
+            LOG.info("Finishing rocksdb flush process [name='{}', duration={}ms]", name, TimeUnit.NANOSECONDS.toMillis(duration));
 
             lastFlushProcessed = flusher.onFlushCompleted();
         }

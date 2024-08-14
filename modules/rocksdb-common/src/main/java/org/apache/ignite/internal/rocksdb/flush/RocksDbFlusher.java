@@ -99,6 +99,7 @@ public class RocksDbFlusher {
     /**
      * Constructor.
      *
+     * @param name RocksDB instance name, for logging purposes.
      * @param busyLock Busy lock.
      * @param scheduledPool Scheduled pool the schedule flushes.
      * @param threadPool Thread pool to run flush completion closure, provided by {@code onFlushCompleted} parameter.
@@ -110,16 +111,15 @@ public class RocksDbFlusher {
      *      roughly the same time from different threads. For example, several partitions might be flushed at the same time, because they
      *      started at the same time and their flush frequency is also the same.
      * @param onFlushCompleted Flush completion callback. Executed on every individual column family flush.
-     * @param name
      */
     public RocksDbFlusher(
+            String name,
             IgniteSpinBusyLock busyLock,
             ScheduledExecutorService scheduledPool,
             ExecutorService threadPool,
             IntSupplier delaySupplier,
             LogSyncer logSyncer,
-            Runnable onFlushCompleted,
-            String name
+            Runnable onFlushCompleted
     ) {
         this.busyLock = busyLock;
         this.scheduledPool = scheduledPool;

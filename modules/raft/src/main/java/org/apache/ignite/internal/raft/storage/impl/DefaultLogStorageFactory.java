@@ -92,6 +92,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<WriteBatch> threadLocalWriteBatch = new ThreadLocal<>();
+
+    /** Rocksdb log flusher, without external access. Used for logs only. */
     private RocksDbFlusher flusher;
 
     /**
@@ -115,6 +117,16 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         executorService = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
         );
+
+        flusher = new RocksDbFlusher(
+                "Default log storage",
+                new IgniteSpinBusyLock(),
+                null, // Unused.
+                executorService,
+                () -> 0,  // Won't be used.
+                () -> {}, // No-op.
+                () -> {}  // No-op.
+        );
     }
 
     @Override
@@ -122,13 +134,14 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         // This is effectively a sync implementation.
         try {
             start();
+
             return nullCompletedFuture();
-        } catch (RuntimeException ex) {
+        } catch (Exception ex) {
             return failedFuture(ex);
         }
     }
 
-    private void start() {
+    private void start() throws Exception {
         try {
             Files.createDirectories(logPath);
         } catch (IOException e) {
@@ -149,15 +162,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         );
 
         try {
-            flusher = new RocksDbFlusher(new IgniteSpinBusyLock(),
-                    Executors.newScheduledThreadPool(1),
-                    executorService,
-                    () -> 0,
-                    () -> {},
-                    () -> {},
-                    "Default log storage"
-            );
-
             dbOptions.setListeners(List.of(flusher.listener()));
 
             this.db = RocksDB.open(this.dbOptions, logPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
@@ -170,7 +174,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             // Setup background flushes pool
             env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
             // Setup background compactions pool
-            // The fuck? Shouldn't this be normal?
             env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
 
             assert (columnFamilyHandles.size() == 2);
@@ -178,7 +181,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             this.dataHandle = columnFamilyHandles.get(1);
         } catch (Exception e) {
             closeRocksResources();
-            throw new RuntimeException(e);
+
+            throw e;
         }
     }
 
@@ -190,6 +194,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             closeRocksResources();
         } catch (RuntimeException ex) {
             return failedFuture(ex);
+        } finally {
+            flusher.stop();
         }
 
         return nullCompletedFuture();

@@ -72,13 +72,12 @@ public class SharedRocksDbInstanceCreator {
             Files.createDirectories(path);
 
             var flusher = new RocksDbFlusher(
-                    busyLock,
+                    "rocksdb storage profile [" + profile.name() + "]", busyLock,
                     engine.scheduledPool(),
                     engine.threadPool(),
                     engine.configuration().flushDelayMillis()::value,
                     engine.logSyncer(),
-                    () -> {}, // No-op.
-                    "Partition storage"
+                    () -> {} // No-op.
             );
 
             List<ColumnFamilyDescriptor> cfDescriptors = getExistingCfDescriptors(path);

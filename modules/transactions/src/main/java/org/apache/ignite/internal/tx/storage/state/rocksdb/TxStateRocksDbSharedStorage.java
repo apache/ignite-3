@@ -142,13 +142,12 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
             Files.createDirectories(dbPath);
 
             flusher = new RocksDbFlusher(
-                    busyLock,
+                    "tx state storage", busyLock,
                     scheduledExecutor,
                     threadPool,
                     flushDelaySupplier,
                     logSyncer,
-                    () -> {}, // No-op.
-                    "TX state storage"
+                    () -> {} // No-op.
             );
 
             this.dbOptions = new DBOptions()
