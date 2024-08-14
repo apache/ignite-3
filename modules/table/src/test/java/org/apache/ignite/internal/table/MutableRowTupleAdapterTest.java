@@ -413,10 +413,10 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 .set("bytes", new byte[]{1, 2, 3, 4, 5});
 
         assertThrowsWithCause(() -> marshaller.marshal(tuple1), InvalidTypeException.class,
-                "Value too long for type BYTE_ARRAY(5) in column 'BYTES'"
+                "Value too long [column='BYTES', type=BYTE_ARRAY(5)]"
         );
         assertThrowsWithCause(() -> marshaller.marshal(tuple2), InvalidTypeException.class,
-                "Value too long for type STRING(5) in column 'STRING'"
+                "Value too long [column='STRING', type=STRING(5)]"
         );
 
         Tuple expected = Tuple.create().set("key", 1)
