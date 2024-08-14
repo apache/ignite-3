@@ -101,13 +101,15 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
     ) {
-        checkEnlistPossibility();
+        boolean locked = enlistPartitionLock.readLock().tryLock();
 
-        enlistPartitionLock.readLock().lock();
+        // No need to wait for lock if commit is in progress.
+        if (!locked) {
+            failEnlist();
+            assert false; // Not reachable.
+        }
 
         try {
-            checkEnlistPossibility();
-
             return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndConsistencyToken);
         } finally {
             enlistPartitionLock.readLock().unlock();
@@ -115,15 +117,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /**
-     * Checks that this transaction was not finished and will be able to enlist another partition.
+     * Fails the operation.
      */
-    private void checkEnlistPossibility() {
-        if (finishFuture != null) {
-            // This means that the transaction is either in final or FINISHING state.
-            throw new TransactionException(
-                    TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [id={}, state={}].", id(), state()));
-        }
+    private void failEnlist() {
+        throw new TransactionException(
+                TX_ALREADY_FINISHED_ERR,
+                format("Transaction is already finishing or finished [id={}, state={}].", id(), state()));
     }
 
     /** {@inheritDoc} */
@@ -133,22 +132,20 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             return finishFuture;
         }
 
+        // Do not unlock the lock intentionally.
+        //noinspection LockAcquiredButNotSafelyReleased
         enlistPartitionLock.writeLock().lock();
 
-        try {
-            if (finishFuture == null) {
-                CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
+        if (finishFuture == null) {
+            CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
 
-                finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
+            finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
 
-                // Return the real future first time.
-                return finishFutureInternal;
-            }
-
-            return finishFuture;
-        } finally {
-            enlistPartitionLock.writeLock().unlock();
+            // Return the real future first time.
+            return finishFutureInternal;
         }
+
+        return finishFuture;
     }
 
     /**

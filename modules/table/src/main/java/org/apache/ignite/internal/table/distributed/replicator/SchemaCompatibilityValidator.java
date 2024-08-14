@@ -207,8 +207,7 @@ class SchemaCompatibilityValidator {
     CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, int tableId, UUID txId) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
-        return schemaSyncService.waitForMetadataCompleteness(beginTimestamp)
-                .thenCompose(ignored -> validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion))
+        return validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion)
                 .thenApply(ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, beginTimestamp));
     }
 

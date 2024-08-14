@@ -77,9 +77,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -165,6 +165,7 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.table.RowIdGenerator;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -419,7 +420,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
-        schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
+        this.schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
         prepareIndexBuilderTxRwOperationTracker();
     }
@@ -1014,17 +1015,16 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Void> validateBackwardCompatibility(BinaryRow row, UUID txId) {
-//        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
-//                .thenAccept(validationResult -> {
-//                    if (!validationResult.isSuccessful()) {
-//                        throw new IncompatibleSchemaVersionException(String.format(
-//                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
-//                                        + "txSchemaVersion=%d, rowSchemaVersion=%d]",
-//                                validationResult.failedTableName(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
-//                        ));
-//                    }
-//                });
-        return nullCompletedFuture();
+        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
+                .thenAccept(validationResult -> {
+                    if (!validationResult.isSuccessful()) {
+                        throw new IncompatibleSchemaVersionException(String.format(
+                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
+                                        + "txSchemaVersion=%d, rowSchemaVersion=%d]",
+                                validationResult.failedTableName(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
+                        ));
+                    }
+                });
     }
 
     /**
@@ -2308,7 +2308,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRow = pkReadLockFuts[i].join();
 
                         if (lockedRow == null && uniqueKeys.add(pks.get(i).byteBuffer())) {
-                            rowsToInsert.put(new RowId(partId(), UUID.randomUUID()), row);
+                            rowsToInsert.put(new RowId(partId(), RowIdGenerator.next()), row);
 
                             result.add(new NullBinaryRow());
                         } else {
@@ -2412,7 +2412,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
 
                         boolean insert = rowId == null;
-                        RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
+                        RowId rowId0 = insert ? new RowId(partId(), RowIdGenerator.next()) : rowId;
 
                         return insert
                                 ? takeLocksForInsert(searchRow, rowId0, txId)
@@ -3027,7 +3027,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(false, null));
                     }
 
-                    RowId rowId0 = new RowId(partId(), UUID.randomUUID());
+                    RowId rowId0 = new RowId(partId(), RowIdGenerator.next());
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
                             .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
@@ -3054,9 +3054,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     boolean insert = rowId == null;
 
-                    // TODO slow randomUUID
-                    ThreadLocalRandom current = ThreadLocalRandom.current();
-                    RowId rowId0 = insert ? new RowId(partId(), new UUID(current.nextLong(), current.nextLong())) : rowId;
+                    RowId rowId0 = insert ? new RowId(partId(), RowIdGenerator.next()) : rowId;
 
                     CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = insert
                             ? takeLocksForInsert(searchRow, rowId0, txId)
@@ -3088,7 +3086,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     boolean insert = rowId == null;
 
-                    RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
+                    RowId rowId0 = insert ? new RowId(partId(), RowIdGenerator.next()) : rowId;
 
                     CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = insert
                             ? takeLocksForInsert(searchRow, rowId0, txId)
@@ -3355,11 +3353,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForInsert(BinaryRow binaryRow, RowId rowId, UUID txId) {
-//        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
-//                .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
-//                .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
-
-        return takePutLockOnIndexes(binaryRow, rowId, txId)
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
+                .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
 
@@ -3543,50 +3538,55 @@ public class PartitionReplicaListener implements ReplicaListener {
      *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
+        HybridTimestamp now = clockService.now();
+
         if (request instanceof PrimaryReplicaRequest) {
             Long enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
 
-            ReplicaMeta primaryReplicaMeta = placementDriver.getCurrentPrimaryReplica(replicationGroupId,
-                    hybridTimestamp(enlistmentConsistencyToken));
+            Function<ReplicaMeta, IgniteBiTuple<Boolean, Long>> validateClo = primaryReplicaMeta -> {
+                if (primaryReplicaMeta == null) {
+                    throw new PrimaryReplicaMissException(
+                            localNode.name(),
+                            null,
+                            localNode.id(),
+                            null,
+                            enlistmentConsistencyToken,
+                            null,
+                            null
+                    );
+                }
 
-            // We can skip waiting on primary replica, because it's already implemented on a coordinator side.
-            if (primaryReplicaMeta == null) {
-                return failedFuture(
-                        new PrimaryReplicaMissException(
-                                localNode.name(),
-                                null,
-                                localNode.id(),
-                                null,
-                                enlistmentConsistencyToken,
-                                null,
-                                null
-                        )
-                );
+                long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
+
+                if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
+                        || clockService.before(primaryReplicaMeta.getExpirationTime(), now)
+                        || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
+                ) {
+                    throw new PrimaryReplicaMissException(
+                            localNode.name(),
+                            primaryReplicaMeta.getLeaseholder(),
+                            localNode.id(),
+                            primaryReplicaMeta.getLeaseholderId(),
+                            enlistmentConsistencyToken,
+                            currentEnlistmentConsistencyToken,
+                            null);
+                }
+
+                return new IgniteBiTuple<>(null, primaryReplicaMeta.getStartTime().longValue());
+            };
+
+            ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, now);
+
+            if (meta != null) {
+                try {
+                    return completedFuture(validateClo.apply(meta));
+                } catch (Exception e) {
+                    return failedFuture(e);
+                }
             }
 
-            long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
-
-            // Test if a lease is valid at current timestamp.
-            if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
-                    || clockService.before(primaryReplicaMeta.getExpirationTime(), clockService.now())
-                    || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
-            ) {
-                return failedFuture(
-                        new PrimaryReplicaMissException(
-                                localNode.name(),
-                                primaryReplicaMeta.getLeaseholder(),
-                                localNode.id(),
-                                primaryReplicaMeta.getLeaseholderId(),
-                                enlistmentConsistencyToken,
-                                currentEnlistmentConsistencyToken,
-                                null)
-                );
-            }
-
-            return completedFuture(new IgniteBiTuple<>(null, primaryReplicaMeta.getStartTime().longValue()));
+            return placementDriver.getPrimaryReplica(replicationGroupId, now).thenApply(validateClo);
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            HybridTimestamp now = clockService.now();
-
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenApply(primaryReplica -> new IgniteBiTuple<>(
                             primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholderId()),
