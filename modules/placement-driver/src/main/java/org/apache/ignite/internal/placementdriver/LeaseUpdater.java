@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -450,6 +451,11 @@ public class LeaseUpdater {
                         activeLeasesCount,
                         currentAssignmentsSize
                 );
+            }
+
+            if (Arrays.equals(leasesCurrent.leasesBytes(), renewedValue)) {
+                LOG.debug("No leases to update found.");
+                return;
             }
 
             msManager.invoke(
