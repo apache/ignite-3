@@ -194,12 +194,14 @@ public class ExecutionTargetProviderImpl implements ExecutionTargetProvider {
 
             CompletableFuture<Void> all = CompletableFuture.allOf(primaryReplicaAssignment.toArray(new CompletableFuture[0]));
             return all.thenApply(ignore -> {
-                // Replace missed assignments with primary replicas.
+                // Creates a mutable copy and replace missed assignments with primary replicas.
+                List<TokenizedAssignments> finalAssignments = new ArrayList<>(assignments);
+
                 for (int i = 0; i < missedAssignments.size(); i++) {
-                    assignments.set(missedAssignments.getInt(i), primaryReplicaAssignment.get(i).join());
+                    finalAssignments.set(missedAssignments.getInt(i), primaryReplicaAssignment.get(i).join());
                 }
 
-                return assignments;
+                return finalAssignments;
             });
         });
     }
