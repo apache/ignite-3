@@ -247,8 +247,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         // The validation done on a client side (for a thin client), and messages may differ between embedded clients and thin clients.
         // For an embedded client the message include type precision, but for a thin client it doesn't.
         Throwable ex = assertThrows(IgniteException.class, () -> tupleView.upsert(null, rec));
-        assertThat(ex.getMessage(), startsWith("Value type does not match expected STRING"));
-        assertThat(ex.getMessage(), endsWith("but got INT64 in column 'VAL'"));
+        assertThat(ex.getMessage(), startsWith("Value type does not match [column='VAL', expected=STRING"));
+        assertThat(ex.getMessage(), endsWith(", actual=INT64]"));
     }
 
     @Test
@@ -335,7 +335,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create().set("VAL", "1".repeat(20))),
                 IgniteException.class);
 
-        assertThat(ex.getMessage(), containsString("Value too long for type STRING(10) in column 'VAL'"));
+        assertThat(ex.getMessage(), containsString("Value too long [column='VAL', type=STRING(10)]"));
     }
 
     @Test

@@ -211,12 +211,12 @@ public class Column {
             boolean specMatches = objType.spec() == type.spec();
 
             if (specMatches &&  type instanceof VarlenNativeType) {
-                String error = format("Value too long for type {} in column '{}'", type.displayName(), name);
+                String error = format("Value too long [column='{}', type={}]", name, type.displayName());
                 throw new InvalidTypeException(error);
             } else {
                 String error = format(
-                        "Value type does not match. Expected {} but got {} in column '{}'",
-                        type.displayName(), objType.displayName(), name
+                        "Value type does not match [column='{}', expected={}, actual={}]",
+                        name, type.displayName(), objType.displayName()
                 );
                 throw new InvalidTypeException(error);
             }

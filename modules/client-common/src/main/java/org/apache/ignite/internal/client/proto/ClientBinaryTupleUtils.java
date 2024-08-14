@@ -448,8 +448,8 @@ public class ClientBinaryTupleUtils {
 
             // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
             String error = format(
-                    "Value type does not match. Expected {} but got {} in column '{}'",
-                    expectedType.name(), actualType.name(), name
+                    "Value type does not match [column='{}', expected={}, actual={}]",
+                    name, expectedType.name(), actualType.name()
             );
 
             throw new IgniteException(PROTOCOL_ERR, error, e);

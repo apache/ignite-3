@@ -280,12 +280,12 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         final Tuple tuple1 = new TestTupleBuilder().set("id", 1L).set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
 
         assertThrowsWithCause(InvalidTypeException.class, () -> tbl.get(null, keyTuple0),
-                "Value type does not match. Expected INT64 but got INT32");
+                "Value type does not match [column='ID', expected=INT64, actual=INT32]");
         assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.get(null, keyTuple1),
                 "Missed key column: ID");
 
-        String strTooLongErr = "Value too long for type STRING(3)";
-        String byteArrayTooLongErr = "Value too long for type BYTE_ARRAY(3)";
+        String strTooLongErr = "Value too long [column='STR', type=STRING(3)]";
+        String byteArrayTooLongErr = "Value too long [column='BLOB', type=BYTE_ARRAY(3)]";
 
         assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple0), strTooLongErr);
         assertThrowsWithCause(InvalidTypeException.class, () -> tbl.replace(null, tuple1), byteArrayTooLongErr);
