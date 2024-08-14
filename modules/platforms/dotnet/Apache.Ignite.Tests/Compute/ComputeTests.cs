@@ -871,8 +871,13 @@ namespace Apache.Ignite.Tests.Compute
             var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
             Nested res = await exec.GetResultAsync();
 
+            var nullExec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null!);
+            Nested nullRes = await nullExec.GetResultAsync();
+
             Assert.AreEqual(arg.Id, res.Id);
             Assert.AreEqual(arg.Price + 1, res.Price);
+
+            Assert.IsNull(nullRes);
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
