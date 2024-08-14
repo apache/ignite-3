@@ -381,10 +381,10 @@ internal ref struct MsgPackReader
             return (T)obj!;
         }
 
-        // TODO: Avoid allocating byte array, pass a span.
+        // TODO: Avoid allocating byte array, pass a span from BinaryTupleReader.
         if (obj is byte[] bytes)
         {
-            return marshaller(bytes);
+            return marshaller.Unmarshal(bytes);
         }
 
         throw new UnsupportedObjectTypeMarshallingException(
