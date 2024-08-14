@@ -528,7 +528,8 @@ public class IgniteImpl implements Ignite {
                 partitionsWorkDir.metaPath(),
                 clock,
                 raftGroupEventsClientListener,
-                logStorageFactory
+                logStorageFactory,
+                failureProcessor
         );
 
         LockManager lockMgr = new HeapLockManager();

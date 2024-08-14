@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -94,7 +95,8 @@ public class TestJraftServerFactory {
                 partitionsWorkDir.metaPath(),
                 opts,
                 raftGroupEventsClientListener,
-                defaultLogStorageFactory
+                defaultLogStorageFactory,
+                new NoOpFailureProcessor()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {

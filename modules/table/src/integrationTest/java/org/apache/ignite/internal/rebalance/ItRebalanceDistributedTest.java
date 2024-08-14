@@ -1147,7 +1147,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionsWorkDir.metaPath(),
                     hybridClock,
                     raftGroupEventsClientListener,
-                    logStorageFactory
+                    logStorageFactory,
+                    new NoOpFailureProcessor()
             ));
 
             var clusterStateStorage = new TestClusterStateStorage();

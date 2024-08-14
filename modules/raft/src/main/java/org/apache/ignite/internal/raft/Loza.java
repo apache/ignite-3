@@ -28,6 +28,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -112,6 +113,7 @@ public class Loza implements RaftManager {
      * @param dataPath Data path.
      * @param clock A hybrid logical clock.
      * @param defaultLogStorageFactory The factory for default log storage.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      */
     public Loza(
             ClusterService clusterNetSvc,
@@ -120,7 +122,8 @@ public class Loza implements RaftManager {
             Path dataPath,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            LogStorageFactory defaultLogStorageFactory
+            LogStorageFactory defaultLogStorageFactory,
+            FailureProcessor failureProcessor
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
@@ -133,7 +136,14 @@ public class Loza implements RaftManager {
 
         this.opts = options;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options, raftGroupEventsClientListener, defaultLogStorageFactory);
+        this.raftServer = new JraftServerImpl(
+                clusterNetSvc,
+                dataPath,
+                options,
+                raftGroupEventsClientListener,
+                defaultLogStorageFactory,
+                failureProcessor
+        );
 
         this.executor = new ScheduledThreadPoolExecutor(
                 CLIENT_POOL_SIZE,

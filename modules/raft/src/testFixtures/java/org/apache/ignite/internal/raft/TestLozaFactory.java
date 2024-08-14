@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -85,7 +86,9 @@ public class TestLozaFactory {
                 partitionsBaseDir.metaPath(),
                 clock,
                 raftGroupEventsClientListener,
-                logStorageFactory) {
+                logStorageFactory,
+                new NoOpFailureProcessor()
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return logStorageFactory.startAsync(componentContext).thenCompose(none -> super.startAsync(componentContext));
