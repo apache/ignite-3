@@ -85,7 +85,7 @@ public class ClientHeartbeatBenchmark {
      * Tear down.
      */
     @TearDown
-    public void tearDown() throws Exception {
+    public void tearDown() {
         client.close();
         testServer.close();
     }

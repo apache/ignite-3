@@ -15,34 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
-
-import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+package org.apache.ignite.internal.raft;
 
 /**
- * NOT NULL constraint test for thin client API.
+ * Special type of exception used when a target peer is not present in the physical topology.
+ *
+ * <p>The stacktrace is omitted on purpose as to reduce log pollution (this exception is thrown and logged nearly immediately).
  */
-public class ItNotNullConstraintClientTest extends ItNotNullConstraintTest {
-
-    private IgniteClient client;
-
-    @BeforeEach
-    public void startClient() {
-        client = IgniteClient.builder()
-                .addresses("localhost:" + CLUSTER.aliveNode().clientAddress().port())
-                .build();
-    }
-
-    @AfterEach
-    public void stopClient() {
-        client.close();
-    }
-
-    @Override
-    protected Ignite ignite() {
-        return client;
+public class PeerUnavailableException extends RuntimeException {
+    public PeerUnavailableException(String consistentId) {
+        super("Peer " + consistentId + " is unavailable", null, true, false);
     }
 }
