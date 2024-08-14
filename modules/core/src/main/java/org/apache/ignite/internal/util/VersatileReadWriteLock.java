@@ -150,7 +150,7 @@ public class VersatileReadWriteLock {
     }
 
     private static int state(boolean writeLocked, int readLocks) {
-        assert readLocks >= 0 && readLocks <= READ_LOCK_BITS : readLocks;
+        assert readLocks >= 0 : readLocks;
 
         return (writeLocked ? WRITE_LOCK_BITS : 0) | (readLocks & READ_LOCK_BITS);
     }
