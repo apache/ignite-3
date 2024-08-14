@@ -50,7 +50,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void clientReconnectsToAnotherAddressOnNodeFail() throws Exception {
+    public void clientReconnectsToAnotherAddressOnNodeFail() {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
@@ -75,7 +75,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
 
     @Test
     @SuppressWarnings("ThrowableNotThrown")
-    public void testOperationFailsWhenAllServersFail() throws Exception {
+    public void testOperationFailsWhenAllServersFail() {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 

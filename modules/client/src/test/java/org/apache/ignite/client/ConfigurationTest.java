@@ -61,7 +61,7 @@ public class ConfigurationTest extends AbstractClientTest {
     }
 
     @Test
-    public void testAddressFinderWorksWithoutAddresses() throws Exception {
+    public void testAddressFinderWorksWithoutAddresses() {
         String addr = "127.0.0.1:" + serverPort;
 
         IgniteClient.Builder builder = IgniteClient.builder();
@@ -76,7 +76,7 @@ public class ConfigurationTest extends AbstractClientTest {
     }
 
     @Test
-    public void testClientBuilderPropagatesAllConfigurationValues() throws Exception {
+    public void testClientBuilderPropagatesAllConfigurationValues() {
         String addr = "127.0.0.1:" + serverPort;
 
         IgniteClient.Builder builder = IgniteClient.builder();
@@ -143,7 +143,7 @@ public class ConfigurationTest extends AbstractClientTest {
     }
 
     @Test
-    public void testDirectAsyncContinuationExecutorUsesNettyThread() throws Exception {
+    public void testDirectAsyncContinuationExecutorUsesNettyThread() {
         IgniteClient.Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:" + serverPort)
                 .asyncContinuationExecutor(Runnable::run);
@@ -157,7 +157,7 @@ public class ConfigurationTest extends AbstractClientTest {
     }
 
     @Test
-    public void testCustomAsyncContinuationExecutor() throws Exception {
+    public void testCustomAsyncContinuationExecutor() {
         Function<Integer, Integer> responseDelay = x -> 50;
 
         try (var testServer = new TestServer(0, server, x -> false, responseDelay, "n2", clusterId, null, null)) {

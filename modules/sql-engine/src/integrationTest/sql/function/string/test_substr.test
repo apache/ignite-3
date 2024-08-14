@@ -1,0 +1,250 @@
+# name: test/sql/function/string/test_substring.test
+# description: substr test
+# group: [string]
+
+statement ok
+CREATE TABLE strings(id INTEGER, s VARCHAR, off INTEGER, length INTEGER);
+
+statement ok
+INSERT INTO strings VALUES (0, 'hello', 1, 2), (1, 'world', 2, 3), (2, 'b', 1, 1), (3, NULL, 2, 2)
+
+# test zero length
+query TT
+SELECT substr('🦆ab', 1, 0), substr('abc', 1, 0)
+----
+(empty)	(empty)
+
+# constant offset/length
+# normal substr
+query T
+SELECT substr(s, 1, 2) FROM strings ORDER BY id
+----
+he
+wo
+b
+NULL
+
+# substr out of range
+query T
+SELECT substr(s, 2, 2) FROM strings ORDER BY id
+----
+el
+or
+(empty)
+NULL
+
+# variable length offset/length
+query T
+SELECT substr(s, off, length) FROM strings ORDER BY id
+----
+he
+orl
+b
+NULL
+
+query T
+SELECT substr(s, off, 2) FROM strings ORDER BY id
+----
+he
+or
+b
+NULL
+
+query T
+SELECT substr(s, 1, length) FROM strings ORDER BY id
+----
+he
+wor
+b
+NULL
+
+query T
+SELECT substr('hello', off, length) FROM strings ORDER BY id
+----
+he
+ell
+h
+el
+
+# test substrings with constant nulls in different places
+query T
+SELECT substr(NULL, off, length) FROM strings
+----
+NULL
+NULL
+NULL
+NULL
+
+query T
+SELECT substr('hello', NULL::int, length) FROM strings
+----
+NULL
+NULL
+NULL
+NULL
+
+query T
+SELECT substr('hello', off, NULL::int) FROM strings
+----
+NULL
+NULL
+NULL
+NULL
+
+query T
+SELECT substr(NULL, NULL::int, length) FROM strings
+----
+NULL
+NULL
+NULL
+NULL
+
+query T
+SELECT substr('hello', NULL::int, NULL::int) FROM strings
+----
+NULL
+NULL
+NULL
+NULL
+
+query T
+SELECT substr(NULL, off, NULL::int) FROM strings
+----
+NULL
+NULL
+NULL
+NULL
+
+query T
+SELECT substr(NULL, NULL::int, NULL::int) FROM strings
+----
+NULL
+NULL
+NULL
+NULL
+
+# Negative from
+query T
+SELECT substr(s, -2, 2) FROM strings ORDER BY id
+----
+(empty)
+(empty)
+(empty)
+NULL
+
+# zero offset (this is accepted by SQLite)
+query T
+SELECT substr(s, 0, length) FROM strings ORDER BY id
+----
+h
+wo
+(empty)
+NULL
+
+# Negative length
+statement error: negative substring length
+SELECT substr(s, 2, -2) FROM strings ORDER BY id
+
+# negative offset and negative length
+statement error: negative substring length
+SELECT substr(s, -2, -2) FROM strings ORDER BY id
+
+# length 0
+query T
+SELECT substr(s, 2, 0) FROM strings ORDER BY id
+----
+(empty)
+(empty)
+(empty)
+NULL
+
+# no length
+query T
+SELECT substr(s, 2) FROM strings ORDER BY id
+----
+ello
+orld
+(empty)
+NULL
+
+# very large offset and length
+query T
+SELECT substr(s, 2147483647, 2147483647) FROM strings ORDER BY id
+----
+(empty)
+(empty)
+(empty)
+NULL
+
+# BIGINT
+query T
+SELECT substr('1234567', 1, 9223372036854775807)
+----
+1234567
+
+# BIGINT
+query T
+SELECT substr('1234567', 9223372036854775807)
+----
+(empty)
+
+# BIGINT
+query T
+SELECT substr('1234567', 1::BIGINT)
+----
+1234567
+
+# The second argument is a BIGINT
+query T
+SELECT substr('1234567', -9223372036854775808)
+----
+1234567
+
+statement error: negative substring length
+SELECT substr('1234567', -9223372036854775808, -9223372036854775808)
+
+statement error: negative substring length
+SELECT substr(s, 2147483647, -2147483647) FROM strings ORDER BY id
+
+query T
+SELECT substr(s, -2147483647, 2147483647) FROM strings ORDER BY id
+----
+(empty)
+(empty)
+(empty)
+NULL
+
+statement error: negative substring length
+SELECT substr(s, -2147483647, -2147483647) FROM strings ORDER BY id
+
+statement error: Cannot apply 'SUBSTR' to arguments of type 'SUBSTR(<CHAR(7)>, <INTEGER>, <DECIMAL(2, 1)>)'
+SELECT substr('1234567', 2, 3.1)
+
+statement error: Cannot apply 'SUBSTR' to arguments of type 'SUBSTR(<CHAR(7)>, <DECIMAL(2, 1)>, <INTEGER>)'
+SELECT substr('1234567', 2.1, 3)
+
+statement error: Cannot apply 'SUBSTR' to arguments of type 'SUBSTR(<CHAR(7)>, <DECIMAL(2, 1)>, <DECIMAL(2, 1)>)'
+SELECT substr('1234567', 2.1, 3.1)
+
+# https://issues.apache.org/jira/browse/IGNITE-22417
+# Actual error while resolving method 'substring[class java.lang.String, class java.math.BigDecimal]' in class class org.apache.calcite.runtime.SqlFunctions
+skipif ignite3
+statement error: Cannot apply 'SUBSTR' to arguments of type 'SUBSTR(<CHAR(7)>, <DECIMAL(2, 1)>)'
+SELECT substr('1234567', 2.1)
+
+# Coercion
+
+query T
+SELECT substr('1234567', 2, '1')
+----
+2
+
+query T
+SELECT substr('1234567', '2', 1)
+----
+2
+
+query T
+SELECT substr('1234567', '2', '1')
+----
+2

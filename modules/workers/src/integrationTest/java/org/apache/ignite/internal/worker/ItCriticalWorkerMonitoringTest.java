@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
@@ -33,9 +34,8 @@ import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("resource")
 class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
-    private final LogInspector watchdogLogInspector = LogInspector.create(CriticalWorkerWatchdog.class, true);
+    private final LogInspector watchdogLogInspector = LogInspector.create(FailureProcessor.class, true);
 
     @Override
     protected int initialNodes() {
@@ -75,7 +75,7 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
 
     private static boolean matchesWithDotall(LogEvent event, String regex) {
         Pattern pattern = Pattern.compile(regex, Pattern.DOTALL);
-        return pattern.matcher(event.getMessage().getFormattedMessage()).matches();
+        return pattern.matcher(event.getThrown().getMessage()).matches();
     }
 
     private static String criticalThreadDetectedRegex(String threadSignature) {

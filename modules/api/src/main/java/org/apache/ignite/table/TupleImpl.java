@@ -358,6 +358,14 @@ class TupleImpl implements Tuple, Serializable {
         }
     }
 
+    <T> @Nullable T valueOrDefaultSkipNormalization(String columnName, @Nullable T def) {
+        Objects.requireNonNull(columnName);
+
+        Integer idx = colMapping.get(columnName);
+
+        return (idx == null) ? def : (T) colValues.get(idx);
+    }
+
     /** {@inheritDoc} */
     @Override
     public String toString() {

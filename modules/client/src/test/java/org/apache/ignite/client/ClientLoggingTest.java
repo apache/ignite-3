@@ -49,7 +49,7 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void loggersSetToDifferentClientsNotInterfereWithEachOther() throws Exception {
+    public void loggersSetToDifferentClientsNotInterfereWithEachOther() {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
