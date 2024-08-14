@@ -471,8 +471,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     // 2. Extend the buffer.
                     _buffer.GetSpanAndAdvance(1);
 
-                    // 3. Copy back.
-                    var newWrittenSpan = _buffer.GetWrittenMemory().Span.Slice(oldPos + 1, length + 1);
+                    // 3. Copy back, skipping existing VarlenEmptyByte at the beginning.
+                    var newWrittenSpan = _buffer.GetWrittenMemory().Span.Slice(oldPos + 1, length);
                     temp.AsSpan(0, length).CopyTo(newWrittenSpan);
                 }
                 finally
