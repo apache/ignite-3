@@ -24,6 +24,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
+import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -50,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
@@ -105,7 +108,6 @@ import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -116,6 +118,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -164,6 +167,7 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -220,8 +224,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.LazyPath;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
@@ -276,9 +278,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static SystemLocalConfiguration systemConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -906,7 +905,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             verify(getNode(i).raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
                     .startRaftGroupNode(any(), any(), any(), any(), any(), notNull(TopologyAwareRaftGroupServiceFactory.class));
             verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
-                    .startReplica(any(), any(PendingComparableValuesTracker.class), any());
+                    .startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any());
         }
     }
 
@@ -1080,6 +1079,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final LogStorageFactory logStorageFactory;
 
+        private final LogStorageFactory cmgLogStorageFactory;
+
+        private final LogStorageFactory msLogStorageFactory;
+
         final TestPlacementDriver placementDriver;
 
         private final IndexMetaStorage indexMetaStorage;
@@ -1141,18 +1144,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dir);
+            ComponentWorkingDir partitionsBasePath = partitionsPath(systemConfiguration, dir);
 
-            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
+            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsBasePath.raftLogPath());
+
+            RaftGroupOptionsConfigurer partitionRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(logStorageFactory, partitionsBasePath.metaPath());
 
             raftManager = spy(new Loza(
                     clusterService,
                     metricManager,
                     raftConfiguration,
-                    partitionsWorkDir.metaPath(),
                     hybridClock,
-                    raftGroupEventsClientListener,
-                    logStorageFactory
+                    raftGroupEventsClientListener
             ));
 
             var clusterStateStorage = new TestClusterStateStorage();
@@ -1166,6 +1170,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             failureProcessor = new NoOpFailureProcessor();
 
+            ComponentWorkingDir cmgWorkDir = cmgPath(systemConfiguration, dir);
+
+            cmgLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+
+            RaftGroupOptionsConfigurer cmgRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -1173,10 +1185,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureProcessor,
-                    clusterIdService
+                    clusterIdService,
+                    cmgRaftConfigurer
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -1192,6 +1204,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftGroupEventsClientListener
             );
 
+            ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, dir);
+
+            msLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+            RaftGroupOptionsConfigurer msRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
@@ -1201,7 +1221,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
-                    metaStorageConfiguration
+                    metaStorageConfiguration,
+                    msRaftConfigurer
             );
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
@@ -1264,7 +1285,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     dataStorageModules.createStorageEngines(
                             name,
                             nodeCfgMgr.configurationRegistry(),
-                            LazyPath.create(dir.resolve("storage")),
+                            dir.resolve("storage"),
                             null,
                             failureProcessor,
                             logSyncer,
@@ -1313,6 +1334,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
+                    partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool()
             ));
@@ -1359,7 +1381,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
-                    LazyPath.create(storagePath),
+                    storagePath,
                     metaStorageManager,
                     schemaManager,
                     threadPoolsManager.tableIoExecutor(),
@@ -1455,6 +1477,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     failureProcessor,
                     clusterService,
                     logStorageFactory,
+                    cmgLogStorageFactory,
+                    msLogStorageFactory,
                     raftManager,
                     cmgManager
             );

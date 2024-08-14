@@ -37,7 +37,7 @@ public class ItNotNullConstraintClientTest extends ItNotNullConstraintTest {
     }
 
     @AfterEach
-    public void stopClient() throws Exception {
+    public void stopClient() {
         client.close();
     }
 

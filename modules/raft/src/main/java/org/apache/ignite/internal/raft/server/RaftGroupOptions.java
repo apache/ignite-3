@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import java.nio.file.Path;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -35,7 +36,7 @@ public class RaftGroupOptions {
     private LogStorageFactory logStorageFactory;
 
     /** Snapshot storage factory. */
-    private SnapshotStorageFactory snapshotStorageFactory;
+    private @Nullable SnapshotStorageFactory snapshotStorageFactory;
 
     /** Raft meta storage factory. */
     private RaftMetaStorageFactory raftMetaStorageFactory;
@@ -45,6 +46,9 @@ public class RaftGroupOptions {
 
     /** Marshaller to marshall/unmarshall commands. */
     private @Nullable Marshaller commandsMarshaller;
+
+    /** Path to store raft data. */
+    private @Nullable Path serverDataPath;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -107,14 +111,14 @@ public class RaftGroupOptions {
     /**
      * Returns a snapshot storage factory that's used to create snapshot storage for a raft group.
      */
-    public SnapshotStorageFactory snapshotStorageFactory() {
+    public @Nullable SnapshotStorageFactory snapshotStorageFactory() {
         return snapshotStorageFactory;
     }
 
     /**
      * Adds snapshot storage factory to options.
      */
-    public RaftGroupOptions snapshotStorageFactory(SnapshotStorageFactory snapshotStorageFactory) {
+    public RaftGroupOptions snapshotStorageFactory(@Nullable SnapshotStorageFactory snapshotStorageFactory) {
         this.snapshotStorageFactory = snapshotStorageFactory;
 
         return this;
@@ -170,4 +174,24 @@ public class RaftGroupOptions {
 
         return this;
     }
+
+    /**
+     * Returns path to store raft data.
+     */
+    public @Nullable Path serverDataPath() {
+        return serverDataPath;
+    }
+
+    /**
+     * Sets path to store raft data.
+     *
+     * @param serverDataPath Path
+     * @return This object.
+     */
+    public RaftGroupOptions serverDataPath(Path serverDataPath) {
+        this.serverDataPath = serverDataPath;
+
+        return this;
+    }
+
 }

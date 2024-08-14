@@ -83,7 +83,6 @@ import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -94,6 +93,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -135,6 +135,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.utils.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -183,7 +184,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -195,7 +195,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -225,9 +224,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static SystemLocalConfiguration systemConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration("mock.nodeAttributes: {region.attribute = US, storage.attribute = SSD}")
     private static NodeAttributesConfiguration nodeAttributes1;
@@ -426,6 +422,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22944")
     void testAlterReplicaTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -540,7 +537,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @RepeatedTest(100)
+    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22858")
     void testAlterFilterTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
@@ -892,7 +889,11 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         private AtomicReference<Function<ReplicaRequest, ReplicationGroupId>> converter =
                 new AtomicReference<>(request -> request.groupId().asReplicationGroupId());
 
-        private final LogStorageFactory logStorageFactory;
+        private final LogStorageFactory partitionsLogStorageFactory;
+
+        private final LogStorageFactory msLogStorageFactory;
+
+        private final LogStorageFactory cmgLogStorageFactory;
 
         private final IndexMetaStorage indexMetaStorage;
 
@@ -952,16 +953,17 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dir);
 
-            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
+            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
+
+            RaftGroupOptionsConfigurer partitionRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
             raftManager = new Loza(
                     clusterService,
                     new NoOpMetricManager(),
                     raftConfiguration,
-                    partitionsWorkDir.metaPath(),
                     hybridClock,
-                    raftGroupEventsClientListener,
-                    logStorageFactory
+                    raftGroupEventsClientListener
             );
 
             var clusterStateStorage = new TestClusterStateStorage();
@@ -975,6 +977,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             failureProcessor = new NoOpFailureProcessor();
 
+            ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
+
+            cmgLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+
+            RaftGroupOptionsConfigurer cmgRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -982,10 +992,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    clusterManagementConfiguration,
                     new NodeAttributesCollector(nodeAttributesConfigurations.get(idx), storageConfiguration),
                     failureProcessor,
-                    clusterIdHolder
+                    clusterIdHolder,
+                    cmgRaftConfigurer
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -999,6 +1009,14 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     raftGroupEventsClientListener
             );
 
+            ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(dir.resolve("metastorage"));
+
+            msLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+            RaftGroupOptionsConfigurer msRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+
             metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
                     cmgManager,
@@ -1008,7 +1026,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration
+                    metaStorageConfiguration,
+                    msRaftConfigurer
             ) {
                 @Override
                 public CompletableFuture<Boolean> invoke(
@@ -1080,13 +1099,13 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             Path storagePath = dir.resolve("storage");
 
-            LogSyncer logSyncer = logStorageFactory;
+            LogSyncer logSyncer = partitionsLogStorageFactory;
 
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
                             nodeCfgMgr.configurationRegistry(),
-                            LazyPath.create(dir.resolve("storage")),
+                            dir.resolve("storage"),
                             null,
                             failureProcessor,
                             logSyncer,
@@ -1132,6 +1151,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
+                    partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
                     ForkJoinPool.commonPool(),
                     t -> converter.get().apply(t)
@@ -1195,7 +1215,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
-                    LazyPath.create(storagePath),
+                    storagePath,
                     metaStorageManager,
                     schemaManager,
                     threadPoolsManager.tableIoExecutor(),
@@ -1249,7 +1269,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     nodeCfgMgr,
                     failureProcessor,
                     clusterService,
-                    logStorageFactory,
+                    partitionsLogStorageFactory,
+                    msLogStorageFactory,
+                    cmgLogStorageFactory,
                     raftManager,
                     cmgManager
             );

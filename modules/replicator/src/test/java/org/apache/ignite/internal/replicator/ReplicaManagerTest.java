@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,9 +39,8 @@ import static org.mockito.Mockito.when;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
@@ -56,6 +56,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -109,12 +110,12 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var clock = new HybridClockImpl();
 
-        requestsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        requestsExecutor = Executors.newFixedThreadPool(
+                5,
                 NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
+
+        RaftGroupOptionsConfigurer partitionsConfigurer = mock(RaftGroupOptionsConfigurer.class);
 
         replicaManager = new ReplicaManager(
                 nodeName,
@@ -129,6 +130,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 marshaller,
                 raftGroupServiceFactory,
                 raftManager,
+                partitionsConfigurer,
                 volatileLogStorageFactoryCreator,
                 ForkJoinPool.commonPool()
         );

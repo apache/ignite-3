@@ -65,6 +65,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -217,7 +218,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.worker.ThreadAssertions;
@@ -462,7 +462,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ReplicaService replicaSvc,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
-            LazyPath storagePath,
+            Path storagePath,
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             ExecutorService ioExecutor,
@@ -577,7 +577,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         startVv = new IncrementalVersionedValue<>(registry);
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolveLazy(TX_STATE_DIR),
+                storagePath.resolve(TX_STATE_DIR),
                 txStateStorageScheduledPool,
                 txStateStoragePool,
                 logSyncer,

@@ -2,7 +2,6 @@
 # description: SQL feature E051-9 (Basic query specification. Rename columns in the FROM clause)
 # feature: E051-09
 # group: [basic_queries]
-# Ignore: https://issues.apache.org/jira/browse/IGNITE-22772
 
 statement ok
 CREATE TABLE tab ( A INT PRIMARY KEY, B INT )
@@ -68,13 +67,44 @@ SELECT X, Y FROM tab alias (X, Y) order by x -- no AS
 3	11
 
 # duplicate alias name
-statement error
+statement error: Duplicate name 'B' in column alias list
 SELECT alias.b, b FROM tab AS alias (b, b)
 
 # number of aliases is less than number of columns
-statement error
+statement error: List of column aliases must have same degree as table; table has 2 columns ('A', 'B'), whereas alias list has 1 columns
 SELECT alias.X FROM tab AS alias (X)
 
 # number of aliases is bigger than number of columns
-statement error
+statement error: List of column aliases must have same degree as table; table has 2 columns ('A', 'B'), whereas alias list has 3 columns
 SELECT alias.X FROM tab AS alias (X, Y, Z)
+
+statement ok
+CREATE TABLE another_table(val INT);
+
+statement ok
+INSERT INTO another_table VALUES(1)
+
+# system columns still can be referenced by old name after renaming
+query IIIIII
+SELECT
+  -- simple references
+  "__part" IS NOT NULL,
+  "__p_key" IS NOT NULL,
+  new_val,
+
+  -- qualified reference
+  t."__part" IS NOT NULL, 
+  t."__p_key" IS NOT NULL,
+  t.new_val
+  FROM another_table t (new_val)
+----
+true	true	1	true	true	1
+
+statement ok
+SELECT alias.X FROM (SELECT * FROM tab) AS alias (X, Y)
+
+statement error: List of column aliases must have same degree as table; table has 3 columns ('__part', 'A', 'B'), whereas alias list has 2 columns
+SELECT alias.X FROM (SELECT "__part", * FROM tab) AS alias (X, Y)
+
+statement ok
+SELECT alias.X FROM (SELECT "__part", * FROM tab) AS alias (X, Y, Z)

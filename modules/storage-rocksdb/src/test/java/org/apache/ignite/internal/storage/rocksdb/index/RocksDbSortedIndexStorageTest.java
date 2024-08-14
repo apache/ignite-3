@@ -33,7 +33,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,7 +53,7 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
             @InjectConfiguration("mock.profiles.default = {engine = rocksdb, size = 16777216, writeBufferSize = 16777216}")
             StorageConfiguration storageConfiguration
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, LazyPath.create(workDir), mock(LogSyncer.class));
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
 
         engine.start();
 

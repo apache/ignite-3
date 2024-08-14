@@ -41,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.events.BeforeStartRaftGroupEventParameters;
 import org.apache.ignite.internal.cluster.management.events.ClusterManagerGroupEvent;
 import org.apache.ignite.internal.cluster.management.events.EmptyEventParameters;
@@ -80,6 +79,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -101,6 +101,8 @@ import org.jetbrains.annotations.TestOnly;
 public class ClusterManagementGroupManager extends AbstractEventProducer<ClusterManagerGroupEvent, EventParameters>
         implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
+
+    private static final int NETWORK_INVOKE_TIMEOUT_MS = 3000;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -136,8 +138,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final ValidationManager validationManager;
 
-    private final ClusterManagementConfiguration configuration;
-
     /** Local state. */
     private final LocalStateStorage localStateStorage;
 
@@ -157,6 +157,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final CmgMessageHandler cmgMessageHandler;
 
+    private final RaftGroupOptionsConfigurer raftGroupOptionsConfigurer;
+
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -166,10 +168,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterStateStorageManager clusterStateStorageMgr,
             LogicalTopology logicalTopology,
             ValidationManager validationManager,
-            ClusterManagementConfiguration configuration,
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor,
-            ClusterIdHolder clusterIdChanger
+            ClusterIdHolder clusterIdChanger,
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
@@ -177,11 +179,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.clusterStateStorageMgr = clusterStateStorageMgr;
         this.logicalTopology = logicalTopology;
         this.validationManager = validationManager;
-        this.configuration = configuration;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
         this.failureProcessor = failureProcessor;
         this.clusterIdStore = clusterIdChanger;
+        this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
@@ -226,10 +228,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             RaftManager raftManager,
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
-            ClusterManagementConfiguration configuration,
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor,
-            ClusterIdHolder clusterIdChanger
+            ClusterIdHolder clusterIdChanger,
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this(
                 vault,
@@ -239,10 +241,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 new ClusterStateStorageManager(clusterStateStorage),
                 logicalTopology,
                 new ValidationManager(new ClusterStateStorageManager(clusterStateStorage), logicalTopology),
-                configuration,
                 nodeAttributes,
                 failureProcessor,
-                clusterIdChanger
+                clusterIdChanger,
+                raftGroupOptionsConfigurer
         );
     }
 
@@ -436,7 +438,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                 } else {
                                     e = unwrapCause(e);
 
-                                    LOG.debug("Error when initializing the CMG", e);
+                                    LOG.warn("Error when initializing the CMG", e);
 
                                     response = msgFactory.initErrorMessage()
                                             .cause(e.getMessage())
@@ -447,7 +449,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                 clusterService.messagingService().respond(sender, response, correlationId);
 
                                 return service;
-                            }));
+                            }))
+                    .whenComplete((cmgRaftService, e) -> {
+                        if (e != null) {
+                            LOG.warn("Error when handling the CMG Init", e);
+                        }
+                    });
         }
     }
 
@@ -675,7 +682,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private CompletableFuture<CmgRaftService> startCmgRaftServiceWithEvents(Set<String> nodeNames, @Nullable String initialClusterConfig) {
         BeforeStartRaftGroupEventParameters params = new BeforeStartRaftGroupEventParameters(nodeNames, initialClusterConfig);
         return fireEvent(ClusterManagerGroupEvent.BEFORE_START_RAFT_GROUP, params)
-                .thenCompose(v -> startCmgRaftService(nodeNames));
+                .thenCompose(v -> startCmgRaftService(nodeNames))
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.warn("Error when initializing the CMG", e);
+                    }
+                });
     }
 
     /**
@@ -704,7 +716,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             raftConfiguration,
                             new CmgRaftGroupListener(clusterStateStorageMgr, logicalTopology, validationManager,
                                     this::onLogicalTopologyChanged),
-                            this::onElectedAsLeader
+                            this::onElectedAsLeader,
+                            raftGroupOptionsConfigurer
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {
@@ -819,7 +832,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     private void sendWithRetry(ClusterNode node, NetworkMessage msg, CompletableFuture<Void> result, int attempts) {
-        clusterService.messagingService().invoke(node, msg, configuration.networkInvokeTimeout().value())
+        clusterService.messagingService().invoke(node, msg, NETWORK_INVOKE_TIMEOUT_MS)
                 .whenComplete((response, e) -> {
                     if (e == null) {
                         result.complete(null);

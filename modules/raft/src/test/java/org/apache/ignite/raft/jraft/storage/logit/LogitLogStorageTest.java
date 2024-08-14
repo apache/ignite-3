@@ -26,7 +26,6 @@ import java.util.List;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -50,7 +49,7 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageFactory = new LogitLogStorageFactory("test", testStoreOptions(), LazyPath.create(path));
+        logStorageFactory = new LogitLogStorageFactory("test", testStoreOptions(), path);
         assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.setup();

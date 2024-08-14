@@ -46,9 +46,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -69,6 +68,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -176,10 +176,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         raftClient = mock(TopologyAwareRaftGroupService.class);
         when(raftManager.startRaftGroupService(any(), any(), any(), any())).thenReturn(completedFuture(raftClient));
 
-        requestsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        requestsExecutor = Executors.newFixedThreadPool(
+                5,
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
@@ -202,6 +200,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
+                RaftGroupOptionsConfigurer.EMPTY,
                 view -> new LocalLogStorageFactory(),
                 ForkJoinPool.commonPool()
         );

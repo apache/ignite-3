@@ -56,7 +56,6 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -81,7 +80,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
             StorageConfiguration storageConfiguration,
             @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig
     ) throws Exception {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, LazyPath.create(workDir), mock(LogSyncer.class));
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
 
         engine.start();
 

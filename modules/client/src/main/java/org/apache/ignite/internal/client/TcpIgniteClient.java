@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.util.ViewUtils.sync;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -212,8 +214,12 @@ public class TcpIgniteClient implements IgniteClient {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
-        ch.close();
+    public void close() {
+        try {
+            ch.close();
+        } catch (Exception e) {
+            throw new IgniteInternalException(CONNECTION_ERR, "Error occurred while closing the channel", e);
+        }
 
         if (metricManager != null) {
             metricManager.stopAsync(new ComponentContext()).join();
