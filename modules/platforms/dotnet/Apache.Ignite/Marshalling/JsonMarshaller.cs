@@ -60,4 +60,10 @@ public sealed class JsonMarshaller<T> : IMarshaller<T>
     /// <inheritdoc />
     public T Unmarshal(ReadOnlySpan<byte> bytes) =>
         JsonSerializer.Deserialize<T>(bytes, Options)!;
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        new IgniteToStringBuilder(GetType())
+            .Append(Options)
+            .Build();
 }

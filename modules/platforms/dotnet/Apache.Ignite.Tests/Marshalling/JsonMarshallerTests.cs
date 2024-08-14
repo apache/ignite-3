@@ -30,4 +30,12 @@ public class JsonMarshallerTests
     {
         Assert.Fail("TODO");
     }
+
+    [Test]
+    public void TestToString()
+    {
+        Assert.AreEqual(
+            "JsonMarshaller`1[Int32] { Options = System.Text.Json.JsonSerializerOptions }",
+            new JsonMarshaller<int>().ToString());
+    }
 }
