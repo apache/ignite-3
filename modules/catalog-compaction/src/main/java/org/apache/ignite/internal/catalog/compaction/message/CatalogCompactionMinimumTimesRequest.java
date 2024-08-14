@@ -17,18 +17,15 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message types used in catalog compaction module.
+ * Request to obtain timestamps required to safely perform catalog compaction.
+ *
+ * @see CatalogCompactionMinimumTimesResponse
  */
-@MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
-public class CatalogCompactionMessageGroup {
-    public static final short GROUP_TYPE = 14;
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_TIMES_REQUEST)
+public interface CatalogCompactionMinimumTimesRequest extends NetworkMessage {
 
-    /** See {@link CatalogCompactionMinimumTimesRequest} for the details. */
-    public static final short MINIMUM_TIMES_REQUEST = 0;
-
-    /** See {@link CatalogCompactionMinimumTimesResponse} for the details. */
-    public static final short MINIMUM_TIMES_RESPONSE = 1;
 }
