@@ -110,6 +110,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         }
 
         try {
+            checkEnlistPossibility();
+
             return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndConsistencyToken);
         } finally {
             enlistPartitionLock.readLock().unlock();
@@ -122,7 +124,17 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private void failEnlist() {
         throw new TransactionException(
                 TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finishing or finished [id={}, state={}].", id(), state()));
+                format("Transaction is already finished [id={}, state={}].", id(), state()));
+    }
+
+    /**
+     * Checks that this transaction was not finished and will be able to enlist another partition.
+     */
+    private void checkEnlistPossibility() {
+        if (finishFuture != null) {
+            // This means that the transaction is either in final or FINISHING state.
+            failEnlist();
+        }
     }
 
     /** {@inheritDoc} */
@@ -132,20 +144,22 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             return finishFuture;
         }
 
-        // Do not unlock the lock intentionally.
-        //noinspection LockAcquiredButNotSafelyReleased
         enlistPartitionLock.writeLock().lock();
 
-        if (finishFuture == null) {
-            CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
+        try {
+            if (finishFuture == null) {
+                CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
 
-            finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
+                finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
 
-            // Return the real future first time.
-            return finishFutureInternal;
+                // Return the real future first time.
+                return finishFutureInternal;
+            }
+
+            return finishFuture;
+        } finally {
+            enlistPartitionLock.writeLock().unlock();
         }
-
-        return finishFuture;
     }
 
     /**
