@@ -535,7 +535,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         assert txTs != null && opTs.compareTo(txTs) >= 0 : "Invalid request timestamps";
 
         @Nullable HybridTimestamp finalTxTs = txTs;
-        Runnable clo = () -> {
+        Runnable validateClo = () -> {
             schemaCompatValidator.failIfSchemaChangedAfterTxStart(finalTxTs, opTs, tableId());
 
             if (hasSchemaVersion) {
@@ -549,7 +549,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         };
 
-        return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(clo).thenCompose(ignored ->
+        return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo).thenCompose(ignored ->
                 processOperationRequestWithTxRwCounter(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
     }
 

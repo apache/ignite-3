@@ -101,10 +101,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
     ) {
-        boolean locked = enlistPartitionLock.readLock().tryLock();
-
         // No need to wait for lock if commit is in progress.
-        if (!locked) {
+        if (!enlistPartitionLock.readLock().tryLock()) {
             failEnlist();
             assert false; // Not reachable.
         }
