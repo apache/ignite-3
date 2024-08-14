@@ -1390,7 +1390,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private Span<byte> GetSpan(int size)
         {
-            var span = _buffer.GetSpan(size);
+            var span = _buffer.GetSpan(size)[..size];
 
             _buffer.Advance(size);
 
