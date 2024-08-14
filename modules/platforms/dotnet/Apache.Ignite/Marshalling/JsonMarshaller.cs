@@ -19,28 +19,41 @@ namespace Apache.Ignite.Marshalling;
 
 using System;
 using System.Buffers;
+using System.Text.Json;
 
 /// <summary>
-/// Ignite marshaller (serializer / deserializer).
-/// <para />
-/// Marshaller is used in APIs that require transferring custom objects over the wire, such as Compute arguments and results.
-/// <para />
-/// See also <see cref="JsonMarshaller{T}"/>.
+/// JSON marshaller. Uses <see cref="System.Text.Json.JsonSerializer"/>.
 /// </summary>
 /// <typeparam name="T">Object type.</typeparam>
-public interface IMarshaller<T>
+public sealed class JsonMarshaller<T> : IMarshaller<T>
 {
     /// <summary>
-    /// Marshals (serializes) the specified object into the provided writer.
+    /// Initializes a new instance of the <see cref="JsonMarshaller{T}"/> class.
     /// </summary>
-    /// <param name="obj">Object. Not null - Ignite handles nulls separately and does not invoke the marshaller.</param>
-    /// <param name="writer">Writer.</param>
-    void Marshal(T obj, IBufferWriter<byte> writer);
+    /// <param name="options">Options.</param>
+    public JsonMarshaller(JsonSerializerOptions? options = null)
+    {
+        Options = options ?? new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = false
+        };
+    }
 
     /// <summary>
-    /// Unmarshals (deserializes) an object from the provided data.
+    /// Gets the options.
     /// </summary>
-    /// <param name="bytes">Serialized data.</param>
-    /// <returns>Deserialized object.</returns>
-    T Unmarshal(ReadOnlySpan<byte> bytes);
+    public JsonSerializerOptions Options { get; }
+
+    /// <inheritdoc />
+    public void Marshal(T obj, IBufferWriter<byte> writer)
+    {
+        using var utf8JsonWriter = new Utf8JsonWriter(writer);
+        JsonSerializer.Serialize(utf8JsonWriter, obj, Options);
+    }
+
+    /// <inheritdoc />
+    public T Unmarshal(ReadOnlySpan<byte> bytes) =>
+        JsonSerializer.Deserialize<T>(bytes, Options)!;
 }
