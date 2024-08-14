@@ -30,6 +30,7 @@ namespace Apache.Ignite.Tests.Compute
     using Internal.Compute;
     using Internal.Network;
     using Internal.Proto;
+    using Marshalling;
     using Network;
     using NodaTime;
     using NUnit.Framework;
@@ -840,16 +841,10 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestNestedObjectsWithJsonMarshaller()
         {
-            var jsonOpts = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                PropertyNameCaseInsensitive = true
-            };
-
             var job = new JobDescriptor<MyArg, MyResult>(PlatformTestNodeRunner + "$JsonMarshallerJob")
             {
-                ArgMarshaller = (arg, writer) => JsonSerializer.Serialize(new Utf8JsonWriter(writer), arg, jsonOpts),
-                ResultMarshaller = bytes => JsonSerializer.Deserialize<MyResult>(bytes!.Value.Span, jsonOpts)!
+                ArgMarshaller = new JsonMarshaller<MyArg>(),
+                ResultMarshaller = new JsonMarshaller<MyResult>()
             };
 
             var arg = new MyArg(1, "foo", new Nested(Guid.NewGuid(), 1.234m));
