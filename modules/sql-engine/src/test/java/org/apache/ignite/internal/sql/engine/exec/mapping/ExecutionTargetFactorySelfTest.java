@@ -37,7 +37,6 @@ import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
 import org.hamcrest.Matcher;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -55,6 +54,7 @@ public class ExecutionTargetFactorySelfTest {
     private static final List<String> NODE_SUBSET = List.of("node2", "node5");
     private static final List<String> SINGLE_NODE_SET = List.of("node4");
     private static final List<String> INVALID_NODE_SET = List.of("node0");
+    private static final List<String> PARTIALLY_INVALID_NODE_SET = List.of("node4", "node6");
 
     private static List<ExecutionTargetFactory> clusterFactory() {
         return List.of(
@@ -75,7 +75,6 @@ public class ExecutionTargetFactorySelfTest {
     @MethodSource("clusterFactory")
     void targetsResolution(ExecutionTargetFactory f) {
         assertThat(f.resolveNodes(f.allOf(NODE_SET)), equalTo(NODE_SET));
-        assertThat(f.resolveNodes(f.allOf(NODE_SET)), equalTo(NODE_SET));
         assertThat(f.resolveNodes(f.someOf(NODE_SET)), hasItems(in(NODE_SET)));
         assertThat(f.resolveNodes(f.oneOf(NODE_SET)), containsSingleFrom(NODE_SET));
         assertThat(f.resolveNodes(f.partitioned(assignmentFromPrimaries(NODE_SET))), equalTo(NODE_SET));
@@ -84,20 +83,24 @@ public class ExecutionTargetFactorySelfTest {
     @ParameterizedTest
     @MethodSource("clusterFactory")
     void emptyTargets(ExecutionTargetFactory f) {
-        assertThrows(AssertionError.class, () -> f.allOf(List.of()), null);
-        assertThrows(AssertionError.class, () -> f.someOf(List.of()), null);
-        assertThrows(AssertionError.class, () -> f.oneOf(List.of()), null);
-        assertThrows(AssertionError.class, () -> f.partitioned(List.of()), null);
+        assertThrows(AssertionError.class, () -> f.allOf(List.of()), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.someOf(List.of()), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.oneOf(List.of()), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.partitioned(List.of()), "Empty target is not allowed");
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22969")
     @ParameterizedTest
     @MethodSource("clusterFactory")
     void invalidTargets(ExecutionTargetFactory f) {
-        assertThrows(Throwable.class, () -> f.allOf(INVALID_NODE_SET), "invalid node");
-        assertThrows(Throwable.class, () -> f.someOf(INVALID_NODE_SET), "invalid node");
-        assertThrows(Throwable.class, () -> f.oneOf(INVALID_NODE_SET), "invalid node");
-        assertThrows(Throwable.class, () -> f.partitioned(assignmentFromPrimaries(INVALID_NODE_SET)), "invalid node");
+        assertThrows(AssertionError.class, () -> f.allOf(INVALID_NODE_SET), "invalid node");
+        assertThrows(AssertionError.class, () -> f.someOf(INVALID_NODE_SET), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.oneOf(INVALID_NODE_SET), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.partitioned(assignmentFromPrimaries(INVALID_NODE_SET)), "No partition node found");
+
+        assertThrows(Throwable.class, () -> f.allOf(PARTIALLY_INVALID_NODE_SET), "invalid node");
+        assertThat(f.resolveNodes(f.someOf(PARTIALLY_INVALID_NODE_SET)), equalTo(SINGLE_NODE_SET));
+        assertThat(f.resolveNodes(f.oneOf(PARTIALLY_INVALID_NODE_SET)), equalTo(SINGLE_NODE_SET));
+        assertThat(f.resolveNodes(f.partitioned(assignment(PARTIALLY_INVALID_NODE_SET, PARTIALLY_INVALID_NODE_SET))), equalTo(SINGLE_NODE_SET));
     }
 
     @ParameterizedTest

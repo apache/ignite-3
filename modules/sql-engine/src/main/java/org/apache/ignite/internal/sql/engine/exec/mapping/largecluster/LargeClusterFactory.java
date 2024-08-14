@@ -51,7 +51,16 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
 
     @Override
     public ExecutionTarget allOf(List<String> nodes) {
-        return new AllOfTarget(nodeListToMap(nodes));
+        BitSet nodesSet = new BitSet(nodeNameToId.size());
+
+        for (String name : nodes) {
+            int id = nodeNameToId.getOrDefault(name, -1);
+            assert id >= 0 : "invalid node";
+
+            nodesSet.set(id);
+        }
+
+        return new AllOfTarget(nodesSet);
     }
 
     @Override
@@ -72,9 +81,7 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
         int idx = 0;
         boolean finalised = true;
         for (TokenizedAssignments assignment : assignments) {
-            finalised = finalised && assignment.nodes().size() < 2;
-
-            BitSet nodes = new BitSet(assignment.nodes().size());
+            BitSet nodes = new BitSet(nodeNameToId.size());
             for (Assignment a : assignment.nodes()) {
                 int node = nodeNameToId.getOrDefault(a.consistentId(), -1);
 
@@ -83,6 +90,10 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
                     nodes.set(node);
                 }
             }
+
+            assert !nodes.isEmpty() : "No partition node found";
+
+            finalised = finalised && nodes.cardinality() < 2;
 
             partitionNodes[idx] = nodes;
             enlistmentConsistencyTokens[idx] = assignment.token();
@@ -111,17 +122,17 @@ public class LargeClusterFactory implements ExecutionTargetFactory {
     }
 
     private BitSet nodeListToMap(List<String> nodes) {
-        BitSet nodesMap = new BitSet(nodes.size());
+        BitSet nodesSet = new BitSet(nodeNameToId.size());
 
         for (String name : nodes) {
             int id = nodeNameToId.getOrDefault(name, -1);
 
             // TODO Ignore unknown node until IGNITE-22969
             if (id != -1) {
-                nodesMap.set(id);
+                nodesSet.set(id);
             }
         }
 
-        return nodesMap;
+        return nodesSet;
     }
 }
