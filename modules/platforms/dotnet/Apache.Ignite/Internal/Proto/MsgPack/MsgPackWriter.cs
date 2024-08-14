@@ -379,14 +379,12 @@ internal readonly ref struct MsgPackWriter
             return;
         }
 
-        // TODO: Write directly to BinaryTupleBuilder - implement PooledArrayBufferWriter.
-        var bufferWriter = new ArrayBufferWriter<byte>();
-        marshaller.Marshal(obj, bufferWriter);
-
         using var builder = new BinaryTupleBuilder(3);
         builder.AppendInt((int)ColumnType.ByteArray);
         builder.AppendInt(0); // Scale.
-        builder.AppendBytes(bufferWriter.WrittenSpan);
+        builder.AppendBytes(
+            static (IBufferWriter<byte> writer, (T Obj, IMarshaller<T> Marshaller) arg) => arg.Marshaller.Marshal(arg.Obj, writer),
+            arg: (obj, marshaller));
 
         Write(builder.Build().Span);
     }
