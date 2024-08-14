@@ -403,10 +403,16 @@ public class IgniteImpl implements Ignite {
 
     private final Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
 
+    private final IgniteTables publicTables;
+    private final IgniteTransactions publicTransactions;
+    private final IgniteSql publicSql;
+    private final IgniteCompute publicCompute;
+    private final IgniteCatalog publicCatalog;
+
     /** Default log storage factory for raft. */
     private final LogStorageFactory logStorageFactory;
 
-    private IndexMetaStorage indexMetaStorage;
+    private final IndexMetaStorage indexMetaStorage;
 
     /**
      * The Constructor.
@@ -987,6 +993,14 @@ public class IgniteImpl implements Ignite {
         );
 
         restComponent = createRestComponent(name);
+
+        publicTables = new PublicApiThreadingIgniteTables(distributedTblMgr, asyncContinuationExecutor);
+        publicTransactions = new PublicApiThreadingIgniteTransactions(
+                new IgniteTransactionsImpl(txManager, observableTimestampTracker), asyncContinuationExecutor
+        );
+        publicSql = new PublicApiThreadingIgniteSql(sql, asyncContinuationExecutor);
+        publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
+        publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
@@ -1338,7 +1352,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTables tables() {
-        return new PublicApiThreadingIgniteTables(distributedTblMgr, asyncContinuationExecutor);
+        return publicTables;
     }
 
     public DisasterRecoveryManager disasterRecoveryManager() {
@@ -1373,8 +1387,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        IgniteTransactionsImpl transactions = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
-        return new PublicApiThreadingIgniteTransactions(transactions, asyncContinuationExecutor);
+        return publicTransactions;
     }
 
     private IgniteSql bareSql() {
@@ -1384,7 +1397,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteSql sql() {
-        return new PublicApiThreadingIgniteSql(sql, asyncContinuationExecutor);
+        return publicSql;
     }
 
     /** {@inheritDoc} */
@@ -1396,7 +1409,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteCompute compute() {
-        return new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
+        return publicCompute;
     }
 
     /** {@inheritDoc} */
@@ -1413,7 +1426,7 @@ public class IgniteImpl implements Ignite {
 
     @Override
     public IgniteCatalog catalog() {
-        return new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
+        return publicCatalog;
     }
 
     /**
