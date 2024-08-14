@@ -1446,7 +1446,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       currentBlockBuilder.add(
           Expressions.statement(
               Expressions.assign(valueVariable,
-                      ConverterUtils.convert(res, valueVariable.getType()))));
+                      ConverterUtils.convert(res, valueType))));
       return;
     }
     // Condition code: !a_isNull && a_value
