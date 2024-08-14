@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.MsgPack;
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using BinaryTuple;
@@ -378,17 +379,14 @@ internal readonly ref struct MsgPackWriter
             return;
         }
 
-        var bytes = marshaller(obj);
-        if (bytes == null)
-        {
-            WriteNil();
-            return;
-        }
+        // TODO: Write directly to BinaryTupleBuilder - implement PooledArrayBufferWriter.
+        var bufferWriter = new ArrayBufferWriter<byte>();
+        marshaller.Marshal(obj, bufferWriter);
 
         using var builder = new BinaryTupleBuilder(3);
         builder.AppendInt((int)ColumnType.ByteArray);
         builder.AppendInt(0); // Scale.
-        builder.AppendBytes(bytes.Value.Span);
+        builder.AppendBytes(bufferWriter.WrittenSpan);
 
         Write(builder.Build().Span);
     }

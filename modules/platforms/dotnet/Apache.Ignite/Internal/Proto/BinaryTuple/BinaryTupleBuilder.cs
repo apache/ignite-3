@@ -423,7 +423,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends bytes.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendBytes(Span<byte> value)
+        public void AppendBytes(ReadOnlySpan<byte> value)
         {
             if (GetHashOrder() is { } hashOrder)
             {
@@ -1164,7 +1164,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void PutDouble(double value) => PutLong(BitConverter.DoubleToInt64Bits(value));
 
-        private void PutBytes(Span<byte> bytes)
+        private void PutBytes(ReadOnlySpan<byte> bytes)
         {
             if (bytes.Length == 0)
             {

@@ -29,6 +29,7 @@ namespace Apache.Ignite.Internal.Compute
     using Ignite.Compute;
     using Ignite.Network;
     using Ignite.Table;
+    using Marshalling;
     using Proto;
     using Proto.MsgPack;
     using Table;
@@ -303,7 +304,7 @@ namespace Apache.Ignite.Internal.Compute
         private IJobExecution<T> GetJobExecution<T>(
             PooledBuffer computeExecuteResult,
             bool readSchema,
-            Func<Memory<byte>?, T>? marshaller)
+            IMarshaller<T>? marshaller)
         {
             var reader = computeExecuteResult.GetReader();
 
