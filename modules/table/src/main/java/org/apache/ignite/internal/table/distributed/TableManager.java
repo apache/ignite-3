@@ -588,9 +588,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         tableProcessorsStorage = new TableProcessorsStorage(partitionReplicaLifecycleManager);
 
-        partitionReplicaLifecycleManager.listen(PartitionReplicaLifecycleEvent.AFTER_REPLICA_STARTED, (PartitionReplicaLifecycleEventParameters params) -> {
-            return onZoneReplicaCreated(params);
-        });
+        partitionReplicaLifecycleManager.listen(
+                PartitionReplicaLifecycleEvent.AFTER_REPLICA_STARTED,
+                this::onZoneReplicaCreated
+        );
     }
 
     @Override
@@ -613,10 +614,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             sharedTxStateStorage.start();
 
             started.complete(null);
-            if (!PartitionReplicaLifecycleManager.ENABLED) {
-                startTables(recoveryRevision, lowWatermark.getLowWatermark());
-            }
-            startTablesForZoneReplicas(recoveryRevision, lowWatermark.getLowWatermark());
+
+            startTables(recoveryRevision, lowWatermark.getLowWatermark());
 
             processAssignmentsOnRecovery(recoveryRevision);
 
@@ -684,14 +683,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         long causalityToken = parameters.causalityToken();
         CatalogTableDescriptor tableDescriptor = parameters.tableDescriptor();
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, parameters.catalogVersion());
-        int tableId = parameters.tableId();
-        TableImpl table =  createTableImpl(causalityToken, tableDescriptor, zoneDescriptor);
 
-        return getBooleanCompletableFuture(zoneDescriptor, causalityToken, tableId, table, false);
+        return getBooleanCompletableFuture(causalityToken, zoneDescriptor, tableDescriptor, false);
     }
 
     private CompletableFuture<Boolean> getBooleanCompletableFuture(
-            CatalogZoneDescriptor zoneDescriptor, long causalityToken, int tableId, TableImpl table, boolean onNodeRecovery) {
+            long causalityToken,
+            CatalogZoneDescriptor zoneDescriptor,
+            CatalogTableDescriptor tableDescriptor,
+            boolean onNodeRecovery
+    ) {
+        TableImpl table =  createTableImpl(causalityToken, tableDescriptor, zoneDescriptor);
+
+        int tableId = tableDescriptor.id();
+
         long stamp = partitionReplicaLifecycleManager.lockZoneIdForRead(zoneDescriptor.id());
 
         tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
@@ -2713,41 +2718,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int ver0 = ver;
             catalogService.tables(ver).stream()
                     .filter(tbl -> startedTables.add(tbl.id()))
-                    .forEach(tableDescriptor -> startTableFutures.add(createTableLocally(recoveryRevision, ver0, tableDescriptor, true)));
-        }
-
-        // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
-        startVv.update(recoveryRevision, (unused, throwable) -> allOf(startTableFutures.toArray(CompletableFuture[]::new)))
-                .whenComplete((unused, throwable) -> {
-                    if (throwable != null) {
-                        LOG.error("Error starting tables", throwable);
-                    } else {
-                        LOG.debug("Tables started successfully");
-                    }
-                });
-    }
-
-    private void startTablesForZoneReplicas(long recoveryRevision, @Nullable HybridTimestamp lwm) {
-        if (!PartitionReplicaLifecycleManager.ENABLED) {
-            return;
-        }
-
-        int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
-        int latestCatalogVersion = catalogService.latestCatalogVersion();
-
-        var startedTables = new IntOpenHashSet();
-        var startTableFutures = new ArrayList<CompletableFuture<?>>();
-
-        for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
-            int ver0 = ver;
-            catalogService.tables(ver).stream()
-                    .filter(tbl -> startedTables.add(tbl.id()))
                     .forEach(tableDescriptor -> {
+                        if (PartitionReplicaLifecycleManager.ENABLED) {
+                            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver0);
 
-                        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver0);
-                        TableImpl table = createTableImpl(recoveryRevision, tableDescriptor, zoneDescriptor);
-                        startTableFutures.add(
-                                getBooleanCompletableFuture(zoneDescriptor, recoveryRevision, table.tableId(), table, true));
+                            startTableFutures.add(
+                                    getBooleanCompletableFuture(
+                                            recoveryRevision,
+                                            zoneDescriptor,
+                                            tableDescriptor,
+                                            true
+                                    )
+                            );
+                        } else {
+                            startTableFutures.add(
+                                    createTableLocally(recoveryRevision, ver0, tableDescriptor, true)
+                            );
+                        }
                     });
         }
 
