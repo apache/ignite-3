@@ -61,6 +61,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -135,7 +136,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private volatile MetaStorageListener learnerListener;
 
-    private final List<ElectionListener> electionListeners = new CopyOnWriteArrayList<>(); 
+    private final List<ElectionListener> electionListeners = new CopyOnWriteArrayList<>();
+
+    private final RaftGroupOptionsConfigurer raftGroupOptionsConfigurer;
 
     /**
      * The constructor.
@@ -147,6 +150,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      * @param clock A hybrid logical clock.
      * @param metricManager Metric manager.
+     * @param raftGroupOptionsConfigurer Configures MS RAFT options.
      */
     public MetaStorageManagerImpl(
             ClusterService clusterService,
@@ -156,7 +160,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             KeyValueStorage storage,
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            MetricManager metricManager
+            MetricManager metricManager,
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -167,6 +172,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metricManager = metricManager;
+        this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
     }
 
     /**
@@ -182,7 +188,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
-            MetaStorageConfiguration configuration
+            MetaStorageConfiguration configuration,
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this(
                 clusterService,
@@ -192,7 +199,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 storage,
                 clock,
                 topologyAwareRaftGroupServiceFactory,
-                metricManager
+                metricManager,
+                raftGroupOptionsConfigurer
         );
 
         configure(configuration);
@@ -322,7 +330,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 followerListener,
                 RaftGroupEventsListener.noopLsnr,
                 disruptorConfig,
-                topologyAwareRaftGroupServiceFactory
+                topologyAwareRaftGroupServiceFactory,
+                raftGroupOptionsConfigurer
         );
 
         raftServiceFuture
@@ -365,7 +374,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 configuration,
                 learnerListener,
                 RaftGroupEventsListener.noopLsnr,
-                disruptorConfig
+                disruptorConfig,
+                raftGroupOptionsConfigurer
         );
     }
 

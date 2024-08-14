@@ -55,12 +55,12 @@ public class ConnectionTest extends AbstractClientTest {
     }
 
     @Test
-    public void testValidNodeAddresses() throws Exception {
+    public void testValidNodeAddresses() {
         testConnection("127.0.0.1:" + serverPort);
     }
 
     @Test
-    public void testDefaultClientConfig() throws Exception {
+    public void testDefaultClientConfig() {
         try (var ignored = new TestServer(0, new FakeIgnite(), null, null, "abc", clusterId, null, 10800)) {
             IgniteClient.builder()
                     .addresses("localhost")
@@ -82,19 +82,19 @@ public class ConnectionTest extends AbstractClientTest {
     }
 
     @Test
-    public void testValidInvalidNodeAddressesMix() throws Exception {
+    public void testValidInvalidNodeAddressesMix() {
         testConnection("127.0.0.1:47500", "127.0.0.1:10801", "127.0.0.1:" + serverPort);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15611 . IPv6 is not enabled by default on some systems.")
     @Test
-    public void testIpv6NodeAddresses() throws Exception {
+    public void testIpv6NodeAddresses() {
         testConnection("[::1]:" + serverPort);
     }
 
     @SuppressWarnings("ThrowableNotThrown")
     @Test
-    public void testNoResponseFromServerWithinConnectTimeoutThrowsException() throws Exception {
+    public void testNoResponseFromServerWithinConnectTimeoutThrowsException() {
         Function<Integer, Integer> responseDelay = x -> 500;
 
         try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
@@ -109,7 +109,7 @@ public class ConnectionTest extends AbstractClientTest {
 
     @SuppressWarnings("ThrowableNotThrown")
     @Test
-    public void testNoResponseFromServerWithinOperationTimeoutThrowsException() throws Exception {
+    public void testNoResponseFromServerWithinOperationTimeoutThrowsException() {
         Function<Integer, Integer> responseDelay = x -> x > 2 ? 100 : 0;
 
         try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
@@ -130,7 +130,7 @@ public class ConnectionTest extends AbstractClientTest {
     /** Verifies that the client handler doesn't handle requests until it is explicitly enabled. */
     @Test
     @SuppressWarnings("ThrowableNotThrown")
-    public void testDisabledRequestHandling() throws Exception {
+    public void testDisabledRequestHandling() {
         String nodeName = "server-2";
         FakeIgnite ignite = new FakeIgnite(nodeName);
 
@@ -190,8 +190,8 @@ public class ConnectionTest extends AbstractClientTest {
         }
     }
 
-    private static void testConnection(String... addrs) throws Exception {
-        IgniteClient c = AbstractClientTest.startClient(addrs);
+    private static void testConnection(String... addrs) {
+        IgniteClient c = startClient(addrs);
 
         c.close();
     }

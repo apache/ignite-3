@@ -27,7 +27,7 @@ class ItThinClientComputeErrorsTest extends ItComputeErrorsBaseTest {
     private final Map<String, IgniteClient> clients = new HashMap<>();
 
     @AfterEach
-    void cleanup() throws Exception {
+    void cleanup() {
         for (IgniteClient igniteClient : clients.values()) {
             igniteClient.close();
         }
