@@ -38,6 +38,9 @@ class RocksDbFlushListener extends AbstractEventListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlushListener.class);
 
+    /** Listener name, for logs. */
+    private final String name;
+
     /** Flusher instance. */
     private final RocksDbFlusher flusher;
 
@@ -55,20 +58,17 @@ class RocksDbFlushListener extends AbstractEventListener {
      */
     private volatile CompletableFuture<?> lastFlushProcessed = nullCompletedFuture();
 
-    /** Listener name, for logs. */
-    private final String name;
-
     /** This field is used for determining flush duration. */
     private volatile long lastFlushStartTimeNanos;
 
     /**
      * Constructor.
      *
+     * @param name Listener name, for logs.
      * @param flusher Flusher instance to delegate events processing to.
      * @param logSyncer Write-ahead log synchronizer.
-     * @param name Listener name, for logs.
      */
-    RocksDbFlushListener(RocksDbFlusher flusher, LogSyncer logSyncer, String name) {
+    RocksDbFlushListener(String name, RocksDbFlusher flusher, LogSyncer logSyncer) {
         super(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED);
 
         this.flusher = flusher;

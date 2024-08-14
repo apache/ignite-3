@@ -72,7 +72,8 @@ public class SharedRocksDbInstanceCreator {
             Files.createDirectories(path);
 
             var flusher = new RocksDbFlusher(
-                    "rocksdb storage profile [" + profile.name() + "]", busyLock,
+                    "rocksdb storage profile [" + profile.name() + "]",
+                    busyLock,
                     engine.scheduledPool(),
                     engine.threadPool(),
                     engine.configuration().flushDelayMillis()::value,
