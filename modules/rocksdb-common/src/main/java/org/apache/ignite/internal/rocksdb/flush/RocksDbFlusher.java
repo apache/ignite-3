@@ -182,8 +182,8 @@ public class RocksDbFlusher {
      * enabled.
      *
      * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future. Please refer
-     *      to {@link RocksDbFlusher#RocksDbFlusher(IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier, LogSyncer,
-     *      Runnable)} parameters description to see what's really happening in this case.
+     *      to {@link RocksDbFlusher#RocksDbFlusher(String, IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier,
+     *      LogSyncer, Runnable)} parameters description to see what's really happening in this case.
      *
      * @see #scheduleFlush()
      */
