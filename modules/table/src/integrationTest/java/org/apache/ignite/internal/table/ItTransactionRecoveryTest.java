@@ -1058,13 +1058,16 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         RecordView view = node.tables().table(TABLE_NAME).recordView();
 
         try {
-            view.upsert(rwTx, Tuple.create().set("key", 42).set("val", "val2"));
+            // TODO: IGNITE-22980 We can use synchronous API here after Lock manager will be fixed.
+            view.upsertAsync(rwTx, Tuple.create().set("key", 42).set("val", "val2")).get();
 
-            fail("Lock conflict have to be detected.");
-        } catch (Exception e) {
-            assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e));
+            fail("Lock conflict has to be detected.");
+        } catch (ExecutionException e) {
+            assertEquals(Transactions.ACQUIRE_LOCK_ERR, extractCodeFrom(e.getCause()));
 
             log.info("Expected lock conflict.", e);
+        } catch (Exception e) {
+            fail("Unexpected exception [class=" + e.getClass().getSimpleName() + ']', e);
         }
     }
 

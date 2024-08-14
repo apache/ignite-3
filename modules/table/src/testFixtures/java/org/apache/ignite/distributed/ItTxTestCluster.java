@@ -72,6 +72,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -96,14 +97,18 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -213,6 +218,10 @@ public class ItTxTestCluster {
 
     protected Map<String, ReplicaManager> replicaManagers;
 
+    protected Map<String, RaftGroupOptionsConfigurer> raftConfigurers;
+
+    protected Map<String, LogStorageFactory> logStorageFactories;
+
     protected Map<String, ReplicaService> replicaServices;
 
     protected Map<String, TxManager> txManagers;
@@ -231,8 +240,7 @@ public class ItTxTestCluster {
 
     protected TransactionStateResolver clientTxStateResolver;
 
-    // TODO: should be removed in https://issues.apache.org/jira/browse/IGNITE-22774
-    protected Map<String, List<RaftGroupService>> raftClients = new HashMap<>();
+    protected Map<String, TableImpl> tables = new HashMap<>();
 
     protected Map<String, TxStateStorage> txStateStorages;
 
@@ -368,6 +376,8 @@ public class ItTxTestCluster {
         txInflights = new HashMap<>(nodes);
         cursorRegistries = new HashMap<>(nodes);
         txStateStorages = new HashMap<>(nodes);
+        raftConfigurers = new HashMap<>(nodes);
+        logStorageFactories = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
@@ -390,11 +400,27 @@ public class ItTxTestCluster {
             clocks.put(nodeName, clock);
             clockServices.put(nodeName, clockService);
 
+            Path partitionsWorkDir = workDir.resolve("node" + i);
+
+            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    partitionsWorkDir.resolve("log")
+            );
+
+            logStorageFactories.put(nodeName, partitionsLogStorageFactory);
+
+            assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+            RaftGroupOptionsConfigurer partitionRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.resolve("meta"));
+
+            raftConfigurers.put(nodeName, partitionRaftConfigurer);
+
             var raftSrv = TestLozaFactory.create(
                     clusterService,
                     raftConfig,
-                    workDir.resolve("node" + i),
-                    clock
+                    clock,
+                    new RaftGroupEventsClientListener()
             );
 
             assertThat(raftSrv.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -428,6 +454,7 @@ public class ItTxTestCluster {
                     commandMarshaller,
                     raftClientFactory,
                     raftSrv,
+                    partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     ForkJoinPool.commonPool()
             );
@@ -613,6 +640,8 @@ public class ItTxTestCluster {
                 pkCatalogIndexDescriptor.id()
         );
 
+        tables.put(tableName, table);
+
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
 
@@ -718,41 +747,22 @@ public class ItTxTestCluster {
                         schemaManager
                 );
 
-                CompletableFuture<Void> partitionReadyFuture = replicaManagers.get(assignment)
-                        .startReplica(
-                                RaftGroupEventsListener.noopLsnr,
-                                partitionListener,
-                                false,
-                                null,
-                                createReplicaListener,
-                                storageIndexTracker,
-                                grpId,
-                                configuration
-                        )
-                        .thenAccept(unused -> { });
+                CompletableFuture<?> partitionReadyFuture = replicaManagers.get(assignment).startReplica(
+                        RaftGroupEventsListener.noopLsnr,
+                        partitionListener,
+                        false,
+                        null,
+                        createReplicaListener,
+                        storageIndexTracker,
+                        grpId,
+                        configuration
+                );
 
                 partitionReadyFutures.add(partitionReadyFuture);
             }
-
-            // waiting for started replicas otherwise we would have NPE on {@link Replica#replica} call below
-            allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
-
-            // TODO: should be removed in https://issues.apache.org/jira/browse/IGNITE-22774
-            CompletableFuture<RaftGroupService> txExecutionRaftClient =  replicaManagers.get(extractConsistentId(cluster.get(0)))
-                        .replica(grpId)
-                        .thenApply(Replica::raftClient)
-                        .thenApply(RaftGroupService::leader)
-                        .thenApply(Peer::consistentId)
-                        .thenApply(replicaManagers::get)
-                        .thenCompose(rm -> rm.replica(grpId))
-                        .thenApply(Replica::raftClient);
-
-            partitionReadyFutures.add(txExecutionRaftClient.thenAccept(leaderClient -> clients.put(grpId.partitionId(), leaderClient)));
         }
 
         allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
-
-        raftClients.computeIfAbsent(tableName, t -> new ArrayList<>()).addAll(clients.values());
 
         return table;
     }
@@ -846,28 +856,21 @@ public class ItTxTestCluster {
         };
     }
 
-    /**
-     * Returns a raft manager for a group.
-     * TODO: should be removed in https://issues.apache.org/jira/browse/IGNITE-22774
-     *
-     * @param tableName Table name.
-     * @return Raft manager hosting a leader for group.
-     */
-    protected Loza getLeader(String tableName) {
-        var services = raftClients.get(tableName);
+    private CompletableFuture<RaftGroupService> getRaftClientForGroup(ReplicationGroupId groupId) {
+        int partId = 0;
 
-        Peer leader = services.get(0).leader();
-
-        assertNotNull(leader);
-
-        return raftServers.get(leader.consistentId());
+        return replicaManagers.get(extractConsistentId(cluster.get(partId)))
+                .replica(groupId)
+                .thenApply(Replica::raftClient);
     }
 
     protected Peer getLeaderId(String tableName) {
-        // TODO: should be rewritten in https://issues.apache.org/jira/browse/IGNITE-22774
-        var services = raftClients.get(tableName);
+        int partId = 0;
 
-        return services.get(0).leader();
+        return replicaManagers.get(extractConsistentId(cluster.get(partId)))
+                .replica(new TablePartitionId(tables.get(tableName).tableId(), partId))
+                .thenApply(replica -> replica.raftClient().leader())
+                .join();
     }
 
     /**
@@ -920,6 +923,12 @@ public class ItTxTestCluster {
             }
         }
 
+        if (logStorageFactories != null) {
+            for (LogStorageFactory logStorageFactory : logStorageFactories.values()) {
+                assertThat(logStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+            }
+        }
+
         if (resourceCleanupManagers != null) {
             for (ResourceVacuumManager resourceVacuumManager : resourceCleanupManagers.values()) {
                 assertThat(resourceVacuumManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -938,13 +947,6 @@ public class ItTxTestCluster {
 
         if (clientTxManager != null) {
             assertThat(clientTxManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-        }
-
-        // TODO: should be removed in https://issues.apache.org/jira/browse/IGNITE-22774
-        for (Map.Entry<String, List<RaftGroupService>> e : raftClients.entrySet()) {
-            for (RaftGroupService svc : e.getValue()) {
-                svc.shutdown();
-            }
         }
     }
 
