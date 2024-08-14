@@ -826,6 +826,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             return rowType;
         }
 
+        @Override
+        public RelDataType rowTypeSansHidden() {
+            return rowType;
+        }
+
         /** {@inheritDoc} */
         @Override
         public ColumnDescriptor columnDescriptor(String fieldName) {
