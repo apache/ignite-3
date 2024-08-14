@@ -355,52 +355,43 @@ public class CatalogCompactionRunner implements IgniteComponent {
         HybridTimestamp nowTs = clockService.now();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22722 This method needs to be simplified.
-        return collectRequiredNodes(catalog, new ArrayList<>(catalog.tables()).iterator(), required, nowTs);
+        return CompletableFutures.allOf(catalog.tables().stream()
+                .map(table -> collectRequiredNodes(catalog, table, required, nowTs))
+                .collect(Collectors.toList())
+        ).thenApply(ignore -> required);
     }
 
-    private CompletableFuture<Set<String>> collectRequiredNodes(
+    private CompletableFuture<Void> collectRequiredNodes(
             Catalog catalog,
-            Iterator<CatalogTableDescriptor> tabItr,
+            CatalogTableDescriptor table,
             Set<String> required,
             HybridTimestamp nowTs
     ) {
-        if (!tabItr.hasNext()) {
-            return CompletableFuture.completedFuture(required);
-        }
-
-        CatalogTableDescriptor table = tabItr.next();
         CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
         assert zone != null : table.zoneId();
 
-        List<CompletableFuture<?>> partitionFutures = new ArrayList<>(zone.partitions());
+        int partitions = zone.partitions();
 
-        for (int p = 0; p < zone.partitions(); p++) {
-            TablePartitionId replicationGroupId = new TablePartitionId(table.id(), p);
+        List<TablePartitionId> replicationGroupIds = new ArrayList<>(partitions);
 
-            CompletableFuture<TokenizedAssignments> assignmentsFut = placementDriver.getAssignments(replicationGroupId, nowTs)
-                    .whenComplete((tokenizedAssignments, ex) -> {
-                        if (ex != null) {
-                            return;
-                        }
-
-                        if (tokenizedAssignments == null) {
-                            throwAssignmentsNotReadyException(replicationGroupId);
-                        }
-
-                        List<String> assignments = tokenizedAssignments.nodes().stream()
-                                .map(Assignment::consistentId)
-                                .collect(Collectors.toList());
-
-                        required.addAll(assignments);
-                    });
-
-            partitionFutures.add(assignmentsFut);
+        for (int p = 0; p < partitions; p++) {
+            replicationGroupIds.add(new TablePartitionId(table.id(), p));
         }
 
-        return CompletableFutures.allOf(partitionFutures)
-                .thenCompose(ignore -> collectRequiredNodes(catalog, tabItr, required, nowTs));
+        return placementDriver.getAssignments(replicationGroupIds, nowTs)
+                .thenAccept(tokenizedAssignments -> {
+                    assert tokenizedAssignments.size() == replicationGroupIds.size();
+
+                    for (int p = 0; p < partitions; p++) {
+                        TokenizedAssignments assignment = tokenizedAssignments.get(p);
+                        if (assignment == null) {
+                            throwAssignmentsNotReadyException(replicationGroupIds.get(p));
+                        }
+
+                        assignment.nodes().forEach(a -> required.add(a.consistentId()));
+                    }
+                });
     }
 
     private static List<String> missingNodes(Set<String> requiredNodes, Collection<LogicalNode> logicalTopologyNodes) {
@@ -436,7 +427,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private CompletableFuture<Void> invokeOnReplicas(
             Set<String> logicalTopologyNodes,
-            Iterator<Map.Entry<Integer, Integer>> tabItr,
+            Iterator<Entry<Integer, Integer>> tabItr,
             long txBeginTime,
             HybridTimestamp nowTs
     ) {

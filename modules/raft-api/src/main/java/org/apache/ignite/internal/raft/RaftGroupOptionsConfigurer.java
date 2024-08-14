@@ -15,34 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
-
-import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+package org.apache.ignite.internal.raft;
 
 /**
- * NOT NULL constraint test for thin client API.
+ * This interface allows to inject RAFT options configuration.
+ *
+ * <p>This is the example of using it:
+ * <pre>
+ *    RaftGroupOptionsConfigurer groupOptionsConfigurer = options -> {
+ *        RaftGroupOptions groupOptions = (RaftGroupOptions) options;
+ *
+ *        groupOptions.setLogStorageFactory(logStorageFactory);
+ *        groupOptions.serverDataPath(dataPath);
+ *    };
+ * </pre>
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-18273
  */
-public class ItNotNullConstraintClientTest extends ItNotNullConstraintTest {
+@FunctionalInterface
+public interface RaftGroupOptionsConfigurer {
 
-    private IgniteClient client;
+    RaftGroupOptionsConfigurer EMPTY = options -> {};
 
-    @BeforeEach
-    public void startClient() {
-        client = IgniteClient.builder()
-                .addresses("localhost:" + CLUSTER.aliveNode().clientAddress().port())
-                .build();
-    }
-
-    @AfterEach
-    public void stopClient() {
-        client.close();
-    }
-
-    @Override
-    protected Ignite ignite() {
-        return client;
-    }
+    void configure(Object options);
 }

@@ -60,10 +60,12 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
@@ -79,6 +81,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -317,11 +320,13 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 logicalNodes
         );
 
-        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFuture.failedFuture(new ArithmeticException()));
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.failedFuture(new ArithmeticException()));
         compactor.triggerCompaction(clockService.now());
         assertThat(compactor.lastRunFuture(), willThrow(ArithmeticException.class));
 
-        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFutures.nullCompletedFuture());
+        List<?> assignments = IntStream.range(0, CatalogUtils.DEFAULT_PARTITION_COUNT).mapToObj(i -> null).collect(Collectors.toList());
+
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.completedFuture(assignments));
         compactor.triggerCompaction(clockService.now());
         assertThat(compactor.lastRunFuture(), willThrow(IllegalStateException.class));
     }
@@ -495,8 +500,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 .map(node -> Assignment.forPeer(node.name()))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
+        List<?> tableAssignments = IntStream.range(0, CatalogUtils.DEFAULT_PARTITION_COUNT)
+                .mapToObj(i -> new TokenizedAssignmentsImpl(assignments, Long.MAX_VALUE))
+                .collect(Collectors.toList());
+
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.completedFuture(tableAssignments));
+
         TokenizedAssignmentsImpl tokenizedAssignments = new TokenizedAssignmentsImpl(assignments, Long.MAX_VALUE);
-        when(placementDriver.getAssignments(any(), any())).thenReturn(CompletableFuture.completedFuture(tokenizedAssignments));
+        when(placementDriver.getAssignments(any(ReplicationGroupId.class), any()))
+                .thenReturn(CompletableFuture.completedFuture(tokenizedAssignments));
 
         LogicalTopologySnapshot logicalTop = new LogicalTopologySnapshot(1, topology);
 

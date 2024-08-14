@@ -61,6 +61,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -86,9 +88,12 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.network.ClusterNode;
@@ -124,6 +129,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     private ClusterService anotherClusterService;
 
     private Loza raftManager;
+
+    private LogStorageFactory partitionsLogStorageFactory;
+
+    private LogStorageFactory msLogStorageFactory;
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
@@ -182,10 +191,16 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 eventsClientListener
         );
 
+        ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("loza"));
+
+        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                clusterService.nodeName(),
+                workingDir.raftLogPath()
+        );
+
         raftManager = TestLozaFactory.create(
                 clusterService,
                 raftConfiguration,
-                workDir.resolve("loza"),
                 nodeClock,
                 eventsClientListener
         );
@@ -193,6 +208,14 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
         ClockService clockService = new TestClockService(nodeClock);
+
+        ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
+
+        msLogStorageFactory =
+                SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+        RaftGroupOptionsConfigurer msRaftConfigurer =
+                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
@@ -203,7 +226,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 nodeClock,
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
-                metaStorageConfiguration
+                metaStorageConfiguration,
+                msRaftConfigurer
         );
 
         placementDriverManager = new PlacementDriverManager(
@@ -221,7 +245,14 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         ComponentContext componentContext = new ComponentContext();
 
         assertThat(
-                startAsync(componentContext, clusterService, anotherClusterService, raftManager, metaStorageManager)
+                startAsync(componentContext,
+                        clusterService,
+                        anotherClusterService,
+                        partitionsLogStorageFactory,
+                        msLogStorageFactory,
+                        raftManager,
+                        metaStorageManager
+                )
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
                         .thenCompose(unused -> placementDriverManager.startAsync(componentContext))
                         .thenCompose(unused -> metaStorageManager.notifyRevisionUpdateListenerOnStart())
@@ -269,6 +300,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 placementDriverManager,
                 metaStorageManager,
                 raftManager,
+                partitionsLogStorageFactory,
+                msLogStorageFactory,
                 clusterService,
                 anotherClusterService
         );

@@ -110,12 +110,6 @@ public class JraftServerImpl implements RaftServer {
     /** Cluster service. */
     private final ClusterService service;
 
-    /** Data path. */
-    private final Path dataPath;
-
-    /** Log storage provider. */
-    private final LogStorageFactory logStorageFactory;
-
     /** Server instance. */
     private IgniteRpcServer rpcServer;
 
@@ -153,22 +147,17 @@ public class JraftServerImpl implements RaftServer {
      * The constructor.
      *
      * @param service Cluster service.
-     * @param dataPath Data path.
      * @param opts Default node options.
-     * @param logStorageFactory The factory for default log storage.
+     * @param raftGroupEventsClientListener Raft events listener.
      */
     public JraftServerImpl(
             ClusterService service,
-            Path dataPath,
             NodeOptions opts,
-            RaftGroupEventsClientListener raftGroupEventsClientListener,
-            LogStorageFactory logStorageFactory
+            RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
         this.service = service;
-        this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
 
-        this.logStorageFactory = logStorageFactory;
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
@@ -202,12 +191,6 @@ public class JraftServerImpl implements RaftServer {
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
 
         serviceEventInterceptor = new RaftServiceEventInterceptor();
-    }
-
-    /** Returns log storage factory. */
-    @TestOnly
-    public LogStorageFactory getLogStorageFactory() {
-        return logStorageFactory;
     }
 
     /**
@@ -415,14 +398,8 @@ public class JraftServerImpl implements RaftServer {
         return service;
     }
 
-    /**
-     * Returns path to persistence folder.
-     *
-     * @param nodeId Node ID.
-     * @return The path to persistence folder.
-     */
-    public Path getServerDataPath(RaftNodeId nodeId) {
-        return this.dataPath.resolve(nodeIdStr(nodeId));
+    public static Path getServerDataPath(Path basePath, RaftNodeId nodeId) {
+        return basePath.resolve(nodeIdStr(nodeId));
     }
 
     private static String nodeIdStr(RaftNodeId nodeId) {
@@ -470,7 +447,11 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setLogUri(nodeIdStr(nodeId));
 
-            Path serverDataPath = getServerDataPath(nodeId);
+            Path dataPath = groupOptions.serverDataPath();
+
+            assert dataPath != null : "Raft metadata path was not set.";
+
+            Path serverDataPath = getServerDataPath(dataPath, nodeId);
 
             if (!groupOptions.volatileStores()) {
                 try {
@@ -492,8 +473,9 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
-            LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
-                    ? this.logStorageFactory : groupOptions.getLogStorageFactory();
+            LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory();
+
+            assert logStorageFactory != null : "LogStorageFactory was not set.";
 
             IgniteJraftServiceFactory serviceFactory = new IgniteJraftServiceFactory(logStorageFactory);
 

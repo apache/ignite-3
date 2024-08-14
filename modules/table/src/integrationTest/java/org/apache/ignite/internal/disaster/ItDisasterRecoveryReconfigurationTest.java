@@ -569,8 +569,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertTrue(waitForCondition(() -> {
             long causalityToken = node.metaStorageManager().appliedRevision();
 
-            long msSafeTime = node.metaStorageManager().timestampByRevision(causalityToken).longValue();
-            int catalogVersion = node.catalogManager().activeCatalogVersion(msSafeTime);
+            int catalogVersion = node.catalogManager().latestCatalogVersion();
 
             CompletableFuture<Set<String>> dataNodes = dzManager.dataNodes(causalityToken, catalogVersion, zoneId);
 
