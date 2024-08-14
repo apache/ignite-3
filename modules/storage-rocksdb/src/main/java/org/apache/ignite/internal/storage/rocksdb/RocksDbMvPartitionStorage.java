@@ -175,6 +175,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** On-heap-cached lease start time value. */
     private volatile long leaseStartTime;
 
+    // TODO sanpwc consider consistent naming, currently it's lease... and primary...
     /** On-heap-cached lease node id. */
     private volatile String primaryReplicaNodeId;
 
