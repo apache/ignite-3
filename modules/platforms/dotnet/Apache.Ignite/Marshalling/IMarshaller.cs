@@ -28,7 +28,17 @@ using System.Buffers;
 /// <typeparam name="T">Object type.</typeparam>
 public interface IMarshaller<T>
 {
+    /// <summary>
+    /// Marshals (serializes) the specified object into the provided writer.
+    /// </summary>
+    /// <param name="obj">Object. Not null - Ignite handles nulls separately and does not invoke the marshaller.</param>
+    /// <param name="writer">Writer.</param>
     void Marshal(T obj, IBufferWriter<byte> writer);
 
-    T? Unmarshal(ReadOnlySpan<byte> data);
+    /// <summary>
+    /// Unmarshals (deserializes) an object from the provided data.
+    /// </summary>
+    /// <param name="bytes">Serialized data.</param>
+    /// <returns>Deserialized object.</returns>
+    T Unmarshal(ReadOnlySpan<byte> bytes);
 }
