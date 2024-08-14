@@ -176,7 +176,7 @@ public class IgniteSpinReadWriteLock {
      * Tries to acquire the read lock. No spinwait is used if the lock cannot be acquired immediately.
      *
      * @return {@code true} if acquired, {@code false} if write lock is already held by someone else (or someone is waiting to acquire
-     * the write lock).
+     *     the write lock).
      */
     public boolean tryReadLock() {
         int cnt = readLockEntryCnt.get();
