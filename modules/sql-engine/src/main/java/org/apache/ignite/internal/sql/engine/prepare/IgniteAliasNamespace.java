@@ -105,8 +105,8 @@ public class IgniteAliasNamespace extends AliasNamespace {
         //     registered only when converter meets LogicalJoin.
         //
         //     2) Row type returned from this method will be used to resolve columns. Thus, if we skip
-        //     `system` columns validator won't be able to resolve any reference of such columns (given
-        //     that they are registered only in case of joins)
+        //     `system` columns, validator won't be able to resolve any reference of such columns (given
+        //     that they are registered only in case of joins).
         RelDataType rowType = childNs.getRowTypeSansSystemColumns();
 
         assert rowType != null;
