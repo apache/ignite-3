@@ -83,7 +83,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _valueBase = _entryBase + _entrySize * numElements;
 
-            _buffer.GetSpan(size: _valueBase)[.._valueBase].Clear();
+            _buffer.GetSpan(sizeHint: _valueBase)[.._valueBase].Clear();
             _buffer.Advance(_valueBase);
         }
 
