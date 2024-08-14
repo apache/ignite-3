@@ -35,6 +35,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
@@ -43,7 +44,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test that checks that {@link FailureProcessor} handles exceptions from {@link RaftGroupListener} correctly.
  */
-public class StateMachineFailureHandlerTest {
+public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
     private static final RuntimeException EXPECTED_ERROR = new RuntimeException();
 
     private static final RaftGroupListener TEST_LISTENER = new RaftGroupListener() {
