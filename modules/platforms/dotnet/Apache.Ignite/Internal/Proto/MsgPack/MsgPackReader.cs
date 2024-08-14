@@ -372,20 +372,16 @@ internal ref struct MsgPackReader
     /// <param name="marshaller">Optional marshaller.</param>
     /// <returns>Value.</returns>
     /// <typeparam name="T">Type of the value.</typeparam>
-    public T ReadObjectFromBinaryTuple<T>(Func<Memory<byte>?, T>? marshaller)
+    public T ReadObjectFromBinaryTuple<T>(IMarshaller<T>? marshaller)
     {
         var obj = ReadObjectFromBinaryTuple();
 
-        if (marshaller == null)
+        if (marshaller == null || obj == null)
         {
             return (T)obj!;
         }
 
-        if (obj == null)
-        {
-            return marshaller(null);
-        }
-
+        // TODO: Avoid allocating byte array, pass a span.
         if (obj is byte[] bytes)
         {
             return marshaller(bytes);
