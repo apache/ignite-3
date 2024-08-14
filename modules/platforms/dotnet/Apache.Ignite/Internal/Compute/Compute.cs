@@ -95,7 +95,6 @@ namespace Apache.Ignite.Internal.Compute
 
             foreach (var node in nodes)
             {
-                // TODO: Remove array allocation.
                 Task<IJobExecution<TResult>> task = ExecuteOnNodes(new[] { node }, jobDescriptor, arg);
                 res[node] = task;
             }
