@@ -23,10 +23,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -416,40 +414,41 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             .collect(Collectors.toSet());
 
                     // TODO https://issues.apache.org/jira/browse/IGNITE-22951 Minimize the number of network requests
-                    return invokeOnReplicas(
-                            topologyNodeNames,
-                            tablesWithPartitions.entrySet().iterator(),
-                            timestamp,
-                            clockService.now()
+                    return CompletableFutures.allOf(tablesWithPartitions.entrySet().stream()
+                            .map(e -> invokeOnReplicas(e.getKey(), e.getValue(), timestamp, nowTs, topologyNodeNames))
+                            .collect(Collectors.toList())
                     );
                 }, executor);
     }
 
     private CompletableFuture<Void> invokeOnReplicas(
-            Set<String> logicalTopologyNodes,
-            Iterator<Entry<Integer, Integer>> tabItr,
+            int tableId,
+            int partitions,
             long txBeginTime,
-            HybridTimestamp nowTs
+            HybridTimestamp nowTs,
+            Set<String> logicalTopologyNodes
     ) {
-        if (!tabItr.hasNext()) {
-            return CompletableFutures.nullCompletedFuture();
+        List<TablePartitionId> replicationGroupIds = new ArrayList<>(partitions);
+
+        for (int p = 0; p < partitions; p++) {
+            replicationGroupIds.add(new TablePartitionId(tableId, p));
         }
 
-        Entry<Integer, Integer> tableWithPartsCount = tabItr.next();
-        int parts = tableWithPartsCount.getValue();
+        return placementDriver.getAssignments(replicationGroupIds, nowTs)
+                .thenComposeAsync(tokenizedAssignments -> {
+                    assert tokenizedAssignments.size() == replicationGroupIds.size();
 
-        List<CompletableFuture<?>> partitionFutures = new ArrayList<>();
+                    List<CompletableFuture<?>> replicaInvokeFutures = new ArrayList<>(partitions);
 
-        for (int p = 0; p < parts; p++) {
-            TablePartitionId replicationGroupId = new TablePartitionId(tableWithPartsCount.getKey(), p);
+                    for (int p = 0; p < partitions; p++) {
+                        TablePartitionId replicationGroupId = replicationGroupIds.get(p);
+                        TokenizedAssignments tokenizedAssignment = tokenizedAssignments.get(p);
 
-            CompletableFuture<Object> fut = placementDriver.getAssignments(replicationGroupId, nowTs)
-                    .thenCompose(tokenizedAssignments -> {
-                        if (tokenizedAssignments == null) {
+                        if (tokenizedAssignment == null) {
                             throwAssignmentsNotReadyException(replicationGroupId);
                         }
 
-                        Set<String> assignments = tokenizedAssignments.nodes().stream()
+                        Set<String> assignments = tokenizedAssignment.nodes().stream()
                                 .map(Assignment::consistentId).collect(Collectors.toSet());
 
                         String targetNodeName;
@@ -461,7 +460,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                     .filter(logicalTopologyNodes::contains)
                                     .findAny()
                                     .orElseThrow(() -> new IllegalStateException("Current topology doesn't include assignment nodes "
-                                            + "(assignments=" + tokenizedAssignments.nodes()
+                                            + "(assignments=" + tokenizedAssignment.nodes()
                                             + ", topology=" + logicalTopologyNodes
                                             + ", replication group=" + replicationGroupId + ").")
                                     );
@@ -478,14 +477,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                 .timestamp(txBeginTime)
                                 .build();
 
-                        return replicaService.invoke(targetNodeName, msg);
-                    });
+                        replicaInvokeFutures.add(replicaService.invoke(targetNodeName, msg));
+                    }
 
-            partitionFutures.add(fut);
-        }
-
-        return CompletableFutures.allOf(partitionFutures)
-                .thenCompose(ignore -> invokeOnReplicas(logicalTopologyNodes, tabItr, txBeginTime, nowTs));
+                    return CompletableFutures.allOf(replicaInvokeFutures);
+                }, executor);
     }
 
     private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {

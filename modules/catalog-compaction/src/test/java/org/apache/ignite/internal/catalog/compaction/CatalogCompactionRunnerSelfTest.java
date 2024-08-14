@@ -81,7 +81,6 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -505,10 +504,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 .collect(Collectors.toList());
 
         when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.completedFuture(tableAssignments));
-
-        TokenizedAssignmentsImpl tokenizedAssignments = new TokenizedAssignmentsImpl(assignments, Long.MAX_VALUE);
-        when(placementDriver.getAssignments(any(ReplicationGroupId.class), any()))
-                .thenReturn(CompletableFuture.completedFuture(tokenizedAssignments));
 
         LogicalTopologySnapshot logicalTop = new LogicalTopologySnapshot(1, topology);
 
