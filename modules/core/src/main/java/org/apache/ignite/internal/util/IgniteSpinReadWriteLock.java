@@ -21,6 +21,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Spin read-write lock.
@@ -28,14 +29,14 @@ import org.apache.ignite.internal.tostring.S;
  * interruption signal).
  *
  * <p>The locks are reentrant (that is, the same thread can acquire the same lock a few times in a row and then
- * release them same number of times.
+ * release them same number of times).
  *
  * <p>Write lock acquire requests are prioritized over read lock acquire requests. That is, if both read and write lock
  * acquire requests are received when the write lock is held by someone else, then, on its release, the write lock attempt will be served
  * first.
  */
 public class IgniteSpinReadWriteLock {
-    /** Signals that nobody currently owns the read lock. */
+    /** Signals that nobody currently owns the write lock. */
     private static final long NO_OWNER = -1;
 
     /**
@@ -91,7 +92,7 @@ public class IgniteSpinReadWriteLock {
     private volatile int state;
 
     /**
-     * Number of pending write attempts to acquire the write lock. Currently it is only used to prioritize write lock attempts over read
+     * Number of pending write attempts to acquire the write lock. It is used to prioritize write lock attempts over read
      * lock attempts when the write lock has been released (so, if both an attempt to acquire the write lock and an attempt to acquire the
      * read lock are waiting for write lock to be released, a write lock attempt will be served first when the release happens).
      */
@@ -105,7 +106,7 @@ public class IgniteSpinReadWriteLock {
 
     /**
      * Acquires the read lock. If the write lock is held by another thread, this blocks until the write lock is released (and until all
-     * concurrent write locks are acquired and released, as this class pripritizes write lock attempts over read lock attempts).
+     * concurrent write locks are acquired and released, as this class prioritizes write lock attempts over read lock attempts).
      */
     @SuppressWarnings("BusyWait")
     public void readLock() {
@@ -174,7 +175,8 @@ public class IgniteSpinReadWriteLock {
     /**
      * Tries to acquire the read lock. No spinwait is used if the lock cannot be acquired immediately.
      *
-     * @return {@code true} if acquired, {@code false} if write lock is already held by someone else
+     * @return {@code true} if acquired, {@code false} if write lock is already held by someone else (or someone is waiting to acquire
+     * the write lock).
      */
     public boolean tryReadLock() {
         int cnt = readLockEntryCnt.get();
@@ -448,6 +450,7 @@ public class IgniteSpinReadWriteLock {
      *
      * @return count of pending requests to get the write lock
      */
+    @TestOnly
     int pendingWriteLocksCount() {
         return pendingWriteLocks;
     }
