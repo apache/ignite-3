@@ -17,28 +17,49 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_SHORT;
 import static picocli.CommandLine.Command;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCall;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
-import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Spec;
 
 /**
  * Initializes an Ignite cluster.
  */
-@Command(name = "init", description = "Initializes an Ignite cluster")
-public class ClusterInitReplCommand extends BaseCommand implements Runnable {
+@Command(name = "init", description = "Initializes an Ignite cluster",
+        requiredOptionMarker = '*',  usageHelpAutoWidth = true, descriptionHeading = "%n")
+public class ClusterInitReplCommand implements Runnable {
+    @Mixin
+    private ClusterInitOptions clusterInitOptions;
+
     /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlMixin clusterUrl;
 
-    @Mixin
-    private ClusterInitOptions clusterInitOptions;
+    /** Help option specification. */
+    @Option(names = {HELP_OPTION, HELP_OPTION_SHORT}, usageHelp = true, description = HELP_OPTION_DESC)
+    protected boolean usageHelpRequested;
+
+    /** Verbose option specification. */
+    @Option(names = {VERBOSE_OPTION, VERBOSE_OPTION_SHORT}, description = VERBOSE_OPTION_DESC)
+    protected boolean verbose;
+
+    /** Instance of picocli command specification. */
+    @Spec
+    protected CommandSpec spec;
 
     @Inject
     private ClusterInitCall call;

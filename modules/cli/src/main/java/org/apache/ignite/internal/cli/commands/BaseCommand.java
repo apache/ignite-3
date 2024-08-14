@@ -33,11 +33,11 @@ import picocli.CommandLine.Spec;
  */
 public abstract class BaseCommand {
     /** Help option specification. */
-    @Option(names = {HELP_OPTION, HELP_OPTION_SHORT}, usageHelp = true, description = HELP_OPTION_DESC)
+    @Option(names = {HELP_OPTION, HELP_OPTION_SHORT}, usageHelp = true, description = HELP_OPTION_DESC, order = 100)
     protected boolean usageHelpRequested;
 
     /** Verbose option specification. */
-    @Option(names = {VERBOSE_OPTION, VERBOSE_OPTION_SHORT}, description = VERBOSE_OPTION_DESC)
+    @Option(names = {VERBOSE_OPTION, VERBOSE_OPTION_SHORT}, description = VERBOSE_OPTION_DESC, order = 101)
     protected boolean verbose;
 
     /** Instance of picocli command specification. */

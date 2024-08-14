@@ -30,14 +30,29 @@ import picocli.CommandLine.Mixin;
 /**
  * Initializes an Ignite cluster.
  */
-@Command(name = "init", description = "Initializes an Ignite cluster")
+@Command(
+        name = "init",
+        description = "Initializes an Ignite cluster",
+        headerHeading = "USAGE%n%n",
+        requiredOptionMarker = '*',
+        usageHelpAutoWidth = true,
+        descriptionHeading = "%n%n",
+        sortOptions = false
+)
+// todo:
+// SLF4J(I): Connected with provider of type [org.slf4j.jul.JULServiceProvider]
+// --version is weird
+// "Versioned Command 1.0",
+//         "Picocli " + picocli.CommandLine.VERSION,
+//        "JVM: ${java.version} (${java.vendor} ${java.vm.name} ${java.vm.version})",
+//        "OS: ${os.name} ${os.version} ${os.arch}"})
 public class ClusterInitCommand extends BaseCommand implements Callable<Integer> {
+    @Mixin
+    private ClusterInitOptions clusterInitOptions;
+
     /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlProfileMixin clusterUrl;
-
-    @Mixin
-    private ClusterInitOptions clusterInitOptions;
 
     @Inject
     private ClusterInitCall call;
