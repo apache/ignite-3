@@ -927,6 +927,10 @@ public class PlatformTestNodeRunner {
     private static class ToStringMarshallerJob implements ComputeJob<Nested, Nested> {
         @Override
         public @Nullable CompletableFuture<Nested> executeAsync(JobExecutionContext context, Nested arg) {
+            if (arg == null) {
+                return completedFuture(null);
+            }
+
             arg.price = arg.price.add(BigDecimal.ONE);
 
             return completedFuture(arg);
@@ -946,6 +950,10 @@ public class PlatformTestNodeRunner {
     private static class ToStringMarshaller implements Marshaller<Nested, byte[]> {
         @Override
         public byte[] marshal(Nested object) throws UnsupportedObjectTypeMarshallingException {
+            if (object == null) {
+                return null;
+            }
+
             var str = object.id + ":" + object.price;
 
             return str.getBytes(StandardCharsets.US_ASCII);
@@ -953,6 +961,10 @@ public class PlatformTestNodeRunner {
 
         @Override
         public @Nullable Nested unmarshal(byte[] raw) throws UnsupportedObjectTypeMarshallingException {
+            if (raw == null) {
+                return null;
+            }
+
             var str = new String(raw, StandardCharsets.US_ASCII);
             var parts = str.split(":");
 
