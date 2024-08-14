@@ -20,6 +20,7 @@ namespace Apache.Ignite.Marshalling;
 using System;
 using System.Buffers;
 using System.Text.Json;
+using Internal.Common;
 
 /// <summary>
 /// JSON marshaller. Uses <see cref="System.Text.Json.JsonSerializer"/>.
@@ -49,6 +50,9 @@ public sealed class JsonMarshaller<T> : IMarshaller<T>
     /// <inheritdoc />
     public void Marshal(T obj, IBufferWriter<byte> writer)
     {
+        IgniteArgumentCheck.NotNull(obj);
+        IgniteArgumentCheck.NotNull(writer);
+
         using var utf8JsonWriter = new Utf8JsonWriter(writer);
         JsonSerializer.Serialize(utf8JsonWriter, obj, Options);
     }
