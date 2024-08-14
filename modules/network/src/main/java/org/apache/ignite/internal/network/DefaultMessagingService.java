@@ -287,8 +287,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         long correlationId = createCorrelationId();
 
-        CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<NetworkMessage>();
-                //.orTimeout(timeout, TimeUnit.MILLISECONDS);
+        CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<NetworkMessage>()
+                .orTimeout(timeout, TimeUnit.MILLISECONDS);
 
         requestsMap.put(correlationId, responseFuture);
 
