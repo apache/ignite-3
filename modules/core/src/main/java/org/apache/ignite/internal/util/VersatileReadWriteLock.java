@@ -102,7 +102,7 @@ public class VersatileReadWriteLock {
     @SuppressWarnings("unused")
     private volatile int pendingWriteLocks;
 
-    /** Futures to be completed when read locks (one per future) are acquired after a write lock is releasaed. */
+    /** Futures to be completed when read locks (one per future) are acquired after a write lock is released. */
     private final Set<CompletableFuture<Void>> readLockSolicitors = ConcurrentHashMap.newKeySet();
 
     /** Futures to be completed when a write lock (one per future) is acquired after an impeding lock is released. */
