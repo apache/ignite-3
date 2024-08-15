@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -42,7 +43,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -136,9 +136,9 @@ class VersatileReadWriteLockTest {
     }
 
     private void assertThatActionBlocksForever(Runnable action) {
-        Future<?> future = executor.submit(action);
+        CompletableFuture<?> future = runAsync(action, executor);
 
-        assertThrows(TimeoutException.class, () -> future.get(100, MILLISECONDS));
+        assertThat(future, willTimeoutIn(100, MILLISECONDS));
     }
 
     @Test
@@ -163,29 +163,22 @@ class VersatileReadWriteLockTest {
     }
 
     @Test
-    void readLockAllowsReadLockToBeAcquired() throws Exception {
+    void readLockAllowsReadLockToBeAcquired() {
         lock.readLock();
 
         assertThatReadLockCanBeAcquired();
     }
 
-    private void assertThatReadLockCanBeAcquired() throws InterruptedException, ExecutionException, TimeoutException {
+    private void assertThatReadLockCanBeAcquired() {
         runWithTimeout(lock::readLock);
     }
 
     private <T> T callWithTimeout(Callable<T> call) throws ExecutionException, InterruptedException, TimeoutException {
-        Future<T> future = executor.submit(call);
-        return getWithTimeout(future);
+        return executor.submit(call).get(10, SECONDS);
     }
 
-    private void runWithTimeout(Runnable runnable) throws ExecutionException, InterruptedException, TimeoutException {
-        Future<?> future = executor.submit(runnable);
-        getWithTimeout(future);
-    }
-
-    private static <T> T getWithTimeout(Future<? extends T> future) throws ExecutionException,
-            InterruptedException, TimeoutException {
-        return future.get(10, SECONDS);
+    private void runWithTimeout(Runnable runnable) {
+        assertThat(runAsync(runnable, executor), willCompleteSuccessfully());
     }
 
     @ParameterizedTest
@@ -241,7 +234,7 @@ class VersatileReadWriteLockTest {
     }
 
     @Test
-    void readUnlockReleasesTheLock() throws Exception {
+    void readUnlockReleasesTheLock() {
         lock.readLock();
         lock.readUnlock();
 
@@ -250,7 +243,7 @@ class VersatileReadWriteLockTest {
 
     @ParameterizedTest
     @EnumSource(BlockingWriteLockAcquisition.class)
-    void writeUnlockReleasesTheLock(BlockingWriteLockAcquisition acquisition) throws Exception {
+    void writeUnlockReleasesTheLock(BlockingWriteLockAcquisition acquisition) {
         acquisition.acquire(lock);
         lock.writeUnlock();
 
@@ -277,14 +270,14 @@ class VersatileReadWriteLockTest {
     }
 
     @Test
-    void readLockReleasedLessTimesThanAcquiredShouldStillBeTaken() throws Exception {
+    void readLockReleasedLessTimesThanAcquiredShouldStillBeTaken() {
         lock.readLock();
 
-        Future<?> future = executor.submit(() -> {
+        CompletableFuture<?> future = runAsync(() -> {
             lock.readLock();
             lock.readUnlock();
-        });
-        future.get(10, SECONDS);
+        }, executor);
+        assertThat(future, willCompleteSuccessfully());
 
         assertThatWriteLockAcquireAttemptBlocksForever(BlockingWriteLockAcquisition.WRITE_LOCK);
 
@@ -421,7 +414,7 @@ class VersatileReadWriteLockTest {
     void inReadLockAsyncRespectsPendingWriteLocks() throws Exception {
         lock.readLock();
 
-        Future<?> writeLockFuture = executor.submit(lock::writeLock);
+        CompletableFuture<?> writeLockFuture = runAsync(lock::writeLock, executor);
 
         waitTillWriteLockAcquireAttemptIsInitiated();
 
@@ -431,7 +424,7 @@ class VersatileReadWriteLockTest {
         // Letting the write lock to be acquired.
         lock.readUnlock();
 
-        writeLockFuture.get(10, SECONDS);
+        assertThat(writeLockFuture, willCompleteSuccessfully());
 
         assertFalse(waitForCondition(readLockAsyncFuture::isDone, 100));
 
