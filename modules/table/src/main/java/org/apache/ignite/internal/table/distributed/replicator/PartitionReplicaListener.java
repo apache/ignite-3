@@ -1965,7 +1965,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         };
 
-        if (lockFut.isDone()) {
+        if (lockFut.isDone() && !lockFut.isCompletedExceptionally()) {
             return sup.get();
         } else {
             return lockFut.thenCompose(ignored -> sup.get());

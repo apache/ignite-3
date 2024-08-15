@@ -46,7 +46,7 @@ public class FastTimestamps {
         };
 
         updater.setDaemon(true);
-        updater.setPriority(10);
+        updater.setPriority(Thread.MAX_PRIORITY);
         updater.start();
     }
 
