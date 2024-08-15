@@ -86,7 +86,7 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     /** {@inheritDoc} */
     @Override
-    public void updateConfiguration(PeersAndLearners configuration) {
-        raftClient.updateConfiguration(configuration);
+    public void updatePeersAndLearners(PeersAndLearners peersAndLearners) {
+        raftClient.updateConfiguration(peersAndLearners);
     }
 }

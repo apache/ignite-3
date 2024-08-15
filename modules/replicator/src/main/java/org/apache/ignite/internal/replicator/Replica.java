@@ -76,9 +76,9 @@ public interface Replica {
     CompletableFuture<Void> shutdown();
 
     /**
-     * Updates peers and learners lists in raft client.
+     * Updates local peers and learners.
      *
-     * @param configuration Peers and learners configuration.
+     * @param peersAndLearners Peers and learners.
      */
-    void updateConfiguration(PeersAndLearners configuration);
+    void updatePeersAndLearners(PeersAndLearners peersAndLearners);
 }
