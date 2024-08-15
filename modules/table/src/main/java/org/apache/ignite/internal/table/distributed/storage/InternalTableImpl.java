@@ -1936,8 +1936,6 @@ public class InternalTableImpl implements InternalTable {
             IgniteBiTuple<ClusterNode, Long> enlistState = new IgniteBiTuple<>(getClusterNode(replicaMeta),
                     enlistmentConsistencyToken(replicaMeta));
 
-            tx.enlist(partGroupId, enlistState);
-
             return enlistState;
         };
 
@@ -1950,7 +1948,15 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return partitionMeta(tablePartitionId, now).thenApply(stateResolveClo).
-                exceptionally(e -> {throw replicaUnavailableException(tablePartitionId, now, e);});
+                handle((r, e) -> {
+                    if (e != null) {
+                        throw replicaUnavailableException(tablePartitionId, now, e);
+                    }
+
+                    tx.enlist(tablePartitionId, r);
+
+                    return r;
+                });
     }
 
     @Override
