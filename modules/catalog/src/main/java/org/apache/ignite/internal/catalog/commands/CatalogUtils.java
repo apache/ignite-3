@@ -55,7 +55,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CatalogUtils {
     /** Default number of distribution zone partitions. */
-    public static final int DEFAULT_PARTITION_COUNT = 1;
+    public static final int DEFAULT_PARTITION_COUNT = 25;
 
     /** Default number of distribution zone replicas. */
     public static final int DEFAULT_REPLICA_COUNT = 1;

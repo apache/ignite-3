@@ -752,11 +752,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
 
         tables.put(tableId, table);
-        tableProcessorsStorage.add(zoneDescriptor.id(), table);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table))
                 .handle((v, th) -> {
+                    tableProcessorsStorage.add(zoneDescriptor.id(), table);
                     partitionReplicaLifecycleManager.unlockZoneIdForRead(zoneDescriptor.id(), stamp);
 
                     if (th != null) {

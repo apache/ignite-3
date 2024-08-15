@@ -473,7 +473,7 @@ public class PartitionReplicaLifecycleManager  extends
 
                         return fireEvent(
                                 PartitionReplicaLifecycleEvent.AFTER_REPLICA_STARTED,
-                                new PartitionReplicaLifecycleEventParameters(revision, zoneDescriptor)
+                                new PartitionReplicaLifecycleEventParameters(revision, zoneDescriptor, replicaGrpId.partitionId())
                         );
                     })
                     .thenApply(unused -> {

@@ -7,14 +7,17 @@ public class PartitionReplicaLifecycleEventParameters extends CausalEventParamet
 
     private final CatalogZoneDescriptor zoneDescriptor;
 
+    private final int partitionId;
+
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
      */
-    public PartitionReplicaLifecycleEventParameters(long causalityToken, CatalogZoneDescriptor zoneDescriptor) {
+    public PartitionReplicaLifecycleEventParameters(long causalityToken, CatalogZoneDescriptor zoneDescriptor, int partitionId) {
         super(causalityToken);
         this.zoneDescriptor = zoneDescriptor;
+        this.partitionId = partitionId;
     }
 
     public CatalogZoneDescriptor zoneDescriptor() {
@@ -22,7 +25,7 @@ public class PartitionReplicaLifecycleEventParameters extends CausalEventParamet
     }
 
     public int partitionId() {
-        throw new UnsupportedOperationException();
+        return partitionId;
     }
 }
 
