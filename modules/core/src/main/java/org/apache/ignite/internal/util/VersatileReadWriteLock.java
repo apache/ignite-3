@@ -172,7 +172,7 @@ public class VersatileReadWriteLock {
 
         int newState = state(false, readLocks(curState) + 1);
 
-        return compareAndSet(STATE_VH, curState, newState);
+        return STATE_VH.compareAndSet(this, curState, newState);
     }
 
     /**
@@ -211,7 +211,7 @@ public class VersatileReadWriteLock {
                 throw new IllegalMonitorStateException();
             }
 
-            if (compareAndSet(STATE_VH, curState, state(writeLocked, readLocks - 1))) {
+            if (STATE_VH.compareAndSet(this, curState, state(writeLocked, readLocks - 1))) {
                 if (readLocks == 1) {
                     // We released the final read lock.
                     notifyWriteLockSolicitors();
@@ -251,14 +251,14 @@ public class VersatileReadWriteLock {
         while (true) {
             int curPendingWriteLocks = pendingWriteLocks;
 
-            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWriteLocks, curPendingWriteLocks + 1)) {
+            if (PENDING_WLOCKS_VH.compareAndSet(this, curPendingWriteLocks, curPendingWriteLocks + 1)) {
                 break;
             }
         }
     }
 
     private boolean trySwitchStateToWriteLocked() {
-        return compareAndSet(STATE_VH, AVAILABLE, state(true, 0));
+        return STATE_VH.compareAndSet(this, AVAILABLE, state(true, 0));
     }
 
     private void decrementPendingWriteLocks() {
@@ -267,7 +267,7 @@ public class VersatileReadWriteLock {
 
             assert curPendingWriteLocks > 0;
 
-            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWriteLocks, curPendingWriteLocks - 1)) {
+            if (PENDING_WLOCKS_VH.compareAndSet(this, curPendingWriteLocks, curPendingWriteLocks - 1)) {
                 break;
             }
         }
@@ -346,7 +346,7 @@ public class VersatileReadWriteLock {
             throw new IllegalMonitorStateException();
         }
 
-        boolean b = compareAndSet(STATE_VH, state, state(false, readLocks));
+        boolean b = STATE_VH.compareAndSet(this, state, state(false, readLocks));
 
         assert b;
 
@@ -398,18 +398,6 @@ public class VersatileReadWriteLock {
 
             iterator.remove();
         }
-    }
-
-    /**
-     * Returns {@code true} on success.
-     *
-     * @param varHandle VarHandle.
-     * @param expect    Expected.
-     * @param update    Update.
-     * @return {@code True} on success.
-     */
-    private boolean compareAndSet(VarHandle varHandle, int expect, int update) {
-        return varHandle.compareAndSet(this, expect, update);
     }
 
     /**

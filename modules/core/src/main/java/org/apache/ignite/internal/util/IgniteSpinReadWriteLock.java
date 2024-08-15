@@ -169,7 +169,7 @@ public class IgniteSpinReadWriteLock {
     }
 
     private boolean tryAdvanceStateToReadLocked(int curState) {
-        return compareAndSet(STATE_VH, curState, curState + 1);
+        return STATE_VH.compareAndSet(this, curState, curState + 1);
     }
 
     /**
@@ -229,7 +229,7 @@ public class IgniteSpinReadWriteLock {
 
             assert curState > 0;
 
-            if (compareAndSet(STATE_VH, curState, curState - 1)) {
+            if (STATE_VH.compareAndSet(this, curState, curState - 1)) {
                 readLockEntryCnt.set(0);
 
                 return;
@@ -280,14 +280,14 @@ public class IgniteSpinReadWriteLock {
         while (true) {
             int curPendingWriteLocks = pendingWriteLocks;
 
-            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWriteLocks, curPendingWriteLocks + 1)) {
+            if (PENDING_WLOCKS_VH.compareAndSet(this, curPendingWriteLocks, curPendingWriteLocks + 1)) {
                 break;
             }
         }
     }
 
     private boolean trySwitchStateToWriteLocked() {
-        return compareAndSet(STATE_VH, AVAILABLE, WRITE_LOCKED);
+        return STATE_VH.compareAndSet(this, AVAILABLE, WRITE_LOCKED);
     }
 
     private void decrementPendingWriteLocks() {
@@ -296,7 +296,7 @@ public class IgniteSpinReadWriteLock {
 
             assert curPendingWriteLocks > 0;
 
-            if (compareAndSet(PENDING_WLOCKS_VH, curPendingWriteLocks, curPendingWriteLocks - 1)) {
+            if (PENDING_WLOCKS_VH.compareAndSet(this, curPendingWriteLocks, curPendingWriteLocks - 1)) {
                 break;
             }
         }
@@ -428,21 +428,9 @@ public class IgniteSpinReadWriteLock {
         // write lock now.
         int update = readLockEntryCnt.get() > 0 ? 1 : AVAILABLE;
 
-        boolean b = compareAndSet(STATE_VH, WRITE_LOCKED, update);
+        boolean b = STATE_VH.compareAndSet(this, WRITE_LOCKED, update);
 
         assert b;
-    }
-
-    /**
-     * Returns {@code true} on success.
-     *
-     * @param varHandle VarHandle.
-     * @param expect    Expected.
-     * @param update    Update.
-     * @return {@code True} on success.
-     */
-    private boolean compareAndSet(VarHandle varHandle, int expect, int update) {
-        return varHandle.compareAndSet(this, expect, update);
     }
 
     /**
