@@ -114,6 +114,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -181,6 +182,9 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     /** Placement driver for primary replicas checks. */
     private final PlacementDriver placementDriver;
 
+    /** Schema sync service for waiting for catalog metadata. */
+    private final SchemaSyncService schemaSyncService;
+
     /** A predicate that checks that the given assignment is corresponded to the local node. */
     private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
 
@@ -209,7 +213,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
             ClockService clockService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            SchemaSyncService schemaSyncService
     ) {
         this.catalogMgr = catalogMgr;
         this.replicaMgr = replicaMgr;
@@ -221,6 +226,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         this.rebalanceScheduler = rebalanceScheduler;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clockService = clockService;
+        this.schemaSyncService = schemaSyncService;
 
         this.placementDriver = placementDriver;
 
@@ -587,6 +593,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             assignmentsFuture = completedFuture(
                     zoneAssignmentsGetLocally(metaStorageMgr, zoneDescriptor.id(), zoneDescriptor.partitions(), causalityToken));
         } else {
+            // Safe to get catalog by version here as the version either comes from iteration from the latest to earliest,
+            // or from the handler of catalog version creation.
             Catalog catalog = catalogMgr.catalog(catalogVersion);
             HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(catalog.time());
 
@@ -694,24 +702,23 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                     HybridTimestamp assignmentsTimestamp = assignments.timestamp();
 
-                    long timestamp = assignmentsTimestamp.longValue();
+                    return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
+                        int catalogVersion = catalogMgr.activeCatalogVersion(assignmentsTimestamp.longValue());
 
-                    int catalogVersion = catalogMgr.activeCatalogVersion(timestamp);
+                        CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zoneId, catalogVersion);
 
-                    CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zoneId, catalogVersion);
+                        long causalityToken = zoneDescriptor.updateToken();
 
-                    long causalityToken = zoneDescriptor.updateToken();
-
-                    return distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneId)
-                            .thenCompose(dataNodes -> handleReduceChanged(
-                                    metaStorageMgr,
-                                    dataNodes,
-                                    zoneDescriptor.replicas(),
-                                    replicaGrpId,
-                                    evt,
-                                    assignmentsTimestamp
-                            ));
-
+                        return distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneId)
+                                .thenCompose(dataNodes -> handleReduceChanged(
+                                        metaStorageMgr,
+                                        dataNodes,
+                                        zoneDescriptor.replicas(),
+                                        replicaGrpId,
+                                        evt,
+                                        assignmentsTimestamp
+                                ));
+                    }));
                 });
             }
 
@@ -1051,6 +1058,10 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
     private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
         return assignments.stream().anyMatch(isLocalNodeAssignment);
+    }
+
+    private CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
+        return schemaSyncService.waitForMetadataCompleteness(ts);
     }
 
     /**

@@ -281,6 +281,7 @@ public class DistributionZoneRebalanceEngine {
                     List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneDescriptor.id(), catalogVersion, catalogService);
 
                     Catalog catalog = catalogService.catalog(catalogVersion);
+
                     return triggerPartitionsRebalanceForAllTables(
                             causalityToken,
                             zoneDescriptor,

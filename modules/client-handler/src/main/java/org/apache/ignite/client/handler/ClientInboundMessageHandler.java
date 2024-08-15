@@ -117,6 +117,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
@@ -129,7 +130,6 @@ import org.apache.ignite.internal.security.authentication.event.AuthenticationPr
 import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;

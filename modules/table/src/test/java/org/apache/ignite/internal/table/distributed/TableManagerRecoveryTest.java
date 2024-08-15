@@ -323,6 +323,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule, clock);
 
+        AlwaysSyncedSchemaSyncService schemaSyncService = new AlwaysSyncedSchemaSyncService();
+
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -347,7 +349,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 clockService,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 distributionZoneManager,
-                new AlwaysSyncedSchemaSyncService(),
+                schemaSyncService,
                 catalogManager,
                 new HybridTimestampTracker(),
                 placementDriver,
@@ -368,7 +370,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         mock(ScheduledExecutorService.class),
                         partitionOperationsExecutor,
                         clockService,
-                        placementDriver
+                        placementDriver,
+                        schemaSyncService
                 )
         ) {
 

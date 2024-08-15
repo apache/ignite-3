@@ -55,17 +55,18 @@ public class Assignments implements Serializable {
      */
     private final boolean force;
 
+    /** Activation timestamp. */
     private final HybridTimestamp timestamp;
 
     /**
      * Constructor.
      */
-    private Assignments(Collection<Assignment> nodes, boolean force, HybridTimestamp assignmentsTimestamp) {
+    private Assignments(Collection<Assignment> nodes, boolean force, HybridTimestamp timestamp) {
         // A set of nodes must be a HashSet in order for serialization to produce stable results,
         // that could be compared as byte arrays.
         this.nodes = nodes instanceof HashSet ? ((HashSet<Assignment>) nodes) : new HashSet<>(nodes);
         this.force = force;
-        this.timestamp = assignmentsTimestamp;
+        this.timestamp = timestamp;
     }
 
     /**

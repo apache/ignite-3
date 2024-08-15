@@ -690,7 +690,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         rebalanceScheduler,
                         threadPoolsManager.partitionOperationsExecutor(),
                         clockService,
-                        placementDriverManager.placementDriver()
+                        placementDriverManager.placementDriver(),
+                        schemaSyncService
                 )
         );
 
