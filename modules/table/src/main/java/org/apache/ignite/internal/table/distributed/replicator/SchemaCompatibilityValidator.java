@@ -207,7 +207,8 @@ class SchemaCompatibilityValidator {
     CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, int tableId, UUID txId) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
-        return validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion)
+        return schemaSyncService.waitForMetadataCompleteness(beginTimestamp)
+                .thenCompose(ignored -> validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion))
                 .thenApply(ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, beginTimestamp));
     }
 
@@ -237,7 +238,8 @@ class SchemaCompatibilityValidator {
         );
     }
 
-    void failIfSchemaChangedAfterTxStart(HybridTimestamp beginTs, HybridTimestamp operationTimestamp, int tableId) {
+    void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
+        HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
         CatalogTableDescriptor tableAtBeginTs = catalogService.table(tableId, beginTs.longValue());
         CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
 

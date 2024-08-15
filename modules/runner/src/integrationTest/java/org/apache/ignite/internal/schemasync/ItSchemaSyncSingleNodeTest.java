@@ -245,6 +245,8 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         int errorCode;
 
+        int tableId = unwrapTableViewInternal(table).tableId();
+
         if (operation.sql()) {
             IgniteException ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
             errorCode = ex.code();
@@ -252,7 +254,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             assertThat(
                     ex.getMessage(),
                     // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
-                    containsString(String.format("Table was dropped [table=%s]", table.name()))
+                    containsString(String.format("Table was dropped [tableId=%s]", tableId))
             );
         } else {
             IncompatibleSchemaException ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
@@ -261,7 +263,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             assertThat(
                     ex.getMessage(),
                     // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
-                    is(String.format("Table was dropped [table=%s]", table.name()))
+                    is(String.format("Table was dropped [tableId=%s]", tableId))
             );
         }
 
@@ -353,8 +355,8 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         assertThat(
                 ex.getMessage(),
                 containsString(String.format(
-                        "Table schema was updated after the transaction was started [table=%s, "
-                                + "startSchema=1, operationSchema=2]",
+                        "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
+                                + "txSchemaVersion=1, rowSchemaVersion=2]",
                         table.name()
                 ))
         );

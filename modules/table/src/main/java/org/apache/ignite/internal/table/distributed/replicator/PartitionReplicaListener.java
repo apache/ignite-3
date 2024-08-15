@@ -536,7 +536,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         @Nullable HybridTimestamp finalTxTs = txTs;
         Runnable validateClo = () -> {
-            schemaCompatValidator.failIfSchemaChangedAfterTxStart(finalTxTs, opTs, tableId());
+            schemaCompatValidator.failIfTableDoesNotExistAt(opTs, tableId());
 
             if (hasSchemaVersion) {
                 SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
@@ -728,6 +728,14 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), opId, RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
+                    .thenCompose(rows -> {
+                        if (allElementsAreNull(rows)) {
+                            return completedFuture(rows);
+                        } else {
+                            return validateRwReadAgainstSchemaAfterTakingLocks(req.transactionId())
+                                    .thenApply(ignored -> rows);
+                        }
+                    })
                     .handle((rows, err) -> {
                         if (req.full() && (err != null || rows.size() < req.batchSize())) {
                             releaseTxLocks(req.transactionId());
@@ -2512,7 +2520,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowFuts)
-                        .thenApply(ignored -> {
+                        .thenCompose(ignored -> {
                             var result = new ArrayList<BinaryRow>(primaryKeys.size());
 
                             for (CompletableFuture<BinaryRow> rowFut : rowFuts) {
@@ -2520,10 +2528,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             if (allElementsAreNull(result)) {
-                                return result;
+                                return completedFuture(result);
                             }
 
-                            return new ReplicaResult(result, null);
+                            return validateRwReadAgainstSchemaAfterTakingLocks(txId)
+                                    .thenApply(unused -> new ReplicaResult(result, null));
                         });
             }
             case RW_DELETE_ALL: {
@@ -3200,6 +3209,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForGet(rowId, txId)
+                            .thenCompose(ignored -> validateRwReadAgainstSchemaAfterTakingLocks(txId))
                             .thenApply(ignored -> new ReplicaResult(row, null));
                 });
             }
@@ -3772,12 +3782,30 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Takes current timestamp and makes schema related validations at this timestamp.
      *
      * @param txId Transaction ID.
+     * @return Future that will complete when validation completes.
+     */
+    private CompletableFuture<Void> validateRwReadAgainstSchemaAfterTakingLocks(UUID txId) {
+        HybridTimestamp operationTimestamp = clockService.now();
+
+        return schemaSyncService.waitForMetadataCompleteness(operationTimestamp)
+                .thenRun(() -> failIfSchemaChangedSinceTxStart(txId, operationTimestamp));
+    }
+
+    /**
+     * Takes current timestamp and makes schema related validations at this timestamp.
+     *
+     * @param txId Transaction ID.
      * @return Future that will complete with catalog version associated with given operation though the operation timestamp.
      */
     private CompletableFuture<Integer> validateWriteAgainstSchemaAfterTakingLocks(UUID txId) {
         HybridTimestamp operationTimestamp = clockService.now();
 
-        return reliableCatalogVersionFor(operationTimestamp);
+        return reliableCatalogVersionFor(operationTimestamp)
+                .thenApply(catalogVersion -> {
+                    failIfSchemaChangedSinceTxStart(txId, operationTimestamp);
+
+                    return catalogVersion;
+                });
     }
 
     private UpdateCommand updateCommand(
@@ -3846,6 +3874,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .requiredCatalogVersion(catalogVersion)
                 .leaseStartTime(leaseStartTime)
                 .build();
+    }
+
+    private void failIfSchemaChangedSinceTxStart(UUID txId, HybridTimestamp operationTimestamp) {
+        schemaCompatValidator.failIfSchemaChangedAfterTxStart(txId, operationTimestamp, tableId());
     }
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
