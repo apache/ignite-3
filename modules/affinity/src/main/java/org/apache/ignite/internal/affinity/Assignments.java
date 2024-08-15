@@ -55,7 +55,7 @@ public class Assignments implements Serializable {
      */
     private final boolean force;
 
-    /** Activation timestamp. */
+    /** Time when the catalog version that the assignments were calculated against becomes active (i. e. available for use). */
     private final HybridTimestamp timestamp;
 
     /**
@@ -114,7 +114,7 @@ public class Assignments implements Serializable {
     }
 
     /**
-     * Returns the timestamp of the last assignment.
+     * Returns a timestamp when the catalog version that the assignments were calculated against becomes active.
      */
     public HybridTimestamp timestamp() {
         return timestamp;
