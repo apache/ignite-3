@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.hlc;
 
 import static java.lang.Math.max;
-import static java.time.Clock.systemUTC;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 

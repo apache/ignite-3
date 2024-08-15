@@ -244,7 +244,7 @@ tasks.register("runnerPlatformBenchmark", JavaExec) {
 }
 
 tasks.register("runUpsertBenchmark", JavaExec) {
-    mainClass = "org.apache.ignite.internal.benchmark.UpsertKVBenchmark"
+    mainClass = "org.apache.ignite.internal.benchmark.UpsertKvBenchmark"
 
     jvmArgs += defaultJvmArgs
 

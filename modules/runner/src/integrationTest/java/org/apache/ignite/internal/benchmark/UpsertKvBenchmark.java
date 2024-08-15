@@ -48,7 +48,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
-public class UpsertKVBenchmark extends AbstractMultiNodeBenchmark {
+public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     private final Tuple tuple = Tuple.create();
 
     private int id = 0;
@@ -91,7 +91,7 @@ public class UpsertKVBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + UpsertKVBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + UpsertKvBenchmark.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(opt).run();
