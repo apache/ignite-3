@@ -62,6 +62,7 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
     public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
         if (lastEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
             LOG.info("Starting rocksdb flush process [name='{}', reason={}]", name, flushJobInfo.getFlushReason());
+
             lastFlushStartTimeNanos = System.nanoTime();
 
             onFlushBeginCallback(db, flushJobInfo);

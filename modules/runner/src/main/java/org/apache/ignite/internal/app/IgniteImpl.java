@@ -533,7 +533,7 @@ public class IgniteImpl implements Ignite {
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
         partitionsLogStorageFactory =
-                SharedLogStorageFactoryUtils.create("data log", clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
+                SharedLogStorageFactoryUtils.create("table data log", clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
         raftMgr = new Loza(
                 clusterSvc,
