@@ -657,22 +657,32 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return completedFuture(false);
         }
 
-        return started.thenRun(() -> {
+        List<CompletableFuture<?>> futs = new ArrayList<>();
+
+        started.thenRun(() -> {
             Set<TableImpl> zoneTables = tableProcessorsStorage.tables(parameters.zoneDescriptor().id());
 
+            final PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.partitionId());
 
             /// KKK: catalog for the right moment and causality token for the right moment?
             zoneTables.forEach(tbl -> {
-                PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.partitionId());
+                futs.add(inBusyLockAsync(busyLock,
+                        () -> completedFuture(null)
+                                .thenComposeAsync((notUsed) -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet), ioExecutor))
 
-                lowWatermark.getLowWatermarkSafe(lwm ->
-                        registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
-                );
+                        .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                                    lowWatermark.getLowWatermarkSafe(lwm ->
+                                            registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
+                                    );
 
-                preparePartitionResourcesAndLoadToZoneReplica(tbl, parameters.partitionId(), parameters.zoneDescriptor().id());
+                                    preparePartitionResourcesAndLoadToZoneReplica(
+                                            tbl, parameters.partitionId(), parameters.zoneDescriptor().id());
+                                }
+                        ), ioExecutor));
             });
+        });
 
-        }).thenApply((ignored) -> false);
+        return allOf(futs.toArray(new CompletableFuture[]{})).thenApply((notUsed) -> false);
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
