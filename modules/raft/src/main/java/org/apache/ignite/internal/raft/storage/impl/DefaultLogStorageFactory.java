@@ -34,16 +34,16 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.rocksdb.AbstractEventListener;
 import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -61,6 +61,9 @@ import org.rocksdb.util.SizeUnit;
 /** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
 public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
+
+    /** Name of the log factory, will be used in logs. */
+    private final String factoryName;
 
     /** Path to the log storage. */
     private final Path logPath;
@@ -82,7 +85,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     private ColumnFamilyOptions cfOption;
 
-    protected List<AbstractNativeReference> additionalDbClosables = new ArrayList<>();
+    private AbstractEventListener flushListener;
 
     /**
      * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
@@ -93,8 +96,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<WriteBatch> threadLocalWriteBatch = new ThreadLocal<>();
 
-    /** Rocksdb log flusher, without external access. Used for logs only. */
-    private RocksDbFlusher flusher;
 
     /**
      * Constructor.
@@ -103,29 +104,22 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @TestOnly
     public DefaultLogStorageFactory(Path path) {
-        this("test", path);
+        this("test", "test", path);
     }
 
     /**
      * Constructor.
      *
+     * @param factoryName Name of the log factory, will be used in logs.
+     * @param nodeName Node name.
      * @param logPath Function to get path to the log storage.
      */
-    public DefaultLogStorageFactory(String nodeName, Path logPath) {
+    public DefaultLogStorageFactory(String factoryName, String nodeName, Path logPath) {
+        this.factoryName = factoryName;
         this.logPath = logPath;
 
         executorService = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
-        );
-
-        flusher = new RocksDbFlusher(
-                "Default log storage",
-                new IgniteSpinBusyLock(),
-                null, // Unused.
-                executorService,
-                () -> 0,  // Won't be used.
-                () -> {}, // No-op.
-                () -> {}  // No-op.
         );
     }
 
@@ -154,6 +148,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
         this.cfOption = createColumnFamilyOptions();
 
+        this.flushListener = new LoggingRocksDbFlushListener(factoryName);
+
         List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
                 // Column family to store configuration log entry.
                 new ColumnFamilyDescriptor("Configuration".getBytes(UTF_8), cfOption),
@@ -162,11 +158,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         );
 
         try {
-            dbOptions.setListeners(List.of(flusher.listener()));
+            dbOptions.setListeners(List.of(flushListener));
 
             this.db = RocksDB.open(this.dbOptions, logPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
-
-            flusher.init(db, columnFamilyHandles);
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
             // all the raft groups
@@ -194,8 +188,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             closeRocksResources();
         } catch (RuntimeException ex) {
             return failedFuture(ex);
-        } finally {
-            flusher.stop();
         }
 
         return nullCompletedFuture();
@@ -208,8 +200,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         closables.add(dataHandle);
         closables.add(db);
         closables.add(dbOptions);
-        closables.addAll(additionalDbClosables);
         closables.add(cfOption);
+        closables.add(flushListener);
 
         RocksUtils.closeAll(closables);
     }

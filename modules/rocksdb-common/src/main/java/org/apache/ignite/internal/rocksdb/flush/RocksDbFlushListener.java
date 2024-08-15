@@ -18,37 +18,24 @@
 package org.apache.ignite.internal.rocksdb.flush;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_BEGIN;
-import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_COMPLETED;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.rocksdb.AbstractEventListener;
+import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.rocksdb.FlushJobInfo;
 import org.rocksdb.RocksDB;
 
 /**
  * Represents a listener of RocksDB flush events.
  */
-class RocksDbFlushListener extends AbstractEventListener {
+class RocksDbFlushListener extends LoggingRocksDbFlushListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlushListener.class);
 
-    /** Listener name, for logs. */
-    private final String name;
-
     /** Flusher instance. */
     private final RocksDbFlusher flusher;
-
-    /**
-     * Type of last processed event. Real amount of events doesn't matter in atomic flush mode. All "completed" events go after all "begin"
-     * events, and vice versa.
-     */
-    private final AtomicReference<EnabledEventCallback> lastEventType = new AtomicReference<>(ON_FLUSH_COMPLETED);
 
     /** Write-ahead log synchronizer. */
     private final LogSyncer logSyncer;
@@ -58,9 +45,6 @@ class RocksDbFlushListener extends AbstractEventListener {
      */
     private volatile CompletableFuture<?> lastFlushProcessed = nullCompletedFuture();
 
-    /** This field is used for determining flush duration. */
-    private volatile long lastFlushStartTimeNanos;
-
     /**
      * Constructor.
      *
@@ -69,40 +53,31 @@ class RocksDbFlushListener extends AbstractEventListener {
      * @param logSyncer Write-ahead log synchronizer.
      */
     RocksDbFlushListener(String name, RocksDbFlusher flusher, LogSyncer logSyncer) {
-        super(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED);
+        super(name);
 
         this.flusher = flusher;
         this.logSyncer = logSyncer;
-        this.name = name;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
-        if (lastEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
-            LOG.info("Starting rocksdb flush process [name='{}', reason={}]", name, flushJobInfo.getFlushReason());
-            lastFlushStartTimeNanos = System.nanoTime();
+    protected void onFlushBeginCallback(RocksDB db, FlushJobInfo flushJobInfo) {
+        lastFlushProcessed.join();
 
-            lastFlushProcessed.join();
-
-            try {
-                logSyncer.sync();
-            } catch (Exception e) {
-                LOG.error("Couldn't sync RocksDB WAL on flush begin", e);
-            }
+        try {
+            logSyncer.sync();
+        } catch (Exception e) {
+            LOG.error("Couldn't sync RocksDB WAL on flush begin", e);
         }
     }
 
-    /** {@inheritDoc} */
+    @Override
+    protected void onFlushCompletedCallback(RocksDB db, FlushJobInfo flushJobInfo) {
+        lastFlushProcessed = flusher.onFlushCompleted();
+    }
+
     @Override
     public void onFlushCompleted(RocksDB db, FlushJobInfo flushJobInfo) {
-        if (lastEventType.compareAndSet(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED)) {
-            long duration = System.nanoTime() - lastFlushStartTimeNanos;
-
-            LOG.info("Finishing rocksdb flush process [name='{}', duration={}ms]", name, TimeUnit.NANOSECONDS.toMillis(duration));
-
-            lastFlushProcessed = flusher.onFlushCompleted();
-        }
+        super.onFlushCompleted(db, flushJobInfo);
 
         // Do it for every column family, there's no way to tell in advance which one has the latest sequence number.
         lastFlushProcessed.whenCompleteAsync((o, throwable) -> flusher.completeFutures(flushJobInfo.getLargestSeqno()), flusher.threadPool);

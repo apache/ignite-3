@@ -35,14 +35,14 @@ public class SharedLogStorageFactoryUtils {
 
     /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation. */
     @TestOnly
-    public static LogStorageFactory create(String nodeName, Path lazyLogStoragePath) {
-        return create("test", nodeName, lazyLogStoragePath);
+    public static LogStorageFactory create(String nodeName, Path logStoragePath) {
+        return create("test", nodeName, logStoragePath);
     }
 
     /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation. */
-    public static LogStorageFactory create(String factoryName, String nodeName, Path lazyLogStoragePath) {
+    public static LogStorageFactory create(String factoryName, String nodeName, Path logStoragePath) {
         return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
-                ? new LogitLogStorageFactory(nodeName, new StoreOptions(), lazyLogStoragePath)
-                : new DefaultLogStorageFactory(nodeName, lazyLogStoragePath);
+                ? new LogitLogStorageFactory(nodeName, new StoreOptions(), logStoragePath)
+                : new DefaultLogStorageFactory(factoryName, nodeName, logStoragePath);
     }
 }
