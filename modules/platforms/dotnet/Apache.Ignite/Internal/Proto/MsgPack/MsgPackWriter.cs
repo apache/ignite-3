@@ -18,10 +18,13 @@
 namespace Apache.Ignite.Internal.Proto.MsgPack;
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using BinaryTuple;
 using Buffers;
+using Ignite.Sql;
+using Marshalling;
 
 /// <summary>
 /// MsgPack writer. Wraps <see cref="PooledArrayBuffer"/>. Writer index is kept by the buffer, so this struct is readonly.
@@ -354,6 +357,36 @@ internal readonly ref struct MsgPackWriter
         {
             Write(txId.Value);
         }
+    }
+
+    /// <summary>
+    /// Writes an object with type code.
+    /// </summary>
+    /// <param name="obj">Object.</param>
+    /// <param name="marshaller">Marshaller.</param>
+    /// <typeparam name="T">Object type.</typeparam>
+    public void WriteObjectAsBinaryTuple<T>(T obj, IMarshaller<T>? marshaller)
+    {
+        if (obj == null)
+        {
+            WriteNil();
+            return;
+        }
+
+        if (marshaller == null)
+        {
+            WriteObjectAsBinaryTuple(obj);
+            return;
+        }
+
+        using var builder = new BinaryTupleBuilder(3);
+        builder.AppendInt((int)ColumnType.ByteArray);
+        builder.AppendInt(0); // Scale.
+        builder.AppendBytes(
+            static (IBufferWriter<byte> writer, (T Obj, IMarshaller<T> Marshaller) arg) => arg.Marshaller.Marshal(arg.Obj, writer),
+            arg: (obj, marshaller));
+
+        Write(builder.Build().Span);
     }
 
     /// <summary>
