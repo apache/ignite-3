@@ -114,7 +114,7 @@ public class JraftServerImpl implements RaftServer {
     private final ClusterService service;
 
     /** Failure processor that is used to handle critical errors. */
-    FailureProcessor failureProcessor;
+    private final FailureProcessor failureProcessor;
 
     /** Server instance. */
     private IgniteRpcServer rpcServer;
@@ -679,6 +679,7 @@ public class JraftServerImpl implements RaftServer {
          *
          * @param listener The listener.
          * @param marshaller Marshaller.
+         * @param failureProcessor Failure processor that is used to handle critical errors.
          */
         public DelegatingStateMachine(RaftGroupListener listener, Marshaller marshaller, FailureProcessor failureProcessor) {
             this.listener = listener;
