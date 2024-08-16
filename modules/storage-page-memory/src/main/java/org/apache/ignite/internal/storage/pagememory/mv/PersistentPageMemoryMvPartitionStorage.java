@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
+import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 
 import java.util.List;
 import java.util.UUID;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.util.LocalLocker;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -74,6 +76,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     /** Lock that protects group config read/write. */
     private final ReadWriteLock replicationProtocolGroupConfigReadWriteLock = new ReentrantReadWriteLock();
+
+    /** Lock that protects group primary replica meta read/write. */
+    private final ReadWriteLock primaryReplicaMetaReadWriteLock = new ReentrantReadWriteLock();
 
     /**
      * Constructor.
@@ -311,12 +316,41 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            updateMeta((lastCheckpointId, meta) -> meta.updateLease(
-                    lastCheckpointId,
-                    leaseStartTime,
-                    primaryReplicaNodeId,
-                    primaryReplicaNodeName
-            ));
+            updateMeta((lastCheckpointId, meta) -> {
+                primaryReplicaMetaReadWriteLock.writeLock().lock();
+
+                try {
+                    if (meta.primaryReplicaNodeIdFirstPageId() == BlobStorage.NO_PAGE_ID) {
+                        long primaryReplicaNodeIdFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeId));
+
+                        meta.primaryReplicaNodeIdFirstPageId(lastCheckpointId, primaryReplicaNodeIdFirstPageId);
+                    } else {
+                        blobStorage.updateBlob(meta.primaryReplicaNodeIdFirstPageId(), stringToBytes(primaryReplicaNodeId));
+                    }
+                    if (meta.primaryReplicaNodeNameFirstPageId() == BlobStorage.NO_PAGE_ID) {
+                        long primaryReplicaNodeNameFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeName));
+
+                        meta.primaryReplicaNodeNameFirstPageId(lastCheckpointId, primaryReplicaNodeNameFirstPageId);
+                    } else {
+                        blobStorage.updateBlob(meta.primaryReplicaNodeNameFirstPageId(), stringToBytes(primaryReplicaNodeName));
+                    }
+
+                    meta.updateLease(
+                            lastCheckpointId,
+                            leaseStartTime,
+                            primaryReplicaNodeId,
+                            primaryReplicaNodeName
+                    );
+                } catch (IgniteInternalCheckedException e) {
+                    throw new StorageException(
+                            "Cannot save committed group configuration: [tableId={}, partitionId={}]",
+                            e,
+                            tableStorage.getTableId(), partitionId
+                    );
+                } finally {
+                    primaryReplicaMetaReadWriteLock.writeLock().unlock();
+                }
+            });
 
             return null;
         });
@@ -336,7 +370,35 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            return meta.primaryReplicaNodeId();
+            try {
+                primaryReplicaMetaReadWriteLock.readLock().lock();
+
+                try {
+                    String primaryReplicaNodeIdCandidate = meta.primaryReplicaNodeId();
+                    if (primaryReplicaNodeIdCandidate != null) {
+                        return primaryReplicaNodeIdCandidate;
+                    } else {
+                        long primaryReplicaNodeIdFirstPageId = meta.primaryReplicaNodeIdFirstPageId();
+                        assert primaryReplicaNodeIdFirstPageId != BlobStorage.NO_PAGE_ID;
+
+                        primaryReplicaNodeIdCandidate = ByteUtils.stringFromBytes(blobStorage.readBlob(meta.primaryReplicaNodeIdFirstPageId()));
+
+                        // TODO sanpwc implement "caching" in a bit different place.
+//                        String primaryReplicaNodeId0 = primaryReplicaNodeIdCandidate;
+//                        updateMeta((lastCheckpointId, meta) -> {meta.updatePrimaryReplicaNodeId(lastCheckpointId, primaryReplicaNodeId0);});
+
+                        return primaryReplicaNodeIdCandidate;
+                    }
+                } finally {
+                    primaryReplicaMetaReadWriteLock.readLock().unlock();
+                }
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException(
+                        "Failed to read primary replica node id: [tableId={}, partitionId={}]",
+                        e,
+                        tableStorage.getTableId(), partitionId
+                );
+            }
         });
     }
 
@@ -345,7 +407,35 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            return meta.primaryReplicaNodeName();
+            try {
+                primaryReplicaMetaReadWriteLock.readLock().lock();
+
+                try {
+                    String primaryReplicaNodeNameCandidate = meta.primaryReplicaNodeName();
+                    if (primaryReplicaNodeNameCandidate != null) {
+                        return primaryReplicaNodeNameCandidate;
+                    } else {
+                        long primaryReplicaNodeNameFirstPageId = meta.primaryReplicaNodeNameFirstPageId();
+                        assert primaryReplicaNodeNameFirstPageId != BlobStorage.NO_PAGE_ID;
+
+                        primaryReplicaNodeNameCandidate = ByteUtils.stringFromBytes(blobStorage.readBlob(meta.primaryReplicaNodeNameFirstPageId()));
+
+                        // TODO sanpwc implement "caching" in a bit different place.
+//                        String primaryReplicaNodeName0 = primaryReplicaNodeNameCandidate;
+//                        updateMeta((lastCheckpointId, meta) -> {meta.updatePrimaryReplicaNodeName(lastCheckpointId, primaryReplicaNodeName0);});
+
+                        return primaryReplicaNodeNameCandidate;
+                    }
+                } finally {
+                    primaryReplicaMetaReadWriteLock.readLock().unlock();
+                }
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException(
+                        "Failed to read primary replica node id: [tableId={}, partitionId={}]",
+                        e,
+                        tableStorage.getTableId(), partitionId
+                );
+            }
         });
     }
 

@@ -50,6 +50,10 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
 
     private static final int ESTIMATED_SIZE_OFF = LEASE_START_TIME_OFF + Long.BYTES;
 
+    private static final int PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF = ESTIMATED_SIZE_OFF + Long.BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF = PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF + Long.BYTES;
+
 
     /** I/O versions. */
     public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(new StoragePartitionMetaIo(1));
@@ -77,6 +81,8 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         setGcQueueMetaPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
         setLeaseStartTime(pageAddr, HybridTimestamp.MIN_VALUE.longValue());
+        setPrimaryReplicaNodeIdFirstPageId(pageAddr, 0);
+        setPrimaryReplicaNodeNameFirstPageId(pageAddr, 0);
         setEstimatedSize(pageAddr, 0);
     }
 
@@ -250,11 +256,57 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     }
 
     /**
+     * Sets the primary replica node id first page id.
+     *
+     * @param pageAddr Page address.
+     * @param primaryReplicaNodeIdFirstPageId Primary replica node id first page id.
+     */
+    public void setPrimaryReplicaNodeIdFirstPageId(long pageAddr, long primaryReplicaNodeIdFirstPageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF, primaryReplicaNodeIdFirstPageId);
+    }
+
+    /**
+     * Returns the primary replica node id first page id.
+     *
+     * @param pageAddr Page address.
+     * @return Primary replica node id first page id.
+     */
+    public long getPrimaryReplicaNodeIdFirstPageId(long pageAddr) {
+        return getLong(pageAddr, PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF);
+    }
+
+
+    /**
+     * Sets the primary replica node name first page id.
+     *
+     * @param pageAddr Page address.
+     * @param primaryReplicaNodeNameFirstPageId Primary replica node name first page id.
+     */
+    public void setPrimaryReplicaNodeNameFirstPageId(long pageAddr, long primaryReplicaNodeNameFirstPageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF, primaryReplicaNodeNameFirstPageId);
+    }
+
+    /**
+     * Returns the primary replica node name first page id.
+     *
+     * @param pageAddr Page address.
+     * @return Primary replica node name first page id.
+     */
+    public long getPrimaryReplicaNodeNameFirstPageId(long pageAddr) {
+        return getLong(pageAddr, PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF);
+    }
+
+    /**
      * Sets the estimated size of this partition.
      *
      * @param pageAddr Page address.
      * @param estimatedSize Estimated size.
      */
+    // TODO sanpwc use as a reference for tests.
     public void setEstimatedSize(long pageAddr, long estimatedSize) {
         assertPageType(pageAddr);
 
@@ -282,6 +334,8 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
                 .app("gcQueueMetaPageId=").appendHex(getGcQueueMetaPageId(addr)).nl()
                 .app("pageCount=").app(getPageCount(addr)).nl()
                 .app("leaseStartTime=").app(getLeaseStartTime(addr)).nl()
+                .app("primaryReplicaNodeIdFirstPageId=").app(getPrimaryReplicaNodeIdFirstPageId(addr)).nl()
+                .app("primaryReplicaNodeNameFirstPageId=").app(getPrimaryReplicaNodeNameFirstPageId(addr)).nl()
                 .app("estimatedSize=").app(getEstimatedSize(addr)).nl()
                 .app(']');
     }

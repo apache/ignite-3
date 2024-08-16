@@ -602,14 +602,16 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         if (recoverable(err)) {
             Peer randomPeer = randomNode(peer);
 
-            LOG.warn(
-                    "Recoverable error during the request occurred (will be retried on the randomly selected node) "
-                            + "[request={}, peer={}, newPeer={}].",
-                    err,
-                    LOG.isDebugEnabled() && includeSensitive() ? sentRequest : sentRequest.toStringForLightLogging(),
-                    peer,
-                    randomPeer
-            );
+            if (LOG.isDebugEnabled()) {
+                LOG.debug(
+                        "Recoverable error during the request occurred (will be retried on the randomly selected node) "
+                                + "[request={}, peer={}, newPeer={}].",
+                        err,
+                        includeSensitive() ? sentRequest : sentRequest.toStringForLightLogging(),
+                        peer,
+                        randomPeer
+                );
+            }
 
             scheduleRetry(() -> sendWithRetry(randomPeer, requestFactory, stopTime, fut));
         } else {

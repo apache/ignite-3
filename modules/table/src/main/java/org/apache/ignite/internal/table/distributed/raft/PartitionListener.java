@@ -498,6 +498,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onConfigurationCommitted(CommittedConfiguration config) {
+        currentGroupTopology = new HashSet<>(config.peers());
+        currentGroupTopology.addAll(config.learners());
+
         // Skips the update because the storage has already recorded it.
         if (config.index() <= storage.lastAppliedIndex()) {
             return;
@@ -507,9 +510,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         // Note that we do not need to protect from a concurrent command execution by this listener because
         // configuration is committed in the same thread in which commands are applied.
         storage.acquirePartitionSnapshotsReadLock();
-
-        currentGroupTopology = new HashSet<>(config.peers());
-        currentGroupTopology.addAll(config.learners());
 
         try {
             storage.runConsistently(locker -> {
