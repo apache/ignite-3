@@ -28,7 +28,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  *     <li>Collect local minimum starting time among logical nodes (see {@link CatalogCompactionMinimumTimesRequest})</li>
  *     <li>Compute global minimum</li>
  *     <li>Send global minimum to all logical nodes (this message)</li>
- *     <li>Each node updates the replication groups for which it is the primary</li>
+ *     <li>Each node updates the replication groups for which that node is the primary</li>
  * </ul>
  */
 @Transferable(CatalogCompactionMessageGroup.PREPARE_TO_UPDATE_TIME_ON_REPLICAS_REQUEST)

@@ -404,7 +404,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             assertThat(compactor.propagateTimeToReplicasLocal(catalog.time()), willBe(true));
 
-            // All invocations must be made locally, since coordinator is present in assignments for all tables.
             verify(replicaService, times(0)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
             verify(replicaService, times(3 * 8)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
@@ -415,7 +414,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             assertThat(compactor.propagateTimeToReplicasLocal(catalog.time()), willBe(true));
 
-            // All invocations must be made locally, since coordinator is present in assignments for all tables.
             verify(replicaService, times(0)).invoke(eq(NODE1.name()), any(ReplicaRequest.class));
             verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
             verify(replicaService, times(3 * 8)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));

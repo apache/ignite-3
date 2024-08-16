@@ -423,7 +423,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     for (int p = 0; p < partitions; p++) {
                         TokenizedAssignments assignment = tokenizedAssignments.get(p);
                         if (assignment == null) {
-                            throwAssignmentsNotReadyException(replicationGroupIds.get(p));
+                            throw new IllegalStateException("Cannot get assignments for table "
+                                    + "[group=" + replicationGroupIds.get(p) + ']');
                         }
 
                         assignment.nodes().forEach(a -> required.add(a.consistentId()));
@@ -559,11 +560,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                     return catalogManagerFacade.compactCatalog(catalog.version());
                 });
-    }
-
-    private static void throwAssignmentsNotReadyException(TablePartitionId replicationGroupId) {
-        throw new IllegalStateException("Cannot get assignments for table "
-                + "[replication group=" + replicationGroupId + ']');
     }
 
     /** Minimum required time provider. */
