@@ -457,7 +457,7 @@ public class ComputeMessaging {
         ClusterNode localMember = topologyService.localMember();
         CompletableFuture<?>[] futures = topologyService.allMembers()
                 .stream()
-                .filter(node -> !node.equals(localMember))
+                .filter(node -> !node.id().equals(localMember.id()))
                 .map(node -> request.apply(node)
                         .thenAccept(response -> {
                             if (response != null) {
