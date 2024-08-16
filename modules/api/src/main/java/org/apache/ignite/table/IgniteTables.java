@@ -25,14 +25,14 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface IgniteTables {
     /**
-     * Gets a list of all tables.
+     * Gets a list of all tables. The order of tables in the returned list is not defined.
      *
      * @return List of tables.
      */
     List<Table> tables();
 
     /**
-     * Gets a list of all tables.
+     * Gets a list of all tables. The order of tables in the returned list is not defined.
      *
      * @return Future that represents the pending completion of the operation.
      */
