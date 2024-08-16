@@ -21,10 +21,14 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
- * Table provides the different views (key-value vs record) and approaches (mapped-object vs binary) to access the data.
+ * Table provides different views (key-value vs record) and approaches (mapped-object vs binary) to access the data.
  *
  * <p>Binary table views might be useful in the various scenarios, including when the user key-value classes
  * are not in classpath and/or when deserialization of the entire table record is undesirable for performance reasons.
+ *
+ * <p>Key-value views project table rows into key-value pairs, where all key columns are mapped to the key object,
+ * and the rest of the columns are mapped to the value object.
+ * Record and key-value views provide identical functionality, the projection is performed on the client side.
  *
  * @see RecordView
  * @see KeyValueView
@@ -32,21 +36,21 @@ import org.apache.ignite.table.partition.PartitionManager;
  */
 public interface Table {
     /**
-     * Gets a name of a table.
+     * Gets the name of the table.
      *
      * @return Table name.
      */
     String name();
 
     /**
-     * Gets a partition manager of a table.
+     * Gets the partition manager.
      *
      * @return Partition manager.
      */
     PartitionManager partitionManager();
 
     /**
-     * Creates a record view of a table for the record class mapper provided.
+     * Gets a record view of the table using the specified record class mapper.
      *
      * @param recMapper Record class mapper.
      * @param <R>       Record type.
@@ -55,14 +59,14 @@ public interface Table {
     <R> RecordView<R> recordView(Mapper<R> recMapper);
 
     /**
-     * Creates a record view of a table.
+     * Gets a record view of the table.
      *
      * @return Table record view.
      */
     RecordView<Tuple> recordView();
 
     /**
-     * Creates a record view of a table for the record class provided.
+     * Gets a record view of the table using the default mapper for the specified record class.
      *
      * @param recCls Record class.
      * @param <R>    Record type.
@@ -73,7 +77,7 @@ public interface Table {
     }
 
     /**
-     * Creates a key-value view of a table for the key-value class mappers provided.
+     * Gets a key-value view of the table using the specified key-value class mappers.
      *
      * @param keyMapper Key class mapper.
      * @param valMapper Value class mapper.
@@ -84,14 +88,14 @@ public interface Table {
     <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper);
 
     /**
-     * Creates a key-value view of a table.
+     * Gets a key-value view of the table.
      *
      * @return Table key-value view.
      */
     KeyValueView<Tuple, Tuple> keyValueView();
 
     /**
-     * Creates a key-value view of a table for the key and value classes provided.
+     * Gets a key-value view of the table using the default mapper for the specified key and value classes.
      *
      * @param keyCls Key class.
      * @param valCls Value class.
