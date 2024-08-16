@@ -1510,16 +1510,12 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     if (rexWithStorageTypeResultMap.containsKey(key)) {
       return rexWithStorageTypeResultMap.get(key);
     }
-    final Type storageType = currentStorageType != null
-        ? currentStorageType : typeFactory.getJavaClass(dynamicParam.getType());
     final Type paramType = ((IgniteTypeFactory) typeFactory).getResultClass(dynamicParam.getType());
 
     final Expression ctxGet = Expressions.call(root, IgniteMethod.CONTEXT_GET_PARAMETER_VALUE.method(),
         Expressions.constant("?" + dynamicParam.getIndex()), Expressions.constant(paramType));
 
-    final Expression valueExpression = SqlTypeUtil.isDecimal(dynamicParam.getType())
-            ? ConverterUtils.convertToDecimal(ctxGet, dynamicParam.getType())
-            : ConverterUtils.convert(ctxGet, storageType);
+    final Expression valueExpression =  ConverterUtils.convert(ctxGet, dynamicParam.getType());
     final ParameterExpression valueVariable =
         Expressions.parameter(valueExpression.getType(),
             list.newName("value_dynamic_param"));

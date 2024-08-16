@@ -180,7 +180,7 @@ public class ConverterUtils {
      * @param targetType Target type
      * @return An expression with BidDecimal type, which calls IgniteSqlFunctions.toBigDecimal function.
      */
-    public static Expression convertToDecimal(Expression operand, RelDataType targetType) {
+    private static Expression convertToDecimal(Expression operand, RelDataType targetType) {
         assert targetType.getSqlTypeName() == SqlTypeName.DECIMAL;
         return Expressions.call(
                 IgniteSqlFunctions.class,
@@ -207,25 +207,15 @@ public class ConverterUtils {
 
     /**
      * Convert {@code operand} to target type {@code toType}.
+     * Just for internal usage. Shouldn't be use outside the class.
      *
      * @param operand The expression to convert.
      * @param toType  Target type.
      * @return A new expression with type {@code toType} or original if there is no need to convert.
      */
-    public static Expression convert(Expression operand, Type toType) {
-        final Type fromType = operand.getType();
-        return convert(operand, fromType, toType);
-    }
+    private static Expression convert(Expression operand, Type toType) {
+        Type fromType = operand.getType();
 
-    /**
-     * Convert {@code operand} to target type {@code toType}.
-     *
-     * @param operand  The expression to convert.
-     * @param fromType Field type.
-     * @param toType   Target type.
-     * @return A new expression with type {@code toType} or original if there is no need to convert.
-     */
-    public static Expression convert(Expression operand, Type fromType, Type toType) {
         if (!Types.needTypeCast(fromType, toType)) {
             return operand;
         }
