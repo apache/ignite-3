@@ -23,7 +23,7 @@ import org.apache.ignite.table.partition.PartitionManager;
 /**
  * Table provides the different views (key-value vs record) and approaches (mapped-object vs binary) to access the data.
  *
- * <p>Binary table views might be useful in the various scenarios, including when the user key-value classes 
+ * <p>Binary table views might be useful in the various scenarios, including when the user key-value classes
  * are not in classpath and/or when deserialization of the entire table record is undesirable for performance reasons.
  *
  * @see RecordView
@@ -55,7 +55,7 @@ public interface Table {
     <R> RecordView<R> recordView(Mapper<R> recMapper);
 
     /**
-     * Creates a record view of a table for the binary object concept.
+     * Creates a record view of a table.
      *
      * @return Table record view.
      */
@@ -84,7 +84,7 @@ public interface Table {
     <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper);
 
     /**
-     * Creates a key-value view of a table for the binary object concept.
+     * Creates a key-value view of a table.
      *
      * @return Table key-value view.
      */
