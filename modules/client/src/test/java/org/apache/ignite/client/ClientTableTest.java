@@ -461,7 +461,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         var tuple = Tuple.create().set("id", "str");
 
         var ex = assertThrows(IgniteException.class, () -> defaultTable().recordView().upsert(null, tuple));
-        assertEquals("Column's type mismatch [column=ID, expectedType=INT64, actualType=class java.lang.String]", ex.getMessage());
+        assertEquals("Value type does not match [column='ID', expected=INT64, actual=STRING]", ex.getMessage());
     }
 
     @Test

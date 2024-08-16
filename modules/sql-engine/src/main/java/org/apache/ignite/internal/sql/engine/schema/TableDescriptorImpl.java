@@ -55,6 +55,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     private final IgniteDistribution distribution;
 
     private final RelDataType rowType;
+    private final RelDataType rowTypeSansHidden;
 
     /**
      * Constructor.
@@ -69,15 +70,24 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         IgniteTypeFactory factory = Commons.typeFactory();
         RelDataTypeFactory.Builder typeBuilder = new RelDataTypeFactory.Builder(factory);
+        RelDataTypeFactory.Builder typeSansHiddenBuilder = new RelDataTypeFactory.Builder(factory);
 
         for (ColumnDescriptor descriptor : columnDescriptors) {
-            typeBuilder.add(descriptor.name(), deriveLogicalType(factory, descriptor));
+            RelDataType columnType = deriveLogicalType(factory, descriptor);
+
+            typeBuilder.add(descriptor.name(), columnType);
+
+            if (!descriptor.hidden()) {
+                typeSansHiddenBuilder.add(descriptor.name(), columnType);
+            }
+
             descriptorsMap.put(descriptor.name(), descriptor);
         }
 
         this.descriptors = columnDescriptors.toArray(DUMMY);
         this.descriptorsMap = descriptorsMap;
         this.rowType = typeBuilder.build();
+        this.rowTypeSansHidden = typeSansHiddenBuilder.build();
     }
 
     @Override
@@ -153,6 +163,11 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
             return builder.build();
         }
+    }
+
+    @Override
+    public RelDataType rowTypeSansHidden() {
+        return rowTypeSansHidden;
     }
 
     /** {@inheritDoc} */

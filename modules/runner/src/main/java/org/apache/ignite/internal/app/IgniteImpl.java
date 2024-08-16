@@ -533,7 +533,7 @@ public class IgniteImpl implements Ignite {
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
         partitionsLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
+                SharedLogStorageFactoryUtils.create("table data log", clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
         raftMgr = new Loza(
                 clusterSvc,
@@ -553,7 +553,7 @@ public class IgniteImpl implements Ignite {
         );
 
         cmgLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
+                SharedLogStorageFactoryUtils.create("cluster-management-group log", clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
@@ -617,7 +617,7 @@ public class IgniteImpl implements Ignite {
         ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
         msLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
+                SharedLogStorageFactoryUtils.create("meta-storage log", clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
@@ -763,25 +763,12 @@ public class IgniteImpl implements Ignite {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
-                name,
-                catalogManager,
-                clusterSvc.messagingService(),
-                logicalTopologyService,
-                placementDriverMgr.placementDriver(),
-                clockService,
-                threadPoolsManager.commonScheduler()
-        );
-
-        metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
-
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
         systemViewManager.register(catalogManager);
 
         this.catalogManager = catalogManager;
-        this.catalogCompactionRunner = catalogCompactionRunner;
 
         lowWatermark = new LowWatermarkImpl(
                 name,
@@ -791,9 +778,6 @@ public class IgniteImpl implements Ignite {
                 failureProcessor,
                 clusterSvc.messagingService()
         );
-
-        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
-                params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
         this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
 
@@ -834,6 +818,25 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService(),
                 clock
         );
+
+        CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
+                name,
+                catalogManager,
+                clusterSvc.messagingService(),
+                logicalTopologyService,
+                placementDriverMgr.placementDriver(),
+                replicaSvc,
+                clockService,
+                schemaSyncService,
+                threadPoolsManager.commonScheduler(),
+                indexNodeFinishedRwTransactionsChecker
+        );
+
+        metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
+        this.catalogCompactionRunner = catalogCompactionRunner;
+
+        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
+                params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 

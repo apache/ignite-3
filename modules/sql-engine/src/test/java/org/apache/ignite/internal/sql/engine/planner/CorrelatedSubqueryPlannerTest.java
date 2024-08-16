@@ -59,7 +59,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
      * @throws Exception In case of any unexpected error.
      */
     @Test
-    @Disabled("IGNITE-22772")
+    @Disabled("IGNITE-22853")
     public void test() throws Exception {
         IgniteSchema schema = createSchema(createTestTable("A", "B", "C", "D", "E"));
 
