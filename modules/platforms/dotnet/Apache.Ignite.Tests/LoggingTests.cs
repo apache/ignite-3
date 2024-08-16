@@ -74,9 +74,9 @@ public class LoggingTests
     [Test]
     public async Task TestMicrosoftConsoleLogger()
     {
-        var oldWriter = Console.Out;
-        var writer = new StringWriter();
-        var textWriter = TextWriter.Synchronized(writer);
+        var oldTextWriter = Console.Out;
+        var stringWriter = new StringWriter();
+        var textWriter = TextWriter.Synchronized(stringWriter);
         Console.SetOut(textWriter);
 
         try
@@ -94,13 +94,13 @@ public class LoggingTests
         }
         finally
         {
-            Console.SetOut(oldWriter);
+            Console.SetOut(oldTextWriter);
         }
 
         // Prevent further writes before accessing the inner StringBuilder.
         textWriter.Close();
-        writer.Close();
-        var log = writer.ToString();
+        stringWriter.Close();
+        var log = stringWriter.ToString();
 
         StringAssert.Contains("dbug: Apache.Ignite.Internal.ClientSocket", log);
         StringAssert.Contains("Connection established", log);
