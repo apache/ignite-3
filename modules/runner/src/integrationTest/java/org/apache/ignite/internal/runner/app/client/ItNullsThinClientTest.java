@@ -70,7 +70,7 @@ public class ItNullsThinClientTest extends ItAbstractThinClientTest {
         expectNotSupported(() -> view.getNullable(null, 1));
         expectNotSupported(() -> view.getNullableAndPut(null, 1, null));
         expectNotSupported(() -> view.getNullableAndRemove(null, 1));
-        expectNotSupported(() -> view.getNullableAndReplaceAsync(null, 1, null));
+        expectNotSupported(() -> view.getNullableAndReplace(null, 1, null));
     }
 
     @Test
