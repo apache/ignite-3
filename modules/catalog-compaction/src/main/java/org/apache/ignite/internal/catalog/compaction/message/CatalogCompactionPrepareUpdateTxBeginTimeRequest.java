@@ -17,22 +17,22 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message types used in catalog compaction module.
+ * Request is used to propagate the minimum begin tx time on replicas.
+ *
+ * <p>The whole process consists of the following steps:
+ * <ul>
+ *     <li>Collect local minimum starting time among logical nodes (see {@link CatalogCompactionMinimumTimesRequest})</li>
+ *     <li>Compute global minimum</li>
+ *     <li>Send global minimum to all logical nodes (this message)</li>
+ *     <li>Each node updates the replication groups for which it is the primary</li>
+ * </ul>
  */
-@MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
-public class CatalogCompactionMessageGroup {
-    public static final short GROUP_TYPE = 14;
-
-    /** See {@link CatalogCompactionMinimumTimesRequest} for the details. */
-    public static final short MINIMUM_TIMES_REQUEST = 0;
-
-    /** See {@link CatalogCompactionMinimumTimesResponse} for the details. */
-    public static final short MINIMUM_TIMES_RESPONSE = 1;
-
-    public static final short PREPARE_TO_UPDATE_TIME_ON_REPLICAS_REQUEST = 2;
-
-    public static final short PREPARE_TO_UPDATE_TIME_ON_REPLICAS_RESPONSE = 3;
+@Transferable(CatalogCompactionMessageGroup.PREPARE_TO_UPDATE_TIME_ON_REPLICAS_REQUEST)
+public interface CatalogCompactionPrepareUpdateTxBeginTimeRequest extends NetworkMessage {
+    /** Returns the minimum starting time among all active RW transactions. */
+    long timestamp();
 }

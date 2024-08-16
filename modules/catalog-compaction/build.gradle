@@ -50,6 +50,7 @@ dependencies {
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-placement-driver-api')
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')

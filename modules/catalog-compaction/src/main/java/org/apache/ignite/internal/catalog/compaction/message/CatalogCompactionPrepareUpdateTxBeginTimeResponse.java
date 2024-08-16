@@ -17,22 +17,20 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
-import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Message types used in catalog compaction module.
+ * Result of tx time propagation to replicas.
+ *
+ * @see CatalogCompactionPrepareUpdateTxBeginTimeRequest
  */
-@MessageGroup(groupType = CatalogCompactionMessageGroup.GROUP_TYPE, groupName = "CatalogCompactionMessages")
-public class CatalogCompactionMessageGroup {
-    public static final short GROUP_TYPE = 14;
+@Transferable(CatalogCompactionMessageGroup.PREPARE_TO_UPDATE_TIME_ON_REPLICAS_RESPONSE)
+public interface CatalogCompactionPrepareUpdateTxBeginTimeResponse extends NetworkMessage {
+    /** Returns {@code true} if propagation was successful, {@code false} if propagation was aborted without errors. */
+    boolean success();
 
-    /** See {@link CatalogCompactionMinimumTimesRequest} for the details. */
-    public static final short MINIMUM_TIMES_REQUEST = 0;
-
-    /** See {@link CatalogCompactionMinimumTimesResponse} for the details. */
-    public static final short MINIMUM_TIMES_RESPONSE = 1;
-
-    public static final short PREPARE_TO_UPDATE_TIME_ON_REPLICAS_REQUEST = 2;
-
-    public static final short PREPARE_TO_UPDATE_TIME_ON_REPLICAS_RESPONSE = 3;
+    /** Returns an error message if propagation was aborted due to an error. */
+    @Nullable String error();
 }

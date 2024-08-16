@@ -18,19 +18,22 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.function.Predicate.not;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMap.Entry;
+import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -38,6 +41,9 @@ import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMe
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesResponse;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionPrepareUpdateTxBeginTimeRequest;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionPrepareUpdateTxBeginTimeResponse;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionPrepareUpdateTxBeginTimeResponseBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -91,7 +97,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    private static final long ANSWER_TIMEOUT = 5_000;
+    private static final long ANSWER_TIMEOUT = 10_000;
 
     private final CatalogManagerCompactionFacade catalogManagerFacade;
 
@@ -194,6 +200,31 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 return;
             }
 
+            if (message.messageType() == CatalogCompactionMessageGroup.PREPARE_TO_UPDATE_TIME_ON_REPLICAS_REQUEST) {
+                assert correlationId != null;
+
+                long txBeginTime = ((CatalogCompactionPrepareUpdateTxBeginTimeRequest) message).timestamp();
+
+                propagateTimeToReplicasLocal(txBeginTime)
+                        .whenComplete((result, ex) -> {
+                                    CatalogCompactionPrepareUpdateTxBeginTimeResponseBuilder responseBuilder =
+                                            COMPACTION_MESSAGES_FACTORY.catalogCompactionPrepareUpdateTxBeginTimeResponse();
+
+                                    if (ex != null) {
+                                        responseBuilder.error(ex.toString());
+
+                                        LOG.warn("Failed to update minimum active tx begin time on replicas", ex);
+                                    } else {
+                                        responseBuilder.success(result);
+                                    }
+
+                                    messagingService.respond(sender, responseBuilder.build(), correlationId);
+                                }
+                        );
+
+                return;
+            }
+
             throw new UnsupportedOperationException("Not supported message type: " + message.messageType());
         });
 
@@ -290,11 +321,19 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         });
                     }
 
-                    CompletableFuture<Void> propagateToReplicasFut =
+                    CompletableFuture<Boolean> propagateToReplicasFut =
                             propagateTimeToReplicas(minActiveTxBeginTime, topologySnapshot.nodes())
-                                    .whenComplete((res, ex) -> {
+                                    .whenComplete((success, ex) -> {
                                         if (ex != null) {
                                             LOG.warn("Failed to propagate minimum active tx begin time to replicas", ex);
+                                        }
+
+                                        if (!success) {
+                                            LOG.info("Propagation of minimum required time to replicas "
+                                                    + "completed successfully (timestamp={})", minActiveTxBeginTime);
+                                        } else {
+                                            LOG.info("Propagation of minimum required time to replicas "
+                                                    + "skipped (timestamp={})", minActiveTxBeginTime);
                                         }
                                     });
 
@@ -401,74 +440,94 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
-    CompletableFuture<Void> propagateTimeToReplicas(long timestamp, Collection<? extends ClusterNode> topologyNodes) {
+    CompletableFuture<Boolean> propagateTimeToReplicas(long timestamp, Collection<? extends ClusterNode> nodes) {
+        CatalogCompactionPrepareUpdateTxBeginTimeRequest request = COMPACTION_MESSAGES_FACTORY
+                .catalogCompactionPrepareUpdateTxBeginTimeRequest()
+                .timestamp(timestamp)
+                .build();
+
+        List<CompletableFuture<?>> responseFutures = new ArrayList<>(nodes.size());
+        AtomicBoolean successFlag = new AtomicBoolean(true);
+
+        for (ClusterNode node : nodes) {
+            CompletableFuture<?> fut =
+                    messagingService.invoke(node, request, ANSWER_TIMEOUT)
+                    .thenApply(message -> {
+                        CatalogCompactionPrepareUpdateTxBeginTimeResponse response =
+                                (CatalogCompactionPrepareUpdateTxBeginTimeResponse) message;
+
+                        if (response.error() != null) {
+                            throw new IllegalStateException(format(
+                                    "Remote node responded with error [node={}, error={}]",
+                                    node.name(), response.error()));
+                        }
+
+                        if (!response.success()) {
+                            successFlag.set(false);
+                        }
+
+                        return null;
+                    });
+
+            responseFutures.add(fut);
+        }
+
+        return CompletableFutures.allOf(responseFutures).thenApply(ignore -> successFlag.get());
+    }
+
+    CompletableFuture<Boolean> propagateTimeToReplicasLocal(long txBeginTime) {
         HybridTimestamp nowTs = clockService.now();
 
         return schemaSyncService.waitForMetadataCompleteness(nowTs)
                 .thenComposeAsync(ignore -> {
-                    Map<Integer, Integer> tablesWithPartitions =
-                            catalogManagerFacade.collectTablesWithPartitionsBetween(timestamp, nowTs.longValue());
+                    AtomicBoolean abortFlag = new AtomicBoolean();
+                    Int2IntMap tablesWithPartitions =
+                            catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
 
-                    Set<String> topologyNodeNames = topologyNodes.stream()
-                            .map(ClusterNode::name)
-                            .collect(Collectors.toSet());
+                    ObjectIterator<Entry> itr = tablesWithPartitions.int2IntEntrySet().iterator();
 
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-22951 Minimize the number of network requests
-                    return CompletableFutures.allOf(tablesWithPartitions.entrySet().stream()
-                            .map(e -> invokeOnReplicas(e.getKey(), e.getValue(), timestamp, nowTs, topologyNodeNames))
-                            .collect(Collectors.toList())
-                    );
+                    return invokeOnLocalReplicas(txBeginTime, itr, abortFlag)
+                            .thenApply(v -> !abortFlag.get());
                 }, executor);
     }
 
-    private CompletableFuture<Void> invokeOnReplicas(
-            int tableId,
-            int partitions,
-            long txBeginTime,
-            HybridTimestamp nowTs,
-            Set<String> logicalTopologyNodes
-    ) {
-        List<TablePartitionId> replicationGroupIds = new ArrayList<>(partitions);
-
-        for (int p = 0; p < partitions; p++) {
-            replicationGroupIds.add(new TablePartitionId(tableId, p));
+    private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, ObjectIterator<Entry> tabTtr, AtomicBoolean abortFlag) {
+        if (!tabTtr.hasNext() || abortFlag.get()) {
+            return CompletableFutures.nullCompletedFuture();
         }
 
-        return placementDriver.getAssignments(replicationGroupIds, nowTs)
-                .thenComposeAsync(tokenizedAssignments -> {
-                    assert tokenizedAssignments.size() == replicationGroupIds.size();
+        Entry tableWithPartitions = tabTtr.next();
+        int tableId = tableWithPartitions.getIntKey();
+        int partitions = tableWithPartitions.getIntValue();
+        List<CompletableFuture<?>> partFutures = new ArrayList<>(partitions);
 
-                    List<CompletableFuture<?>> replicaInvokeFutures = new ArrayList<>(partitions);
+        for (int p = 0; p < partitions; p++) {
+            TablePartitionId tablePartitionId = new TablePartitionId(tableId, p);
 
-                    for (int p = 0; p < partitions; p++) {
-                        TablePartitionId replicationGroupId = replicationGroupIds.get(p);
-                        TokenizedAssignments tokenizedAssignment = tokenizedAssignments.get(p);
-
-                        if (tokenizedAssignment == null) {
-                            throwAssignmentsNotReadyException(replicationGroupId);
+            CompletableFuture<?> fut = placementDriver
+                    .getPrimaryReplica(tablePartitionId, clockService.now())
+                    .thenCompose(meta -> {
+                        if (abortFlag.get()) {
+                            return CompletableFutures.nullCompletedFuture();
                         }
 
-                        Set<String> assignments = tokenizedAssignment.nodes().stream()
-                                .map(Assignment::consistentId).collect(Collectors.toSet());
+                        // If primary is not elected yet - we'll update replication groups on next iteration.
+                        if (meta == null || meta.getLeaseholder() == null) {
+                            LOG.info("Primary replica is not selected yet, aborting minimum tx begin "
+                                    + "time propagation [tablePartitionId={}]", tablePartitionId);
 
-                        String targetNodeName;
+                            abortFlag.set(true);
 
-                        if (assignments.contains(localNodeName)) {
-                            targetNodeName = localNodeName;
-                        } else {
-                            targetNodeName = assignments.stream()
-                                    .filter(logicalTopologyNodes::contains)
-                                    .findAny()
-                                    .orElseThrow(() -> new IllegalStateException("Current topology doesn't include assignment nodes "
-                                            + "(assignments=" + tokenizedAssignment.nodes()
-                                            + ", topology=" + logicalTopologyNodes
-                                            + ", replication group=" + replicationGroupId + ").")
-                                    );
+                            return CompletableFutures.nullCompletedFuture();
+                        }
+
+                        if (!localNodeName.equals(meta.getLeaseholder())) {
+                            return CompletableFutures.nullCompletedFuture();
                         }
 
                         TablePartitionIdMessage partIdMessage = ReplicaMessageUtils.toTablePartitionIdMessage(
                                 REPLICA_MESSAGES_FACTORY,
-                                replicationGroupId
+                                tablePartitionId
                         );
 
                         UpdateMinimumActiveTxBeginTimeReplicaRequest msg = REPLICATION_MESSAGES_FACTORY
@@ -477,11 +536,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                 .timestamp(txBeginTime)
                                 .build();
 
-                        replicaInvokeFutures.add(replicaService.invoke(targetNodeName, msg));
-                    }
+                        return replicaService.invoke(localNodeName, msg);
+                    });
 
-                    return CompletableFutures.allOf(replicaInvokeFutures);
-                }, executor);
+            partFutures.add(fut);
+        }
+
+        return CompletableFutures.allOf(partFutures)
+                .thenComposeAsync(ignore -> invokeOnLocalReplicas(txBeginTime, tabTtr, abortFlag), executor);
     }
 
     private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
@@ -501,7 +563,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private static void throwAssignmentsNotReadyException(TablePartitionId replicationGroupId) {
         throw new IllegalStateException("Cannot get assignments for table "
-                + "(replication group=" + replicationGroupId + ").");
+                + "[replication group=" + replicationGroupId + ']');
     }
 
     /** Minimum required time provider. */
