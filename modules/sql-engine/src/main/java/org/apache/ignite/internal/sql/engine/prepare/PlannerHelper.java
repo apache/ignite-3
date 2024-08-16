@@ -498,6 +498,9 @@ public final class PlannerHelper {
             return false;
         } else {
             SqlCall call = (SqlCall) node;
+            if (call.getOperandList().isEmpty()) {
+                return false;
+            }
             SqlNode operand = call.getOperandList().get(0);
 
             return !isNullableOperand(validator, operand);
@@ -522,6 +525,9 @@ public final class PlannerHelper {
     private static boolean isCountNull(SqlNode node) {
         if (SqlUtil.isCallTo(node, SqlStdOperatorTable.COUNT)) {
             SqlCall call = (SqlCall) node;
+            if (call.getOperandList().isEmpty()) {
+                return false;
+            }
             return SqlUtil.isNull(call.getOperandList().get(0));
         } else {
             return false;
