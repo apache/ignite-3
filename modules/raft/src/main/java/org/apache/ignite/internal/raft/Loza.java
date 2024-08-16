@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -108,13 +109,15 @@ public class Loza implements RaftManager {
      * @param metricManager Metric manager.
      * @param raftConfiguration Raft configuration.
      * @param clock A hybrid logical clock.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      */
     public Loza(
             ClusterService clusterNetSvc,
             MetricManager metricManager,
             RaftConfiguration raftConfiguration,
             HybridClock clock,
-            RaftGroupEventsClientListener raftGroupEventsClientListener
+            RaftGroupEventsClientListener raftGroupEventsClientListener,
+            FailureProcessor failureProcessor
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
@@ -127,7 +130,7 @@ public class Loza implements RaftManager {
 
         this.opts = options;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, options, raftGroupEventsClientListener);
+        this.raftServer = new JraftServerImpl(clusterNetSvc, options, raftGroupEventsClientListener, failureProcessor);
 
         this.executor = new ScheduledThreadPoolExecutor(
                 CLIENT_POOL_SIZE,

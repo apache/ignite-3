@@ -540,7 +540,8 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 raftConfiguration,
                 clock,
-                raftGroupEventsClientListener
+                raftGroupEventsClientListener,
+                failureProcessor
         );
 
         LockManager lockMgr = new HeapLockManager();
