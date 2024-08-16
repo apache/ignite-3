@@ -1923,16 +1923,19 @@ public class InternalTableImpl implements InternalTable {
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
+        HybridTimestamp now = clock.now();
+
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
         tx.assignCommitPartition(tablePartitionId);
 
-        ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(tablePartitionId, tx.startTimestamp());
+        ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(tablePartitionId, now);
 
-        Function<ReplicaMeta, IgniteBiTuple<ClusterNode, Long>> clo = replicaMeta -> {
+        Function<ReplicaMeta, IgniteBiTuple<ClusterNode, Long>> enlistClo = replicaMeta -> {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
             IgniteBiTuple<ClusterNode, Long> enlistState = new IgniteBiTuple<>(getClusterNode(replicaMeta),
                     enlistmentConsistencyToken(replicaMeta));
+
             tx.enlist(partGroupId, enlistState);
 
             return enlistState;
@@ -1940,34 +1943,32 @@ public class InternalTableImpl implements InternalTable {
 
         if (meta != null) {
             try {
-                return completedFuture(clo.apply(meta));
-            } catch (Exception e) {
-                return failedFuture(e);
+                return completedFuture(enlistClo.apply(meta));
+            } catch (IgniteException e) {
+                if (e.code() != REPLICA_UNAVAILABLE_ERR) {
+                    return failedFuture(e);
+                }
             }
         }
 
-        return partitionMeta(tablePartitionId).thenApply(clo);
+        return partitionMeta(tablePartitionId, now).thenApply(enlistClo);
     }
 
     @Override
     public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId tablePartitionId) {
-        return partitionMeta(tablePartitionId).thenApply(this::getClusterNode);
+        return partitionMeta(tablePartitionId, clock.now()).thenApply(this::getClusterNode);
     }
 
-    private CompletableFuture<ReplicaMeta> partitionMeta(TablePartitionId tablePartitionId) {
-        HybridTimestamp now = clock.now();
-
-        return awaitPrimaryReplica(tablePartitionId, now).
-                exceptionally(e -> {throw replicaUnavailableException(tablePartitionId, now, e);});
-    }
-
-    private TransactionException replicaUnavailableException(TablePartitionId tablePartitionId, HybridTimestamp now, Throwable e) {
-        return withCause(
-                TransactionException::new,
-                REPLICA_UNAVAILABLE_ERR,
-                "Failed to get the primary replica [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']',
-                e
-        );
+    private CompletableFuture<ReplicaMeta> partitionMeta(TablePartitionId tablePartitionId, HybridTimestamp at) {
+        return awaitPrimaryReplica(tablePartitionId, at)
+                .exceptionally(e -> {
+                    throw withCause(
+                            TransactionException::new,
+                            REPLICA_UNAVAILABLE_ERR,
+                            "Failed to get the primary replica [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + at + ']',
+                            e
+                    );
+                });
     }
 
     private ClusterNode getClusterNode(ReplicaMeta replicaMeta) {
