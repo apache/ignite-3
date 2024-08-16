@@ -43,6 +43,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -84,7 +85,7 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
 
         clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any()))
+        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any()))
                 .thenReturn(completedFuture(raftGroupService));
 
         ClusterState clusterState = cmgMessagesFactory.clusterState()
@@ -109,7 +110,8 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 logicalTopology,
                 nodeAttributes,
                 failureProcessor,
-                new ClusterIdHolder()
+                new ClusterIdHolder(),
+                RaftGroupOptionsConfigurer.EMPTY
         );
 
         assertThat(clusterService.startAsync(componentContext), willCompleteSuccessfully());

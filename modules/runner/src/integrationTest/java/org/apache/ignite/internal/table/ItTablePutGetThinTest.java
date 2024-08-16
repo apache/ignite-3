@@ -36,7 +36,7 @@ public class ItTablePutGetThinTest extends ItTablePutGetEmbeddedTest {
     }
 
     @AfterAll
-    static void stopClient() throws Exception {
+    static void stopClient() {
         client.close();
     }
 

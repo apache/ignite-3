@@ -36,7 +36,7 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     }
 
     @AfterAll
-    public void stopClient() throws Exception {
+    public void stopClient() {
         client.close();
     }
 

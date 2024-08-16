@@ -40,6 +40,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.tx.ActiveLocalTxMinimumBeginTimeProvider;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -49,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
  * Local node RW transaction completion checker for indexes. Main task is to handle the
  * {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}.
  */
-public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, IgniteComponent {
+public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, ActiveLocalTxMinimumBeginTimeProvider, IgniteComponent {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
     private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -144,6 +145,20 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
                 readWriteLock.readLock().unlock();
             }
         });
+    }
+
+    @Override
+    public HybridTimestamp minimumBeginTime() {
+        readWriteLock.writeLock().lock();
+
+        try {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22975 Improve minimum begin time determination
+            return txCatalogVersionByBeginTxTs.keySet().stream()
+                    .min(HybridTimestamp::compareTo)
+                    .orElse(clock.now());
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
     }
 
     /**

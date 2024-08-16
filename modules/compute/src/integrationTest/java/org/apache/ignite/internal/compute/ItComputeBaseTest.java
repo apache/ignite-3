@@ -483,8 +483,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             );
 
             assertThat(resultString, equalTo(argumentPojo.getName()));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
 
     }
