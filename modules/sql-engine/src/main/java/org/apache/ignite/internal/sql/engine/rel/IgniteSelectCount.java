@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -26,24 +24,51 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
+import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Relational operator that represents a SELECT COUNT(*) query.
+ * Relational operator that represents a {@code SELECT COUNT(*) FROM table} queries such as:
+ *<ul>
+ *     <li>{@code SELECT COUNT(*) FROM table}</li>
+ *     <li>{@code SELECT COUNT(not_null_col) FROM table}</li>
+ *     <li>{@code SELECT COUNT(1) FROM table}</li>
+ *</ul>
+ *
+ * <p>Queries without a {@code FROM} clause, can also be presented by this operator:
+ * <ul>
+ *     <li>{@code SELECT COUNT(*)}</li>
+ *     <li>{@code SELECT COUNT(1)}</li>
+ * </ul>
+ *
+ * If a select list includes constant literals (e.g. {@code SELECT COUNT(*), 1, 2 FROM table}),
+ * then such query can be presented by this operator as well.
+ *
+ * <p>Note: This operator can not be executed in transactional context and does not participate in distributed query plan.
+ * Given that node is not supposed to be a part of distributed query plan, the following parts were
+ * deliberately omitted:<ul>
+ *     <li>this class doesn't implement {@link SourceAwareIgniteRel}, making it impossible
+ *     to map properly by {@link MappingService}</li>
+ *     <li>de-serialisation constructor is omitted (see {@link ProjectableFilterableTableScan#ProjectableFilterableTableScan(RelInput)}
+ *     as example)</li>
+ * </ul>
  */
 public class IgniteSelectCount extends AbstractRelNode implements IgniteRel {
 
     private static final String REL_TYPE_NAME = "SelectCount";
 
     private final RelOptTable table;
+
     private final List<RexNode> expressions;
+
     /**
      * Constructor.
      *
