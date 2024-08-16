@@ -76,7 +76,8 @@ public class LoggingTests
     {
         var oldWriter = Console.Out;
         var writer = new StringWriter();
-        Console.SetOut(TextWriter.Synchronized(writer));
+        var textWriter = TextWriter.Synchronized(writer);
+        Console.SetOut(textWriter);
 
         try
         {
@@ -97,6 +98,7 @@ public class LoggingTests
         }
 
         // Prevent further writes before accessing the inner StringBuilder.
+        textWriter.Close();
         writer.Close();
         var log = writer.ToString();
 
