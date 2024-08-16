@@ -49,7 +49,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  *     <li>{@code SELECT COUNT(1)}</li>
  * </ul>
  *
- * If a select list includes constant literals (e.g. {@code SELECT COUNT(*), 1, 2 FROM table}),
+ * <p>If a select list includes constant literals (e.g. {@code SELECT COUNT(*), 1, 2 FROM table}),
  * then such query can be presented by this operator as well.
  *
  * <p>Note: This operator can not be executed in transactional context and does not participate in distributed query plan.

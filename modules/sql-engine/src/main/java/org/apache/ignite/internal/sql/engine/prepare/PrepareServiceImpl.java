@@ -44,6 +44,7 @@ import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -280,13 +281,25 @@ public class PrepareServiceImpl implements PrepareService {
             return new FastOptimizationResult(stmt, null);
         }
 
-        IgniteRel fastOptRel = PlannerHelper.tryOptimizeSelectCount(planningContext.planner(), txContext, stmt.value.sqlNode());
-        if (fastOptRel == null) {
+        Pair<IgniteRel, List<String>> relAndAliases = PlannerHelper.tryOptimizeSelectCount(
+                planningContext.planner(),
+                txContext,
+                stmt.value.sqlNode()
+        );
+
+        if (relAndAliases == null) {
             return new FastOptimizationResult(stmt, null);
         }
 
+        IgniteRel fastOptRel = relAndAliases.left;
+        List<String> aliases = relAndAliases.right;
+
+        assert fastOptRel != null;
+        assert aliases != null;
+
         RelDataType rowType = fastOptRel.getRowType();
-        ResultSetMetadata resultSetMetadata = resultSetMetadata(rowType, null, rowType.getFieldNames());
+
+        ResultSetMetadata resultSetMetadata = resultSetMetadata(rowType, null, aliases);
 
         QueryPlan plan;
 

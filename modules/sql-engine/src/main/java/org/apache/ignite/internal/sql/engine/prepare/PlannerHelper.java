@@ -368,9 +368,9 @@ public final class PlannerHelper {
      * @param planner Planner.
      * @param txContext Transactional context.
      * @param node Query node.
-     * @return Plan node, if the optimization is applicable.
+     * @return Plan node with list of aliases, if the optimization is applicable.
      */
-    public static @Nullable IgniteRel tryOptimizeSelectCount(
+    public static @Nullable Pair<IgniteRel, List<String>> tryOptimizeSelectCount(
             IgnitePlanner planner,
             @Nullable QueryTransactionContext txContext,
             SqlNode node
@@ -476,12 +476,15 @@ public final class PlannerHelper {
             return null;
         }
 
-        return new IgniteSelectCount(
+        IgniteSelectCount rel = new IgniteSelectCount(
                 planner.cluster(),
                 planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
                 targetTable,
                 expressions
         );
+
+
+        return new Pair<>(rel, expressionNames);
     }
 
     private static boolean isCountStar(SqlValidator validator, SqlNode node) {
