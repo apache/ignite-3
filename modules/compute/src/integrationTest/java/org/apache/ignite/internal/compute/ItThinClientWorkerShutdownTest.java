@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.AfterEach;
 
 class ItThinClientWorkerShutdownTest extends ItWorkerShutdownTest {
@@ -36,8 +38,8 @@ class ItThinClientWorkerShutdownTest extends ItWorkerShutdownTest {
     }
 
     @Override
-    IgniteCompute compute(IgniteImpl entryNode) {
-        String address = "127.0.0.1:" + entryNode.clientAddress().port();
+    IgniteCompute compute(Ignite entryNode) {
+        String address = "127.0.0.1:" + unwrapIgniteImpl(entryNode).clientAddress().port();
         IgniteClient client = IgniteClient.builder().addresses(address).build();
         clients.put(address, client);
         return client.compute();

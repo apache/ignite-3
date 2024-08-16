@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.sqllogic;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -348,7 +349,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
         for (IgniteServer node : nodes) {
             assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            IgniteImpl ignite = (IgniteImpl) node.api();
+            IgniteImpl ignite = unwrapIgniteImpl(node.api());
             CLUSTER_NODES.add(ignite);
 
             ignite.metricManager().enable("jvm");

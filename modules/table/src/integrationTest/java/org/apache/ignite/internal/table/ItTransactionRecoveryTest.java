@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
@@ -53,8 +54,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterService;
@@ -184,7 +187,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertEquals(orphanTxId, recoveryTxMsgCaptureFut.join());
         assertEquals(1, msgCount.get());
 
-        node(0).clusterConfiguration().getConfiguration(TransactionConfiguration.KEY).change(transactionChange ->
+        unwrapIgniteImpl(node(0)).clusterConfiguration().getConfiguration(TransactionConfiguration.KEY).change(transactionChange ->
                 transactionChange.changeAbandonedCheckTs(1));
 
         assertTrue(waitForCondition(() -> {
@@ -257,7 +260,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         AtomicInteger msgCount = new AtomicInteger();
 
-        IgniteImpl roCoordNode = node(0);
+        Ignite roCoordNode = node(0);
 
         log.info("RO Transaction coordinator is chosen [node={}].", roCoordNode.name());
 
@@ -303,7 +306,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         AtomicInteger msgCount = new AtomicInteger();
 
-        IgniteImpl roCoordNode = node(0);
+        Ignite roCoordNode = node(0);
 
         log.info("RO Transaction coordinator is chosen [node={}].", roCoordNode.name());
 
@@ -349,7 +352,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         AtomicInteger stateMsgCount = new AtomicInteger();
         AtomicInteger recoveryMsgCount = new AtomicInteger();
 
-        IgniteImpl roCoordNode = node(0);
+        Ignite roCoordNode = node(0);
 
         log.info("RO Transaction coordinator is chosen [node={}].", roCoordNode.name());
 
@@ -514,7 +517,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         // The state on the commit partition is still PENDING.
         assertEquals(TxState.PENDING, txVolatileState(commitPartNode, orphanTx.id()));
 
-        IgniteImpl newTxCoord = node(0);
+        Ignite newTxCoord = node(0);
 
         runRwTransactionNoError(newTxCoord, newTxCoord.transactions().begin());
 
@@ -571,7 +574,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
-        IgniteImpl newCoordNode = node(0);
+        Ignite newCoordNode = node(0);
 
         log.info("New transaction coordinator is chosen [node={}].", newCoordNode.name());
 
@@ -637,7 +640,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, rwTx1Id) == TxState.COMMITTED, 10_000));
 
-        IgniteImpl txCrdNode2 = node(0);
+        IgniteImpl txCrdNode2 = unwrapIgniteImpl(node(0));
 
         CompletableFuture<Void> finish2 = txCrdNode2.txManager().finish(
                 new HybridTimestampTracker(),
@@ -821,7 +824,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         startTransactionWithCursorAndStopNode(txCrdNode, commitPartNode);
 
-        IgniteImpl newCoordNode = node(0);
+        Ignite newCoordNode = node(0);
 
         log.info("New transaction coordinator is chosen [node={}].", newCoordNode.name());
 
@@ -971,7 +974,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+        String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), tblReplicationGrp).getLeaseholder();
 
         IgniteImpl txExecNode = findNodeByName(leaseholder);
 
@@ -1054,7 +1057,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      * @param node Transaction coordinator node.
      * @param rwTx A transaction to create a lock conflict with an abandoned one.
      */
-    private void runConflictingTransaction(IgniteImpl node, Transaction rwTx) {
+    private void runConflictingTransaction(Ignite node, Transaction rwTx) {
         RecordView view = node.tables().table(TABLE_NAME).recordView();
 
         try {
@@ -1071,7 +1074,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private void runRwTransactionNoError(IgniteImpl node, Transaction rwTx) {
+    private void runRwTransactionNoError(Ignite node, Transaction rwTx) {
         RecordView view = node.tables().table(TABLE_NAME).recordView();
 
         try {
@@ -1089,7 +1092,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      * @param node Transaction coordinator node.
      * @param roTx A transaction to resolve write intents from the abandoned TX.
      */
-    private void runReadOnlyTransaction(IgniteImpl node, Transaction roTx) {
+    private void runReadOnlyTransaction(Ignite node, Transaction roTx) {
         RecordView view = node.tables().table(TABLE_NAME).recordView();
 
         try {
@@ -1142,6 +1145,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private IgniteImpl findNode(int startRange, int endRange, Predicate<IgniteImpl> filter) {
         return IntStream.range(startRange, endRange)
                 .mapToObj(this::node)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .filter(filter::test)
                 .findFirst()
                 .get();
@@ -1155,8 +1159,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return findNode(1, initialNodes(), n -> !leaseholder.equals(n.name()));
     }
 
-    private static String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
-        return waitAndGetPrimaryReplica(node, tblReplicationGrp).getLeaseholder();
+    private static String waitAndGetLeaseholder(Ignite node, ReplicationGroupId tblReplicationGrp) {
+        return waitAndGetPrimaryReplica(unwrapIgniteImpl(node), tblReplicationGrp).getLeaseholder();
     }
 
     private void cancelLease(IgniteImpl leaseholder, ReplicationGroupId groupId) {

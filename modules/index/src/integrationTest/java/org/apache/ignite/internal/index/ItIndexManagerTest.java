@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -85,7 +86,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static IgniteImpl node() {
-        return CLUSTER.node(0);
+        return unwrapIgniteImpl(CLUSTER.node(0));
     }
 
     private static Person[] createPeopleBatch(int batchSize) {

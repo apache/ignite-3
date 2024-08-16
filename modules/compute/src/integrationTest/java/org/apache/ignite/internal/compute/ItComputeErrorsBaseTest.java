@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.compute.utils.InteractiveJobs.Signal.RETURN_WORKER_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -51,7 +52,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     @Test
     void executeAsyncSucceedsWhenAtLeastOnNodeIsInTheCluster() throws InterruptedException {
         // When set of nodes contain existing and non-existing nodes
-        ClusterNode existingNode = CLUSTER.node(0).node();
+        ClusterNode existingNode = unwrapIgniteImpl(CLUSTER.node(0)).node();
         Set<ClusterNode> nodes = Set.of(existingNode, nonExistingNode);
 
         // And execute a job
@@ -85,7 +86,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     @Test
     void executeSucceedsWhenAtLeastOnNodeIsInTheCluster() {
         // When set of nodes contain existing and non-existing nodes
-        ClusterNode existingNode = CLUSTER.node(0).node();
+        ClusterNode existingNode = unwrapIgniteImpl(CLUSTER.node(0)).node();
         Set<ClusterNode> nodes = Set.of(existingNode, nonExistingNode);
 
         // And execute a job
@@ -114,7 +115,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
     @Test
     void broadcastAsync() {
         // When set of nodes contain existing and non-existing nodes
-        ClusterNode existingNode = CLUSTER.node(0).node();
+        ClusterNode existingNode = unwrapIgniteImpl(CLUSTER.node(0)).node();
         Set<ClusterNode> nodes = Set.of(existingNode, nonExistingNode);
 
         // And prepare communication channels.
