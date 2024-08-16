@@ -113,12 +113,13 @@ public final class SharedRocksDbInstance {
     /** Meta information instance that wraps {@link ColumnFamily} instance for meta column family. */
     public final RocksDbMetaStorage meta;
 
-    /** Column Family for partition data. */
+    /** Column Family for TX data and references to {@link #dataCf}. */
     public final ColumnFamily partitionCf;
 
     /** Column Family for GC queue. */
     public final ColumnFamily gcQueueCf;
 
+    /** Column Family for storing binary rows. */
     public final ColumnFamily dataCf;
 
     /** Column Family for Hash Index data. */

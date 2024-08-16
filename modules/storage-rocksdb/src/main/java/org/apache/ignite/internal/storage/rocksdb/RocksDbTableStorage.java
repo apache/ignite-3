@@ -136,6 +136,9 @@ public class RocksDbTableStorage implements MvTableStorage {
         return rocksDb.gcQueueCf.handle();
     }
 
+    /**
+     * Returns a column family handle for data CF.
+     */
     ColumnFamilyHandle dataCfHandle() {
         return rocksDb.dataCf.handle();
     }

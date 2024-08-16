@@ -45,11 +45,11 @@ public class ColumnFamilyUtils {
     /** Name of the Column Family that stores partition data with references to row data. */
     private static final String PARTITION_CF_NAME = "cf-part";
 
-    /** Name of the Column Family that stores garbage collection queue. */
-    private static final String GC_QUEUE_CF_NAME = "cf-gc";
-
     /** Name of the Column Family that stores row data. */
     private static final String DATA_CF_NAME = "cf-data";
+
+    /** Name of the Column Family that stores garbage collection queue. */
+    private static final String GC_QUEUE_CF_NAME = "cf-gc";
 
     /** Name of the Column Family that stores hash index data. */
     private static final String HASH_INDEX_CF_NAME = "cf-hash";

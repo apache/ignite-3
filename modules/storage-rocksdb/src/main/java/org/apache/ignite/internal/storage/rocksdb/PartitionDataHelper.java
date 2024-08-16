@@ -318,15 +318,11 @@ public final class PartitionDataHelper implements ManuallyCloseable {
      * @param value If {@code true} - sets the bit to 1, else to 0.
      */
     static void setLastBit(byte[] array, int index, boolean value) {
-        byte lastByte = array[index];
-
         if (value) {
-            lastByte |= 0x01;
+            array[index] |= 0x01;
         } else {
-            lastByte &= 0xFE;
+            array[index] &= 0xFE;
         }
-
-        array[index] = lastByte;
     }
 
     /**

@@ -135,16 +135,19 @@ import org.rocksdb.WriteBatchWithIndex;
  * could be interpreted as a moment infinitely far away in the future.
  */
 public class RocksDbMvPartitionStorage implements MvPartitionStorage {
-    /** Thread-local on-heap byte buffer instance to use for key manipulations. */
+    /** Thread-local on-heap buffer able to incorporate keys that correspond to a committed Data ID. */
     private static final ThreadLocal<ByteBuffer> HEAP_COMMITTED_DATA_ID_KEY_BUFFER =
             withInitial(() -> allocate(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
 
+    /** Thread-local on-heap buffer able to incorporate keys that correspond to an uncommitted Data ID. */
     private static final ThreadLocal<ByteBuffer> HEAP_DATA_ID_KEY_BUFFER =
             withInitial(() -> allocate(ROW_PREFIX_SIZE).order(KEY_BYTE_ORDER));
 
+    /** Thread-local direct buffer able to incorporate keys that correspond to a Data ID. */
     private static final ThreadLocal<ByteBuffer> DIRECT_DATA_ID_KEY_BUFFER =
             withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
 
+    /** Thread-local on-heap buffer able to incorporate Data ID and TX state. */
     private static final ThreadLocal<ByteBuffer> TX_STATE_BUFFER =
             withInitial(() -> allocate(DATA_ID_WITH_TX_STATE_SIZE).order(KEY_BYTE_ORDER));
 

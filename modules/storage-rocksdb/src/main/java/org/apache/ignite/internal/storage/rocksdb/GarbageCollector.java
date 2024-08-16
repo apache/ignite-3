@@ -76,15 +76,15 @@ class GarbageCollector {
     /** Garbage collector's queue key's size. */
     private static final int GC_KEY_SIZE = GC_KEY_ROW_ID_OFFSET + ROW_ID_SIZE;
 
-    /** Thread-local direct buffer instance to read keys that contain Data ID. */
+    /** Thread-local direct buffer able to incorporate keys that correspond to a Data ID. */
     private static final ThreadLocal<ByteBuffer> DIRECT_DATA_ID_KEY_BUFFER =
             withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
 
-    /** Thread-local direct buffer for storing Data ID. */
+    /** Thread-local direct buffer able to incorporate a Data ID. */
     private static final ThreadLocal<ByteBuffer> DIRECT_DATA_ID_BUFFER =
             withInitial(() -> allocateDirect(DATA_ID_SIZE).order(KEY_BYTE_ORDER));
 
-    /** Thread-local direct buffer instance to read keys from the GC queue. */
+    /** Thread-local direct buffer able to incorporate a key from the GC queue. */
     private static final ThreadLocal<ByteBuffer> DIRECT_GC_KEY_BUFFER =
             withInitial(() -> allocateDirect(GC_KEY_SIZE).order(KEY_BYTE_ORDER));
 
