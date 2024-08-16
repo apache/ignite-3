@@ -476,19 +476,10 @@ public final class PlannerHelper {
             return null;
         }
 
-        // Projection row type
-        RelDataTypeFactory.Builder rowBuilder = new Builder(typeFactory);
-        for (int i = 0; i < expressions.size(); i++) {
-            RexNode expr = expressions.get(i);
-            rowBuilder.add(expressionNames.get(i), expr.getType());
-        }
-        RelDataType rowType = rowBuilder.build();
-
         return new IgniteSelectCount(
                 planner.cluster(),
                 planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
                 targetTable,
-                rowType,
                 expressions
         );
     }

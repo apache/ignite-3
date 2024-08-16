@@ -30,7 +30,9 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -42,38 +44,30 @@ public class IgniteSelectCount extends AbstractRelNode implements IgniteRel {
 
     private final RelOptTable table;
     private final List<RexNode> expressions;
-    private final RelDataType rowType;
-
     /**
      * Constructor.
      *
      * @param cluster A cluster this relation belongs to.
      * @param traits A set of traits this node satisfies.
      * @param table A target table.
-     * @param rowType A row type.
      * @param expressions Returns a list of expressions returned alongside COUNT(*).
      */
     public IgniteSelectCount(
             RelOptCluster cluster,
             RelTraitSet traits,
             @Nullable RelOptTable table,
-            RelDataType rowType,
             List<RexNode> expressions
     ) {
         super(cluster, traits);
 
-        assert rowType.getFieldCount() == expressions.size() :
-                format("The number of expressions and columns in output type do not match:\n{}\n{}", expressions, rowType);
-
         this.table = table;
-        this.rowType = rowType;
         this.expressions = expressions;
     }
 
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveRowType() {
-        return rowType;
+        return RexUtil.createStructType(Commons.typeFactory(getCluster()), expressions);
     }
 
     /** {@inheritDoc} */
@@ -93,7 +87,7 @@ public class IgniteSelectCount extends AbstractRelNode implements IgniteRel {
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         assert inputs.isEmpty() : inputs;
 
-        return new IgniteSelectCount(cluster, getTraitSet(), table, rowType, expressions);
+        return new IgniteSelectCount(cluster, getTraitSet(), table, expressions);
     }
 
     /** {@inheritDoc} */
