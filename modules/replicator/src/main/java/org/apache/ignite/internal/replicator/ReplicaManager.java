@@ -980,9 +980,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(replicasCreationExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
-//        assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
-//                : "There are replicas alive [replicas="
-//                + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
+        assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
+                : "There are replicas alive [replicas="
+                + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
 
         for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
             replicaFuture.completeExceptionally(new NodeStoppingException());
