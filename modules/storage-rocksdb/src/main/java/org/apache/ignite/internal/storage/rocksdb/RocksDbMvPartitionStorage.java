@@ -175,7 +175,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** On-heap-cached lease start time value. */
     private volatile long leaseStartTime;
 
-    // TODO sanpwc consider consistent naming, currently it's lease... and primary...
     /** On-heap-cached lease node id. */
     private volatile String primaryReplicaNodeId;
 
@@ -232,8 +231,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
             } else {
                 leaseStartTime = fromBytes(leaseBytes, 0, Long.BYTES);
-                primaryReplicaNodeId = fromBytes(leaseBytes, Long.BYTES, 4 * Long.BYTES);
-                primaryReplicaNodeName = fromBytes(leaseBytes, 5 * Long.BYTES, leaseBytes.length);
+
+                byte primaryReplicaNodeIdLength = leaseBytes[Long.BYTES];
+                primaryReplicaNodeId = fromBytes(leaseBytes, Long.BYTES + 1, primaryReplicaNodeIdLength);
+
+                byte primaryReplicaNodeNameLength = leaseBytes[Long.BYTES + 1 + primaryReplicaNodeIdLength];
+                primaryReplicaNodeName = fromBytes(leaseBytes, Long.BYTES + 1 + primaryReplicaNodeIdLength + 1,
+                        primaryReplicaNodeNameLength);
             }
 
             byte[] estimatedSizeBytes = db.get(meta, readOpts, estimatedSizeKey);
@@ -1057,8 +1061,18 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             try {
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 outputStream.write(longToBytes(leaseStartTime));
-                outputStream.write(stringToBytes(primaryReplicaNodeId));
-                outputStream.write(stringToBytes(primaryReplicaNodeName));
+
+                byte[] primaryReplicaNodeIdBytes = stringToBytes(primaryReplicaNodeId);
+                // TODO sanpwc add assertion comment.
+                assert primaryReplicaNodeIdBytes.length < Byte.MAX_VALUE;
+                outputStream.write((byte) primaryReplicaNodeIdBytes.length);
+                outputStream.write(primaryReplicaNodeIdBytes);
+
+                byte[] primaryReplicaNodeNameBytes = stringToBytes(primaryReplicaNodeName);
+                // TODO sanpwc add assertion comment.
+                assert primaryReplicaNodeNameBytes.length < Byte.MAX_VALUE;
+                outputStream.write((byte) primaryReplicaNodeNameBytes.length);
+                outputStream.write(primaryReplicaNodeNameBytes);
 
                 writeBatch.put(meta, leaseKey, outputStream.toByteArray());
 

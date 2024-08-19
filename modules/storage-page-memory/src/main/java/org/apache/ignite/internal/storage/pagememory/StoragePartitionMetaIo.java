@@ -306,7 +306,6 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
      * @param pageAddr Page address.
      * @param estimatedSize Estimated size.
      */
-    // TODO sanpwc use as a reference for tests.
     public void setEstimatedSize(long pageAddr, long estimatedSize) {
         assertPageType(pageAddr);
 
