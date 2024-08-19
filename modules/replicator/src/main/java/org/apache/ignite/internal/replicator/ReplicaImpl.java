@@ -217,7 +217,6 @@ public class ReplicaImpl implements Replica {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
 
-                // TODO sanpwc check whether localNode is a primary replica.
                 return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
                         .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
                                 msg.leaseStartTime().longValue(),

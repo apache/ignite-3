@@ -70,6 +70,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long lastAppliedTerm;
 
+    // TODO sanpwc consider restoring
+    // TODO sanpwc private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
     private volatile long leaseStartTime = -1;
 
     private volatile String primaryReplicaNodeId;

@@ -99,7 +99,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 meta.versionChainTreeRootPageId(null, 300);
                 meta.freeListRootPageId(null, 900);
                 meta.incrementPageCount(null);
-                meta.updateLease(null, 500, UUID.randomUUID().toString(), UUID.randomUUID().toString());
+                meta.updateLease(null, 500);
                 meta.incrementEstimatedSize(null);
 
                 manager.writeMetaToBuffer(partId, meta.metaSnapshot(UUID.randomUUID()), buffer);

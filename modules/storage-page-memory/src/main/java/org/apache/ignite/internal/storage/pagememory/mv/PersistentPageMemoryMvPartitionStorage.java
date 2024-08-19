@@ -81,6 +81,16 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private final ReadWriteLock primaryReplicaMetaReadWriteLock = new ReentrantReadWriteLock();
 
     /**
+     * Cached primary replica node id in order not to touch blobStorage each time. Guarded by primaryReplicaMetaReadWriteLock.
+     */
+    private String primaryReplicaNodeId;
+
+    /**
+     * Cached primary replica node name in order not to touch blobStorage each time. Guarded by primaryReplicaMetaReadWriteLock.
+     */
+    private String primaryReplicaNodeName;
+
+    /**
      * Constructor.
      *
      * @param tableStorage Table storage.
@@ -335,12 +345,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                         blobStorage.updateBlob(meta.primaryReplicaNodeNameFirstPageId(), stringToBytes(primaryReplicaNodeName));
                     }
 
-                    meta.updateLease(
-                            lastCheckpointId,
-                            leaseStartTime,
-                            primaryReplicaNodeId,
-                            primaryReplicaNodeName
-                    );
+                    meta.updateLease(lastCheckpointId, leaseStartTime);
+
+                    this.primaryReplicaNodeId = primaryReplicaNodeId;
+                    this.primaryReplicaNodeName = primaryReplicaNodeName;
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException(
                             "Cannot save committed group configuration: [tableId={}, partitionId={}]",
@@ -374,21 +382,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 primaryReplicaMetaReadWriteLock.readLock().lock();
 
                 try {
-                    String primaryReplicaNodeIdCandidate = meta.primaryReplicaNodeId();
-                    if (primaryReplicaNodeIdCandidate != null) {
-                        return primaryReplicaNodeIdCandidate;
-                    } else {
+                    if (primaryReplicaNodeId == null) {
                         long primaryReplicaNodeIdFirstPageId = meta.primaryReplicaNodeIdFirstPageId();
                         assert primaryReplicaNodeIdFirstPageId != BlobStorage.NO_PAGE_ID;
 
-                        primaryReplicaNodeIdCandidate = ByteUtils.stringFromBytes(blobStorage.readBlob(meta.primaryReplicaNodeIdFirstPageId()));
-
-                        // TODO sanpwc implement "caching" in a bit different place.
-//                        String primaryReplicaNodeId0 = primaryReplicaNodeIdCandidate;
-//                        updateMeta((lastCheckpointId, meta) -> {meta.updatePrimaryReplicaNodeId(lastCheckpointId, primaryReplicaNodeId0);});
-
-                        return primaryReplicaNodeIdCandidate;
+                        primaryReplicaNodeId = ByteUtils.stringFromBytes(
+                                blobStorage.readBlob(meta.primaryReplicaNodeIdFirstPageId()));
                     }
+
+                    return primaryReplicaNodeId;
                 } finally {
                     primaryReplicaMetaReadWriteLock.readLock().unlock();
                 }
@@ -411,21 +413,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 primaryReplicaMetaReadWriteLock.readLock().lock();
 
                 try {
-                    String primaryReplicaNodeNameCandidate = meta.primaryReplicaNodeName();
-                    if (primaryReplicaNodeNameCandidate != null) {
-                        return primaryReplicaNodeNameCandidate;
-                    } else {
+                    if (primaryReplicaNodeName == null) {
                         long primaryReplicaNodeNameFirstPageId = meta.primaryReplicaNodeNameFirstPageId();
                         assert primaryReplicaNodeNameFirstPageId != BlobStorage.NO_PAGE_ID;
 
-                        primaryReplicaNodeNameCandidate = ByteUtils.stringFromBytes(blobStorage.readBlob(meta.primaryReplicaNodeNameFirstPageId()));
-
-                        // TODO sanpwc implement "caching" in a bit different place.
-//                        String primaryReplicaNodeName0 = primaryReplicaNodeNameCandidate;
-//                        updateMeta((lastCheckpointId, meta) -> {meta.updatePrimaryReplicaNodeName(lastCheckpointId, primaryReplicaNodeName0);});
-
-                        return primaryReplicaNodeNameCandidate;
+                        primaryReplicaNodeName = ByteUtils.stringFromBytes(
+                                blobStorage.readBlob(meta.primaryReplicaNodeNameFirstPageId()));
                     }
+
+                    return primaryReplicaNodeName;
                 } finally {
                     primaryReplicaMetaReadWriteLock.readLock().unlock();
                 }

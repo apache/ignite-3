@@ -47,10 +47,6 @@ public class StoragePartitionMeta extends PartitionMeta {
 
     private volatile long primaryReplicaNodeNameFirstPageId;
 
-    private volatile String primaryReplicaNodeId;
-
-    private volatile String primaryReplicaNodeName;
-
     private volatile long freeListRootPageId;
 
     private volatile long versionChainTreeRootPageId;
@@ -299,15 +295,8 @@ public class StoragePartitionMeta extends PartitionMeta {
      *
      * @param checkpointId Checkpoint ID.
      * @param leaseStartTime Lease start time.
-     * @param primaryReplicaNodeId Primary replica node id.
-     * @param primaryReplicaNodeName Primary replica node name.
      */
-    public void updateLease(
-            @Nullable UUID checkpointId,
-            long leaseStartTime,
-            String primaryReplicaNodeId,
-            String primaryReplicaNodeName
-    ) {
+    public void updateLease(@Nullable UUID checkpointId, long leaseStartTime) {
         updateSnapshot(checkpointId);
 
         if (leaseStartTime <= this.leaseStartTime) {
@@ -315,32 +304,6 @@ public class StoragePartitionMeta extends PartitionMeta {
         }
 
         this.leaseStartTime = leaseStartTime;
-        this.primaryReplicaNodeId = primaryReplicaNodeId;
-        this.primaryReplicaNodeName = primaryReplicaNodeName;
-    }
-
-    /**
-     * Updates the current primary replica node id in a volatile storage state.
-     *
-     * @param checkpointId Checkpoint ID.
-     * @param primaryReplicaNodeId Primary replica node id.
-     */
-    public void updatePrimaryReplicaNodeId(@Nullable UUID checkpointId, String primaryReplicaNodeId) {
-        updateSnapshot(checkpointId);
-
-        this.primaryReplicaNodeId = primaryReplicaNodeId;
-    }
-
-    /**
-     * Updates the current primary replica node name in a volatile storage state.
-     *
-     * @param checkpointId Checkpoint ID.
-     * @param primaryReplicaNodeName Primary replica node name.
-     */
-    public void updatePrimaryReplicaNodeName(@Nullable UUID checkpointId, String primaryReplicaNodeName) {
-        updateSnapshot(checkpointId);
-
-        this.primaryReplicaNodeName = primaryReplicaNodeName;
     }
 
     /**
@@ -388,25 +351,6 @@ public class StoragePartitionMeta extends PartitionMeta {
         updateSnapshot(checkpointId);
 
         this.primaryReplicaNodeNameFirstPageId = pageId;
-    }
-
-    /**
-     * Return the node id of the known lease for this replication group from the volatile storage.
-     *
-     *
-     * @return Primary replica node id or null if volatile primary replica node id isn't initialized yet.
-     */
-    public @Nullable String primaryReplicaNodeId() {
-        return primaryReplicaNodeId;
-    }
-
-    /**
-     * Return the node name of the known lease for this replication group.
-     *
-     * @return Primary replica node name.
-     */
-    public String primaryReplicaNodeName() {
-        return primaryReplicaNodeName;
     }
 
     /**
