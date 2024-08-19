@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,7 +41,6 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.sql.SqlBasicCall;
@@ -412,8 +410,7 @@ public final class PlannerHelper {
                 return null;
             }
         } else {
-            // Try to optimize SELECT count(*) as well
-            targetTable = null;
+            return null;
         }
 
         IgniteTypeFactory typeFactory = planner.getTypeFactory();
@@ -439,25 +436,10 @@ public final class PlannerHelper {
             SqlNode expr = SqlUtil.stripAs(selectItem);
 
             if (isCountStar(planner.validator(), expr)) {
-                SqlCall call = (SqlCall) expr;
-
-                // Reject COUNT(DISTINCT id), but allow COUNT(DISTINCT 1)
-                if (call.getFunctionQuantifier() != null && call.getOperandList().get(0).getKind() != SqlKind.LITERAL) {
-                    return null;
-                }
-
                 RexBuilder rexBuilder = planner.cluster().getRexBuilder();
                 RexSlot countValRef = rexBuilder.makeInputRef(getCountType, 0);
 
                 expressions.add(countValRef);
-
-                countAdded = true;
-            } else if (isCountNull(expr)) {
-                // Optimize COUNT(NULL) to 0 (BIGINT)
-                RexBuilder rexBuilder = planner.cluster().getRexBuilder();
-                RexLiteral zeroLit = rexBuilder.makeLiteral(BigDecimal.ZERO, countResultType);
-
-                expressions.add(zeroLit);
 
                 countAdded = true;
             } else if (expr instanceof SqlLiteral || expr instanceof SqlDynamicParam) {
@@ -492,6 +474,10 @@ public final class PlannerHelper {
             return false;
         } else {
             SqlCall call = (SqlCall) node;
+            // Reject COUNT(DISTINCT ...)
+            if (call.getFunctionQuantifier() != null) {
+                return false;
+            }
             if (call.getOperandList().isEmpty()) {
                 return false;
             }
@@ -513,18 +499,6 @@ public final class PlannerHelper {
             return type.isNullable();
         } else {
             return true;
-        }
-    }
-
-    private static boolean isCountNull(SqlNode node) {
-        if (SqlUtil.isCallTo(node, SqlStdOperatorTable.COUNT)) {
-            SqlCall call = (SqlCall) node;
-            if (call.getOperandList().isEmpty()) {
-                return false;
-            }
-            return SqlUtil.isNull(call.getOperandList().get(0));
-        } else {
-            return false;
         }
     }
 }

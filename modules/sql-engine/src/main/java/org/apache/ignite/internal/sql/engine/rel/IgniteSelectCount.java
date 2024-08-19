@@ -80,7 +80,7 @@ public class IgniteSelectCount extends AbstractRelNode implements IgniteRel {
     public IgniteSelectCount(
             RelOptCluster cluster,
             RelTraitSet traits,
-            @Nullable RelOptTable table,
+            RelOptTable table,
             List<RexNode> expressions
     ) {
         super(cluster, traits);
@@ -97,7 +97,7 @@ public class IgniteSelectCount extends AbstractRelNode implements IgniteRel {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable RelOptTable getTable() {
+    public RelOptTable getTable() {
         return table;
     }
 

@@ -67,55 +67,6 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void countOptNoTable() {
-        assertQuery("SELECT COUNT(*)")
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .returns(1L)
-                .check();
-
-        assertQuery("SELECT 1, COUNT(*)")
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .returns(1, 1L)
-                .check();
-
-        assertQuery("SELECT ?, COUNT(*)")
-                .withParam(1)
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .returns(1, 1L)
-                .check();
-
-        assertQuery("SELECT COUNT(1)")
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .returns(1L)
-                .check();
-
-        assertQuery("SELECT COUNT(null)")
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .returns(0L)
-                .check();
-    }
-
-    @Test
-    public void multipleExamples() {
-        assertQuery("SELECT COUNT(*), COUNT(1), COUNT(100), COUNT(NULL), COUNT(DISTINCT 1)")
-                .returns(1L, 1L, 1L, 0L, 1L)
-                .check();
-    }
-
-    @Test
-    public void countNull() {
-        assertQuery("SELECT COUNT(null) FROM test")
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .returns(0L)
-                .check();
-
-        assertQuery("SELECT COUNT(null), 1 FROM test")
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .returns(0L, 1)
-                .check();
-    }
-
-    @Test
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
     @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
     public void optimizationDisabled() {
@@ -147,5 +98,13 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
                 .check();
 
         tx.commit();
+    }
+
+    @Test
+    public void noOptimizationForSystemView() {
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.SYSTEM_VIEWS")
+                .matches(QueryChecker.containsSubPlan("Aggregate"))
+                .returnRowCount(1)
+                .check();
     }
 }

@@ -99,18 +99,11 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         assert tx == null : "SelectCount plan can only run within implicit transaction";
 
         RelOptTable optTable = selectCountNode.getTable();
-        CompletableFuture<Long> countFut;
+        IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
+        assert igniteTable != null;
 
-        if (optTable != null) {
-            IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
-            assert igniteTable != null;
-
-            countFut = tableRegistry.getTable(catalogVersion, igniteTable.id())
-                    .thenCompose(execTable -> execTable.scannableTable().estimatedSize());
-        } else {
-            // This constant is ignored by a projection.
-            countFut = CompletableFuture.completedFuture(1L);
-        }
+        CompletableFuture<Long> countFut  = tableRegistry.getTable(catalogVersion, igniteTable.id())
+                .thenCompose(execTable -> execTable.scannableTable().estimatedSize());
 
         Executor resultExecutor = task -> ctx.execute(task::run, error -> {
             LOG.error("Unexpected error", error);
