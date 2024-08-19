@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.worker;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CountDownLatch;
@@ -58,7 +59,7 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
 
         CountDownLatch unblockLatch = new CountDownLatch(1);
 
-        cluster.node(0).nettyBootstrapFactory().serverEventLoopGroup().execute(() -> {
+        unwrapIgniteImpl(cluster.node(0)).nettyBootstrapFactory().serverEventLoopGroup().execute(() -> {
             try {
                 unblockLatch.await(10, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
@@ -84,8 +85,8 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void inboundNetworkThreadBlockageIsReported() throws Exception {
-        IgniteImpl firstNode = cluster.node(0);
-        IgniteImpl secondNode = cluster.startNode(1);
+        IgniteImpl firstNode = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl secondNode = unwrapIgniteImpl(cluster.startNode(1));
 
         CountDownLatch blockageDetectedLatch = new CountDownLatch(1);
 

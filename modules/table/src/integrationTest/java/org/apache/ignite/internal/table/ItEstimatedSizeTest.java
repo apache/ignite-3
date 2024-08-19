@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -158,7 +159,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     }
 
     private void waitForRebalance(int numNodes) throws InterruptedException {
-        MetaStorageManager metaStorageManager = cluster.aliveNode().metaStorageManager();
+        MetaStorageManager metaStorageManager = unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager();
 
         var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
 

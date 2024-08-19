@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
@@ -39,7 +40,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
@@ -1074,7 +1074,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
      */
     static List<String> getClientAddresses(List<Ignite> nodes) {
         return nodes.stream()
-                .map(ignite -> ((IgniteImpl) ignite).clientAddress().port())
+                .map(ignite -> unwrapIgniteImpl(ignite).clientAddress().port())
                 .map(port -> "127.0.0.1" + ":" + port)
                 .collect(toList());
     }

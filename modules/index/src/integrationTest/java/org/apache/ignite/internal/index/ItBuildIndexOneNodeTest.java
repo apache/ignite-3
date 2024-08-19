@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
@@ -84,7 +85,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
 
-        CLUSTER.runningNodes().forEach(IgniteImpl::stopDroppingMessages);
+        CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(IgniteImpl::stopDroppingMessages);
     }
 
     @Test
@@ -339,7 +340,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     private static IgniteImpl node() {
-        return CLUSTER.node(0);
+        return unwrapIgniteImpl(CLUSTER.node(0));
     }
 
     private static CompletableFuture<Void> awaitIndexBecomeAvailableEventAsync(IgniteImpl ignite, String indexName) {

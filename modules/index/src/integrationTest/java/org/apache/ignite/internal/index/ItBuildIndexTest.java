@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -46,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -86,7 +88,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
 
-        CLUSTER.runningNodes().forEach(IgniteImpl::stopDroppingMessages);
+        CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(IgniteImpl::stopDroppingMessages);
     }
 
     @ParameterizedTest(name = "replicas : {0}")
@@ -121,7 +123,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static IgniteImpl primaryReplica(ReplicationGroupId groupId) {
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CompletableFuture<ReplicaMeta> primaryReplicaMetaFuture = node.placementDriver()
                 .awaitPrimaryReplica(groupId, node.clock().now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
@@ -170,6 +172,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
     private static void changePrimaryReplica(IgniteImpl currentPrimary) throws InterruptedException {
         IgniteImpl nextPrimary = CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
                 .filter(n -> n != currentPrimary)
                 .findAny()
                 .orElseThrow();
@@ -180,7 +183,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         // Let's change the primary replica for partition 0.
         NodeUtils.transferPrimary(
-                CLUSTER.runningNodes().collect(toList()),
+                CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
                 new TablePartitionId(tableId(TABLE_NAME), 0),
                 nextPrimary.name()
         );
@@ -230,7 +233,10 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      */
     private static void waitForIndex(String indexName) throws InterruptedException {
         assertTrue(waitForCondition(
-                () -> CLUSTER.runningNodes().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),
+                () -> CLUSTER.runningNodes()
+                        .map(TestWrappers::unwrapIgniteImpl)
+                        .map(node -> getIndexDescriptor(node, indexName))
+                        .allMatch(Objects::nonNull),
                 10_000)
         );
     }
@@ -278,7 +284,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             );
         }
 
-        assertTrue(waitForCondition(() -> isIndexAvailable(CLUSTER.aliveNode(), INDEX_NAME), 10_000));
+        assertTrue(waitForCondition(() -> isIndexAvailable(unwrapIgniteImpl(CLUSTER.aliveNode()), INDEX_NAME), 10_000));
 
         waitForReadTimestampThatObservesMostRecentCatalog();
     }
@@ -289,7 +295,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param indexName Index name.
      */
     private static Integer indexId(String indexName) {
-        CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(CLUSTER.aliveNode(), indexName);
+        CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(unwrapIgniteImpl(CLUSTER.aliveNode()), indexName);
 
         assertNotNull(indexDescriptor, String.format("Index %s not found", indexName));
 
@@ -302,7 +308,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param tableName Table name.
      */
     private static int tableId(String tableName) {
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CatalogTableDescriptor tableDescriptor = node.catalogManager().table(tableName, node.clock().nowLong());
 
@@ -350,7 +356,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static Map<Integer, Set<String>> collectAssignments(String tableName) {
         Map<Integer, Set<String>> partitionIdToNodes = new HashMap<>();
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         InternalTable internalTable = internalTable(node, tableName);
 
