@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -46,7 +48,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Base class for SQL integration tests.
  */
 @ExtendWith(QueryCheckerExtension.class)
-public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
+public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
     @InjectQueryCheckerFactory
     protected static QueryCheckerFactory queryCheckerFactory;
 
@@ -60,7 +62,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
         return assertQuery((InternalTransaction) null, qry);
     }
 
-    protected static QueryChecker assertQuery(IgniteImpl node, String qry) {
+    protected static QueryChecker assertQuery(Ignite node, String qry) {
         return assertQuery(node, null, qry);
     }
 
@@ -75,8 +77,9 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
         return assertQuery(CLUSTER.aliveNode(), tx, qry);
     }
 
-    protected static QueryChecker assertQuery(IgniteImpl node, @Nullable InternalTransaction tx, String qry) {
-        return queryCheckerFactory.create(node.name(), node.queryEngine(), node.observableTimeTracker(), tx, qry);
+    protected static QueryChecker assertQuery(Ignite node, @Nullable InternalTransaction tx, String qry) {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
+        return queryCheckerFactory.create(igniteImpl.name(), igniteImpl.queryEngine(), igniteImpl.observableTimeTracker(), tx, qry);
     }
 
     /**
@@ -215,7 +218,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * Returns observable time of first cluster node.
      */
     protected HybridTimestampTracker observableTimeTracker() {
-        return CLUSTER.aliveNode().observableTimeTracker();
+        return unwrapIgniteImpl(CLUSTER.aliveNode()).observableTimeTracker();
     }
 
     /**
@@ -231,14 +234,14 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * Returns internal  {@code SqlQueryProcessor} for first cluster node.
      */
     protected SqlQueryProcessor queryProcessor() {
-        return (SqlQueryProcessor) CLUSTER.aliveNode().queryEngine();
+        return (SqlQueryProcessor) unwrapIgniteImpl(CLUSTER.aliveNode()).queryEngine();
     }
 
     /**
      * Returns internal {@code TxManager} for first cluster node.
      */
     protected TxManager txManager() {
-        return CLUSTER.aliveNode().txManager();
+        return unwrapIgniteImpl(CLUSTER.aliveNode()).txManager();
     }
 
     protected static Table table(String canonicalName) {
@@ -249,6 +252,6 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * Returns internal {@code SystemViewManager} for first cluster node.
      */
     protected SystemViewManagerImpl systemViewManager() {
-        return (SystemViewManagerImpl) CLUSTER.aliveNode().systemViewManager();
+        return (SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager();
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
@@ -52,7 +53,7 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
 
     @Test
     public void systemViewDefaultZone() {
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = Objects.requireNonNull(
                 catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))

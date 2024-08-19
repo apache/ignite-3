@@ -23,6 +23,7 @@ import static java.util.Map.of;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -61,6 +62,7 @@ import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
@@ -141,7 +143,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void setUp(TestInfo testInfo) throws Exception {
         Method testMethod = testInfo.getTestMethod().orElseThrow();
 
-        IgniteImpl node0 = cluster.node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
 
         zoneName = "ZONE_" + testMethod.getName().toUpperCase();
 
@@ -174,7 +176,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testInsertFailsIfMajorityIsLost() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = cluster.node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -221,7 +223,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testManualRebalanceIfMajorityIsLost() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = cluster.node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -259,7 +261,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int fixingPartId = 1;
         int anotherPartId = 0;
 
-        IgniteImpl node0 = cluster.node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, anotherPartId);
@@ -306,7 +308,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testManualRebalanceIfPartitionIsLost() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = cluster.node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -351,7 +353,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     public void testIncompleteRebalanceAfterResetPartitions() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = cluster.node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
 
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
         long time = node0.catalogManager().catalog(catalogVersion).time();
@@ -374,14 +376,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Second snapshot causes log truncation.
         triggerRaftSnapshot(1, partId);
 
-        node(1).dropMessages((nodeName, msg) -> node(3).name().equals(nodeName) && msg instanceof SnapshotMvDataResponse);
+        unwrapIgniteImpl(node(1)).dropMessages((nodeName, msg) -> node(3).name().equals(nodeName) && msg instanceof SnapshotMvDataResponse);
 
         stopNodesInParallel(4, 5);
         waitForScale(node0, 4);
 
         assertRealAssignments(node0, partId, 0, 1, 3);
 
-        cluster.runningNodes().forEach(node -> {
+        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node -> {
             BiPredicate<String, NetworkMessage> newPredicate = (nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment013);
             BiPredicate<String, NetworkMessage> oldPredicate = node.dropMessagesPredicate();
 
@@ -483,7 +485,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private void triggerRaftSnapshot(int nodeIdx, int partId) throws InterruptedException, ExecutionException {
         //noinspection resource
-        IgniteImpl node = node(nodeIdx);
+        IgniteImpl node = unwrapIgniteImpl(node(nodeIdx));
 
         var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
         var jraftServer = (JraftServerImpl) node.raftManager().server();
@@ -575,8 +577,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertTrue(waitForCondition(() -> {
             long causalityToken = node.metaStorageManager().appliedRevision();
 
-            long msSafeTime = node.metaStorageManager().timestampByRevision(causalityToken).longValue();
-            int catalogVersion = node.catalogManager().activeCatalogVersion(msSafeTime);
+            int catalogVersion = node.catalogManager().latestCatalogVersion();
 
             CompletableFuture<Set<String>> dataNodes = dzManager.dataNodes(causalityToken, catalogVersion, zoneId);
 

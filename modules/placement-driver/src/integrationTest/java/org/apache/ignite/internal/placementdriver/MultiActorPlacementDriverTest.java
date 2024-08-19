@@ -41,6 +41,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -70,10 +72,13 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -248,10 +253,16 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             HybridClock nodeClock = new HybridClockImpl();
 
+            ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
+
+            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    workingDir.raftLogPath()
+            );
+
             var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
-                    workDir.resolve(nodeName + "_loza"),
                     nodeClock,
                     eventsClientListener
             );
@@ -259,6 +270,14 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             var storage = new SimpleInMemoryKeyValueStorage(nodeName);
 
             ClockService clockService = new TestClockService(nodeClock);
+
+            ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_metastorage"));
+
+            LogStorageFactory msLogStorageFactory =
+                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+
+            RaftGroupOptionsConfigurer msRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
 
             var metaStorageManager = new MetaStorageManagerImpl(
                     clusterService,
@@ -269,7 +288,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     nodeClock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration
+                    metaStorageConfiguration,
+                    msRaftConfigurer
             );
 
             if (this.metaStorageManager == null) {
@@ -288,7 +308,15 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     clockService
             );
 
-            res.add(new Node(nodeName, clusterService, raftManager, metaStorageManager, placementDriverManager));
+            res.add(new Node(
+                    nodeName,
+                    clusterService,
+                    raftManager,
+                    partitionsLogStorageFactory,
+                    msLogStorageFactory,
+                    metaStorageManager,
+                    placementDriverManager
+            ));
         }
 
         assertThat(allOf(res.stream().map(Node::startAsync).toArray(CompletableFuture[]::new)), willCompleteSuccessfully());

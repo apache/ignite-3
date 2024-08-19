@@ -818,8 +818,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
             // Update raft client peers and learners according to the actual assignments.
             return replicaMgr.replica(zonePartitionId)
-                    .thenApply(Replica::raftClient)
-                    .thenAccept(raftClient -> raftClient.updateConfiguration(fromAssignments(stableAssignments)));
+                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments)));
         }));
     }
 
@@ -993,8 +992,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                             : union(pendingAssignmentsNodes, stableAssignments.nodes());
 
                     replicaMgr.replica(replicaGrpId)
-                            .thenApply(Replica::raftClient)
-                            .thenAccept(raftClient -> raftClient.updateConfiguration(fromAssignments(newAssignments)));
+                            .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
     }
 

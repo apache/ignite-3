@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -335,7 +336,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-        return (IgniteImpl) node.api();
+        return unwrapIgniteImpl(node.api());
     }
 
     /**
@@ -387,7 +388,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
                 .map(node -> {
                     assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-                    return (IgniteImpl) node.api();
+                    return unwrapIgniteImpl(node.api());
                 })
                 .collect(toList());
     }

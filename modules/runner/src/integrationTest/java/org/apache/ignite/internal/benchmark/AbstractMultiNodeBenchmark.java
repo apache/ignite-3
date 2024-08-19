@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -27,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -66,7 +68,8 @@ public class AbstractMultiNodeBenchmark {
 
     private final List<IgniteServer> igniteServers = new ArrayList<>();
 
-    protected static IgniteImpl clusterNode;
+    protected static Ignite publicIgnite;
+    protected static IgniteImpl igniteImpl;
 
     @Param({"false", "true"})
     private boolean fsync;
@@ -80,14 +83,14 @@ public class AbstractMultiNodeBenchmark {
         startCluster();
 
         try {
-            var queryEngine = clusterNode.queryEngine();
+            var queryEngine = igniteImpl.queryEngine();
 
             var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
                     + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
 
             getAllFromCursor(
                     await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), clusterNode.observableTimeTracker(), null, createZoneStatement
+                            SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createZoneStatement
                     ))
             );
 
@@ -132,14 +135,14 @@ public class AbstractMultiNodeBenchmark {
         createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
 
         getAllFromCursor(
-                await(clusterNode.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), clusterNode.observableTimeTracker(), null, createTableStatement
+                await(igniteImpl.queryEngine().queryAsync(
+                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createTableStatement
                 ))
         );
     }
 
     static void populateTable(String tableName, int size, int batchSize) {
-        RecordView<Tuple> view = clusterNode.tables().table(tableName).recordView();
+        RecordView<Tuple> view = publicIgnite.tables().table(tableName).recordView();
 
         Tuple payload = Tuple.create();
         for (int j = 1; j <= 10; j++) {
@@ -215,8 +218,9 @@ public class AbstractMultiNodeBenchmark {
         for (IgniteServer node : igniteServers) {
             assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            if (clusterNode == null) {
-                clusterNode = (IgniteImpl) node.api();
+            if (publicIgnite == null) {
+                publicIgnite = node.api();
+                igniteImpl = unwrapIgniteImpl(publicIgnite);
             }
         }
     }

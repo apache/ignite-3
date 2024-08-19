@@ -36,6 +36,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
@@ -45,8 +46,11 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
@@ -99,11 +103,26 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(nodeName, addr.port(), nodeFinder);
 
-        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, this.workDir, new HybridClockImpl());
+        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                clusterService.nodeName(),
+                this.workDir.resolve("partitions/log")
+        );
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(this.workDir.resolve("cmg"), clusterService.nodeName());
+        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+
+        var clusterStateStorage =
+                new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.nodeName());
 
         FailureProcessor failureProcessor = new NoOpFailureProcessor();
+
+        LogStorageFactory cmgLogStorageFactory =
+                SharedLogStorageFactoryUtils.create(
+                        clusterService.nodeName(),
+                        this.workDir.resolve("cmg/log")
+                );
+
+        RaftGroupOptionsConfigurer cmgRaftConfigurer =
+                RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
@@ -114,12 +133,15 @@ public class MockNode {
                 new LogicalTopologyImpl(clusterStateStorage),
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureProcessor,
-                clusterIdHolder
+                clusterIdHolder,
+                cmgRaftConfigurer
         );
 
         components = List.of(
                 vaultManager,
                 clusterService,
+                partitionsLogStorageFactory,
+                cmgLogStorageFactory,
                 raftManager,
                 clusterStateStorage,
                 failureProcessor,

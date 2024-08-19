@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter.JMX_METRIC_GROUP;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
@@ -69,7 +70,7 @@ public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
     void testPartitionStatesMetricsForTable() throws Exception {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), 1);
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         String expectedMetricSourceName = partitionStatesMetricSourceName(node, TABLE_NAME);
 
@@ -91,7 +92,7 @@ public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
     void testPartitionStatesMetricsForTableAfterDropTable() {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), 1);
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         String expectedMetricSourceName = partitionStatesMetricSourceName(node, TABLE_NAME);
 
