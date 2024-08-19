@@ -199,11 +199,8 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
 
     @Test
     void submitBroadcast() {
-        // Given entry node.
-        var node = server(0);
-
         // When.
-        Map<ClusterNode, String> result = computeClientOn(node).submitBroadcast(
+        Map<ClusterNode, String> result = client().compute().submitBroadcast(
                 Set.of(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
