@@ -3554,8 +3554,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Replica request.
      * @return Future with {@link IgniteBiTuple} containing {@code boolean} (whether the replica is primary) and the start time of current
-     *         lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
-     *         lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
+     *     lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
+     *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
         HybridTimestamp now = clockService.now();
@@ -3725,12 +3725,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
             return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
-                    () -> storageUpdateHandler.switchWriteIntents(
-                            txId,
-                            txState == COMMITTED,
-                            commitTimestamp,
-                            indexIdsAtRwTxBeginTs(txId)
-                    )
+                   () -> storageUpdateHandler.switchWriteIntents(
+                           txId,
+                           txState == COMMITTED,
+                           commitTimestamp,
+                           indexIdsAtRwTxBeginTs(txId)
+                   )
             )).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);

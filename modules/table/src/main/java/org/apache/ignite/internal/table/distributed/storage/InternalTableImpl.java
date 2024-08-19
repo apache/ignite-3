@@ -1579,23 +1579,23 @@ public class InternalTableImpl implements InternalTable {
         return new PartitionScanPublisher<>(new ReadOnlyInflightBatchRequestTracker(transactionInflights, txId)) {
             @Override
             protected CompletableFuture<Collection<BinaryRow>> retrieveBatch(Long scanId, Integer batchSize) {
-                ReadOnlyScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
-                        .groupId(serializeTablePartitionId(tablePartitionId))
-                        .tableId(tableId)
-                        .readTimestamp(readTimestamp)
-                        .transactionId(txId)
-                        .scanId(scanId)
-                        .batchSize(batchSize)
-                        .indexToUse(indexId)
-                        .exactKey(binaryTupleMessage(exactKey))
-                        .lowerBoundPrefix(binaryTupleMessage(lowerBound))
-                        .upperBoundPrefix(binaryTupleMessage(upperBound))
-                        .flags(flags)
-                        .columnsToInclude(columnsToInclude)
-                        .coordinatorId(txCoordinatorId)
-                        .build();
+                    ReadOnlyScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                            .groupId(serializeTablePartitionId(tablePartitionId))
+                            .tableId(tableId)
+                            .readTimestamp(readTimestamp)
+                            .transactionId(txId)
+                            .scanId(scanId)
+                            .batchSize(batchSize)
+                            .indexToUse(indexId)
+                            .exactKey(binaryTupleMessage(exactKey))
+                            .lowerBoundPrefix(binaryTupleMessage(lowerBound))
+                            .upperBoundPrefix(binaryTupleMessage(upperBound))
+                            .flags(flags)
+                            .columnsToInclude(columnsToInclude)
+                            .coordinatorId(txCoordinatorId)
+                            .build();
 
-                return replicaSvc.invoke(recipientNode, request);
+                    return replicaSvc.invoke(recipientNode, request);
             }
 
             @Override
@@ -1657,24 +1657,24 @@ public class InternalTableImpl implements InternalTable {
 
             @Override
             protected CompletableFuture<Void> onClose(Boolean intentionallyClose, Long scanId, @Nullable Throwable th) {
-                CompletableFuture<Void> opFut;
+                    CompletableFuture<Void> opFut;
 
-                if (implicit) {
-                    opFut = completedOrFailedFuture(null, th);
-                } else {
-                    var replicationGrpId = new TablePartitionId(tableId, partId);
+                    if (implicit) {
+                        opFut = completedOrFailedFuture(null, th);
+                    } else {
+                        var replicationGrpId = new TablePartitionId(tableId, partId);
 
-                    opFut = tx.enlistedNodeAndConsistencyToken(replicationGrpId) != null ? completeScan(
-                            tx.id(),
-                            replicationGrpId,
-                            scanId,
-                            th,
-                            tx.enlistedNodeAndConsistencyToken(replicationGrpId).get1(),
-                            intentionallyClose
-                    ) : completedOrFailedFuture(null, th);
-                }
+                        opFut = tx.enlistedNodeAndConsistencyToken(replicationGrpId) != null ? completeScan(
+                                tx.id(),
+                                replicationGrpId,
+                                scanId,
+                                th,
+                                tx.enlistedNodeAndConsistencyToken(replicationGrpId).get1(),
+                                intentionallyClose
+                        ) : completedOrFailedFuture(null, th);
+                    }
 
-                return postEnlist(opFut, intentionallyClose, actualTx, implicit && !intentionallyClose);
+                    return postEnlist(opFut, intentionallyClose, actualTx, implicit && !intentionallyClose);
             }
         };
     }
@@ -1697,26 +1697,26 @@ public class InternalTableImpl implements InternalTable {
         return new PartitionScanPublisher<>(READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER) {
             @Override
             protected CompletableFuture<Collection<BinaryRow>> retrieveBatch(Long scanId, Integer batchSize) {
-                ReadWriteScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
-                        .groupId(serializeTablePartitionId(tablePartitionId))
-                        .tableId(tableId)
-                        .timestamp(clock.now())
-                        .transactionId(txId)
-                        .scanId(scanId)
-                        .indexToUse(indexId)
-                        .exactKey(binaryTupleMessage(exactKey))
-                        .lowerBoundPrefix(binaryTupleMessage(lowerBound))
-                        .upperBoundPrefix(binaryTupleMessage(upperBound))
-                        .flags(flags)
-                        .columnsToInclude(columnsToInclude)
-                        .batchSize(batchSize)
-                        .enlistmentConsistencyToken(recipient.enlistmentConsistencyToken())
-                        .full(false) // Set explicitly.
-                        .commitPartitionId(serializeTablePartitionId(commitPartition))
-                        .coordinatorId(coordinatorId)
-                        .build();
+                    ReadWriteScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                            .groupId(serializeTablePartitionId(tablePartitionId))
+                            .tableId(tableId)
+                            .timestamp(clock.now())
+                            .transactionId(txId)
+                            .scanId(scanId)
+                            .indexToUse(indexId)
+                            .exactKey(binaryTupleMessage(exactKey))
+                            .lowerBoundPrefix(binaryTupleMessage(lowerBound))
+                            .upperBoundPrefix(binaryTupleMessage(upperBound))
+                            .flags(flags)
+                            .columnsToInclude(columnsToInclude)
+                            .batchSize(batchSize)
+                            .enlistmentConsistencyToken(recipient.enlistmentConsistencyToken())
+                            .full(false) // Set explicitly.
+                            .commitPartitionId(serializeTablePartitionId(commitPartition))
+                            .coordinatorId(coordinatorId)
+                            .build();
 
-                return replicaSvc.invoke(recipient.node(), request);
+                    return replicaSvc.invoke(recipient.node(), request);
             }
 
             @Override
