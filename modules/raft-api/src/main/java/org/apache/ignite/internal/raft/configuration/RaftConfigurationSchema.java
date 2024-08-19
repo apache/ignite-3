@@ -29,13 +29,13 @@ import org.apache.ignite.configuration.annotation.Value;
 @ConfigurationRoot(rootName = "raft", type = ConfigurationType.LOCAL)
 public class RaftConfigurationSchema {
     /**
-     * RPC Timeout for InstallSnapshot request (in milliseconds). This is the maximum allowed duration from sending
+     * Timeout for InstallSnapshot request (in milliseconds). This is the maximum allowed duration from sending
      * InstallSnapshot request and getting a response to it; during it, the snapshot must be fully transferred to
      * a recipient and installed.
      */
     @Value(hasDefault = true)
     // TODO: IGNITE-18480 - is 5 minutes a good default?
-    public int rpcInstallSnapshotTimeout = 5 * 60 * 1000;
+    public int installSnapshotTimeout = 5 * 60 * 1000;
 
     /** Configuration for Raft groups corresponding to table partitions. */
     // TODO: IGNITE-16647 - Volatile RAFT configuration should be moved elsewhere

@@ -760,19 +760,19 @@ public class Checkpointer extends IgniteWorker {
     long nextCheckpointInterval() {
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
-        long frequency = checkpointConfigView.frequency();
-        int deviation = checkpointConfigView.frequencyDeviation();
+        long interval = checkpointConfigView.interval();
+        int deviation = checkpointConfigView.intervalDeviation();
 
         if (deviation == 0) {
-            return frequency;
+            return interval;
         }
 
-        long deviationMills = frequency * deviation;
+        long deviationMillis = interval * deviation;
 
-        long startDelay = ThreadLocalRandom.current().nextLong(max(safeAbs(deviationMills) / 100, 1))
-                - max(safeAbs(deviationMills) / 200, 1);
+        long startDelay = ThreadLocalRandom.current().nextLong(max(safeAbs(deviationMillis) / 100, 1))
+                - max(safeAbs(deviationMillis) / 200, 1);
 
-        return safeAbs(frequency + startDelay);
+        return safeAbs(interval + startDelay);
     }
 
     private void fsyncDeltaFilePageStoreOnCheckpointThread(
