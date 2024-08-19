@@ -21,7 +21,7 @@ import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ class ItClusterStatusCommandInitializedTest extends CliIntegrationTest {
     void printStatus() {
         String cmgNodes = Arrays.stream(cmgMetastoreNodes())
                 .mapToObj(CLUSTER::node)
-                .map(IgniteImpl::name)
+                .map(Ignite::name)
                 .collect(joining(", ", "[", "]"));
 
         execute("cluster", "status", "--url", NODE_URL);

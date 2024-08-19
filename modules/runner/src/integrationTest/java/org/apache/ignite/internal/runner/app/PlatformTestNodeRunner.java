@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
@@ -241,7 +242,7 @@ public class PlatformTestNodeRunner {
         createTables(startedNodes.get(0));
 
         String ports = startedNodes.stream()
-                .map(n -> String.valueOf(getPort((IgniteImpl) n)))
+                .map(n -> String.valueOf(getPort(unwrapIgniteImpl(n))))
                 .collect(Collectors.joining(","));
 
         System.out.println("THIN_CLIENT_PORTS=" + ports);
@@ -304,7 +305,7 @@ public class PlatformTestNodeRunner {
     private static void createTables(Ignite node) {
         var keyCol = "KEY";
 
-        IgniteImpl ignite = ((IgniteImpl) node);
+        IgniteImpl ignite = unwrapIgniteImpl(node);
 
         createZone(ignite.catalogManager(), ZONE_NAME, 10, 1);
 
@@ -732,7 +733,7 @@ public class PlatformTestNodeRunner {
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer flag) {
             boolean enable = flag != 0;
-            @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
+            @SuppressWarnings("resource") IgniteImpl ignite = unwrapIgniteImpl(context.ignite());
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
                     root -> {

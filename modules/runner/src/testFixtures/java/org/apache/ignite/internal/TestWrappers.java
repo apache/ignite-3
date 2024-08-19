@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal;
 
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -46,6 +48,15 @@ import org.apache.ignite.tx.Transaction;
  * }
  */
 public class TestWrappers {
+    /**
+     * Unwraps {@link IgniteImpl} from an {@link Ignite}.
+     *
+     * @param ignite Ignite to unwrap.
+     */
+    public static IgniteImpl unwrapIgniteImpl(Ignite ignite) {
+        return Wrappers.unwrap(ignite, IgniteImpl.class);
+    }
+
     /**
      * Unwraps {@link TableImpl} from a {@link Table}.
      *

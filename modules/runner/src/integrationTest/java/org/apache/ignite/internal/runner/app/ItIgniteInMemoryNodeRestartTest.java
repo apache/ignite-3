@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -131,7 +132,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         CLUSTER_NODES.add(idx, ignite);
 
-        return (IgniteImpl) ignite;
+        return unwrapIgniteImpl(ignite);
     }
 
     /**
@@ -403,6 +404,6 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private static IgniteImpl ignite(int idx) {
-        return (IgniteImpl) CLUSTER_NODES.get(idx);
+        return unwrapIgniteImpl(CLUSTER_NODES.get(idx));
     }
 }

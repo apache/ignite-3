@@ -168,7 +168,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createInsertStatement();
 
-            sql = clusterNode.sql();
+            sql = publicIgnite.sql();
             statement = sql.createStatement(queryStr);
         }
 
@@ -208,7 +208,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createMultiInsertStatement();
 
-            sql = clusterNode.sql();
+            sql = publicIgnite.sql();
             statement = sql.createStatement(queryStr);
         }
 
@@ -318,7 +318,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
 
         private int id = 0;
 
-        private final KeyValueView<Tuple, Tuple> kvView = clusterNode.tables().table(TABLE_NAME).keyValueView();
+        private final KeyValueView<Tuple, Tuple> kvView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
 
         /**
          * Initializes the tuple.

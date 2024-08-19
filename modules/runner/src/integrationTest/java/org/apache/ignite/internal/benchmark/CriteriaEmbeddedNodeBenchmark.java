@@ -131,9 +131,9 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            view = clusterNode.tables().table(TABLE_NAME).recordView();
+            view = publicIgnite.tables().table(TABLE_NAME).recordView();
 
-            sql = clusterNode.sql();
+            sql = publicIgnite.sql();
         }
 
         @Nullable Tuple get(Tuple key) {

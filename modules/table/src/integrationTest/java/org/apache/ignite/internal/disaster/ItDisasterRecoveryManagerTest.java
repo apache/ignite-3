@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -63,7 +64,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
     @Test
     void testRestartPartitions() {
-        IgniteImpl node = cluster.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
         insert(0, 0);
         insert(1, 1);

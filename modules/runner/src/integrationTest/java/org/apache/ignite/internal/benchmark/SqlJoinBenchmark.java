@@ -64,7 +64,7 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
     public void setUp() throws IOException {
         populateTable(TABLE_NAME, TABLE_SIZE, 1_000);
 
-        sql = clusterNode.sql();
+        sql = publicIgnite.sql();
     }
 
     /**

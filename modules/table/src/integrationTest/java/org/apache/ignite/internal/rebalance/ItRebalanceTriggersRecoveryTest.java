@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
@@ -113,14 +114,14 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
 
         // Check that metastore node schedule the rebalance procedure.
         assertTrue(waitForCondition(
-                (() -> getPartitionPendingClusterNodes(node(0), PARTITION_ID).equals(Set.of(
+                (() -> getPartitionPendingClusterNodes(unwrapIgniteImpl(node(0)), PARTITION_ID).equals(Set.of(
                         Assignment.forPeer(node(2).name()),
                         Assignment.forPeer(node(1).name())))),
                 10_000));
 
         // Remove the pending keys in a barbarian way. So, the rebalance can be triggered only by the recovery logic now.
-        Integer tableId = getTableId(node(0).catalogManager(), "TEST", new HybridClockImpl().nowLong());
-        node(0)
+        Integer tableId = getTableId(unwrapIgniteImpl(node(0)).catalogManager(), "TEST", new HybridClockImpl().nowLong());
+        unwrapIgniteImpl(node(0))
                 .metaStorageManager()
                 .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, PARTITION_ID))).join();
 
@@ -159,14 +160,14 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
 
         // Check that metastore node schedule the rebalance procedure.
         assertTrue(waitForCondition(
-                (() -> getPartitionPendingClusterNodes(node(0), PARTITION_ID).equals(Set.of(
+                (() -> getPartitionPendingClusterNodes(unwrapIgniteImpl(node(0)), PARTITION_ID).equals(Set.of(
                         Assignment.forPeer(node(2).name()),
                         Assignment.forPeer(node(1).name())))),
                 10_000));
 
         // Remove the pending keys in a barbarian way. So, the rebalance can be triggered only by the recovery logic now.
-        Integer tableId = getTableId(node(0).catalogManager(), "TEST", new HybridClockImpl().nowLong());
-        node(0)
+        Integer tableId = getTableId(unwrapIgniteImpl(node(0)).catalogManager(), "TEST", new HybridClockImpl().nowLong());
+        unwrapIgniteImpl(node(0))
                 .metaStorageManager()
                 .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, PARTITION_ID))).join();
 
@@ -204,24 +205,24 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         // Check that new replica from 'global' zone received the data and rebalance really happened.
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(2)), 10_000));
         assertTrue(waitForCondition(
-                (() -> getPartitionPendingClusterNodes(node(0), PARTITION_ID).equals(Set.of())),
+                (() -> getPartitionPendingClusterNodes(unwrapIgniteImpl(node(0)), PARTITION_ID).equals(Set.of())),
                 10_000));
 
         TablePartitionId tablePartitionId =
                 new TablePartitionId(
-                        getTableId(node(0).catalogManager(),
+                        getTableId(unwrapIgniteImpl(node(0)).catalogManager(),
                                 "TEST",
                                 new HybridClockImpl().nowLong()),
                         PARTITION_ID
                 );
-        long pendingsKeysRevisionBeforeRecovery = node(0).metaStorageManager()
+        long pendingsKeysRevisionBeforeRecovery = unwrapIgniteImpl(node(0)).metaStorageManager()
                 .get(pendingPartAssignmentsKey(tablePartitionId))
                 .get(10, TimeUnit.SECONDS).revision();
 
 
         startNode(3, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
-        long pendingsKeysRevisionAfterRecovery = node(0).metaStorageManager()
+        long pendingsKeysRevisionAfterRecovery = unwrapIgniteImpl(node(0)).metaStorageManager()
                 .get(pendingPartAssignmentsKey(tablePartitionId))
                 .get(10, TimeUnit.SECONDS).revision();
 

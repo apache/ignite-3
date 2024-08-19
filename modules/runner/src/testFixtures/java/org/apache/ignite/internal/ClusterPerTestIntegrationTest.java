@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -159,7 +160,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      * @param nodeIndex Zero-based index (used to build node name).
      * @return Started Ignite node.
      */
-    protected final IgniteImpl startNode(int nodeIndex) {
+    protected final Ignite startNode(int nodeIndex) {
         return cluster.startNode(nodeIndex);
     }
 
@@ -170,7 +171,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
      * @return Started Ignite node.
      */
-    protected final IgniteImpl startNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
+    protected final Ignite startNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
         return cluster.startNode(nodeIndex, nodeBootstrapConfigTemplate);
     }
 
@@ -195,7 +196,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     /**
      * Returns nodes that are started and not stopped. This can include knocked out nodes.
      */
-    protected final Stream<IgniteImpl> runningNodes() {
+    protected final Stream<Ignite> runningNodes() {
         return cluster.runningNodes();
     }
 
@@ -215,8 +216,12 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      * @param index Node index.
      * @return Node by index.
      */
-    protected final IgniteImpl node(int index) {
+    protected final Ignite node(int index) {
         return cluster.node(index);
+    }
+
+    protected final IgniteImpl igniteImpl(int index) {
+        return unwrapIgniteImpl(node(index));
     }
 
     protected final List<List<Object>> executeSql(String sql, Object... args) {
@@ -224,7 +229,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     }
 
     protected final List<List<Object>> executeSql(int nodeIndex, String sql, Object... args) {
-        IgniteImpl ignite = node(nodeIndex);
+        Ignite ignite = node(nodeIndex);
 
         return ClusterPerClassIntegrationTest.sql(ignite, null, null, sql, args);
     }

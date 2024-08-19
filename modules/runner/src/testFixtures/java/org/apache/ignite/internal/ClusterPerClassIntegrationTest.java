@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -157,7 +158,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     /** Drops all visible zones. */
     protected static void dropAllZonesExceptDefaultOne() {
-        CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
+        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
         Catalog catalog = Objects.requireNonNull(catalogManager.catalog(latestCatalogVersion));
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
@@ -419,7 +420,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     protected static @Nullable IgniteImpl findByConsistentId(String consistentId) {
         return CLUSTER.runningNodes()
                 .filter(Objects::nonNull)
-                .map(IgniteImpl.class::cast)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .filter(ignite -> consistentId.equals(ignite.name()))
                 .findFirst()
                 .orElse(null);
