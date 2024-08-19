@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -27,12 +28,12 @@ import static org.hamcrest.Matchers.not;
 
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.wrapper.Wrappers;
@@ -74,8 +75,8 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     @BeforeEach
     void setUp() {
         // Get new references before each test since node can be restarted.
-        IgniteImpl localNode = CLUSTER.node(0);
-        IgniteImpl remoteNode = CLUSTER.node(1);
+        Ignite localNode = CLUSTER.node(0);
+        Ignite remoteNode = CLUSTER.node(1);
 
         IgniteComputeImpl localCompute = unwrapIgniteComputeImpl(localNode.compute());
         IgniteComputeImpl remoteCompute = unwrapIgniteComputeImpl(remoteNode.compute());
@@ -83,8 +84,8 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         localExecutionManager = ((ComputeComponentImpl) localCompute.computeComponent()).executionManager();
         remoteExecutionManager = ((ComputeComponentImpl) remoteCompute.computeComponent()).executionManager();
 
-        localNodes = Set.of(localNode.node());
-        remoteNodes = Set.of(remoteNode.node());
+        localNodes = Set.of(unwrapIgniteImpl(localNode).node());
+        remoteNodes = Set.of(unwrapIgniteImpl(remoteNode).node());
     }
 
     private static IgniteComputeImpl unwrapIgniteComputeImpl(IgniteCompute compute) {
@@ -206,7 +207,9 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void failover() throws Exception {
-        TestingJobExecution<Object> execution = submit(Set.of(CLUSTER.node(1).node(), CLUSTER.node(2).node()));
+        TestingJobExecution<Object> execution = submit(
+                Set.of(unwrapIgniteImpl(CLUSTER.node(1)).node(), unwrapIgniteImpl(CLUSTER.node(2)).node())
+        );
         UUID jobId = execution.idSync();
 
         execution.assertExecuting();
@@ -218,7 +221,7 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
 
         String failoverWorkerNodeName = InteractiveJobs.globalJob().currentWorkerName();
 
-        IgniteImpl failoverNode = CLUSTER.node(CLUSTER.nodeIndex(failoverWorkerNodeName));
+        Ignite failoverNode = CLUSTER.node(CLUSTER.nodeIndex(failoverWorkerNodeName));
         IgniteComputeImpl failoverCompute = unwrapIgniteComputeImpl(failoverNode.compute());
         ExecutionManager failoverExecutionManager = ((ComputeComponentImpl) failoverCompute.computeComponent()).executionManager();
 

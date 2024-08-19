@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.compute;
 
 import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpRequest.PUT;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.canceled;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.completed;
@@ -42,13 +43,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.compute.JobState;
 import org.apache.ignite.internal.rest.api.compute.UpdateJobPriorityBody;
@@ -117,11 +118,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldReturnStatesOfAllJobs() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        JobExecution<String> localExecution = runBlockingJob(entryNode, Set.of(entryNode.node()));
+        JobExecution<String> localExecution = runBlockingJob(entryNode, Set.of(clusterNode(entryNode)));
 
-        JobExecution<String> remoteExecution = runBlockingJob(entryNode, Set.of(CLUSTER.node(1).node()));
+        JobExecution<String> remoteExecution = runBlockingJob(entryNode, Set.of(clusterNode(CLUSTER.node(1))));
 
         UUID localJobId = localExecution.idAsync().join();
         UUID remoteJobId = remoteExecution.idAsync().join();
@@ -134,11 +135,15 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
         });
     }
 
+    private static ClusterNode clusterNode(Ignite ignite) {
+        return unwrapIgniteImpl(ignite).node();
+    }
+
     @Test
     void shouldReturnStateOfLocalJob() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(entryNode.node()));
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(clusterNode(entryNode)));
 
         UUID jobId = execution.idAsync().join();
 
@@ -151,9 +156,9 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldReturnStateOfRemoteJob() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(CLUSTER.node(1).node()));
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(clusterNode(CLUSTER.node(1))));
 
         UUID jobId = execution.idAsync().join();
 
@@ -182,9 +187,9 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldCancelJobLocally() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(entryNode.node()));
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(clusterNode(entryNode)));
 
         UUID jobId = execution.idAsync().join();
 
@@ -197,9 +202,9 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldCancelJobRemotely() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(CLUSTER.node(1).node()));
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(clusterNode(CLUSTER.node(1))));
 
         UUID jobId = execution.idAsync().join();
 
@@ -228,9 +233,9 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldReturnFalseIfCancelCompletedJob() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(entryNode.node()));
+        JobExecution<String> execution = runBlockingJob(entryNode, Set.of(clusterNode(entryNode)));
 
         UUID jobId = execution.idAsync().join();
 
@@ -255,9 +260,9 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldUpdatePriorityLocally() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        Set<ClusterNode> nodes = Set.of(clusterNode(entryNode));
 
         JobExecution<String> execution = runBlockingJob(entryNode, nodes);
 
@@ -276,9 +281,9 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldUpdatePriorityRemotely() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        Set<ClusterNode> nodes = Set.of(CLUSTER.node(1).node());
+        Set<ClusterNode> nodes = Set.of(clusterNode(CLUSTER.node(1)));
 
         JobExecution<String> execution = runBlockingJob(entryNode, nodes);
 
@@ -313,9 +318,9 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldReturnFalseIfUpdatePriorityOfRunningJob() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        Set<ClusterNode> nodes = Set.of(clusterNode(entryNode));
 
         JobExecution<String> execution = runBlockingJob(entryNode, nodes);
 
@@ -338,9 +343,9 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldReturnFalseIfUpdatePriorityOfCompletedJob() {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
-        Set<ClusterNode> nodes = Set.of(entryNode.node());
+        Set<ClusterNode> nodes = Set.of(clusterNode(entryNode));
 
         JobExecution<String> execution = runBlockingJob(entryNode, nodes);
 
@@ -365,7 +370,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
         );
     }
 
-    private static JobExecution<String> runBlockingJob(IgniteImpl entryNode, Set<ClusterNode> nodes) {
+    private static JobExecution<String> runBlockingJob(Ignite entryNode, Set<ClusterNode> nodes) {
         return entryNode.compute().submit(JobTarget.anyNode(nodes), JobDescriptor.builder(BlockingJob.class).build(), null);
     }
 

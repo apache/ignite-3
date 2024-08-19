@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -314,7 +315,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
     @SuppressWarnings("resource")
     private static Catalog latestActiveCatalog() {
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()));
 

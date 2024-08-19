@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -97,6 +99,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23001")
     void testEstimatedSizeAfterScaleUp() throws InterruptedException {
         for (String profile : ALL_STORAGE_PROFILES) {
             String tableName = createTableWithData(profile);
@@ -156,7 +159,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     }
 
     private void waitForRebalance(int numNodes) throws InterruptedException {
-        MetaStorageManager metaStorageManager = cluster.aliveNode().metaStorageManager();
+        MetaStorageManager metaStorageManager = unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager();
 
         var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
 

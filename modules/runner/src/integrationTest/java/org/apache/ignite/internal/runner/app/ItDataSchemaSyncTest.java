@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -148,8 +149,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     public void checkSchemasCorrectUpdate() throws Exception {
         Ignite ignite0 = clusterNodes.get(0);
         IgniteServer node1 = nodes.get(1);
-        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
-        IgniteImpl ignite2 = (IgniteImpl) clusterNodes.get(2);
+        IgniteImpl ignite1 = unwrapIgniteImpl(clusterNodes.get(1));
+        IgniteImpl ignite2 = unwrapIgniteImpl(clusterNodes.get(2));
 
         createTable(ignite0, TABLE_NAME);
 
@@ -183,7 +184,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         assertThat(node1.waitForInitAsync(), willCompleteSuccessfully());
 
-        ignite1 = (IgniteImpl) node1.api();
+        ignite1 = unwrapIgniteImpl(node1.api());
 
         table = tableView(ignite1, TABLE_NAME);
 
@@ -197,7 +198,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     @Test
     public void queryWaitAppropriateSchema() {
         Ignite ignite0 = clusterNodes.get(0);
-        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
+        IgniteImpl ignite1 = unwrapIgniteImpl(clusterNodes.get(1));
 
         createTable(ignite0, TABLE_NAME);
 
@@ -289,7 +290,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     @Test
     public void testExpectReplicationTimeout() throws Exception {
         Ignite ignite0 = clusterNodes.get(0);
-        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
+        IgniteImpl ignite1 = unwrapIgniteImpl(clusterNodes.get(1));
 
         createTable(ignite0, TABLE_NAME);
 
@@ -314,7 +315,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         alterTable(ignite0, TABLE_NAME);
 
         for (Ignite node : clusterNodes) {
-            if (node == ignite1) {
+            if (node.name().equals(ignite1.name())) {
                 continue;
             }
 

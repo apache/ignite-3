@@ -533,14 +533,15 @@ public class IgniteImpl implements Ignite {
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
         partitionsLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
+                SharedLogStorageFactoryUtils.create("table data log", clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
         raftMgr = new Loza(
                 clusterSvc,
                 metricManager,
                 raftConfiguration,
                 clock,
-                raftGroupEventsClientListener
+                raftGroupEventsClientListener,
+                failureProcessor
         );
 
         LockManager lockMgr = new HeapLockManager();
@@ -552,7 +553,7 @@ public class IgniteImpl implements Ignite {
         );
 
         cmgLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
+                SharedLogStorageFactoryUtils.create("cluster-management-group log", clusterSvc.nodeName(), cmgWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
@@ -616,7 +617,7 @@ public class IgniteImpl implements Ignite {
         ComponentWorkingDir metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
         msLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
+                SharedLogStorageFactoryUtils.create("meta-storage log", clusterSvc.nodeName(), metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());

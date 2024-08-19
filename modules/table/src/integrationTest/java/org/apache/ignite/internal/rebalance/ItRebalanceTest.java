@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
@@ -35,6 +36,7 @@ import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
@@ -109,18 +112,18 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("val", "value1"));
         BinaryRowEx key = marshalKey(table, 1, Integer.class);
 
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(nullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(nullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(2).node()), willBe(nullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(nullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(nullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(nullValue()));
 
         assertThat(table.internalTable().insert(row, null), willCompleteSuccessfully());
 
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(2).node()), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(notNullValue()));
 
         assertThat(
-                table.internalTable().get(key, clock.now(), cluster.node(3).node()),
+                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
 
@@ -132,9 +135,9 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
                 nodeName(3)
         ), table.tableId());
 
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(3).node()), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))), willBe(notNullValue()));
 
         cluster.startNode(2);
 
@@ -144,14 +147,18 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
                 nodeName(2)
         ), table.tableId());
 
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), cluster.node(2).node()), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(notNullValue()));
 
         assertThat(
-                table.internalTable().get(key, clock.now(), cluster.node(3).node()),
+                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
+    }
+
+    private static ClusterNode clusterNode(Ignite ignite) {
+        return unwrapIgniteImpl(ignite).node();
     }
 
     private static Row marshalTuple(TableViewInternal table, Tuple tuple) {
@@ -178,7 +185,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> {
             Set<String> assignments =
-                    await(partitionAssignments(cluster.aliveNode().metaStorageManager(), table, 0))
+                    await(partitionAssignments(unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager(), table, 0))
                             .stream()
                             .map(Assignment::consistentId)
                             .collect(Collectors.toSet());
@@ -213,7 +220,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
             executeUpdate(sql2, session);
         });
 
-        CatalogManager catalogManager = cluster.aliveNode().catalogManager();
+        CatalogManager catalogManager = unwrapIgniteImpl(cluster.aliveNode()).catalogManager();
 
         return catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
                 .filter(t -> t.name().equals(tableName))

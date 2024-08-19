@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -62,7 +63,8 @@ public class TestJraftServerFactory {
         return new JraftServerImpl(
                 service,
                 opts,
-                raftGroupEventsClientListener
+                raftGroupEventsClientListener,
+                new NoOpFailureProcessor()
         );
     }
 }
