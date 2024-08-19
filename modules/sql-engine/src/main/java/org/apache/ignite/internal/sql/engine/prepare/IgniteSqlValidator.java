@@ -300,7 +300,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     ) {
         CalciteContextException ex = super.newValidationError(node, e);
 
-        String newMessage = IgniteSqlValidatorErrorMessages.resolveErrorMessage(ex);
+        String newMessage = IgniteSqlValidatorErrorMessages.resolveErrorMessage(ex.getMessage());
 
         CalciteContextException newEx;
         if (newMessage != null) {

@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Provides error messages for validation errors returned by {@link IgniteSqlValidator}.
  */
-final class IgniteSqlValidatorErrorMessages {
+public final class IgniteSqlValidatorErrorMessages {
     enum Overrides {
         COLUMN_NOT_NULLABLE(
                 "has no default value and does not allow NULLs",
@@ -59,12 +59,10 @@ final class IgniteSqlValidatorErrorMessages {
      * Returns an apache ignite specific error message for the given {@link CalciteContextException} or returns null if original message
      * should be preserved.
      *
-     * @param ex An exception.
+     * @param message An original message.
      * @return An updated message.
      */
-    static @Nullable String resolveErrorMessage(CalciteContextException ex) {
-        String message = ex.getMessage();
-
+    public static @Nullable String resolveErrorMessage(@Nullable String message) {
         if (message == null) {
             return null;
         }
