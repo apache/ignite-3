@@ -34,7 +34,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.atMostOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.inOrder;
@@ -418,7 +417,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         assertThat(updateCommandClosureResultCaptor.getAllValues(),
                 containsInAnyOrder(new UpdateCommandResult(true, false),
-                new UpdateCommandResult(true, false))
+                        new UpdateCommandResult(true, false))
         );
         assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null, null}));
 
