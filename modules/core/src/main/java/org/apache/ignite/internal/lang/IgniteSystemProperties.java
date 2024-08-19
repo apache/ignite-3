@@ -74,10 +74,10 @@ public final class IgniteSystemProperties {
     public static final String THREAD_ASSERTIONS_LOG_BEFORE_THROWING = "THREAD_ASSERTIONS_LOG_BEFORE_THROWING";
 
     /** Skip replication in a benchmark. */
-    public static final String SKIP_REPLICATION_IN_BENCHMARK = "SKIP_REPLICATION_IN_BENCHMARK";
+    public static final String IGNITE_SKIP_REPLICATION_IN_BENCHMARK = "IGNITE_SKIP_REPLICATION_IN_BENCHMARK";
 
     /** Skip storage update in a benchmark. */
-    public static final String SKIP_STORAGE_UPDATE_IN_BENCHMARK = "SKIP_STORAGE_UPDATE_IN_BENCHMARK";
+    public static final String IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK = "IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK";
 
     /**
      * Enforces singleton.

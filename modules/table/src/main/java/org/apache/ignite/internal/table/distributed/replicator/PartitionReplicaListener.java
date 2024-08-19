@@ -49,6 +49,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -623,7 +624,15 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Return tx operation timestamp.
+     * Returns the txn operation timestamp.
+     *
+     * <ul>
+     *     <li>For a read/write in an RW transaction, it's 'now'</li>
+     *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
+     *     <li>For a direct read in an RO implicit transaction, it's the timestamp chosen (as 'now') to process the request</li>
+     * </ul>
+     *
+     * <p>For other requests, op timestamp is not applicable and the validation is skipped.
      *
      * @param request The request.
      * @return The timestamp or {@code null} if not a tx operation request.
@@ -1968,7 +1977,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         };
 
-        if (lockFut.isDone() && !lockFut.isCompletedExceptionally()) {
+        if (isCompletedSuccessfully(lockFut)) {
             return sup.get();
         } else {
             return lockFut.thenCompose(ignored -> sup.get());
@@ -2772,7 +2781,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     // Try to avoid double write if an entry is already replicated.
                     synchronized (safeTime) {
                         if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                            if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.SKIP_STORAGE_UPDATE_IN_BENCHMARK)) {
+                            if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK)) {
                                 // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                                 storageUpdateHandler.handleUpdate(
                                         cmd.txId(),
@@ -3274,11 +3283,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     *  Wait for the async cleanup of the provided row to finish.
+     * Wait for the async cleanup of the provided row to finish.
      *
      * @param rowId Row Ids of existing row that the transaction affects.
      * @param result The value that the returned future will wrap.
-     *
      * @param <T> Type of the {@code result}.
      */
     private <T> CompletableFuture<T> awaitCleanup(@Nullable RowId rowId, T result) {
@@ -3291,7 +3299,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param rowIds Row Ids of existing rows that the transaction affects.
      * @param result The value that the returned future will wrap.
-     *
      * @param <T> Type of the {@code result}.
      */
     private <T> CompletableFuture<T> awaitCleanup(Collection<RowId> rowIds, T result) {
@@ -3547,8 +3554,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Replica request.
      * @return Future with {@link IgniteBiTuple} containing {@code boolean} (whether the replica is primary) and the start time of current
-     *     lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
-     *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
+     *         lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
+     *         lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
         HybridTimestamp now = clockService.now();
@@ -3718,12 +3725,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
             return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
-                   () -> storageUpdateHandler.switchWriteIntents(
-                           txId,
-                           txState == COMMITTED,
-                           commitTimestamp,
-                           indexIdsAtRwTxBeginTs(txId)
-                   )
+                    () -> storageUpdateHandler.switchWriteIntents(
+                            txId,
+                            txState == COMMITTED,
+                            commitTimestamp,
+                            indexIdsAtRwTxBeginTs(txId)
+                    )
             )).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);

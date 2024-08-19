@@ -23,6 +23,7 @@ package org.apache.ignite.internal.util;
 public class FastTimestamps {
     private static volatile long coarseCurrentTimeMillis = System.currentTimeMillis();
 
+    /** Note: don't change this value, because it's crucial for a timestamp generation. */
     private static final long UPDATE_FREQUENCY_MS = 1;
 
     static {

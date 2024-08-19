@@ -174,7 +174,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller
     ) {
-        boolean inBenchmark = IgniteSystemProperties.getBoolean(IgniteSystemProperties.SKIP_REPLICATION_IN_BENCHMARK, false);
+        boolean inBenchmark = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK);
 
         RaftGroupServiceImpl service;
         if (inBenchmark) {
