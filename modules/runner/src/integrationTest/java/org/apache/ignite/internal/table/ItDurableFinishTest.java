@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -41,7 +42,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
@@ -92,9 +95,9 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = defaultTablePartitionId(node(0));
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = unwrapIgniteImpl(node(0)).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
-                node(0).clock().now(),
+                unwrapIgniteImpl(node(0)).clock().now(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
         );
@@ -105,8 +108,8 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         int primaryIndex = nodeIndex(primary);
 
-        IgniteImpl primaryNode = node(primaryIndex);
-        IgniteImpl coordinatorNode = node((primaryIndex + 1) % 3);
+        IgniteImpl primaryNode = unwrapIgniteImpl(node(primaryIndex));
+        IgniteImpl coordinatorNode = unwrapIgniteImpl(node((primaryIndex + 1) % 3));
 
         InternalTransaction rwTx = (InternalTransaction) coordinatorNode.transactions().begin();
 
@@ -120,7 +123,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         return new Context(primaryNode, coordinatorNode, publicTable, rwTx, keyTpl);
     }
 
-    private TablePartitionId defaultTablePartitionId(IgniteImpl node) {
+    private TablePartitionId defaultTablePartitionId(Ignite node) {
         TableViewInternal table = unwrapTableViewInternal(node.tables().table(TABLE_NAME));
 
         return new TablePartitionId(table.tableId(), 0);
@@ -187,7 +190,10 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)));
+                NodeUtils.transferPrimary(
+                        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()),
+                        defaultTablePartitionId(node(0))
+                );
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -242,8 +248,8 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void testChangePrimaryOnCleanup() throws ExecutionException, InterruptedException {
-        node(0).clusterConfiguration().getConfiguration(ReplicationConfiguration.KEY).change(replicationChange ->
+    void testChangePrimaryOnCleanup() throws Exception {
+        unwrapIgniteImpl(node(0)).clusterConfiguration().getConfiguration(ReplicationConfiguration.KEY).change(replicationChange ->
                 replicationChange.changeRpcTimeout(3000));
 
         Context context = prepareTransactionData();
@@ -286,7 +292,10 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)));
+                NodeUtils.transferPrimary(
+                        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()),
+                        defaultTablePartitionId(node(0))
+                );
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {

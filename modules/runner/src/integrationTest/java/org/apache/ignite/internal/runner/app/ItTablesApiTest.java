@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTablesInternal;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
@@ -264,7 +265,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     public void testAddIndexFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
-        IgniteImpl ignite0 = (IgniteImpl) clusterNodes.get(0);
+        IgniteImpl ignite0 = unwrapIgniteImpl(clusterNodes.get(0));
 
         createTable(ignite0, TABLE_NAME);
 

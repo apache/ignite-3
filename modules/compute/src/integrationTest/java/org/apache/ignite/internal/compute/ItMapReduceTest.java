@@ -36,6 +36,7 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.time.Instant;
 import java.util.List;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.TaskDescriptor;
@@ -43,7 +44,6 @@ import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.InteractiveTasks;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
@@ -61,13 +61,13 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         InteractiveJobs.clearState();
         InteractiveTasks.clearState();
 
-        List<String> allNodeNames = CLUSTER.runningNodes().map(IgniteImpl::name).collect(toList());
+        List<String> allNodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(toList());
         InteractiveJobs.initChannels(allNodeNames);
     }
 
     @Test
     void taskMaintainsState() throws Exception {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
         IgniteCompute igniteCompute = entryNode.compute();
@@ -104,7 +104,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         InteractiveTasks.GlobalApi.finishReduce();
 
         // Then the task is complete and the result is the list of all node names.
-        String[] allNodeNames = CLUSTER.runningNodes().map(IgniteImpl::name).toArray(String[]::new);
+        String[] allNodeNames = CLUSTER.runningNodes().map(Ignite::name).toArray(String[]::new);
         assertThat(taskExecution.resultAsync(), willBe(containsInAnyOrder(allNodeNames)));
 
         // And task state is completed.
@@ -116,7 +116,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void splitThrowsException() throws Exception {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
         TaskExecution<List<String>> taskExecution = startTask(entryNode, null);
@@ -137,7 +137,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void cancelSplit(boolean cooperativeCancel) throws Exception {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
         TaskExecution<List<String>> taskExecution = startTask(entryNode, cooperativeCancel ? "NO_INTERRUPT" : "");
@@ -160,7 +160,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void jobThrowsException() throws Exception {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
         TaskExecution<List<String>> taskExecution = startTask(entryNode, null);
@@ -180,7 +180,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void cancelJobs() throws Exception {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
         IgniteCompute igniteCompute = entryNode.compute();
@@ -211,7 +211,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void reduceThrowsException() throws Exception {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
         TaskExecution<List<String>> taskExecution = startTask(entryNode, null);
@@ -238,7 +238,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void cancelReduce(boolean cooperativeCancel) throws Exception {
-        IgniteImpl entryNode = CLUSTER.node(0);
+        Ignite entryNode = CLUSTER.node(0);
 
         // Given running task.
         String arg = cooperativeCancel ? "NO_INTERRUPT" : null;
@@ -274,7 +274,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         assertThat(taskExecution.cancelAsync(), willBe(false));
     }
 
-    private static TaskExecution<List<String>> startTask(IgniteImpl entryNode, String args) throws InterruptedException {
+    private static TaskExecution<List<String>> startTask(Ignite entryNode, String args) throws InterruptedException {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), args);

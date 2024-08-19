@@ -158,8 +158,8 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             parameters = new Parameters(statementsCount, n -> createInsertStatement("T" + n));
             queryRunner = new QueryRunner(
-                    clusterNode.queryEngine(),
-                    clusterNode.observableTimeTracker(),
+                    igniteImpl.queryEngine(),
+                    igniteImpl.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -218,8 +218,8 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             parameters = new Parameters(statementsCount, n -> format("select count(*) from T{}", n));
             queryRunner = new QueryRunner(
-                    clusterNode.queryEngine(),
-                    clusterNode.observableTimeTracker(),
+                    igniteImpl.queryEngine(),
+                    igniteImpl.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -260,8 +260,8 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             parameters = new Parameters(statementsCount, n -> format("select * from T{} where ycsb_key=?", n));
             queryRunner = new QueryRunner(
-                    clusterNode.queryEngine(),
-                    clusterNode.observableTimeTracker(),
+                    igniteImpl.queryEngine(),
+                    igniteImpl.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -310,8 +310,8 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             parameters = new Parameters(statementsCount, ignore -> "select * from T0 where ycsb_key=?");
             queryRunner = new QueryRunner(
-                    clusterNode.queryEngine(),
-                    clusterNode.observableTimeTracker(),
+                    igniteImpl.queryEngine(),
+                    igniteImpl.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -456,7 +456,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         for (int i = 0; i < tablesCount; i++) {
-            clusterNode.tables().table("T" + i).keyValueView().putAll(null, data);
+            publicIgnite.tables().table("T" + i).keyValueView().putAll(null, data);
         }
     }
 
