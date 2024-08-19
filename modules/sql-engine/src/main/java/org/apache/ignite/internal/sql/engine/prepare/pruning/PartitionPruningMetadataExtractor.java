@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.apache.calcite.rel.core.Exchange;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
@@ -53,13 +54,11 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
-import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -157,7 +156,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
     private static class ModifyNodeShuttle extends IgniteRelShuttle {
         List<TargetMapping> mapping;
-        IgniteRel previous = null;
         private static final Map<Class<?>, Set<Class<?>>> allowRelTransfers = new HashMap<>();
 
         List<List<RexNode>> finalExpressions = new ArrayList<>();
@@ -170,10 +168,9 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         }
 
         static {
-            allowRelTransfers.put(IgniteValues.class, Set.of(IgniteProject.class, IgniteExchange.class, IgniteTrimExchange.class));
-            allowRelTransfers.put(IgniteProject.class, Set.of(IgniteTableModify.class, IgniteUnionAll.class, IgniteExchange.class,
-                    IgniteTrimExchange.class, IgniteProject.class));
-            allowRelTransfers.put(IgniteUnionAll.class, Set.of(IgniteProject.class, IgniteTableModify.class));
+            allowRelTransfers.put(IgniteTableModify.class, Set.of(IgniteUnionAll.class, IgniteProject.class, IgniteValues.class));
+            allowRelTransfers.put(IgniteUnionAll.class, Set.of(IgniteProject.class, IgniteValues.class));
+            allowRelTransfers.put(IgniteProject.class, Set.of(IgniteUnionAll.class, IgniteProject.class, IgniteValues.class));
         }
 
         /** {@inheritDoc} */
@@ -253,16 +250,10 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         }
 
         @Override
-        protected IgniteRel processNode(IgniteRel rel) {
-            previous = rel;
-            return super.processNode(rel);
-        }
-
-        @Override
         protected void visitChild(IgniteRel parent, int i, IgniteRel child) {
-            if (child instanceof IgniteExchange || child instanceof IgniteTrimExchange) {
+            if (parent instanceof Exchange || child instanceof Exchange) {
                 super.visitChild(parent, i, child);
-            } else if (allowRelTransfers.getOrDefault(child.getClass(), Set.of()).contains(previous.getClass())) {
+            } else if (allowRelTransfers.getOrDefault(parent.getClass(), Set.of()).contains(child.getClass())) {
                 super.visitChild(parent, i, child);
             } else {
                 throw Util.FoundOne.NULL;
