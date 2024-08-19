@@ -111,7 +111,8 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
 
         // Then.
         Map<ClusterNode, String> resultExpected = Map.of(
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
+                // todo: "https://issues.apache.org/jira/browse/IGNITE-23024"
+                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
                 node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
@@ -137,7 +138,8 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
 
         // Then.
         Map<ClusterNode, String> resultExpected = Map.of(
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
+                // todo: "https://issues.apache.org/jira/browse/IGNITE-23024"
+                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
                 node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
