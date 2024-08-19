@@ -52,6 +52,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -85,7 +86,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
     private ReplicaManager replicaManager;
 
     @Mock
-    private RaftManager raftManager;
+    private Loza raftManager;
 
     @BeforeEach
     void startReplicaManager(
