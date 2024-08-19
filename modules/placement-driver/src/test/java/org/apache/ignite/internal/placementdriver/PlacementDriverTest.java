@@ -158,7 +158,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private AssignmentsTracker assignmentsPlacementDriver;
 
-    private HybridTimestamp assignmentTimestamp;
+    private HybridTimestamp assignmentsTimestamp;
 
     @Nullable
     private ClusterNode leaseholder;
@@ -193,7 +193,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         leaseholder = FAKE_NODE;
 
-        assignmentTimestamp = clockService.now();
+        assignmentsTimestamp = clockService.now();
     }
 
     @AfterEach
@@ -847,7 +847,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(assignmentsKey, Assignments.toBytes(assignments, assignmentTimestamp)),
+                put(assignmentsKey, Assignments.toBytes(assignments, assignmentsTimestamp)),
                 noop()
         );
 

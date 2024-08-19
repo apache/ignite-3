@@ -121,7 +121,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
-    private HybridTimestamp assignmentTimestamp = new HybridTimestamp(0, 1);
+    private final HybridTimestamp assignmentsTimestamp = new HybridTimestamp(0, 1);
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
@@ -604,6 +604,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Replication group id.
      */
     private TablePartitionId createTableAssignment() {
-        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames, assignmentTimestamp);
+        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames, assignmentsTimestamp);
     }
 }

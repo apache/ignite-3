@@ -77,7 +77,8 @@ public class ZoneRebalanceUtil {
 
     /**
      * Status values for methods like
-     * {@link #updatePendingAssignmentsKeys(CatalogZoneDescriptor, ZonePartitionId, Collection, int, long, MetaStorageManager, int, Set)}.
+     * {@link #updatePendingAssignmentsKeys(CatalogZoneDescriptor, ZonePartitionId, Collection, int, long, MetaStorageManager, int, Set,
+     * HybridTimestamp)}.
      */
     public enum UpdateStatus {
         /**
@@ -134,6 +135,7 @@ public class ZoneRebalanceUtil {
      * @param metaStorageMgr Meta Storage manager.
      * @param partNum Partition id.
      * @param zoneCfgPartAssignments Zone configuration assignments.
+     * @param assignmentsTimestamp Time when the catalog version that the assignments were calculated against becomes active.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static CompletableFuture<Void> updatePendingAssignmentsKeys(
@@ -145,7 +147,7 @@ public class ZoneRebalanceUtil {
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> zoneCfgPartAssignments,
-            HybridTimestamp assignmentTimestamp
+            HybridTimestamp assignmentsTimestamp
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
 
@@ -159,7 +161,7 @@ public class ZoneRebalanceUtil {
 
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 
-        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments, assignmentTimestamp);
+        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments, assignmentsTimestamp);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
@@ -271,6 +273,8 @@ public class ZoneRebalanceUtil {
      * @param dataNodes Data nodes to use.
      * @param storageRevision MetaStorage revision corresponding to this request.
      * @param metaStorageManager MetaStorage manager used to read/write assignments.
+     * @param busyLock Busy lock to use.
+     * @param assignmentsTimestamp Time when the catalog version that the assignments were calculated against becomes active.
      * @return Array of futures, one per partition of the zone; the futures complete when the described
      *     rebalance triggering completes.
      */
@@ -280,7 +284,7 @@ public class ZoneRebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager,
             IgniteSpinBusyLock busyLock,
-            HybridTimestamp assignmentTimestamp
+            HybridTimestamp assignmentsTimestamp
     ) {
         CompletableFuture<Map<Integer, Assignments>> zoneAssignmentsFut = zoneAssignments(
                 metaStorageManager,
@@ -308,7 +312,7 @@ public class ZoneRebalanceUtil {
                         metaStorageManager,
                         finalPartId,
                         zoneAssignments.get(finalPartId).nodes(),
-                        assignmentTimestamp
+                        assignmentsTimestamp
                 );
             }));
         }

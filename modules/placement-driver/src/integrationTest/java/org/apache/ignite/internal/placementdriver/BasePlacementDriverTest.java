@@ -49,7 +49,7 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
             MetaStorageManager metastore,
             int tableId,
             List<String> dataNodes,
-            HybridTimestamp assignmentTimestamp) {
+            HybridTimestamp assignmentsTimestamp) {
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(dataNodes, 1, dataNodes.size());
 
         Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
@@ -57,7 +57,7 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
         for (int i = 0; i < assignments.size(); i++) {
             partitionAssignments.put(
                     stablePartAssignmentsKey(new TablePartitionId(tableId, i)),
-                    Assignments.toBytes(assignments.get(i), assignmentTimestamp));
+                    Assignments.toBytes(assignments.get(i), assignmentsTimestamp));
         }
 
         metastore.putAll(partitionAssignments).join();

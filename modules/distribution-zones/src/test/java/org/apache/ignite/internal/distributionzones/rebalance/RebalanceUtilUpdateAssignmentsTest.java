@@ -119,7 +119,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, replicas);
     private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, replicas);
 
-    private HybridTimestamp acivationTimestamp;
+    private HybridTimestamp assignmentsTimestamp;
 
     @BeforeEach
     public void setUp() {
@@ -203,7 +203,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             return ret;
         });
 
-        acivationTimestamp = clock.now();
+        assignmentsTimestamp = clock.now();
     }
 
     @AfterEach
@@ -222,7 +222,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments2,
                 null, null, null,
-                null, assignments1, null, acivationTimestamp
+                null, assignments1, null, assignmentsTimestamp
         );
     }
 
@@ -237,7 +237,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments1,
                 null, null, null,
-                null, null, null, acivationTimestamp
+                null, null, null, assignmentsTimestamp
         );
     }
 
@@ -252,7 +252,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments2,
                 null, assignments3, null,
-                null, assignments3, assignments1, acivationTimestamp
+                null, assignments3, assignments1, assignmentsTimestamp
         );
     }
 
@@ -267,7 +267,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments1,
                 null, assignments3, null,
-                null, assignments3, assignments1, acivationTimestamp
+                null, assignments3, assignments1, assignmentsTimestamp
         );
     }
 
@@ -282,7 +282,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments2,
                 assignments3, null, null,
-                assignments3, assignments1, null, acivationTimestamp
+                assignments3, assignments1, null, assignmentsTimestamp
         );
     }
 
@@ -297,7 +297,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments1,
                 assignments3, null, null,
-                assignments3, assignments1, null, acivationTimestamp
+                assignments3, assignments1, null, assignmentsTimestamp
         );
     }
 
@@ -312,7 +312,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments2,
                 assignments1, null, null,
-                assignments1, null, null, acivationTimestamp
+                assignments1, null, null, assignmentsTimestamp
         );
     }
 
@@ -327,7 +327,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments1,
                 assignments1, null, null,
-                assignments1, null, null, acivationTimestamp
+                assignments1, null, null, assignmentsTimestamp
         );
     }
 
@@ -342,7 +342,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments2,
                 assignments2, null, null,
-                assignments2, assignments1, null, acivationTimestamp
+                assignments2, assignments1, null, assignmentsTimestamp
         );
     }
 
@@ -357,7 +357,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments2,
                 assignments4, assignments3, null,
-                assignments4, assignments3, assignments1, acivationTimestamp
+                assignments4, assignments3, assignments1, assignmentsTimestamp
         );
     }
 
@@ -372,7 +372,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments1,
                 assignments3, assignments2, null,
-                assignments3, assignments2, assignments1, acivationTimestamp
+                assignments3, assignments2, assignments1, assignmentsTimestamp
         );
     }
 
@@ -387,7 +387,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments2,
                 assignments1, assignments3, null,
-                assignments1, assignments3, assignments1, acivationTimestamp
+                assignments1, assignments3, assignments1, assignmentsTimestamp
         );
     }
 
@@ -402,7 +402,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments2,
                 assignments2, assignments3, null,
-                assignments2, assignments3, assignments1, acivationTimestamp
+                assignments2, assignments3, assignments1, assignmentsTimestamp
         );
     }
 
@@ -417,7 +417,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments1,
                 assignments1, assignments2, null,
-                assignments1, assignments2, assignments1, acivationTimestamp
+                assignments1, assignments2, assignments1, assignmentsTimestamp
         );
     }
 
@@ -432,7 +432,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments1,
                 assignments1, assignments2, assignments3,
-                assignments1, assignments2, assignments1, acivationTimestamp
+                assignments1, assignments2, assignments1, assignmentsTimestamp
         );
     }
 
@@ -447,7 +447,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments4,
                 assignments1, assignments2, assignments1,
-                assignments1, assignments2, assignments1, acivationTimestamp
+                assignments1, assignments2, assignments1, assignmentsTimestamp
         );
     }
 
@@ -462,7 +462,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes2, assignments2,
                 assignments1, assignments2, assignments1,
-                assignments1, assignments2, null, acivationTimestamp
+                assignments1, assignments2, null, assignmentsTimestamp
         );
     }
 
@@ -477,7 +477,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes2, assignments4,
                 assignments1, assignments2, assignments1,
-                assignments1, assignments2, null, acivationTimestamp
+                assignments1, assignments2, null, assignmentsTimestamp
         );
     }
 
@@ -490,28 +490,28 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             Set<Assignment> expectedStableAssignments,
             Set<Assignment> expectedPendingAssignments,
             Set<Assignment> expectedPlannedAssignments,
-            HybridTimestamp assignmentTimestamp
+            HybridTimestamp assignmentsTimestamp
     ) {
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
         if (currentStableAssignments != null) {
             keyValueStorage.put(
                     RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(),
-                    toBytes(currentStableAssignments, assignmentTimestamp),
+                    toBytes(currentStableAssignments, assignmentsTimestamp),
                     HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPendingAssignments != null) {
             keyValueStorage.put(
                     RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes(),
-                    toBytes(currentPendingAssignments, assignmentTimestamp),
+                    toBytes(currentPendingAssignments, assignmentsTimestamp),
                     HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPlannedAssignments != null) {
             keyValueStorage.put(
                     RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes(),
-                    toBytes(currentPlannedAssignments, assignmentTimestamp),
+                    toBytes(currentPlannedAssignments, assignmentsTimestamp),
                     HybridTimestamp.MIN_VALUE);
         }
 
@@ -524,7 +524,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 metaStorageManager,
                 partNum,
                 tableCfgAssignments,
-                assignmentTimestamp
+                assignmentsTimestamp
         );
 
         byte[] actualStableBytes = keyValueStorage.get(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes()).value();

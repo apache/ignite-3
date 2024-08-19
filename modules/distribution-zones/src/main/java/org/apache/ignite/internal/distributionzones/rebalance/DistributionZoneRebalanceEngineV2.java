@@ -157,7 +157,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
                     Catalog catalog = catalogService.catalog(catalogVersion);
 
-                    HybridTimestamp activationTimestamp = HybridTimestamp.hybridTimestamp(catalog.time());
+                    HybridTimestamp assignmentsTimestamp = HybridTimestamp.hybridTimestamp(catalog.time());
 
                     CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
 
@@ -182,7 +182,7 @@ public class DistributionZoneRebalanceEngineV2 {
                             evt.entryEvent().newEntry().revision(),
                             metaStorageManager,
                             busyLock,
-                            activationTimestamp
+                            assignmentsTimestamp
                     );
                 });
             }

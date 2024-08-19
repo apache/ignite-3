@@ -97,7 +97,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private BiFunction<String, LeaseGrantedMessage, LeaseGrantedMessageResponse> leaseGrantedMessageHandler;
 
-    private HybridTimestamp assignmentTimestamp = new HybridTimestamp(0, 1);
+    private final HybridTimestamp assignmentsTimestamp = new HybridTimestamp(0, 1);
 
     @BeforeEach
     public void setUp() {
@@ -185,11 +185,11 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentTimestamp));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_1_NAME)), assignmentTimestamp));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_1_NAME)), assignmentsTimestamp));
 
         waitForAcceptedLease();
 
@@ -212,7 +212,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentTimestamp));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
@@ -237,7 +237,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         };
 
         metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID),
-                Assignments.toBytes(Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME)), assignmentTimestamp));
+                Assignments.toBytes(Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME)), assignmentsTimestamp));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
@@ -264,7 +264,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentTimestamp));
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 

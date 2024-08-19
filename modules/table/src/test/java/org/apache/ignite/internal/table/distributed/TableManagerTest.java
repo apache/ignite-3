@@ -388,9 +388,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
         TableManager tableManager = tblManagerFut.join();
-        HybridTimestamp assignmentTimestamp =
+        HybridTimestamp assignmentsTimestamp =
                 HybridTimestamp.hybridTimestamp(catalogManager.catalog(catalogManager.latestCatalogVersion()).time());
-        List<Assignments> assignmentsList = List.of(Assignments.of(assignmentTimestamp, Assignment.forPeer(node.id())));
+        List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.id())));
 
         // the first case scenario
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();

@@ -74,7 +74,8 @@ public class RebalanceUtil {
 
     /**
      * Status values for methods like
-     * {@link #updatePendingAssignmentsKeys(CatalogTableDescriptor, TablePartitionId, Collection, int, long, MetaStorageManager, int, Set)}.
+     * {@link #updatePendingAssignmentsKeys(CatalogTableDescriptor, TablePartitionId, Collection, int, long, MetaStorageManager, int, Set,
+     * HybridTimestamp)}.
      */
     public enum UpdateStatus {
         /**
@@ -145,7 +146,7 @@ public class RebalanceUtil {
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> tableCfgPartAssignments,
-            HybridTimestamp assignmentTimestamp
+            HybridTimestamp assignmentsTimestamp
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
 
@@ -159,7 +160,7 @@ public class RebalanceUtil {
 
         boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
 
-        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments, assignmentTimestamp);
+        byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments, assignmentsTimestamp);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
@@ -281,7 +282,7 @@ public class RebalanceUtil {
             Set<String> dataNodes,
             long storageRevision,
             MetaStorageManager metaStorageManager,
-            HybridTimestamp assignmentTimestamp
+            HybridTimestamp assignmentsTimestamp
     ) {
         CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
@@ -309,7 +310,7 @@ public class RebalanceUtil {
                             metaStorageManager,
                             finalPartId,
                             tableAssignments.get(finalPartId).nodes(),
-                            assignmentTimestamp
+                            assignmentsTimestamp
                     ));
         }
 

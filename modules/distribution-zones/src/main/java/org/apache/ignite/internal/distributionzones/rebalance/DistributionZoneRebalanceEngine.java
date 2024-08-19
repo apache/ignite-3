@@ -212,7 +212,7 @@ public class DistributionZoneRebalanceEngine {
 
                     Catalog catalog = catalogService.catalog(catalogVersion);
 
-                    HybridTimestamp activationTimestamp = HybridTimestamp.hybridTimestamp(catalog.time());
+                    HybridTimestamp assignmentsTimestamp = HybridTimestamp.hybridTimestamp(catalog.time());
 
                     CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
 
@@ -238,7 +238,7 @@ public class DistributionZoneRebalanceEngine {
                             zoneDescriptor,
                             filteredDataNodes,
                             tableDescriptors,
-                            activationTimestamp
+                            assignmentsTimestamp
                     );
                 });
             }
@@ -297,7 +297,7 @@ public class DistributionZoneRebalanceEngine {
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             List<CatalogTableDescriptor> tableDescriptors,
-            HybridTimestamp assignmentTimestamp
+            HybridTimestamp assignmentsTimestamp
     ) {
         List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
 
@@ -308,7 +308,7 @@ public class DistributionZoneRebalanceEngine {
                     dataNodes,
                     revision,
                     metaStorageManager,
-                    assignmentTimestamp
+                    assignmentsTimestamp
             );
 
             // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
