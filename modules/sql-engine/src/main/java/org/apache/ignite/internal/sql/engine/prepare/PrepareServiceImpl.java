@@ -377,7 +377,6 @@ public class PrepareServiceImpl implements PrepareService {
         // Validate statement.
         CompletableFuture<ValidStatement> validFut = validateStatement(newParsedResult, ctx);
 
-        // Plan or pass already optimized plan.
         CompletableFuture<QueryPlan> planFut = validFut.thenCompose(stmt -> {
             QueryPlan plan = tryOptimizeFast(stmt, ctx, txContext);
 
