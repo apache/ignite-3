@@ -59,6 +59,13 @@ public class RocksDbStorageProfile {
     }
 
     /**
+     * Returns profile name.
+     */
+    public String name() {
+        return storageProfileConfig.name();
+    }
+
+    /**
      * Closes and frees resources associated with this profile.
      */
     public void stop() throws Exception {

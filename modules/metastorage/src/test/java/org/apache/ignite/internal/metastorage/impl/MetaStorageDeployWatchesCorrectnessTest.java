@@ -40,6 +40,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -73,7 +74,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(mcNodeName)));
         when(clusterService.nodeName()).thenReturn(mcNodeName);
-        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any()))
+        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(completedFuture(raftGroupService));
         when(raftGroupService.run(any(GetCurrentRevisionCommand.class))).thenAnswer(invocation -> completedFuture(0L));
 
@@ -87,7 +88,8 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         clock,
                         mock(TopologyAwareRaftGroupServiceFactory.class),
                         new NoOpMetricManager(),
-                        metaStorageConfiguration
+                        metaStorageConfiguration,
+                        RaftGroupOptionsConfigurer.EMPTY
                 ),
                 StandaloneMetaStorageManager.create()
         );

@@ -54,7 +54,7 @@ public class FailureProcessor implements IgniteComponent {
             + "Will be handled accordingly to configured handler [hnd={}, failureCtx={}]";
 
     /** Ignored failure log message. */
-    private static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed accordingly to a configured handler "
+    private static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed according to a configured handler "
             + "[hnd={}, failureCtx={}]";
 
     /** Failure processor configuration. */
@@ -146,9 +146,9 @@ public class FailureProcessor implements IgniteComponent {
         }
 
         if (handler.ignoredFailureTypes().contains(failureCtx.type())) {
-            LOG.warn(IGNORED_FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx);
+            LOG.warn(IGNORED_FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
         } else {
-            LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx);
+            LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
         }
 
         boolean invalidated = handler.onFailure(failureCtx);

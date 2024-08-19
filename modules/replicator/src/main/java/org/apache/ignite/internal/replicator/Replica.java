@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -73,4 +74,11 @@ public interface Replica {
      * Shutdowns the replica.
      */
     CompletableFuture<Void> shutdown();
+
+    /**
+     * Updates local peers and learners.
+     *
+     * @param peersAndLearners Peers and learners.
+     */
+    void updatePeersAndLearners(PeersAndLearners peersAndLearners);
 }

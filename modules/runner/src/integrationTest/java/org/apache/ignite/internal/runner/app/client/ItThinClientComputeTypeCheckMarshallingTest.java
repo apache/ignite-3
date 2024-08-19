@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -33,11 +34,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -60,37 +58,29 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinClientTest {
     @Test
     void argumentMarshallerDefinedOnlyInJob() {
-        // Given.
-        var node = server(0);
-
         // When submit job with custom marshaller that is defined in job but
         // client JobDescriptor does not declare the argument marshaller.
-        var compute = computeClientOn(node);
-        JobExecution<String> result = compute.submit(
+        JobExecution<String> result = client().compute().submit(
                 JobTarget.node(node(1)),
                 JobDescriptor.builder(ArgMarshallingJob.class).build(),
                 "Input"
         );
 
-        assertStatusFailed(result);
+        await().untilAsserted(() -> assertStatusFailed(result));
         assertResultFailsWithErr(Compute.MARSHALLING_TYPE_MISMATCH_ERR, result);
     }
 
     @Test
     void resultMarshallerDefinedOnlyInJob() {
-        // Given.
-        var node = server(0);
-
         // When submit job with custom marshaller that is defined in job but
         // client JobDescriptor does not declare the result marshaller.
-        var compute = computeClientOn(node);
-        JobExecution<String> result = compute.submit(
+        JobExecution<String> result = client().compute().submit(
                 JobTarget.node(node(1)),
                 JobDescriptor.builder(ResultMarshallingJob.class).build(),
                 "Input"
         );
 
-        assertStatusCompleted(result);
+        await().untilAsserted(() -> assertStatusCompleted(result));
         assertThrows(ClassCastException.class, () -> {
             String str = getSafe(result.resultAsync());
         });
@@ -98,13 +88,9 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
 
     @Test
     void argumentMarshallerDoesNotMatch() {
-        // Given.
-        var node = server(0);
-
         // When submit job with custom marshaller that is defined in job but
         // client JobDescriptor does not declare the result marshaller.
-        var compute = computeClientOn(node);
-        JobExecution<Integer> result = compute.submit(
+        JobExecution<Integer> result = client().compute().submit(
                 JobTarget.node(node(1)),
                 // The descriptor does not match actual job arguments.
                 JobDescriptor.<Integer, Integer>builder(ArgumentTypeCheckingmarshallingJob.class.getName())
@@ -113,19 +99,15 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                 1
         );
 
-        assertStatusFailed(result);
+        await().untilAsserted(() -> assertStatusFailed(result));
         assertResultFailsWithErr(Compute.MARSHALLING_TYPE_MISMATCH_ERR, result);
     }
 
     @Test
     void resultMarshallerDoesNotMatch() {
-        // Given.
-        var node = server(0);
-
         // When submit job with custom marshaller that is defined in job but
         // client JobDescriptor does not declare the result marshaller.
-        var compute = computeClientOn(node);
-        JobExecution<Integer> result = compute.submit(
+        JobExecution<Integer> result = client().compute().submit(
                 JobTarget.node(node(1)),
                 // The descriptor does not match actual result.
                 JobDescriptor.<String, Integer>builder(ResultMarshallingJob.class.getName())
@@ -134,7 +116,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                 "Input"
         );
 
-        assertStatusCompleted(result);
+        await().untilAsserted(() -> assertStatusCompleted(result));
         assertThrows(ClassCastException.class, () -> {
             Integer i = getSafe(result.resultAsync());
         });
@@ -212,13 +194,6 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         } catch (InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private IgniteCompute computeClientOn(Ignite node) {
-        return IgniteClient.builder()
-                .addresses(getClientAddresses(List.of(node)).toArray(new String[0]))
-                .build()
-                .compute();
     }
 
     private ClusterNode node(int idx) {
