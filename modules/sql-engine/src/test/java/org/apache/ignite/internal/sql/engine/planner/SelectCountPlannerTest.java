@@ -142,6 +142,16 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    public void optimizeCountNonNulleCols() {
+        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT NOT NULL)");
+
+        QueryPlan plan = node.prepare("SELECT count(id), count(val) FROM test");
+
+        assertThat(plan, instanceOf(SelectCountPlan.class));
+        assertExpressions((SelectCountPlan) plan, "$0", "$0");
+    }
+
+    @Test
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
     @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "true")
     public void optimizeCountStarWhenEnabled() {
@@ -150,6 +160,16 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         QueryPlan plan = node.prepare("SELECT count(*) FROM test");
 
         assertThat(plan, instanceOf(SelectCountPlan.class));
+    }
+
+    @Test
+    public void optimizeCountStarWithOrderBy() {
+        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+
+        QueryPlan plan = node.prepare("SELECT count(*) FROM test ORDER BY 1");
+
+        assertThat(plan, instanceOf(SelectCountPlan.class));
+        assertExpressions((SelectCountPlan) plan, "$0");
     }
 
     @Test
@@ -283,15 +303,6 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
 
         QueryPlan plan = node.prepare("SELECT count(DISTINCT(id)) FROM test");
-
-        assertThat(plan, not(instanceOf(SelectCountPlan.class)));
-    }
-
-    @Test
-    public void doNotOptimizeCountWithOrder() {
-        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
-
-        QueryPlan plan = node.prepare("SELECT count(DISTINCT(id)) FROM test ORDER BY 1");
 
         assertThat(plan, not(instanceOf(SelectCountPlan.class)));
     }

@@ -386,7 +386,6 @@ public final class PlannerHelper {
                 || select.getHaving() != null
                 || select.getQualify() != null
                 || !select.getWindowList().isEmpty()
-                || select.getOrderList() != null && !select.getOrderList().isEmpty()
                 || select.getOffset() != null
                 || select.getFetch() != null) {
             return null;
