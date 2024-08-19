@@ -287,6 +287,15 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         assertThat(plan, not(instanceOf(SelectCountPlan.class)));
     }
 
+    @Test
+    public void doNotOptimizeCountWithOrder() {
+        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+
+        QueryPlan plan = node.prepare("SELECT count(DISTINCT(id)) FROM test ORDER BY 1");
+
+        assertThat(plan, not(instanceOf(SelectCountPlan.class)));
+    }
+
     private static void assertExpressions(SelectCountPlan plan, String... expectedExpressions) {
         List<String> expressions = plan.selectCountNode().expressions().stream()
                 .map(RexNode::toString)

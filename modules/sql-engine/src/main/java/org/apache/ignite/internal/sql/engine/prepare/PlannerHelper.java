@@ -388,10 +388,14 @@ public final class PlannerHelper {
                 || select.getHaving() != null
                 || select.getQualify() != null
                 || !select.getWindowList().isEmpty()
+                || select.getOrderList() != null && !select.getOrderList().isEmpty()
                 || select.getOffset() != null
                 || select.getFetch() != null) {
             return null;
         }
+
+        // make sure that the following IF statement does not leave out any operand of the SELECT node
+        assert select.getOperandList().size() == 12 : "Expected 12 operands, but was " + select.getOperandList().size();
 
         IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
 
