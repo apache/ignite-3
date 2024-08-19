@@ -246,13 +246,8 @@ public class PrepareServiceImpl implements PrepareService {
         // Validate statement
         CompletableFuture<ValidStatement> validFut = validateStatement(parsedResult, planningContext);
 
-        // Try optimize to fast
-        CompletableFuture<FastOptimizationResult> plannedOrValidated =
-                validFut.thenApply(stmt -> tryOptimizeFast(stmt, planningContext, txContext));
-
-        result = plannedOrValidated.thenCompose(optResult -> {
-            ValidStatement stmt = optResult.stmt;
-            QueryPlan plan = optResult.plan;
+        result = validFut.thenCompose(stmt -> {
+            QueryPlan plan = tryOptimizeFast(stmt, planningContext, txContext);
 
             // If optimize fast returned a plan, return it.
             if (plan != null) {
@@ -271,14 +266,14 @@ public class PrepareServiceImpl implements PrepareService {
         });
     }
 
-    private FastOptimizationResult tryOptimizeFast(
+    private @Nullable QueryPlan tryOptimizeFast(
             ValidStatement stmt,
             PlanningContext planningContext,
             @Nullable QueryTransactionContext txContext
     ) {
         // If fast query optimization is disabled, then proceed with the regular planning.
         if (!fastQueryOptimizationEnabled()) {
-            return new FastOptimizationResult(stmt, null);
+            return null;
         }
 
         Pair<IgniteRel, List<String>> relAndAliases = PlannerHelper.tryOptimizeSelectCount(
@@ -288,7 +283,7 @@ public class PrepareServiceImpl implements PrepareService {
         );
 
         if (relAndAliases == null) {
-            return new FastOptimizationResult(stmt, null);
+            return null;
         }
 
         IgniteRel fastOptRel = relAndAliases.left;
@@ -319,7 +314,7 @@ public class PrepareServiceImpl implements PrepareService {
             LOG.debug("Plan prepared: \n{}\n\n{}", stmt.parsedResult.originalQuery(), fastOptRel.explain());
         }
 
-        return new FastOptimizationResult(stmt, plan);
+        return plan;
     }
 
     private CompletableFuture<QueryPlan> prepareAsync0(
@@ -380,17 +375,11 @@ public class PrepareServiceImpl implements PrepareService {
         );
 
         // Validate statement.
-
         CompletableFuture<ValidStatement> validFut = validateStatement(newParsedResult, ctx);
 
-        // Try optimize to fast
-        CompletableFuture<FastOptimizationResult> plannedOrValidated =
-                validFut.thenApply(stmt -> tryOptimizeFast(stmt, ctx, txContext));
-
-        // Plan or pass alredy optimized plan.
-        CompletableFuture<QueryPlan> planFut = plannedOrValidated.thenCompose(optResult -> {
-            ValidStatement stmt = optResult.stmt;
-            QueryPlan plan = optResult.plan;
+        // Plan or pass already optimized plan.
+        CompletableFuture<QueryPlan> planFut = validFut.thenCompose(stmt -> {
+            QueryPlan plan = tryOptimizeFast(stmt, ctx, txContext);
 
             // If optimize fast returned a plan, return it.
             if (plan != null) {
@@ -812,17 +801,6 @@ public class PrepareServiceImpl implements PrepareService {
             this.parsedResult = parsedResult;
             this.value = value;
             this.parameterMetadata = parameterMetadata;
-        }
-    }
-
-    private static class FastOptimizationResult {
-        final ValidStatement stmt;
-
-        final @Nullable QueryPlan plan;
-
-        private FastOptimizationResult(ValidStatement stmt, @Nullable QueryPlan plan) {
-            this.stmt = stmt;
-            this.plan = plan;
         }
     }
 }
