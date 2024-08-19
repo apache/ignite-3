@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,6 +33,7 @@ import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -112,7 +114,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
 
-        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+        String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), tblReplicationGrp).getLeaseholder();
 
         IgniteImpl firstLeaseholderNode = findNodeByName(leaseholder);
 
@@ -163,7 +165,11 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             assertThat(fullTxReplicationAttemptFuture, willCompleteSuccessfully());
 
             // Changing the primary.
-            NodeUtils.transferPrimary(cluster.runningNodes().collect(toList()), tblReplicationGrp, txCrdNode.name());
+            NodeUtils.transferPrimary(
+                    cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
+                    tblReplicationGrp,
+                    txCrdNode.name()
+            );
 
             // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should
             // succeed.
@@ -196,6 +202,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     private IgniteImpl findNode(int startRange, int endRange, Predicate<IgniteImpl> filter) {
         return IntStream.range(startRange, endRange)
                 .mapToObj(this::node)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .filter(filter::test)
                 .findFirst()
                 .get();

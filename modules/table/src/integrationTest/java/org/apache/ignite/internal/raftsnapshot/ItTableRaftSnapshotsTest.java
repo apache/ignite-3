@@ -19,12 +19,13 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -51,6 +52,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
@@ -501,7 +503,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     @Test
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
-            theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
+            unwrapIgniteImpl(theCluster.node(0)).dropMessages(dropFirstSnapshotMetaResponse());
         });
 
         reanimateNode2AndWaitForSnapshotInstalled();
@@ -571,7 +573,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
         try {
             prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
-                IgniteImpl node = theCluster.node(0);
+                IgniteImpl node = unwrapIgniteImpl(theCluster.node(0));
                 MessageSerializationRegistry serializationRegistry = node.raftManager().service().serializationRegistry();
 
                 BiPredicate<String, NetworkMessage> dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed = (recipientId, message) ->
@@ -579,12 +581,12 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
                                 && isSafeTimeSyncCommand((WriteActionRequest) message, serializationRegistry)
                                 && !snapshotInstallFailedDueToIdenticalRetry.get();
 
-                theCluster.node(0).dropMessages(
+                unwrapIgniteImpl(theCluster.node(0)).dropMessages(
                         dropFirstSnapshotMetaResponse().or(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed)
                 );
 
-                theCluster.node(1).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
-                theCluster.node(2).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
+                unwrapIgniteImpl(theCluster.node(1)).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
+                unwrapIgniteImpl(theCluster.node(2)).dropMessages(dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed);
             });
 
             reanimateNode2AndWaitForSnapshotInstalled();
@@ -611,7 +613,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, cluster -> {
             // Let's hang the InstallSnapshot in the "middle" from the leader with index 1.
-            cluster.node(1).dropMessages(dropSnapshotMetaResponse(sentSnapshotMetaResponseFormNode1Future));
+            unwrapIgniteImpl(cluster.node(1)).dropMessages(dropSnapshotMetaResponse(sentSnapshotMetaResponseFormNode1Future));
         });
 
         // Change the leader and truncate its log so that InstallSnapshot occurs instead of AppendEntries.
@@ -674,7 +676,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, cluster -> {
             // Let's hang the InstallSnapshot in the "middle" from the leader with index 0.
-            cluster.node(0).dropMessages(dropSnapshotMetaResponse(sentSnapshotMetaResponseFormNode0Future));
+            unwrapIgniteImpl(cluster.node(0)).dropMessages(dropSnapshotMetaResponse(sentSnapshotMetaResponseFormNode0Future));
         });
 
         CompletableFuture<Void> installSnapshotSuccessfulFuture = new CompletableFuture<>();
@@ -770,7 +772,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     }
 
     private WatchListenerInhibitor inhibitMetastorageListenersAt(int nodeIndex) {
-        IgniteImpl nodeToInhibitMetaStorage = cluster.node(nodeIndex);
+        Ignite nodeToInhibitMetaStorage = cluster.node(nodeIndex);
 
         WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(nodeToInhibitMetaStorage);
         listenerInhibitor.startInhibit();
@@ -790,7 +792,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     }
 
     private BlockingAppendEntriesRequestProcessor installBlockingAppendEntriesProcessor(int nodeIndex) {
-        RaftServer raftServer = cluster.node(nodeIndex).raftManager().server();
+        RaftServer raftServer = unwrapIgniteImpl(cluster.node(nodeIndex)).raftManager().server();
         RpcServer<?> rpcServer = getFieldValue(raftServer, JraftServerImpl.class, "rpcServer");
         Map<String, RpcProcessor<?>> processors = getFieldValue(rpcServer, IgniteRpcServer.class, "processors");
 

@@ -36,7 +36,6 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.LazyPath;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -71,7 +70,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
     final ReadOptions readOptions = new ReadOptions();
 
     /** Database path. */
-    private final LazyPath dbPath;
+    private final Path dbPath;
 
     /** RocksDB flusher instance. */
     private volatile RocksDbFlusher flusher;
@@ -106,7 +105,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
      * @see RocksDbFlusher
      */
     public TxStateRocksDbSharedStorage(
-            LazyPath dbPath,
+            Path dbPath,
             ScheduledExecutorService scheduledExecutor,
             ExecutorService threadPool,
             LogSyncer logSyncer,
@@ -140,12 +139,10 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
      */
     public void start() {
         try {
-            Path path = dbPath.get();
-
-            Files.createDirectories(path);
+            Files.createDirectories(dbPath);
 
             flusher = new RocksDbFlusher(
-                    busyLock,
+                    "tx state storage", busyLock,
                     scheduledExecutor,
                     threadPool,
                     flushDelaySupplier,
@@ -161,7 +158,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
             List<ColumnFamilyDescriptor> cfDescriptors;
 
             try (Options opts = new Options()) {
-                cfDescriptors = RocksDB.listColumnFamilies(opts, path.toAbsolutePath().toString())
+                cfDescriptors = RocksDB.listColumnFamilies(opts, dbPath.toAbsolutePath().toString())
                         .stream()
                         .map(nameBytes -> new ColumnFamilyDescriptor(nameBytes, new ColumnFamilyOptions()))
                         .collect(toList());

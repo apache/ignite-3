@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -26,8 +27,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -91,9 +92,9 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE simple_val_key (boolCol BOOLEAN, intCol INT, dateCol DATE, strCol VARCHAR, PRIMARY KEY (strCol))");
 
         // SERVER
-        IgniteImpl igniteImpl = CLUSTER.aliveNode();
+        Ignite ignite = CLUSTER.aliveNode();
 
-        IgniteTables serverTables = igniteImpl.tables();
+        IgniteTables serverTables = ignite.tables();
         serverKeyVal = serverTables.table("key_val").keyValueView(IntString.class, BoolInt.class);
         serverKeyValFlipped = serverTables.table("key_val_flip").keyValueView(IntString.class, BoolInt.class);
         serverValKey = serverTables.table("val_key").keyValueView(IntString.class, BoolInt.class);
@@ -103,7 +104,7 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
         serverSimpleValKey = serverTables.table("simple_val_key").keyValueView(Mapper.of(String.class), Mapper.of(IntBoolDate.class));
 
         // CLIENT
-        String addressString = "127.0.0.1:" + igniteImpl.clientAddress().port();
+        String addressString = "127.0.0.1:" + unwrapIgniteImpl(ignite).clientAddress().port();
 
         client = IgniteClient.builder().addresses(addressString).build();
 
@@ -123,7 +124,7 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     }
 
     @AfterAll
-    public void closeClient() throws Exception {
+    public void closeClient() {
         client.close();
     }
 

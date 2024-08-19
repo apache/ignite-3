@@ -17,18 +17,9 @@
 
 package org.apache.ignite.internal.raft.server;
 
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
-
-import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
-import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
-import org.apache.ignite.internal.util.LazyPath;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
@@ -40,72 +31,40 @@ public class TestJraftServerFactory {
 
     /**
      * Factory method for {@link JraftServerImpl}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
-     * and automatically wraps it in the JraftServerImpl instance start/stop methods.
      *
      * @param service Cluster service.
-     * @param dataPath Data path.
      */
-    public static JraftServerImpl create(ClusterService service, Path dataPath, SystemLocalConfiguration systemConfiguration) {
-        return create(service, dataPath, systemConfiguration, new NodeOptions(), new RaftGroupEventsClientListener());
+    public static JraftServerImpl create(ClusterService service) {
+        return create(service, new NodeOptions(), new RaftGroupEventsClientListener());
     }
 
     /**
      * Factory method for {@link JraftServerImpl}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
-     * and automatically wraps it in the JraftServerImpl instance start/stop methods.
      *
      * @param service Cluster service.
-     * @param dataPath Data path.
      * @param opts Node Options.
      */
-    public static JraftServerImpl create(
-            ClusterService service,
-            Path dataPath,
-            SystemLocalConfiguration systemConfiguration,
-            NodeOptions opts
-    ) {
-        return create(service, dataPath, systemConfiguration, opts, new RaftGroupEventsClientListener());
+    public static JraftServerImpl create(ClusterService service, NodeOptions opts) {
+        return create(service, opts, new RaftGroupEventsClientListener());
     }
 
     /**
      * Factory method for {@link JraftServerImpl}.
-     * Uses the default logStorageFactory, {@link SharedLogStorageFactoryUtils#create(String, LazyPath)},
-     * and automatically wraps it in the JraftServerImpl instance start/stop methods.
      *
      * @param service Cluster service.
-     * @param dataPath Data path.
-     * @param opts Default node options.
+     * @param opts Node Options.
+     * @param raftGroupEventsClientListener Raft events listener.
      */
     public static JraftServerImpl create(
             ClusterService service,
-            Path dataPath,
-            SystemLocalConfiguration systemConfiguration,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
-        ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dataPath);
-
-        LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(
-                service.nodeName(),
-                partitionsWorkDir.raftLogPath()
-        );
         return new JraftServerImpl(
                 service,
-                partitionsWorkDir.metaPath(),
                 opts,
                 raftGroupEventsClientListener,
-                defaultLogStorageFactory
-        ) {
-            @Override
-            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-                return defaultLogStorageFactory.startAsync(componentContext).thenCompose(none -> super.startAsync(componentContext));
-            }
-
-            @Override
-            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                return super.stopAsync(componentContext).thenCompose(none -> defaultLogStorageFactory.stopAsync(componentContext));
-            }
-        };
+                new NoOpFailureProcessor()
+        );
     }
 }

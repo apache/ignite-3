@@ -91,7 +91,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     public void setUp() throws IOException {
         int id = 0;
 
-        keyValueView = clusterNode.tables().table(TABLE_NAME).keyValueView();
+        keyValueView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
 
         for (int i = 0; i < TABLE_SIZE; i++) {
             Tuple t = Tuple.create();
@@ -203,7 +203,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     @State(Scope.Benchmark)
     public static class SqlState {
-        private final IgniteSql sql = clusterNode.sql();
+        private final IgniteSql sql = publicIgnite.sql();
 
         private org.apache.ignite.sql.ResultSet<SqlRow> sql(String sql, Object... args) {
             return this.sql.execute(null, sql, args);
@@ -224,23 +224,23 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
                 .build();
 
-        private final QueryProcessor queryProc = clusterNode.queryEngine();
+        private final QueryProcessor queryProc = igniteImpl.queryEngine();
         private int pageSize;
 
         /** Initializes session. */
         @Setup
         public void setUp() throws Exception {
-            Statement statement = clusterNode.sql().createStatement("SELECT 1");
+            Statement statement = publicIgnite.sql().createStatement("SELECT 1");
 
             pageSize = statement.pageSize();
         }
 
         private Iterator<InternalSqlRow> query(String sql, Object... args) {
-            return handleFirstBatch(queryProc.queryAsync(properties, clusterNode.observableTimeTracker(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(properties, igniteImpl.observableTimeTracker(), null, sql, args));
         }
 
         private Iterator<InternalSqlRow> script(String sql, Object... args) {
-            return handleFirstBatch(queryProc.queryAsync(scriptProperties, clusterNode.observableTimeTracker(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(scriptProperties, igniteImpl.observableTimeTracker(), null, sql, args));
         }
 
         private Iterator<InternalSqlRow> handleFirstBatch(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {

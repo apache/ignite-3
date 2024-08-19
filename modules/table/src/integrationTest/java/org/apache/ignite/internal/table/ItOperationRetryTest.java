@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -72,7 +74,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+        String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), tblReplicationGrp).getLeaseholder();
 
         IgniteImpl leaseholderNode = findNodeByName(leaseholder);
         IgniteImpl otherNode = findNode(0, initialNodes(), ignite -> !leaseholderNode.equals(ignite.name()));
@@ -114,6 +116,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     private IgniteImpl findNode(int startRange, int endRange, Predicate<IgniteImpl> filter) {
         return IntStream.range(startRange, endRange)
                 .mapToObj(this::node)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .filter(filter::test)
                 .findFirst()
                 .get();

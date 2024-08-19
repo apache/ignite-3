@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
@@ -93,12 +94,13 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     @Test
     public void testFutureRead() throws Exception {
         for (int i = 0; i < initialNodes(); i++) {
-            IgniteImpl ignite = CLUSTER.node(i);
+            Ignite ignite = CLUSTER.node(i);
+            IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
 
             TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
             InternalTable internalTable = tableViewInternal.internalTable();
             SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
-            HybridClock clock = ignite.clock();
+            HybridClock clock = igniteImpl.clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
 
@@ -144,12 +146,13 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     @Test
     public void testPastRead() throws Exception {
         for (int i = 0; i < initialNodes(); i++) {
-            IgniteImpl ignite = CLUSTER.node(i);
+            Ignite ignite = CLUSTER.node(i);
+            IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
 
             TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
             InternalTable internalTable = tableViewInternal.internalTable();
             SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
-            HybridClock clock = ignite.clock();
+            HybridClock clock = igniteImpl.clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
 

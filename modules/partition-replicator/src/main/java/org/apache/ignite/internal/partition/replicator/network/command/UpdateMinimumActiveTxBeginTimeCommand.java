@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
+
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 
 /**
- * Cluster management configuration schema.
+ * Command to store the minimum starting time among all active RW transactions
+ * into transient state of each replication group.
  */
-@ConfigurationRoot(rootName = "cluster", type = ConfigurationType.LOCAL)
-public class ClusterManagementConfigurationSchema {
-    /** Invoke timeout used by Cluster Management module (ms). */
-    @Value(hasDefault = true)
-    @Range(min = 1)
-    public long networkInvokeTimeout = 500;
+@Transferable(UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND)
+public interface UpdateMinimumActiveTxBeginTimeCommand extends SafeTimePropagatingCommand {
+    /** Returns the minimum starting time among all active RW transactions. */
+    long timestamp();
 }

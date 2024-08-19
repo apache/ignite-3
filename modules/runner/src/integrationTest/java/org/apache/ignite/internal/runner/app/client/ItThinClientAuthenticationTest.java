@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.configuration.hocon.HoconConverter.hoconSource;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -179,8 +180,6 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                     }).join();
 
             await().until(() -> checkConnection(client), willThrowWithCauseOrSuppressed(InvalidCredentialsException.class));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -197,7 +196,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     }
 
     private ConfigurationRegistry clusterConfigurationRegistry() {
-        IgniteImpl server = (IgniteImpl) server();
+        IgniteImpl server = unwrapIgniteImpl(server());
         return server.clusterConfiguration();
     }
 }

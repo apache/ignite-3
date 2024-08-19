@@ -117,7 +117,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
 
         @Test
         @DisplayName("Client can connect without ssl")
-        void clientCouldConnectWithoutSsl() throws Exception {
+        void clientCouldConnectWithoutSsl() {
             try (IgniteClient client = IgniteClient.builder().addresses("localhost:10800").build()) {
                 assertThat(client.clusterNodes(), hasSize(2));
             }
@@ -236,7 +236,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
 
         @Test
         @DisplayName("Client can connect with SSL configured")
-        void clientCanConnectWithSsl() throws Exception {
+        void clientCanConnectWithSsl() {
             var sslConfiguration =
                     SslConfiguration.builder()
                             .enabled(true)
@@ -311,7 +311,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
 
         @Test
         @DisplayName("Client can connect with SSL configured")
-        void clientCanConnectWithSsl() throws Exception {
+        void clientCanConnectWithSsl() {
             var sslConfiguration =
                     SslConfiguration.builder()
                             .enabled(true)
@@ -473,7 +473,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
 
         @Test
         @DisplayName("Client can connect with SSL and client authentication configured")
-        void clientCanConnectWithSslAndClientAuth() throws Exception {
+        void clientCanConnectWithSslAndClientAuth() {
             var sslConfiguration =
                     SslConfiguration.builder()
                             .enabled(true)

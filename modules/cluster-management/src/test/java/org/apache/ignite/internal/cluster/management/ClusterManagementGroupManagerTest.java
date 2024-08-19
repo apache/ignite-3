@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -45,6 +43,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -78,7 +77,6 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
             @Mock RaftManager raftManager,
             @Mock ClusterStateStorage clusterStateStorage,
             @Mock LogicalTopology logicalTopology,
-            @InjectConfiguration ClusterManagementConfiguration clusterManagementConfiguration,
             @Mock NodeAttributes nodeAttributes,
             @Mock FailureProcessor failureProcessor,
             @Mock RaftGroupService raftGroupService
@@ -87,7 +85,7 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
 
         clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any()))
+        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any()))
                 .thenReturn(completedFuture(raftGroupService));
 
         ClusterState clusterState = cmgMessagesFactory.clusterState()
@@ -110,10 +108,10 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 raftManager,
                 clusterStateStorage,
                 logicalTopology,
-                clusterManagementConfiguration,
                 nodeAttributes,
                 failureProcessor,
-                new ClusterIdHolder()
+                new ClusterIdHolder(),
+                RaftGroupOptionsConfigurer.EMPTY
         );
 
         assertThat(clusterService.startAsync(componentContext), willCompleteSuccessfully());

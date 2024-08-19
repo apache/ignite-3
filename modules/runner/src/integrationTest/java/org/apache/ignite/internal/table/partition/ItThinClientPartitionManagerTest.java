@@ -37,7 +37,7 @@ public class ItThinClientPartitionManagerTest extends ItAbstractPartitionManager
     }
 
     @AfterEach
-    public void stopClient() throws Exception {
+    public void stopClient() {
         client.close();
     }
 

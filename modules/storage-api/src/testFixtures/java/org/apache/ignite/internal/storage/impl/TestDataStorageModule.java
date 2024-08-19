@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.impl;
 import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_NAME;
 
 import com.google.auto.service.AutoService;
+import java.nio.file.Path;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -28,7 +29,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.util.LazyPath;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,7 +45,7 @@ public class TestDataStorageModule implements DataStorageModule {
     public StorageEngine createEngine(
             String igniteInstanceName,
             ConfigurationRegistry configRegistry,
-            LazyPath storagePath,
+            Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
             LogSyncer logSyncer,

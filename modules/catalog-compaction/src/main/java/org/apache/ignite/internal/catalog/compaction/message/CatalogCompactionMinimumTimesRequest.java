@@ -21,10 +21,11 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Request to obtain the minimum timestamp to which, from the local
- * node's perspective, the catalog history can be safely truncated.
+ * Request to obtain timestamps required to safely perform catalog compaction.
+ *
+ * @see CatalogCompactionMinimumTimesResponse
  */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_REQUEST)
-public interface CatalogMinimumRequiredTimeRequest extends NetworkMessage {
+@Transferable(CatalogCompactionMessageGroup.MINIMUM_TIMES_REQUEST)
+public interface CatalogCompactionMinimumTimesRequest extends NetworkMessage {
 
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -47,10 +48,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -116,7 +117,7 @@ public class Cluster {
     private final List<IgniteServer> igniteServers = new ArrayList<>();
 
     /** Cluster nodes. */
-    private final List<IgniteImpl> nodes = new CopyOnWriteArrayList<>();
+    private final List<Ignite> nodes = new CopyOnWriteArrayList<>();
 
     private volatile boolean started = false;
 
@@ -271,7 +272,7 @@ public class Cluster {
 
         node.waitForInitAsync().thenRun(() -> {
             synchronized (nodes) {
-                setListAtIndex(nodes, nodeIndex, (IgniteImpl) node.api());
+                setListAtIndex(nodes, nodeIndex, node.api());
             }
 
             if (stopped) {
@@ -308,14 +309,14 @@ public class Cluster {
     /**
      * Returns an Ignite node (a member of the cluster) by its index.
      */
-    public IgniteImpl node(int index) {
+    public Ignite node(int index) {
         return Objects.requireNonNull(nodes.get(index));
     }
 
     /**
      * Returns a node that is not stopped and not knocked out (so it can be used to interact with the cluster).
      */
-    public IgniteImpl aliveNode() {
+    public Ignite aliveNode() {
         return IntStream.range(0, nodes.size())
                 .filter(index -> nodes.get(index) != null)
                 .filter(index -> !knockedOutNodesIndices.contains(index))
@@ -331,7 +332,7 @@ public class Cluster {
      * @return Started node (if the cluster is already initialized, the node is returned when it joins the cluster; if it
      *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
-    public IgniteImpl startNode(int index) {
+    public Ignite startNode(int index) {
         return startNode(index, defaultNodeBootstrapConfigTemplate);
     }
 
@@ -343,13 +344,13 @@ public class Cluster {
      * @return Started node (if the cluster is already initialized, the node is returned when it joins the cluster; if it
      *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
-    public IgniteImpl startNode(int index, String nodeBootstrapConfigTemplate) {
-        IgniteImpl newIgniteNode;
+    public Ignite startNode(int index, String nodeBootstrapConfigTemplate) {
+        Ignite newIgniteNode;
 
         try {
             IgniteServer node = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
             node.waitForInitAsync().get(20, TimeUnit.SECONDS);
-            newIgniteNode = (IgniteImpl) node.api();
+            newIgniteNode = node.api();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -418,7 +419,7 @@ public class Cluster {
      * @param index Node index in the cluster.
      * @return New node.
      */
-    public IgniteImpl restartNode(int index) {
+    public Ignite restartNode(int index) {
         stopNode(index);
 
         return startNode(index);
@@ -455,7 +456,7 @@ public class Cluster {
     @Nullable
     private RaftGroupService currentLeaderServiceFor(ReplicationGroupId groupId) {
         return runningNodes()
-                .map(IgniteImpl.class::cast)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .flatMap(ignite -> {
                     JraftServerImpl server = (JraftServerImpl) ignite.raftManager().server();
 
@@ -473,7 +474,7 @@ public class Cluster {
     /**
      * Returns nodes that are started and not stopped. This can include knocked out nodes.
      */
-    public Stream<IgniteImpl> runningNodes() {
+    public Stream<Ignite> runningNodes() {
         return nodes.stream().filter(Objects::nonNull);
     }
 
@@ -533,10 +534,11 @@ public class Cluster {
      * @param nodeIndex Index of the node messages to which need to be dropped.
      */
     public void simulateNetworkPartitionOf(int nodeIndex) {
-        IgniteImpl recipient = node(nodeIndex);
+        Ignite recipient = node(nodeIndex);
 
         runningNodes()
                 .filter(node -> node != recipient)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .forEach(sourceNode -> {
                     sourceNode.dropMessages(
                             new AddCensorshipByRecipientConsistentId(recipient.name(), sourceNode.dropMessagesPredicate())
@@ -555,10 +557,11 @@ public class Cluster {
      * @see #simulateNetworkPartitionOf(int)
      */
     public void removeNetworkPartitionOf(int nodeIndex) {
-        IgniteImpl receiver = node(nodeIndex);
+        Ignite receiver = node(nodeIndex);
 
         runningNodes()
                 .filter(node -> node != receiver)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .forEach(ignite -> {
                     var censor = (AddCensorshipByRecipientConsistentId) ignite.dropMessagesPredicate();
 
@@ -584,7 +587,7 @@ public class Cluster {
      * @throws InterruptedException If interrupted while waiting.
      */
     public void transferLeadershipTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
-        String nodeConsistentId = node(nodeIndex).node().name();
+        String nodeConsistentId = unwrapIgniteImpl(node(nodeIndex)).node().name();
 
         int maxAttempts = 3;
 
@@ -637,7 +640,7 @@ public class Cluster {
      * or more than one partitions.
      */
     public TablePartitionId solePartitionId() {
-        List<TablePartitionId> tablePartitionIds = ReplicationGroupsUtils.tablePartitionIds(aliveNode());
+        List<TablePartitionId> tablePartitionIds = ReplicationGroupsUtils.tablePartitionIds(unwrapIgniteImpl(aliveNode()));
 
         assertThat(tablePartitionIds.size(), is(1));
 

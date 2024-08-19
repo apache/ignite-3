@@ -112,7 +112,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     private static <T> @Nullable T unmarshallOrNotIfNull(@Nullable Marshaller<T, byte[]> marshaller, Object input) {
-        if (marshaller == null) {
+        if (marshaller == null || input == null) {
             return (T) input;
         }
 

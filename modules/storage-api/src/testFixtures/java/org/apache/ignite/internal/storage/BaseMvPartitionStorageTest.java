@@ -35,8 +35,6 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
     protected static final int COMMIT_TABLE_ID = 999;
 
-    protected static final UUID TX_ID = newTransactionId();
-
     protected static final RowId ROW_ID = new RowId(PARTITION_ID);
 
     protected static final TestKey KEY = new TestKey(10, "foo");
@@ -46,13 +44,6 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final BinaryRow TABLE_ROW2 = binaryRow(KEY, new TestValue(30, "bar"));
 
     protected MvPartitionStorage storage;
-
-    /**
-     * Creates a new transaction id.
-     */
-    protected static UUID newTransactionId() {
-        return UUID.randomUUID();
-    }
 
     @AfterEach
     protected void tearDown() throws Exception {
@@ -144,7 +135,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected HybridTimestamp addAndCommit(@Nullable BinaryRow binaryRow) {
         HybridTimestamp commitTs = clock.now();
 
-        addWrite(ROW_ID, binaryRow, TX_ID);
+        addWrite(ROW_ID, binaryRow, newTransactionId());
         commitWrite(ROW_ID, commitTs);
 
         return commitTs;

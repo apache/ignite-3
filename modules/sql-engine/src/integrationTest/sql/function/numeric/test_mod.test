@@ -23,3 +23,12 @@ select CAST(mod(b, 2.1) AS FLOAT) from modme
 ----
 0.900000
 
+query T
+select MOD(1, null)
+----
+NULL
+
+query T
+select MOD(null, 1)
+----
+NULL

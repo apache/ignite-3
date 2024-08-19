@@ -19,31 +19,22 @@ package org.apache.ignite.table;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Interface that provides methods for managing tables.
  */
 public interface IgniteTables {
     /**
-     * Gets a list of all started tables.
+     * Gets a list of all tables. The order of tables in the returned list is not defined.
      *
      * @return List of tables.
-     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
-     *                         <ul>
-     *                             <li>the node is stopping.</li>
-     *                         </ul>
      */
     List<Table> tables();
 
     /**
-     * Gets a list of all started tables.
+     * Gets a list of all tables. The order of tables in the returned list is not defined.
      *
      * @return Future that represents the pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
-     *                         <ul>
-     *                             <li>the node is stopping.</li>
-     *                         </ul>
      */
     CompletableFuture<List<Table>> tablesAsync();
 
@@ -53,10 +44,6 @@ public interface IgniteTables {
      * @param name Name of the table with SQL-parser style quotation, e.g.
      *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
      * @return Table identified by name or {@code null} if table doesn't exist.
-     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
-     *                         <ul>
-     *                             <li>the node is stopping.</li>
-     *                         </ul>
      */
     Table table(String name);
 
@@ -66,10 +53,6 @@ public interface IgniteTables {
      * @param name Name of the table with SQL-parser style quotation, e.g.
      *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
      * @return Future that represents the pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has occurred internally. Is thrown when:
-     *                         <ul>
-     *                             <li>the node is stopping.</li>
-     *                         </ul>
      */
     CompletableFuture<Table> tableAsync(String name);
 }

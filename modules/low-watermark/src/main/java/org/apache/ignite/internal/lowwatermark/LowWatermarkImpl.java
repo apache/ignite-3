@@ -127,7 +127,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
      * @param lowWatermarkConfig Low watermark configuration.
      * @param clockService A hybrid logical clock.
      * @param vaultManager Vault manager.
-     * @param failureProcessor Failure processor tha is used to handle critical errors.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      */
     public LowWatermarkImpl(
             String nodeName,

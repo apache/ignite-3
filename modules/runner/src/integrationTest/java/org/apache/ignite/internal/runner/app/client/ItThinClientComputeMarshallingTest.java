@@ -28,11 +28,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
@@ -77,13 +74,11 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
     void customArgMarshaller(int targetNodeIdx) {
-        // Given entry node for client.
-        var node = server(0);
-        // And.
+        // Given target node.
         var targetNode = node(targetNodeIdx);
 
         // When run job with custom marshaller for string argument.
-        String result = computeClientOn(node).execute(
+        String result = client().compute().execute(
                 JobTarget.node(targetNode),
                 // Accepts string argument and defines marshaller for it.
                 JobDescriptor.builder(ArgMarshallingJob.class)
@@ -105,13 +100,11 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
     void customResultMarshaller(int targetNodeIdx) {
-        // Given entry node for client.
-        var node = server(0);
-        // And.
+        // Given target node.
         var targetNode = node(targetNodeIdx);
 
         // When run job with custom marshaller for string result.
-        String result = computeClientOn(node).execute(
+        String result = client().compute().execute(
                 JobTarget.node(targetNode),
                 // Returns string result and defines marshaller for it.
                 JobDescriptor.builder(ResultMarshallingJob.class)
@@ -133,13 +126,11 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
     void customResultAndArgumentMarshallerExecutedOnSameNode(int targetNodeIdx) {
-        // Given entry node for client.
-        var node = server(0);
-        // And.
+        // Given target node.
         var targetNode = node(targetNodeIdx);
 
         // When run job with custom marshaller for string result.
-        String result = computeClientOn(node).execute(
+        String result = client().compute().execute(
                 JobTarget.node(targetNode),
                 // The job defines custom marshaller for both argument and result.
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
@@ -164,13 +155,11 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
     void pojoJobWithMarshallers(int targetNodeIdx) {
-        // Given entry node for client.
-        var node = server(0);
-        // And.
+        // Given target node.
         var targetNode = node(targetNodeIdx);
 
         // When run job with custom marshaller for pojo argument and result.
-        PojoResult result = computeClientOn(node).execute(
+        PojoResult result = client().compute().execute(
                 JobTarget.node(targetNode),
                 // The job accepts PojoArg and returns PojoResult and defines marshaller for both.
                 JobDescriptor.builder(PojoJob.class)
@@ -187,11 +176,8 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
 
     @Test
     void executeBroadcast() {
-        // Given entry node.
-        var node = server(0);
-
         // When.
-        Map<ClusterNode, String> result = computeClientOn(node).executeBroadcast(
+        Map<ClusterNode, String> result = client().compute().executeBroadcast(
                 Set.of(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
@@ -263,8 +249,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When run job with custom marshaller for string argument.
         var tup = Tuple.create().set("key", 1);
 
-        var compute = computeClientOn(node);
-        String result = compute.execute(
+        String result = client().compute().execute(
                 JobTarget.colocated(tableName, tup),
                 JobDescriptor.builder(ArgMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
@@ -284,12 +269,8 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22787")
     void mapReduce() {
-        // Given entry node.
-        var node = server(0);
-
         // When run job with custom marshaller for string argument.
-        var compute = computeClientOn(node);
-        String result = compute.executeMapReduce(
+        String result = client().compute().executeMapReduce(
                 TaskDescriptor.builder(MapReduce.class).build(),
                 List.of("Input_0", "Input_1"));
 
@@ -300,13 +281,6 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
                         + ":processedOnServer",
                 result
         );
-    }
-
-    private static IgniteCompute computeClientOn(Ignite node) {
-        return IgniteClient.builder()
-                .addresses(getClientAddresses(List.of(node)).toArray(new String[0]))
-                .build()
-                .compute();
     }
 
     private ClusterNode node(int idx) {
