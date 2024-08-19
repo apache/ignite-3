@@ -102,7 +102,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
         assert igniteTable != null;
 
-        CompletableFuture<Long> countFut  = tableRegistry.getTable(catalogVersion, igniteTable.id())
+        CompletableFuture<Long> countFut = tableRegistry.getTable(catalogVersion, igniteTable.id())
                 .thenCompose(execTable -> execTable.scannableTable().estimatedSize());
 
         Executor resultExecutor = task -> ctx.execute(task::run, error -> {
