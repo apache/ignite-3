@@ -299,10 +299,6 @@ public class StoragePartitionMeta extends PartitionMeta {
     public void updateLease(@Nullable UUID checkpointId, long leaseStartTime) {
         updateSnapshot(checkpointId);
 
-        if (leaseStartTime <= this.leaseStartTime) {
-            return;
-        }
-
         this.leaseStartTime = leaseStartTime;
     }
 
