@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
@@ -26,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,8 +60,10 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -171,6 +175,18 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             @Mock ReplicaListener replicaListener,
             @Mock TopologyAwareRaftGroupService raftGroupService
     ) throws NodeStoppingException {
+        when(raftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
+
+        when(raftManager.startRaftGroupNode(
+                any(RaftNodeId.class),
+                any(PeersAndLearners.class),
+                any(RaftGroupListener.class),
+                any(RaftGroupEventsListener.class),
+                any(RaftGroupOptions.class),
+                any(TopologyAwareRaftGroupServiceFactory.class))
+        )
+                .thenReturn(completedFuture(raftGroupService));
+
         when(createReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
         when(removeReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
 
