@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -39,5 +40,24 @@ public interface AssignmentsPlacementDriver {
      * @param clusterTimeToAwait Cluster time to await.
      * @return Tokenized assignments.
      */
-    CompletableFuture<TokenizedAssignments> getAssignments(ReplicationGroupId replicationGroupId, HybridTimestamp clusterTimeToAwait);
+    default CompletableFuture<TokenizedAssignments> getAssignments(
+            ReplicationGroupId replicationGroupId,
+            HybridTimestamp clusterTimeToAwait
+    ) {
+        return getAssignments(List.of(replicationGroupId), clusterTimeToAwait).thenApply(assignments -> assignments.get(0));
+    }
+
+    /**
+     * Returns the future with list of tokenized assignments, which contains newest available tokenized assignment for the specified
+     * replication group id or {@code null} if assignment for the replication group id was not found. The future will be completed after
+     * clusterTime (meta storage safe time) will become greater or equal to the clusterTimeToAwait parameter.
+     *
+     * @param replicationGroupIds List of replication group Ids.
+     * @param clusterTimeToAwait Cluster time to await.
+     * @return List of tokenized assignments.
+     */
+    CompletableFuture<List<TokenizedAssignments>> getAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            HybridTimestamp clusterTimeToAwait
+    );
 }

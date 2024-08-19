@@ -114,7 +114,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testClientSendsComputeJobToDefaultNodeWhenDirectConnectionToTargetDoesNotExist() throws Exception {
+    public void testClientSendsComputeJobToDefaultNodeWhenDirectConnectionToTargetDoesNotExist() {
         initServers(reqId -> false);
 
         try (var client = getClient(server3)) {
@@ -135,7 +135,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() throws Exception {
+    public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() {
         initServers(reqId -> reqId % 3 == 0);
 
         try (var client = getClient(server3)) {
@@ -152,7 +152,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testExecuteColocated() throws Exception {
+    public void testExecuteColocated() {
         initServers(reqId -> false);
 
         try (var client = getClient(server2)) {
@@ -167,7 +167,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testExecuteColocatedAsync() throws Exception {
+    public void testExecuteColocatedAsync() {
         initServers(reqId -> false);
 
         try (var client = getClient(server2)) {
@@ -196,7 +196,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testExecuteColocatedThrowsTableNotFoundExceptionWhenTableDoesNotExist() throws Exception {
+    public void testExecuteColocatedThrowsTableNotFoundExceptionWhenTableDoesNotExist() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
@@ -214,7 +214,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testExecuteColocatedUpdatesTableCacheOnTableDrop(boolean forceLoadAssignment) throws Exception {
+    void testExecuteColocatedUpdatesTableCacheOnTableDrop(boolean forceLoadAssignment) {
         String tableName = "drop-me";
 
         initServers(reqId -> false);
@@ -253,7 +253,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testMapReduceExecute() throws Exception {
+    void testMapReduceExecute() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
@@ -283,7 +283,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testMapReduceException() throws Exception {
+    void testMapReduceException() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
@@ -300,7 +300,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testUnitsPropagation() throws Exception {
+    void testUnitsPropagation() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
@@ -320,7 +320,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testExceptionInJob() throws Exception {
+    void testExceptionInJob() {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {

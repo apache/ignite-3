@@ -123,7 +123,7 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     }
 
     @AfterAll
-    public void closeClient() throws Exception {
+    public void closeClient() {
         client.close();
     }
 

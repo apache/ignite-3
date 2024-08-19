@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
 /**

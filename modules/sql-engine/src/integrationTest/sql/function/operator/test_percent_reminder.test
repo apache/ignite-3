@@ -1,0 +1,28 @@
+# name: test/sql/function/operator/test_percent_reminder.test
+# description: percent reminder
+# group: [operator]
+
+query I
+SELECT 3 % 2
+----
+1
+
+query I
+SELECT 4 % 2
+----
+0
+
+query T
+SELECT NULL % 2
+----
+null
+
+query T
+SELECT 3 % NULL::int
+----
+null
+
+query T
+SELECT 3 % NULL
+----
+null

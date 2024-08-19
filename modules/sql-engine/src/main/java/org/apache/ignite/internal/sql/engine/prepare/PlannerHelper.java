@@ -28,7 +28,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
@@ -61,7 +60,6 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -180,14 +178,12 @@ public final class PlannerHelper {
                 LOG.debug(planner.dump());
             }
 
-            if (ex instanceof CannotPlanException) {
-                throw ex;
-            } else if (ex.getClass() == RuntimeException.class && ex.getCause() instanceof SqlException) {
+            if (ex.getClass() == RuntimeException.class && ex.getCause() instanceof SqlException) {
                 SqlException sqlEx = (SqlException) ex.getCause();
                 throw new SqlException(sqlEx.traceId(), sqlEx.code(), sqlEx.getMessage(), ex);
-            } else {
-                throw new SqlException(Common.INTERNAL_ERR, "Unable to optimize plan due to internal error", ex);
             }
+
+            throw ex;
         }
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.instanceOf;
@@ -28,12 +29,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -98,7 +101,7 @@ class ExecutorInclinedRaftCommandRunnerTest extends BaseIgniteAbstractTest {
      */
     @Test
     void completesFuturesInGivenExecutorOrCurrentThreadForCompletedFuture() {
-        when(actualRunner.run(command)).thenReturn(CompletableFuture.completedFuture(null));
+        when(actualRunner.run(command)).thenReturn(nullCompletedFuture());
 
         AtomicReference<Thread> threadReference = new AtomicReference<>();
 
@@ -137,6 +140,43 @@ class ExecutorInclinedRaftCommandRunnerTest extends BaseIgniteAbstractTest {
                 either(instanceOf(TestThread.class))
                         .or(is(Thread.currentThread()))
         );
+    }
+
+    /**
+     * The synchronous API proposes that the client thread wait for operation completion.
+     * In this case, we can avoid switching to an intermediate pool and return to the client thread.
+     */
+    @Test
+    void completeFutureInCaseOfSyncApi() {
+        CountDownLatch latch = new CountDownLatch(1);
+        CompletableFuture<Void> originalFuture = new CompletableFuture<>();
+
+        when(actualRunner.<Void>run(command)).thenAnswer(invocationOnMock -> {
+            latch.countDown();
+
+            return originalFuture;
+        });
+
+        AtomicReference<Thread> threadReference = new AtomicReference<>();
+
+        anotherExecutor.submit(() -> {
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            originalFuture.complete(null);
+        });
+
+        CompletableFuture<Void> finalFuture = PublicApiThreading.execUserSyncOperation(() ->
+                decorator.<Void>run(command)
+                        .whenComplete((res, ex) -> threadReference.set(Thread.currentThread()))
+        );
+
+        assertThat(finalFuture, willCompleteSuccessfully());
+
+        assertThat(threadReference.get(), is(Thread.currentThread()));
     }
 
     @SuppressWarnings("ClassExplicitlyExtendsThread")

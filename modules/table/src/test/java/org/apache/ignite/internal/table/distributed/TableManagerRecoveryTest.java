@@ -128,6 +128,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.LazyPath;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -322,9 +323,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
-        LazyPath storagePath = LazyPath.create(workDir);
-
-        dsm = createDataStorageManager(mock(ConfigurationRegistry.class), storagePath, storageConfiguration, dataStorageModule, clock);
+        dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule, clock);
 
         tableManager = new TableManager(
                 NODE_NAME,
@@ -340,7 +339,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 null,
                 tm,
                 dsm,
-                storagePath,
+                workDir,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
                 partitionOperationsExecutor,
@@ -426,7 +425,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
     private static DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
-            LazyPath storagePath,
+            Path storagePath,
             StorageConfiguration config,
             DataStorageModule dataStorageModule,
             HybridClock clock
@@ -489,7 +488,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             public StorageEngine createEngine(
                     String igniteInstanceName,
                     ConfigurationRegistry configRegistry,
-                    LazyPath storagePath,
+                    Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
                     FailureProcessor failureProcessor,
                     LogSyncer logSyncer,

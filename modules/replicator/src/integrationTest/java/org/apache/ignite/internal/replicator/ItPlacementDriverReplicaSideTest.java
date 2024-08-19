@@ -58,6 +58,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
@@ -78,6 +80,7 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -85,7 +88,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
@@ -136,6 +141,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     /** Cluster service by node name. */
     private Map<String, ClusterService> clusterServices;
 
+    protected Map<String, RaftGroupOptionsConfigurer> raftConfigurers = new HashMap<>();
+
     private final Map<String, ReplicaManager> replicaManagers = new HashMap<>();
     private final Map<String, Loza> raftManagers = new HashMap<>();
     private final Map<String, TopologyAwareRaftGroupServiceFactory> raftClientFactory = new HashMap<>();
@@ -172,10 +179,21 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
+            ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir.resolve(nodeName + "_loza"));
+
+            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    partitionsWorkDir.raftLogPath()
+            );
+
+            RaftGroupOptionsConfigurer partitionsConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
+
+            raftConfigurers.put(nodeName, partitionsConfigurer);
+
             var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
-                    workDir.resolve(nodeName + "_loza"),
                     clock,
                     eventsClientListener
             );
@@ -205,13 +223,17 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     null,
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
+                    partitionsConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     ForkJoinPool.commonPool()
             );
 
             replicaManagers.put(nodeName, replicaManager);
 
-            assertThat(startAsync(new ComponentContext(), clusterService, raftManager, replicaManager), willCompleteSuccessfully());
+            assertThat(
+                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, raftManager, replicaManager),
+                    willCompleteSuccessfully()
+            );
 
             servicesToClose.add(() -> {
                 try {
@@ -220,7 +242,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                             raftManager::beforeNodeStop,
                             clusterService::beforeNodeStop,
                             () -> assertThat(
-                                    stopAsync(new ComponentContext(), replicaManager, raftManager, clusterService),
+                                    stopAsync(new ComponentContext(),
+                                            replicaManager, raftManager, partitionsLogStorageFactory, clusterService),
                                     willCompleteSuccessfully()
                             )
                     );

@@ -179,8 +179,6 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                     }).join();
 
             await().until(() -> checkConnection(client), willThrowWithCauseOrSuppressed(InvalidCredentialsException.class));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 

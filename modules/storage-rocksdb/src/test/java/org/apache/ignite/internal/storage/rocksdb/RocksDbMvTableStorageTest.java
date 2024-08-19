@@ -41,7 +41,6 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.LazyPath;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +61,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             @InjectConfiguration("mock.profiles.default {engine = rocksdb, size = 16777216, writeBufferSize = 16777216}")
             StorageConfiguration storageConfiguration
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, LazyPath.create(workDir), mock(LogSyncer.class));
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
 
         engine.start();
 
@@ -92,7 +91,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     void testDropPartition() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
-        UUID txId = UUID.randomUUID();
+        UUID txId = newTransactionId();
 
         MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID_0);
 
@@ -133,7 +132,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     void testRestart() throws Exception {
         var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
-        UUID txId = UUID.randomUUID();
+        UUID txId = newTransactionId();
 
         MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID);
 

@@ -41,6 +41,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -53,6 +55,8 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -213,13 +217,21 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         private final ClusterService clusterService;
         private final Loza loza;
         private CompletableFuture<RaftGroupService> raftGroupService;
+        private final LogStorageFactory partitionsLogStorageFactory;
+        private final ComponentWorkingDir partitionsWorkDir;
 
         TestNode(TestInfo testInfo) {
             this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, NODE_PORT_BASE + nodes.size(), NODE_FINDER);
+
+            partitionsWorkDir = new ComponentWorkingDir(workDir.resolve("node" + nodes.size()));
+
+            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    partitionsWorkDir.raftLogPath()
+            );
             this.loza = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
-                    workDir.resolve("node" + nodes.size()),
                     new HybridClockImpl()
             );
         }
@@ -229,7 +241,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(new ComponentContext(), clusterService, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, loza), willCompleteSuccessfully());
         }
 
         CompletableFuture<RaftGroupService> startRaftGroup(PeersAndLearners configuration) {
@@ -241,7 +253,11 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
             try {
                 raftGroupService = loza.startRaftGroupNodeAndWaitNodeReadyFuture(
-                        nodeId, configuration, mock(RaftGroupListener.class), eventsListener
+                        nodeId,
+                        configuration,
+                        mock(RaftGroupListener.class),
+                        eventsListener,
+                        RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath())
                 );
             } catch (NodeStoppingException e) {
                 return CompletableFuture.failedFuture(e);
@@ -265,7 +281,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(new ComponentContext(), loza, clusterService), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), loza, partitionsLogStorageFactory, clusterService), willCompleteSuccessfully());
         }
     }
 }

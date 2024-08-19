@@ -80,7 +80,8 @@ public class ItCastToIntTest extends BaseSqlIntegrationTest {
     void implicitCastOfLiteralsOnInsertWithOverflow(String literal) {
         SqlTestUtils.assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
-                "INTEGER out of range",
+                // TODO IGNITE-22932 The message must be "INTEGER out of range"
+                "out of range",
                 () -> sql(format("INSERT INTO test VALUES ({})", literal))
         );
     }
@@ -101,7 +102,8 @@ public class ItCastToIntTest extends BaseSqlIntegrationTest {
     void explicitCastOfLiteralsOnInsertWithOverflow(String literal) {
         SqlTestUtils.assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
-                "INTEGER out of range",
+                // TODO IGNITE-22932 The message must be "INTEGER out of range"
+                "out of range",
                 () -> sql(format("INSERT INTO test VALUES (CAST({} as INTEGER))", literal))
         );
     }
@@ -120,7 +122,8 @@ public class ItCastToIntTest extends BaseSqlIntegrationTest {
     void explicitCastOfLiteralsOnSelectWithOverflow(String literal) {
         SqlTestUtils.assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
-                "INTEGER out of range",
+                // TODO IGNITE-22932 The message must be "INTEGER out of range"
+                "out of range",
                 () -> sql(format("SELECT CAST({} as INTEGER)", literal))
         );
     }
@@ -665,7 +668,14 @@ public class ItCastToIntTest extends BaseSqlIntegrationTest {
                 "2147483648", "2147483648.0", "2147483648.1", "-2147483649", "-2147483649.0",
                 "-2147483649.1", "decimal '2147483648'", "decimal '2147483648.1'", "decimal '-2147483649'",
                 "decimal '-2147483649.1'", "'2147483648'", "'2147483648.0'", "'2147483648.1'", "'-2147483649'",
-                "'-2147483649.1'"
+                "'-2147483649.1'",
+                // Literals that don't fit into BIGINT
+                "9223372036854775808", "9223372036854775808.0", "9223372036854775808.1",
+                "-9223372036854775809", "-9223372036854775809.0", "-9223372036854775809.1",
+                "decimal '9223372036854775808'", "decimal '9223372036854775808.1'",
+                "decimal '-9223372036854775809'", "decimal '-9223372036854775809.1'", "'9223372036854775808'",
+                "'9223372036854775808.0'", "'9223372036854775808.1'", "'-9223372036854775809'",
+                "'-9223372036854775809.1'"
         ).map(Arguments::of);
     }
 

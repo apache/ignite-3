@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
-import static java.util.Arrays.copyOfRange;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
@@ -78,7 +77,9 @@ public class MetaStorageWriteHandler {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageWriteHandler.class);
 
-    public static final byte[] IDEMPOTENT_COMMAND_PREFIX_BYTES = "icp.".getBytes(StandardCharsets.UTF_8);
+    public static final String IDEMPOTENT_COMMAND_PREFIX = "icp.";
+
+    public static final byte[] IDEMPOTENT_COMMAND_PREFIX_BYTES = IDEMPOTENT_COMMAND_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
@@ -350,8 +351,8 @@ public class MetaStorageWriteHandler {
         try (cursor) {
             for (Entry entry : cursor) {
                 if (!entry.tombstone()) {
-                    byte[] commandIdBytes = copyOfRange(entry.key(), IDEMPOTENT_COMMAND_PREFIX_BYTES.length, entry.key().length);
-                    CommandId commandId = ByteUtils.fromBytes(commandIdBytes);
+                    CommandId commandId = CommandId.fromString(
+                            ByteUtils.stringFromBytes(entry.key()).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
 
                     Serializable result;
                     if (entry.value().length == 1) {
@@ -387,13 +388,9 @@ public class MetaStorageWriteHandler {
                     .map(Entry::key)
                     .collect(toList());
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22828
             evictionCandidateKeys.forEach(evictionCandidateKeyBytes -> {
-                CommandId commandId = ByteUtils.fromBytes(
-                        evictionCandidateKeyBytes,
-                        IDEMPOTENT_COMMAND_PREFIX_BYTES.length,
-                        evictionCandidateKeyBytes.length
-                );
+                CommandId commandId = CommandId.fromString(
+                        ByteUtils.stringFromBytes(evictionCandidateKeyBytes).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
 
                 idempotentCommandCache.remove(commandId);
             });
