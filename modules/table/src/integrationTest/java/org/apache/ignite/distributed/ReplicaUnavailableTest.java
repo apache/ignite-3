@@ -70,8 +70,10 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
@@ -176,7 +178,15 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         raftManager = mock(Loza.class);
         raftClient = mock(TopologyAwareRaftGroupService.class);
-        when(raftManager.startRaftGroupNode(any(), any(), any(), any(), any(), any())).thenReturn(completedFuture(raftClient));
+        when(raftManager.startRaftGroupNode(
+                any(RaftNodeId.class),
+                any(PeersAndLearners.class),
+                any(RaftGroupListener.class),
+                any(RaftGroupEventsListener.class),
+                any(RaftGroupOptions.class),
+                any(TopologyAwareRaftGroupServiceFactory.class))
+        )
+                .thenReturn(completedFuture(raftClient));
 
         requestsExecutor = Executors.newFixedThreadPool(
                 5,
