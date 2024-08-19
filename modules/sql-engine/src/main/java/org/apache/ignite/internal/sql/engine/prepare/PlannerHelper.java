@@ -38,8 +38,6 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexSlot;
@@ -422,12 +420,6 @@ public final class PlannerHelper {
         // SELECT COUNT(*) ... row type
         RelDataType countResultType = typeFactory.createSqlType(SqlTypeName.BIGINT);
 
-        RelDataTypeFactory.Builder inputRowBuilder = new Builder(typeFactory);
-        inputRowBuilder.add("ROWCOUNT", countResultType);
-        RelDataType inputRowType = inputRowBuilder.build();
-
-        RelDataType getCountType = inputRowType.getFieldList().get(0).getType();
-
         // Build projection
         // Rewrites SELECT count(*) ... as Project(exprs = [lit, $0, ... ]), where $0 references a row that stores a count.
         // So we can feed results of get count operation into a projection to compute final results.
@@ -441,7 +433,7 @@ public final class PlannerHelper {
 
             if (isCountStar(planner.validator(), expr)) {
                 RexBuilder rexBuilder = planner.cluster().getRexBuilder();
-                RexSlot countValRef = rexBuilder.makeInputRef(getCountType, 0);
+                RexSlot countValRef = rexBuilder.makeInputRef(countResultType, 0);
 
                 expressions.add(countValRef);
 

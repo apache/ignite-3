@@ -64,6 +64,11 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
                 .check();
+
+        assertQuery("SELECT COUNT(1), 1, COUNT(*) FROM test")
+                .matches(QueryChecker.containsSubPlan("SelectCount"))
+                .returns(10L, 1, 10L)
+                .check();
     }
 
     @Test
