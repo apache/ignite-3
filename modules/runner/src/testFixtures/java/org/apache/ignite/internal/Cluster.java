@@ -81,7 +81,7 @@ public class Cluster {
     private static final IgniteLogger LOG = Loggers.forClass(Cluster.class);
 
     /** Base port number. */
-    private static final int BASE_PORT = 3344;
+    public static final int BASE_PORT = 3344;
 
     public static final int BASE_CLIENT_PORT = 10800;
 
@@ -93,16 +93,14 @@ public class Cluster {
     private static final int QUERY_TIMEOUT_MS = 10_000;
 
     /** Default nodes bootstrap configuration pattern. */
-    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }\n"
-            + "  rest: {\n"
-            + "    port: {},\n"
+    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "ignite {\n"
+            + "  network {\n"
+            + "    port: {}\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  }\n"
+            + "  clientConnector.port: {}\n"
+            + "  rest {\n"
+            + "    port: {}\n"
             + "    ssl.port: {}\n"
             + "  }\n"
             + "}";

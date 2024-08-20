@@ -56,9 +56,9 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
 
     /** One node cluster configuration. */
     private static final String NODE_CONFIGURATION =
-            "{\n"
-            + "  network.port: 3344,\n"
-            + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
+            "ignite.network {\n"
+            + "  port: 3344\n"
+            + "  nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
             + "}";
 
     /**

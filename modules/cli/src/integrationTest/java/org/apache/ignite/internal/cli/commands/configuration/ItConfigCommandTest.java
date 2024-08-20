@@ -73,7 +73,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     void addNodeConfigKeyValue() {
         // When update default data storage to rocksdb
         execute("node", "config", "update", "--url", NODE_URL,
-                "network.nodeFinder.netClusterNodes : [ \"localhost:3344\", \"localhost:3345\" ]");
+                "ignite.network.nodeFinder.netClusterNodes : [ \"localhost:3344\", \"localhost:3345\" ]");
 
         // Then
         assertAll(
@@ -200,26 +200,27 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
     @Test
     void updateWithWrongData() {
-        execute("node", "config", "update", "--url", NODE_URL, "network.foo=\"bar\"");
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.network.foo=\"bar\"");
 
         assertAll(
                 () -> assertExitCodeIs(1),
-                () -> assertErrOutputContains("'network' configuration doesn't have the 'foo' sub-configuration"),
+                () -> assertErrOutputContains("'ignite.network' configuration doesn't have the 'foo' sub-configuration"),
                 this::assertOutputIsEmpty
         );
 
-        execute("node", "config", "update", "--url", NODE_URL, "network.shutdownQuietPeriod=asd");
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.network.shutdownQuietPeriod=asd");
 
         assertAll(
                 () -> assertExitCodeIs(1),
-                () -> assertErrOutputContains("'long' is expected as a type for the 'network.shutdownQuietPeriod' configuration value"),
+                () -> assertErrOutputContains("'long' is expected as a type for the "
+                        + "'ignite.network.shutdownQuietPeriod' configuration value"),
                 this::assertOutputIsEmpty
         );
     }
 
     @Test
     public void partialGet() {
-        execute("node", "config", "show", "--url", NODE_URL, "network");
+        execute("node", "config", "show", "--url", NODE_URL, "ignite.network");
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,

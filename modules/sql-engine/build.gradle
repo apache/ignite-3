@@ -34,6 +34,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-network')
     implementation project(':ignite-index')
     implementation project(':ignite-table')

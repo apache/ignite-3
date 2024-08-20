@@ -93,7 +93,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -118,6 +118,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -156,7 +157,7 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
@@ -182,7 +183,7 @@ import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.rest.configuration.RestConfiguration;
+import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -191,6 +192,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
@@ -1102,12 +1104,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             var clusterIdService = new ClusterIdHolder();
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
+                    List.of(NodeConfiguration.KEY),
                     List.of(
-                            NetworkConfiguration.KEY,
-                            RestConfiguration.KEY,
-                            ClientConnectorConfiguration.KEY,
-                            StorageConfiguration.KEY),
-                    List.of(
+                            NetworkExtensionConfigurationSchema.class,
+                            RestExtensionConfigurationSchema.class,
+                            ClientConnectorExtensionConfigurationSchema.class,
+                            StorageExtensionConfigurationSchema.class,
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                             VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
                     ),
@@ -1121,10 +1123,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             TestIgnitionManager.addDefaultsToConfigurationFile(configPath);
 
             nodeCfgMgr = new ConfigurationManager(
-                    List.of(NetworkConfiguration.KEY,
-                            StorageConfiguration.KEY,
-                            RestConfiguration.KEY,
-                            ClientConnectorConfiguration.KEY),
+                    List.of(NodeConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                     nodeCfgGenerator,
                     new TestConfigurationValidator()

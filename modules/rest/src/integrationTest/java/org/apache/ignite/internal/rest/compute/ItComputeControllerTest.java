@@ -81,16 +81,14 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return "{\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder: {\n"
-                + "      netClusterNodes: [ {} ]\n"
-                + "    }\n"
-                + "  },\n"
-                + "  clientConnector: { port:{} },\n"
-                + "  rest.port: {},\n"
-                + "  compute.threadPoolSize: 1 \n"
+        return "ignite {\n"
+                + "  network {\n"
+                + "    port: {}\n"
+                + "    nodeFinder.netClusterNodes: [ {} ]\n"
+                + "  }\n"
+                + "  clientConnector.port: {}\n"
+                + "  rest.port: {}\n"
+                + "  compute.threadPoolSize: 1\n"
                 + "}";
     }
 

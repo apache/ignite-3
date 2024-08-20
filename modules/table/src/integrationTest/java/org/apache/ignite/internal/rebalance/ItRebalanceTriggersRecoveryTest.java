@@ -44,6 +44,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -53,31 +54,28 @@ import org.junit.jupiter.api.Test;
 public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTest {
     private static final int PARTITION_ID = 0;
 
-    private static final String US_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  nodeAttributes: {\n"
-            + "    nodeAttributes: {region: {attribute: \"US\"}, zone: {attribute: \"global\"}}\n"
-            + "  },\n"
+    @Language("HOCON")
+    private static final String US_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
+            + "  network {\n"
+            + "    port: {}\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  }\n"
+            + "  clientConnector.port: {}\n"
+            + "  nodeAttributes.nodeAttributes {\n"
+            + "    region.attribute: US\n"
+            + "    zone.attribute: global\n"
+            + "  }\n"
             + "  rest.port: {}\n"
             + "}";
 
-    private static final String GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  nodeAttributes: {\n"
-            + "    nodeAttributes: {zone: {attribute: \"global\"}}\n"
-            + "  },\n"
+    @Language("HOCON")
+    private static final String GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
+            + "  network {\n"
+            + "    port: {}\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  }\n"
+            + "  clientConnector.port: {}\n"
+            + "  nodeAttributes.nodeAttributes.zone.attribute: global\n"
             + "  rest.port: {}\n"
             + "}";
 

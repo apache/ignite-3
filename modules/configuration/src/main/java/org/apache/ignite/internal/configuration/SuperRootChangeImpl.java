@@ -39,12 +39,12 @@ public class SuperRootChangeImpl implements SuperRootChange {
     }
 
     @Override
-    public <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey) {
+    public <V, C, T extends ConfigurationTree<? super V, ? super C>> V viewRoot(RootKey<T, V> rootKey) {
         return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
     }
 
     @Override
-    public <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey) {
+    public <V, C, T extends ConfigurationTree<? super V, ? super C>> C changeRoot(RootKey<T, V> rootKey) {
         // "construct" does a field copying, which is what we need before mutating it.
         superRoot.construct(rootKey.key(), ConfigurationUtil.EMPTY_CFG_SRC, true);
 

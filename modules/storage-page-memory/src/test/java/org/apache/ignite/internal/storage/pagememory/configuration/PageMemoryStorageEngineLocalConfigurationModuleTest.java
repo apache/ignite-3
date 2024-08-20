@@ -21,14 +21,17 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
+import org.apache.ignite.internal.configuration.NodeView;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
-import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionView;
 import org.apache.ignite.internal.storage.configurations.StorageView;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,12 +46,13 @@ public class PageMemoryStorageEngineLocalConfigurationModuleTest {
 
     @BeforeEach
     void setUp() {
-        Collection<Class<?>> polymorphicSchemaExtensions = module.polymorphicSchemaExtensions();
+        List<Class<?>> schemaExtensions = new ArrayList<>(module.schemaExtensions());
+        schemaExtensions.add(StorageExtensionConfigurationSchema.class);
 
         ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
-                List.of(StorageConfiguration.KEY),
-                module.schemaExtensions(),
-                polymorphicSchemaExtensions
+                List.of(NodeConfiguration.KEY),
+                schemaExtensions,
+                module.polymorphicSchemaExtensions()
         );
 
         SuperRoot superRoot = generator.createSuperRoot();
@@ -60,7 +64,8 @@ public class PageMemoryStorageEngineLocalConfigurationModuleTest {
     void setDefaultStorageProfile() {
         module.patchConfigurationWithDynamicDefaults(rootChange);
 
-        StorageView storageConfigurationView = rootChange.viewRoot(StorageConfiguration.KEY);
+        NodeView nodeView = rootChange.viewRoot(NodeConfiguration.KEY);
+        StorageView storageConfigurationView = ((StorageExtensionView) nodeView).storage();
 
         assertEquals(1, storageConfigurationView.profiles().size());
 

@@ -73,14 +73,14 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // Expect node configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
         // And has rest.port config value
-        assertThat(config.getInt("rest.port"), is(equalTo(10300)));
+        assertThat(config.getInt("ignite.rest.port"), is(equalTo(10300)));
     }
 
     @Test
     @DisplayName("Node configuration by path is available when the cluster is initialized")
     void nodeConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/node and path selector is "rest"
-        HttpResponse<String> response = send(get("/management/v1/configuration/node/rest"));
+        HttpResponse<String> response = send(get("/management/v1/configuration/node/ignite.rest"));
 
         // Expect node configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
@@ -92,7 +92,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Node configuration can be changed when the cluster is initialized")
     void nodeConfigurationUpdate() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/node rest.port=10333
-        HttpResponse<String> pathResponse = send(patch("/management/v1/configuration/node", "rest.port=10333"));
+        HttpResponse<String> pathResponse = send(patch("/management/v1/configuration/node", "ignite.rest.port=10333"));
         // Then
         assertThat(pathResponse.statusCode(), is(200));
 
@@ -102,7 +102,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // Then node configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(getResponse.body());
         // And rest.port is updated
-        assertThat(config.getInt("rest.port"), is(equalTo(10333)));
+        assertThat(config.getInt("ignite.rest.port"), is(equalTo(10333)));
     }
 
     @Test

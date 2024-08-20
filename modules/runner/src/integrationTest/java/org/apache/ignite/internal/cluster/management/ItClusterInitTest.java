@@ -104,11 +104,11 @@ public class ItClusterInitTest extends IgniteAbstractTest {
                 .collect(Collectors.joining(", ", "[", "]"));
 
         for (int port : ports) {
-            String config = "{"
-                    + " network.port: " + port + ","
-                    + " clientConnector.port: " + (port + 8000) + ","
-                    + " network.nodeFinder.netClusterNodes: " + nodeFinderConfig + ","
-                    + " rest.port: " + (port + 10000)
+            String config = "ignite {\n"
+                    + " network.port: " + port + "\n"
+                    + " clientConnector.port: " + (port + 8000) + "\n"
+                    + " network.nodeFinder.netClusterNodes: " + nodeFinderConfig + "\n"
+                    + " rest.port: " + (port + 10000) + "\n"
                     + "}";
 
             String nodeName = testNodeName(testInfo, port);

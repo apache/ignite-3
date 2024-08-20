@@ -17,9 +17,6 @@
 
 package org.apache.ignite.configuration;
 
-import org.apache.ignite.configuration.ConfigurationTree;
-import org.apache.ignite.configuration.RootKey;
-
 /**
  * Interface that represent a "change" for the conjunction of all roots in the configuration.
  */
@@ -27,10 +24,10 @@ public interface SuperRootChange {
     /**
      * Returns a root view for the root key.
      */
-    <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey);
+    <V, C, T extends ConfigurationTree<? super V, ? super C>> V viewRoot(RootKey<T, V> rootKey);
 
     /**
      * Returns a root change for the root key.
      */
-    <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey);
+    <V, C, T extends ConfigurationTree<? super V, ? super C>> C changeRoot(RootKey<T, V> rootKey);
 }

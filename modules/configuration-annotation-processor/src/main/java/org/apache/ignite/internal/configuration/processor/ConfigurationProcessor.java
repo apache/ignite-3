@@ -42,6 +42,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeSpec.Builder;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 import java.io.PrintWriter;
@@ -264,6 +265,12 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
             if (isRootConfig) {
                 createRootKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, clazz);
+            } else if (isExtendingConfig) {
+                TypeElement superClass = superClass(clazz);
+                boolean isSuperClassRootConfig = superClass.getAnnotation(ConfigurationRoot.class) != null;
+                if (isSuperClassRootConfig) {
+                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, ClassName.get(superClass));
+                }
             }
 
             // Generates "public FooConfiguration directProxy();" in the configuration interface.
@@ -293,6 +300,29 @@ public class ConfigurationProcessor extends AbstractProcessor {
                         "new $T($T.class)",
                         ROOT_KEY_CLASSNAME,
                         realSchemaClass
+                )
+                .build();
+
+        configurationClassBuilder.addField(keyField);
+    }
+
+    private static void createExtensionKeyField(
+            ClassName configInterface,
+            Builder configurationClassBuilder,
+            ClassName schemaClassName,
+            ClassName superClassSchemaClassName
+    ) {
+        ClassName viewClassName = getViewName(schemaClassName);
+
+        ClassName superConfigInterface = getConfigurationInterfaceName(superClassSchemaClassName);
+
+        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName);
+
+        FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
+                .initializer(
+                        "($T) $T.KEY",
+                        ROOT_KEY_CLASSNAME,
+                        superConfigInterface
                 )
                 .build();
 

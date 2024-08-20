@@ -62,42 +62,29 @@ public class ItNodeBootstrapConfigurationTest {
 
     @Test
     public void illegalConfigurationValueType(TestInfo testInfo) {
-        String config =
-                "{\n"
-                + "  rest: {\n"
-                + "    ssl: {\n"
-                + "      enabled: true,\n"
-                + "      clientAuth: none,\n"
-                + "      keyStore: {\n"
-                + "        path: 123\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }\n"
+        String config = "ignite.rest.ssl {\n"
+                + "  enabled: true\n"
+                + "  clientAuth: none\n"
+                + "  keyStore.path: 123\n"
                 + "}";
 
         assertThrowsWithCause(
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
                 ConfigurationValidationException.class,
-                "'String' is expected as a type for the 'rest.ssl.keyStore.path' configuration value");
+                "'String' is expected as a type for the 'ignite.rest.ssl.keyStore.path' configuration value");
     }
 
     @Test
     public void illegalConfigurationValue(TestInfo testInfo) {
-        String config = "{\n"
-                + "  rest: {\n"
-                + "    ssl: {\n"
-                + "      enabled: true,\n"
-                + "      clientAuth: none,\n"
-                + "      keyStore: {\n"
-                + "        path: bad_path\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }\n"
+        String config = "ignite.rest.ssl: {\n"
+                + "  enabled: true,\n"
+                + "  clientAuth: none,\n"
+                + "  keyStore.path: bad_path\n"
                 + "}";
 
         assertThrowsWithCause(
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
                 ConfigurationValidationException.class,
-                "Validation did not pass for keys: [rest.ssl.keyStore, Key store file doesn't exist at bad_path]");
+                "Validation did not pass for keys: [ignite.rest.ssl.keyStore, Key store file doesn't exist at bad_path]");
     }
 }

@@ -17,9 +17,8 @@
 
 package org.apache.ignite.client.handler.configuration;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
@@ -28,8 +27,7 @@ import org.apache.ignite.internal.network.configuration.SslConfigurationValidato
 /**
  * Configuration schema for thin client connector.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "clientConnector", type = ConfigurationType.LOCAL)
+@Config
 public class ClientConnectorConfigurationSchema {
     /** TCP port. */
     @Range(min = 1024, max = 0xFFFF)

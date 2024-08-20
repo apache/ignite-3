@@ -51,14 +51,14 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // Expect node configuration can be parsed to hocon format.
         Config config = ConfigFactory.parseString(response.body());
         // And has rest.port config value.
-        assertThat(config.getInt("rest.port"), is(equalTo(10300)));
+        assertThat(config.getInt("ignite.rest.port"), is(equalTo(10300)));
     }
 
     @Test
     @DisplayName("Node configuration can be changed when the cluster in not initialized")
     void nodeConfigurationUpdate() throws Exception {
         // When PATCH /management/v1/configuration/node rest.port=10333.
-        HttpResponse<String> patchResponse = send(patch("/management/v1/configuration/node", "rest.port=10333"));
+        HttpResponse<String> patchResponse = send(patch("/management/v1/configuration/node", "ignite.rest.port=10333"));
         // Then
         assertThat(patchResponse.statusCode(), is(200));
 
@@ -68,7 +68,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         // Then node configuration can be parsed to hocon format.
         Config config = ConfigFactory.parseString(getResponse.body());
         // And rest.port is updated.
-        assertThat(config.getInt("rest.port"), is(equalTo(10333)));
+        assertThat(config.getInt("ignite.rest.port"), is(equalTo(10333)));
     }
 
     @Test

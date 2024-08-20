@@ -54,16 +54,14 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     private static final String TABLE_NAME = "test_table";
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {},\n"
-            + "  raft: { responseTimeout: 30000 },"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
+            + "  network {\n"
+            + "    port: {}\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  }\n"
+            + "  clientConnector.port: {}\n"
+            + "  rest.port: {}\n"
+            + "  raft.responseTimeout: 30000\n"
             + "  compute.threadPoolSize: 1\n"
             + "}";
 

@@ -73,6 +73,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -101,12 +102,11 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
     private static final int BASE_PORT = 3344;
 
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
-            + "    }\n"
+    @Language("HOCON")
+    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
+            + "  network {\n"
+            + "    port: {}\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  }\n"
             + "}";
 

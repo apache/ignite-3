@@ -130,14 +130,12 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     private ApiClientFactory clientFactory;
 
     private static String buildConfig(int nodeIdx) {
-        return "{\n"
-                + "  network: {\n"
-                + "    port: " + (BASE_PORT + nodeIdx) + ",\n"
-                + "    nodeFinder: {\n"
-                + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
-                + "    }\n"
-                + "  },\n"
-                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + ",\n"
+        return "ignite {\n"
+                + "  network {\n"
+                + "    port: " + (BASE_PORT + nodeIdx) + "\n"
+                + "    nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                + "  }\n"
+                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + "\n"
                 + "  rest.port: " + (BASE_REST_PORT + nodeIdx) + "\n"
                 + "}";
     }
@@ -243,7 +241,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     @Test
     void getNodeConfigurationByPath() {
         assertDoesNotThrow(() -> {
-            String configuration = nodeConfigurationApi.getNodeConfigurationByPath("clientConnector.connectTimeout");
+            String configuration = nodeConfigurationApi.getNodeConfigurationByPath("ignite.clientConnector.connectTimeout");
 
             assertNotNull(configuration);
             assertFalse(configuration.isEmpty());

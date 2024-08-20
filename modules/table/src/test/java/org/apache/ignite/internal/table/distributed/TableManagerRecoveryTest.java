@@ -67,6 +67,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -107,6 +108,7 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
@@ -428,7 +430,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             DataStorageModule dataStorageModule,
             HybridClock clock
     ) {
-        when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(config);
+        StorageExtensionConfiguration mock = mock(StorageExtensionConfiguration.class);
+        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(mock);
+        when(mock.storage()).thenReturn(config);
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(dataStorageModule));
 
