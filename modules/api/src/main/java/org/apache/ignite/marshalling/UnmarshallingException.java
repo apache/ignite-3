@@ -21,9 +21,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
 
-/**
- * Exception thrown when an object type is not supported by the marshaller.
- */
+/** Exception thrown when unmarshalling failed. */
 public class UnmarshallingException extends IgniteException {
     private static final long serialVersionUID = -8131613381875542450L;
 

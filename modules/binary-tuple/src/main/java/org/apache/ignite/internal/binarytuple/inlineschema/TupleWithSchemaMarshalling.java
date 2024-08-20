@@ -29,7 +29,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
@@ -78,35 +77,27 @@ public final class TupleWithSchemaMarshalling {
             types[i] = inferType(value);
         }
 
-        ByteBuffer schemaBf = schemaBuilder(columns, types).build();
-        ByteBuffer valueBf = valueBuilder(columns, types, values).build();
+        ByteBuffer schemaBuf = schemaBuilder(columns, types).build();
+        ByteBuffer valueBuf = valueBuilder(columns, types, values).build();
 
-        byte[] schemaArr = getByteArray(schemaBf);
-        byte[] valueArr = getByteArray(valueBf);
+        int schemaBufLen = schemaBuf.remaining();
+        int valueBufLen = valueBuf.remaining();
+
         // Size: int32 (tuple size), int32 (value offset), schema, value.
-        byte[] result = new byte[4 + 4 + schemaArr.length + valueArr.length];
+        byte[] result = new byte[4 + 4 + schemaBufLen + valueBufLen];
         ByteBuffer buff = ByteBuffer.wrap(result).order(BYTE_ORDER);
 
         // Put the size of the schema in the first 4 bytes.
-        buff.putInt(0, size);
+        buff.putInt(size);
 
         // Put the value offset in the second 4 bytes.
-        int offset = schemaArr.length + 8;
-        buff.putInt(4, offset);
+        int offset = schemaBufLen + 8;
 
-        System.arraycopy(schemaArr, 0, result, 8, schemaArr.length);
-        System.arraycopy(valueArr, 0, result, schemaArr.length + 8, valueArr.length);
+        buff.putInt(offset);
 
-        return result;
-    }
+        buff.put(schemaBuf);
+        buff.put(valueBuf);
 
-    /** Get byte array from ByteBuffer without capacity overhead, only meaningful bytes are returned. */
-    private static byte[] getByteArray(ByteBuffer buff) {
-        int offset = buff.arrayOffset();
-        int limit = buff.limit();
-        byte[] result = new byte[limit - offset];
-
-        buff.get(result, offset, limit);
         return result;
     }
 
@@ -170,7 +161,7 @@ public final class TupleWithSchemaMarshalling {
 
         int k = 0;
         while (k < size) {
-            setColumnValue(valueReader, tup, columns[k], types[k].id(), k);
+            setColumnValue(valueReader, tup, columns[k], types[k], k);
             k += 1;
         }
 
@@ -195,54 +186,70 @@ public final class TupleWithSchemaMarshalling {
             ColumnType type = types[i];
             Object v = values[i];
 
-            appender(type, columnNames[i]).accept(builder, v);
+            append(type, columnNames[i], builder, v);
         }
 
         return builder;
     }
 
-    private static BiConsumer<BinaryTupleBuilder, Object> appender(ColumnType type, String name) {
+    private static void append(ColumnType type, String name, BinaryTupleBuilder builder, Object value) {
         try {
             switch (type) {
                 case NULL:
-                    return (b, v) -> b.appendNull();
+                    builder.appendNull();
+                    return;
                 case BOOLEAN:
-                    return (b, v) -> b.appendBoolean((Boolean) v);
+                    builder.appendBoolean((Boolean) value);
+                    return;
                 case INT8:
-                    return (b, v) -> b.appendByte((Byte) v);
+                    builder.appendByte((Byte) value);
+                    return;
                 case INT16:
-                    return (b, v) -> b.appendShort((Short) v);
+                    builder.appendShort((Short) value);
+                    return;
                 case INT32:
-                    return (b, v) -> b.appendInt((Integer) v);
+                    builder.appendInt((Integer) value);
+                    return;
                 case INT64:
-                    return (b, v) -> b.appendLong((Long) v);
+                    builder.appendLong((Long) value);
+                    return;
                 case FLOAT:
-                    return (b, v) -> b.appendFloat((Float) v);
+                    builder.appendFloat((Float) value);
+                    return;
                 case DOUBLE:
-                    return (b, v) -> b.appendDouble((Double) v);
+                    builder.appendDouble((Double) value);
+                    return;
                 case STRING:
-                    return (b, v) -> b.appendString((String) v);
+                    builder.appendString((String) value);
+                    return;
                 case DECIMAL:
-                    return (b, v) -> {
-                        BigDecimal d = (BigDecimal) v;
-                        b.appendDecimal(d, d.scale());
-                    };
+                    BigDecimal d = (BigDecimal) value;
+                    builder.appendDecimal(d, d.scale());
+                    return;
                 case DATE:
-                    return (b, v) -> b.appendDate((LocalDate) v);
+                    builder.appendDate((LocalDate) value);
+                    return;
                 case TIME:
-                    return (b, v) -> b.appendTime((LocalTime) v);
+                    builder.appendTime((LocalTime) value);
+                    return;
                 case DATETIME:
-                    return (b, v) -> b.appendDateTime((LocalDateTime) v);
+                    builder.appendDateTime((LocalDateTime) value);
+                    return;
                 case TIMESTAMP:
-                    return (b, v) -> b.appendTimestamp((Instant) v);
+                    builder.appendTimestamp((Instant) value);
+                    return;
                 case UUID:
-                    return (b, v) -> b.appendUuid((UUID) v);
+                    builder.appendUuid((UUID) value);
+                    return;
                 case BYTE_ARRAY:
-                    return (b, v) -> b.appendBytes((byte[]) v);
+                    builder.appendBytes((byte[]) value);
+                    return;
                 case PERIOD:
-                    return (b, v) -> b.appendPeriod((Period) v);
+                    builder.appendPeriod((Period) value);
+                    return;
                 case DURATION:
-                    return (b, v) -> b.appendDuration((Duration) v);
+                    builder.appendDuration((Duration) value);
+                    return;
                 default:
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
@@ -314,8 +321,8 @@ public final class TupleWithSchemaMarshalling {
     }
 
 
-    private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, int colTypeId, int i) {
-        switch (ColumnType.getById(colTypeId)) {
+    private static void setColumnValue(BinaryTupleReader reader, Tuple tuple, String colName, ColumnType colType, int i) {
+        switch (colType) {
             case NULL:
                 tuple.set(colName, null);
                 break;
@@ -372,7 +379,7 @@ public final class TupleWithSchemaMarshalling {
                 tuple.set(colName, reader.durationValue(i));
                 break;
             default:
-                throw new IllegalArgumentException("Unsupported type: " + colTypeId);
+                throw new IllegalArgumentException("Unsupported type: " + colType);
         }
     }
 }
