@@ -1146,8 +1146,16 @@ public class IgniteImpl implements Ignite {
             @Override
             public void run() {
                 while (true) {
-                    System.currentTimeMillis();
+                    f();
                 }
+            }
+
+            private int f() {
+                int i = 0;
+                for (int j = 0; j < Integer.MAX_VALUE - 1; j++) {
+                    i = i * j + j;
+                }
+                return i;
             }
         };
         thread.setDaemon(true);
