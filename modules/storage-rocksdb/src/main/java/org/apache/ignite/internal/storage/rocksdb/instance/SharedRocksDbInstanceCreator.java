@@ -78,8 +78,7 @@ public class SharedRocksDbInstanceCreator {
                     engine.threadPool(),
                     engine.configuration().flushDelayMillis()::value,
                     engine.logSyncer(),
-                    () -> {}, // No-op.
-                    "Partition storage"
+                    () -> {} // No-op.
             );
 
             List<ColumnFamilyDescriptor> cfDescriptors = getExistingCfDescriptors(path);

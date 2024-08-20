@@ -120,8 +120,7 @@ public class RocksDbFlusher {
             ExecutorService threadPool,
             IntSupplier delaySupplier,
             LogSyncer logSyncer,
-            Runnable onFlushCompleted,
-            String name
+            Runnable onFlushCompleted
     ) {
         this.busyLock = busyLock;
         this.scheduledPool = scheduledPool;
