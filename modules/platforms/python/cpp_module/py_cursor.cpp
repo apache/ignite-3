@@ -56,6 +56,33 @@ static PyObject* py_cursor_close(py_cursor* self, PyObject*)
     return Py_None;
 }
 
+static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kwargs)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    static char *kwlist[] = {
+            "query",
+            "params",
+            nullptr
+    };
+
+    const char* query = nullptr;
+    PyObject *params = nullptr;
+
+    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "s|O", kwlist, &query, &params);
+
+    if (!parsed)
+        return nullptr;
+
+    self->m_statement->execute_sql_query(query);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 static PyTypeObject py_cursor_type = {
     PyVarObject_HEAD_INIT(nullptr, 0)
     MODULE_NAME "." PY_CURSOR_CLASS_NAME
@@ -63,6 +90,7 @@ static PyTypeObject py_cursor_type = {
 
 static struct PyMethodDef py_cursor_methods[] = {
     {"close", (PyCFunction)py_cursor_close, METH_NOARGS, nullptr},
+    {"execute", (PyCFunction)py_cursor_execute, METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}
 };
 

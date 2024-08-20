@@ -84,17 +84,25 @@ class Cursor:
             self._py_cursor = None
 
     def execute(self, *args):
+        """
+        Execute a database operation (query or command).
+
+        Parameters may be provided as sequence or mapping and will be bound to variables in the operation.
+        Arguments are specified as a question mark '?' in the request.
+
+        The parameters may also be specified as list of tuples to e.g. insert multiple rows in a single operation,
+        but this kind of usage is deprecated: .executemany() should be used instead.
+        """
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22469 Implement query execution
-        raise NotSupportedError('Operation is not supported')
+        self._py_cursor.execute(*args)
 
     def executemany(self, *args):
         if self._py_cursor is None:
             raise InterfaceError('Connection is already closed')
 
-        # TODO: IGNITE-22743 Implement execution of SQL scripts
+        # TODO: IGNITE-22742 Implement execution with a batch of parameters
         raise NotSupportedError('Operation is not supported')
 
     def fetchone(self):
