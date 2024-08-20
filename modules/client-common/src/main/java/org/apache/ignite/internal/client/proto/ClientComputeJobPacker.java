@@ -17,17 +17,8 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Period;
-import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.marshalling.Marshaller;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -93,50 +84,8 @@ public final class ClientComputeJobPacker {
             return;
         }
 
-        var type = getColumnTypeFrom(obj);
-
-        packer.packInt(type.id());
+        packer.packInt(ComputeJobType.NATIVE_ID);
 
         packer.packObjectAsBinaryTuple(obj);
-    }
-
-    private static ColumnType getColumnTypeFrom(Object obj) {
-        if (obj instanceof Boolean) {
-            return ColumnType.BOOLEAN;
-        } else if (obj instanceof Byte) {
-            return ColumnType.INT8;
-        } else if (obj instanceof Short) {
-            return ColumnType.INT16;
-        } else if (obj instanceof Integer) {
-            return ColumnType.INT32;
-        } else if (obj instanceof Long) {
-            return ColumnType.INT64;
-        } else if (obj instanceof Float) {
-            return ColumnType.FLOAT;
-        } else if (obj instanceof Double) {
-            return ColumnType.DOUBLE;
-        } else if (obj instanceof BigDecimal) {
-            return ColumnType.DECIMAL;
-        } else if (obj instanceof UUID) {
-            return ColumnType.UUID;
-        } else if (obj instanceof String) {
-            return ColumnType.STRING;
-        } else if (obj instanceof byte[]) {
-            return ColumnType.BYTE_ARRAY;
-        } else if (obj instanceof LocalDate) {
-            return ColumnType.DATE;
-        } else if (obj instanceof LocalTime) {
-            return ColumnType.TIME;
-        } else if (obj instanceof LocalDateTime) {
-            return ColumnType.DATETIME;
-        } else if (obj instanceof Instant) {
-            return ColumnType.TIMESTAMP;
-        } else if (obj instanceof Duration) {
-            return ColumnType.DURATION;
-        } else if (obj instanceof Period) {
-            return ColumnType.PERIOD;
-        } else {
-            throw new IllegalArgumentException("Unknown type: " + obj.getClass());
-        }
     }
 }

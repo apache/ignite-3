@@ -62,8 +62,13 @@ public final class ClientComputeJobUnpacker {
 
         switch (type) {
             case NATIVE:
-                return unpacker.unpackObjectFromBinaryTuple();
+                Object result = unpacker.unpackObjectFromBinaryTuple();
 
+                if (marshaller != null) {
+                    return tryUnmarshalOrCast(marshaller, result);
+                }
+
+                return result;
             case MARSHALLED_TUPLE:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
 

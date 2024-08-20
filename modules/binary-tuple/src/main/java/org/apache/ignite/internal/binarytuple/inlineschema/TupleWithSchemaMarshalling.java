@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -254,7 +254,7 @@ public final class TupleWithSchemaMarshalling {
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
         } catch (ClassCastException e) {
-            throw new IgniteException(PROTOCOL_ERR, "Column's type mismatch ["
+            throw new IgniteException(UNSUPPORTED_OBJECT_TYPE_ERR, "Column's type mismatch ["
                     + "column=" + name
                     + ", expectedType=" + type.javaClass(),
                     e

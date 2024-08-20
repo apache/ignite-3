@@ -26,10 +26,11 @@ import org.apache.ignite.sql.ColumnType;
 public class ComputeJobType {
     static final int MARSHALLED_TUPLE_ID = -1;
     static final int MARSHALLED_OBJECT_ID = -2;
+    static final int NATIVE_ID = -3;
 
     /**
-     * [0, .., Integer.MAX_VALUE] - native types.
-     * The id is the same as in {@link ColumnType}. (0, .., Integer.MIN_VALUE] - marshalled types.
+     * [0, .., Integer.MAX_VALUE] - native types. The id is the same as in {@link ColumnType}. (0, .., Integer.MIN_VALUE] - marshalled
+     * types.
      */
     private final int id;
     private final Type type;
@@ -51,7 +52,7 @@ public class ComputeJobType {
 
     /** The type of the object. */
     public enum Type {
-        NATIVE, MARSHALLED_TUPLE, MARSHALLED_OBJECT;
+        MARSHALLED_TUPLE, MARSHALLED_OBJECT, NATIVE;
 
         static Type fromId(int id) {
             if (id == MARSHALLED_TUPLE_ID) {
@@ -62,12 +63,11 @@ public class ComputeJobType {
                 return MARSHALLED_OBJECT;
             }
 
-            ColumnType nativeType = ColumnType.getById(id);
-            if (nativeType == null) {
-                throw new IllegalArgumentException("Unsupported type id: " + id);
+            if (id == NATIVE_ID) {
+                return NATIVE;
             }
 
-            return NATIVE;
+            throw new IllegalArgumentException("Unsupported type id: " + id);
         }
     }
 }
