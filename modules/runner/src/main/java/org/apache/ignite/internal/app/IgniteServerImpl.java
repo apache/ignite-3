@@ -88,7 +88,8 @@ public class IgniteServerImpl implements IgniteServer {
 
     private final Executor asyncContinuationExecutor;
 
-    /** Current Ignite instance. This field is not volatile to make hot path accesses from IgniteReference and other references
+    /**
+     * Current Ignite instance. This field is not volatile to make hot path accesses from IgniteReference and other references
      * faster (they always happen under a read lock, which guarantees visibility of changes to this field). So we access
      * this field in this object under synchronization ({@link #igniteMutex} serves as the monitor).
      */
