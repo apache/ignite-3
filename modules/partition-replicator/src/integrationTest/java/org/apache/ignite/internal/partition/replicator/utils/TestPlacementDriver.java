@@ -63,6 +63,12 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
+    public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId,
+            HybridTimestamp timestamp) {
+        return getPrimaryReplicaMeta().join();
+    }
+
+    @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return nullCompletedFuture();
     }
