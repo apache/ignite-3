@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -64,7 +64,6 @@ class ItShutDownServerApiReferencesTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(AsyncApiOperation.class)
     void asyncOperationsWorkAfterRestart(AsyncApiOperation operation) {
-        IgniteException ex = assertWillThrow(operation.execute(beforeShutdown), IgniteException.class, 10, SECONDS);
-        assertThat(ex.getMessage(), is("The node is already shut down."));
+        assertThat(operation.execute(beforeShutdown), willThrow(IgniteException.class, 10, SECONDS, "The node is already shut down."));
     }
 }
