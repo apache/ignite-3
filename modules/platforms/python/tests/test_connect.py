@@ -15,7 +15,7 @@
 import pytest
 
 import pyignite3
-from tests.util import start_cluster_gen, check_cluster_started, server_addresses_basic
+from tests.util import start_cluster_gen, check_cluster_started, server_addresses_invalid, server_addresses_basic
 
 
 @pytest.fixture(autouse=True)
@@ -32,3 +32,7 @@ def test_check_connection_success():
     conn.close()
 
 
+def test_check_connection_fail():
+    with pytest.raises(RuntimeError) as err:
+        pyignite3.connect(address=server_addresses_invalid[0])
+    assert err.match("Failed to establish connection with the host.")

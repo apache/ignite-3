@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import contextlib
 import os
 
 import psutil
@@ -24,19 +23,11 @@ import time
 import pyignite3
 
 server_host = os.getenv("IGNITE_CLUSTER_HOST", '127.0.0.1')
+server_addresses_invalid = [server_host + ':10000']
 server_addresses_basic = [server_host + ':10942', server_host + ':10943']
 server_addresses_ssl_basic = [server_host + ':10944']
 server_addresses_ssl_client_auth = [server_host + ':10945']
 server_addresses_all = server_addresses_basic + server_addresses_ssl_basic + server_addresses_ssl_client_auth
-
-
-@contextlib.contextmanager
-def get_or_create_cache(client, settings):
-    cache = client.get_or_create_cache(settings)
-    try:
-        yield cache
-    finally:
-        cache.destroy()
 
 
 def wait_for_condition(condition, interval=0.1, timeout=10, error=None):
@@ -102,7 +93,7 @@ def kill_process_tree(pid):
 def check_server_started(addr: str) -> bool:
     try:
         conn = pyignite3.connect(address=addr, timeout=1)
-    except:
+    except RuntimeError as e:
         return False
 
     conn.close()
