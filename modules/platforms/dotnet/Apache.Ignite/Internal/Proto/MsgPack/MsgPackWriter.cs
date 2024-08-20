@@ -363,36 +363,6 @@ internal readonly ref struct MsgPackWriter
     /// Writes an object with type code.
     /// </summary>
     /// <param name="obj">Object.</param>
-    /// <param name="marshaller">Marshaller.</param>
-    /// <typeparam name="T">Object type.</typeparam>
-    public void WriteObjectAsBinaryTuple<T>(T obj, IMarshaller<T>? marshaller)
-    {
-        if (obj == null)
-        {
-            WriteNil();
-            return;
-        }
-
-        if (marshaller == null)
-        {
-            WriteObjectAsBinaryTuple(obj);
-            return;
-        }
-
-        using var builder = new BinaryTupleBuilder(3);
-        builder.AppendInt((int)ColumnType.ByteArray);
-        builder.AppendInt(0); // Scale.
-        builder.AppendBytes(
-            static (IBufferWriter<byte> writer, (T Obj, IMarshaller<T> Marshaller) arg) => arg.Marshaller.Marshal(arg.Obj, writer),
-            arg: (obj, marshaller));
-
-        Write(builder.Build().Span);
-    }
-
-    /// <summary>
-    /// Writes an object with type code.
-    /// </summary>
-    /// <param name="obj">Object.</param>
     public void WriteObjectAsBinaryTuple(object? obj)
     {
         if (obj == null)

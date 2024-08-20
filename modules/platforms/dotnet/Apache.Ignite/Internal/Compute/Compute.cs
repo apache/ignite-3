@@ -392,7 +392,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
-                w.WriteObjectAsBinaryTuple(arg, jobDescriptor.ArgMarshaller);
+                ComputePacker.PackArg(ref w, arg, jobDescriptor.ArgMarshaller);
             }
         }
 
