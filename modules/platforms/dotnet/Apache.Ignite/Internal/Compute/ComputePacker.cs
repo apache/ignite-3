@@ -70,9 +70,9 @@ internal static class ComputePacker
 
         if (obj is IIgniteTuple)
         {
-            // TODO: Ticket.
+            // TODO: IGNITE-23033 .NET: Thin 3.0: Support tuples with schemas in Compute
             w.Write(Tuple);
-            throw new NotSupportedException("TODO: Ticket");
+            throw new NotImplementedException("IGNITE-23033");
         }
 
         w.Write(Native);
@@ -97,7 +97,7 @@ internal static class ComputePacker
 
         return type switch
         {
-            Tuple => throw new NotSupportedException("TODO: Ticket"),
+            Tuple => throw new NotImplementedException("IGNITE-23033"),
             MarshallerObject => Unmarshal(ref r, marshaller),
             _ => (T)r.ReadObjectFromBinaryTuple()!
         };
