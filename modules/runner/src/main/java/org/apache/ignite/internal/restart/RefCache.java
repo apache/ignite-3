@@ -45,7 +45,7 @@ class RefCache<T> {
     public T actualFor(Ignite ignite) {
         IgniteAware<T> igniteAware = this.value;
 
-        if (igniteAware == null || igniteAware.ignite() != ignite) {
+        if (igniteAware.ignite() != ignite) {
             igniteAware = new IgniteAware<>(supplier.apply(ignite), ignite);
             this.value = igniteAware;
         }
