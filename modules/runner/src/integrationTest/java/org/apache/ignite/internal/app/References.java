@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.TEST_TABLE_NAME;
+
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.table.IgniteTables;
@@ -54,10 +57,10 @@ class References {
         ignite = server.api();
 
         tables = ignite.tables();
-        table = tables.table(ApiReferencesTestUtils.TEST_TABLE_NAME);
-        tableFromTableAsync = tables.tableAsync(ApiReferencesTestUtils.TEST_TABLE_NAME).get();
+        table = tables.table(TEST_TABLE_NAME);
+        tableFromTableAsync = tables.tableAsync(TEST_TABLE_NAME).get(10, SECONDS);
         tableFromTables = tables.tables().get(0);
-        tableFromTablesAsync = tables.tablesAsync().get().get(0);
+        tableFromTablesAsync = tables.tablesAsync().get(10, SECONDS).get(0);
 
         kvView = table.keyValueView();
         typedKvView = table.keyValueView(Integer.class, String.class);
