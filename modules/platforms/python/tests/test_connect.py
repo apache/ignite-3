@@ -22,10 +22,11 @@ from tests.util import start_cluster_gen, check_cluster_started, server_addresse
 def cluster():
     if not check_cluster_started():
         yield from start_cluster_gen()
+    else:
+        yield None
 
 
 def test_check_connection_success():
-    # TODO: Move cluster addresses in const
     conn = pyignite3.connect(address=server_addresses_basic[0])
     assert conn is not None
     conn.close()

@@ -23,9 +23,10 @@ import time
 
 import pyignite3
 
-server_addresses_basic = ['127.0.0.1:10942', '127.0.0.1:10943']
-server_addresses_ssl_basic = ['127.0.0.1:10944']
-server_addresses_ssl_client_auth = ['127.0.0.1:10945']
+server_host = os.getenv("IGNITE_CLUSTER_HOST", '127.0.0.1')
+server_addresses_basic = [server_host + ':10942', server_host + ':10943']
+server_addresses_ssl_basic = [server_host + ':10944']
+server_addresses_ssl_client_auth = [server_host + ':10945']
 server_addresses_all = server_addresses_basic + server_addresses_ssl_basic + server_addresses_ssl_client_auth
 
 
