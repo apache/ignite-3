@@ -72,7 +72,7 @@ public final class ClientComputeJobUnpacker {
             case MARSHALLED_OBJECT:
                 return tryUnmarshalOrCast(marshaller, unpacker.readBinary());
             default:
-                throw new IllegalArgumentException("Unsupported type id: " + typeId);
+                throw new IgniteException(PROTOCOL_ERR, "Unsupported compute job type id: " + typeId);
         }
     }
 }
