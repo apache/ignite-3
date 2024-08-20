@@ -45,12 +45,12 @@ public class UpdateCommandResult implements Serializable {
         this(primaryReplicaMatch, null, primaryInPeersAndLearners);
     }
 
-    // TODO sanpwc javadoc
     /**
      * Constructor.
      *
      * @param primaryReplicaMatch Whether the command should be successfully applied on primary replica.
      * @param currentLeaseStartTime Actual lease start time.
+     * @param primaryInPeersAndLearners {@code true} if primary replica belongs to the raft group topology, (@code false) otherwise.
      */
     public UpdateCommandResult(
             boolean primaryReplicaMatch,
@@ -83,7 +83,11 @@ public class UpdateCommandResult implements Serializable {
         return currentLeaseStartTime;
     }
 
-    // TODO sanpwc javadoc.
+    /**
+     * Returns whether primary replica belongs to the raft group topology.
+     *
+     * @return {@code true} if primary replica belongs to the raft group topology, (@code false) otherwise.
+     */
     public boolean isPrimaryInPeersAndLearners() {
         return primaryInPeersAndLearners;
     }
