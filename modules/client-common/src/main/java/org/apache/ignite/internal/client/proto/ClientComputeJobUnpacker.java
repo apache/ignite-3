@@ -23,7 +23,6 @@ import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /** Unpacks job arguments and results. */
@@ -59,14 +58,7 @@ public final class ClientComputeJobUnpacker {
 
         switch (type) {
             case NATIVE:
-                ColumnType columnType = ColumnType.getById(typeId);
-                Object obj = unpacker.unpackObjectFromBinaryTuple();
-
-                if (columnType != ColumnType.BYTE_ARRAY || marshaller == null) {
-                    return obj;
-                }
-
-                return tryUnmarshalOrCast(marshaller, obj);
+                return unpacker.unpackObjectFromBinaryTuple();
 
             case MARSHALLED_TUPLE:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
