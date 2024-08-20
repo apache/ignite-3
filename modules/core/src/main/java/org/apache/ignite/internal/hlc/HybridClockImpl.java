@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.hlc;
 
 import static java.lang.Math.max;
-import static java.time.Clock.systemUTC;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
@@ -29,6 +28,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
  * A Hybrid Logical Clock implementation.
@@ -61,7 +61,7 @@ public class HybridClockImpl implements HybridClock {
     }
 
     private static long currentTime() {
-        return systemUTC().instant().toEpochMilli() << LOGICAL_TIME_BITS_SIZE;
+        return FastTimestamps.coarseCurrentTimeMillis() << LOGICAL_TIME_BITS_SIZE;
     }
 
     @Override
