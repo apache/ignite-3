@@ -1088,12 +1088,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public String primaryReplicaNodeId() {
+    public @Nullable String primaryReplicaNodeId() {
         return busy(() -> primaryReplicaNodeId);
     }
 
     @Override
-    public String primaryReplicaNodeName() {
+    public @Nullable String primaryReplicaNodeName() {
         return busy(() -> primaryReplicaNodeName);
     }
 

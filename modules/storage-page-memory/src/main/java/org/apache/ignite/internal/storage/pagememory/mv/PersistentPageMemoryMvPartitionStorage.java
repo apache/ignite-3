@@ -377,7 +377,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public String primaryReplicaNodeId() {
+    public @Nullable String primaryReplicaNodeId() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -387,10 +387,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 try {
                     if (primaryReplicaNodeId == null) {
                         long primaryReplicaNodeIdFirstPageId = meta.primaryReplicaNodeIdFirstPageId();
-                        assert primaryReplicaNodeIdFirstPageId != BlobStorage.NO_PAGE_ID;
 
-                        primaryReplicaNodeId = ByteUtils.stringFromBytes(
-                                blobStorage.readBlob(meta.primaryReplicaNodeIdFirstPageId()));
+                        // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
+                        // for example, if the lease itself has not yet been elected.
+                        if (primaryReplicaNodeIdFirstPageId != BlobStorage.NO_PAGE_ID) {
+                            primaryReplicaNodeId = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeIdFirstPageId));
+                        }
                     }
 
                     return primaryReplicaNodeId;
@@ -408,7 +410,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public String primaryReplicaNodeName() {
+    public @Nullable String primaryReplicaNodeName() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -418,10 +420,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 try {
                     if (primaryReplicaNodeName == null) {
                         long primaryReplicaNodeNameFirstPageId = meta.primaryReplicaNodeNameFirstPageId();
-                        assert primaryReplicaNodeNameFirstPageId != BlobStorage.NO_PAGE_ID;
 
-                        primaryReplicaNodeName = ByteUtils.stringFromBytes(
-                                blobStorage.readBlob(meta.primaryReplicaNodeNameFirstPageId()));
+                        // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
+                        // for example, if the lease itself has not yet been elected.
+                        if (primaryReplicaNodeNameFirstPageId != BlobStorage.NO_PAGE_ID) {
+                            primaryReplicaNodeName = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeNameFirstPageId));
+                        }
                     }
 
                     return primaryReplicaNodeName;

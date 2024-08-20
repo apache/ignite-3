@@ -663,14 +663,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public String primaryReplicaNodeId() {
+    public @Nullable String primaryReplicaNodeId() {
         checkStorageClosed();
 
         return primaryReplicaNodeId;
     }
 
     @Override
-    public String primaryReplicaNodeName() {
+    public @Nullable String primaryReplicaNodeName() {
         checkStorageClosed();
 
         return primaryReplicaNodeName;

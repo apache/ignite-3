@@ -233,7 +233,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public String primaryReplicaNodeId() {
+    public @Nullable String primaryReplicaNodeId() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -242,7 +242,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public String primaryReplicaNodeName() {
+    public @Nullable String primaryReplicaNodeName() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 

@@ -171,12 +171,12 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public String primaryReplicaNodeId() {
+    public @Nullable String primaryReplicaNodeId() {
         return partitionStorage.primaryReplicaNodeId();
     }
 
     @Override
-    public String primaryReplicaNodeName() {
+    public @Nullable String primaryReplicaNodeName() {
         return partitionStorage.primaryReplicaNodeName();
     }
 

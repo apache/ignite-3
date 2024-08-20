@@ -293,16 +293,16 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Return the node id of the known lease for this replication group.
      *
-     * @return Primary replica node id.
+     * @return Primary replica node id or null if there is no information about lease in the storage.
      */
-    String primaryReplicaNodeId();
+    @Nullable String primaryReplicaNodeId();
 
     /**
      * Return the node name of the known lease for this replication group.
      *
-     * @return Primary replica node name.
+     * @return Primary replica node name or null if there is no information about lease in the storage.
      */
-    String primaryReplicaNodeName();
+    @Nullable String primaryReplicaNodeName();
 
     /**
      * Returns the <em>estimated size</em> of this partition.

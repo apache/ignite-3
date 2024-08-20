@@ -809,11 +809,28 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         return upgradedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(upgradedBinaryRow, source.rowId());
     }
 
-    // TODO sanpwc javadoc
+    /**
+     * Checks whether the primary replica belongs to the raft group topology within a raft linearized context. On the primary replica
+     * election prior to the lease publication, the placement driver sends a PrimaryReplicaChangeCommand that populates the raft listener
+     * and the underneath storage with lease-related information, such as primaryReplicaNodeId, primaryReplicaNodeName and leaseStartTime.
+     * In Update(All)Command  handling, which occurs strictly after PrimaryReplicaChangeCommand processing, given information is used in
+     * order to detect whether primary belongs to the raft group topology.
+     *
+     *
+     * @return {@code true} if primary replica belongs to the raft group topology, (@code false) otherwise.
+     */
     private boolean isPrimaryInGroupTopology() {
-        // TODO comments for assertions.
-        assert currentGroupTopology != null;
-        assert storage.primaryReplicaNodeName() != null;
-        return currentGroupTopology.contains(storage.primaryReplicaNodeName());
+        assert currentGroupTopology != null : "Current group topology is null";
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23030 Seems that we have a bug. Lease related information is not restored on
+        // TODO snapshot load.
+        if (storage.primaryReplicaNodeName() == null) {
+            return true;
+        } else {
+            // Despite the fact that storage.primaryReplicaNodeName() may itself return null it's never expected to happen
+            // while calling isPrimaryInGroupTopology because of HB between handlePrimaryReplicaChangeCommand that will populate the storage
+            // with lease information and handleUpdate(All)Command that on it's turn calls isPrimaryReplicaInGroupTopology.
+            assert storage.primaryReplicaNodeName() != null : "Primary replica node name is null.";
+            return currentGroupTopology.contains(storage.primaryReplicaNodeName());
+        }
     }
 }
