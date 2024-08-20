@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.type;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
@@ -55,6 +57,12 @@ public class DecimalNativeType extends NativeType {
      */
     public int scale() {
         return scale;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String displayName() {
+        return format("{}({}, {})", super.displayName(), precision, scale);
     }
 
     /** {@inheritDoc} */

@@ -101,13 +101,20 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
+    public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        TablePartitionId id = (TablePartitionId) replicationGroupId;
+
+        return primaryReplicas.get(id.partitionId());
+    }
+
+    @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<TokenizedAssignments> getAssignments(
-            ReplicationGroupId replicationGroupId,
+    public CompletableFuture<List<TokenizedAssignments>> getAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
             HybridTimestamp clusterTimeToAwait
     ) {
         return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));

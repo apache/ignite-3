@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -272,11 +273,11 @@ public class PlacementDriverManager implements IgniteComponent {
     private PlacementDriver createPlacementDriver() {
         return new PlacementDriver() {
             @Override
-            public CompletableFuture<TokenizedAssignments> getAssignments(
-                    ReplicationGroupId replicationGroupId,
+            public CompletableFuture<List<TokenizedAssignments>> getAssignments(
+                    List<? extends ReplicationGroupId> replicationGroupIds,
                     HybridTimestamp timestamp
             ) {
-                return assignmentsTracker.getAssignments(replicationGroupId, timestamp);
+                return assignmentsTracker.getAssignments(replicationGroupIds, timestamp);
             }
 
             @Override
@@ -296,6 +297,11 @@ public class PlacementDriverManager implements IgniteComponent {
             @Override
             public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
                 return leaseTracker.getPrimaryReplica(replicationGroupId, timestamp);
+            }
+
+            @Override
+            public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+                return leaseTracker.getCurrentPrimaryReplica(replicationGroupId, timestamp);
             }
 
             @Override

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
@@ -47,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -55,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -72,6 +75,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -89,6 +93,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.RecordView;
@@ -236,7 +242,7 @@ public class PlatformTestNodeRunner {
         createTables(startedNodes.get(0));
 
         String ports = startedNodes.stream()
-                .map(n -> String.valueOf(getPort((IgniteImpl) n)))
+                .map(n -> String.valueOf(getPort(unwrapIgniteImpl(n))))
                 .collect(Collectors.joining(","));
 
         System.out.println("THIN_CLIENT_PORTS=" + ports);
@@ -299,7 +305,7 @@ public class PlatformTestNodeRunner {
     private static void createTables(Ignite node) {
         var keyCol = "KEY";
 
-        IgniteImpl ignite = ((IgniteImpl) node);
+        IgniteImpl ignite = unwrapIgniteImpl(node);
 
         createZone(ignite.catalogManager(), ZONE_NAME, 10, 1);
 
@@ -727,7 +733,7 @@ public class PlatformTestNodeRunner {
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer flag) {
             boolean enable = flag != 0;
-            @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
+            @SuppressWarnings("resource") IgniteImpl ignite = unwrapIgniteImpl(context.ignite());
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
                     root -> {
@@ -875,6 +881,99 @@ public class PlatformTestNodeRunner {
             }
 
             return null;
+        }
+    }
+
+
+    private static class Nested {
+        public UUID id;
+        public BigDecimal price;
+    }
+
+    private static class MyArg {
+        public int id;
+        public String name;
+        public Nested nested;
+    }
+
+    private static class MyResult {
+        public String data;
+        public Nested nested;
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class JsonMarshallerJob implements ComputeJob<MyArg, MyResult> {
+        @Override
+        public @Nullable CompletableFuture<MyResult> executeAsync(JobExecutionContext context, MyArg arg) {
+            var res = new MyResult();
+
+            res.data = arg.name + "_" + arg.id;
+            res.nested = arg.nested;
+
+            return completedFuture(res);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyArg, byte[]> inputMarshaller() {
+            return new JsonMarshaller<>(MyArg.class);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyResult, byte[]> resultMarshaller() {
+            return new JsonMarshaller<>(MyResult.class);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class ToStringMarshallerJob implements ComputeJob<Nested, Nested> {
+        @Override
+        public @Nullable CompletableFuture<Nested> executeAsync(JobExecutionContext context, Nested arg) {
+            if (arg == null) {
+                return completedFuture(null);
+            }
+
+            arg.price = arg.price.add(BigDecimal.ONE);
+
+            return completedFuture(arg);
+        }
+
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> inputMarshaller() {
+            return new ToStringMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> resultMarshaller() {
+            return new ToStringMarshaller();
+        }
+    }
+
+    private static class ToStringMarshaller implements Marshaller<Nested, byte[]> {
+        @Override
+        public byte[] marshal(Nested object) throws UnsupportedObjectTypeMarshallingException {
+            if (object == null) {
+                return null;
+            }
+
+            var str = object.id + ":" + object.price;
+
+            return str.getBytes(StandardCharsets.US_ASCII);
+        }
+
+        @Override
+        public @Nullable Nested unmarshal(byte[] raw) throws UnsupportedObjectTypeMarshallingException {
+            if (raw == null) {
+                return null;
+            }
+
+            var str = new String(raw, StandardCharsets.US_ASCII);
+            var parts = str.split(":");
+
+            var res = new Nested();
+            res.id = java.util.UUID.fromString(parts[0]);
+            res.price = new BigDecimal(parts[1]);
+
+            return res;
         }
     }
 }

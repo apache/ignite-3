@@ -139,18 +139,19 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
         for (ThreadInfo threadInfo : threadInfos) {
             if (threadInfo != null) {
-                String message = String.format(
-                        "A critical thread is blocked for %d ms that is more than the allowed %d ms, it is %s",
-                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()),
-                        maxAllowedLag,
-                        toString(threadInfo));
+                StringBuilder message = new StringBuilder()
+                        .append("A critical thread is blocked for ")
+                        .append(delayedThreadIdsToDelays.get(threadInfo.getThreadId()))
+                        .append(" ms that is more than the allowed ")
+                        .append(maxAllowedLag)
+                        .append(" ms, it is ");
 
-                LOG.error(message);
+                appendThreadInfo(message, threadInfo);
 
                 failureProcessor.process(
                         new FailureContext(
                                 SYSTEM_WORKER_BLOCKED,
-                                new IgniteException(SYSTEM_WORKER_BLOCKED_ERR, message)));
+                                new IgniteException(SYSTEM_WORKER_BLOCKED_ERR, message.toString(), false)));
             }
         }
     }
@@ -181,12 +182,12 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         return delayedThreadIdsToDelays;
     }
 
-    private static String toString(ThreadInfo threadInfo) {
+    private static void appendThreadInfo(StringBuilder sb, ThreadInfo threadInfo) {
         // This method is based on code taken from ThreadInfo#toString(). The original method limits the depth of the
         // stacktrace it includes in the string representation to just 8 frames, which is too few. Here, we
         // removed this limitation and include the stack trace in its entirety.
 
-        StringBuilder sb = new StringBuilder()
+        sb
                 .append('\"').append(threadInfo.getThreadName()).append('\"')
                 .append(threadInfo.isDaemon() ? " daemon" : "")
                 .append(" prio=").append(threadInfo.getPriority())
@@ -249,7 +250,6 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
             }
         }
         sb.append('\n');
-        return sb.toString();
     }
 
     @Override

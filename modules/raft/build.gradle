@@ -43,6 +43,7 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.disruptor
@@ -75,12 +76,11 @@ dependencies {
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-api')
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22564 runner should not be in test fixtures
-    testFixturesImplementation project(':ignite-runner')
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-metrics')))
     testFixturesImplementation(testFixtures(project(':ignite-network')))
+    testFixturesImplementation(testFixtures(project(':ignite-failure-handler')))
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.junit5.api

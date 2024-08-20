@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schemasync;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -26,7 +27,6 @@ import static org.hamcrest.Matchers.is;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -39,9 +39,7 @@ class ItSchemaSyncConfigTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void delayDurationIsImmutable() {
-        IgniteImpl ignite = CLUSTER.aliveNode();
-
-        SchemaSynchronizationConfiguration config = ignite.clusterConfiguration()
+        SchemaSynchronizationConfiguration config = unwrapIgniteImpl(CLUSTER.aliveNode()).clusterConfiguration()
                 .getConfiguration(SchemaSynchronizationConfiguration.KEY);
 
         ConfigurationChangeException ex = assertWillThrowFast(
@@ -59,9 +57,7 @@ class ItSchemaSyncConfigTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void maxClockSkewIsImmutable() {
-        IgniteImpl ignite = CLUSTER.aliveNode();
-
-        SchemaSynchronizationConfiguration config = ignite.clusterConfiguration()
+        SchemaSynchronizationConfiguration config = unwrapIgniteImpl(CLUSTER.aliveNode()).clusterConfiguration()
                 .getConfiguration(SchemaSynchronizationConfiguration.KEY);
 
         ConfigurationChangeException ex = assertWillThrowFast(

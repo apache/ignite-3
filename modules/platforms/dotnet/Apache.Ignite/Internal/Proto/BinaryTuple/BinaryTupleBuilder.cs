@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Buffers;
     using System.Buffers.Binary;
     using System.Diagnostics;
     using System.Numerics;
@@ -83,7 +84,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _valueBase = _entryBase + _entrySize * numElements;
 
-            _buffer.GetSpan(size: _valueBase)[.._valueBase].Clear();
+            _buffer.GetSpan(sizeHint: _valueBase)[.._valueBase].Clear();
             _buffer.Advance(_valueBase);
         }
 
@@ -423,7 +424,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends bytes.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendBytes(Span<byte> value)
+        public void AppendBytes(ReadOnlySpan<byte> value)
         {
             if (GetHashOrder() is { } hashOrder)
             {
@@ -431,6 +432,55 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             PutBytes(value);
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends bytes using <see cref="IBufferWriter{T}"/> directly to the underlying buffer, avoiding extra copying.
+        /// </summary>
+        /// <param name="action">Appender action.</param>
+        /// <param name="arg">Argument.</param>
+        /// <typeparam name="TArg">Argument type.</typeparam>
+        public void AppendBytes<TArg>(Action<IBufferWriter<byte>, TArg> action, TArg arg)
+        {
+            var oldPos = _buffer.Position;
+
+            action(_buffer, arg);
+
+            var length = _buffer.Position - oldPos;
+
+            if (length == 0)
+            {
+                GetSpan(1)[0] = BinaryTupleCommon.VarlenEmptyByte;
+                OnWrite();
+                return;
+            }
+
+            var writtenSpan = _buffer.GetWrittenMemory().Span.Slice(oldPos, length);
+
+            if (length > 0 && writtenSpan[0] == BinaryTupleCommon.VarlenEmptyByte)
+            {
+                // Actual data starts with VarlenEmptyByte - insert another VarlenEmptyByte in the beginning.
+                var temp = ByteArrayPool.Rent(length);
+
+                try
+                {
+                    // 1. Copy written memory to a separate buffer.
+                    writtenSpan.CopyTo(temp);
+
+                    // 2. Extend the buffer.
+                    _buffer.GetSpanAndAdvance(1);
+
+                    // 3. Copy back, skipping existing VarlenEmptyByte at the beginning.
+                    var newWrittenSpan = _buffer.GetWrittenMemory().Span.Slice(oldPos + 1, length);
+                    temp.AsSpan(0, length).CopyTo(newWrittenSpan);
+                }
+                finally
+                {
+                    ByteArrayPool.Return(temp);
+                }
+            }
+
             OnWrite();
         }
 
@@ -1164,7 +1214,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void PutDouble(double value) => PutLong(BitConverter.DoubleToInt64Bits(value));
 
-        private void PutBytes(Span<byte> bytes)
+        private void PutBytes(ReadOnlySpan<byte> bytes)
         {
             if (bytes.Length == 0)
             {
@@ -1390,7 +1440,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private Span<byte> GetSpan(int size)
         {
-            var span = _buffer.GetSpan(size);
+            var span = _buffer.GetSpan(size)[..size];
 
             _buffer.Advance(size);
 

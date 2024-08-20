@@ -75,6 +75,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.sql.validate.AliasNamespace;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
@@ -174,6 +175,33 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         validateInferredDynamicParameters();
 
         return result;
+    }
+
+    @Override
+    protected void registerNamespace(
+            @Nullable SqlValidatorScope usingScope,
+            @Nullable String alias,
+            SqlValidatorNamespace ns,
+            boolean forceNullable
+    ) {
+        if (ns instanceof AliasNamespace) {
+            SqlNode call = ns.getNode();
+            SqlNode enclosingNode = ns.getEnclosingNode();
+
+            assert call instanceof SqlCall;
+            assert enclosingNode != null;
+
+            // Calcite's implementation lacks notion of system/hidden columns,
+            // which is required to properly derive table type for column 
+            // renaming in FROM clause.
+            ns = new IgniteAliasNamespace(
+                    (SqlValidatorImpl) ns.getValidator(),
+                    (SqlCall) call,
+                    enclosingNode
+            );
+        }
+
+        super.registerNamespace(usingScope, alias, ns, forceNullable);
     }
 
     /** {@inheritDoc} */

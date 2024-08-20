@@ -412,8 +412,12 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 .set("string", "abcefghi")
                 .set("bytes", new byte[]{1, 2, 3, 4, 5});
 
-        assertThrowsWithCause(() -> marshaller.marshal(tuple1), InvalidTypeException.class, "Column's type mismatch");
-        assertThrowsWithCause(() -> marshaller.marshal(tuple2), InvalidTypeException.class, "Column's type mismatch");
+        assertThrowsWithCause(() -> marshaller.marshal(tuple1), InvalidTypeException.class,
+                "Value too long [column='BYTES', type=BYTE_ARRAY(5)]"
+        );
+        assertThrowsWithCause(() -> marshaller.marshal(tuple2), InvalidTypeException.class,
+                "Value too long [column='STRING', type=STRING(5)]"
+        );
 
         Tuple expected = Tuple.create().set("key", 1)
                 .set("string", "abc")
@@ -438,7 +442,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
         Tuple tuple1 = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123456.7"));
 
         assertThrowsWithCause(() -> marshaller.marshal(tuple1), SchemaMismatchException.class,
-                "Failed to set decimal value for column 'DECIMAL' (max precision exceeds allocated precision)");
+                "Numeric field overflow in column 'DECIMAL'");
     }
 
     @Test

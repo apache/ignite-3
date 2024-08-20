@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -340,7 +342,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void concurrentDrop() {
         sql("CREATE TABLE test (key INT PRIMARY KEY)");
 
-        IgniteImpl node = CLUSTER.node(0);
+        Ignite node = CLUSTER.node(0);
         Transaction tx = node.transactions().begin(new TransactionOptions().readOnly(true));
 
         sql("DROP TABLE test");
@@ -396,7 +398,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void tableStorageProfileWithoutSettingItExplicitly() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
@@ -407,7 +409,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void tableStorageProfileExceptionIfZoneDoesntContainProfile() {
-        String defaultZoneName = getDefaultZone(CLUSTER.aliveNode()).name();
+        String defaultZoneName = getDefaultZone(unwrapIgniteImpl(CLUSTER.aliveNode())).name();
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
@@ -420,7 +422,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void tableStorageProfile() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
@@ -437,7 +439,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1'");
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
@@ -454,7 +456,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1', STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
@@ -500,7 +502,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO \"table Test\" VALUES (1, 1)");
         sql("INSERT INTO \"table\"\"Test\"\"\" VALUES (1, 2)");
 
-        IgniteImpl node = CLUSTER.node(0);
+        Ignite node = CLUSTER.node(0);
 
         assertThrows(IllegalArgumentException.class, () -> node.tables().table("table Test"));
         assertThrows(IllegalArgumentException.class, () -> node.tables().table("table\"Test\""));
@@ -523,8 +525,8 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void testCreateTableDoesNotAllowIntervals() {
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR, 
-                "Type INTERVAL YEAR cannot be used in a column definition [column=ID]", 
+                STMT_VALIDATION_ERR,
+                "Type INTERVAL YEAR cannot be used in a column definition [column=ID]",
                 () -> sql("CREATE TABLE test(id INTERVAL YEAR PRIMARY KEY, val INT)")
         );
 

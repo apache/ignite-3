@@ -15,17 +15,50 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.compaction.message;
+#include <memory>
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
+#include <Python.h>
+
+#define PY_CURSOR_CLASS_NAME "PyCursor"
+
+namespace ignite {
+class sql_statement;
+}
 
 /**
- * Response message containing the low watermark required for the local node.
- * This watermark is used to safely truncate catalog history.
+ * Cursor Python object.
  */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_REQUIRED_TIME_RESPONSE)
-public interface CatalogMinimumRequiredTimeResponse extends NetworkMessage {
-    /** Returns node's minimum required time. */
-    long timestamp();
-}
+struct py_cursor {
+    PyObject_HEAD
+
+    /** Statement. */
+    ignite::sql_statement *m_statement;
+};
+
+/**
+ * Connection init function.
+ */
+int py_cursor_init(py_cursor *self, PyObject *args, PyObject *kwds);
+
+/**
+ * Connection dealloc function.
+ */
+void py_cursor_dealloc(py_cursor *self);
+
+/**
+ * Create a new instance of py_cursor python class.
+ *
+ * @param stmt Statement.
+ * @return A new class instance.
+ */
+py_cursor* make_py_cursor(std::unique_ptr<ignite::sql_statement> stmt);
+
+/**
+ * Prepare PyCursor type for registration.
+ */
+int prepare_py_cursor_type();
+
+/**
+ * Register PyCursor type within module.
+ */
+int register_py_cursor_type(PyObject* mod);

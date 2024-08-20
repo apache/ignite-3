@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.raft;
 
 import static java.lang.System.currentTimeMillis;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
@@ -41,19 +44,18 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 import java.io.IOException;
-import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -172,19 +174,40 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller
     ) {
-        var service = new RaftGroupServiceImpl(
-                groupId,
-                cluster,
-                factory,
-                configuration,
-                membersConfiguration,
-                null,
-                executor,
-                commandsMarshaller
-        );
+        boolean inBenchmark = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK);
+
+        RaftGroupServiceImpl service;
+        if (inBenchmark) {
+            service = new RaftGroupServiceImpl(
+                    groupId,
+                    cluster,
+                    factory,
+                    configuration,
+                    membersConfiguration,
+                    null,
+                    executor,
+                    commandsMarshaller
+            ) {
+                @Override
+                public <R> CompletableFuture<R> run(Command cmd) {
+                    return cmd.getClass().getSimpleName().contains("UpdateCommand") ? nullCompletedFuture() : super.run(cmd);
+                }
+            };
+        } else {
+            service = new RaftGroupServiceImpl(
+                    groupId,
+                    cluster,
+                    factory,
+                    configuration,
+                    membersConfiguration,
+                    null,
+                    executor,
+                    commandsMarshaller
+            );
+        }
 
         if (!getLeader) {
-            return CompletableFuture.completedFuture(service);
+            return completedFuture(service);
         }
 
         return service.refreshLeader().handle((unused, throwable) -> {
@@ -598,6 +621,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             long stopTime,
             CompletableFuture<? extends NetworkMessage> fut
     ) {
+        err = unwrapCause(err);
+
         if (recoverable(err)) {
             Peer randomPeer = randomNode(peer);
 
@@ -707,17 +732,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /**
-     * Checks if an error is recoverable, for example, {@link java.net.ConnectException}.
+     * Checks if an error is recoverable.
+     *
+     * <p>An error is considered recoverable if it's an instance of {@link TimeoutException}, {@link IOException}
+     * or {@link PeerUnavailableException}.
      *
      * @param t The throwable.
      * @return {@code True} if this is a recoverable exception.
      */
     private static boolean recoverable(Throwable t) {
-        if (t instanceof ExecutionException || t instanceof CompletionException) {
-            t = t.getCause();
-        }
+        t = unwrapCause(t);
 
-        return t instanceof TimeoutException || t instanceof IOException;
+        return t instanceof TimeoutException || t instanceof IOException || t instanceof PeerUnavailableException;
     }
 
     private Peer randomNode() {
@@ -811,9 +837,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         ClusterNode node = cluster.topologyService().getByConsistentId(peer.consistentId());
 
         if (node == null) {
-            return CompletableFuture.failedFuture(new ConnectException("Peer " + peer.consistentId() + " is unavailable"));
+            return CompletableFuture.failedFuture(new PeerUnavailableException(peer.consistentId()));
         }
 
-        return CompletableFuture.completedFuture(node);
+        return completedFuture(node);
     }
 }

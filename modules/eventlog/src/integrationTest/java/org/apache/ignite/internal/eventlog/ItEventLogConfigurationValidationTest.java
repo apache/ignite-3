@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.eventlog.api.IgniteEventType.CLIENT_CONNECTION_CLOSED;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -50,6 +51,6 @@ class ItEventLogConfigurationValidationTest extends ClusterPerClassIntegrationTe
     }
 
     private static EventLogConfiguration eventLogConfiguration() {
-        return CLUSTER.aliveNode().clusterConfiguration().getConfiguration(EventLogConfiguration.KEY);
+        return unwrapIgniteImpl(CLUSTER.aliveNode()).clusterConfiguration().getConfiguration(EventLogConfiguration.KEY);
     }
 }

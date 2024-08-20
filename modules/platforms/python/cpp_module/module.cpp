@@ -17,6 +17,7 @@
 
 #include "module.h"
 #include "py_connection.h"
+#include "py_cursor.h"
 
 #include <ignite/odbc/sql_environment.h>
 #include <ignite/odbc/sql_connection.h>
@@ -53,10 +54,10 @@ PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifi
     if (mod == nullptr)
         return nullptr;
 
-    if (prepare_py_connection_type())
+    if (prepare_py_connection_type() || prepare_py_cursor_type())
         return nullptr;
 
-    if (register_py_connection_type(mod))
+    if (register_py_connection_type(mod) || register_py_cursor_type(mod))
         return nullptr;
 
     return mod;

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
 
+import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -54,7 +56,15 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
     @Override
     public ExecutionTarget allOf(List<String> nodes) {
-        return new AllOfTarget(nodeListToMap(nodes));
+        long nodesMap = 0;
+
+        for (String name : nodes) {
+            long node = nodeNameToId.getOrDefault(name, -1);
+            assert node >= 0 : "invalid node";
+            nodesMap |= node;
+        }
+
+        return new AllOfTarget(nodesMap);
     }
 
     @Override
@@ -75,14 +85,21 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
         int idx = 0;
         boolean finalised = true;
         for (TokenizedAssignments assignment : assignments) {
-            finalised = finalised && assignment.nodes().size() < 2;
-
+            long currentPartitionNodes = 0L;
             for (Assignment a : assignment.nodes()) {
                 long node = nodeNameToId.getOrDefault(a.consistentId(), -1);
-                assert node >= 0 : "invalid node";
-                partitionNodes[idx] |= node;
+
+                // TODO Ignore unknown node until IGNITE-22969
+                if (node != -1) {
+                    currentPartitionNodes |= node;
+                }
             }
 
+            assert currentPartitionNodes != 0L : "No partition node found";
+
+            finalised = finalised && isPow2(currentPartitionNodes);
+
+            partitionNodes[idx] = currentPartitionNodes;
             enlistmentConsistencyTokens[idx] = assignment.token();
 
             idx++;
@@ -114,8 +131,11 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
 
         for (String name : nodes) {
             long node = nodeNameToId.getOrDefault(name, -1);
-            assert node >= 0 : "invalid node";
-            nodesMap |= node;
+
+            // TODO Ignore unknown node until IGNITE-22969
+            if (node != -1) {
+                nodesMap |= node;
+            }
         }
 
         return nodesMap;

@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -159,7 +160,7 @@ public class ItTransactionTestUtils {
      * @param tableName Table name.
      * @return Table instance.
      */
-    public static TableImpl table(IgniteImpl node, String tableName) {
+    public static TableImpl table(Ignite node, String tableName) {
         return unwrapTableImpl(node.tables().table(tableName));
     }
 
@@ -170,7 +171,7 @@ public class ItTransactionTestUtils {
      * @param tableName Table name.
      * @return Table id.
      */
-    public static int tableId(IgniteImpl node, String tableName) {
+    public static int tableId(Ignite node, String tableName) {
         return table(node, tableName).tableId();
     }
 

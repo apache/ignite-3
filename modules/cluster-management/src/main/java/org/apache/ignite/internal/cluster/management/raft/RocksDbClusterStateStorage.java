@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -100,13 +102,14 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             try {
+                Files.createDirectories(dbPath);
                 // Delete existing data, relying on log playback.
                 RocksDB.destroyDB(dbPath.toString(), options);
 
                 init();
 
                 return nullCompletedFuture();
-            } catch (RocksDBException e) {
+            } catch (RocksDBException | IOException e) {
                 return failedFuture(new CmgStorageException("Failed to start the storage", e));
             }
         });

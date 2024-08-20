@@ -60,7 +60,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testNoRetryPolicySecondRequestFails() throws Exception {
+    public void testNoRetryPolicySecondRequestFails() {
         initServer(reqId -> reqId % 3 == 0);
 
         try (var client = getClient(null)) {
@@ -70,7 +70,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryPolicyCompletesOperationWithoutException() throws Exception {
+    public void testRetryPolicyCompletesOperationWithoutException() {
         // Every 3 network message fails, including handshake.
         initServer(reqId -> reqId % 4 == 0);
 
@@ -87,7 +87,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryPolicyDoesNotRetryUnrelatedErrors() throws Exception {
+    public void testRetryPolicyDoesNotRetryUnrelatedErrors() {
         initServer(reqId -> reqId % 33 == 0);
         var plc = new TestRetryPolicy();
 
@@ -98,7 +98,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryPolicyDoesNotRetryTxCommit() throws Exception {
+    public void testRetryPolicyDoesNotRetryTxCommit() {
         initServer(reqId -> reqId % 3 == 0);
         var plc = new TestRetryPolicy();
 
@@ -112,7 +112,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryLimitPolicyThrowsOnLimitExceeded() throws Exception {
+    public void testRetryLimitPolicyThrowsOnLimitExceeded() {
         initServer(reqId -> reqId % 2 == 0);
         var plc = new TestRetryPolicy();
         plc.retryLimit(5);
@@ -126,7 +126,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testCustomRetryPolicyIsInvokedWithCorrectContext() throws Exception {
+    public void testCustomRetryPolicyIsInvokedWithCorrectContext() {
         initServer(reqId -> reqId % 2 == 0);
         var plc = new TestRetryPolicy();
         plc.retryLimit(2);
@@ -146,7 +146,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testTableOperationWithoutTxIsRetried() throws Exception {
+    public void testTableOperationWithoutTxIsRetried() {
         initServer(reqId -> reqId % 4 == 0);
         var plc = new TestRetryPolicy();
 
@@ -160,7 +160,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testTableOperationWithTxIsNotRetried() throws Exception {
+    public void testTableOperationWithTxIsNotRetried() {
         initServer(reqId -> reqId % 4 == 0);
         var plc = new TestRetryPolicy();
 
@@ -177,7 +177,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryReadPolicyRetriesReadOperations() throws Exception {
+    public void testRetryReadPolicyRetriesReadOperations() {
         // Standard requests are:
         // 1: Handshake
         // 2: SCHEMAS_GET
@@ -198,7 +198,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryReadPolicyDoesNotRetryWriteOperations() throws Exception {
+    public void testRetryReadPolicyDoesNotRetryWriteOperations() {
         initServer(reqId -> reqId % 6 == 0);
 
         try (var client = getClient(new RetryReadPolicy())) {
@@ -247,7 +247,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testDefaultRetryPolicyIsRetryReadPolicyWithLimit() throws Exception {
+    public void testDefaultRetryPolicyIsRetryReadPolicyWithLimit() {
         initServer(reqId -> false);
 
         try (var client = IgniteClient.builder().addresses("127.0.0.1:" + server.port()).build()) {
@@ -259,7 +259,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testExceptionInRetryPolicyPropagatesToCaller() throws Exception {
+    public void testExceptionInRetryPolicyPropagatesToCaller() {
         initServer(reqId -> reqId % 2 == 0);
         var plc = new TestRetryPolicy();
         plc.shouldThrow = true;
