@@ -12,6 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime
+import decimal
+import uuid
+from typing import Optional
 
 from pyignite3 import _pyignite3_extension
 
@@ -26,6 +30,22 @@ threadsafety = 1
 # Parameter style is a question mark, e.g. '...WHERE name=?'
 paramstyle = 'qmark'
 
+BOOLEAN = bool
+INT = int
+FLOAT = float
+STRING = str
+BINARY = memoryview
+NUMBER = decimal.Decimal
+DATE = datetime.date
+TIME = datetime.time
+DATETIME = datetime.datetime
+TIMESTAMP = datetime.datetime
+UUID = uuid.UUID
+
+
+class ColumnDescription:
+    def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int], precision: Optional[int], scale: Optional[int], null_ok: bool):
+        pass
 
 class Cursor:
     """
@@ -36,6 +56,13 @@ class Cursor:
 
         # TODO: IGNITE-22741 Implement data fetching
         self.arraysize = 1
+        self._description = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     @property
     def description(self):
@@ -54,19 +81,22 @@ class Cursor:
         This attribute will be None for operations that do not return rows or if the cursor has not had an operation
         invoked via the .execute*() method yet.
         """
+        if self._py_cursor is None:
+            return None
         # TODO: IGNITE-22469 Implement query execution
-        return None
+        return self._description
 
     @property
-    def rowcount(self):
+    def rowcount(self) -> int:
         """
         This read-only attribute specifies the number of rows that the last .execute*() produced
         (for DQL statements like SELECT) or affected (for DML statements like UPDATE or INSERT).
         The attribute is -1 in case no .execute*() has been performed on the cursor or the rowcount of the last
         operation is cannot be determined by the interface.
         """
-        # TODO: IGNITE-22469 Implement query execution
-        return -1
+        if self._py_cursor is None:
+            return -1
+        return self._py_cursor.rowcount()
 
     def callproc(self, *args):
         if self._py_cursor is None:
@@ -97,6 +127,8 @@ class Cursor:
             raise InterfaceError('Connection is already closed')
 
         self._py_cursor.execute(*args)
+        for column_id in self._py_cursor.column_count():
+
 
     def executemany(self, *args):
         if self._py_cursor is None:
@@ -154,6 +186,12 @@ class Connection:
     """
     def __init__(self):
         self._py_connection = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def close(self):
         """

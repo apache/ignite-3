@@ -35,8 +35,25 @@ def test_execute_sql_success():
 
         try:
             cursor.execute('select 1')
+            assert cursor.rowcount == -1
         finally:
             cursor.close()
     finally:
         conn.close()
 
+
+def test_execute_update_rowcount():
+    table_name = test_execute_update_rowcount.__name__
+    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+        with conn.cursor() as cursor:
+            try:
+                cursor.execute(f'create table {table_name}(id int primary key, data varchar)')
+                for key in range(10):
+                    cursor.execute(f"insert into {table_name} values({key}, 'data-{key*2}')")
+                    assert cursor.rowcount == 1
+
+                cursor.execute(f"update {table_name} set data='Lorem ipsum' where id > 3")
+                assert cursor.rowcount == 6
+
+            finally:
+                cursor.execute(f'drop table if exists {table_name}');

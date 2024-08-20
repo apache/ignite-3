@@ -64,9 +64,9 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
     }
 
     static char *kwlist[] = {
-            "query",
-            "params",
-            nullptr
+        "query",
+        "params",
+        nullptr
     };
 
     const char* query = nullptr;
@@ -77,10 +77,29 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
     if (!parsed)
         return nullptr;
 
+    // TODO IGNITE-22469 Support parameters
+
     self->m_statement->execute_sql_query(query);
+    if (!check_errors(*self->m_statement))
+        return nullptr;
 
     Py_INCREF(Py_None);
     return Py_None;
+}
+
+static PyObject* py_cursor_rowcount(py_cursor* self, PyObject*)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    auto query = self->m_statement->get_query();
+
+    if (!query)
+        return PyLong_FromLong(-1);
+
+    return PyLong_FromLong(long(query->affected_rows()));
 }
 
 static PyTypeObject py_cursor_type = {
@@ -91,6 +110,7 @@ static PyTypeObject py_cursor_type = {
 static struct PyMethodDef py_cursor_methods[] = {
     {"close", (PyCFunction)py_cursor_close, METH_NOARGS, nullptr},
     {"execute", (PyCFunction)py_cursor_execute, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {"rowcount", (PyCFunction)py_cursor_rowcount, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}
 };
 
