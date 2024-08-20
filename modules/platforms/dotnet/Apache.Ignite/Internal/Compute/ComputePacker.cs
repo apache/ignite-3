@@ -19,10 +19,8 @@ namespace Apache.Ignite.Internal.Compute;
 
 using System;
 using System.Buffers;
-using Ignite.Sql;
 using Ignite.Table;
 using Marshalling;
-using Proto.BinaryTuple;
 using Proto.MsgPack;
 
 /// <summary>
@@ -30,8 +28,19 @@ using Proto.MsgPack;
 /// </summary>
 internal static class ComputePacker
 {
-    private const int Native = 1;
+    /// <summary>
+    /// Natively supported simple type.
+    /// </summary>
+    internal const int Native = 1;
+
+    /// <summary>
+    /// Ignite tuple.
+    /// </summary>
     private const int Tuple = -1;
+
+    /// <summary>
+    /// User-defined marshaller.
+    /// </summary>
     private const int MarshallerObject = -2;
 
     /// <summary>
