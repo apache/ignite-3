@@ -111,6 +111,8 @@ public class IgniteServerImpl implements IgniteServer {
 
     /**
      * Used to make sure restart and shutdown requests are serviced sequentially.
+     *
+     * <p>Guarded by {@link #restartOrShutdownMutex}.
      */
     private CompletableFuture<Void> restartOrShutdownFuture = nullCompletedFuture();
 
