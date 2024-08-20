@@ -1096,6 +1096,17 @@ public class IgniteImpl implements Ignite {
         );
         ComponentContext componentContext = new ComponentContext(startupExecutor);
 
+        Thread thread = new Thread("throttle-check-" + name) {
+            @Override
+            public void run() {
+                while (true) {
+                    System.currentTimeMillis();
+                }
+            }
+        };
+        thread.setDaemon(true);
+        thread.start();
+
         try {
             JvmMetricSource jvmMetrics = new JvmMetricSource();
             metricManager.registerSource(jvmMetrics);
