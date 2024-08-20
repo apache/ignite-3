@@ -39,10 +39,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.Session;
@@ -400,7 +400,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     }
 
     private static List<String> allNodeNames() {
-        return CLUSTER.runningNodes().map(IgniteImpl::name).collect(toList());
+        return CLUSTER.runningNodes().map(Ignite::name).collect(toList());
     }
 
     @Test

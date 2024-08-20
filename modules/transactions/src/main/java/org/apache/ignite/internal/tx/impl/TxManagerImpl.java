@@ -56,8 +56,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -165,14 +165,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * Total number of started transaction.
      * TODO: IGNITE-21440 Implement transaction metrics.
      */
-    private final AtomicInteger startedTxs = new AtomicInteger();
+    private final LongAdder startedTxs = new LongAdder();
 
     /**
      * Total number of finished transaction.
      * TODO: IGNITE-21440 Implement transaction metrics.
      */
-    private final AtomicInteger finishedTxs = new AtomicInteger();
-
+    private final LongAdder finishedTxs = new LongAdder();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -393,7 +392,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         HybridTimestamp beginTimestamp = readOnly ? clockService.now() : createBeginTimestampWithIncrementRwTxCounter();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
 
-        startedTxs.incrementAndGet();
+        startedTxs.add(1);
 
         if (!readOnly) {
             txStateVolatileStorage.initialize(txId, localNodeId);
@@ -463,7 +462,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
         TxState finalState;
 
-        finishedTxs.incrementAndGet();
+        finishedTxs.add(1);
 
         if (commit) {
             timestampTracker.update(clockService.now());
@@ -498,7 +497,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}].", commitIntent, txId, enlistedGroups);
 
-        finishedTxs.incrementAndGet();
+        finishedTxs.add(1);
 
         assert enlistedGroups != null;
 
@@ -751,12 +750,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public int finished() {
-        return finishedTxs.get();
+        return finishedTxs.intValue();
     }
 
     @Override
     public int pending() {
-        return startedTxs.get() - finishedTxs.get();
+        return startedTxs.intValue() - finishedTxs.intValue();
     }
 
     @Override
@@ -867,7 +866,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
-        finishedTxs.incrementAndGet();
+        finishedTxs.add(1);
 
         CompletableFuture<Void> readOnlyTxFuture = readOnlyTxFutureById.remove(txIdAndTimestamp);
 

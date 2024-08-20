@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -66,7 +68,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
 
-        CLUSTER.runningNodes().forEach(IgniteImpl::stopDroppingMessages);
+        CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(IgniteImpl::stopDroppingMessages);
     }
 
     private static IndexStorage indexStorage(TableImpl table, String indexName) {
@@ -101,7 +103,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
     }
 
     private static IgniteImpl node() {
-        return CLUSTER.node(0);
+        return unwrapIgniteImpl(CLUSTER.node(0));
     }
 
     private static void dropAnyBuildIndexMessages() {

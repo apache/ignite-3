@@ -15,36 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-
-import org.apache.ignite.Ignite;
-import org.apache.ignite.client.IgniteClient;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
- * NOT NULL constraint test for thin client API.
+ * New row id allocator.
  */
-public class ItNotNullConstraintClientTest extends ItNotNullConstraintTest {
-
-    private IgniteClient client;
-
-    @BeforeEach
-    public void startClient() {
-        client = IgniteClient.builder()
-                .addresses("localhost:" + unwrapIgniteImpl(CLUSTER.aliveNode()).clientAddress().port())
-                .build();
-    }
-
-    @AfterEach
-    public void stopClient() {
-        client.close();
-    }
-
-    @Override
-    protected Ignite ignite() {
-        return client;
+public class RowIdGenerator {
+    /**
+     * Get next row id.
+     *
+     * @return Next row id.
+     */
+    public static UUID next() {
+        return new UUID(FastTimestamps.coarseCurrentTimeMillis(), ThreadLocalRandom.current().nextLong());
     }
 }

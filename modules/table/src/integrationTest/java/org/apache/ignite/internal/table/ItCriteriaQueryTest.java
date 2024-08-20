@@ -21,6 +21,7 @@ import static java.util.Spliterators.spliteratorUnknownSize;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -106,7 +107,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         super.beforeAll(testInfo);
 
         CLIENT = IgniteClient.builder()
-                .addresses("127.0.0.1:" + CLUSTER.aliveNode().clientAddress().port()).build();
+                .addresses("127.0.0.1:" + unwrapIgniteImpl(CLUSTER.aliveNode()).clientAddress().port()).build();
 
         sql(format("CREATE TABLE {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE, hash VARBINARY)", TABLE_NAME));
 

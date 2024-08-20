@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.compaction;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -71,8 +72,8 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void testRaftGroupsUpdate() throws InterruptedException {
-        IgniteImpl ignite = CLUSTER.aliveNode();
-        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) CLUSTER.aliveNode().catalogManager());
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
         int partsCount = 16;
 
         sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
@@ -111,7 +112,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         // Latest active catalog does not contain all required tables.
         // Replicas of dropped tables must also be updated.
-        long requiredTime = CLUSTER.aliveNode().clockService().nowLong();
+        long requiredTime = ignite.clockService().nowLong();
 
         {
             sql("drop table a");
@@ -130,9 +131,9 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void testGlobalMinimumTxBeginTime() {
-        IgniteImpl node0 = CLUSTER.node(0);
-        IgniteImpl node1 = CLUSTER.node(1);
-        IgniteImpl node2 = CLUSTER.node(2);
+        IgniteImpl node0 = unwrapIgniteImpl(CLUSTER.node(0));
+        IgniteImpl node1 = unwrapIgniteImpl(CLUSTER.node(1));
+        IgniteImpl node2 = unwrapIgniteImpl(CLUSTER.node(2));
 
         List<CatalogCompactionRunner> compactors = List.of(
                 node0.catalogCompactionRunner(),
@@ -190,7 +191,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             HybridTimestamp expectedTimestamp,
             Map<Integer, Integer> expectedTablesWithPartitions
     ) throws InterruptedException {
-        Loza loza = CLUSTER.aliveNode().raftManager();
+        Loza loza = unwrapIgniteImpl(CLUSTER.aliveNode()).raftManager();
         JraftServerImpl server = (JraftServerImpl) loza.server();
 
         for (Map.Entry<Integer, Integer> tableWithPartition : expectedTablesWithPartitions.entrySet()) {
