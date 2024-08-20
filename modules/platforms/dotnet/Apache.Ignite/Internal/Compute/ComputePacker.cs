@@ -52,15 +52,10 @@ internal static class ComputePacker
         if (marshaller != null)
         {
             w.Write(MarshallerObject);
-
-            using var builder = new BinaryTupleBuilder(3);
-            builder.AppendInt((int)ColumnType.ByteArray);
-            builder.AppendInt(0); // Scale.
-            builder.AppendBytes(
+            w.Write(
                 static (IBufferWriter<byte> writer, (T Obj, IMarshaller<T> Marshaller) arg) => arg.Marshaller.Marshal(arg.Obj, writer),
                 arg: (obj, marshaller));
 
-            w.Write(builder.Build().Span);
             return;
         }
 
@@ -105,18 +100,12 @@ internal static class ComputePacker
                 throw new ArgumentNullException(nameof(marshaller), "Compute job result marshaller is required but not provided.");
             }
 
-            var tuple = new BinaryTupleReader(r.ReadBinary(), 3);
-            var type = (ColumnType)tuple.GetInt(0);
-
-            if (type != ColumnType.ByteArray)
+            if (r.TryReadNil())
             {
-                throw new UnsupportedObjectTypeMarshallingException(
-                    Guid.NewGuid(),
-                    ErrorGroups.Marshalling.UnsupportedObjectType,
-                    "Unsupported object type. Expected byte[], got " + type);
+                return (T)(object)null!;
             }
 
-            var bytes = tuple.GetBytesSpan(2);
+            var bytes = r.ReadBinary();
 
             return marshaller.Unmarshal(bytes);
         }

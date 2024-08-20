@@ -344,6 +344,26 @@ internal readonly ref struct MsgPackWriter
     }
 
     /// <summary>
+    /// Appends bytes using <see cref="IBufferWriter{T}"/> directly to the underlying buffer, avoiding extra copying.
+    /// </summary>
+    /// <param name="action">Appender action.</param>
+    /// <param name="arg">Argument.</param>
+    /// <typeparam name="TArg">Argument type.</typeparam>
+    public void Write<TArg>(Action<IBufferWriter<byte>, TArg> action, TArg arg)
+    {
+        // Reserve space for size.
+        var sizeSpan = Buf.GetSpanAndAdvance(5);
+        sizeSpan[0] = MsgPackCode.Bin32;
+
+        var startPos = Buf.Position;
+        action(Buf, arg);
+        var length = Buf.Position - startPos;
+
+        // Write size to the reserved space.
+        BinaryPrimitives.WriteUInt32BigEndian(sizeSpan[1..], (uint)length);
+    }
+
+    /// <summary>
     /// Writes a transaction.
     /// </summary>
     /// <param name="txId">Transaction id.</param>
