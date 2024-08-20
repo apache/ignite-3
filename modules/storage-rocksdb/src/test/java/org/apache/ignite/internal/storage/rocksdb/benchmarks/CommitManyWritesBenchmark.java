@@ -147,6 +147,7 @@ public class CommitManyWritesBenchmark {
         return new BinaryRowImpl(0, buffer);
     }
 
+    /** Randomly generated rows for a partition. */
     @State(Scope.Thread)
     public static class DataToAddAndCommit {
         final int partitionId = randomPartitionId();
@@ -154,12 +155,14 @@ public class CommitManyWritesBenchmark {
         final Map<RowId, BinaryRow> rows = randomRows(partitionId);
     }
 
+    /** Randomly generated rows for a partition which has also been written to the storage. */
     @State(Scope.Thread)
     public static class DataToCommit {
         final int partitionId = randomPartitionId();
 
         final Map<RowId, BinaryRow> rows = randomRows(partitionId);
 
+        /** Setup method. */
         @Setup
         public void setUp(CommitManyWritesBenchmark benchmark) {
             UUID txId = TransactionIds.transactionId(benchmark.clock.now(), 0);
@@ -204,7 +207,7 @@ public class CommitManyWritesBenchmark {
         return config;
     }
 
-    /** Benchmark. */
+    /** Benchmark for the combination of {@link MvPartitionStorage#addWrite} and {@link MvPartitionStorage#commitWrite} methods. */
     @Benchmark
     public void addAndCommitManyWrites(DataToAddAndCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
@@ -226,6 +229,7 @@ public class CommitManyWritesBenchmark {
         });
     }
 
+    /** Benchmark for calling {@link MvPartitionStorage#addWrite} many times. */
     @Benchmark
     public void addManyWrites(DataToAddAndCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
@@ -239,6 +243,7 @@ public class CommitManyWritesBenchmark {
         });
     }
 
+    /** Benchmark for calling {@link MvPartitionStorage#commitWrite} many times. */
     @Benchmark
     public void commitManyWrites(DataToCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
