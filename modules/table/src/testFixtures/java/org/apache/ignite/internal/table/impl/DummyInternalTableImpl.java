@@ -428,30 +428,32 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE.id()
         );
 
-        // TODO sanpwc add javadoc explaining what's happening here.
-        partitionListener.onConfigurationCommitted(new CommittedConfiguration(
-                1,
-                1,
-                List.of(LOCAL_NODE.name()),
-                Collections.emptyList(),
-                null,
-                null
-        ));
+        // Update(All)Command handling requires both information about raft group topology and the primary replica,
+        // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
+        {
+            partitionListener.onConfigurationCommitted(new CommittedConfiguration(
+                    1,
+                    1,
+                    List.of(LOCAL_NODE.name()),
+                    Collections.emptyList(),
+                    null,
+                    null
+            ));
 
-        // TODO sanpwc add javadoc explaining what's happening here.
-        CompletableFuture<ReplicaMeta> primaryMetaFuture = placementDriver.getPrimaryReplica(groupId, CLOCK.now());
+            CompletableFuture<ReplicaMeta> primaryMetaFuture = placementDriver.getPrimaryReplica(groupId, CLOCK.now());
 
-        assertThat(primaryMetaFuture, willCompleteSuccessfully());
+            assertThat(primaryMetaFuture, willCompleteSuccessfully());
 
-        ReplicaMeta primary = primaryMetaFuture.join();
+            ReplicaMeta primary = primaryMetaFuture.join();
 
-        PrimaryReplicaChangeCommand primaryReplicaChangeCommand = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
-                .leaseStartTime(primary.getStartTime().longValue())
-                .primaryReplicaNodeId(primary.getLeaseholderId())
-                .primaryReplicaNodeName(primary.getLeaseholder())
-                .build();
+            PrimaryReplicaChangeCommand primaryReplicaChangeCommand = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                    .leaseStartTime(primary.getStartTime().longValue())
+                    .primaryReplicaNodeId(primary.getLeaseholderId())
+                    .primaryReplicaNodeName(primary.getLeaseholder())
+                    .build();
 
-        assertThat(svc.run(primaryReplicaChangeCommand), willCompleteSuccessfully());
+            assertThat(svc.run(primaryReplicaChangeCommand), willCompleteSuccessfully());
+        }
     }
 
     /**

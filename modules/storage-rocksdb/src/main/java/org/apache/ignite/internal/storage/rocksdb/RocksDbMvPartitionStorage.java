@@ -219,7 +219,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             lastGroupConfig = db.get(meta, readOpts, lastGroupConfigKey);
 
-            // TODO sanpwc check whether it's correct.
             byte[] leaseBytes = db.get(meta, readOpts, leaseKey);
 
             if (leaseBytes == null) {
@@ -1058,14 +1057,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 outputStream.write(longToBytes(leaseStartTime));
 
                 byte[] primaryReplicaNodeIdBytes = stringToBytes(primaryReplicaNodeId);
-                // TODO sanpwc add assertion comment.
-                assert primaryReplicaNodeIdBytes.length < Byte.MAX_VALUE;
+                assert primaryReplicaNodeIdBytes.length < Byte.MAX_VALUE :
+                        format("Primary replica node id bytes length exceeds the limit [length={}].",
+                                primaryReplicaNodeIdBytes.length);
                 outputStream.write((byte) primaryReplicaNodeIdBytes.length);
                 outputStream.write(primaryReplicaNodeIdBytes);
 
                 byte[] primaryReplicaNodeNameBytes = stringToBytes(primaryReplicaNodeName);
-                // TODO sanpwc add assertion comment.
                 assert primaryReplicaNodeNameBytes.length < Byte.MAX_VALUE;
+                format("Primary replica node name bytes length exceeds the limit [length={}].",
+                        primaryReplicaNodeNameBytes.length);
                 outputStream.write((byte) primaryReplicaNodeNameBytes.length);
                 outputStream.write(primaryReplicaNodeNameBytes);
 

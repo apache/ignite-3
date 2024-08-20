@@ -773,8 +773,6 @@ public class ItTxTestCluster {
 
         for (int p = 0; p < assignments.size(); p++) {
             TablePartitionId grpId = grpIds.get(p);
-            // TODO sanpwc 1. Use proper clock and add an assertion for getPrimaryReplica completition future.
-            // TODO sanpwc 2. Add message to assert primary.getLeaseholderId() != null;
             CompletableFuture<ReplicaMeta> primaryFuture = placementDriver.getPrimaryReplica(grpId,
                     clockServices.values().iterator().next().now());
 

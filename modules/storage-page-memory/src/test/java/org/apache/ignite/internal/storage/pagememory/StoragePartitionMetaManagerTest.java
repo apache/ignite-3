@@ -99,7 +99,6 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 meta.versionChainTreeRootPageId(null, 300);
                 meta.freeListRootPageId(null, 900);
                 meta.incrementPageCount(null);
-                // TODO sanpwc add test here.
                 meta.updateLease(null, 500);
                 meta.incrementEstimatedSize(null);
 
