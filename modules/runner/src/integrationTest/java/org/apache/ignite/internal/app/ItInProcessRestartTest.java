@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.NodeNotStartedException;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +46,15 @@ class ItInProcessRestartTest extends ClusterPerTestIntegrationTest {
         IgniteServerImpl server = (IgniteServerImpl) cluster.server(0);
 
         assertThat(server.restartAsync(), willCompleteSuccessfully());
+    }
+
+    @Test
+    void restartAfterShutdownThrows() {
+        IgniteServerImpl server = (IgniteServerImpl) cluster.server(0);
+
+        server.shutdown();
+
+        assertThrows(NodeNotStartedException.class, server::restartAsync);
     }
 
     /**

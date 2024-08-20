@@ -117,6 +117,13 @@ public class IgniteServerImpl implements IgniteServer {
     private CompletableFuture<Void> restartOrShutdownFuture = nullCompletedFuture();
 
     /**
+     * Gets set to {@code true} when the node is shut down. This disallows restarts.
+     *
+     * <p>Guarded by {@link #restartOrShutdownMutex}.
+     */
+    private boolean shutDown;
+
+    /**
      * Constructs an embedded node.
      *
      * @param nodeName Name of the node. Must not be {@code null}.
@@ -257,6 +264,10 @@ public class IgniteServerImpl implements IgniteServer {
         // We do not allow restarts to happen concurrently with shutdowns.
         CompletableFuture<Void> result;
         synchronized (restartOrShutdownMutex) {
+            if (shutDown) {
+                throw new NodeNotStartedException();
+            }
+
             result = restartOrShutdownFuture.thenCompose(unused -> doRestartAsync(instance));
             restartOrShutdownFuture = result;
         }
@@ -286,6 +297,8 @@ public class IgniteServerImpl implements IgniteServer {
         synchronized (restartOrShutdownMutex) {
             result = restartOrShutdownFuture.thenCompose(unused -> doShutdownAsync());
             restartOrShutdownFuture = result;
+
+            shutDown = true;
         }
 
         return result;
