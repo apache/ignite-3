@@ -328,12 +328,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
             updateMeta((lastCheckpointId, meta) -> {
                 primaryReplicaMetaReadWriteLock.writeLock().lock();
-
-                if (leaseStartTime <= meta.leaseStartTime()) {
-                    return;
-                }
-
                 try {
+                    if (leaseStartTime <= meta.leaseStartTime()) {
+                        return;
+                    }
+
                     if (meta.primaryReplicaNodeIdFirstPageId() == BlobStorage.NO_PAGE_ID) {
                         long primaryReplicaNodeIdFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeId));
 
