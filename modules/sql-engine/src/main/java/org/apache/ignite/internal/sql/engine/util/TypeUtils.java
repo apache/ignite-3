@@ -560,15 +560,18 @@ public class TypeUtils {
     }
 
     /**
-     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types. Types {@code T1}
-     * and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
+     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types.
+     * TODO Types {@code T1} and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
      *
      * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
      */
     public static boolean typeFamiliesAreCompatible(RelDataTypeFactory typeFactory, RelDataType toType, RelDataType fromType) {
-
         // Same types are always compatible.
         if (SqlTypeUtil.equalSansNullability(typeFactory, toType, fromType)) {
+            return true;
+        }
+
+        if (IgniteCustomAssignmentsRules.instance().canApplyFrom(toType.getSqlTypeName(), fromType.getSqlTypeName())) {
             return true;
         }
 
