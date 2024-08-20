@@ -54,7 +54,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object payload
+            @Nullable Object payload
     );
 
     /**

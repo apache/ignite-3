@@ -106,11 +106,10 @@ public class ClientComputeExecuteRequest {
             JobExecution<Object> execution,
             NotificationSender notificationSender
     ) {
-        var e = execution;
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            Marshaller<Object, byte[]> marshaller = extractMarshaller(e);
+                            Marshaller<Object, byte[]> marshaller = extractMarshaller(execution);
                             ClientComputeJobPacker.packJobResult(val, marshaller, w);
                             packJobState(w, state);
                         }, err)));

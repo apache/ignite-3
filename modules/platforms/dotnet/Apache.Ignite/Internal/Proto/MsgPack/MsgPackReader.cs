@@ -367,40 +367,6 @@ internal ref struct MsgPackReader
     }
 
     /// <summary>
-    /// Reads <see cref="ColumnType"/> and value with optional marshaller.
-    /// </summary>
-    /// <param name="marshaller">Optional marshaller.</param>
-    /// <returns>Value.</returns>
-    /// <typeparam name="T">Type of the value.</typeparam>
-    public T ReadObjectFromBinaryTuple<T>(IMarshaller<T>? marshaller)
-    {
-        if (TryReadNil())
-        {
-            return (T)(object)null!;
-        }
-
-        if (marshaller == null)
-        {
-            return (T)ReadObjectFromBinaryTuple()!;
-        }
-
-        var tuple = new BinaryTupleReader(ReadBinary(), 3);
-        var type = (ColumnType)tuple.GetInt(0);
-
-        if (type != ColumnType.ByteArray)
-        {
-            throw new UnsupportedObjectTypeMarshallingException(
-                Guid.NewGuid(),
-                ErrorGroups.Marshalling.UnsupportedObjectType,
-                "Unsupported object type. Expected byte[], got " + type);
-        }
-
-        var bytes = tuple.GetBytesSpan(2);
-
-        return marshaller.Unmarshal(bytes);
-    }
-
-    /// <summary>
     /// Reads <see cref="ColumnType"/> and value.
     /// </summary>
     /// <returns>Value.</returns>

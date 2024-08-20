@@ -126,7 +126,7 @@ namespace Apache.Ignite.Internal.Compute
                 WriteUnits(taskDescriptor.DeploymentUnits, writer);
                 w.Write(taskDescriptor.TaskClassName);
 
-                w.WriteObjectAsBinaryTuple(arg);
+                ComputePacker.PackArg(ref w, arg, null);
             }
         }
 
@@ -325,7 +325,7 @@ namespace Apache.Ignite.Internal.Compute
 
             (T, JobState) Read(MsgPackReader reader)
             {
-                var res = (T)reader.ReadObjectFromBinaryTuple(marshaller)!;
+                var res = ComputePacker.UnpackResult(ref reader, marshaller);
                 var status = ReadJobState(reader);
 
                 return (res, status);
@@ -392,7 +392,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
-                w.WriteObjectAsBinaryTuple(arg, jobDescriptor.ArgMarshaller);
+                ComputePacker.PackArg(ref w, arg, jobDescriptor.ArgMarshaller);
             }
         }
 
