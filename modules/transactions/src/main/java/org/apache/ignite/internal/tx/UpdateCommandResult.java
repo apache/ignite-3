@@ -33,7 +33,7 @@ public class UpdateCommandResult implements Serializable {
     @Nullable
     private final Long currentLeaseStartTime;
 
-    // TODO sanpwc Explain.
+    /** {@code true} if primary replica belongs to the raft group topology, (@code false) otherwise. */
     private final boolean primaryInPeersAndLearners;
 
     /**

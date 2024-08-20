@@ -294,23 +294,26 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 clusterService.topologyService().localMember().id()
         );
 
-        // TODO sanpwc explain what's happening here and below.
-        commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                raftIndex.incrementAndGet(),
-                1,
-                List.of(clusterService.nodeName()),
-                Collections.emptyList(),
-                null,
-                null
-        ));
+        // Update(All)Command handling requires both information about raft group topology and the primary replica,
+        // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
+        {
+            commandListener.onConfigurationCommitted(new CommittedConfiguration(
+                    raftIndex.incrementAndGet(),
+                    1,
+                    List.of(clusterService.nodeName()),
+                    Collections.emptyList(),
+                    null,
+                    null
+            ));
 
-        PrimaryReplicaChangeCommand command = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
-                .primaryReplicaNodeName("primary")
-                .primaryReplicaNodeId(UUID.randomUUID().toString())
-                .leaseStartTime(HybridTimestamp.MIN_VALUE.addPhysicalTime(1).longValue())
-                .build();
+            PrimaryReplicaChangeCommand command = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                    .primaryReplicaNodeName("primary")
+                    .primaryReplicaNodeId(UUID.randomUUID().toString())
+                    .leaseStartTime(HybridTimestamp.MIN_VALUE.addPhysicalTime(1).longValue())
+                    .build();
 
-        commandListener.onWrite(List.of(writeCommandCommandClosure(raftIndex.incrementAndGet(), 1, command)).iterator());
+            commandListener.onWrite(List.of(writeCommandCommandClosure(raftIndex.incrementAndGet(), 1, command)).iterator());
+        }
     }
 
     /**

@@ -40,6 +40,9 @@ import org.apache.ignite.network.ClusterNode;
 public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>  implements
         PlacementDriver {
 
+    /** It's not MIN_VALUE in order not to clash with commonly used initial value. */
+    private static final HybridTimestamp LEASE_START_TIME = HybridTimestamp.MIN_VALUE.addPhysicalTime(1);
+
     private volatile ClusterNode primary;
 
     /**
@@ -93,7 +96,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
             @Override
             public HybridTimestamp getStartTime() {
-                return HybridTimestamp.MIN_VALUE;
+                return LEASE_START_TIME;
             }
 
             @Override
