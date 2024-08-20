@@ -246,18 +246,7 @@ public class PrepareServiceImpl implements PrepareService {
         // Validate statement
         CompletableFuture<ValidStatement> validFut = validateStatement(parsedResult, planningContext);
 
-        result = validFut.thenCompose(stmt -> {
-            QueryPlan plan = tryOptimizeFast(stmt, planningContext, txContext);
-
-            // If optimize fast returned a plan, return it.
-            if (plan != null) {
-                return CompletableFuture.completedFuture(plan);
-            } else {
-                // Otherwise, continue with the regular planning.
-
-                return prepareAsync0(stmt, planningContext, txContext);
-            }
-        });
+        result = validFut.thenCompose(stmt -> prepareAsync0(stmt, planningContext, txContext));
 
         return result.exceptionally(ex -> {
             Throwable th = ExceptionUtils.unwrapCause(ex);
