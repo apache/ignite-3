@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.test;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getField;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 
@@ -53,7 +54,7 @@ public class WatchListenerInhibitor {
      * @return Listener inhibitor.
      */
     public static WatchListenerInhibitor metastorageEventsInhibitor(Ignite ignite) {
-        IgniteImpl igniteImpl = (IgniteImpl) ignite;
+        IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
 
         return metastorageEventsInhibitor(igniteImpl.metaStorageManager());
     }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -33,7 +34,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -79,7 +79,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                 node0Name,
                 "{\n"
                         + "  network.port: 3344,\n"
-                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
                         + "  clientConnector.port: 10800,\n"
                         + "  rest.port: 10300\n"
                         + "  compute.threadPoolSize: 1\n"
@@ -90,7 +90,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                 node1Name,
                 "{\n"
                         + "  network.port: 3345,\n"
-                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
                         + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                         + "  clientConnector.metricsEnabled: true\n"
                         + "  clientConnector.port: 10801,\n"
@@ -171,7 +171,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
     private static List<Integer> getClientPorts(List<Ignite> nodes) {
         return nodes.stream()
-                .map(ignite -> ((IgniteImpl) ignite).clientAddress().port())
+                .map(ignite -> unwrapIgniteImpl(ignite).clientAddress().port())
                 .collect(toList());
     }
 

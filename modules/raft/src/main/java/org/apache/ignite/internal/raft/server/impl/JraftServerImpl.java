@@ -45,6 +45,9 @@ import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -110,11 +113,8 @@ public class JraftServerImpl implements RaftServer {
     /** Cluster service. */
     private final ClusterService service;
 
-    /** Data path. */
-    private final Path dataPath;
-
-    /** Log storage provider. */
-    private final LogStorageFactory logStorageFactory;
+    /** Failure processor that is used to handle critical errors. */
+    private final FailureProcessor failureProcessor;
 
     /** Server instance. */
     private IgniteRpcServer rpcServer;
@@ -153,24 +153,22 @@ public class JraftServerImpl implements RaftServer {
      * The constructor.
      *
      * @param service Cluster service.
-     * @param dataPath Data path.
      * @param opts Default node options.
-     * @param logStorageFactory The factory for default log storage.
+     * @param raftGroupEventsClientListener Raft events listener.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      */
     public JraftServerImpl(
             ClusterService service,
-            Path dataPath,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            LogStorageFactory logStorageFactory
+            FailureProcessor failureProcessor
     ) {
         this.service = service;
-        this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
 
-        this.logStorageFactory = logStorageFactory;
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
+        this.failureProcessor = failureProcessor;
 
         // Auto-adjust options.
         this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
@@ -202,12 +200,6 @@ public class JraftServerImpl implements RaftServer {
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
 
         serviceEventInterceptor = new RaftServiceEventInterceptor();
-    }
-
-    /** Returns log storage factory. */
-    @TestOnly
-    public LogStorageFactory getLogStorageFactory() {
-        return logStorageFactory;
     }
 
     /**
@@ -415,14 +407,8 @@ public class JraftServerImpl implements RaftServer {
         return service;
     }
 
-    /**
-     * Returns path to persistence folder.
-     *
-     * @param nodeId Node ID.
-     * @return The path to persistence folder.
-     */
-    public Path getServerDataPath(RaftNodeId nodeId) {
-        return this.dataPath.resolve(nodeIdStr(nodeId));
+    public static Path getServerDataPath(Path basePath, RaftNodeId nodeId) {
+        return basePath.resolve(nodeIdStr(nodeId));
     }
 
     private static String nodeIdStr(RaftNodeId nodeId) {
@@ -470,7 +456,11 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setLogUri(nodeIdStr(nodeId));
 
-            Path serverDataPath = getServerDataPath(nodeId);
+            Path dataPath = groupOptions.serverDataPath();
+
+            assert dataPath != null : "Raft metadata path was not set.";
+
+            Path serverDataPath = getServerDataPath(dataPath, nodeId);
 
             if (!groupOptions.volatileStores()) {
                 try {
@@ -488,12 +478,13 @@ public class JraftServerImpl implements RaftServer {
                 nodeOptions.setCommandsMarshaller(groupOptions.commandsMarshaller());
             }
 
-            nodeOptions.setFsm(new DelegatingStateMachine(lsnr, nodeOptions.getCommandsMarshaller()));
+            nodeOptions.setFsm(new DelegatingStateMachine(lsnr, nodeOptions.getCommandsMarshaller(), failureProcessor));
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
-            LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
-                    ? this.logStorageFactory : groupOptions.getLogStorageFactory();
+            LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory();
+
+            assert logStorageFactory != null : "LogStorageFactory was not set.";
 
             IgniteJraftServiceFactory serviceFactory = new IgniteJraftServiceFactory(logStorageFactory);
 
@@ -681,15 +672,19 @@ public class JraftServerImpl implements RaftServer {
 
         private final Marshaller marshaller;
 
+        private final FailureProcessor failureProcessor;
+
         /**
          * Constructor.
          *
          * @param listener The listener.
          * @param marshaller Marshaller.
+         * @param failureProcessor Failure processor that is used to handle critical errors.
          */
-        DelegatingStateMachine(RaftGroupListener listener, Marshaller marshaller) {
+        public DelegatingStateMachine(RaftGroupListener listener, Marshaller marshaller, FailureProcessor failureProcessor) {
             this.listener = listener;
             this.marshaller = marshaller;
+            this.failureProcessor = failureProcessor;
         }
 
         public RaftGroupListener getListener() {
@@ -747,7 +742,7 @@ public class JraftServerImpl implements RaftServer {
                         };
                     }
                 });
-            } catch (Exception err) {
+            } catch (Throwable err) {
                 Status st;
 
                 if (err.getMessage() != null) {
@@ -761,6 +756,8 @@ public class JraftServerImpl implements RaftServer {
                 }
 
                 iter.setErrorAndRollback(1, st);
+
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
             }
         }
 
@@ -809,15 +806,23 @@ public class JraftServerImpl implements RaftServer {
                                 writer.getPath(), res.getMessage()));
                     }
                 });
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 done.run(new Status(RaftError.EIO, "Fail to save snapshot %s", e.getMessage()));
+
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
             }
         }
 
         /** {@inheritDoc} */
         @Override
         public boolean onSnapshotLoad(SnapshotReader reader) {
-            return listener.onSnapshotLoad(Path.of(reader.getPath()));
+            try {
+                return listener.onSnapshotLoad(Path.of(reader.getPath()));
+            } catch (Throwable err) {
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
+
+                return false;
+            }
         }
 
         /** {@inheritDoc} */

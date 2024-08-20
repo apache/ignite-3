@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -34,6 +35,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -73,7 +76,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
     @AfterEach
     void cleanup() {
-        CLUSTER.runningNodes().forEach(IgniteImpl::stopDroppingMessages);
+        CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(IgniteImpl::stopDroppingMessages);
 
         dropAllTables();
     }
@@ -84,7 +87,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
         CompletableFuture<Void> indexRemovedFuture = indexRemovedFuture();
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         // Start a transaction. We expect that the index will not be removed until this transaction completes.
         runInRwTransaction(node, tx -> {
@@ -104,7 +107,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
     void testWritingIntoStoppingIndex() {
         int indexId = createIndex();
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         // Latch for waiting for the RW transaction to start before dropping the index.
         var startTransactionLatch = new CountDownLatch(1);
@@ -168,7 +171,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
     void testWritingIntoStoppingIndexInDifferentTransactions() {
         int indexId = createIndex();
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         // Latch that will be released when a transaction expected to observe the index in the AVAILABLE state is started.
         var startAvailableTransactionLatch = new CountDownLatch(1);
@@ -234,7 +237,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
     private static int createIndex() {
         createIndexBlindly();
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
         return node.catalogManager().aliveIndex(INDEX_NAME, node.clock().nowLong()).id();
     }
@@ -245,7 +248,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
     @Test
     void testDropIndexAfterRegistering() {
-        CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
+        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
         populateTable();
 
@@ -279,7 +282,9 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
         populateTable();
 
         // Block index building messages, this way index will never become AVAILABLE.
-        CLUSTER.runningNodes().forEach(ignite -> ignite.dropMessages((id, message) -> message instanceof BuildIndexReplicaRequest));
+        CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .forEach(ignite -> ignite.dropMessages((id, message) -> message instanceof BuildIndexReplicaRequest));
 
         CompletableFuture<Void> indexBuildingFuture = indexBuildingFuture();
 
@@ -299,7 +304,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
         dropIndex(INDEX_NAME);
     }
 
-    private static void runInRwTransaction(IgniteImpl node, Consumer<Transaction> action) {
+    private static void runInRwTransaction(Ignite node, Consumer<Transaction> action) {
         node.transactions().runInTransaction(action, new TransactionOptions().readOnly(false));
     }
 
@@ -335,7 +340,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
     private static <P extends EventParameters> CompletableFuture<Void> indexEventFuture(
             CatalogEvent event, BiPredicate<P, CatalogService> action
     ) {
-        CatalogService catalog = CLUSTER.aliveNode().catalogManager();
+        CatalogService catalog = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
         var result = new CompletableFuture<Void>();
 

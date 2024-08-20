@@ -45,7 +45,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Tests to verify correlated subquery planning. */
@@ -59,7 +58,6 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
      * @throws Exception In case of any unexpected error.
      */
     @Test
-    @Disabled("IGNITE-22772")
     public void test() throws Exception {
         IgniteSchema schema = createSchema(createTestTable("A", "B", "C", "D", "E"));
 

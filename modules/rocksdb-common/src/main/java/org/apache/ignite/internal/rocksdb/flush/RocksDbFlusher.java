@@ -99,6 +99,7 @@ public class RocksDbFlusher {
     /**
      * Constructor.
      *
+     * @param name RocksDB instance name, for logging purposes.
      * @param busyLock Busy lock.
      * @param scheduledPool Scheduled pool the schedule flushes.
      * @param threadPool Thread pool to run flush completion closure, provided by {@code onFlushCompleted} parameter.
@@ -113,6 +114,7 @@ public class RocksDbFlusher {
      * @param name
      */
     public RocksDbFlusher(
+            String name,
             IgniteSpinBusyLock busyLock,
             ScheduledExecutorService scheduledPool,
             ExecutorService threadPool,
@@ -126,7 +128,7 @@ public class RocksDbFlusher {
         this.threadPool = threadPool;
         this.delaySupplier = delaySupplier;
         this.onFlushCompleted = onFlushCompleted;
-        this.flushListener = new RocksDbFlushListener(this, logSyncer, name);
+        this.flushListener = new RocksDbFlushListener(name, this, logSyncer);
     }
 
     /**
@@ -182,8 +184,8 @@ public class RocksDbFlusher {
      * enabled.
      *
      * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future. Please refer
-     *      to {@link RocksDbFlusher#RocksDbFlusher(IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier, LogSyncer,
-     *      Runnable)} parameters description to see what's really happening in this case.
+     *      to {@link RocksDbFlusher#RocksDbFlusher(String, IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier,
+     *      LogSyncer, Runnable)} parameters description to see what's really happening in this case.
      *
      * @see #scheduleFlush()
      */

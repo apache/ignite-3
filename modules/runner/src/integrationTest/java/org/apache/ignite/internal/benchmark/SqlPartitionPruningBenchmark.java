@@ -100,14 +100,14 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         initTable("usertable2", 10);
         initTable("usertable3", 1);
 
-        sql = clusterNode.sql();
+        sql = publicIgnite.sql();
     }
 
     private static void initTable(String tableName, int fieldCount) {
-        KeyValueView<Tuple, Tuple> keyValueView = clusterNode.tables().table(tableName).keyValueView();
+        KeyValueView<Tuple, Tuple> keyValueView = publicIgnite.tables().table(tableName).keyValueView();
 
         String query = format("CREATE INDEX {}_sorted_idx ON {} USING SORTED (key1, key2)", tableName, tableName);
-        try (var rs = clusterNode.sql().execute(null, query)) {
+        try (var rs = publicIgnite.sql().execute(null, query)) {
             while (rs.hasNext()) {
                 rs.next();
             }

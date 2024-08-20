@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
@@ -95,7 +96,7 @@ class ItCatalogCompactionCoordinatorChoosingTest extends ClusterPerClassIntegrat
     }
 
     private static List<IgniteImpl> runningNodes() {
-        return CLUSTER.runningNodes().collect(Collectors.toList());
+        return CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toList());
     }
 
     private static <T extends Comparable<T>> Matcher<T> lessOrEqualTo(T value) {

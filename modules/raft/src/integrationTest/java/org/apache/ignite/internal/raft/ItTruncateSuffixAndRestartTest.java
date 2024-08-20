@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -158,6 +159,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
         final Path nodeDir;
 
+        final ComponentWorkingDir partitionsWorkDir;
+
         final Loza raftMgr;
 
         private @Nullable CompletableFuture<RaftGroupService> serviceFuture;
@@ -189,7 +192,9 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
             assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(clusterSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
-            raftMgr = TestLozaFactory.create(clusterSvc, raftConfiguration, nodeDir, hybridClock);
+            partitionsWorkDir = new ComponentWorkingDir(nodeDir);
+
+            raftMgr = TestLozaFactory.create(clusterSvc, raftConfiguration, hybridClock);
 
             assertThat(raftMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(raftMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
@@ -207,7 +212,9 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                         raftGroupConfiguration,
                         raftGroupListener,
                         RaftGroupEventsListener.noopLsnr,
-                        RaftGroupOptions.defaults().setLogStorageFactory(logStorageFactory)
+                        RaftGroupOptions.defaults()
+                                .setLogStorageFactory(logStorageFactory)
+                                .serverDataPath(partitionsWorkDir.metaPath())
                 );
             } catch (NodeStoppingException e) {
                 fail(e.getMessage());

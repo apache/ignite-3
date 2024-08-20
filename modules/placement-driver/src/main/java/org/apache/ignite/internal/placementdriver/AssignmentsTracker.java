@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -129,14 +130,20 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     }
 
     @Override
-    public CompletableFuture<TokenizedAssignments> getAssignments(
-            ReplicationGroupId replicationGroupId,
+    public CompletableFuture<List<TokenizedAssignments>> getAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
             HybridTimestamp clusterTimeToAwait
     ) {
         return msManager
                 .clusterTime()
                 .waitFor(clusterTimeToAwait)
-                .thenApply(ignored -> inBusyLock(busyLock, () -> assignments().get(replicationGroupId)));
+                .thenApply(ignored -> inBusyLock(busyLock, () -> {
+                    Map<ReplicationGroupId, TokenizedAssignments> assignments = assignments();
+
+                    return replicationGroupIds.stream()
+                            .map(assignments::get)
+                            .collect(Collectors.toList());
+                }));
     }
 
     /**
