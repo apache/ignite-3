@@ -26,13 +26,17 @@ def cluster():
         yield None
 
 
-def test_connection_success():
+def test_execute_sql_success():
     conn = pyignite3.connect(address=server_addresses_basic[0])
     assert conn is not None
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        assert cursor is not None
 
+        try:
+            cursor.execute('select 1')
+        finally:
+            cursor.close()
+    finally:
+        conn.close()
 
-def test_connection_fail():
-    with pytest.raises(RuntimeError) as err:
-        pyignite3.connect(address=server_addresses_invalid[0])
-    assert err.match("Failed to establish connection with the host.")

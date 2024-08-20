@@ -28,48 +28,115 @@ paramstyle = 'qmark'
 
 
 class Cursor:
+    """
+    Cursor class. Represents a single statement and holds the result of its execution.
+    """
+    def __init__(self, py_cursor):
+        self._py_cursor = py_cursor
+
+        # TODO: IGNITE-22741 Implement data fetching
+        self.arraysize = 1
+
+    @property
+    def description(self):
+        """
+        This read-only attribute is a sequence of 7-item sequences.
+        Each of these sequences contains information describing one result column:
+        - name
+        - type_code
+        - display_size
+        - internal_size
+        - precision
+        - scale
+        - null_ok
+        The first two items (name and type_code) are mandatory, the other five are optional and are set to None if
+        no meaningful values can be provided.
+        This attribute will be None for operations that do not return rows or if the cursor has not had an operation
+        invoked via the .execute*() method yet.
+        """
+        # TODO: IGNITE-22469 Implement query execution
+        return None
+
+    @property
+    def rowcount(self):
+        """
+        This read-only attribute specifies the number of rows that the last .execute*() produced
+        (for DQL statements like SELECT) or affected (for DML statements like UPDATE or INSERT).
+        The attribute is -1 in case no .execute*() has been performed on the cursor or the rowcount of the last
+        operation is cannot be determined by the interface.
+        """
+        # TODO: IGNITE-22469 Implement query execution
+        return -1
+
     def callproc(self, *args):
-        # TODO: IGNITE-22226 Implement cursor support
+        if self._py_cursor is None:
+            raise InterfaceError('Connection is already closed')
+
         raise NotSupportedError('Stored procedures are not supported')
 
     def close(self):
-        # TODO: IGNITE-22226 Implement cursor support
-        raise NotSupportedError('Operation is not supported')
+        """
+        Close active cursor.
+        Completes without errors on successfully closed cursors.
+        """
+        if self._py_cursor is not None:
+            self._py_cursor.close()
+            self._py_cursor = None
 
     def execute(self, *args):
-        # TODO: IGNITE-22226 Implement cursor support
+        if self._py_cursor is None:
+            raise InterfaceError('Connection is already closed')
+
+        # TODO: IGNITE-22469 Implement query execution
         raise NotSupportedError('Operation is not supported')
 
     def executemany(self, *args):
-        # TODO: IGNITE-22226 Implement cursor support
+        if self._py_cursor is None:
+            raise InterfaceError('Connection is already closed')
+
+        # TODO: IGNITE-22743 Implement execution of SQL scripts
         raise NotSupportedError('Operation is not supported')
 
     def fetchone(self):
-        # TODO: IGNITE-22226 Implement cursor support
+        if self._py_cursor is None:
+            raise InterfaceError('Connection is already closed')
+
+        # TODO: IGNITE-22741 Implement data fetching
         raise NotSupportedError('Operation is not supported')
 
     def fetchmany(self):
-        # TODO: IGNITE-22226 Implement cursor support
+        if self._py_cursor is None:
+            raise InterfaceError('Connection is already closed')
+
+        # TODO: IGNITE-22741 Implement data fetching
         raise NotSupportedError('Operation is not supported')
 
     def fetchall(self):
-        # TODO: IGNITE-22226 Implement cursor support
+        if self._py_cursor is None:
+            raise InterfaceError('Connection is already closed')
+
+        # TODO: IGNITE-22741 Implement data fetching
         raise NotSupportedError('Operation is not supported')
 
     def nextset(self):
-        # TODO: IGNITE-22226 Implement cursor support
-        raise NotSupportedError('Operation is not supported')
+        if self._py_cursor is None:
+            raise InterfaceError('Connection is already closed')
 
-    def arraysize(self) -> int:
-        # TODO: IGNITE-22226 Implement cursor support
+        # TODO: IGNITE-22743 Implement execution of SQL scripts
         raise NotSupportedError('Operation is not supported')
 
     def setinputsizes(self, *args):
-        # TODO: IGNITE-22226 Implement cursor support
+        if self._py_cursor is None:
+            raise InterfaceError('Connection is already closed')
+
+        # TODO: IGNITE-22742 Implement execution with a batch of parameters
         raise NotSupportedError('Operation is not supported')
 
     def setoutputsize(self, *args):
-        # TODO: IGNITE-22226 Implement cursor support
+        if self._py_cursor is None:
+            raise InterfaceError('Connection is already closed')
+
+        # TODO: IGNITE-22741 Implement data fetching
         raise NotSupportedError('Operation is not supported')
 
 
@@ -90,16 +157,23 @@ class Connection:
             self._py_connection = None
 
     def commit(self):
-        # TODO: IGNITE-22226 Implement transaction support
+        if self._py_connection is None:
+            raise InterfaceError('Connection is already closed')
+
+        # TODO: IGNITE-22740 Implement transaction support
         raise NotSupportedError('Transactions are not supported')
 
     def rollback(self):
-        # TODO: IGNITE-22226 Implement transaction support
+        if self._py_connection is None:
+            raise InterfaceError('Connection is already closed')
+
+        # TODO: IGNITE-22740 Implement transaction support
         raise NotSupportedError('Transactions are not supported')
 
     def cursor(self) -> Cursor:
-        # TODO: IGNITE-22226 Implement cursor support
-        raise NotSupportedError('Operation is not supported')
+        if self._py_connection is None:
+            raise InterfaceError('Connection is already closed')
+        return Cursor(self._py_connection.cursor())
 
 
 def connect(**kwargs) -> Connection:
