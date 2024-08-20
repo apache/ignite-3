@@ -165,7 +165,7 @@ public final class TupleWithSchemaMarshalling {
     }
 
     private static BinaryTupleBuilder schemaBuilder(String[] columns, ColumnType[] types) {
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 2, columns.length * 2);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 2);
 
         for (int i = 0; i < columns.length; i++) {
             builder.appendString(columns[i]);
