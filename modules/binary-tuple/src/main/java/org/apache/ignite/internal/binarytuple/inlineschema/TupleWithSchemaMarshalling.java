@@ -81,32 +81,23 @@ public final class TupleWithSchemaMarshalling {
         ByteBuffer schemaBf = schemaBuilder(columns, types).build();
         ByteBuffer valueBf = valueBuilder(columns, types, values).build();
 
-        byte[] schemaArr = getByteArray(schemaBf);
-        byte[] valueArr = getByteArray(valueBf);
+        int schemaBufLen = schemaBf.remaining();
+        int valueBufLen = valueBf.remaining();
+
         // Size: int32 (tuple size), int32 (value offset), schema, value.
-        byte[] result = new byte[4 + 4 + schemaArr.length + valueArr.length];
+        byte[] result = new byte[4 + 4 + schemaBufLen + valueBufLen];
         ByteBuffer buff = ByteBuffer.wrap(result).order(BYTE_ORDER);
 
         // Put the size of the schema in the first 4 bytes.
-        buff.putInt(0, size);
+        buff.putInt(size);
 
         // Put the value offset in the second 4 bytes.
-        int offset = schemaArr.length + 8;
-        buff.putInt(4, offset);
+        int offset = schemaBufLen + 8;
+        buff.putInt(offset);
 
-        System.arraycopy(schemaArr, 0, result, 8, schemaArr.length);
-        System.arraycopy(valueArr, 0, result, schemaArr.length + 8, valueArr.length);
+        buff.put(schemaBf);
+        buff.put(valueBf);
 
-        return result;
-    }
-
-    /** Get byte array from ByteBuffer without capacity overhead, only meaningful bytes are returned. */
-    private static byte[] getByteArray(ByteBuffer buff) {
-        int offset = buff.arrayOffset();
-        int limit = buff.limit();
-        byte[] result = new byte[limit - offset];
-
-        buff.get(result, offset, limit);
         return result;
     }
 
