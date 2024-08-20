@@ -126,7 +126,7 @@ namespace Apache.Ignite.Internal.Compute
                 WriteUnits(taskDescriptor.DeploymentUnits, writer);
                 w.Write(taskDescriptor.TaskClassName);
 
-                w.WriteObjectAsBinaryTuple(arg);
+                ComputePacker.PackArg(ref w, arg, null);
             }
         }
 
