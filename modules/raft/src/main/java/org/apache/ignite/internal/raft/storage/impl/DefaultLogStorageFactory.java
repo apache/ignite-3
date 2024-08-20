@@ -36,9 +36,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -97,7 +95,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<WriteBatch> threadLocalWriteBatch = new ThreadLocal<>();
-    private RocksDbFlusher flusher;
 
 
     /**
@@ -164,8 +161,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             dbOptions.setListeners(List.of(flushListener));
 
             this.db = RocksDB.open(this.dbOptions, logPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
-
-            flusher.init(db, columnFamilyHandles);
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
             // all the raft groups
