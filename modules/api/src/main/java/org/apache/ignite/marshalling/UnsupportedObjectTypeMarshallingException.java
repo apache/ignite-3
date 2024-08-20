@@ -34,7 +34,7 @@ public class UnsupportedObjectTypeMarshallingException extends IgniteException {
      * @param unsupportedType Unsupported type.
      */
     public UnsupportedObjectTypeMarshallingException(Class<?> unsupportedType) {
-        this("Unsupported object type: " + unsupportedType.getName() + ". Please, define the marshaller that can handle this type.");
+        this("Unsupported object type: " + unsupportedType.getName() + ". Please, define a marshaller that can handle this type.");
     }
 
     /**
