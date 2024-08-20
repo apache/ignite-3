@@ -20,10 +20,8 @@ package org.apache.ignite.internal.client.proto;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Arrays;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.client.proto.ComputeJobType.Type;
-import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -32,18 +30,15 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 @TestInstance(Lifecycle.PER_CLASS)
 class ComputeJobTypeTest {
-    private static Stream<Arguments> columnTypes() {
-        return Arrays.stream(ColumnType.values())
-                .map(t -> Arguments.of(t.id(), Type.NATIVE, t.id()));
-    }
-
     private static Stream<Arguments> marshalledTypes() {
         return Stream.of(
-                Arguments.of(-1, Type.MARSHALLED_TUPLE, -1)
+                Arguments.of(1, Type.MARSHALLED_TUPLE, 1),
+                Arguments.of(2, Type.MARSHALLED_OBJECT, 2),
+                Arguments.of(3, Type.NATIVE, 3)
         );
     }
 
-    @MethodSource({"columnTypes", "marshalledTypes"})
+    @MethodSource({"marshalledTypes"})
     @ParameterizedTest
     void supportedTypes(int givenId, ComputeJobType.Type expectedType, int expectedId) {
         ComputeJobType computeJobType = new ComputeJobType(givenId);
