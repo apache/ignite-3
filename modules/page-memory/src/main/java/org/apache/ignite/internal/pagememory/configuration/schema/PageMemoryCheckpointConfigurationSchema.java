@@ -29,7 +29,7 @@ public class PageMemoryCheckpointConfigurationSchema {
     /** Checkpoint frequency in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public long frequency = 180_000;
+    public long frequency = 60_000;
 
     /** Checkpoint frequency deviation. */
     @Range(min = 0, max = 100)
