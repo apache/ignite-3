@@ -20,7 +20,10 @@ package org.apache.ignite.internal.compute;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
-/** Returns marshaller if can. */
+/**
+ * Marshaller provider.
+ */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface MarshallerProvider<R> {
     /** Returns marshaller or null. */
     @Nullable Marshaller<R, byte[]> resultMarshaller();
