@@ -68,6 +68,9 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "2", "4", "8", "16", "32"})
     private int partitionCount;
 
+    @Param({"1", "2", "3"})
+    private int replicaCount;
+
     /**
      * Benchmark for SQL insert via embedded client.
      */
@@ -407,5 +410,10 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Override
     protected int partitionCount() {
         return partitionCount;
+    }
+
+    @Override
+    protected int replicaCount() {
+        return replicaCount;
     }
 }

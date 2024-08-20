@@ -86,7 +86,7 @@ public class AbstractMultiNodeBenchmark {
             var queryEngine = igniteImpl.queryEngine();
 
             var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
-                    + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
+                    + ", replicas=" + replicaCount() + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
 
             getAllFromCursor(
                     await(queryEngine.queryAsync(
@@ -239,5 +239,9 @@ public class AbstractMultiNodeBenchmark {
 
     protected int partitionCount() {
         return CatalogUtils.DEFAULT_PARTITION_COUNT;
+    }
+
+    protected int replicaCount() {
+        return CatalogUtils.DEFAULT_REPLICA_COUNT;
     }
 }
