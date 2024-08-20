@@ -521,20 +521,20 @@ public class ItSslTest extends BaseIgniteAbstractTest {
             String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
             String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
 
-            ServerRegistration registration1 = incompatibleTestCluster.startEmbeddedNode(10, sslEnabledWithCipher1BoostrapConfig);
+            ServerRegistration successfulRegistration = incompatibleTestCluster.startEmbeddedNode(10, sslEnabledWithCipher1BoostrapConfig);
 
             InitParameters initParameters = InitParameters.builder()
-                    .metaStorageNodes(registration1.server())
+                    .metaStorageNodes(successfulRegistration.server())
                     .clusterName("cluster")
                     .build();
 
-            TestIgnitionManager.init(registration1.server(), initParameters);
+            TestIgnitionManager.init(successfulRegistration.server(), initParameters);
 
             // First node will initialize the cluster with single node successfully since the second node can't connect to it.
-            assertThat(registration1.registrationFuture(), willCompleteSuccessfully());
+            assertThat(successfulRegistration.registrationFuture(), willCompleteSuccessfully());
 
-            ServerRegistration registration2 = incompatibleTestCluster.startEmbeddedNode(11, sslEnabledWithCipher2BoostrapConfig);
-            assertThat(registration2.registrationFuture(), willTimeoutIn(1, TimeUnit.SECONDS));
+            ServerRegistration failingRegistration = incompatibleTestCluster.startEmbeddedNode(11, sslEnabledWithCipher2BoostrapConfig);
+            assertThat(failingRegistration.registrationFuture(), willTimeoutIn(1, TimeUnit.SECONDS));
         } finally {
             incompatibleTestCluster.shutdown();
         }

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,9 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
@@ -243,20 +242,21 @@ public class Cluster {
     }
 
     /**
-     * Starts a cluster node with the default bootstrap config template and returns it and its registation future.
+     * Starts a cluster node with the default bootstrap config template.
      *
      * @param nodeIndex Index of the node to start.
-     * @return Future that will be completed when the node starts.
+     * @return Started server and its registration future.
      */
     public ServerRegistration startEmbeddedNode(int nodeIndex) {
         return startEmbeddedNode(nodeIndex, defaultNodeBootstrapConfigTemplate);
     }
 
     /**
-     * Starts a cluster node and returns it with its registration future.
+     * Starts a cluster node.
      *
      * @param nodeIndex Index of the node to start.
      * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
+     * @return Started server and its registration future.
      */
     public ServerRegistration startEmbeddedNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
         String nodeName = testNodeName(testInfo, nodeIndex);
@@ -349,19 +349,9 @@ public class Cluster {
      *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
     public Ignite startNode(int index, String nodeBootstrapConfigTemplate) {
-        Ignite newIgniteNode;
-
-        try {
-            ServerRegistration registration = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
-            registration.registrationFuture().get(20, TimeUnit.SECONDS);
-            newIgniteNode = registration.server().api();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new RuntimeException(e);
-        } catch (ExecutionException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
+        ServerRegistration registration = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
+        assertThat(registration.registrationFuture(), willSucceedIn(20, TimeUnit.SECONDS));
+        Ignite newIgniteNode = registration.server().api();
 
         assertEquals(newIgniteNode, nodes.get(index));
 
