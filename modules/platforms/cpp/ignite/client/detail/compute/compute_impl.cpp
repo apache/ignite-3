@@ -32,10 +32,10 @@ enum class compute_job_type {
     NATIVE,
 
     /** Marshalled Tuple. */
-    MARSHALLED_TUPLE = -1,
+    MARSHALLED_TUPLE = 1,
 
     /** Marshalled Object. */
-    MARSHALLED_OBJECT = -2,
+    MARSHALLED_OBJECT = 2,
 };
 
 

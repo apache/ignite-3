@@ -31,17 +31,17 @@ internal static class ComputePacker
     /// <summary>
     /// Natively supported simple type.
     /// </summary>
-    internal const int Native = 1;
+    internal const int Native = 0;
 
     /// <summary>
     /// Ignite tuple.
     /// </summary>
-    private const int Tuple = -1;
+    private const int Tuple = 1;
 
     /// <summary>
     /// User-defined marshaller.
     /// </summary>
-    private const int MarshallerObject = -2;
+    private const int MarshallerObject = 2;
 
     /// <summary>
     /// Packs compute job arg.

@@ -24,9 +24,9 @@ import org.apache.ignite.sql.ColumnType;
  * {@link ColumnType} or a marshalled object/tuple.
  */
 public class ComputeJobType {
+    static final int NATIVE_ID = 0;
     static final int MARSHALLED_TUPLE_ID = 1;
     static final int MARSHALLED_OBJECT_ID = 2;
-    static final int NATIVE_ID = 3;
 
     /**
      * [0, .., Integer.MAX_VALUE] - native types. The id is the same as in {@link ColumnType}. (0, .., Integer.MIN_VALUE] - marshalled

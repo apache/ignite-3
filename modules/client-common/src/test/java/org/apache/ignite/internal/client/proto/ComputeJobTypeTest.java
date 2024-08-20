@@ -32,9 +32,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 class ComputeJobTypeTest {
     private static Stream<Arguments> marshalledTypes() {
         return Stream.of(
+                Arguments.of(0, Type.NATIVE, 0),
                 Arguments.of(1, Type.MARSHALLED_TUPLE, 1),
-                Arguments.of(2, Type.MARSHALLED_OBJECT, 2),
-                Arguments.of(3, Type.NATIVE, 3)
+                Arguments.of(2, Type.MARSHALLED_OBJECT, 2)
         );
     }
 
