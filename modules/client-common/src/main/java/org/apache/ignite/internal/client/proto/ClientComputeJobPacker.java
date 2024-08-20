@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.proto;
 
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -71,7 +70,7 @@ public final class ClientComputeJobPacker {
                 return;
             }
 
-            packer.packByteBuffer(ByteBuffer.wrap(marshalled));
+            packer.packBinary(marshalled);
             return;
         }
 
@@ -85,7 +84,7 @@ public final class ClientComputeJobPacker {
                 return;
             }
 
-            packer.packByteBuffer(ByteBuffer.wrap(marshalledTuple));
+            packer.packBinary(marshalledTuple);
             return;
         }
 

@@ -717,6 +717,18 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Pack binary.
+     *
+     * @param buf Byte array.
+     */
+    public void packBinary(byte[] buf) {
+        assert !closed : "Packer is closed";
+
+        packBinaryHeader(buf.length);
+        writePayload(buf);
+    }
+
+    /**
      * Pack ByteBuffer.
      *
      * @param buf ByteBuffer object.
