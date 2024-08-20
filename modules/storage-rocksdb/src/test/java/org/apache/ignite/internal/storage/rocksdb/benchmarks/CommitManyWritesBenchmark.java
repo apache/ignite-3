@@ -51,10 +51,14 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbPr
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -64,12 +68,15 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for measuring the performance of {@link RocksDbMvPartitionStorage} in a scenario, when many entries are added in one big
  * transaction and are then committed.
  */
+@Fork(1)
+@Threads(5)
 @State(Scope.Benchmark)
+@BenchmarkMode(Mode.SingleShotTime)
 public class CommitManyWritesBenchmark {
     private static final String STORAGE_PROFILE_NAME = "test";
     private static final int TABLE_ID = 1;
     private static final int NUM_PARTITIONS = 50;
-    private static final int NUM_ROWS = 10_000;
+    private static final int NUM_ROWS = 100_000;
     private static final int ROW_LENGTH = 10_000;
 
     private final HybridClock clock = new HybridClockImpl();
@@ -107,42 +114,63 @@ public class CommitManyWritesBenchmark {
     /** Tear down method. */
     @TearDown
     public void tearDown() {
-        tableStorage.destroy();
+        tableStorage.destroy().join();
 
         storageEngine.stop();
     }
 
-    /** Generated data for each thread. */
-    @State(Scope.Thread)
-    public static class GeneratedData {
-        int partitionId;
+    private static int randomPartitionId() {
+        return ThreadLocalRandom.current().nextInt(NUM_PARTITIONS);
+    }
 
-        Map<RowId, BinaryRow> rows;
+    private static Map<RowId, BinaryRow> randomRows(int partitionId) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
 
-        /** Setup method. */
-        @Setup
-        public void setUp() {
-            ThreadLocalRandom random = ThreadLocalRandom.current();
+        var rows = new HashMap<RowId, BinaryRow>(capacity(NUM_ROWS));
 
-            partitionId = random.nextInt(NUM_PARTITIONS);
+        for (int i = 0; i < NUM_ROWS; i++) {
+            var rowId = new RowId(partitionId);
 
-            rows = new HashMap<>(capacity(NUM_ROWS));
+            BinaryRow row = randomRow(random);
 
-            for (int i = 0; i < NUM_ROWS; i++) {
-                var rowId = new RowId(partitionId);
-
-                BinaryRow row = randomRow(random);
-
-                rows.put(rowId, row);
-            }
+            rows.put(rowId, row);
         }
 
-        private static BinaryRow randomRow(ThreadLocalRandom random) {
-            ByteBuffer buffer = ByteBuffer.allocate(ROW_LENGTH);
+        return rows;
+    }
 
-            random.nextBytes(buffer.array());
+    private static BinaryRow randomRow(ThreadLocalRandom random) {
+        ByteBuffer buffer = ByteBuffer.allocate(ROW_LENGTH);
 
-            return new BinaryRowImpl(0, buffer);
+        random.nextBytes(buffer.array());
+
+        return new BinaryRowImpl(0, buffer);
+    }
+
+    @State(Scope.Thread)
+    public static class DataToAddAndCommit {
+        final int partitionId = randomPartitionId();
+
+        final Map<RowId, BinaryRow> rows = randomRows(partitionId);
+    }
+
+    @State(Scope.Thread)
+    public static class DataToCommit {
+        final int partitionId = randomPartitionId();
+
+        final Map<RowId, BinaryRow> rows = randomRows(partitionId);
+
+        @Setup
+        public void setUp(CommitManyWritesBenchmark benchmark) {
+            UUID txId = TransactionIds.transactionId(benchmark.clock.now(), 0);
+
+            MvPartitionStorage partitionStorage = benchmark.tableStorage.getMvPartition(partitionId);
+
+            partitionStorage.runConsistently(locker -> {
+                rows.forEach((rowId, row) -> partitionStorage.addWrite(rowId, row, txId, TABLE_ID, partitionId));
+
+                return null;
+            });
         }
     }
 
@@ -178,15 +206,13 @@ public class CommitManyWritesBenchmark {
 
     /** Benchmark. */
     @Benchmark
-    public void commitManyWrites(GeneratedData data) {
+    public void addAndCommitManyWrites(DataToAddAndCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
 
         UUID txId = TransactionIds.transactionId(clock.now(), 0);
 
         partitionStorage.runConsistently(locker -> {
-            data.rows.forEach((rowId, row) -> {
-                partitionStorage.addWrite(rowId, row, txId, TABLE_ID, data.partitionId);
-            });
+            data.rows.forEach((rowId, row) -> partitionStorage.addWrite(rowId, row, txId, TABLE_ID, data.partitionId));
 
             return null;
         });
@@ -194,9 +220,33 @@ public class CommitManyWritesBenchmark {
         HybridTimestamp commitTs = clock.now();
 
         partitionStorage.runConsistently(locker -> {
-            data.rows.keySet().forEach(rowId -> {
-                partitionStorage.commitWrite(rowId, commitTs);
-            });
+            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs));
+
+            return null;
+        });
+    }
+
+    @Benchmark
+    public void addManyWrites(DataToAddAndCommit data) {
+        MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
+
+        UUID txId = TransactionIds.transactionId(clock.now(), 0);
+
+        partitionStorage.runConsistently(locker -> {
+            data.rows.forEach((rowId, row) -> partitionStorage.addWrite(rowId, row, txId, TABLE_ID, data.partitionId));
+
+            return null;
+        });
+    }
+
+    @Benchmark
+    public void commitManyWrites(DataToCommit data) {
+        MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
+
+        HybridTimestamp commitTs = clock.now();
+
+        partitionStorage.runConsistently(locker -> {
+            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs));
 
             return null;
         });

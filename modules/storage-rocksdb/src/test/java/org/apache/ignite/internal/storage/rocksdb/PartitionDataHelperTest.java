@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.setLastBit;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.setFirstBit;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -25,38 +25,38 @@ import org.junit.jupiter.api.Test;
 
 class PartitionDataHelperTest {
     @Test
-    void testSetLastBit() {
+    void testSetFirstBit() {
         byte[] array = {1, 0, 42};
 
-        setLastBit(array, 1, true);
+        setFirstBit(array, 1, true);
 
         assertThat(array, is(new byte[] {1, 1, 42}));
 
-        setLastBit(array, 1, true);
+        setFirstBit(array, 1, true);
 
         assertThat(array, is(new byte[] {1, 1, 42}));
 
-        setLastBit(array, 1, false);
+        setFirstBit(array, 1, false);
 
         assertThat(array, is(new byte[] {1, 0, 42}));
 
-        setLastBit(array, 1, false);
+        setFirstBit(array, 1, false);
 
         assertThat(array, is(new byte[] {1, 0, 42}));
 
-        setLastBit(array, 2, true);
+        setFirstBit(array, 2, true);
 
         assertThat(array, is(new byte[] {1, 0, 43}));
 
-        setLastBit(array, 2, true);
+        setFirstBit(array, 2, true);
 
         assertThat(array, is(new byte[] {1, 0, 43}));
 
-        setLastBit(array, 2, false);
+        setFirstBit(array, 2, false);
 
         assertThat(array, is(new byte[] {1, 0, 42}));
 
-        setLastBit(array, 2, false);
+        setFirstBit(array, 2, false);
 
         assertThat(array, is(new byte[] {1, 0, 42}));
     }

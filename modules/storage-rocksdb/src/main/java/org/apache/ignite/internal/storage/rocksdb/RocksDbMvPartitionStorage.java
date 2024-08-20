@@ -34,7 +34,7 @@ import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.isT
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.putTimestampDesc;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampDesc;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.requireWriteBatch;
-import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.setLastBit;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.setFirstBit;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.wrapIterator;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.ESTIMATED_SIZE_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.LEASE_PREFIX;
@@ -469,7 +469,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     // We need to flip the tombstone bit in case we are overwriting a previous Write Intent with a different
                     // tombstone bit.
                     if (isOldValueTombstone ^ (row == null)) {
-                        setLastBit(previousTxState, DATA_ID_SIZE - 1, row == null);
+                        setFirstBit(previousTxState, DATA_ID_SIZE - 1, row == null);
 
                         writeBatch.put(helper.partCf, uncommittedDataIdKey, previousTxState);
                     }

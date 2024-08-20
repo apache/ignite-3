@@ -304,20 +304,20 @@ public final class PartitionDataHelper implements ManuallyCloseable {
 
         dataId.rewind();
 
-        // Always use 0 for the last bit (tombstone flag), because it only makes sense when data ID is stored as a value.
-        setLastBit(result, result.length - 1, false);
+        // Always use 0 for the first bit (tombstone flag), because it only makes sense when data ID is stored as a value.
+        setFirstBit(result, result.length - 1, false);
 
         return result;
     }
 
     /**
-     * Changes the last bit of the byte identified by an index in an array.
+     * Changes the first bit of the byte identified by an index in an array.
      *
      * @param array Array containing the byte to change.
      * @param index Index of the byte inside the array.
      * @param value If {@code true} - sets the bit to 1, else to 0.
      */
-    static void setLastBit(byte[] array, int index, boolean value) {
+    static void setFirstBit(byte[] array, int index, boolean value) {
         if (value) {
             array[index] |= 0x01;
         } else {
