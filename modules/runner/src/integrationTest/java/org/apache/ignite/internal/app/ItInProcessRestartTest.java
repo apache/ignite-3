@@ -57,7 +57,7 @@ class ItInProcessRestartTest extends ClusterPerTestIntegrationTest {
         ignite.sql().executeScript("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR)");
         KeyValueView<Integer, String> kvView = ignite.tables().table("test").keyValueView(Integer.class, String.class);
 
-        CompletableFuture<Void> insertedSomething = new CompletableFuture<>();
+        var insertedSomething = new CompletableFuture<Void>();
 
         AtomicBoolean restarted = new AtomicBoolean(false);
         AtomicInteger lastInsertedId = new AtomicInteger();
