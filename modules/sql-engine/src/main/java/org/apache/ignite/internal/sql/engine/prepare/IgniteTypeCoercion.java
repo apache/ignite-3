@@ -62,6 +62,7 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
@@ -762,7 +763,10 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19721 - move this check to SqlValidator (if possible).
     private void validateAssignment(SqlDynamicParam node, RelDataType targetType, ContextType ctxType, IgniteSqlValidator validator) {
         RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
-        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+
+        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType)
+                || IgniteCustomAssignmentsRules.instance().canApplyFrom(targetType.getSqlTypeName(), paramType.getSqlTypeName());
+
         if (compatible) {
             return;
         }
@@ -790,7 +794,10 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     private void validateOperand(SqlDynamicParam node, RelDataType targetType, SqlOperator operator, IgniteSqlValidator validator) {
 
         RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
-        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+
+        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType)
+                || IgniteCustomAssignmentsRules.instance().canApplyFrom(targetType.getSqlTypeName(), paramType.getSqlTypeName());
+
         if (compatible) {
             return;
         }

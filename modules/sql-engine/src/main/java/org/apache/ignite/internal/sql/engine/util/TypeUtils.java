@@ -571,10 +571,6 @@ public class TypeUtils {
             return true;
         }
 
-        if (IgniteCustomAssignmentsRules.instance().canApplyFrom(toType.getSqlTypeName(), fromType.getSqlTypeName())) {
-            return true;
-        }
-
         // NULL is compatible with all types.
         if (fromType.getSqlTypeName() == SqlTypeName.NULL || toType.getSqlTypeName() == SqlTypeName.NULL) {
             return true;
