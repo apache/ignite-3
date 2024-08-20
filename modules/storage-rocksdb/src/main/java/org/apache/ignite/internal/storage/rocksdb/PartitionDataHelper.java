@@ -57,6 +57,10 @@ public final class PartitionDataHelper implements ManuallyCloseable {
     /** Position of row id inside the key. */
     static final int ROW_ID_OFFSET = TABLE_ID_SIZE + PARTITION_ID_SIZE;
 
+    /**
+     * Part of the of the key associated with transaction state without the timestamp.
+     * Also equal to the size of a key for an uncommitted Write Intent.
+     */
     public static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
 
     /** Maximum size of the key associated with transaction state. */

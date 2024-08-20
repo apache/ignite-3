@@ -175,6 +175,7 @@ class GarbageCollector {
     /**
      * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#peek(HybridTimestamp)}.
      *
+     * @param writeBatch Current Write Batch.
      * @param lowWatermark Low watermark.
      * @return Garbage collected element descriptor.
      */
@@ -252,7 +253,7 @@ class GarbageCollector {
                 }
 
                 // Find the row that should be garbage collected.
-                ByteBuffer dataIdKey = getDataIdForGcKey(partIt, gcRowVersion.getRowId());
+                ByteBuffer dataIdKey = getDataIdKeyForGc(partIt, gcRowVersion.getRowId());
 
                 if (dataIdKey == null) {
                     // No row for GC.
@@ -329,14 +330,14 @@ class GarbageCollector {
     }
 
     /**
-     * Checks if there is a row for garbage collection and returns this row's key if it exists.
+     * Checks if there is a row ID for garbage collection and returns this row's data ID key if it exists.
      * There might already be no row in the data column family, because GC can be run in parallel.
      *
      * @param it RocksDB data column family iterator.
-     * @param gcElementRowId Row id of the element from the GC queue/
-     * @return Key of the row that needs to be garbage collected, or {@code null} if such row doesn't exist.
+     * @param gcElementRowId Row id of the element from the GC queue.
+     * @return Key for the row's data ID that needs to be garbage collected, or {@code null} if such row doesn't exist.
      */
-    private @Nullable ByteBuffer getDataIdForGcKey(RocksIterator it, RowId gcElementRowId) {
+    private @Nullable ByteBuffer getDataIdKeyForGc(RocksIterator it, RowId gcElementRowId) {
         // Let's move to the element that was scheduled for GC.
         it.next();
 
