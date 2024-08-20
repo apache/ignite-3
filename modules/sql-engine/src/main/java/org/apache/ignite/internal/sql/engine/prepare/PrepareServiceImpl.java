@@ -325,11 +325,11 @@ public class PrepareServiceImpl implements PrepareService {
         ParsedResult parsedResult = validStatement.parsedResult;
         switch (parsedResult.queryType()) {
             case QUERY:
-                return prepareQuery(validStatement, planningContext);
+                return prepareQuery(validStatement, planningContext, txContext);
             case DDL:
                 return prepareDdl(parsedResult, planningContext);
             case DML:
-                return prepareDml(validStatement, planningContext);
+                return prepareDml(validStatement, planningContext, txContext);
             case EXPLAIN:
                 return prepareExplain(validStatement, planningContext, txContext);
             default:
@@ -378,21 +378,13 @@ public class PrepareServiceImpl implements PrepareService {
         CompletableFuture<ValidStatement> validFut = validateStatement(newParsedResult, ctx);
 
         CompletableFuture<QueryPlan> planFut = validFut.thenCompose(stmt -> {
-            QueryPlan plan = tryOptimizeFast(stmt, ctx, txContext);
-
-            // If optimize fast returned a plan, return it.
-            if (plan != null) {
-                return CompletableFuture.completedFuture(plan);
-            } else {
-                // Otherwise, continue with the regular planning.
-                switch (queryType) {
-                    case QUERY:
-                        return prepareQuery(stmt, ctx);
-                    case DML:
-                        return prepareDml(stmt, ctx);
-                    default:
-                        throw new AssertionError("should not get here");
-                }
+            switch (queryType) {
+                case QUERY:
+                    return prepareQuery(stmt, ctx, txContext);
+                case DML:
+                    return prepareDml(stmt, ctx, txContext);
+                default:
+                    throw new AssertionError("should not get here");
             }
         });
 
@@ -469,9 +461,16 @@ public class PrepareServiceImpl implements PrepareService {
 
     private CompletableFuture<QueryPlan> prepareQuery(
             ValidStatement stmt,
-            PlanningContext ctx
+            PlanningContext ctx,
+            @Nullable QueryTransactionContext txContext
     ) {
         ParsedResult parsedResult = stmt.parsedResult;
+
+        // Try optimize fast.
+        QueryPlan fastPlan = tryOptimizeFast(stmt, ctx, txContext);
+        if (fastPlan != null) {
+            return CompletableFuture.completedFuture(fastPlan);
+        }
 
         // Check if plan is cached.
         CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
@@ -522,9 +521,16 @@ public class PrepareServiceImpl implements PrepareService {
 
     private CompletableFuture<QueryPlan> prepareDml(
             ValidStatement stmt,
-            PlanningContext ctx
+            PlanningContext ctx,
+            @Nullable QueryTransactionContext txContext
     ) {
         ParsedResult parsedResult = stmt.parsedResult;
+
+        // Try optimize fast.
+        QueryPlan fastPlan = tryOptimizeFast(stmt, ctx, txContext);
+        if (fastPlan != null) {
+            return CompletableFuture.completedFuture(fastPlan);
+        }
 
         // Check if plan is cached.
         CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
