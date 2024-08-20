@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * {@link ConfigurationModule} for node-local system configuration.
+ * {@link ConfigurationModule} for node configuration.
  */
 @AutoService(ConfigurationModule.class)
 public class NodeConfigurationModule implements ConfigurationModule {
