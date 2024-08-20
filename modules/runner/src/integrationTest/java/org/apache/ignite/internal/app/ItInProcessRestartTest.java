@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -64,7 +63,7 @@ class ItInProcessRestartTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<Void> putsFuture = runAsync(() -> {
             for (int i = 0; !restarted.get(); i++) {
-                kvView.put(null, i, "value");
+                kvView.put(null, i, "value-" + i);
 
                 lastInsertedId.set(i);
                 insertedSomething.complete(null);
@@ -79,7 +78,7 @@ class ItInProcessRestartTest extends ClusterPerTestIntegrationTest {
         assertThat(putsFuture, willCompleteSuccessfully());
 
         for (int i = 0; i < lastInsertedId.get(); i++) {
-            assertThat(kvView.get(null, i), is(notNullValue()));
+            assertThat(kvView.get(null, i), is("value-" + i));
         }
     }
 }
