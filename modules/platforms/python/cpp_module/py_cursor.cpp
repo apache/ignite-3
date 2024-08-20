@@ -70,14 +70,13 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
     };
 
     const char* query = nullptr;
+    // TODO IGNITE-22741 Support parameters
     PyObject *params = nullptr;
 
     int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "s|O", kwlist, &query, &params);
 
     if (!parsed)
         return nullptr;
-
-    // TODO IGNITE-22469 Support parameters
 
     self->m_statement->execute_sql_query(query);
     if (!check_errors(*self->m_statement))
@@ -102,6 +101,172 @@ static PyObject* py_cursor_rowcount(py_cursor* self, PyObject*)
     return PyLong_FromLong(long(query->affected_rows()));
 }
 
+static PyObject* py_cursor_column_count(py_cursor* self, PyObject*)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    auto query = self->m_statement->get_query();
+
+    if (!query)
+        return PyLong_FromLong(0);
+
+    return PyLong_FromLong(long(query->get_meta()->size()));
+}
+
+const ignite::column_meta *get_meta_column(py_cursor* self, long idx, PyObject *&err_ret) {
+    err_ret = nullptr;
+    auto query = self->m_statement->get_query();
+    if (!query) {
+        Py_INCREF(Py_None);
+        err_ret = Py_None;
+        return nullptr;
+    }
+
+    auto meta = query->get_meta();
+    if (!meta) {
+        Py_INCREF(Py_None);
+        err_ret = Py_None;
+        return nullptr;
+    }
+
+    if (idx < 0 || idx >= long(meta->size())) {
+        PyErr_SetString(PyExc_RuntimeError, "Column metadata index is out of bound");
+        return nullptr;
+    }
+
+    return &meta->at(idx);
+}
+
+static PyObject* py_cursor_column_name(py_cursor* self, PyObject* args)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    long idx{0};
+
+    int parsed = PyArg_ParseTuple(args, "l", &idx);
+    if (!parsed)
+        return nullptr;
+
+    PyObject* err{nullptr};
+    auto column = get_meta_column(self, idx, err);
+    if (!column)
+        return err;
+
+    return PyUnicode_FromStringAndSize(column->get_column_name().data(), column->get_column_name().size());
+}
+
+static PyObject* py_cursor_column_type_code(py_cursor* self, PyObject* args)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    long idx{0};
+
+    int parsed = PyArg_ParseTuple(args, "l", &idx);
+    if (!parsed)
+        return nullptr;
+
+    PyObject* err{nullptr};
+    auto column = get_meta_column(self, idx, err);
+    if (!column)
+        return err;
+
+    return PyLong_FromLong(long(column->get_data_type()));
+}
+
+static PyObject* py_cursor_column_display_size(py_cursor* self, PyObject* args)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* py_cursor_column_internal_size(py_cursor* self, PyObject* args)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* py_cursor_column_precision(py_cursor* self, PyObject* args)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    long idx{0};
+
+    int parsed = PyArg_ParseTuple(args, "l", &idx);
+    if (!parsed)
+        return nullptr;
+
+    PyObject* err{nullptr};
+    auto column = get_meta_column(self, idx, err);
+    if (!column)
+        return err;
+
+    return PyLong_FromLong(long(column->get_precision()));
+}
+
+static PyObject* py_cursor_column_scale(py_cursor* self, PyObject* args)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    long idx{0};
+
+    int parsed = PyArg_ParseTuple(args, "l", &idx);
+    if (!parsed)
+        return nullptr;
+
+    PyObject* err{nullptr};
+    auto column = get_meta_column(self, idx, err);
+    if (!column)
+        return err;
+
+    return PyLong_FromLong(long(column->get_scale()));
+}
+
+static PyObject* py_cursor_null_ok(py_cursor* self, PyObject* args)
+{
+    if (!self->m_statement) {
+        PyErr_SetString(PyExc_RuntimeError, "Cursor is in invalid state (Already closed?)");
+        return nullptr;
+    }
+
+    long idx{0};
+
+    int parsed = PyArg_ParseTuple(args, "l", &idx);
+    if (!parsed)
+        return nullptr;
+
+    PyObject* err{nullptr};
+    auto column = get_meta_column(self, idx, err);
+    if (!column)
+        return err;
+
+    return PyBool_FromLong(long(column->get_nullability() == ignite::nullability::NULLABLE));
+}
+
 static PyTypeObject py_cursor_type = {
     PyVarObject_HEAD_INIT(nullptr, 0)
     MODULE_NAME "." PY_CURSOR_CLASS_NAME
@@ -111,6 +276,14 @@ static struct PyMethodDef py_cursor_methods[] = {
     {"close", (PyCFunction)py_cursor_close, METH_NOARGS, nullptr},
     {"execute", (PyCFunction)py_cursor_execute, METH_VARARGS | METH_KEYWORDS, nullptr},
     {"rowcount", (PyCFunction)py_cursor_rowcount, METH_NOARGS, nullptr},
+    {"column_count", (PyCFunction)py_cursor_column_count, METH_NOARGS, nullptr},
+    {"column_name", (PyCFunction)py_cursor_column_name, METH_VARARGS, nullptr},
+    {"column_type_code", (PyCFunction)py_cursor_column_type_code, METH_VARARGS, nullptr},
+    {"column_display_size", (PyCFunction)py_cursor_column_display_size, METH_VARARGS, nullptr},
+    {"column_internal_size", (PyCFunction)py_cursor_column_internal_size, METH_VARARGS, nullptr},
+    {"column_precision", (PyCFunction)py_cursor_column_precision, METH_VARARGS, nullptr},
+    {"column_scale", (PyCFunction)py_cursor_column_scale, METH_VARARGS, nullptr},
+    {"column_null_ok", (PyCFunction)py_cursor_null_ok, METH_VARARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}
 };
 

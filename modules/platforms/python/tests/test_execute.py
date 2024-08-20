@@ -26,7 +26,7 @@ def cluster():
         yield None
 
 
-def test_execute_sql_success():
+def test_execute_const_sql_success():
     conn = pyignite3.connect(address=server_addresses_basic[0])
     assert conn is not None
     try:
@@ -34,12 +34,52 @@ def test_execute_sql_success():
         assert cursor is not None
 
         try:
-            cursor.execute('select 1')
+            cursor.execute("select 1, 'Lorem Ipsum'")
             assert cursor.rowcount == -1
+
+            assert cursor.description is not None
+            assert len(cursor.description) == 2
+
+            assert cursor.description[0].name == '1'
+            assert cursor.description[0].type_code == pyignite3.INT
+            assert cursor.description[0].null_ok is False
+
+            assert cursor.description[1].name == "'Lorem Ipsum'"
+            assert cursor.description[1].type_code == pyignite3.STRING
+            assert cursor.description[1].null_ok is False
         finally:
             cursor.close()
     finally:
         conn.close()
+
+
+def test_execute_sql_table_success():
+    table_name = test_execute_update_rowcount.__name__
+    with pyignite3.connect(address=server_addresses_basic[0]) as conn:
+        with conn.cursor() as cursor:
+            try:
+                cursor.execute(f'create table {table_name}(id int primary key, data varchar, dec decimal(3,5))')
+                cursor.execute(f"select id, data, dec from {table_name}")
+
+                assert cursor.description is not None
+                assert len(cursor.description) == 3
+
+                assert cursor.description[0].name == 'ID'
+                assert cursor.description[0].type_code == pyignite3.INT
+                assert cursor.description[0].null_ok is False
+
+                assert cursor.description[1].name == 'DATA'
+                assert cursor.description[1].type_code == pyignite3.STRING
+                assert cursor.description[1].null_ok is True
+
+                assert cursor.description[2].name == 'DEC'
+                assert cursor.description[2].type_code == pyignite3.NUMBER
+                assert cursor.description[2].null_ok is True
+                assert cursor.description[2].scale == 5
+                assert cursor.description[2].precision == 3
+
+            finally:
+                cursor.execute(f'drop table if exists {table_name}');
 
 
 def test_execute_update_rowcount():

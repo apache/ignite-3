@@ -15,9 +15,10 @@
 import datetime
 import decimal
 import uuid
-from typing import Optional
+from typing import Optional, List
 
 from pyignite3 import _pyignite3_extension
+from pyignite3 import native_type_code
 
 __version__ = '3.0.0-beta2'
 
@@ -30,6 +31,7 @@ threadsafety = 1
 # Parameter style is a question mark, e.g. '...WHERE name=?'
 paramstyle = 'qmark'
 
+NIL = None
 BOOLEAN = bool
 INT = int
 FLOAT = float
@@ -39,13 +41,50 @@ NUMBER = decimal.Decimal
 DATE = datetime.date
 TIME = datetime.time
 DATETIME = datetime.datetime
-TIMESTAMP = datetime.datetime
 UUID = uuid.UUID
 
 
+def type_code_from_int(native: int):
+    match native:
+        case native_type_code.NIL:
+            return NIL
+        case native_type_code.BOOLEAN:
+            return BOOLEAN
+        case native_type_code.INT8 | native_type_code.INT16 | native_type_code.INT32 | native_type_code.INT64:
+            return INT
+        case native_type_code.FLOAT | native_type_code.DOUBLE:
+            return FLOAT
+        case native_type_code.DECIMAL | native_type_code.NUMBER:
+            return NUMBER
+        case native_type_code.DATE:
+            return DATE
+        case native_type_code.TIME:
+            return TIME
+        case native_type_code.DATETIME | native_type_code.TIMESTAMP:
+            return DATETIME
+        case native_type_code.UUID:
+            return UUID
+        case native_type_code.BITMASK:
+            return INT
+        case native_type_code.STRING:
+            return STRING
+        case native_type_code.BYTE_ARRAY:
+            return BINARY
+        case native_type_code.PERIOD | native_type_code.DURATION:
+            return DATETIME
+
+
 class ColumnDescription:
-    def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int], precision: Optional[int], scale: Optional[int], null_ok: bool):
-        pass
+    def __init__(self, name: str, type_code: int, display_size: Optional[int], internal_size: Optional[int],
+                 precision: Optional[int], scale: Optional[int], null_ok: bool):
+        self.name = name
+        self.type_code = type_code_from_int(type_code)
+        self.display_size = display_size
+        self.internal_size = internal_size
+        self.precision = precision
+        self.scale = scale
+        self.null_ok = null_ok
+
 
 class Cursor:
     """
@@ -65,7 +104,7 @@ class Cursor:
         self.close()
 
     @property
-    def description(self):
+    def description(self) -> Optional[List[ColumnDescription]]:
         """
         This read-only attribute is a sequence of 7-item sequences.
         Each of these sequences contains information describing one result column:
@@ -83,7 +122,6 @@ class Cursor:
         """
         if self._py_cursor is None:
             return None
-        # TODO: IGNITE-22469 Implement query execution
         return self._description
 
     @property
@@ -127,8 +165,23 @@ class Cursor:
             raise InterfaceError('Connection is already closed')
 
         self._py_cursor.execute(*args)
-        for column_id in self._py_cursor.column_count():
+        self._update_description()
 
+    def _update_description(self):
+        """
+        Update column description for the current cursor. To be called after query execution.
+        """
+        self._description = []
+        for column_id in range(self._py_cursor.column_count()):
+            self._description.append(ColumnDescription(
+                name=self._py_cursor.column_name(column_id),
+                type_code=self._py_cursor.column_type_code(column_id),
+                display_size=self._py_cursor.column_display_size(column_id),
+                internal_size=self._py_cursor.column_internal_size(column_id),
+                precision=self._py_cursor.column_precision(column_id),
+                scale=self._py_cursor.column_scale(column_id),
+                null_ok=self._py_cursor.column_null_ok(column_id)
+            ))
 
     def executemany(self, *args):
         if self._py_cursor is None:
