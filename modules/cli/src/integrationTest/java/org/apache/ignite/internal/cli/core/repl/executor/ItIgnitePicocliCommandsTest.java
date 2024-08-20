@@ -69,16 +69,16 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private static final String DEFAULT_REST_URL = "http://localhost:10300";
 
     private static final String[] DISTRIBUTED_CONFIGURATION_KEYS = {
-            "eventlog",
-            "gc",
-            "metaStorage",
-            "metrics",
-            "replication",
-            "schemaSync",
-            "security",
-            "sql",
-            "storageUpdate",
-            "transaction"
+            "ignite.eventlog",
+            "ignite.gc",
+            "ignite.metaStorage",
+            "ignite.metrics",
+            "ignite.replication",
+            "ignite.schemaSync",
+            "ignite.security",
+            "ignite.sql",
+            "ignite.storageUpdate",
+            "ignite.transaction"
     };
 
     private static final String[] LOCAL_CONFIGURATION_KEYS = {
@@ -351,6 +351,29 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
+                containsInAnyOrder("ignite")
+        );
+    }
+
+    private Stream<Arguments> clusterConfigShowSuggestedAfterDotSource() {
+        return Stream.of(
+                words("cluster", "config", "show", "ignite."),
+                words("cluster", "config", "show", " --node", "nodeName", "ignite."),
+                words("cluster", "config", "show", " --verbose", "ignite."),
+                words("cluster", "config", "show", " -v", "ignite.")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("clusterConfigShowSuggestedAfterDotSource")
+    @DisplayName("cluster config selector parameters suggested")
+    void clusterConfigShowSuggestedAfterDot(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
+        // wait for lazy init of cluster config completer
+        await("For given parsed words: " + givenParsedLine.words()).until(
+                () -> complete(givenParsedLine),
                 containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS)
         );
     }
@@ -368,6 +391,29 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     @MethodSource("clusterConfigUpdateSuggestedSource")
     @DisplayName("cluster config selector parameters suggested")
     void clusterConfigUpdateSuggested(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
+        // wait for lazy init of cluster config completer
+        await("For given parsed words: " + givenParsedLine.words()).until(
+                () -> complete(givenParsedLine),
+                contains("ignite")
+        );
+    }
+
+    private Stream<Arguments> clusterConfigUpdateSuggestedAfterDotSource() {
+        return Stream.of(
+                words("cluster", "config", "update", "ignite."),
+                words("cluster", "config", "update", " --node", "nodeName", "ignite."),
+                words("cluster", "config", "update", " --verbose", "ignite."),
+                words("cluster", "config", "update", " -v", "ignite.")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("clusterConfigUpdateSuggestedAfterDotSource")
+    @DisplayName("cluster config selector parameters suggested")
+    void clusterConfigUpdateSuggestedAfterDot(ParsedLine givenParsedLine) {
         // Given
         connected();
 

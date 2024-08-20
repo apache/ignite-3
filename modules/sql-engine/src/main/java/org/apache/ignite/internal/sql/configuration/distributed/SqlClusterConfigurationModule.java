@@ -19,9 +19,8 @@ package org.apache.ignite.internal.sql.configuration.distributed;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /** {@link ConfigurationModule} for SQL cluster wide configuration. */
@@ -33,9 +32,8 @@ public class SqlClusterConfigurationModule implements ConfigurationModule {
         return ConfigurationType.DISTRIBUTED;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(SqlDistributedConfiguration.KEY);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(SqlClusterExtensionConfigurationSchema.class);
     }
 }

@@ -62,18 +62,20 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
-        String securityConfiguration = "security {\n"
-                + "  enabled:true,\n"
-                + "  authentication.providers." + PROVIDER_NAME + ":{\n"
-                + "    type:basic, users." + USERNAME + ".password:" + PASSWORD + "\n"
-                + "  }\n},\n";
+        String clusterConfiguration = "ignite {\n"
+                + "  security {\n"
+                + "    enabled:true,\n"
+                + "    authentication.providers." + PROVIDER_NAME + ":{\n"
+                + "      type:basic, users." + USERNAME + ".password:" + PASSWORD + "\n"
+                + "    }\n"
+                + "  },\n"
+                + "  eventlog {\n"
+                + "    sinks.logSink.channel: testChannel,\n"
+                + "    channels.testChannel.events: [USER_AUTHENTICATION_SUCCESS, USER_AUTHENTICATION_FAILURE],\n"
+                + "  }\n"
+                + "}";
 
-        String eventLog = "eventlog {\n"
-                + " sinks.logSink.channel: testChannel,\n"
-                + " channels.testChannel.events: [USER_AUTHENTICATION_SUCCESS, USER_AUTHENTICATION_FAILURE],\n"
-                + "}\n";
-
-        builder.clusterConfiguration(securityConfiguration + eventLog);
+        builder.clusterConfiguration(clusterConfiguration);
     }
 
     @Test

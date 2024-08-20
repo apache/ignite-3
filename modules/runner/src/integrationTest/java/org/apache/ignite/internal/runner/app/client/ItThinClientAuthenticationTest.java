@@ -34,6 +34,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,7 +65,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
     @BeforeEach
     void setUp() {
-        securityConfiguration = clusterConfigurationRegistry().getConfiguration(SecurityConfiguration.KEY);
+        securityConfiguration = clusterConfigurationRegistry().getConfiguration(SecurityExtensionConfiguration.KEY).security();
 
         CompletableFuture<Void> enableAuthentication = securityConfiguration.change(change -> {
             change.changeEnabled(true);
@@ -156,11 +157,12 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
     @Test
     void renameBasicProviderAndThenChangeUserPassword() {
-        updateClusterConfiguration("{\n"
-                + "security.authentication.providers.basic={\n"
-                + "type=basic,\n"
-                + "users=[{username=newuser,password=newpassword}]},"
-                + "security.authentication.providers.default=null\n"
+        updateClusterConfiguration("ignite.security.authentication.providers {\n"
+                + "  basic = {\n"
+                + "    type = basic\n"
+                + "    users = [{username = newuser, password = newpassword}]\n"
+                + "  }\n"
+                + "  default = null\n"
                 + "}");
 
         try (IgniteClient client = IgniteClient.builder()

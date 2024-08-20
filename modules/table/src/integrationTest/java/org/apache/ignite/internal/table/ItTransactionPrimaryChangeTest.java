@@ -85,7 +85,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     protected void customizeInitParameters(InitParametersBuilder builder) {
         super.customizeInitParameters(builder);
 
-        builder.clusterConfiguration("{"
+        builder.clusterConfiguration("ignite {"
                 + "  transaction: {"
                 + "      implicitTransactionTimeout: 30000,"
                 + "      txnResourceTtl: 2"

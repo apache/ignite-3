@@ -17,24 +17,15 @@
 
 package org.apache.ignite.internal.metastorage.configuration;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.ClusterConfigurationSchema;
 
 /**
- * {@link ConfigurationModule} for Meta Storage configuration.
+ * Extension for meta storage configuration schema.
  */
-@AutoService(ConfigurationModule.class)
-public class MetaStorageConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
-    }
-
-    @Override
-    public Collection<Class<?>> schemaExtensions() {
-        return List.of(MetaStorageExtensionConfigurationSchema.class);
-    }
+@ConfigurationExtension
+public class MetaStorageExtensionConfigurationSchema extends ClusterConfigurationSchema {
+    @ConfigValue
+    public MetaStorageConfigurationSchema metaStorage;
 }

@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.EventListener;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.security.authentication.event.AuthenticationPr
 import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
@@ -65,7 +68,10 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
     private static final UsernamePasswordRequest USERNAME_PASSWORD_REQUEST = new UsernamePasswordRequest(USERNAME, PASSWORD);
 
-    @InjectConfiguration(polymorphicExtensions = CustomAuthenticationProviderConfigurationSchema.class, rootName = "security")
+    @InjectConfiguration(polymorphicExtensions = CustomAuthenticationProviderConfigurationSchema.class, rootName = "ignite",
+            type = ConfigurationType.DISTRIBUTED)
+    private ClusterConfiguration clusterConfiguration;
+
     private SecurityConfiguration securityConfiguration;
 
     private AuthenticationManagerImpl manager;
@@ -79,6 +85,8 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
+        securityConfiguration = ((SecurityExtensionConfiguration) clusterConfiguration).security();
+
         manager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
 
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.listen(event, listener));

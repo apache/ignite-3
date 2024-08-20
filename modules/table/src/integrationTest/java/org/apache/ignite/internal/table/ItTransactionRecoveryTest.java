@@ -81,7 +81,7 @@ import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalExcept
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
@@ -134,11 +134,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     protected void customizeInitParameters(InitParametersBuilder builder) {
         super.customizeInitParameters(builder);
 
-        builder.clusterConfiguration("{\n"
-                + "  \"transaction\": {\n"
-                + "  \"abandonedCheckTs\": 600000\n"
-                + "  \"attemptsObtainLock\": 0\n"
-                + "  }\n"
+        builder.clusterConfiguration("ignite.transaction {\n"
+                + "  abandonedCheckTs: 600000\n"
+                + "  attemptsObtainLock: 0\n"
                 + "}\n");
     }
 
@@ -187,8 +185,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertEquals(orphanTxId, recoveryTxMsgCaptureFut.join());
         assertEquals(1, msgCount.get());
 
-        unwrapIgniteImpl(node(0)).clusterConfiguration().getConfiguration(TransactionConfiguration.KEY).change(transactionChange ->
-                transactionChange.changeAbandonedCheckTs(1));
+        unwrapIgniteImpl(node(0)).clusterConfiguration()
+                .getConfiguration(TransactionExtensionConfiguration.KEY).transaction()
+                .change(transactionChange -> transactionChange.changeAbandonedCheckTs(1));
 
         assertTrue(waitForCondition(() -> {
             runConflictingTransaction(node(0), node(0).transactions().begin());

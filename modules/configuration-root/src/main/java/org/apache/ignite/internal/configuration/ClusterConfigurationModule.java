@@ -15,26 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.configuration;
+package org.apache.ignite.internal.configuration;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * {@link ConfigurationModule} for Meta Storage configuration.
+ * {@link ConfigurationModule} for node-local system configuration.
  */
 @AutoService(ConfigurationModule.class)
-public class MetaStorageConfigurationModule implements ConfigurationModule {
+public class ClusterConfigurationModule implements ConfigurationModule {
+
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
     }
 
     @Override
-    public Collection<Class<?>> schemaExtensions() {
-        return List.of(MetaStorageExtensionConfigurationSchema.class);
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return List.of(ClusterConfiguration.KEY);
     }
 }

@@ -91,11 +91,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
      */
     @Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
-        cluster.startAndInit(4, builder -> builder.clusterConfiguration("{\n"
-                + "    \"replication\": {\n"
-                + "        \"rpcTimeout\": 8000 \n"
-                + "    }"
-                + "}"));
+        cluster.startAndInit(4, builder -> builder.clusterConfiguration("ignite.replication.rpcTimeout: 3000"));
 
         createZone("TEST_ZONE", 1, 3);
         // Creates table with 1 partition and 3 replicas.

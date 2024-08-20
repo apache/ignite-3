@@ -20,11 +20,8 @@ package org.apache.ignite.internal.schema.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.Validator;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.
@@ -37,22 +34,7 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
     }
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(GcConfiguration.KEY, StorageUpdateConfiguration.KEY);
-    }
-
-    @Override
-    public Set<Validator<?, ?>> validators() {
-        return Set.of();
-    }
-
-    @Override
-    public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of();
-    }
-
-    @Override
     public Collection<Class<?>> schemaExtensions() {
-        return List.of();
+        return List.of(GcExtensionConfigurationSchema.class, StorageUpdateExtensionConfigurationSchema.class);
     }
 }
