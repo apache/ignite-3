@@ -89,7 +89,6 @@ public final class ClientComputeJobPacker {
         }
 
         if (obj == null) {
-            packer.packInt(ColumnType.NULL.id());
             packer.packNil();
             return;
         }

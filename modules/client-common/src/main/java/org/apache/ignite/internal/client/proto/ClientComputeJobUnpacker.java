@@ -53,6 +53,10 @@ public final class ClientComputeJobUnpacker {
 
     /** Underlying byte array expected to be in the following format: | typeId | value |. */
     private static @Nullable Object unpack(@Nullable Marshaller<?, byte[]> marshaller, ClientMessageUnpacker unpacker) {
+        if (unpacker.tryUnpackNil()) {
+            return null;
+        }
+
         int typeId = unpacker.unpackInt();
         var type = ComputeJobType.Type.fromId(typeId);
 
