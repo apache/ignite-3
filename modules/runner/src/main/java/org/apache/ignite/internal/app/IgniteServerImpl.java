@@ -90,11 +90,11 @@ public class IgniteServerImpl implements IgniteServer {
 
     /** Current Ignite instance. This field is not volatile to make hot path accesses from IgniteReference and other references
      * faster (they always happen under a read lock, which guarantees visibility of changes to this field). So we access
-     * this field in this object under synchronization ({@link #igniteMonitor} serves as the monitor).
+     * this field in this object under synchronization ({@link #igniteMutex} serves as the monitor).
      */
     private @Nullable IgniteImpl ignite;
 
-    private final Object igniteMonitor = new Object();
+    private final Object igniteMutex = new Object();
 
     /**
      * Lock used to make sure user operations don't see Ignite instances in detached state (which might occur due to a restart)
@@ -106,7 +106,7 @@ public class IgniteServerImpl implements IgniteServer {
 
     private volatile @Nullable CompletableFuture<Void> joinFuture;
 
-    private final Object restartOrShutdownMonitor = new Object();
+    private final Object restartOrShutdownMutex = new Object();
 
     /**
      * Used to make sure restart and shutdown requests are serviced sequentially.
@@ -162,13 +162,13 @@ public class IgniteServerImpl implements IgniteServer {
     }
 
     private @Nullable IgniteImpl currentIgnite() {
-        synchronized (igniteMonitor) {
+        synchronized (igniteMutex) {
             return ignite;
         }
     }
 
     private void currentIgnite(@Nullable IgniteImpl newIgnite) {
-        synchronized (igniteMonitor) {
+        synchronized (igniteMutex) {
             ignite = newIgnite;
         }
     }
@@ -253,7 +253,7 @@ public class IgniteServerImpl implements IgniteServer {
 
         // We do not allow restarts to happen concurrently with shutdowns.
         CompletableFuture<Void> result;
-        synchronized (restartOrShutdownMonitor) {
+        synchronized (restartOrShutdownMutex) {
             result = restartOrShutdownFuture.thenCompose(unused -> doRestartAsync(instance));
             restartOrShutdownFuture = result;
         }
@@ -280,7 +280,7 @@ public class IgniteServerImpl implements IgniteServer {
 
         CompletableFuture<Void> result;
 
-        synchronized (restartOrShutdownMonitor) {
+        synchronized (restartOrShutdownMutex) {
             result = restartOrShutdownFuture.thenCompose(unused -> doShutdownAsync());
             restartOrShutdownFuture = result;
         }
