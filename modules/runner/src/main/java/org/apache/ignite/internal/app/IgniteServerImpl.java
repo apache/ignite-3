@@ -254,19 +254,19 @@ public class IgniteServerImpl implements IgniteServer {
      * @return CompletableFuture that gets completed when the node startup has completed (either successfully or with an error).
      */
     CompletableFuture<Void> restartAsync() {
-        IgniteImpl instance = currentIgnite();
-        if (instance == null) {
-            throw new NodeNotStartedException();
-        }
-
-        throwIfNotJoined();
-
         // We do not allow restarts to happen concurrently with shutdowns.
         CompletableFuture<Void> result;
         synchronized (restartOrShutdownMutex) {
             if (shutDown) {
                 throw new NodeNotStartedException();
             }
+
+            IgniteImpl instance = currentIgnite();
+            if (instance == null) {
+                throw new NodeNotStartedException();
+            }
+
+            throwIfNotJoined();
 
             result = restartOrShutdownFuture.thenCompose(unused -> doRestartAsync(instance));
             restartOrShutdownFuture = result;
