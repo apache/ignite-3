@@ -325,7 +325,7 @@ namespace Apache.Ignite.Internal.Compute
 
             (T, JobState) Read(MsgPackReader reader)
             {
-                var res = (T)reader.ReadObjectFromBinaryTuple(marshaller)!;
+                var res = ComputePacker.UnpackResult(ref reader, marshaller);
                 var status = ReadJobState(reader);
 
                 return (res, status);
