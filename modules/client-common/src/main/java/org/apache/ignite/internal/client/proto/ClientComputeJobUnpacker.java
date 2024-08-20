@@ -60,15 +60,13 @@ public final class ClientComputeJobUnpacker {
         switch (type) {
             case NATIVE:
                 ColumnType columnType = ColumnType.getById(typeId);
-                if (columnType != ColumnType.BYTE_ARRAY) {
-                    return unpacker.unpackObjectFromBinaryTuple();
+                Object obj = unpacker.unpackObjectFromBinaryTuple();
+
+                if (columnType != ColumnType.BYTE_ARRAY || marshaller == null) {
+                    return obj;
                 }
 
-                if (marshaller != null) {
-                    return tryUnmarshalOrCast(marshaller, unpacker.unpackObjectFromBinaryTuple());
-                }
-
-                return unpacker.unpackObjectFromBinaryTuple();
+                return tryUnmarshalOrCast(marshaller, obj);
 
             case MARSHALLED_TUPLE:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
