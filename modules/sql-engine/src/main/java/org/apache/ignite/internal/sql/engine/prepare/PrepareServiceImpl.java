@@ -361,7 +361,7 @@ public class PrepareServiceImpl implements PrepareService {
         }, planningPool);
 
         return validFut.thenCompose(stmt -> {
-
+            // Try to produce a fast plan, if successful, then return that plan w/o caching it.
             QueryPlan fastPlan = tryOptimizeFast(stmt, ctx, txContext);
             if (fastPlan != null) {
                 return CompletableFuture.completedFuture(fastPlan);
