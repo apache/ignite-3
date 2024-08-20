@@ -27,7 +27,6 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
-    implementation project(':ignite-configuration-root')
     implementation project(':ignite-eventlog')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations

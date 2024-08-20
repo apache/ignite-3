@@ -36,7 +36,6 @@ dependencies {
     implementation project(':ignite-schema')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-configuration-api')
-    implementation project(':ignite-configuration-root')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-workers')
     implementation project(':ignite-low-watermark')

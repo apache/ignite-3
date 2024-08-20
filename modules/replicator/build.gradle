@@ -31,7 +31,6 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
-    implementation project(':ignite-configuration-root')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
     implementation project(':ignite-placement-driver-api')

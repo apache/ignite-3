@@ -28,7 +28,6 @@ dependencies {
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-file-io')
     implementation project(':ignite-failure-handler')
-    implementation project(':ignite-configuration-root')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
