@@ -67,7 +67,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Setup
     public void setUp() {
-        kvView = clusterNode.tables().table(TABLE_NAME).keyValueView();
+        kvView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
         for (int i = 1; i < 11; i++) {
             tuple.set("field" + i, FIELD_VAL);
         }
