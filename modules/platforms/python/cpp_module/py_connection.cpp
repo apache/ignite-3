@@ -17,11 +17,13 @@
 
 #include <ignite/odbc/sql_environment.h>
 #include <ignite/odbc/sql_connection.h>
+#include <ignite/odbc/sql_statement.h>
 
 #include <ignite/common/detail/config.h>
 
 #include "module.h"
 #include "py_connection.h"
+#include "py_cursor.h"
 
 #include <Python.h>
 
@@ -30,35 +32,55 @@ int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds)
     UNUSED_VALUE args;
     UNUSED_VALUE kwds;
 
-    self->m_env = nullptr;
-    self->m_conn = nullptr;
+    self->m_environment = nullptr;
+    self->m_connection = nullptr;
 
     return 0;
 }
 
 void py_connection_dealloc(py_connection *self)
 {
-    delete self->m_conn;
-    delete self->m_env;
+    delete self->m_connection;
+    delete self->m_environment;
 
-    self->m_conn = nullptr;
-    self->m_env = nullptr;
+    self->m_connection = nullptr;
+    self->m_environment = nullptr;
 
     Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject* py_connection_close(py_connection* self, PyObject*)
 {
-    if (self->m_conn) {
-        self->m_conn->release();
-        if (!check_errors(*self->m_conn))
+    if (self->m_connection) {
+        self->m_connection->release();
+        if (!check_errors(*self->m_connection))
             return nullptr;
 
-        delete self->m_conn;
-        self->m_conn = nullptr;
+        delete self->m_connection;
+        self->m_connection = nullptr;
 
-        delete self->m_env;
-        self->m_env = nullptr;
+        delete self->m_environment;
+        self->m_environment = nullptr;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* py_connection_cursor(py_connection* self, PyObject*)
+{
+    if (self->m_connection) {
+        std::unique_ptr<ignite::sql_statement> statement{self->m_connection->create_statement()};
+        if (!check_errors(*self->m_connection))
+            return nullptr;
+
+        auto py_cursor = make_py_cursor(std::move(statement));
+        if (!py_cursor)
+            return nullptr;
+
+        auto py_cursor_obj = (PyObject*)py_cursor;
+        Py_INCREF(py_cursor_obj);
+        return py_cursor_obj;
     }
 
     Py_INCREF(Py_None);
@@ -72,6 +94,7 @@ static PyTypeObject py_connection_type = {
 
 static struct PyMethodDef py_connection_methods[] = {
     {"close", (PyCFunction)py_connection_close, METH_NOARGS, nullptr},
+    {"cursor", (PyCFunction)py_connection_cursor, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}
 };
 
@@ -92,18 +115,13 @@ int register_py_connection_type(PyObject* mod) {
 
 py_connection *make_py_connection(std::unique_ptr<ignite::sql_environment> env,
     std::unique_ptr<ignite::sql_connection> conn) {
-    auto args = PyTuple_New(0);
-    auto kwargs = Py_BuildValue("{}");
-    PyObject* py_conn_obj  = PyObject_Call((PyObject*)&py_connection_type, args, kwargs);
-    Py_DECREF(args);
-    Py_DECREF(kwargs);
+    py_connection* py_conn_obj  = PyObject_New(py_connection, &py_connection_type);
 
     if (!py_conn_obj)
         return nullptr;
 
-    auto typed_conn = reinterpret_cast<py_connection*>(py_conn_obj);
-    typed_conn->m_env = env.release();
-    typed_conn->m_conn = conn.release();
+    py_conn_obj->m_environment = env.release();
+    py_conn_obj->m_connection = conn.release();
 
-    return typed_conn;
+    return py_conn_obj;
 }
