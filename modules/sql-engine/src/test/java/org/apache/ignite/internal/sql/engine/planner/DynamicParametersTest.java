@@ -88,13 +88,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT ? > 1", Unspecified.UNKNOWN).parameterTypes(nullable(NativeTypes.INT32)).ok(),
                 sql("SELECT 1 > ?", Unspecified.UNKNOWN).parameterTypes(nullable(NativeTypes.INT32)).ok(),
                 sql("SELECT ? > ?", Unspecified.UNKNOWN, Unspecified.UNKNOWN).fails("Ambiguous operator <UNKNOWN> > <UNKNOWN>"),
-
-//                sql("SELECT ? > 1", "1")
-//                        .fails("Values passed to > operator must have compatible types"),
-//
-//                sql("SELECT 1 > ?", "1")
-//                        .fails("Values passed to > operator must have compatible types"),
-
                 sql("SELECT ? > NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:BOOLEAN"),
                 sql("SELECT NULL = ?", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:BOOLEAN"),
                 sql("SELECT ? = NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:BOOLEAN"),

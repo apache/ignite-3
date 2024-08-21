@@ -149,12 +149,11 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
         // Validation error.
         {
             assertThrowsSqlException(
-                    RUNTIME_ERR,
-                    "Invalid input string for type INTEGER: \"Incompatible param\"",
+                    STMT_VALIDATION_ERR,
+                    "Values passed to VALUES operator must have compatible types",
                     () -> executeScript(
-                            "INSERT INTO test VALUES (?);"
-                                    + "INSERT INTO test VALUES (1)",
-                            "Incompatible param"
+                            "INSERT INTO test VALUES (?), (?)",
+                            "1", 2
                     )
             );
 
