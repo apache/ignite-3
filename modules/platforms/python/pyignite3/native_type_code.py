@@ -12,27 +12,43 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pytest
 
-import pyignite3
-from tests.util import start_cluster_gen, check_cluster_started, server_addresses_invalid, server_addresses_basic
+NIL = 0
 
+BOOLEAN = 1
 
-@pytest.fixture(autouse=True)
-def cluster():
-    if not check_cluster_started():
-        yield from start_cluster_gen()
-    else:
-        yield None
+INT8 = 2
 
+INT16 = 3
 
-def test_connection_success():
-    conn = pyignite3.connect(address=server_addresses_basic[0])
-    assert conn is not None
-    conn.close()
+INT32 = 4
 
+INT64 = 5
 
-def test_connection_fail():
-    with pytest.raises(RuntimeError) as err:
-        pyignite3.connect(address=server_addresses_invalid[0])
-    assert err.match("Failed to establish connection with the host.")
+FLOAT = 6
+
+DOUBLE = 7
+
+DECIMAL = 8
+
+DATE = 9
+
+TIME = 10
+
+DATETIME = 11
+
+TIMESTAMP = 12
+
+UUID = 13
+
+BITMASK = 14
+
+STRING = 15
+
+BYTE_ARRAY = 16
+
+PERIOD = 17
+
+DURATION = 18
+
+NUMBER = 19

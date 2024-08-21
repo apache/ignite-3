@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureType;
@@ -54,10 +55,10 @@ public class FailureHandlerTest extends ClusterPerTestIntegrationTest {
     }
 
     private void testFailureHandler(Function<IgniteServer, FailureHandler> handlerFactory) {
-        IgniteServer node = cluster.startEmbeddedNode(0);
-        CompletableFuture<Void> fut = node.waitForInitAsync();
+        ServerRegistration registration = cluster.startEmbeddedNode(0);
+        CompletableFuture<Void> fut = registration.registrationFuture();
 
-        FailureHandler hnd = handlerFactory.apply(node);
+        FailureHandler hnd = handlerFactory.apply(registration.server());
         hnd.onFailure(
                 new FailureContext(
                         FailureType.CRITICAL_ERROR,

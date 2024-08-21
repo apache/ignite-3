@@ -19,52 +19,46 @@
 
 #include <Python.h>
 
-#define PY_CONNECTION_CLASS_NAME "PyConnection"
+#define PY_CURSOR_CLASS_NAME "PyCursor"
 
 namespace ignite {
-class sql_environment;
-class sql_connection;
+class sql_statement;
 }
 
 /**
- * Connection Python object.
+ * Cursor Python object.
  */
-struct py_connection {
+struct py_cursor {
     PyObject_HEAD
 
-    /** Environment. */
-    ignite::sql_environment *m_environment;
-
-    /** Connection. */
-    ignite::sql_connection *m_connection;
+    /** Statement. */
+    ignite::sql_statement *m_statement;
 };
 
 /**
  * Connection init function.
  */
-int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds);
+int py_cursor_init(py_cursor *self, PyObject *args, PyObject *kwds);
 
 /**
  * Connection dealloc function.
  */
-void py_connection_dealloc(py_connection *self);
+void py_cursor_dealloc(py_cursor *self);
 
 /**
- * Create a new instance of py_connection python class.
+ * Create a new instance of py_cursor python class.
  *
- * @param env Environment.
- * @param conn Connection.
+ * @param stmt Statement.
  * @return A new class instance.
  */
-py_connection* make_py_connection(std::unique_ptr<ignite::sql_environment> env,
-    std::unique_ptr<ignite::sql_connection> conn);
+py_cursor* make_py_cursor(std::unique_ptr<ignite::sql_statement> stmt);
 
 /**
- * Prepare PyConnection type for registration.
+ * Prepare PyCursor type for registration.
  */
-int prepare_py_connection_type();
+int prepare_py_cursor_type();
 
 /**
- * Register PyConnection type within module.
+ * Register PyCursor type within module.
  */
-int register_py_connection_type(PyObject* mod);
+int register_py_cursor_type(PyObject* mod);

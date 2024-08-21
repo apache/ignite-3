@@ -117,6 +117,30 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void cacheOnStableTopology() {
+        String localNodeName = "NODE";
+        List<String> nodeNames = List.of(localNodeName, "NODE1");
+
+        // Initialize mapping service.
+        ExecutionTargetProvider targetProvider = Mockito.spy(createTargetProvider(nodeNames));
+        MappingServiceImpl mappingService = new MappingServiceImpl(
+                localNodeName, CLOCK_SERVICE, targetProvider, CaffeineCacheFactory.INSTANCE, 100, PARTITION_PRUNER, Runnable::run
+        );
+        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(1, logicalNodes(nodeNames.toArray(new String[0]))));
+
+
+        List<MappedFragment> defaultMapping = await(mappingService.map(PLAN, PARAMS));
+        List<MappedFragment> mappingOnBackups = await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS));
+
+        verify(targetProvider, times(2)).forTable(any(), any(), any(), anyBoolean());
+
+        assertSame(defaultMapping, await(mappingService.map(PLAN, PARAMS)));
+        assertSame(mappingOnBackups, await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS)));
+        assertNotSame(defaultMapping, mappingOnBackups);
+    }
+
+    @Test
     public void serviceInitializationTest() {
         String localNodeName = "NODE0";
 

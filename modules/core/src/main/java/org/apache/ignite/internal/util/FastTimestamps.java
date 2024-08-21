@@ -23,7 +23,8 @@ package org.apache.ignite.internal.util;
 public class FastTimestamps {
     private static volatile long coarseCurrentTimeMillis = System.currentTimeMillis();
 
-    private static final long UPDATE_INTERVAL_MS = 10;
+    /** Note: don't change this value, because it's crucial for a timestamp generation. */
+    private static final long UPDATE_INTERVAL_MS = 1;
 
     static {
         startUpdater();
@@ -46,7 +47,7 @@ public class FastTimestamps {
         };
 
         updater.setDaemon(true);
-        updater.setPriority(10);
+        updater.setPriority(Thread.MAX_PRIORITY);
         updater.start();
     }
 
