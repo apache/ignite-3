@@ -158,8 +158,8 @@ class ClientDataStreamer {
             }
 
             @Override
-            public int autoFlushFrequency() {
-                return options.autoFlushFrequency();
+            public int autoFlushInterval() {
+                return options.autoFlushInterval();
             }
         };
     }

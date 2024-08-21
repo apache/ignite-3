@@ -167,7 +167,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
         try (var publisher = new SimplePublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
+            var options = DataStreamerOptions.builder().autoFlushInterval(100).build();
             view.streamData(publisher, options);
 
             publisher.submit(tuple(1L, "foo"));
@@ -180,7 +180,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
         try (var publisher = new SimplePublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
+            var options = DataStreamerOptions.builder().autoFlushInterval(-1).build();
             view.streamData(publisher, options);
 
             publisher.submit(tuple(1L, "foo"));

@@ -775,7 +775,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         RaftGroupOptions raftGroupOptions;
 
         if (isVolatileStorage) {
-            LogStorageBudgetView view = ((Loza) raftManager).volatileRaft().logStorage().value();
+            LogStorageBudgetView view = ((Loza) raftManager).volatileRaft().logStorageBudget().value();
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
                     .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(view))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());

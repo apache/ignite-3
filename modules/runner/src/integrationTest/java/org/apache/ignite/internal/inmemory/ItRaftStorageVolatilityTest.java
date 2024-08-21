@@ -241,7 +241,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         RaftConfiguration raftConfiguration = unwrapIgniteImpl(node(0)).nodeConfiguration()
                 .getConfiguration(RaftExtensionConfiguration.KEY).raft();
         CompletableFuture<Void> configUpdateFuture = raftConfiguration.change(cfg -> {
-            cfg.changeVolatileRaft().changeLogStorage().convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1);
+            cfg.changeVolatileRaft().changeLogStorageBudget().convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1);
         });
         assertThat(configUpdateFuture, willCompleteSuccessfully());
 
