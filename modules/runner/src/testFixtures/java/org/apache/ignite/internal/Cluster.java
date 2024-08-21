@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,10 +38,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
@@ -217,11 +217,14 @@ public class Cluster {
 
         initialClusterSize = nodeCount;
 
-        List<IgniteServer> nodes = IntStream.range(0, nodeCount)
+        List<ServerRegistration> nodeRegistrations = IntStream.range(0, nodeCount)
                 .mapToObj(nodeIndex -> startEmbeddedNode(nodeIndex, nodeBootstrapConfigTemplate))
                 .collect(toList());
 
-        List<IgniteServer> metaStorageAndCmgNodes = Arrays.stream(cmgNodes).mapToObj(nodes::get).collect(toList());
+        List<IgniteServer> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+                .mapToObj(nodeRegistrations::get)
+                .map(ServerRegistration::server)
+                .collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
                 .metaStorageNodes(metaStorageAndCmgNodes)
@@ -231,31 +234,31 @@ public class Cluster {
 
         TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
 
-        for (IgniteServer node : nodes) {
-            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+        for (ServerRegistration registration : nodeRegistrations) {
+            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
         }
 
         started = true;
     }
 
     /**
-     * Starts a cluster node with the default bootstrap config template and returns its startup future.
+     * Starts a cluster node with the default bootstrap config template.
      *
      * @param nodeIndex Index of the node to start.
-     * @return Future that will be completed when the node starts.
+     * @return Started server and its registration future.
      */
-    public IgniteServer startEmbeddedNode(int nodeIndex) {
+    public ServerRegistration startEmbeddedNode(int nodeIndex) {
         return startEmbeddedNode(nodeIndex, defaultNodeBootstrapConfigTemplate);
     }
 
     /**
-     * Starts a cluster node and returns its startup future.
+     * Starts a cluster node.
      *
      * @param nodeIndex Index of the node to start.
      * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
-     * @return Future that will be completed when the node starts.
+     * @return Started server and its registration future.
      */
-    public IgniteServer startEmbeddedNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
+    public ServerRegistration startEmbeddedNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
         String nodeName = testNodeName(testInfo, nodeIndex);
 
         String config = IgniteStringFormatter.format(
@@ -270,7 +273,7 @@ public class Cluster {
         IgniteServer node = TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
         setListAtIndex(igniteServers, nodeIndex, node);
 
-        node.waitForInitAsync().thenRun(() -> {
+        CompletableFuture<Void> registrationFuture = node.waitForInitAsync().thenRun(() -> {
             synchronized (nodes) {
                 setListAtIndex(nodes, nodeIndex, node.api());
             }
@@ -281,7 +284,8 @@ public class Cluster {
                 node.shutdown();
             }
         });
-        return node;
+
+        return new ServerRegistration(node, registrationFuture);
     }
 
     private static <T> void setListAtIndex(List<T> list, int i, T element) {
@@ -352,19 +356,9 @@ public class Cluster {
      *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
     public Ignite startNode(int index, String nodeBootstrapConfigTemplate) {
-        Ignite newIgniteNode;
-
-        try {
-            IgniteServer node = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
-            node.waitForInitAsync().get(20, TimeUnit.SECONDS);
-            newIgniteNode = node.api();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new RuntimeException(e);
-        } catch (ExecutionException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
+        ServerRegistration registration = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
+        assertThat(registration.registrationFuture(), willSucceedIn(20, TimeUnit.SECONDS));
+        Ignite newIgniteNode = registration.server().api();
 
         assertEquals(newIgniteNode, nodes.get(index));
 
@@ -668,6 +662,29 @@ public class Cluster {
         public boolean test(String recipientConsistentId, NetworkMessage networkMessage) {
             return Objects.equals(recipientConsistentId, recipientName)
                     || (prevPredicate != null && prevPredicate.test(recipientConsistentId, networkMessage));
+        }
+    }
+
+    /** {@link IgniteServer} and future that completes when the server gets started, joins and gets registered with a Cluster. */
+    public static class ServerRegistration {
+        private final IgniteServer server;
+        private final CompletableFuture<Void> registrationFuture;
+
+        public ServerRegistration(IgniteServer server, CompletableFuture<Void> registrationFuture) {
+            this.server = server;
+            this.registrationFuture = registrationFuture;
+        }
+
+        /** Returns IgniteServer. */
+        public IgniteServer server() {
+            return server;
+        }
+
+        /**
+         * Returns a future that gets completed when the server gets started, joins and gets registered with the Cluster which starts it.
+         */
+        public CompletableFuture<Void> registrationFuture() {
+            return registrationFuture;
         }
     }
 }

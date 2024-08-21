@@ -15,29 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.distributed;
+package org.apache.ignite.internal.table;
 
-import org.junit.jupiter.api.TestInfo;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
- * Distributed transaction test using a single partition table, collocated on a leader.
+ * New row id allocator.
  */
-public class ItTxDistributedTestSingleNodeCollocated extends ItTxAbstractDistributedTestSingleNode {
+public class RowIdGenerator {
     /**
-     * The constructor.
+     * Get next row id.
      *
-     * @param testInfo Test info.
+     * @return Next row id.
      */
-    public ItTxDistributedTestSingleNodeCollocated(TestInfo testInfo) {
-        super(testInfo);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected boolean startClient() {
-        return false;
+    public static UUID next() {
+        return new UUID(FastTimestamps.coarseCurrentTimeMillis(), ThreadLocalRandom.current().nextLong());
     }
 }
-
-
-
