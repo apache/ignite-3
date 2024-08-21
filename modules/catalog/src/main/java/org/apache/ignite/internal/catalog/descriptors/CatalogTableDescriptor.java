@@ -166,18 +166,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Returns column descriptor for column with given name.
-     */
-    public CatalogTableColumnDescriptor columnDescriptor(String columnName) {
-        Entry<Integer, CatalogTableColumnDescriptor> column = columnsMap.get(columnName);
-        if (column != null) {
-            return column.getValue();
-        } else {
-            return null;
-        }
-    }
-
-    /**
      * Returns an identifier of a schema this table descriptor belongs to.
      */
     public int schemaId() {

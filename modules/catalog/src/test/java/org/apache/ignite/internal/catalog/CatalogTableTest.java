@@ -167,7 +167,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertTrue(pkIndex.unique());
         assertEquals(AVAILABLE, pkIndex.status());
 
-        CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
+        CatalogTableColumnDescriptor desc = table.column("key1");
         assertNotNull(desc);
         // INT32 key
         assertThat(desc.precision(), is(DEFAULT_PRECISION));
