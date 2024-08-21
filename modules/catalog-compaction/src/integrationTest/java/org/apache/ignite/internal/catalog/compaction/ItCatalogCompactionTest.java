@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.catalog.compaction;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -40,7 +44,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -61,6 +67,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.tx.TransactionOptions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -69,9 +76,15 @@ import org.junit.jupiter.api.Test;
 class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     private static final int CLUSTER_SIZE = 3;
 
-    private static final long LW_UPDATE_TIME_MS = 10000;
+    // How often we update low water mark.
+    private static final long LW_UPDATE_TIME_MS = TimeUnit.SECONDS.toMillis(10);
 
-    private static final long LW_DATA_AVAIL_TIME_MS = LW_UPDATE_TIME_MS*2;
+    // Check point frequency determines how often we update a snapshot of minActiveTxBeginTime
+    // it should be less than LW_UPDATE_TIME_MS for the test to work.
+    private static final long CHECK_POINT_FREQUENCY_MS = LW_UPDATE_TIME_MS/2;
+
+    // Show be greater than 2 x LW_UPDATE_TIME_MS
+    private static final long COMPACTION_INTERVAL_MS = TimeUnit.SECONDS.toMillis(50);
 
     @Override
     protected int initialNodes() {
@@ -79,13 +92,49 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     @Override
+    protected String getNodeBootstrapConfigTemplate() {
+        return "{\n"
+                + "  network: {\n"
+                + "    port: {},\n"
+                + "    nodeFinder.netClusterNodes: [ {} ]\n"
+                + "  },\n"
+                + "  storage.profiles: {"
+                + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
+                + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+                + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+                + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
+                + "  },\n"
+                + "  storage.engines: { "
+                + "    aipersist: { checkpoint: { "
+                + "      frequency: " + CHECK_POINT_FREQUENCY_MS
+                + "    } } "
+                + "  },\n"
+                + "  clientConnector.port: {},\n"
+                + "  rest.port: {},\n"
+                + "  compute.threadPoolSize: 1\n"
+                + "}";
+    }
+
+    @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         String clusterConfiguration = format(
                 "gc: {lowWatermark: { dataAvailabilityTime: {}, updateFrequency: {} } }",
-                LW_DATA_AVAIL_TIME_MS, LW_UPDATE_TIME_MS
+                // dataAvailabilityTime is 2 x updateFrequency by default
+                LW_UPDATE_TIME_MS*2, LW_UPDATE_TIME_MS
         );
 
         builder.clusterConfiguration(clusterConfiguration);
+    }
+
+    @BeforeAll
+    void enableCompaction() {
+        List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
+        assertEquals(initialNodes(), nodes.size());
+
+        for (var node : nodes) {
+            IgniteImpl ignite = unwrapIgniteImpl(node);
+            ignite.catalogCompactionRunner().enable(true);
+        }
     }
 
     @Test
@@ -224,8 +273,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         Catalog catalog1 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
         assertNotNull(catalog1);
 
-        TimeUnit.MILLISECONDS.sleep(LW_DATA_AVAIL_TIME_MS *3);
-
         expectEarliestCatalogVersion(catalog1.version() - 1);
 
         log.info("Awaiting for the second compaction to run...");
@@ -236,8 +283,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         assertNotNull(catalog2);
 
         assertTrue(catalog1.version() < catalog2.version(), "Catalog version should have changed");
-
-        TimeUnit.MILLISECONDS.sleep(LW_DATA_AVAIL_TIME_MS *3);
 
         expectEarliestCatalogVersion(catalog2.version() - 1);
     }
@@ -277,13 +322,22 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    private static void expectEarliestCatalogVersion(int version) {
-        CLUSTER.runningNodes().forEach(node -> {
-            IgniteImpl ignite = unwrapIgniteImpl(node);
-            CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
+    private static void expectEarliestCatalogVersion(int version) throws InterruptedException {
+        long waitTime = COMPACTION_INTERVAL_MS;
 
-            String message = "The earliest catalog version does not match. Node=" + node.name();
-            assertEquals(version, catalogManager.earliestCatalogVersion(), message);
-        });
+        boolean compacted = IgniteTestUtils.waitForCondition(() -> {
+            for (var node : CLUSTER.runningNodes().collect(Collectors.toList()) ) {
+                IgniteImpl ignite = unwrapIgniteImpl(node);
+
+                CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
+                if (catalogManager.earliestCatalogVersion() != version) {
+                    return false;
+                }
+            }
+
+            return true;
+        }, 1000, waitTime);
+
+        assertTrue(compacted, "The earliest catalog version does not match. Wait time ms=" + waitTime);
     }
 }

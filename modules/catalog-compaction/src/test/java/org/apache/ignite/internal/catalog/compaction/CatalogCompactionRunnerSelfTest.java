@@ -45,6 +45,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +90,7 @@ import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -162,7 +164,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         compactionRunner.triggerCompaction(now);
 
         assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
-        verify(messagingService, times(0)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
     }
 
     @Test
@@ -194,6 +195,53 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         compactor.triggerCompaction(now);
 
         assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
+    }
+
+    @Test
+    public void mustNotTriggerCompactionWhenLowWaterMarkIsNotAvailable() {
+        Catalog earliestCatalog = catalogManager.catalog(catalogManager.earliestCatalogVersion());
+        assertNotNull(earliestCatalog);
+
+        // We do not care what minimum time at other nodes is, thus use HybridTimestamp.MIN_VALUE.
+        long otherNodeMinTime = HybridTimestamp.MIN_VALUE.longValue();
+        MinTimeSupplier minTimeSupplier = new MinTimeSupplier((n) -> earliestCatalog.time() - 1, otherNodeMinTime);
+
+        CatalogCompactionRunner compactor =
+                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes);
+
+        // Do not set low watermark
+
+        HybridTimestamp now = clockService.now();
+        compactor.triggerCompaction(now);
+
+        assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
+
+        // Still send messages to propagate min time to replicas.
+        verify(messagingService, times(logicalNodes.size() - 1)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
+    }
+
+    @Test
+    public void mustNotTriggerCompactionWhenLocalTimeIsNotAvailable() {
+        Catalog earliestCatalog = catalogManager.catalog(catalogManager.earliestCatalogVersion());
+        assertNotNull(earliestCatalog);
+
+        // We do not care what minimum time at other nodes is, thus use HybridTimestamp.MIN_VALUE.
+        long otherNodeMinTime = HybridTimestamp.MIN_VALUE.longValue();
+        MinTimeSupplier minTimeSupplier = new MinTimeSupplier((n) -> 1L, otherNodeMinTime);
+
+        CatalogCompactionRunner compactor =
+                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes);
+
+        // Do not set low watermark
+
+        HybridTimestamp now = clockService.now();
+        compactor.onLowWatermarkChanged(now);
+        compactor.triggerCompaction(now);
+
+        assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
+
+        // Still send messages to propagate min time to replicas.
+        verify(messagingService, times(logicalNodes.size() - 1)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
     }
 
     @Test
@@ -486,6 +534,16 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             List<LogicalNode> topology,
             List<LogicalNode> assignmentNodes
     ) {
+        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), topology, assignmentNodes);
+    }
+
+    private CatalogCompactionRunner createRunner(
+            ClusterNode localNode,
+            ClusterNode coordinator,
+            MinTimeSupplier timeSupplier,
+            List<LogicalNode> topology,
+            List<LogicalNode> assignmentNodes
+    ) {
         coordinatorNodeHolder.set(coordinator);
         messagingService = mock(MessagingService.class);
         logicalTopologyService = mock(LogicalTopologyService.class);
@@ -503,15 +561,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                         assertThat("Coordinator shouldn't send messages to himself",
                                 nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
 
-                        Long time;
+                        long time;
                         try {
-                            time = timeSupplier.apply(nodeName);
+                            time = timeSupplier.otherNodeMinTime(nodeName);
                         } catch (Exception e) {
                             throw new CompletionException(e);
                         }
 
                         return messagesFactory.catalogCompactionMinimumTimesResponse()
-                                .minimumRequiredTime((time))
+                                .minimumRequiredTime(time)
                                 .minimumActiveTxTime(clockService.nowLong())
                                 .build();
                     });
@@ -559,15 +617,38 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 ForkJoinPool.commonPool(),
                 clockService::now,
                 () -> {
-                    Long minTime = timeSupplier.apply(coordinator.name());
-
-                    return Map.of(new TablePartitionId(1, 1), minTime);
+                    Long minTime = timeSupplier.minLocalTimeAtNode(coordinator.name());
+                    Map<TablePartitionId, Long> values = new HashMap<>();
+                    // key is not used.
+                    values.put(new TablePartitionId(1, 1), minTime);
+                    return values;
                 });
 
         await(runner.startAsync(mock(ComponentContext.class)));
 
+        runner.enable(true);
         runner.updateCoordinator(coordinator);
 
         return runner;
+    }
+
+    static class MinTimeSupplier {
+
+        final Function<String, Long> timeSupplier;
+
+        final @Nullable Long otherNodeMinTime;
+
+        MinTimeSupplier(Function<String, Long> timeSupplier, @Nullable Long otherNodeMinTime) {
+            this.timeSupplier = timeSupplier;
+            this.otherNodeMinTime = otherNodeMinTime;
+        }
+
+        long minLocalTimeAtNode(String node) {
+            return timeSupplier.apply(node);
+        }
+
+        long otherNodeMinTime(String node) {
+            return otherNodeMinTime != null ? otherNodeMinTime : timeSupplier.apply(node);
+        }
     }
 }
