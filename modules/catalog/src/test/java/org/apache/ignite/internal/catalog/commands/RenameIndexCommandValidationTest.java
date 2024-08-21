@@ -150,4 +150,19 @@ public class RenameIndexCommandValidationTest extends AbstractCommandValidationT
                 "Table with name 'PUBLIC.TABLE1' already exists"
         );
     }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsThrownIfSchemaIsReserved(String schema) {
+        RenameTableCommandBuilder builder = RenameTableCommand.builder();
+
+        builder.schemaName(schema)
+                .tableName("t");
+
+        assertThrows(
+                CatalogValidationException.class,
+                builder::build,
+                "Operations with system schemas are not allowed"
+        );
+    }
 }
