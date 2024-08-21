@@ -172,10 +172,29 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     public void optimizeCountStarWithOrderBy() {
         node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
 
-        QueryPlan plan = node.prepare("SELECT count(*) FROM test ORDER BY 1");
+        {
+            QueryPlan plan = node.prepare("SELECT count(*) FROM test ORDER BY 1");
 
-        assertThat(plan, instanceOf(SelectCountPlan.class));
-        assertExpressions((SelectCountPlan) plan, "$0");
+            assertThat(plan, instanceOf(SelectCountPlan.class));
+            assertExpressions((SelectCountPlan) plan, "$0");
+        }
+
+        {
+            QueryPlan plan = node.prepare("SELECT count(*) FROM test ORDER BY 1");
+
+            assertThat(plan, instanceOf(SelectCountPlan.class));
+            assertExpressions((SelectCountPlan) plan, "$0");
+        }
+
+        {
+            QueryPlan plan = node.prepare("SELECT count(*) FROM test ORDER BY 1 OFFSET 2");
+            assertThat(plan, not(instanceOf(SelectCountPlan.class)));
+        }
+
+        {
+            QueryPlan plan = node.prepare("SELECT count(*), 1 as c FROM test ORDER BY c");
+            assertThat(plan, not(instanceOf(SelectCountPlan.class)));
+        }
     }
 
     @Test

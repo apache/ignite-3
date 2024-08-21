@@ -49,6 +49,7 @@ import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -372,13 +373,14 @@ public final class PlannerHelper {
             @Nullable QueryTransactionContext txContext,
             SqlNode node
     ) {
-        if (!isSelectCountOptimizationApplicable(txContext, node)) {
+        SqlSelect select = getSelectCountOptimizationNode(txContext, node);
+        if (select == null) {
             return false;
         }
 
-        SqlSelect select = (SqlSelect) node;
-
         boolean countAdded = false;
+
+        // Check select list for SELECT COUNT(*) and literals
 
         for (SqlNode selectItem : select.getSelectList()) {
             SqlNode expr = SqlUtil.stripAs(selectItem);
@@ -406,11 +408,11 @@ public final class PlannerHelper {
             @Nullable QueryTransactionContext txContext,
             SqlNode node
     ) {
-        if (!isSelectCountOptimizationApplicable(txContext, node)) {
+        SqlSelect select = getSelectCountOptimizationNode(txContext, node);
+        if (select == null) {
             return null;
         }
 
-        SqlSelect select = (SqlSelect) node;
         assert select.getFrom() != null : "FROM is missing";
 
         IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
@@ -479,13 +481,33 @@ public final class PlannerHelper {
         return new Pair<>(rel, expressionNames);
     }
 
-    private static boolean isSelectCountOptimizationApplicable(@Nullable QueryTransactionContext txContext, SqlNode node) {
+    private static @Nullable SqlSelect getSelectCountOptimizationNode(@Nullable QueryTransactionContext txContext, SqlNode node) {
         if (txContext != null && txContext.explicitTx() != null) {
-            return false;
+            return null;
+        }
+
+        // Unwrap SELECT .. from SELECT x FROM t ORDER BY ...
+        if (node instanceof SqlOrderBy) {
+            SqlOrderBy orderBy = (SqlOrderBy) node;
+
+            // Skip ORDER BY with OFFSET/FETCH
+            if (orderBy.fetch != null || orderBy.offset != null) {
+                return null;
+            }
+
+            // Skip ORDER BY with non literals
+            for (SqlNode arg : orderBy.orderList) {
+                if (!SqlUtil.isLiteral(arg))  {
+                    return null;
+                }
+            }
+
+            assert orderBy.getOperandList().size() == 4 : "Expected 4 operands, but was " + orderBy.getOperandList().size();
+            node = orderBy.query;
         }
 
         if (!(node instanceof SqlSelect)) {
-            return false;
+            return null;
         }
 
         SqlSelect select = (SqlSelect) node;
@@ -498,7 +520,8 @@ public final class PlannerHelper {
                 || !select.getWindowList().isEmpty()
                 || select.getOffset() != null
                 || select.getFetch() != null) {
-            return false;
+
+            return null;
         }
 
         // make sure that the following IF statement does not leave out any operand of the SELECT node
@@ -507,7 +530,11 @@ public final class PlannerHelper {
         // Convert PUBLIC.T AS X (a,b) to PUBLIC.T
         SqlNode from = SqlUtil.stripAs(select.getFrom());
         // Skip non-references such as VALUES ..
-        return from.getKind() == SqlKind.IDENTIFIER;
+        if (from.getKind() == SqlKind.IDENTIFIER) {
+            return select;
+        } else {
+            return null;
+        }
     }
 
     private static boolean isCountStar(SqlValidator validator, SqlNode node, boolean typeCheck) {
