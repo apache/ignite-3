@@ -136,7 +136,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param <T> Configuration tree type.
      * @return Public configuration tree.
      */
-    public <V, C, T extends ConfigurationTree<? super V, C>> T getConfiguration(RootKey<T, V> rootKey) {
+    public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
         return (T) configs.get(rootKey.key());
     }
 

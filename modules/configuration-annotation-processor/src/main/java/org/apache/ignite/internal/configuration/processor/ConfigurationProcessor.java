@@ -269,7 +269,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 TypeElement superClass = superClass(clazz);
                 boolean isSuperClassRootConfig = superClass.getAnnotation(ConfigurationRoot.class) != null;
                 if (isSuperClassRootConfig) {
-                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, ClassName.get(superClass));
+                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, ClassName.get(superClass));
                 }
             }
 
@@ -309,10 +309,9 @@ public class ConfigurationProcessor extends AbstractProcessor {
     private static void createExtensionKeyField(
             ClassName configInterface,
             Builder configurationClassBuilder,
-            ClassName schemaClassName,
             ClassName superClassSchemaClassName
     ) {
-        ClassName viewClassName = getViewName(schemaClassName);
+        ClassName viewClassName = getViewName(superClassSchemaClassName);
 
         ClassName superConfigInterface = getConfigurationInterfaceName(superClassSchemaClassName);
 
