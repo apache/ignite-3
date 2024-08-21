@@ -312,7 +312,8 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         doThrow(new RuntimeException("Test exception")).when(authenticator3).authenticateAsync(credentials);
 
         Authenticator authenticator4 = mock(Authenticator.class);
-        doReturn(new UserDetails("admin", "mock")).when(authenticator4).authenticateAsync(credentials);
+        doReturn(CompletableFuture.completedFuture(new UserDetails("admin", "mock")))
+                .when(authenticator4).authenticateAsync(credentials);
 
         manager.authenticators(List.of(authenticator1, authenticator2, authenticator3, authenticator4));
 
