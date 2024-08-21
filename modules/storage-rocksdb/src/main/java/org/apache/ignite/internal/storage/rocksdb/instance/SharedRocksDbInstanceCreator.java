@@ -155,8 +155,8 @@ public class SharedRocksDbInstanceCreator {
                     requireNonNull(meta, "meta"),
                     requireNonNull(partitionCf, "partitionCf"),
                     requireNonNull(gcQueueCf, "gcQueueCf"),
-                    requireNonNull(hashIndexCf, "hashIndexCf"),
                     requireNonNull(dataCf, "dataCf"),
+                    requireNonNull(hashIndexCf, "hashIndexCf"),
                     sortedIndexCfs,
                     resources // Trusts the inner class to copy the resources!!
             );
