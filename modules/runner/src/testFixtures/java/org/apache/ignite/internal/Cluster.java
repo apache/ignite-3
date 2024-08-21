@@ -311,6 +311,13 @@ public class Cluster {
     }
 
     /**
+     * Returns an Ignite server by its index.
+     */
+    public IgniteServer server(int index) {
+        return igniteServers.get(index);
+    }
+
+    /**
      * Returns an Ignite node (a member of the cluster) by its index.
      */
     public Ignite node(int index) {

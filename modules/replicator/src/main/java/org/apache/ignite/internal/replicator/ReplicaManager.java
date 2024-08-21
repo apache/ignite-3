@@ -565,33 +565,66 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             @Nullable SnapshotStorageFactory snapshotStorageFactory,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TablePartitionId replicaGrpId,
+            ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration
     ) throws NodeStoppingException {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
 
-        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                isVolatileStorage,
-                snapshotStorageFactory);
+        RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, snapshotStorageFactory);
 
         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-        CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut = ((Loza) raftManager).startRaftGroupNode(
-                raftNodeId,
-                newConfiguration,
-                raftGroupListener,
-                raftGroupEventsListener,
-                groupOptions,
-                raftGroupServiceFactory
-        );
+        CompletableFuture<Replica> replicaFuture = ((Loza) raftManager)
+                .startRaftGroupNode(
+                        raftNodeId,
+                        newConfiguration,
+                        raftGroupListener,
+                        raftGroupEventsListener,
+                        groupOptions,
+                        raftGroupServiceFactory
+                )
+                .thenApplyAsync(raftClient ->  {
+                    LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        return startReplica(
-                replicaGrpId,
-                newConfiguration,
-                createListener,
-                storageIndexTracker,
-                newRaftClientFut
-        );
+                    ReplicaListener replicaListener = createListener.apply(raftClient);
+
+                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
+                    return new ReplicaImpl(
+                        replicaGrpId,
+                        replicaListener,
+                        storageIndexTracker,
+                        localNode,
+                        executor,
+                        placementDriver,
+                        clockService,
+                        replicaStateManager::reserveReplica
+                    );
+                }, replicasCreationExecutor)
+                .thenComposeAsync(newReplica -> replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+                    if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                        assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                        LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
+
+                        return completedFuture(newReplica);
+                    } else {
+                        LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
+
+                        existingReplicaFuture.complete(newReplica);
+
+                        return existingReplicaFuture;
+                    }
+                }), replicasCreationExecutor);
+
+        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
+
+        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
+                .exceptionally(e -> {
+                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
+
+                    return null;
+                })
+                .thenCompose(v -> replicaFuture);
     }
 
     /**
@@ -602,7 +635,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param isVolatileStorage is table storage volatile?
      * @param snapshotStorageFactory Snapshot storage factory for raft group option's parameterization.
      * @param createListener Due to creation of ReplicaListener in TableManager, the function returns desired listener by created
-     *      raft-client inside {@link #startReplica} method.
+     *      raft-client inside {@link #startReplicaInternal} method.
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newConfiguration A configuration for new raft group.
@@ -616,7 +649,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             @Nullable SnapshotStorageFactory snapshotStorageFactory,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TablePartitionId replicaGrpId,
+            ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
@@ -715,93 +748,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 busyLock.leaveBusy();
             }
         }, executor);
-    }
-
-    /**
-     * Starts a raft-client and pass it to a replica creation if the replica should be started too. If a replica with the same partition id
-     * already exists, the method throws an exception.
-     * TODO: must be deleted or be private after https://issues.apache.org/jira/browse/IGNITE-22373
-     *
-     * @param replicaGrpId Replication group id.
-     * @param newConfiguration Peers and Learners of the Raft group.
-     * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
-     * @param storageIndexTracker Storage index tracker.
-     * @param newRaftClientFut A future that returns created raft-client.
-     * @throws NodeStoppingException If node is stopping.
-     * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
-     */
-    @VisibleForTesting
-    @Deprecated
-    public CompletableFuture<Replica> startReplica(
-            ReplicationGroupId replicaGrpId,
-            PeersAndLearners newConfiguration,
-            Function<RaftGroupService, ReplicaListener> createListener,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut
-    ) throws NodeStoppingException {
-        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
-
-        return newRaftClientFut
-                .thenApplyAsync(createListener, replicasCreationExecutor)
-                .thenCompose(replicaListener -> startReplica(replicaGrpId, storageIndexTracker, completedFuture(replicaListener)));
-    }
-
-    /**
-     * Creates and start new replica.
-     *
-     * @param replicaGrpId Replication group id.
-     * @param storageIndexTracker Storage index tracker.
-     * @param newReplicaListenerFut Future that returns ready ReplicaListener for replica creation.
-     * @return Future that promises ready new replica when done.
-     */
-    @TestOnly
-    @VisibleForTesting
-    @Deprecated
-    private CompletableFuture<Replica> startReplica(
-            ReplicationGroupId replicaGrpId,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            CompletableFuture<ReplicaListener> newReplicaListenerFut
-    ) {
-
-        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-        CompletableFuture<Replica> replicaFuture = newReplicaListenerFut.thenCompose(listener -> {
-            Replica newReplica = new ReplicaImpl(
-                    replicaGrpId,
-                    listener,
-                    storageIndexTracker,
-                    localNode,
-                    executor,
-                    placementDriver,
-                    clockService,
-                    replicaStateManager::reserveReplica
-            );
-
-            return replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-                if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
-                    assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
-                    LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
-
-                    return completedFuture(newReplica);
-                } else {
-                    LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
-
-                    existingReplicaFuture.complete(newReplica);
-
-                    return existingReplicaFuture;
-                }
-            });
-        });
-
-        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
-
-        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
-                .exceptionally(e -> {
-                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
-
-                    return null;
-                })
-                .thenCompose(v -> replicaFuture);
     }
 
     /**

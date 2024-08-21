@@ -63,7 +63,6 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.BuiltInMethod;
@@ -127,6 +126,7 @@ import static java.util.Objects.requireNonNull;
  * 7. Reworked implementation of dynamic parameters:
  *      IgniteMethod.CONTEXT_GET_PARAMETER_VALUE instead of BuiltInMethod.DATA_CONTEXT_GET
  *      added conversation for Decimals
+ * 8. Added parameter `RelDataType valueType` for implementRecursively method to do right datatype conversion
  */
 public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result> {
   public static final Map<Method, SqlOperator> JAVA_TO_SQL_METHOD_MAP =
@@ -330,7 +330,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       Expression operand,
       ConstantExpression format) {
     final Supplier<Expression> defaultExpression = () ->
-            ConverterUtils.convert(operand, typeFactory.getJavaClass(targetType));
+            ConverterUtils.convert(operand, targetType);
 
     switch (targetType.getSqlTypeName()) {
     case ANY:
@@ -478,9 +478,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       default:
         return defaultExpression.get();
       }
-
-    case DECIMAL:
-      return  ConverterUtils.convertToDecimal(operand, targetType);
 
     default:
       return defaultExpression.get();
@@ -1397,7 +1394,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
             list.newName("case_when_value"));
     list.add(Expressions.declare(0, valueVariable, null));
     final List<RexNode> operandList = call.getOperands();
-    implementRecursively(this, operandList, valueVariable, 0);
+    implementRecursively(this, operandList, valueVariable, call.getType(), 0);
     final Expression isNullExpression = checkNull(valueVariable);
     final ParameterExpression isNullVariable =
         Expressions.parameter(
@@ -1436,7 +1433,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
    * }</pre></blockquote>
    */
   private static void implementRecursively(RexToLixTranslator currentTranslator,
-      List<RexNode> operandList, ParameterExpression valueVariable, int pos) {
+      List<RexNode> operandList, ParameterExpression valueVariable, RelDataType valueType, int pos) {
     final BlockBuilder currentBlockBuilder =
         currentTranslator.getBlockBuilder();
     final List<@Nullable Type> storageTypes =
@@ -1449,7 +1446,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       currentBlockBuilder.add(
           Expressions.statement(
               Expressions.assign(valueVariable,
-                      ConverterUtils.convert(res, valueVariable.getType()))));
+                      ConverterUtils.convert(res, valueType))));
       return;
     }
     // Condition code: !a_isNull && a_value
@@ -1473,7 +1470,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     ifTrueBlockBuilder.add(
         Expressions.statement(
             Expressions.assign(valueVariable,
-                    ConverterUtils.convert(ifTrueRes, valueVariable.getType()))));
+                    ConverterUtils.convert(ifTrueRes, valueType))));
     final BlockStatement ifTrue = ifTrueBlockBuilder.toBlock();
     // There is no [ELSE] clause
     if (pos + 1 == operandList.size() - 1) {
@@ -1486,7 +1483,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         new BlockBuilder(true, currentBlockBuilder);
     final RexToLixTranslator ifFalseTranslator =
         currentTranslator.setBlock(ifFalseBlockBuilder);
-    implementRecursively(ifFalseTranslator, operandList, valueVariable, pos + 2);
+    implementRecursively(ifFalseTranslator, operandList, valueVariable, valueType, pos + 2);
     final BlockStatement ifFalse = ifFalseBlockBuilder.toBlock();
     currentBlockBuilder.add(
         Expressions.ifThenElse(tester, ifTrue, ifFalse));
@@ -1513,16 +1510,12 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     if (rexWithStorageTypeResultMap.containsKey(key)) {
       return rexWithStorageTypeResultMap.get(key);
     }
-    final Type storageType = currentStorageType != null
-        ? currentStorageType : typeFactory.getJavaClass(dynamicParam.getType());
     final Type paramType = ((IgniteTypeFactory) typeFactory).getResultClass(dynamicParam.getType());
 
     final Expression ctxGet = Expressions.call(root, IgniteMethod.CONTEXT_GET_PARAMETER_VALUE.method(),
         Expressions.constant("?" + dynamicParam.getIndex()), Expressions.constant(paramType));
 
-    final Expression valueExpression = SqlTypeUtil.isDecimal(dynamicParam.getType())
-            ? ConverterUtils.convertToDecimal(ctxGet, dynamicParam.getType())
-            : ConverterUtils.convert(ctxGet, storageType);
+    final Expression valueExpression =  ConverterUtils.convert(ctxGet, dynamicParam.getType());
     final ParameterExpression valueVariable =
         Expressions.parameter(valueExpression.getType(),
             list.newName("value_dynamic_param"));

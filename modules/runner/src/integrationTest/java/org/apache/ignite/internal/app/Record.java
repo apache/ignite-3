@@ -15,29 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.distributed;
+package org.apache.ignite.internal.app;
 
-import org.junit.jupiter.api.TestInfo;
+import org.apache.ignite.table.Tuple;
 
 /**
- * Distributed transaction test using a single partition table, collocated on a leader.
+ * Simple record for tests.
  */
-public class ItTxDistributedTestSingleNodeCollocated extends ItTxAbstractDistributedTestSingleNode {
-    /**
-     * The constructor.
-     *
-     * @param testInfo Test info.
-     */
-    public ItTxDistributedTestSingleNodeCollocated(TestInfo testInfo) {
-        super(testInfo);
+@SuppressWarnings({"FieldCanBeLocal", "unused"})
+class Record {
+    private int id;
+    private String val;
+
+    private Record() {
     }
 
-    /** {@inheritDoc} */
-    @Override
-    protected boolean startClient() {
-        return false;
+    Record(int id, String val) {
+        this.id = id;
+        this.val = val;
+    }
+
+    Tuple toKeyTuple() {
+        return Tuple.create().set("id", id);
+    }
+
+    Tuple toFullTuple() {
+        return Tuple.create().set("id", id).set("val", val);
     }
 }
-
-
-

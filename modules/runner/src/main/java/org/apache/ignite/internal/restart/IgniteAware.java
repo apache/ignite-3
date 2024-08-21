@@ -15,29 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.distributed;
+package org.apache.ignite.internal.restart;
 
-import org.junit.jupiter.api.TestInfo;
+import org.apache.ignite.Ignite;
 
 /**
- * Distributed transaction test using a single partition table, collocated on a leader.
+ * Holder for an object corresponding to an Ignite instance.
  */
-public class ItTxDistributedTestSingleNodeCollocated extends ItTxAbstractDistributedTestSingleNode {
-    /**
-     * The constructor.
-     *
-     * @param testInfo Test info.
-     */
-    public ItTxDistributedTestSingleNodeCollocated(TestInfo testInfo) {
-        super(testInfo);
+class IgniteAware<T> {
+    private final T instance;
+    private final Ignite ignite;
+
+    IgniteAware(T instance, Ignite ignite) {
+        this.instance = instance;
+        this.ignite = ignite;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    protected boolean startClient() {
-        return false;
+    /** Returns the object. */
+    public T instance() {
+        return instance;
+    }
+
+    /** Returns the Ignite instance corresponding to the object. */
+    public Ignite ignite() {
+        return ignite;
     }
 }
-
-
-

@@ -38,6 +38,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -128,7 +129,6 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -288,7 +288,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
-        when(replicaMgr.startReplica(any(), any(), any(), any(PendingComparableValuesTracker.class), any()))
+        when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
         when(replicaMgr.weakStartReplica(any(), any(), any())).thenReturn(trueCompletedFuture());
