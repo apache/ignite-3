@@ -417,16 +417,10 @@ public final class PlannerHelper {
 
         IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
 
-        RelOptTable targetTable;
-
         // Convert PUBLIC.T AS X (a,b) to PUBLIC.T
         SqlNode from = SqlUtil.stripAs(select.getFrom());
-        // Skip non-references such as VALUES ..
-        if (from.getKind() != SqlKind.IDENTIFIER) {
-            return null;
-        }
+        RelOptTable targetTable = converter.getTargetTable(from);
 
-        targetTable = converter.getTargetTable(from);
         IgniteDataSource dataSource = targetTable.unwrap(IgniteDataSource.class);
         if (!(dataSource instanceof IgniteTable)) {
             return null;
