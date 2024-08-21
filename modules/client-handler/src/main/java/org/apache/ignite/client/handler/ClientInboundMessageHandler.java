@@ -988,8 +988,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void closeConnection() {
-        if (channelHandlerContext != null) {
-            channelHandlerContext.close();
+        ChannelHandlerContext ctx = channelHandlerContext;
+
+        if (ctx != null) {
+            ctx.close();
         }
     }
 
