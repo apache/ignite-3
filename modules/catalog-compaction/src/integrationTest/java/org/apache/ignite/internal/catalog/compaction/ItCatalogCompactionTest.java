@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.compaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -100,10 +100,10 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         {
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(minRequiredCatalog.time());
 
-            CompletableFuture<Boolean> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToReplicas(expectedTime.longValue(), ignite.clusterNodes());
+            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
+                    .propagateTimeToNodes(expectedTime.longValue(), ignite.clusterNodes());
 
-            assertThat(fut, willBe(true));
+            assertThat(fut, willCompleteSuccessfully());
 
             ensureTimestampStoredInAllReplicas(expectedTime, expectedReplicationGroups);
         }
@@ -118,10 +118,10 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
             HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime);
 
-            CompletableFuture<Boolean> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToReplicas(expectedTime.longValue(), ignite.clusterNodes());
+            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
+                    .propagateTimeToNodes(expectedTime.longValue(), ignite.clusterNodes());
 
-            assertThat(fut, willBe(true));
+            assertThat(fut, willCompleteSuccessfully());
 
             ensureTimestampStoredInAllReplicas(expectedTime, expectedReplicationGroups);
         }

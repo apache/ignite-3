@@ -21,7 +21,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Request is used to propagate the minimum begin tx time on replicas.
+ * Message is used to propagate the minimum begin tx time on replicas.
  *
  * <p>The whole process consists of the following steps:
  * <ul>
@@ -31,8 +31,8 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  *     <li>Each node updates the replication groups for which that node is the primary</li>
  * </ul>
  */
-@Transferable(CatalogCompactionMessageGroup.PREPARE_TO_UPDATE_TIME_ON_REPLICAS_REQUEST)
-public interface CatalogCompactionPrepareUpdateTxBeginTimeRequest extends NetworkMessage {
+@Transferable(CatalogCompactionMessageGroup.PREPARE_TO_UPDATE_TIME_ON_REPLICAS_MESSAGE)
+public interface CatalogCompactionPrepareUpdateTxBeginTimeMessage extends NetworkMessage {
     /** Returns the minimum starting time among all active RW transactions. */
     long timestamp();
 }

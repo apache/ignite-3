@@ -32,7 +32,6 @@ public class CatalogCompactionMessageGroup {
     /** See {@link CatalogCompactionMinimumTimesResponse} for the details. */
     public static final short MINIMUM_TIMES_RESPONSE = 1;
 
-    public static final short PREPARE_TO_UPDATE_TIME_ON_REPLICAS_REQUEST = 2;
-
-    public static final short PREPARE_TO_UPDATE_TIME_ON_REPLICAS_RESPONSE = 3;
+    /** See {@link CatalogCompactionPrepareUpdateTxBeginTimeMessage} for the details. */
+    public static final short PREPARE_TO_UPDATE_TIME_ON_REPLICAS_MESSAGE = 2;
 }
