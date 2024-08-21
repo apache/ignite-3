@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.UUID;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -43,12 +42,6 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
     /** {@inheritDoc} */
     @Override protected boolean startClient() {
         return false;
-    }
-
-    /** {@inheritDoc} */
-    @BeforeEach
-    @Override public void before() throws Exception {
-        super.before();
     }
 
     @Test

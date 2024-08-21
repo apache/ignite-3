@@ -313,12 +313,12 @@ internal static class DataStreamer
         {
             while (!flushCt.IsCancellationRequested)
             {
-                await Task.Delay(options.AutoFlushFrequency, flushCt).ConfigureAwait(false);
+                await Task.Delay(options.AutoFlushInterval, flushCt).ConfigureAwait(false);
                 var ts = Stopwatch.GetTimestamp();
 
                 foreach (var batch in batches.Values)
                 {
-                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushFrequency.Ticks)
+                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushInterval.Ticks)
                     {
                         await SendAsync(batch).ConfigureAwait(false);
                     }
@@ -352,9 +352,9 @@ internal static class DataStreamer
             $"{nameof(options.PageSize)} should be positive.");
 
         IgniteArgumentCheck.Ensure(
-            options.AutoFlushFrequency > TimeSpan.Zero,
-            nameof(options.AutoFlushFrequency),
-            $"{nameof(options.AutoFlushFrequency)} should be positive.");
+            options.AutoFlushInterval > TimeSpan.Zero,
+            nameof(options.AutoFlushInterval),
+            $"{nameof(options.AutoFlushInterval)} should be positive.");
 
         IgniteArgumentCheck.Ensure(
             options.RetryLimit >= 0,
