@@ -372,10 +372,11 @@ public final class PlannerHelper {
             @Nullable QueryTransactionContext txContext,
             SqlNode node
     ) {
-        SqlSelect select = isSelectCountOptimizationApplicable(txContext, node);
-        if (select == null) {
+        if (!isSelectCountOptimizationApplicable(txContext, node)) {
             return false;
         }
+
+        SqlSelect select = (SqlSelect) node;
 
         boolean countAdded = false;
 
@@ -405,10 +406,11 @@ public final class PlannerHelper {
             @Nullable QueryTransactionContext txContext,
             SqlNode node
     ) {
-        SqlSelect select = isSelectCountOptimizationApplicable(txContext, node);
-        if (select == null) {
+        if (!isSelectCountOptimizationApplicable(txContext, node)) {
             return null;
         }
+
+        SqlSelect select = (SqlSelect) node;
 
         IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
 
@@ -479,13 +481,13 @@ public final class PlannerHelper {
         return new Pair<>(rel, expressionNames);
     }
 
-    private static @Nullable SqlSelect isSelectCountOptimizationApplicable(@Nullable QueryTransactionContext txContext, SqlNode node) {
+    private static boolean isSelectCountOptimizationApplicable(@Nullable QueryTransactionContext txContext, SqlNode node) {
         if (txContext != null && txContext.explicitTx() != null) {
-            return null;
+            return false;
         }
 
         if (!(node instanceof SqlSelect)) {
-            return null;
+            return false;
         }
 
         SqlSelect select = (SqlSelect) node;
@@ -497,12 +499,12 @@ public final class PlannerHelper {
                 || !select.getWindowList().isEmpty()
                 || select.getOffset() != null
                 || select.getFetch() != null) {
-            return null;
+            return false;
         }
 
         // make sure that the following IF statement does not leave out any operand of the SELECT node
         assert select.getOperandList().size() == 12 : "Expected 12 operands, but was " + select.getOperandList().size();
-        return select;
+        return true;
     }
 
     private static boolean isCountStar(SqlValidator validator, SqlNode node, boolean typeCheck) {
