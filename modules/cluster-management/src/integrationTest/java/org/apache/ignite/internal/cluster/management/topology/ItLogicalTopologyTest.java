@@ -63,19 +63,13 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
     @Language("HOCON")
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "ignite {\n"
-            + "  network {\n"
-            + "    port: {}\n"
+            + "  network: {\n"
+            + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  }\n"
-            + "  nodeAttributes.nodeAttributes {\n"
-            + "    region.attribute = US\n"
-            + "    storage.attribute = SSD\n"
-            + "  }\n"
-            + "  storage.profiles {\n"
-            + "    lru_rocks.engine = rocksdb\n"
-            + "    segmented_aipersist.engine = aipersist\n"
-            + "  }\n"
-            + "  clientConnector.port: {}\n"
+            + "  },\n"
+            + "  nodeAttributes.nodeAttributes: {region.attribute = US, storage.attribute = SSD},\n"
+            + "  storage.profiles: {lru_rocks.engine = rocksdb, segmented_aipersist.engine = aipersist},\n"
+            + "  clientConnector.port: {},\n"
             + "  rest.port: {}\n"
             + "}";
 

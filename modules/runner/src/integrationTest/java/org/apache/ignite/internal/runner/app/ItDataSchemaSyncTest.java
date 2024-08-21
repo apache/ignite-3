@@ -31,21 +31,29 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.IgniteServer;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -53,12 +61,85 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * There is a test of table schema synchronization.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
+public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     public static final String TABLE_NAME = "tbl1";
 
-    @Override
-    protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration("replication.rpcTimeout: 3000");
+    /** Nodes bootstrap configuration. */
+    private static final Map<String, String> nodesBootstrapCfg = Map.of(
+            "node0", "ignite {\n"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3344,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "    }\n"
+                    + "  },\n"
+                    + "  rest.port: 10300\n"
+                    + "}",
+
+            "node1", "ignite {\n"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3345,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "    }\n"
+                    + "  },\n"
+                    + "  clientConnector: { port:10801 },\n"
+                    + "  rest.port: 10301\n"
+                    + "}",
+
+            "node2", "ignite {\n"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3346,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "    }\n"
+                    + "  },\n"
+                    + "  clientConnector: { port:10802 },\n"
+                    + "  rest.port: 10302\n"
+                    + "}"
+    );
+
+    private List<IgniteServer> nodes;
+
+    private final List<Ignite> clusterNodes = new ArrayList<>();
+
+    /**
+     * Starts a cluster before every test started.
+     */
+    @BeforeEach
+    void beforeEach() {
+        nodes = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
+
+        IgniteServer metaStorageNode = nodes.get(0);
+
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodes(metaStorageNode)
+                .clusterName("cluster")
+                .clusterConfiguration("{\n"
+                        + "  \"replication\": {\n"
+                        + "  \"rpcTimeout\": 3000\n"
+                        + "  }\n"
+                        + "}\n"
+                )
+                .build();
+
+        TestIgnitionManager.init(metaStorageNode, initParameters);
+
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+
+            clusterNodes.add(node.api());
+        }
+    }
+
+    /**
+     * Stops a cluster after every test finished.
+     */
+    @AfterEach
+    void afterEach() throws Exception {
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
     }
 
     /**
@@ -66,9 +147,10 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void checkSchemasCorrectUpdate() throws Exception {
-        Ignite ignite0 = cluster.node(0);
-        IgniteImpl ignite1 = unwrapIgniteImpl(cluster.node(1));
-        IgniteImpl ignite2 = unwrapIgniteImpl(cluster.node(2));
+        Ignite ignite0 = clusterNodes.get(0);
+        IgniteServer node1 = nodes.get(1);
+        IgniteImpl ignite1 = unwrapIgniteImpl(clusterNodes.get(1));
+        IgniteImpl ignite2 = unwrapIgniteImpl(clusterNodes.get(2));
 
         createTable(ignite0, TABLE_NAME);
 
@@ -90,13 +172,19 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
         // Should not receive the table because we are waiting for the synchronization of schemas.
         assertThat(ignite1.tables().tableAsync(TABLE_NAME), willTimeoutFast());
 
-        cluster.stopNode(1);
+        node1.shutdown();
+        nodes.set(1, null);
 
         listenerInhibitor.stopInhibit();
 
-        cluster.startNode(1);
+        node1 = nodesBootstrapCfg.entrySet().stream().skip(1).findFirst()
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .orElseThrow();
+        nodes.set(1, node1);
 
-        ignite1 = unwrapIgniteImpl(cluster.node(1));
+        assertThat(node1.waitForInitAsync(), willCompleteSuccessfully());
+
+        ignite1 = unwrapIgniteImpl(node1.api());
 
         table = tableView(ignite1, TABLE_NAME);
 
@@ -109,8 +197,8 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void queryWaitAppropriateSchema() {
-        Ignite ignite0 = cluster.node(0);
-        Ignite ignite1 = cluster.node(1);
+        Ignite ignite0 = clusterNodes.get(0);
+        IgniteImpl ignite1 = unwrapIgniteImpl(clusterNodes.get(1));
 
         createTable(ignite0, TABLE_NAME);
 
@@ -143,7 +231,8 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void checkSchemasCorrectlyRestore() {
-        Ignite ignite1 = cluster.node(1);
+        IgniteServer node1 = nodes.get(1);
+        Ignite ignite1 = clusterNodes.get(1);
 
         sql(ignite1, "CREATE TABLE " + TABLE_NAME + "(key BIGINT PRIMARY KEY, valint1 INT, valint2 INT)");
 
@@ -157,9 +246,17 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint4 INT");
 
-        cluster.restartNode(1);
+        node1.shutdown();
 
-        ignite1 = cluster.node(1);
+        node1 = nodesBootstrapCfg.entrySet().stream().skip(1).findFirst()
+                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .orElseThrow();
+
+        nodes.set(1, node1);
+
+        assertThat(node1.waitForInitAsync(), willCompleteSuccessfully());
+
+        ignite1 = node1.api();
 
         IgniteSql sql = ignite1.sql();
 
@@ -192,8 +289,8 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void testExpectReplicationTimeout() throws Exception {
-        Ignite ignite0 = cluster.node(0);
-        Ignite ignite1 = cluster.node(1);
+        Ignite ignite0 = clusterNodes.get(0);
+        IgniteImpl ignite1 = unwrapIgniteImpl(clusterNodes.get(1));
 
         createTable(ignite0, TABLE_NAME);
 
@@ -217,7 +314,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         alterTable(ignite0, TABLE_NAME);
 
-        for (Ignite node : cluster.runningNodes().collect(toList())) {
+        for (Ignite node : clusterNodes) {
             if (node.name().equals(ignite1.name())) {
                 continue;
             }

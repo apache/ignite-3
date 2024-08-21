@@ -99,7 +99,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -125,19 +124,18 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      * <p>rpcInstallSnapshotTimeout is changed to 10 seconds so that sporadic snapshot installation failures still
      * allow tests pass thanks to retries.
      */
-    @Language("HOCON")
     private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
-            + "  network {\n"
-            + "    port: {}\n"
+            + "  network: {\n"
+            + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  }\n"
-            + "  raft.rpcInstallSnapshotTimeout: 10000\n"
+            + "  },\n"
+            + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
             + "  storage.profiles: {"
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist\n"
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem\n"
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb\n"
-            + "  }\n"
-            + "  clientConnector.port: {}\n"
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
+            + "  },\n"
+            + "  clientConnector.port: {},\n"
             + "  rest.port: {}\n"
             + "}";
 

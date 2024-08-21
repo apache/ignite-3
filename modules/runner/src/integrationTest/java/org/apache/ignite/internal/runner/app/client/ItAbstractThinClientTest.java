@@ -78,9 +78,9 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         nodesBootstrapCfg.put(
                 node0Name,
                 "ignite {\n"
-                        + "  network.port: 3344\n"
+                        + "  network.port: 3344,\n"
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
-                        + "  clientConnector.port: 10800\n"
+                        + "  clientConnector.port: 10800,\n"
                         + "  rest.port: 10300\n"
                         + "  compute.threadPoolSize: 1\n"
                         + "}"
@@ -89,11 +89,11 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         nodesBootstrapCfg.put(
                 node1Name,
                 "ignite {\n"
-                        + "  network.port: 3345\n"
+                        + "  network.port: 3345,\n"
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
                         + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                         + "  clientConnector.metricsEnabled: true\n"
-                        + "  clientConnector.port: 10801\n"
+                        + "  clientConnector.port: 10801,\n"
                         + "  rest.port: 10301\n"
                         + "  compute.threadPoolSize: 1\n"
                         + "}"

@@ -131,11 +131,13 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
 
     private static String buildConfig(int nodeIdx) {
         return "ignite {\n"
-                + "  network {\n"
-                + "    port: " + (BASE_PORT + nodeIdx) + "\n"
-                + "    nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                + "  }\n"
-                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + "\n"
+                + "  network: {\n"
+                + "    port: " + (BASE_PORT + nodeIdx) + ",\n"
+                + "    nodeFinder: {\n"
+                + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
+                + "    }\n"
+                + "  },\n"
+                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + ",\n"
                 + "  rest.port: " + (BASE_REST_PORT + nodeIdx) + "\n"
                 + "}";
     }

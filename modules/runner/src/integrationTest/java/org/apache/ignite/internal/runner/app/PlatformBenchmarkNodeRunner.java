@@ -37,13 +37,12 @@ public class PlatformBenchmarkNodeRunner {
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
             NODE_NAME, "ignite {\n"
-                    + "  clientConnector {\n"
-                    + "    port: 10420\n"
-                    + "    idleTimeout: 999000\n"
-                    + "  }\n"
-                    + "  network {\n"
-                    + "    port: 3344\n"
-                    + "    nodeFinder.netClusterNodes:[ localhost:3344 ]\n"
+                    + "  \"clientConnector\":{\"port\": 10420,\"idleTimeout\":999000},"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3344,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\" ]\n"
+                    + "    }\n"
                     + "  }\n"
                     + "}"
     );

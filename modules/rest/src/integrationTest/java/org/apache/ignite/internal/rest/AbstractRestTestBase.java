@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.rest;
 
-import static java.util.stream.Collectors.joining;
-import static org.apache.ignite.internal.Cluster.BASE_CLIENT_PORT;
-import static org.apache.ignite.internal.Cluster.BASE_HTTP_PORT;
-import static org.apache.ignite.internal.Cluster.BASE_PORT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -39,9 +35,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.IntStream;
+import java.util.function.Function;
 import org.apache.ignite.IgniteServer;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -58,17 +53,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
-    private static final String NODE_CONFIG_TEMPLATE = "ignite {\n"
-            + "  network {\n"
-            + "    port: {}\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  }\n"
-            + "  clientConnector.port: {}\n"
-            + "  rest.port: {}\n"
-            + "}";
+    /** Network ports of the test nodes. */
+    static final int[] NETWORK_PORTS = {3344, 3345, 3346};
+
+    /** Client ports of the test nodes. */
+    static final int[] CLIENT_PORTS = {10800, 10801, 10802};
+
+    /** HTTP ports of the test nodes. */
+    static final int[] HTTP_PORTS = {10300, 10301, 10302};
 
     /** HTTP host and port url part. */
-    private static final String HTTP_HOST_PORT = "http://localhost:" + BASE_HTTP_PORT;
+    static final String HTTP_HOST_PORT = "http://localhost:" + HTTP_PORTS[0];
 
     /** Nodes bootstrap configuration. */
     final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
@@ -117,27 +112,57 @@ public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
     }
 
     private void startAllNodesWithoutInit(TestInfo testInfo) {
-        int nodesCount = 3;
+        String node0Name = testNodeName(testInfo, NETWORK_PORTS[0]);
+        String node1Name = testNodeName(testInfo, NETWORK_PORTS[1]);
+        String node2Name = testNodeName(testInfo, NETWORK_PORTS[2]);
 
-        String seedAddressesString = IntStream.range(0, nodesCount)
-                .map(index -> BASE_PORT + index)
-                .mapToObj(port -> "\"localhost:" + port + '\"')
-                .collect(joining(", "));
+        nodesBootstrapCfg.put(
+                node0Name,
+                "ignite {\n"
+                        + "  network: {\n"
+                        + "    port: " + NETWORK_PORTS[0] + ",\n"
+                        + "    nodeFinder: {\n"
+                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:" + NETWORK_PORTS[1]
+                        + "\", \"localhost:" + NETWORK_PORTS[2] + "\" ]\n"
+                        + "    }\n"
+                        + "  },\n"
+                        + "  clientConnector.port: " + CLIENT_PORTS[0] + ", \n"
+                        + "  rest.port: " + HTTP_PORTS[0]
+                        + "}"
+        );
 
-        for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
-            String nodeName = testNodeName(testInfo, nodeIndex);
+        nodesBootstrapCfg.put(
+                node1Name,
+                "ignite {\n"
+                        + "  network: {\n"
+                        + "    port: " + NETWORK_PORTS[1] + ",\n"
+                        + "    nodeFinder: {\n"
+                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:" + NETWORK_PORTS[1]
+                        + "\", \"localhost:" + NETWORK_PORTS[2] + "\" ]\n"
+                        + "    }\n"
+                        + "  },\n"
+                        + "  clientConnector.port: "  + CLIENT_PORTS[1] + ", \n"
+                        + "  rest.port: " + HTTP_PORTS[1]
+                        + "}"
+        );
 
-            String config = IgniteStringFormatter.format(
-                    NODE_CONFIG_TEMPLATE,
-                    BASE_PORT + nodeIndex,
-                    seedAddressesString,
-                    BASE_CLIENT_PORT + nodeIndex,
-                    BASE_HTTP_PORT + nodeIndex
-            );
+        nodesBootstrapCfg.put(
+                node2Name,
+                "ignite {\n"
+                        + "  network: {\n"
+                        + "    port: " + NETWORK_PORTS[2] + ",\n"
+                        + "    nodeFinder: {\n"
+                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:" + NETWORK_PORTS[1]
+                        + "\", \"localhost:" + NETWORK_PORTS[2] + "\" ]\n"
+                        + "    }\n"
+                        + "  },\n"
+                        + "  clientConnector.port: "  + CLIENT_PORTS[2] + ", \n"
+                        + "  rest.port: " + HTTP_PORTS[2]
+                        + "}"
+        );
 
-            nodeNames.add(nodeName);
-
-            nodes.add(TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
+        for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
+            startNodeWithoutInit(e.getKey(), name -> TestIgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
         }
     }
 
@@ -147,6 +172,12 @@ public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(nodes.stream().map(node -> node::shutdown));
+    }
+
+    void startNodeWithoutInit(String nodeName, Function<String, IgniteServer> starter) {
+        nodeNames.add(nodeName);
+
+        nodes.add(starter.apply(nodeName));
     }
 
     void checkAllNodesStarted() {

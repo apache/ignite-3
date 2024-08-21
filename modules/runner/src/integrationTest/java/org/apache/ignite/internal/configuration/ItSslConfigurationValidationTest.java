@@ -39,11 +39,13 @@ public class ItSslConfigurationValidationTest {
     @ValueSource(strings = {"clientConnector", "network", "rest"})
     void clientConnector(String rootKey, TestInfo testInfo, @WorkDirectory Path workDir) {
         String config = "ignite {\n"
-                + "  " + rootKey + " {\n"
-                + "    ssl {\n"
-                + "      enabled: true\n"
-                + "      clientAuth: none\n"
-                + "      keyStore.path: \"bad_path\"\n"
+                + "  " + rootKey + ": {\n"
+                + "    ssl: {\n"
+                + "      enabled: true,\n"
+                + "      clientAuth: none,\n"
+                + "      keyStore: {\n"
+                + "        path: \"bad_path\"\n"
+                + "      }\n"
                 + "    }\n"
                 + "  }\n"
                 + "}";

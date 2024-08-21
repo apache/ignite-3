@@ -62,11 +62,18 @@ public class ItNodeBootstrapConfigurationTest {
 
     @Test
     public void illegalConfigurationValueType(TestInfo testInfo) {
-        String config = "ignite.rest.ssl {\n"
-                + "  enabled: true\n"
-                + "  clientAuth: none\n"
-                + "  keyStore.path: 123\n"
-                + "}";
+        String config =
+                "ignite {\n"
+                        + "  rest: {\n"
+                        + "    ssl: {\n"
+                        + "      enabled: true,\n"
+                        + "      clientAuth: none,\n"
+                        + "      keyStore: {\n"
+                        + "        path: 123\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}";
 
         assertThrowsWithCause(
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
@@ -76,10 +83,16 @@ public class ItNodeBootstrapConfigurationTest {
 
     @Test
     public void illegalConfigurationValue(TestInfo testInfo) {
-        String config = "ignite.rest.ssl: {\n"
-                + "  enabled: true,\n"
-                + "  clientAuth: none,\n"
-                + "  keyStore.path: bad_path\n"
+        String config = "ignite {\n"
+                + "  rest: {\n"
+                + "    ssl: {\n"
+                + "      enabled: true,\n"
+                + "      clientAuth: none,\n"
+                + "      keyStore: {\n"
+                + "        path: bad_path\n"
+                + "      }\n"
+                + "    }\n"
+                + "  }\n"
                 + "}";
 
         assertThrowsWithCause(

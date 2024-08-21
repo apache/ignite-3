@@ -185,17 +185,19 @@ public class AbstractMultiNodeBenchmark {
 
         @Language("HOCON")
         String configTemplate = "ignite {\n"
-                + "  network {\n"
-                + "    port: {}\n"
-                + "    nodeFinder.netClusterNodes: [ {} ]\n"
-                + "  }\n"
-                + "  storage.profiles {\n"
-                + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist\n"
-                + "        " + DEFAULT_STORAGE_PROFILE + ".size: 2073741824\n" // Avoid page replacement.
-                + "  }\n"
-                + "  clientConnector.port: {}\n"
-                + "  rest.port: {}\n"
-                + "  raft.fsync = " + fsync + "\n"
+                + "  \"network\": {\n"
+                + "    \"port\":{},\n"
+                + "    \"nodeFinder\":{\n"
+                + "      \"netClusterNodes\": [ {} ]\n"
+                + "    }\n"
+                + "  },\n"
+                + "  storage.profiles: {"
+                + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
+                + "        " + DEFAULT_STORAGE_PROFILE + ".size: 2073741824 " // Avoid page replacement.
+                + "  },\n"
+                + "  clientConnector: { port:{} },\n"
+                + "  rest.port: {},\n"
+                + "  raft.fsync = " + fsync
                 + "}";
 
         for (int i = 0; i < nodes(); i++) {

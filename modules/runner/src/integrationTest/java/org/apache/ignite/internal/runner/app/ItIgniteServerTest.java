@@ -75,11 +75,13 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
         nodesBootstrapCfg.put(
                 node0Name,
                 "ignite {\n"
-                        + "  network {\n"
-                        + "    port: " + PORTS[0] + "\n"
-                        + "    nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "  }\n"
-                        + "  clientConnector.port: 10800\n"
+                        + "  network: {\n"
+                        + "    port: " + PORTS[0] + ",\n"
+                        + "    nodeFinder: {\n"
+                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "    }\n"
+                        + "  },\n"
+                        + "  clientConnector.port: 10800,\n"
                         + "  rest.port: 10300\n"
                         + "}"
         );
@@ -87,11 +89,13 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
         nodesBootstrapCfg.put(
                 node1Name,
                 "ignite {\n"
-                        + "  network {\n"
-                        + "    port: " + PORTS[1] + "\n"
-                        + "    nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "  }\n"
-                        + "  clientConnector.port: 10801\n"
+                        + "  network: {\n"
+                        + "    port: " + PORTS[1] + ",\n"
+                        + "    nodeFinder: {\n"
+                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "    }\n"
+                        + "  },\n"
+                        + "  clientConnector.port: 10801,\n"
                         + "  rest.port: 10301\n"
                         + "}"
         );
@@ -99,11 +103,13 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
         nodesBootstrapCfg.put(
                 node2Name,
                 "ignite {\n"
-                        + "  network {\n"
-                        + "    port: " + PORTS[2] + "\n"
-                        + "    nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "  }\n"
-                        + "  clientConnector.port: 10802\n"
+                        + "  network: {\n"
+                        + "    port: " + PORTS[2] + ",\n"
+                        + "    nodeFinder: {\n"
+                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "    }\n"
+                        + "  },\n"
+                        + "  clientConnector.port: 10802,\n"
                         + "  rest.port: 10302\n"
                         + "}"
         );

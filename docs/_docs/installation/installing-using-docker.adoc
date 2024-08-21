@@ -49,16 +49,14 @@ To run multiple nodes, instead use a docker-compose file with cluster config fil
 [source,json]
 ----
 {
-  "ignite": {
-    "network": {
-      "port": 3344,
-      "nodeFinder": {
-        "netClusterNodes": [
-          "node1:3344",
-          "node2:3344",
-          "node3:3344"
-        ]
-      }
+  network: {
+    port: 3344,
+    nodeFinder: {
+      netClusterNodes: [
+        "node1:3344",
+        "node2:3344",
+        "node3:3344"
+      ]
     }
   }
 }
