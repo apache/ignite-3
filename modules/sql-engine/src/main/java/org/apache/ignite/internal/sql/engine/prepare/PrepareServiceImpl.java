@@ -335,10 +335,14 @@ public class PrepareServiceImpl implements PrepareService {
             PlanningContext ctx,
             @Nullable QueryTransactionContext txContext
     ) {
-        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
+        // If fast optimization is applicable, then plan can not be cached.
+        boolean canOptimizeFast = canOptimizeFast(parsedResult, ctx, txContext);
 
-        if (f != null) {
-            return f;
+        if (!canOptimizeFast) {
+            CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
+            if (f != null) {
+                return f;
+            }
         }
 
         // First validate statement
@@ -469,6 +473,18 @@ public class PrepareServiceImpl implements PrepareService {
 
             return planFut.thenApply(Function.identity());
         });
+    }
+
+    private static boolean canOptimizeFast(ParsedResult parsedResult,
+            PlanningContext planningContext,
+            @Nullable QueryTransactionContext txContext) {
+
+        // If fast query optimization is disabled, then proceed with the regular planning.
+        if (!fastQueryOptimizationEnabled()) {
+            return false;
+        }
+
+        return PlannerHelper.canOptimizeSelectCount(planningContext.planner(), txContext, parsedResult.parsedTree());
     }
 
     private @Nullable QueryPlan tryOptimizeFast(

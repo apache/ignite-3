@@ -357,6 +357,40 @@ public final class PlannerHelper {
         }
     }
 
+    /**
+     * Whether we can optimize a query that looks like {@code SELECT count(*)} or not.
+     * If this method returns {@code true}, then {@link #tryOptimizeSelectCount(IgnitePlanner, QueryTransactionContext, SqlNode)}
+     * can be applied to the given query.
+     *
+     * @param planner Planner.
+     * @param txContext Context.
+     * @param node Node.
+     * @return Returns {@code true} select count(*) optimization is applicable.
+     */
+    public static boolean canOptimizeSelectCount(
+            IgnitePlanner planner,
+            @Nullable QueryTransactionContext txContext,
+            SqlNode node
+    ) {
+        SqlSelect select = isSelectCountOptimizationApplicable(txContext, node);
+        if (select == null) {
+            return false;
+        }
+
+        boolean countAdded = false;
+
+        for (SqlNode selectItem : select.getSelectList()) {
+            SqlNode expr = SqlUtil.stripAs(selectItem);
+
+            if (isCountStar(planner.validator(), expr, false)) {
+                countAdded = true;
+            } else if (!(expr instanceof SqlLiteral) && !(expr instanceof SqlDynamicParam)) {
+                return false;
+            }
+        }
+
+        return countAdded;
+    }
 
     /**
      * Tries to optimize a query that looks like {@code SELECT count(*)}.
@@ -371,28 +405,10 @@ public final class PlannerHelper {
             @Nullable QueryTransactionContext txContext,
             SqlNode node
     ) {
-        if (txContext != null && txContext.explicitTx() != null) {
+        SqlSelect select = isSelectCountOptimizationApplicable(txContext, node);
+        if (select == null) {
             return null;
         }
-
-        if (!(node instanceof SqlSelect)) {
-            return null;
-        }
-
-        SqlSelect select = (SqlSelect) node;
-
-        if (select.getGroup() != null
-                || select.getWhere() != null
-                || select.getHaving() != null
-                || select.getQualify() != null
-                || !select.getWindowList().isEmpty()
-                || select.getOffset() != null
-                || select.getFetch() != null) {
-            return null;
-        }
-
-        // make sure that the following IF statement does not leave out any operand of the SELECT node
-        assert select.getOperandList().size() == 12 : "Expected 12 operands, but was " + select.getOperandList().size();
 
         IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
 
@@ -430,7 +446,7 @@ public final class PlannerHelper {
         for (SqlNode selectItem : select.getSelectList()) {
             SqlNode expr = SqlUtil.stripAs(selectItem);
 
-            if (isCountStar(planner.validator(), expr)) {
+            if (isCountStar(planner.validator(), expr, true)) {
                 RexBuilder rexBuilder = planner.cluster().getRexBuilder();
                 RexSlot countValRef = rexBuilder.makeInputRef(countResultType, 0);
 
@@ -460,13 +476,52 @@ public final class PlannerHelper {
                 expressions
         );
 
-
         return new Pair<>(rel, expressionNames);
     }
 
-    private static boolean isCountStar(SqlValidator validator, SqlNode node) {
+    private static @Nullable SqlSelect isSelectCountOptimizationApplicable(@Nullable QueryTransactionContext txContext, SqlNode node) {
+        if (txContext != null && txContext.explicitTx() != null) {
+            return null;
+        }
+
+        if (!(node instanceof SqlSelect)) {
+            return null;
+        }
+
+        SqlSelect select = (SqlSelect) node;
+
+        if (select.getGroup() != null
+                || select.getWhere() != null
+                || select.getHaving() != null
+                || select.getQualify() != null
+                || !select.getWindowList().isEmpty()
+                || select.getOffset() != null
+                || select.getFetch() != null) {
+            return null;
+        }
+
+        // make sure that the following IF statement does not leave out any operand of the SELECT node
+        assert select.getOperandList().size() == 12 : "Expected 12 operands, but was " + select.getOperandList().size();
+        return select;
+    }
+
+    private static boolean isCountStar(SqlValidator validator, SqlNode node, boolean typeCheck) {
         if (!SqlUtil.isCallTo(node, SqlStdOperatorTable.COUNT)) {
-            return false;
+            if (typeCheck) {
+                // Type check is true, then the SQL node was checked by the validator and the call has correct number of arguments.
+                return false;
+            } else {
+                // w/o type checking check operator name and operand count
+                if (node instanceof SqlBasicCall) {
+                    SqlBasicCall call = (SqlBasicCall) node;
+                    boolean countOperator = call.getOperator() != null
+                            && SqlStdOperatorTable.COUNT.getName().equals(call.getOperator().getName());
+
+                    return countOperator && call.getOperandList().size() == 1;
+                } else {
+                    return false;
+                }
+            }
         } else {
             SqlCall call = (SqlCall) node;
             // Reject COUNT(DISTINCT ...)
@@ -477,12 +532,11 @@ public final class PlannerHelper {
                 return false;
             }
             SqlNode operand = call.getOperandList().get(0);
-
-            return !isNullableOperand(validator, operand);
+            return !isNullableOperand(validator, operand, typeCheck);
         }
     }
 
-    private static boolean isNullableOperand(SqlValidator validator, SqlNode node) {
+    private static boolean isNullableOperand(SqlValidator validator, SqlNode node, boolean typeCheck) {
         if (SqlUtil.isNull(node)) {
             return true;
         } else if (SqlUtil.isLiteral(node)) {
@@ -490,8 +544,13 @@ public final class PlannerHelper {
         } else if (node instanceof SqlIdentifier && ((SqlIdentifier) node).isStar()) {
             return false;
         } else if (node instanceof SqlIdentifier) {
-            RelDataType type = validator.getValidatedNodeType(node);
-            return type.isNullable();
+            if (typeCheck) {
+                RelDataType type = validator.getValidatedNodeType(node);
+                return type.isNullable();
+            } else {
+                // Assume columns are not nullable (so we can check it later).
+                return false;
+            }
         } else {
             return true;
         }

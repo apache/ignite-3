@@ -251,6 +251,21 @@ public class TestNode implements LifecycleAware {
     }
 
     /**
+     * Prepares (aka parses, validates, and optimizes) the given query string
+     * and returns the plan to execute.
+     *
+     * @param query A query string to prepare.
+     * @param txContext Transaction context.
+     * @return A plan to execute.
+     */
+    public QueryPlan prepare(String query, @Nullable QueryTransactionContext txContext) {
+        ParsedResult parsedResult = parserService.parse(query);
+        SqlOperationContext ctx = createContext().txContext(txContext).build();
+
+        return await(prepareService.prepareAsync(parsedResult, ctx));
+    }
+
+    /**
      * Prepares (validates, and optimizes) the given query AST
      * and returns the plan to execute.
      *

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -33,11 +34,16 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.framework.ExplicitTxContext;
+import org.apache.ignite.internal.sql.engine.framework.ImplicitTxContext;
+import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.SelectCountPlan;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.AfterAll;
@@ -305,6 +311,39 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         QueryPlan plan = node.prepare("SELECT count(DISTINCT(id)) FROM test");
 
         assertThat(plan, not(instanceOf(SelectCountPlan.class)));
+    }
+
+    @Test
+    public void explainSelectCount() {
+        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+
+        {
+            ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test");
+            assertThat(plan.plan().explain(), containsString("SelectCount"));
+        }
+
+        {
+            QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
+
+            ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);
+            assertThat(plan.plan().explain(), containsString("SelectCount"));
+        }
+
+        {
+            NoOpTransaction tx = NoOpTransaction.readWrite("RW");
+            QueryTransactionContext txContext = ExplicitTxContext.fromTx(tx);
+
+            ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);
+            assertThat(plan.plan().explain(), not(containsString("SelectCount")));
+        }
+
+        {
+            NoOpTransaction tx = NoOpTransaction.readOnly("RO");
+            QueryTransactionContext txContext = ExplicitTxContext.fromTx(tx);
+
+            ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);
+            assertThat(plan.plan().explain(), not(containsString("SelectCount")));
+        }
     }
 
     private static void assertExpressions(SelectCountPlan plan, String... expectedExpressions) {
