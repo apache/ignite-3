@@ -169,7 +169,7 @@ public final class TupleWithSchemaMarshalling {
     }
 
     private static BinaryTupleBuilder schemaBuilder(String[] columns, ColumnType[] types) {
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 2, columns.length * 2);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(columns.length * 2);
 
         for (int i = 0; i < columns.length; i++) {
             builder.appendString(columns[i]);
@@ -180,7 +180,7 @@ public final class TupleWithSchemaMarshalling {
     }
 
     private static BinaryTupleBuilder valueBuilder(String[] columnNames, ColumnType[] types, Object[] values) {
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length, values.length);
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(values.length);
 
         for (int i = 0; i < values.length; i++) {
             ColumnType type = types[i];
