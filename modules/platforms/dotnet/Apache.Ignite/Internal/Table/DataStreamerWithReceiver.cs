@@ -287,12 +287,12 @@ internal static class DataStreamerWithReceiver
         {
             while (!flushCt.IsCancellationRequested)
             {
-                await Task.Delay(options.AutoFlushFrequency, flushCt).ConfigureAwait(false);
+                await Task.Delay(options.AutoFlushInterval, flushCt).ConfigureAwait(false);
                 var ts = Stopwatch.GetTimestamp();
 
                 foreach (var batch in batches.Values)
                 {
-                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushFrequency.Ticks)
+                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushInterval.Ticks)
                     {
                         await SendAsync(batch).ConfigureAwait(false);
                     }
