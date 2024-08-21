@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.marshalling.Marshaller;
 
 /**
  * Compute task descriptor.
@@ -30,12 +31,20 @@ public class TaskDescriptor<T, R> {
 
     private final List<DeploymentUnit> units;
 
+    private final Marshaller<T, byte[]> splitJobArgumentMarshaller;
+
+    private final Marshaller<R, byte[]> reduceJobResultMarshaller;
+
     private TaskDescriptor(
             String taskClassName,
-            List<DeploymentUnit> units
+            List<DeploymentUnit> units,
+            Marshaller<T, byte[]> splitJobArgumentMarshaller,
+            Marshaller<R, byte[]> reduceJobResultMarshaller
     ) {
         this.taskClassName = taskClassName;
         this.units = units;
+        this.splitJobArgumentMarshaller = splitJobArgumentMarshaller;
+        this.reduceJobResultMarshaller = reduceJobResultMarshaller;
     }
 
     /**
@@ -54,6 +63,19 @@ public class TaskDescriptor<T, R> {
      */
     public List<DeploymentUnit> units() {
         return units;
+    }
+
+    /**
+     * Marshaller for split job argument.
+     *
+     * @return Marshaller for split job argument.
+     */
+    public Marshaller<T, byte[]> splitJobArgumentMarshaller() {
+        return splitJobArgumentMarshaller;
+    }
+
+    public Marshaller<R, byte[]> reduceJobResultMarshaller() {
+        return reduceJobResultMarshaller;
     }
 
     /**
@@ -84,6 +106,8 @@ public class TaskDescriptor<T, R> {
     public static class Builder<T, R> {
         private final String taskClassName;
         private List<DeploymentUnit> units;
+        private Marshaller<T, byte[]> splitJobArgumentMarshaller;
+        private Marshaller<R, byte[]> reduceJobResultMarshaller;
 
         private Builder(String taskClassName) {
             Objects.requireNonNull(taskClassName);
@@ -113,6 +137,21 @@ public class TaskDescriptor<T, R> {
             return this;
         }
 
+        /**
+         * Sets the marshaller for split job argument.
+         *
+         * @param splitJobArgumentMarshaller Marshaller for split job argument.
+         * @return This builder.
+         */
+        public Builder<T, R> splitJobArgumentMarshaller(Marshaller<T, byte[]> splitJobArgumentMarshaller) {
+            this.splitJobArgumentMarshaller = splitJobArgumentMarshaller;
+            return this;
+        }
+
+        public Builder<T, R> reduceJobArgumentMarshaller(Marshaller<R, byte[]> reduceJobResultMarshaller) {
+            this.reduceJobResultMarshaller = reduceJobResultMarshaller;
+            return this;
+        }
 
         /**
          * Builds the task descriptor.
@@ -122,8 +161,11 @@ public class TaskDescriptor<T, R> {
         public TaskDescriptor<T, R> build() {
             return new TaskDescriptor<>(
                     taskClassName,
-                    units == null ? List.of() : units
+                    units == null ? List.of() : units,
+                    splitJobArgumentMarshaller,
+                    reduceJobResultMarshaller
             );
         }
+
     }
 }

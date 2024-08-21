@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -50,11 +51,13 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -66,7 +69,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Task result type.
  */
 @SuppressWarnings("unchecked")
-public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R> {
+public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, MarshallerProvider<R> {
     private static final IgniteLogger LOG = Loggers.forClass(TaskExecutionInternal.class);
 
     private final QueueExecution<SplitResult<I, M, T, R>> splitExecution;
@@ -80,6 +83,8 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R> {
     private final AtomicReference<TaskState> reduceFailedState = new AtomicReference<>();
 
     private final AtomicBoolean isCancelled;
+
+    private final AtomicReference<Marshaller<R, byte[]>> reduceResultMarshallerRef = new AtomicReference<>();
 
     /**
      * Construct an execution object and starts executing.
@@ -105,7 +110,9 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R> {
                 () -> {
                     MapReduceTask<I, M, T, R> task = instantiateTask(taskClass);
 
-                    return task.splitAsync(context, arg)
+                    reduceResultMarshallerRef.set(task.reduceJobResultMarshaller());
+
+                    return task.splitAsync(context, tryUnmarshalOrCast(task.splitJobInputMarshaller(), arg))
                             .thenApply(jobs -> new SplitResult<>(task, jobs));
                 },
 
@@ -296,6 +303,11 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R> {
         return runners.stream()
                 .map(jobSubmitter::submit)
                 .collect(toList());
+    }
+
+    @Override
+    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
+        return reduceResultMarshallerRef.get();
     }
 
     private static class SplitResult<I, M, T, R> {

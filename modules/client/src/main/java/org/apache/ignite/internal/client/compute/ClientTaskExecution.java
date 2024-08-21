@@ -37,6 +37,8 @@ import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +61,7 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
     // Local states cache
     private final CompletableFuture<List<@Nullable JobState>> statesFutures = new CompletableFuture<>();
 
-    ClientTaskExecution(ReliableChannel ch, CompletableFuture<SubmitTaskResult> reqFuture) {
+    ClientTaskExecution(ReliableChannel ch, CompletableFuture<SubmitTaskResult> reqFuture, Marshaller<R, byte[]> resultMarshaller) {
         this.ch = ch;
 
         jobIdFuture = reqFuture.thenApply(SubmitTaskResult::jobId);
@@ -70,7 +72,7 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
                 .thenApply(payloadInputChannel -> {
                     // Notifications require explicit input close.
                     try (payloadInputChannel) {
-                        R result = (R) payloadInputChannel.in().unpackObjectFromBinaryTuple();
+                        R result = (R) ClientComputeJobUnpacker.unpackJobResult(resultMarshaller, payloadInputChannel.in());
                         stateFuture.complete(unpackTaskState(payloadInputChannel));
                         statesFutures.complete(unpackJobStates(payloadInputChannel));
                         return result;
