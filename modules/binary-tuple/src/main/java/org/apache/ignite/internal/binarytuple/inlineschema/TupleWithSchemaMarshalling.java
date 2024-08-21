@@ -77,26 +77,26 @@ public final class TupleWithSchemaMarshalling {
             types[i] = inferType(value);
         }
 
-        ByteBuffer schemaBuf = schemaBuilder(columns, types).build();
-        ByteBuffer valueBuf = valueBuilder(columns, types, values).build();
+        ByteBuffer schemaBuff = schemaBuilder(columns, types).build();
+        ByteBuffer valueBuff = valueBuilder(columns, types, values).build();
 
-        int schemaBufLen = schemaBuf.remaining();
-        int valueBufLen = valueBuf.remaining();
+        int schemaBuffLen = schemaBuff.remaining();
+        int valueBuffLen = valueBuff.remaining();
 
         // Size: int32 (tuple size), int32 (value offset), schema, value.
-        byte[] result = new byte[4 + 4 + schemaBufLen + valueBufLen];
+        byte[] result = new byte[4 + 4 + schemaBuffLen + valueBuffLen];
         ByteBuffer buff = ByteBuffer.wrap(result).order(BYTE_ORDER);
 
         // Put the size of the schema in the first 4 bytes.
         buff.putInt(size);
 
         // Put the value offset in the second 4 bytes.
-        int offset = schemaBufLen + 8;
+        int offset = schemaBuffLen + 8;
 
         buff.putInt(offset);
 
-        buff.put(schemaBuf);
-        buff.put(valueBuf);
+        buff.put(schemaBuff);
+        buff.put(valueBuff);
 
         return result;
     }
