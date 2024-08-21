@@ -179,6 +179,15 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
+    public void optimizeAliased() {
+        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+
+        QueryPlan plan = node.prepare("SELECT count(*) FROM test AS x(a, b)");
+
+        assertThat(plan, instanceOf(SelectCountPlan.class));
+    }
+
+    @Test
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
     @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
     public void doNotOptimizedIfDisabled() {

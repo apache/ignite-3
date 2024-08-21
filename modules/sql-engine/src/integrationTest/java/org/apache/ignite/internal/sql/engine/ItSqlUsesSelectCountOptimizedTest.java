@@ -69,6 +69,16 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L, 1, 10L)
                 .check();
+
+        assertQuery("SELECT COUNT(*) FROM test as x (a, b)")
+                .matches(QueryChecker.containsSubPlan("SelectCount"))
+                .returns(10L)
+                .check();
+
+        assertQuery("SELECT COUNT(a) FROM test as x (a, b)")
+                .matches(QueryChecker.containsSubPlan("SelectCount"))
+                .returns(10L)
+                .check();
     }
 
     @Test
@@ -76,6 +86,14 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
     @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
     public void optimizationDisabled() {
         assertQuery("SELECT COUNT(*) FROM test")
+                .matches(QueryChecker.containsSubPlan("Aggregate"))
+                .returns(10L)
+                .check();
+    }
+
+    @Test
+    public void notOptimizeAliasedWhenUsesNull() {
+        assertQuery("SELECT COUNT(b) FROM test as x (a, b)")
                 .matches(QueryChecker.containsSubPlan("Aggregate"))
                 .returns(10L)
                 .check();
