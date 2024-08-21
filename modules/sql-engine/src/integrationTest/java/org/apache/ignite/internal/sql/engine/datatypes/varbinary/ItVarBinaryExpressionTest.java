@@ -113,6 +113,7 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
                         .withParams(1234).check(), SqlValidatorException.class,
                 "Values passed to LENGTH operator must have compatible types");
     }
+
     /**
      * {@code CAST} to {@code VARBINARY} with different length.
      */
