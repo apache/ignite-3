@@ -88,18 +88,8 @@ public class IgniteServerImpl implements IgniteServer {
 
     private final Executor asyncContinuationExecutor;
 
-    /**
-     * Current Ignite instance.
-     *
-     * <p>This field is not volatile to make hot path accesses from IgniteReference and other references
-     * faster (they always happen under a read lock, which guarantees visibility of changes to this field, so user
-     * operations always read from this field <b>without any synchronization</b>).
-     *
-     * <p>Other parts of the code access this field under synchronization ({@link #igniteMutex} serves as the monitor).
-     */
-    private @Nullable IgniteImpl ignite;
-
-    private final Object igniteMutex = new Object();
+    /** Current Ignite instance. */
+    private volatile @Nullable IgniteImpl ignite;
 
     /**
      * Lock used to make sure user operations don't see Ignite instances in detached state (which might occur due to a restart)
@@ -165,7 +155,7 @@ public class IgniteServerImpl implements IgniteServer {
 
     @Override
     public Ignite api() {
-        IgniteImpl instance = currentIgnite();
+        IgniteImpl instance = ignite;
         if (instance == null) {
             throw new NodeNotStartedException();
         }
@@ -173,18 +163,6 @@ public class IgniteServerImpl implements IgniteServer {
         throwIfNotJoined();
 
         return publicIgnite;
-    }
-
-    private @Nullable IgniteImpl currentIgnite() {
-        synchronized (igniteMutex) {
-            return ignite;
-        }
-    }
-
-    private void currentIgnite(@Nullable IgniteImpl newIgnite) {
-        synchronized (igniteMutex) {
-            ignite = newIgnite;
-        }
     }
 
     private void throwIfNotJoined() {
@@ -202,7 +180,7 @@ public class IgniteServerImpl implements IgniteServer {
 
     @Override
     public CompletableFuture<Void> initClusterAsync(InitParameters parameters) {
-        IgniteImpl instance = currentIgnite();
+        IgniteImpl instance = ignite;
         if (instance == null) {
             throw new NodeNotStartedException();
         }
@@ -224,7 +202,7 @@ public class IgniteServerImpl implements IgniteServer {
 
     @Override
     public CompletableFuture<Void> waitForInitAsync() {
-        IgniteImpl instance = currentIgnite();
+        IgniteImpl instance = ignite;
         if (instance == null) {
             throw new NodeNotStartedException();
         }
@@ -265,7 +243,7 @@ public class IgniteServerImpl implements IgniteServer {
                 throw new NodeNotStartedException();
             }
 
-            IgniteImpl instance = currentIgnite();
+            IgniteImpl instance = ignite;
             if (instance == null) {
                 throw new NodeNotStartedException();
             }
@@ -282,7 +260,7 @@ public class IgniteServerImpl implements IgniteServer {
     private CompletableFuture<Void> doRestartAsync(IgniteImpl instance) {
         // TODO: IGNITE-23006 - limit the wait to acquire the write lock with a timeout.
         return attachmentLock.detachedAsync(() -> {
-            currentIgnite(null);
+            ignite = null;
             this.joinFuture = null;
 
             return instance.stopAsync()
@@ -309,11 +287,11 @@ public class IgniteServerImpl implements IgniteServer {
     }
 
     private CompletableFuture<Void> doShutdownAsync() {
-        IgniteImpl instance = currentIgnite();
+        IgniteImpl instance = ignite;
         if (instance != null) {
             try {
                 return instance.stopAsync().thenRun(() -> {
-                    currentIgnite(null);
+                    ignite = null;
                     joinFuture = null;
                 });
             } catch (Exception e) {
@@ -342,7 +320,7 @@ public class IgniteServerImpl implements IgniteServer {
      * @return Future that will be completed when the node is started.
      */
     public CompletableFuture<Void> startAsync() {
-        if (currentIgnite() != null) {
+        if (ignite != null) {
             throw new NodeStartException("Node is already started.");
         }
 
@@ -357,7 +335,7 @@ public class IgniteServerImpl implements IgniteServer {
 
         return instance.startAsync().whenComplete((unused, throwable) -> {
             if (throwable == null) {
-                currentIgnite(instance);
+                ignite = instance;
             }
         });
     }
