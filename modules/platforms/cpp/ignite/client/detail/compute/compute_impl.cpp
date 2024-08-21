@@ -29,7 +29,7 @@ namespace ignite::detail {
  */
 enum class compute_job_type {
     /** Native. */
-    NATIVE,
+    NATIVE = 0,
 
     /** Marshalled Tuple. */
     MARSHALLED_TUPLE = 1,
@@ -86,7 +86,7 @@ void pack_compute_argument(protocol::writer &writer, const binary_object &arg) {
         return;
     }
 
-    writer.write(std::int32_t(prim.get_type()));
+    writer.write(std::int32_t(compute_job_type::NATIVE));
     write_object_as_binary_tuple(writer, prim);
 }
 
