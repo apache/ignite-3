@@ -22,8 +22,10 @@ import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_COMPACTI
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_BEGIN;
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_COMPLETED;
 
+import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.rocksdb.AbstractEventListener;
@@ -102,8 +104,8 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
             LOG.info("Starting rocksdb compaction process [name='{}', reason={}, input={}, output={}]",
                     name,
                     compactionJobInfo.compactionReason(),
-                    compactionJobInfo.inputFiles(),
-                    compactionJobInfo.outputFiles()
+                    compactionJobInfo.inputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList()),
+                    compactionJobInfo.outputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList())
             );
 
             lastCompactionStartTimeNanos = System.nanoTime();
