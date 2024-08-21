@@ -58,16 +58,16 @@ public class ItNodeConfigurationFileTest {
     public void illegalConfigurationValueType(TestInfo testInfo, @WorkDirectory Path workDir) {
         String config =
                 "ignite {\n"
-                        + "  rest: {\n"
-                        + "    ssl: {\n"
-                        + "      enabled: true,\n"
-                        + "      clientAuth: none,\n"
-                        + "      keyStore: {\n"
-                        + "        path: 123\n"
-                        + "      }\n"
-                        + "    }\n"
-                        + "  }\n"
-                        + "}";
+                + "  rest: {\n"
+                + "    ssl: {\n"
+                + "      enabled: true,\n"
+                + "      clientAuth: none,\n"
+                + "      keyStore: {\n"
+                + "        path: 123\n"
+                + "      }\n"
+                + "    }\n"
+                + "  }\n"
+                + "}";
 
         assertThrowsWithCause(
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
