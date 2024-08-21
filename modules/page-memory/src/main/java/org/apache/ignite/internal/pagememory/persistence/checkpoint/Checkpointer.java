@@ -82,7 +82,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Responsiblity:
  * <ul>
  * <li>Provide the API for schedule/trigger the checkpoint.</li>
- * <li>Schedule new checkpoint after current one according to checkpoint frequency.</li>
+ * <li>Schedule new checkpoint after current one according to checkpoint interval.</li>
  * <li>Failure handling.</li>
  * <li>Managing of page write threads.</li>
  * <li>Logging and metrics of checkpoint.</li>
