@@ -350,6 +350,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
 
+            // TODO: Remove locks, message handler is single-threaded.
             // It's necessary to perform authentication and update the client context while holding a write lock.
             // This prevents a race condition where authentication succeeds but the context isn't updated in time.
             // In such a scenario, we might receive an authentication event and attempt to close the connection,
@@ -357,7 +358,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             readWriteLock.writeLock().lock();
             try {
                 AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
-                UserDetails userDetails = authenticationManager.authenticateAsync(authenticationRequest);
+
+                // TODO: Async authn.
+                UserDetails userDetails = authenticationManager.authenticateAsync(authenticationRequest).join();
+
                 clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
             } finally {
                 readWriteLock.writeLock().unlock();
