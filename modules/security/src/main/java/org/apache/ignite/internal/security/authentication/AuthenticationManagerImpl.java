@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.security.authentication.AuthenticationUtils.findBasicProviderName;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -26,8 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -87,19 +86,9 @@ public class AuthenticationManagerImpl
     private final AuthenticationProviderEventFactory providerEventFactory;
 
     /**
-     * Read-write lock for the list of authenticators and the authentication enabled flag.
+     * List of authenticators. Null when authentication is disabled.
      */
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-
-    /**
-     * List of authenticators.
-     */
-    private List<Authenticator> authenticators = new ArrayList<>();
-
-    /**
-     * Authentication enabled flag.
-     */
-    private boolean authEnabled = false;
+    private volatile @Nullable List<Authenticator> authenticators = new ArrayList<>();
 
     private final EventLog eventLog;
 
@@ -162,33 +151,34 @@ public class AuthenticationManagerImpl
      */
     @Override
     public CompletableFuture<UserDetails> authenticateAsync(AuthenticationRequest<?, ?> authenticationRequest) {
-        rwLock.readLock().lock();
-        try {
-            if (authEnabled) {
-                return authenticators.stream()
-                        .map(authenticator -> authenticate(authenticator, authenticationRequest))
-                        .filter(Objects::nonNull)
-                        .findFirst()
-                        .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
-            } else {
-                return UserDetails.UNKNOWN;
-            }
-        } finally {
-            rwLock.readLock().unlock();
+        var providers = authenticators;
+
+        if (providers != null) {
+            return providers.stream()
+                    .map(authenticator -> authenticate(authenticator, authenticationRequest))
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
+        } else {
+            return completedFuture(UserDetails.UNKNOWN);
         }
     }
 
     @Nullable
-    private UserDetails authenticate(
+    private CompletableFuture<UserDetails> authenticate(
             Authenticator authenticator,
             AuthenticationRequest<?, ?> authenticationRequest
     ) {
         try {
-            var userDetails = authenticator.authenticateAsync(authenticationRequest);
-            if (userDetails != null) {
-                logUserAuthenticated(userDetails);
-            }
-            return userDetails;
+            var fut = authenticator.authenticateAsync(authenticationRequest);
+
+            fut.thenAccept(userDetails -> {
+                if (userDetails != null) {
+                    logUserAuthenticated(userDetails);
+                }
+            });
+
+            return fut;
         } catch (InvalidCredentialsException | UnsupportedAuthenticationTypeException exception) {
             logAuthenticationFailure(authenticationRequest);
             return null;
@@ -223,18 +213,14 @@ public class AuthenticationManagerImpl
     }
 
     private void refreshProviders(@Nullable SecurityView view) {
-        rwLock.writeLock().lock();
         try {
             if (view == null || !view.enabled()) {
-                authEnabled = false;
+                authenticators = null;
             } else {
                 authenticators = providersFromAuthView(view.authentication());
-                authEnabled = true;
             }
         } catch (Exception exception) {
             LOG.error("Couldn't refresh authentication providers. Leaving the old settings", exception);
-        } finally {
-            rwLock.writeLock().unlock();
         }
     }
 
@@ -254,12 +240,7 @@ public class AuthenticationManagerImpl
 
     @Override
     public boolean authenticationEnabled() {
-        return authEnabled;
-    }
-
-    @TestOnly
-    public void authEnabled(boolean authEnabled) {
-        this.authEnabled = authEnabled;
+        return authenticators != null;
     }
 
     @TestOnly
