@@ -411,25 +411,22 @@ public final class PlannerHelper {
         }
 
         SqlSelect select = (SqlSelect) node;
+        assert select.getFrom() != null : "FROM is missing";
 
         IgniteSqlToRelConvertor converter = planner.sqlToRelConverter();
 
         RelOptTable targetTable;
 
-        if (select.getFrom() != null) {
-            // Convert PUBLIC.T AS X (a,b) to PUBLIC.T
-            SqlNode from = SqlUtil.stripAs(select.getFrom());
-            // Skip non-references such as VALUES ..
-            if (from.getKind() != SqlKind.IDENTIFIER) {
-                return null;
-            }
+        // Convert PUBLIC.T AS X (a,b) to PUBLIC.T
+        SqlNode from = SqlUtil.stripAs(select.getFrom());
+        // Skip non-references such as VALUES ..
+        if (from.getKind() != SqlKind.IDENTIFIER) {
+            return null;
+        }
 
-            targetTable = converter.getTargetTable(from);
-            IgniteDataSource dataSource = targetTable.unwrap(IgniteDataSource.class);
-            if (!(dataSource instanceof IgniteTable)) {
-                return null;
-            }
-        } else {
+        targetTable = converter.getTargetTable(from);
+        IgniteDataSource dataSource = targetTable.unwrap(IgniteDataSource.class);
+        if (!(dataSource instanceof IgniteTable)) {
             return null;
         }
 
@@ -494,6 +491,7 @@ public final class PlannerHelper {
         SqlSelect select = (SqlSelect) node;
 
         if (select.getGroup() != null
+                || select.getFrom() == null
                 || select.getWhere() != null
                 || select.getHaving() != null
                 || select.getQualify() != null
@@ -505,7 +503,11 @@ public final class PlannerHelper {
 
         // make sure that the following IF statement does not leave out any operand of the SELECT node
         assert select.getOperandList().size() == 12 : "Expected 12 operands, but was " + select.getOperandList().size();
-        return true;
+
+        // Convert PUBLIC.T AS X (a,b) to PUBLIC.T
+        SqlNode from = SqlUtil.stripAs(select.getFrom());
+        // Skip non-references such as VALUES ..
+        return from.getKind() == SqlKind.IDENTIFIER;
     }
 
     private static boolean isCountStar(SqlValidator validator, SqlNode node, boolean typeCheck) {
