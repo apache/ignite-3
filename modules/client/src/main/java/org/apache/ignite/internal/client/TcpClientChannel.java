@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getLong;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
+import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
@@ -26,11 +29,14 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import java.net.InetSocketAddress;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
@@ -52,9 +58,12 @@ import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ViewUtils;
+import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
@@ -87,7 +96,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final AtomicLong reqId = new AtomicLong(1);
 
     /** Pending requests. */
-    private final Map<Long, ClientRequestFuture<?>> pendingReqs = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, TimeoutObject> pendingReqs = new ConcurrentHashMap<>();
 
     /** Notification handlers. */
     private final Map<Long, CompletableFuture<PayloadInputChannel>> notificationHandlers = new ConcurrentHashMap<>();
@@ -103,6 +112,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Executor for async operation listeners. */
     private final Executor asyncContinuationExecutor;
+
+    /** Timeout worker. */
+    private TimeoutWorker timeoutWorker;
 
     /** Connect timeout in milliseconds. */
     private final long connectTimeout;
@@ -141,6 +153,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
 
+        this.timeoutWorker = new TimeoutWorker(
+                log,
+                cfg.getAddress().getHostString() + cfg.getAddress().getPort(),
+                "TcpClientChannel-timeout-worker",
+                pendingReqs
+        );
+
         asyncContinuationExecutor = cfg.clientConfiguration().asyncContinuationExecutor() == null
                 ? ForkJoinPool.commonPool()
                 : cfg.clientConfiguration().asyncContinuationExecutor();
@@ -173,6 +192,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     if (protocolCtx != null) {
                         heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
                     }
+
+                    new IgniteThread(timeoutWorker);
 
                     return this;
                 }, asyncContinuationExecutor);
@@ -225,10 +246,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 sock.close();
             }
 
-            for (ClientRequestFuture<?> pendingReq : pendingReqs.values()) {
-                pendingReq.completeExceptionally(
+            for (TimeoutObject pendingReq : pendingReqs.values()) {
+                pendingReq.getFuture().completeExceptionally(
                         new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
             }
+
+            awaitForWorkersStop(List.of(timeoutWorker), true, log);
 
             for (CompletableFuture<PayloadInputChannel> handler : notificationHandlers.values()) {
                 try {
@@ -287,13 +310,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 notificationHandlers.put(id, notificationFut);
             }
 
-            ClientRequestFuture<T> fut = send(opCode, id, payloadWriter, payloadReader, notificationFut);
+            ClientRequestFuture<T> fut = send(opCode, id, payloadWriter, payloadReader, notificationFut, operationTimeout);
 
-            // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map - otherwise
-            // we'll fail with "protocol breakdown" error when a late response arrives from the server.
-            return operationTimeout <= 0
-                    ? fut
-                    : fut.orTimeout(operationTimeout, TimeUnit.MILLISECONDS);
+            return fut;
 
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
@@ -314,13 +333,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             long id,
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader,
-            @Nullable CompletableFuture<PayloadInputChannel> notificationFut) {
+            @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
+            long timeout
+    ) {
         if (closed()) {
             throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint());
         }
 
         ClientRequestFuture<T> fut = new ClientRequestFuture<>(payloadReader, notificationFut);
-        pendingReqs.put(id, fut);
+
+        pendingReqs.put(id, new TimeoutObject(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, fut));
 
         metrics.requestsActiveIncrement();
 
@@ -395,7 +417,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ClientMessageUnpacker unpacker) throws IgniteException {
         if (protocolCtx == null) {
             // Process handshake.
-            complete(pendingReqs.remove(-1L), unpacker);
+            complete(pendingReqs.remove(-1L).getFuture(), unpacker);
             return;
         }
 
@@ -412,7 +434,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return;
         }
 
-        ClientRequestFuture<?> pendingReq = pendingReqs.remove(resId);
+        ClientRequestFuture<?> pendingReq = pendingReqs.remove(resId).getFuture();
+
         if (pendingReq == null) {
             log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
 
@@ -556,7 +579,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private CompletableFuture<Object> handshakeAsync(ProtocolVersion ver)
             throws IgniteClientConnectionException {
         ClientRequestFuture<Object> fut = new ClientRequestFuture<>(r -> handshakeRes(r.in()), null);
-        pendingReqs.put(-1L, fut);
+        pendingReqs.put(-1L, new TimeoutObject(connectTimeout > 0 ? coarseCurrentTimeMillis() + connectTimeout : 0, fut));
 
         handshakeReqAsync(ver).addListener(f -> {
             if (!f.isSuccess()) {
@@ -564,10 +587,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send handshake request", endpoint(), f.cause()));
             }
         });
-
-        if (connectTimeout > 0) {
-            fut.orTimeout(connectTimeout, TimeUnit.MILLISECONDS);
-        }
 
         return fut
                 .handle((res, err) -> {
@@ -788,6 +807,122 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             } catch (Throwable e) {
                 log.warn("Failed to send heartbeat [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
             }
+        }
+    }
+
+    /**
+     * Timeout object worker.
+     */
+    private static class TimeoutWorker extends IgniteWorker {
+        /** Worker sleep interval. */
+        private final long sleepInterval = getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
+
+        /** Active operation. */
+        public final ConcurrentMap<Long, TimeoutObject> requestsMap;
+
+        /**
+         * Constructor.
+         *
+         * @param log Logger.
+         * @param igniteInstanceName Name of the Ignite instance this runnable is used in.
+         * @param name Worker name. Note that in general thread name and worker (runnable) name are two different things. The same
+         *         worker can be executed by multiple threads and therefore for logging and debugging purposes we separate the two.
+         * @param requestsMap Active operations.
+         */
+        public TimeoutWorker(
+                IgniteLogger log,
+                String igniteInstanceName,
+                String name,
+                ConcurrentMap<Long, TimeoutObject> requestsMap
+        ) {
+            super(log, igniteInstanceName, name, null);
+
+            this.requestsMap = requestsMap;
+        }
+
+        @Override
+        protected void body() {
+            try {
+                TimeoutObject timeoutObject;
+
+                while (!isCancelled()) {
+                    Iterator<TimeoutObject> objs = requestsMap.values().iterator();
+
+                    while (objs.hasNext()) {
+                        updateHeartbeat();
+
+                        timeoutObject = objs.next();
+
+                        assert timeoutObject != null : "Unexpected null on the timeout queue.";
+
+                        if (timeoutObject.getEndTime() > 0 && coarseCurrentTimeMillis() > timeoutObject.getEndTime()) {
+                            CompletableFuture<?> fut = timeoutObject.getFuture();
+
+                            if (!fut.isDone()) {
+                                fut.completeExceptionally(new TimeoutException());
+                            }
+
+                            // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
+                            // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
+                            // objs.remove();
+                        }
+                    }
+
+                    try {
+                        Thread.sleep(sleepInterval);
+                    } catch (InterruptedException e) {
+                        log.info("The timeout worker was interrupted, probably the client is stopping.");
+                    }
+
+                    updateHeartbeat();
+                }
+
+            } catch (Throwable t) {
+                // Call FH here.
+
+                throw new IgniteInternalException(t);
+            }
+        }
+    }
+
+    /**
+     * Timeout object.
+     * The class is a wrapper over the complete future.
+     */
+    private static class TimeoutObject {
+        /** End time. */
+        private final long endTime;
+
+        /** Target future. */
+        private final ClientRequestFuture<?> fut;
+
+        /**
+         * Constructor.
+         *
+         * @param endTime End timestamp in milliseconds.
+         * @param fut Target future.
+         */
+        public TimeoutObject(long endTime, ClientRequestFuture<?> fut) {
+            this.endTime = endTime;
+            this.fut = fut;
+        }
+
+        /**
+         * Gets end timestamp.
+         *
+         * @return End timestamp in milliseconds.
+         */
+        public long getEndTime() {
+            return endTime;
+        }
+
+        /**
+         * Gets a target future.
+         *
+         * @return A future.
+         */
+        public ClientRequestFuture<?> getFuture() {
+            return fut;
         }
     }
 }

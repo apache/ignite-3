@@ -87,23 +87,22 @@ public class IgniteRpcClient implements RpcClientEx {
     ) {
         CompletableFuture<Message> fut = new CompletableFuture<>();
 
-        fut.orTimeout(timeoutMs, TimeUnit.MILLISECONDS).
-            whenComplete((res, err) -> {
-                assert !(res == null && err == null) : res + " " + err;
+        fut.whenComplete((res, err) -> {
+            assert !(res == null && err == null) : res + " " + err;
 
-                if (err == null && recordPred != null && recordPred.test(res, this.toString()))
-                    recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+            if (err == null && recordPred != null && recordPred.test(res, this.toString()))
+                recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
-                if (err instanceof ExecutionException)
-                    err = new RemotingException(err);
-                else if (err instanceof TimeoutException) // Translate timeout exception.
-                    err = new InvokeTimeoutException();
+            if (err instanceof ExecutionException)
+                err = new RemotingException(err);
+            else if (err instanceof TimeoutException) // Translate timeout exception.
+                err = new InvokeTimeoutException();
 
-                Throwable finalErr = err;
+            Throwable finalErr = err;
 
-                // Avoid deadlocks if a closure has completed in the same thread.
-                Utils.runInThread(callback.executor(), () -> callback.complete(res, finalErr));
-            });
+            // Avoid deadlocks if a closure has completed in the same thread.
+            Utils.runInThread(callback.executor(), () -> callback.complete(res, finalErr));
+        });
 
         // Future hashcode used as corellation id.
         if (recordPred != null && recordPred.test(request, peerId.toString()))

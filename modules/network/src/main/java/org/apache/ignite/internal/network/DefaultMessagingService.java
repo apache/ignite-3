@@ -18,12 +18,16 @@
 package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getLong;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
+import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -41,9 +45,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -58,9 +64,10 @@ import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.thread.ExecutorChooser;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedExecutor;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
@@ -101,7 +108,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private volatile ConnectionManager connectionManager;
 
     /** Collection that maps correlation id to the future for an invocation request. */
-    private final ConcurrentMap<Long, CompletableFuture<NetworkMessage>> requestsMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, TimeoutObject> requestsMap = new ConcurrentHashMap<>();
 
     /** Correlation id generator. */
     private final AtomicLong correlationIdGenerator = new AtomicLong();
@@ -111,6 +118,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     /** Executors for inbound messages. */
     private final LazyStripedExecutors inboundExecutors;
+
+    /** Network timeout worker thread. */
+    private final TimeoutWorker timeoutWorker;
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
@@ -153,7 +163,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
+
         inboundExecutors = new CriticalLazyStripedExecutors(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
+
+        timeoutWorker = new TimeoutWorker(LOG, nodeName, "MessagingService-timeout-worker", requestsMap);
     }
 
     /**
@@ -287,10 +300,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         long correlationId = createCorrelationId();
 
-        CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<NetworkMessage>()
-                .orTimeout(timeout, TimeUnit.MILLISECONDS);
+        CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<>();
 
-        requestsMap.put(correlationId, responseFuture);
+        requestsMap.put(correlationId, new TimeoutObject(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, responseFuture));
 
         InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
 
@@ -560,9 +572,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Request's correlation id.
      */
     private void onInvokeResponse(NetworkMessage response, Long correlationId) {
-        CompletableFuture<NetworkMessage> responseFuture = requestsMap.remove(correlationId);
+        TimeoutObject responseFuture = requestsMap.remove(correlationId);
         if (responseFuture != null) {
-            responseFuture.complete(response);
+            responseFuture.getFuture().complete(response);
         }
     }
 
@@ -601,6 +613,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Starts the service.
      */
     public void start() {
+        new IgniteThread(timeoutWorker);
+
         criticalWorkerRegistry.register(outboundExecutor);
 
         topologyService.addEventHandler(new TopologyEventHandler() {
@@ -617,7 +631,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     public void stop() {
         var exception = new NodeStoppingException();
 
-        requestsMap.values().forEach(fut -> fut.completeExceptionally(exception));
+        requestsMap.values().forEach(fut -> fut.getFuture().completeExceptionally(exception));
 
         requestsMap.clear();
 
@@ -626,7 +640,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
         recipientInetAddrByNodeId.clear();
 
         inboundExecutors.close();
-        IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
+
+        awaitForWorkersStop(List.of(timeoutWorker), true, LOG);
     }
 
     private static int stripeCountForIndex(int executorIndex) {
@@ -763,5 +779,119 @@ public class DefaultMessagingService extends AbstractMessagingService {
         });
 
         return address != null ? address : createResolved(recipientNode.address());
+    }
+
+    /**
+     * Timeout object worker.
+     */
+    private static class TimeoutWorker extends IgniteWorker {
+        /** Worker sleep interval. */
+        private final long sleepInterval = getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
+
+        /** Active operation. */
+        public final ConcurrentMap<Long, TimeoutObject> requestsMap;
+
+        /**
+         * Constructor.
+         *
+         * @param log Logger.
+         * @param igniteInstanceName Name of the Ignite instance this runnable is used in.
+         * @param name Worker name. Note that in general thread name and worker (runnable) name are two different things. The same
+         *         worker can be executed by multiple threads and therefore for logging and debugging purposes we separate the two.
+         * @param requestsMap Active operations.
+         */
+        public TimeoutWorker(
+                IgniteLogger log,
+                String igniteInstanceName,
+                String name,
+                ConcurrentMap<Long, TimeoutObject> requestsMap
+        ) {
+            super(log, igniteInstanceName, name, null);
+
+            this.requestsMap = requestsMap;
+        }
+
+        @Override
+        protected void body() {
+            try {
+                TimeoutObject timeoutObject;
+
+                while (!isCancelled()) {
+                    Iterator<TimeoutObject> objs = requestsMap.values().iterator();
+
+                    while (objs.hasNext()) {
+                        updateHeartbeat();
+
+                        timeoutObject = objs.next();
+
+                        assert timeoutObject != null : "Unexpected null on the timeout queue.";
+
+                        if (timeoutObject.getEndTime() > 0 && coarseCurrentTimeMillis() > timeoutObject.getEndTime()) {
+                            CompletableFuture<NetworkMessage> fut = timeoutObject.getFuture();
+
+                            if (!fut.isDone()) {
+                                fut.completeExceptionally(new TimeoutException());
+                            }
+
+                            objs.remove();
+                        }
+                    }
+
+                    try {
+                        Thread.sleep(sleepInterval);
+                    } catch (InterruptedException e) {
+                        log.info("The timeout worker was interrupted, probably the node is stopping.");
+                    }
+
+                    updateHeartbeat();
+                }
+
+            } catch (Throwable t) {
+                // failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
+
+                throw new IgniteInternalException(t);
+            }
+        }
+    }
+
+    /**
+     * Timeout object.
+     * The class is a wrapper over the complete future.
+     */
+    private static class TimeoutObject {
+        /** End time. */
+        private final long endTime;
+
+        /** Target future. */
+        private final CompletableFuture<NetworkMessage> fut;
+
+        /**
+         * Constructor.
+         *
+         * @param endTime End timestamp in milliseconds.
+         * @param fut Target future.
+         */
+        public TimeoutObject(long endTime, CompletableFuture<NetworkMessage> fut) {
+            this.endTime = endTime;
+            this.fut = fut;
+        }
+
+        /**
+         * Gets end timestamp.
+         *
+         * @return End timestamp in milliseconds.
+         */
+        public long getEndTime() {
+            return endTime;
+        }
+
+        /**
+         * Gets a target future.
+         *
+         * @return A future.
+         */
+        public CompletableFuture<NetworkMessage> getFuture() {
+            return fut;
+        }
     }
 }
