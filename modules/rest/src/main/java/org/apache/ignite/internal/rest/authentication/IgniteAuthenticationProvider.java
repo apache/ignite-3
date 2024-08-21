@@ -49,9 +49,17 @@ public class IgniteAuthenticationProvider implements AuthenticationProvider, Res
     public Publisher<AuthenticationResponse> authenticate(HttpRequest<?> httpRequest, AuthenticationRequest<?, ?> authenticationRequest) {
         return Flux.create(emitter -> {
             try {
-                UserDetails userDetails = authenticationManager.authenticateAsync(toIgniteAuthenticationRequest(authenticationRequest));
-                emitter.next(AuthenticationResponse.success(userDetails.username()));
-                emitter.complete();
+                authenticationManager.authenticateAsync(toIgniteAuthenticationRequest(authenticationRequest))
+                        .handle((userDetails, throwable) -> {
+                            if (throwable != null) {
+                                emitter.error(AuthenticationResponse.exception(throwable.getMessage()));
+                            } else {
+                                emitter.next(AuthenticationResponse.success(userDetails.username()));
+                                emitter.complete();
+                            }
+
+                            return null;
+                        });
             } catch (InvalidCredentialsException ex) {
                 emitter.error(AuthenticationResponse.exception(ex.getMessage()));
             }
