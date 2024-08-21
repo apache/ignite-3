@@ -143,9 +143,14 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     protected void customizeInitParameters(InitParametersBuilder builder) {
         super.customizeInitParameters(builder);
 
-        builder.clusterConfiguration(
-                "ignite.transaction.txnResourceTtl: 0,"
-                        + "ignite.replication.rpcTimeout: 30000");
+        builder.clusterConfiguration("ignite {"
+                + "  transaction: {"
+                + "      txnResourceTtl: 0"
+                + "  },"
+                + "  replication: {"
+                + "      rpcTimeout: 30000"
+                + "  },"
+                + "}");
     }
 
     /**

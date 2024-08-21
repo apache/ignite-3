@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
@@ -254,12 +255,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         HoconConverter.hoconSource(hoconCfg).descend(superRoot);
 
         if (!annotation.rootName().isBlank()) {
-            SuperRootChangeImpl rootChange = new SuperRootChangeImpl(superRoot);
-            if (annotation.type() == LOCAL) {
-                LOCAL_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
-            } else {
-                DISTRIBUTED_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
-            }
+            patchWithDynamicDefault(annotation.type(), superRoot);
         }
 
         ConfigurationUtil.addDefaults(superRoot);
@@ -348,5 +344,14 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
     private static boolean supportsAsConfigurationType(Class<?> type) {
         return type.getCanonicalName().endsWith("Configuration");
+    }
+
+    private static void patchWithDynamicDefault(ConfigurationType type, SuperRoot superRoot) {
+        SuperRootChangeImpl rootChange = new SuperRootChangeImpl(superRoot);
+        if (type == LOCAL) {
+            LOCAL_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
+        } else {
+            DISTRIBUTED_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
+        }
     }
 }

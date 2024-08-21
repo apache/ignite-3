@@ -134,9 +134,11 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     protected void customizeInitParameters(InitParametersBuilder builder) {
         super.customizeInitParameters(builder);
 
-        builder.clusterConfiguration("ignite.transaction {\n"
-                + "  abandonedCheckTs: 600000\n"
-                + "  attemptsObtainLock: 0\n"
+        builder.clusterConfiguration("ignite {\n"
+                + "  \"transaction\": {\n"
+                + "  \"abandonedCheckTs\": 600000\n"
+                + "  \"attemptsObtainLock\": 0\n"
+                + "  }\n"
                 + "}\n");
     }
 

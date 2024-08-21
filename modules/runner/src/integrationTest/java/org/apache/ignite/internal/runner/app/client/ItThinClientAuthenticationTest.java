@@ -157,12 +157,11 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
     @Test
     void renameBasicProviderAndThenChangeUserPassword() {
-        updateClusterConfiguration("ignite.security.authentication.providers {\n"
-                + "  basic = {\n"
-                + "    type = basic\n"
-                + "    users = [{username = newuser, password = newpassword}]\n"
-                + "  }\n"
-                + "  default = null\n"
+        updateClusterConfiguration("ignite {\n"
+                + "security.authentication.providers.basic={\n"
+                + "type=basic,\n"
+                + "users=[{username=newuser,password=newpassword}]},"
+                + "security.authentication.providers.default=null\n"
                 + "}");
 
         try (IgniteClient client = IgniteClient.builder()

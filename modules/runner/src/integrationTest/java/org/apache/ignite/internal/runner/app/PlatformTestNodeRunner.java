@@ -735,7 +735,7 @@ public class PlatformTestNodeRunner {
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer flag) {
             boolean enable = flag != 0;
-            IgniteImpl ignite = unwrapIgniteImpl(context.ignite());
+            @SuppressWarnings("resource") IgniteImpl ignite = unwrapIgniteImpl(context.ignite());
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
                     root -> {
@@ -762,6 +762,7 @@ public class PlatformTestNodeRunner {
 
     @SuppressWarnings("unused") // Used by platform tests.
     private static class TestReceiver implements DataStreamerReceiver<String, String, String> {
+        @SuppressWarnings("resource")
         @Override
         public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, String arg) {
             String[] args = arg.split(":", 3);
@@ -796,6 +797,7 @@ public class PlatformTestNodeRunner {
 
     @SuppressWarnings("unused") // Used by platform tests.
     private static class UpsertElementTypeNameReceiver implements DataStreamerReceiver<Object, String, Object> {
+        @SuppressWarnings("resource")
         @Override
         public @Nullable CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, String arg) {
             String[] args = arg.split(":", 3);
