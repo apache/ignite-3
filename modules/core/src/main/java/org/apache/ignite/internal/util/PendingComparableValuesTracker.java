@@ -29,6 +29,8 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -109,6 +111,8 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
         }
     }
 
+    private static final IgniteLogger LOG = Loggers.forClass(PendingComparableValuesTracker.class);
+
     /**
      * Provides the future that is completed when this tracker's internal value reaches given one. If the internal value is greater or equal
      * then the given one, returns completed future.
@@ -126,6 +130,8 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
             if (current.getKey().compareTo(valueToWait) >= 0) {
                 return completedFuture(current.getValue());
             }
+
+            LOG.warn("'waitFor' returned incomplete future.");
 
             return addNewWaiter(valueToWait);
         } finally {
