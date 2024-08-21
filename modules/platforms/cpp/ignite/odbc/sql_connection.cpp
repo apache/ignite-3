@@ -727,6 +727,7 @@ bool sql_connection::try_restore_connection() {
 
 bool sql_connection::safe_connect(const end_point &addr) {
     try {
+        LOG_MSG("Connecting to " << addr.to_string());
         return m_socket->connect(addr.host.c_str(), addr.port, m_login_timeout);
     } catch (const ignite_error &err) {
         std::stringstream msgs;

@@ -331,7 +331,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             }
         });
 
-        IgniteServer node = cluster.startEmbeddedNode(1);
+        IgniteServer node = cluster.startEmbeddedNode(1).server();
 
         try {
             Event event = events.poll(10, TimeUnit.SECONDS);

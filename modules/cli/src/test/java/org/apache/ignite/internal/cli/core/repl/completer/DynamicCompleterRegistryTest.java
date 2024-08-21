@@ -344,6 +344,18 @@ class DynamicCompleterRegistryTest {
 
         // Then completer is not returned
         assertThat(completersWithPositional, is(empty()));
+
+        // When there is one positional argument is partially typed
+        List<DynamicCompleter> completersWithPartialPositional = registry.findCompleters(words("cluster", "config", "show", "a"));
+
+        // Then completer is returned
+        assertThat(completersWithPartialPositional, contains(completer1));
+
+        // When there is one positional argument is partially typed and there are options
+        List<DynamicCompleter> completersWithOption = registry.findCompleters(words("cluster", "config", "show", "-v", "a"));
+
+        // Then completer is returned
+        assertThat(completersWithOption, contains(completer1));
     }
 
     @Test

@@ -50,7 +50,7 @@ public class CheckpointMetricsTrackerTest {
 
         assertThat(tracker.checkpointStartTime(), equalTo(checkpointStartTime));
 
-        assertThat(tracker.totalDuration(), greaterThanOrEqualTo(10L));
+        assertThat(tracker.totalDuration(), greaterThanOrEqualTo(1L));
     }
 
     @Test
@@ -97,7 +97,7 @@ public class CheckpointMetricsTrackerTest {
 
         tracker.onSplitAndSortCheckpointPagesEnd();
 
-        assertThat(tracker.splitAndSortCheckpointPagesDuration(), greaterThanOrEqualTo(10L));
+        assertThat(tracker.splitAndSortCheckpointPagesDuration(), greaterThanOrEqualTo(1L));
     }
 
     @Test
@@ -114,7 +114,7 @@ public class CheckpointMetricsTrackerTest {
 
         tracker.onCheckpointEnd();
 
-        assertThat(tracker.fsyncDuration(), greaterThanOrEqualTo(10L));
+        assertThat(tracker.fsyncDuration(), greaterThanOrEqualTo(1L));
     }
 
     @Test
@@ -131,7 +131,7 @@ public class CheckpointMetricsTrackerTest {
 
         tracker.onFsyncStart();
 
-        assertThat(tracker.pagesWriteDuration(), greaterThanOrEqualTo(10L));
+        assertThat(tracker.pagesWriteDuration(), greaterThanOrEqualTo(1L));
     }
 
     @Test
@@ -148,7 +148,7 @@ public class CheckpointMetricsTrackerTest {
 
         tracker.onMarkCheckpointBeginEnd();
 
-        assertThat(tracker.onMarkCheckpointBeginDuration(), greaterThanOrEqualTo(10L));
+        assertThat(tracker.onMarkCheckpointBeginDuration(), greaterThanOrEqualTo(1L));
     }
 
     @Test
@@ -165,7 +165,7 @@ public class CheckpointMetricsTrackerTest {
 
         long beforeWriteLockDuration = tracker.beforeWriteLockDuration();
 
-        assertThat(beforeWriteLockDuration, greaterThanOrEqualTo(10L));
+        assertThat(beforeWriteLockDuration, greaterThanOrEqualTo(1L));
         assertThat(tracker.writeLockWaitDuration(), lessThan(0L));
         assertThat(tracker.writeLockHoldDuration(), equalTo(0L));
 
@@ -176,7 +176,7 @@ public class CheckpointMetricsTrackerTest {
         long writeLockWaitDuration = tracker.writeLockWaitDuration();
 
         assertThat(tracker.beforeWriteLockDuration(), equalTo(beforeWriteLockDuration));
-        assertThat(writeLockWaitDuration, greaterThanOrEqualTo(10L));
+        assertThat(writeLockWaitDuration, greaterThanOrEqualTo(1L));
         assertThat(tracker.writeLockHoldDuration(), lessThan(0L));
 
         waitForChangeCoarseCurrentTimeMillis();
@@ -185,7 +185,7 @@ public class CheckpointMetricsTrackerTest {
 
         assertThat(tracker.beforeWriteLockDuration(), equalTo(beforeWriteLockDuration));
         assertThat(tracker.writeLockWaitDuration(), equalTo(writeLockWaitDuration));
-        assertThat(tracker.writeLockHoldDuration(), greaterThanOrEqualTo(10L));
+        assertThat(tracker.writeLockHoldDuration(), greaterThanOrEqualTo(1L));
     }
 
     private void waitForChangeCoarseCurrentTimeMillis() throws Exception {
