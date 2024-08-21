@@ -45,7 +45,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.BiPredicate;
@@ -403,8 +402,6 @@ public class IgniteImpl implements Ignite {
     /** Remote triggered resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
-    private final Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
-
     private final IgniteTables publicTables;
     private final IgniteTransactions publicTransactions;
     private final IgniteSql publicSql;
@@ -430,8 +427,15 @@ public class IgniteImpl implements Ignite {
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *         {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
+     * @param asyncContinuationExecutor Executor in which user-facing futures will be completed.
      */
-    IgniteImpl(IgniteServer node, Path configPath, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
+    IgniteImpl(
+            IgniteServer node,
+            Path configPath,
+            Path workDir,
+            @Nullable ClassLoader serviceProviderClassLoader,
+            Executor asyncContinuationExecutor
+    ) {
         this.name = node.name();
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
