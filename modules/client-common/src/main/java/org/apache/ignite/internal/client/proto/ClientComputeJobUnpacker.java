@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.marshalling.UnmarshallingException;
 import org.jetbrains.annotations.Nullable;
 
 /** Unpacks job arguments and results. */
@@ -62,21 +61,47 @@ public final class ClientComputeJobUnpacker {
 
         switch (type) {
             case NATIVE:
-                Object result = unpacker.unpackObjectFromBinaryTuple();
-
                 if (marshaller != null) {
-                    return tryUnmarshalOrCast(marshaller, result);
+                    throw new UnmarshallingException(
+                            "Can not unpack object because the marshaller is provided but the object were packed without marshaller."
+                    );
                 }
 
-                return result;
+                return unpacker.unpackObjectFromBinaryTuple();
             case MARSHALLED_TUPLE:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
 
             case MARSHALLED_OBJECT:
+                if (marshaller == null) {
+                    throw new UnmarshallingException(
+                            "Can not unpack object because the marshaller is not provided but the object were packed with marshaller."
+                    );
+                }
                 return tryUnmarshalOrCast(marshaller, unpacker.readBinary());
 
             default:
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported compute job type id: " + typeId);
+                throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
+        }
+    }
+
+    /** Unpacks compute job argument without marshaller. */
+    public static Object unpackJobArgumentWithoutMarshaller(ClientMessageUnpacker unpacker) {
+        if (unpacker.tryUnpackNil()) {
+            return null;
+        }
+
+        int typeId = unpacker.unpackInt();
+        var type = ComputeJobType.Type.fromId(typeId);
+
+        switch (type) {
+            case NATIVE:
+                return unpacker.unpackObjectFromBinaryTuple();
+            case MARSHALLED_TUPLE:
+                return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
+            case MARSHALLED_OBJECT:
+                return unpacker.readBinary();
+            default:
+                throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
         }
     }
 }

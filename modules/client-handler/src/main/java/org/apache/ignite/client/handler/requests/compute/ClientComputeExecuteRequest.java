@@ -130,6 +130,6 @@ public class ClientComputeExecuteRequest {
      * @return Args array.
      */
     static @Nullable Object unpackPayload(ClientMessageUnpacker in) {
-        return ClientComputeJobUnpacker.unpackJobArgument(null, in);
+        return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(in);
     }
 }

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.client.proto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -34,6 +34,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -164,11 +165,11 @@ class ClientComputeJobPackerUnpackerTest {
 
         // And unpack job result without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            Object res = ClientComputeJobUnpacker.unpackJobResult(null, messageUnpacker);
-
-            // Then the result is byte[] and we can convert it to string manually.
-            assertInstanceOf(byte[].class, res);
-            assertEquals(str, new String((byte[]) res));
+            // Then the exception is thrown because it is not allowed unpack the marshalled object without marshaller.
+            assertThrows(
+                    UnmarshallingException.class,
+                    () -> ClientComputeJobUnpacker.unpackJobResult(null, messageUnpacker)
+            );
         }
     }
 
@@ -184,11 +185,11 @@ class ClientComputeJobPackerUnpackerTest {
 
         // And unpack job argument without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            Object res = ClientComputeJobUnpacker.unpackJobArgument(null, messageUnpacker);
-
-            // Then the result is byte[] and we can convert it to string manually.
-            assertInstanceOf(byte[].class, res);
-            assertEquals(str, new String((byte[]) res));
+            // Then the exception is thrown because it is not allowed unpack the marshalled object without marshaller.
+            assertThrows(
+                    UnmarshallingException.class,
+                    () -> ClientComputeJobUnpacker.unpackJobArgument(null, messageUnpacker)
+            );
         }
     }
 
@@ -204,10 +205,11 @@ class ClientComputeJobPackerUnpackerTest {
 
         // And unpack job result with marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            Object res = ClientComputeJobUnpacker.unpackJobResult(new TestStringMarshaller(), messageUnpacker);
-
-            // Then.
-            assertEquals(str, res);
+            // Then the exception is thrown because it is not allowed to define the marshaller only for the result.
+            assertThrows(
+                    UnmarshallingException.class,
+                    () -> ClientComputeJobUnpacker.unpackJobResult(new TestStringMarshaller(), messageUnpacker)
+            );
         }
     }
 
@@ -223,10 +225,11 @@ class ClientComputeJobPackerUnpackerTest {
 
         // And unpack job argument with marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            Object res = ClientComputeJobUnpacker.unpackJobArgument(new TestStringMarshaller(), messageUnpacker);
-
-            // Then.
-            assertEquals(str, res);
+            // Then the exception is thrown because it is not allowed to define the marshaller only for the result.
+            assertThrows(
+                    UnmarshallingException.class,
+                    () -> ClientComputeJobUnpacker.unpackJobArgument(new TestStringMarshaller(), messageUnpacker)
+            );
         }
     }
 
