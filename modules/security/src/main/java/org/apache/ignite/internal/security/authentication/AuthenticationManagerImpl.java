@@ -89,7 +89,7 @@ public class AuthenticationManagerImpl
     /**
      * List of authenticators. Null when authentication is disabled.
      */
-    private volatile @Nullable List<Authenticator> authenticators = new ArrayList<>();
+    private volatile @Nullable List<Authenticator> authenticators;
 
     private final EventLog eventLog;
 
