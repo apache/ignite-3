@@ -156,6 +156,36 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         assertThat(actualUpdates, equalTo(expectedUpdates));
     }
 
+    @Test
+    public void saveSnapshotMultipleTimesToAdvanceItsVersion() throws Exception {
+        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> nullCompletedFuture());
+
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+
+        {
+            List<VersionedUpdate> updates = List.of(
+                    singleEntryUpdateOfVersion(1),
+                    singleEntryUpdateOfVersion(2),
+                    singleEntryUpdateOfVersion(3)
+            );
+
+            appendUpdates(updateLogImpl, updates);
+
+            compactCatalog(updateLogImpl, snapshotEntryOfVersion(2));
+        }
+
+        {
+            List<VersionedUpdate> updates = List.of(
+                    singleEntryUpdateOfVersion(4),
+                    singleEntryUpdateOfVersion(5)
+            );
+
+            appendUpdates(updateLogImpl, updates);
+
+            compactCatalog(updateLogImpl, snapshotEntryOfVersion(4));
+        }
+    }
+
     private void compactCatalog(UpdateLogImpl updateLogImpl, SnapshotEntry update) throws InterruptedException {
         long revisionBeforeAppend = metastore.appliedRevision();
         assertThat(updateLogImpl.saveSnapshot(update), willCompleteSuccessfully());

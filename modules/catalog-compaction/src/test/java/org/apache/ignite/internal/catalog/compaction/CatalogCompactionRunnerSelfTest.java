@@ -56,7 +56,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMi
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
@@ -81,6 +81,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -155,7 +156,11 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         // Nothing should be changed if previous catalog doesn't exists.
         Catalog earliestCatalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.earliestCatalogVersion()));
         compactionRunner = createRunner(NODE1, NODE1, (n) -> earliestCatalog.time());
-        compactionRunner.triggerCompaction(clockService.now());
+
+        HybridTimestamp now = clockService.now();
+        compactionRunner.onLowWatermarkChanged(now);
+        compactionRunner.triggerCompaction(now);
+
         assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
         verify(messagingService, times(0)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
     }
@@ -184,7 +189,10 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         CatalogCompactionRunner compactor =
                 createRunner(NODE1, NODE1, (n) -> earliestCatalog.time() - 1, logicalNodes, logicalNodes);
 
-        compactor.triggerCompaction(clockService.now());
+        HybridTimestamp now = clockService.now();
+        compactor.onLowWatermarkChanged(now);
+        compactor.triggerCompaction(now);
+
         assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
     }
 
@@ -202,7 +210,10 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                     List.of(NODE1, NODE2, NODE3)
             );
 
-            compactor.triggerCompaction(clockService.now());
+            HybridTimestamp now = clockService.now();
+            compactor.onLowWatermarkChanged(now);
+            compactor.triggerCompaction(now);
+
             assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
             assertThat(catalogManager.earliestCatalogVersion(), is(0));
         }
@@ -232,7 +243,9 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             CompletableFuture<CompletableFuture<Void>> fut = IgniteTestUtils.runAsync(
                     () -> {
-                        compactor.triggerCompaction(clockService.now());
+                        HybridTimestamp now = clockService.now();
+                        compactor.onLowWatermarkChanged(now);
+                        compactor.triggerCompaction(now);
 
                         return compactor.lastRunFuture();
                     });
@@ -265,7 +278,10 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                     logicalNodes
             );
 
-            compactor.triggerCompaction(clockService.now());
+            HybridTimestamp now = clockService.now();
+            compactor.onLowWatermarkChanged(now);
+            compactor.triggerCompaction(now);
+
             assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
             waitForCondition(() -> catalogManager.earliestCatalogVersion() != 0, 1_000);
 
@@ -275,17 +291,20 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
     @Test
     public void messageTimeoutDoesNotProduceAdditionalExceptions() {
-        Exception expected = new TimeoutException("Expected exception");
-        Function<String, Object> timeSupplier = (node) -> {
+        RuntimeException expected = new RuntimeException("Expected exception");
+        Function<String, Long> timeSupplier = (node) -> {
             if (node.equals(NODE2.name())) {
-                return expected;
+                throw expected;
             }
 
             return Long.MAX_VALUE;
         };
 
         CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, timeSupplier);
-        compactor.triggerCompaction(clockService.now());
+
+        HybridTimestamp now = clockService.now();
+        compactor.onLowWatermarkChanged(now);
+        compactor.triggerCompaction(now);
 
         ExecutionException ex = Assertions.assertThrows(ExecutionException.class,
                 () -> compactor.lastRunFuture().get());
@@ -320,6 +339,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         );
 
         when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.failedFuture(new ArithmeticException()));
+        compactor.onLowWatermarkChanged(clockService.now());
         compactor.triggerCompaction(clockService.now());
         assertThat(compactor.lastRunFuture(), willThrow(ArithmeticException.class));
 
@@ -357,7 +377,9 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 }
         );
 
-        compactor.triggerCompaction(clockService.now());
+        HybridTimestamp now = clockService.now();
+        compactor.onLowWatermarkChanged(now);
+        compactor.triggerCompaction(now);
 
         messageBlockLatch.await();
 
@@ -452,7 +474,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     private CatalogCompactionRunner createRunner(
             ClusterNode localNode,
             ClusterNode coordinator,
-            Function<String, Object> timeSupplier
+            Function<String, Long> timeSupplier
     ) {
         return createRunner(localNode, coordinator, timeSupplier, logicalNodes, logicalNodes);
     }
@@ -460,7 +482,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     private CatalogCompactionRunner createRunner(
             ClusterNode localNode,
             ClusterNode coordinator,
-            Function<String, Object> timeSupplier,
+            Function<String, Long> timeSupplier,
             List<LogicalNode> topology,
             List<LogicalNode> assignmentNodes
     ) {
@@ -481,15 +503,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                         assertThat("Coordinator shouldn't send messages to himself",
                                 nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
 
-                        Object obj = timeSupplier.apply(nodeName);
-
-                        // Simulate an exception when exchanging messages.
-                        if (obj instanceof Exception) {
-                            throw new CompletionException((Exception) obj);
+                        Long time;
+                        try {
+                            time = timeSupplier.apply(nodeName);
+                        } catch (Exception e) {
+                            throw new CompletionException(e);
                         }
 
                         return messagesFactory.catalogCompactionMinimumTimesResponse()
-                                .minimumRequiredTime(((Long) obj))
+                                .minimumRequiredTime((time))
                                 .minimumActiveTxTime(clockService.nowLong())
                                 .build();
                     });
@@ -536,8 +558,11 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 schemaSyncService,
                 ForkJoinPool.commonPool(),
                 clockService::now,
-                () -> (Long) timeSupplier.apply(coordinator.name())
-        );
+                () -> {
+                    Long minTime = timeSupplier.apply(coordinator.name());
+
+                    return Map.of(new TablePartitionId(1, 1), minTime);
+                });
 
         await(runner.startAsync(mock(ComponentContext.class)));
 

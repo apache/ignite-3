@@ -141,27 +141,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             Executor executor,
-            ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider
-    ) {
-        this(localNodeName, catalogManager, messagingService, logicalTopologyService, placementDriver, replicaService, clockService,
-                schemaSyncService, executor, activeLocalTxMinimumBeginTimeProvider, null);
-    }
-
-    /**
-     * Constructs catalog compaction runner with custom minimum required time provider.
-     */
-    CatalogCompactionRunner(
-            String localNodeName,
-            CatalogManagerImpl catalogManager,
-            MessagingService messagingService,
-            LogicalTopologyService logicalTopologyService,
-            PlacementDriver placementDriver,
-            ReplicaService replicaService,
-            ClockService clockService,
-            SchemaSyncService schemaSyncService,
-            Executor executor,
             ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider,
-            @Nullable CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
+            CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
     ) {
         this.localNodeName = localNodeName;
         this.messagingService = messagingService;
@@ -173,7 +154,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.replicaService = replicaService;
         this.executor = executor;
         this.activeLocalTxMinimumBeginTimeProvider = activeLocalTxMinimumBeginTimeProvider;
-        this.localMinTimeProvider = localMinTimeProvider == null ? this::determineLocalMinimumRequiredTime : localMinTimeProvider;
+        this.localMinTimeProvider = localMinTimeProvider;
     }
 
     @Override
@@ -184,8 +165,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
             if (message.messageType() == CatalogCompactionMessageGroup.MINIMUM_TIMES_REQUEST) {
                 assert correlationId != null;
 
+                Long minRequiredTime = getMinLocalTime();
+                if (minRequiredTime == null) {
+                    minRequiredTime = -1L;
+                }
+
                 CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
-                        .minimumRequiredTime(localMinTimeProvider.time())
+                        .minimumRequiredTime(minRequiredTime)
                         .minimumActiveTxTime(activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue())
                         .build();
 
@@ -255,17 +241,61 @@ public class CatalogCompactionRunner implements IgniteComponent {
         });
     }
 
+    private Long getMinLocalTime() {
+        Map<TablePartitionId, @Nullable Long> partitionStates = localMinTimeProvider.time();
+
+        // Find the minimum time among all partitions.
+        long partitionMinTime = Long.MAX_VALUE;
+
+        for (Map.Entry<TablePartitionId, Long> e : partitionStates.entrySet()) {
+            Long state = e.getValue();
+
+            if (state == null) {
+                if (LOG.isInfoEnabled()) {
+                    LOG.info("Partition state is missing [partition={}, all={}]", e.getKey(), partitionStates);
+                }
+                return lowWatermark.longValue();
+            }
+
+            partitionMinTime = Math.min(partitionMinTime, state);
+        }
+
+        // Choose the minimum time between the low watermark and the minimum time among all partitions.
+        long chosenMinTime = Math.min(lowWatermark.longValue(), partitionMinTime);
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Local minimum required time: [partitionMinTime={}, lowWatermark={}, chosen={}]",
+                    partitionMinTime,
+                    lowWatermark,
+                    chosenMinTime
+            );
+        }
+
+        return chosenMinTime;
+    }
+
     private CompletableFuture<Void> startCompaction(LogicalTopologySnapshot topologySnapshot) {
-        long localMinimum = localMinTimeProvider.time();
+        Long localMinimum = getMinLocalTime();
 
         if (catalogManagerFacade.catalogByTsNullable(localMinimum) == null) {
-            LOG.info("Catalog compaction skipped, nothing to compact (ts={})", localMinimum);
+            LOG.info("Catalog compaction skipped, nothing to compact (ts={}), no catalog at localMinimum", localMinimum);
 
             return CompletableFutures.nullCompletedFuture();
         }
 
+        LOG.info("Catalog compaction started at [ts={}], lowWaterMark={}]", localMinimum, lowWatermark);
+
         return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinimum)
                 .thenComposeAsync(timeHolder -> {
+
+                    if (timeHolder == TimeHolder.UNAVAILABLE) {
+                        if (LOG.isInfoEnabled()) {
+                            LOG.info("Catalog compaction skipped, min required time is unavailable");
+                        }
+
+                        return CompletableFutures.nullCompletedFuture();
+                    }
+
                     long minRequiredTime = timeHolder.minRequiredTime;
                     long minActiveTxBeginTime = timeHolder.minActiveTxBeginTime;
                     Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
@@ -273,7 +303,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     CompletableFuture<Boolean> catalogCompactionFut;
 
                     if (catalog == null) {
-                        LOG.info("Catalog compaction skipped, nothing to compact (ts={})", minRequiredTime);
+                        if (LOG.isInfoEnabled()) {
+                            LOG.info("Catalog compaction skipped, nothing to compact (timestamp={}). No catalog at minRequiredTime",
+                                    minRequiredTime);
+                        }
 
                         catalogCompactionFut = CompletableFutures.falseCompletedFuture();
                     } else {
@@ -331,6 +364,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     for (CompletableFuture<CatalogCompactionMinimumTimesResponse> fut : responseFutures) {
                         CatalogCompactionMinimumTimesResponse response = fut.join();
 
+                        if (response.minimumRequiredTime() < 0) {
+                            return TimeHolder.UNAVAILABLE;
+                        }
+
                         if (response.minimumRequiredTime() < globalMinimumRequiredTime) {
                             globalMinimumRequiredTime = response.minimumRequiredTime();
                         }
@@ -342,11 +379,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                     return new TimeHolder(globalMinimumRequiredTime, globalMinimumActiveTxTime);
                 });
-    }
-
-    private long determineLocalMinimumRequiredTime() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22637 Provide actual minimum required time.
-        return HybridTimestamp.MIN_VALUE.longValue();
     }
 
     private CompletableFuture<Set<String>> requiredNodes(Catalog catalog) {
@@ -506,12 +538,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     /** Minimum required time provider. */
     @FunctionalInterface
-    interface MinimumRequiredTimeProvider {
+    public interface MinimumRequiredTimeProvider {
         /** Returns minimum required timestamp. */
-        long time();
+        Map<TablePartitionId, @Nullable Long> time();
     }
 
     static class TimeHolder {
+        private static final TimeHolder UNAVAILABLE = new TimeHolder(-1, -1);
+
         final long minRequiredTime;
         final long minActiveTxBeginTime;
 

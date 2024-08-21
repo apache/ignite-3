@@ -137,6 +137,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      */
     private volatile long minActiveTxBeginTime = UNDEFINED_MIN_TX_TIME;
 
+    private volatile long snapshottedMinActiveTxBeginTime = minActiveTxBeginTime;
+
     /** Constructor. */
     public PartitionListener(
             TxManager txManager,
@@ -602,6 +604,20 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     /**
+     * Returns minimum starting time among all active RW transactions in the cluster,
+     * or {@code null} if the value has not yet been set.
+     */
+    public @Nullable Long snapshottedMinActiveTxBeginTime() {
+        long minActiveTxBeginTime0 = snapshottedMinActiveTxBeginTime;
+
+        if (minActiveTxBeginTime0 == UNDEFINED_MIN_TX_TIME) {
+            return null;
+        }
+
+        return minActiveTxBeginTime0;
+    }
+
+    /**
      * Handler for the {@link BuildIndexCommand}.
      *
      * @param cmd Command.
@@ -704,6 +720,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         assert minActiveTxBeginTime0 <= cmd.timestamp() : "maxTime=" + minActiveTxBeginTime0 + ", cmdTime=" + cmd.timestamp();
 
         minActiveTxBeginTime = cmd.timestamp();
+
+        storage.flush(false).whenComplete((r, t) -> {
+            snapshottedMinActiveTxBeginTime = minActiveTxBeginTime;
+        });
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

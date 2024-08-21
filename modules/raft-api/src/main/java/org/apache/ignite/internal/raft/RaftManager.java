@@ -180,4 +180,18 @@ public interface RaftManager extends IgniteComponent {
             @Nullable Marshaller commandsMarshaller
     ) throws NodeStoppingException;
 
+    /**
+     * Get a state accessor for the given group type.
+     *
+     * @param groupType Group type class.
+     * @param groupListenerType Group listener class.
+     * @return State accessor.
+     *
+     * @param <G> Group class.
+     * @param <L> Group listener class.
+     */
+    <G extends ReplicationGroupId, L> RaftGroupStateProvider<G, L> getGroupStateProvider(
+            Class<G> groupType,
+            Class<L> groupListenerType
+    );
 }

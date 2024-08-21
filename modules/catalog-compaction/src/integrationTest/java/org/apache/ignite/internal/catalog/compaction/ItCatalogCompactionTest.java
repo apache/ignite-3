@@ -30,14 +30,18 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -65,9 +69,23 @@ import org.junit.jupiter.api.Test;
 class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     private static final int CLUSTER_SIZE = 3;
 
+    private static final long LW_UPDATE_TIME_MS = 10000;
+
+    private static final long LW_DATA_AVAIL_TIME_MS = LW_UPDATE_TIME_MS*2;
+
     @Override
     protected int initialNodes() {
         return CLUSTER_SIZE;
+    }
+
+    @Override
+    protected void configureInitParameters(InitParametersBuilder builder) {
+        String clusterConfiguration = format(
+                "gc: {lowWatermark: { dataAvailabilityTime: {}, updateFrequency: {} } }",
+                LW_DATA_AVAIL_TIME_MS, LW_UPDATE_TIME_MS
+        );
+
+        builder.clusterConfiguration(clusterConfiguration);
     }
 
     @Test
@@ -187,6 +205,43 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         readonlyTx.rollback();
     }
 
+    @Test
+    public void testCompactionRun() throws InterruptedException {
+        sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
+                CLUSTER_SIZE, CLUSTER_SIZE)
+        );
+
+        sql("alter zone test set default");
+
+        sql("create table a(a int primary key)");
+        sql("alter table a add column b int");
+
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
+
+        log.info("Awaiting for the first compaction to run...");
+
+        Catalog catalog1 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
+        assertNotNull(catalog1);
+
+        TimeUnit.MILLISECONDS.sleep(LW_DATA_AVAIL_TIME_MS *3);
+
+        expectEarliestCatalogVersion(catalog1.version() - 1);
+
+        log.info("Awaiting for the second compaction to run...");
+
+        sql("alter table a add column c int");
+
+        Catalog catalog2 = catalogManager.catalog(catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
+        assertNotNull(catalog2);
+
+        assertTrue(catalog1.version() < catalog2.version(), "Catalog version should have changed");
+
+        TimeUnit.MILLISECONDS.sleep(LW_DATA_AVAIL_TIME_MS *3);
+
+        expectEarliestCatalogVersion(catalog2.version() - 1);
+    }
+
     private static void ensureTimestampStoredInAllReplicas(
             HybridTimestamp expectedTimestamp,
             Map<Integer, Integer> expectedTablesWithPartitions
@@ -206,6 +261,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
                 Peer serverPeer = server.localPeers(groupId).get(0);
                 RaftGroupService grp = server.raftGroupService(new RaftNodeId(groupId, serverPeer));
+
                 DelegatingStateMachine fsm = (DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
                 PartitionListener listener = (PartitionListener) fsm.getListener();
 
@@ -219,5 +275,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 assertThat(grp.getGroupId(), listener.minimumActiveTxBeginTime(), equalTo(expectedTimestamp.longValue()));
             }
         }
+    }
+
+    private static void expectEarliestCatalogVersion(int version) {
+        CLUSTER.runningNodes().forEach(node -> {
+            IgniteImpl ignite = unwrapIgniteImpl(node);
+            CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
+
+            String message = "The earliest catalog version does not match. Node=" + node.name();
+            assertEquals(version, catalogManager.earliestCatalogVersion(), message);
+        });
     }
 }

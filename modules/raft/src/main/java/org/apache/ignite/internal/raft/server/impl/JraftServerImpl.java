@@ -34,7 +34,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -44,6 +46,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -62,6 +65,7 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.RaftGroupStateProvider;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
@@ -836,6 +840,56 @@ public class JraftServerImpl implements RaftServer {
             super.onLeaderStart(term);
 
             listener.onLeaderStart();
+        }
+    }
+
+    /** Returns raft group state accessor. */
+    public <G extends ReplicationGroupId, L> RaftGroupStateProvider<G, L> getGroupStateProvider(
+            Class<G> groupType,
+            Class<L> groupListenerType
+    ) {
+        return new StateProviderImpl<>(groupType, groupListenerType, nodes);
+    }
+
+    private static class StateProviderImpl<G extends ReplicationGroupId, L> implements RaftGroupStateProvider<G, L> {
+
+        private final Class<G> groupType;
+
+        private final Class<L> listenerType;
+
+        private final Map<RaftNodeId, RaftGroupService> nodes;
+
+        StateProviderImpl(
+                Class<G> groupType,
+                Class<L> listenerType,
+                Map<RaftNodeId, RaftGroupService> nodes
+        ) {
+            this.groupType = groupType;
+            this.listenerType = listenerType;
+            this.nodes = nodes;
+        }
+
+        @Override
+        public <V> Map<G, V> getState(Function<L, V> stateFunc) {
+            Map<G, V> result = new HashMap<>();
+
+            for (Map.Entry<RaftNodeId, RaftGroupService> entry : nodes.entrySet()) {
+                RaftNodeId nodeId = entry.getKey();
+                ReplicationGroupId replicationGroupId = nodeId.groupId();
+                if (!groupType.isInstance(replicationGroupId)) {
+                    continue;
+                }
+
+                G groupId = groupType.cast(replicationGroupId);
+                RaftGroupService svc = entry.getValue();
+                DelegatingStateMachine fsm = (DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
+
+                L listener = listenerType.cast(fsm.getListener());
+                V state = stateFunc.apply(listener);
+                result.put(groupId, state);
+            }
+
+            return result;
         }
     }
 }

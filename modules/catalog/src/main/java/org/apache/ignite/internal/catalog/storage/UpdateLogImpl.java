@@ -25,9 +25,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToIntKeepingOrder;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -167,11 +165,11 @@ public class UpdateLogImpl implements UpdateLog {
 
             Condition versionAsExpected = or(
                     notExists(CatalogKey.currentVersion()),
-                    value(CatalogKey.currentVersion()).eq(intToBytes(expectedVersion))
+                    value(CatalogKey.currentVersion()).eq(intToBytesKeepingOrder(expectedVersion))
             );
             Update appendUpdateEntryAndBumpVersion = ops(
                     put(CatalogKey.update(newVersion), marshaller.marshall(update)),
-                    put(CatalogKey.currentVersion(), intToBytes(newVersion))
+                    put(CatalogKey.currentVersion(), intToBytesKeepingOrder(newVersion))
             ).yield(true);
 
             Iif iif = iif(versionAsExpected, appendUpdateEntryAndBumpVersion, ops().yield(false));
@@ -201,7 +199,7 @@ public class UpdateLogImpl implements UpdateLog {
             int snapshotVersion = update.version();
 
             Entry oldSnapshotEntry = metastore.getLocally(CatalogKey.snapshotVersion(), metastore.appliedRevision());
-            int oldSnapshotVersion = oldSnapshotEntry.empty() ? 1 : bytesToInt(Objects.requireNonNull(oldSnapshotEntry.value()));
+            int oldSnapshotVersion = oldSnapshotEntry.empty() ? 1 : bytesToIntKeepingOrder(Objects.requireNonNull(oldSnapshotEntry.value()));
 
             if (oldSnapshotVersion >= snapshotVersion) {
                 // Nothing to do.
@@ -224,6 +222,8 @@ public class UpdateLogImpl implements UpdateLog {
             ).toArray(Operation[]::new)).yield(true);
 
             Iif iif = iif(versionIsRecent, saveSnapshotAndDropOutdatedUpdates, ops().yield(false));
+
+            LOG.info("Snapshot version is updated. [Old version: {}, new version: {}]", oldSnapshotVersion, snapshotVersion);
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
         } catch (CatalogMarshallerException ex) {
