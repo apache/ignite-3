@@ -237,6 +237,9 @@ public class ByteUtils {
      * @return Byte array.
      */
     public static byte[] toBytes(Object obj) {
+        if (obj == null) {
+            throw new RuntimeException("Null object");
+        }
         try (
                 var bos = new ByteArrayOutputStream();
                 var out = new ObjectOutputStream(bos)
@@ -245,7 +248,12 @@ public class ByteUtils {
 
             out.flush();
 
-            return bos.toByteArray();
+            var result = bos.toByteArray();
+            if (result.length == 0) {
+
+                throw new RuntimeException("Null result");
+            }
+            return result;
         } catch (IOException e) {
             throw new IgniteInternalException(String.format("Could not serialize a class [cls=%s]", obj.getClass()), e);
         }
@@ -264,7 +272,7 @@ public class ByteUtils {
         ) {
             return (T) in.readObject();
         } catch (IOException | ClassNotFoundException e) {
-            throw new IgniteInternalException("Could not deserialize an object", e);
+            throw new IgniteInternalException("Could not deserialize an object " + bytes.length, e);
         }
     }
 

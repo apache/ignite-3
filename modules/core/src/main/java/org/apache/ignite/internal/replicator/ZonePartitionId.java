@@ -90,14 +90,14 @@ public class ZonePartitionId implements ReplicationGroupId {
      * @return An zone partition id.
      */
     public static ZonePartitionId fromString(String str) {
-        String[] parts = str.split("_zone_part_");
+        String[] parts = str.split("_part_");
 
         return new ZonePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
     }
 
     @Override
     public String toString() {
-        return zoneId + "_zone_part_" + partId;
+        return zoneId + "_part_" + partId;
     }
 
     @Override

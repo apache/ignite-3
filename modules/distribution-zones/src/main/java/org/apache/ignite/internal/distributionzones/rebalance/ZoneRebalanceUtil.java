@@ -158,6 +158,7 @@ public class ZoneRebalanceUtil {
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 
         byte[] partAssignmentsBytes = Assignments.toBytes(partAssignments);
+        LOG.info("partAssignments " + partAssignments);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending)
@@ -438,7 +439,7 @@ public class ZoneRebalanceUtil {
     public static int extractZoneId(byte[] key, String prefix) {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
-        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_zone_part_")));
+        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
 
     /**
@@ -462,7 +463,7 @@ public class ZoneRebalanceUtil {
     public static int extractPartitionNumber(byte[] key) {
         var strKey = new String(key, StandardCharsets.UTF_8);
 
-        return Integer.parseInt(strKey.substring(strKey.indexOf("_zone_part_") + "_zone_part_".length()));
+        return Integer.parseInt(strKey.substring(strKey.indexOf("_part_") + "_part_".length()));
     }
 
     /**

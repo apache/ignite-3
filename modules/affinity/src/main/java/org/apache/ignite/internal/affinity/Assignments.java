@@ -127,7 +127,12 @@ public class Assignments implements Serializable {
      * Serializes the instance into an array of bytes.
      */
     public byte[] toBytes() {
-        return ByteUtils.toBytes(this);
+        var result = ByteUtils.toBytes(this);
+        if (result.length == 0) {
+            System.out.println("null assigns");
+            Thread.dumpStack();
+        }
+        return result;
     }
 
     /**

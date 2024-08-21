@@ -529,6 +529,7 @@ public class PartitionReplicaLifecycleManager  extends
                 rpIds.add(new ZonePartitionId(zoneId, p));
             });
         });
+        LOG.info("KKK to stop " + topologyService.localMember() + " " + rpIds);
         cleanUpPartitionsResources(rpIds);
     }
 
@@ -712,6 +713,10 @@ public class PartitionReplicaLifecycleManager  extends
 
                 try {
                     Entry newEntry = evt.entryEvent().newEntry();
+
+                    if (!(newEntry.value() == null || newEntry.empty()) && newEntry.value().length == 0) {
+                        LOG.error("KKK old entry " + evt.entryEvent().oldEntry() + " new entry " + evt.entryEvent().newEntry());
+                    }
 
                     return handleChangePendingAssignmentEvent(newEntry, evt.revision(), false);
                 } finally {
@@ -933,7 +938,14 @@ public class PartitionReplicaLifecycleManager  extends
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
-        Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
+        Assignments pendingAssignments;
+
+        try {
+            pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
+        } catch (Exception e) {
+            LOG.error("Pending error " +  pendingAssignmentsEntry.revision());
+            throw e;
+        }
 
         if (!busyLock.enterBusy()) {
             return CompletableFuture.<Void>failedFuture(new NodeStoppingException());
@@ -1057,9 +1069,13 @@ public class PartitionReplicaLifecycleManager  extends
                             ? pendingAssignmentsNodes
                             : union(pendingAssignmentsNodes, stableAssignments.nodes());
 
-                    replicaMgr.replica(replicaGrpId)
-                            .thenApply(Replica::raftClient)
-                            .thenAccept(raftClient -> raftClient.updateConfiguration(fromAssignments(newAssignments)));
+                    var fut = replicaMgr.replica(replicaGrpId);
+                    if (fut == null) {
+                        LOG.info("isLocalNodeInStableOrPending " + isLocalNodeInStableOrPending + " isLeaseholder " + isLeaseholder);
+                    }
+                    fut
+                        .thenApply(Replica::raftClient)
+                        .thenAccept(raftClient -> raftClient.updateConfiguration(fromAssignments(newAssignments)));
                 }), ioExecutor);
     }
 

@@ -18,14 +18,19 @@
 package org.apache.ignite.internal.failure.handlers;
 
 import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Just ignores any failure. It's useful for tests and debugging.
  */
 public class NoOpFailureHandler extends AbstractFailureHandler {
+    private static final IgniteLogger LOG = Loggers.forClass(NoOpFailureHandler.class);
+
     @Override
     protected boolean handle(FailureContext failureCtx) {
+        LOG.error("FailureHandlerHandle " + failureCtx);
         return false;
     }
 

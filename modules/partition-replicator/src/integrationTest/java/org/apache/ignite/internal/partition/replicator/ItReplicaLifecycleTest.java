@@ -22,7 +22,9 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
@@ -32,6 +34,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -71,6 +74,7 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
@@ -146,6 +150,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionReplicaImpl;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -153,6 +158,8 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
@@ -297,6 +304,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void after() {
+        System.out.println("----------------");
         metaStorageInvokeInterceptorByNode.clear();
         nodes.values().forEach(Node::stop);
     }
@@ -580,7 +588,78 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @Test
+    @RepeatedTest(5)
+    public void testAlterRebalanceExtend(TestInfo testInfo) throws Exception {
+        startNodes(testInfo, 1);
+
+        Node node = getNode(0);
+
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+
+        DistributionZonesTestUtil.createZone(node.catalogManager, "TEST_ZONE", 1, 3);
+
+        createTable(node, "TEST_ZONE", "TEST_TABLE");
+
+        int tableId = TableTestUtils.getTableId(node.catalogManager, "TEST_TABLE", node.hybridClock.nowLong());
+
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "TEST_ZONE", node.hybridClock.nowLong());
+
+        long key = 1;
+
+        prepareTableIdToZoneIdConverter(
+                node,
+                new TablePartitionId(tableId, 0),
+                new ZonePartitionId(zoneId, 0)
+        );
+
+        KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
+
+        int val = 100;
+
+        node.transactions().runInTransaction(tx -> {
+            assertDoesNotThrow(() -> keyValueView.put(tx, key, val));
+
+            assertEquals(val, keyValueView.get(tx, key));
+        });
+
+        assertTrue(waitForCondition(() -> IntStream.range(0, 1)
+                .allMatch(i  -> {
+                    try {
+                        return (((ZonePartitionReplicaListener) getNode(i).replicaManager.replica(new ZonePartitionId(zoneId, 0)).get().listener()).replicas.size() == 1);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    } catch (ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }), 10_000L));
+
+        startNode(testInfo, 1);
+        startNode(testInfo, 2);
+
+        assertTrue(waitForCondition(() -> IntStream.range(0, 3)
+                .allMatch(i  -> {
+                    try {
+                        var replicaFut = getNode(i).replicaManager.replica(new ZonePartitionId(zoneId, 0));
+
+                        if (replicaFut == null) {
+                            return false;
+                        }
+
+                        ZonePartitionReplicaImpl replica = (ZonePartitionReplicaImpl) replicaFut.get();
+
+                        if (replica == null) {
+                            return false;
+                        }
+                        return ((ZonePartitionReplicaListener) replica.listener()).replicas.size() == 1;
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    } catch (ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }), 30_000L));
+    }
+
+    @RepeatedTest(20)
     void testReplicaIsStartedOnNodeStart(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -1371,5 +1450,16 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     private static boolean skipMetaStorageInvoke(Collection<Operation> ops, String prefix) {
         return ops.stream().anyMatch(op -> new String(toByteArray(op.key()), StandardCharsets.UTF_8).startsWith(prefix));
+    }
+
+    private static boolean containsPartition(Node node, int partitionId) {
+        TableManager tableManager = node.tableManager;
+
+        MvPartitionStorage storage = tableManager.tableView("TEST_TABLE")
+                .internalTable()
+                .storage()
+                .getMvPartition(partitionId);
+
+        return storage != null && bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(partitionId))) != null;
     }
 }
