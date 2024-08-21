@@ -110,7 +110,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
     private final AtomicReference<ClusterNode> coordinatorNodeHolder = new AtomicReference<>();
 
-    private DummyTestPrimaryAffinity primaryAffinity = new DummyTestPrimaryAffinity(logicalNodes);
+    private DummyPrimaryAffinity primaryAffinity = new DummyPrimaryAffinity(logicalNodes);
 
     private LogicalTopologyService logicalTopologyService;
 
@@ -425,7 +425,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         Catalog catalog = prepareCatalogWithTables();
 
         {
-            primaryAffinity = new DummyTestPrimaryAffinity(logicalNodes) {
+            primaryAffinity = new DummyPrimaryAffinity(logicalNodes) {
                 @Override
                 public @Nullable LogicalNode apply(int partId) {
                     if (partId == 5) {
@@ -442,7 +442,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         }
 
         {
-            primaryAffinity = new DummyTestPrimaryAffinity(logicalNodes) {
+            primaryAffinity = new DummyPrimaryAffinity(logicalNodes) {
                 @Override
                 public @Nullable LogicalNode apply(int partId) {
                     if (partId == 7) {
@@ -587,10 +587,10 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         return runner;
     }
 
-    static class DummyTestPrimaryAffinity implements IntFunction<LogicalNode> {
+    static class DummyPrimaryAffinity implements IntFunction<LogicalNode> {
         private final List<LogicalNode> assignments;
 
-        DummyTestPrimaryAffinity(List<LogicalNode> assignments) {
+        DummyPrimaryAffinity(List<LogicalNode> assignments) {
             this.assignments = assignments;
         }
 

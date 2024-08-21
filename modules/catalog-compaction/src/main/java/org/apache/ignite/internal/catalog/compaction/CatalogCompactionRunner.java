@@ -213,7 +213,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                     if (ex != null) {
                                         responseBuilder.error(ex.toString());
 
-                                        LOG.warn("Failed to update minimum active tx begin time on replicas", ex);
+                                        LOG.warn("Failed to update minimum required time on replicas.", ex);
                                     } else {
                                         responseBuilder.success(result);
                                     }
@@ -276,7 +276,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 CompletableFuture<Void> fut = lastRunFuture;
 
                 if (!fut.isDone()) {
-                    LOG.info("Catalog compaction is already in progress, skipping (timestamp={})", lwm.longValue());
+                    LOG.info("Catalog compaction is already in progress, skipping [timestamp={}].", lwm.longValue());
 
                     return;
                 }
@@ -290,7 +290,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         long localMinimum = localMinTimeProvider.time();
 
         if (catalogManagerFacade.catalogByTsNullable(localMinimum) == null) {
-            LOG.info("Catalog compaction skipped, nothing to compact (ts={})", localMinimum);
+            LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}].", localMinimum);
 
             return CompletableFutures.nullCompletedFuture();
         }
@@ -304,18 +304,18 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     CompletableFuture<Boolean> catalogCompactionFut;
 
                     if (catalog == null) {
-                        LOG.info("Catalog compaction skipped, nothing to compact (ts={})", minRequiredTime);
+                        LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}].", minRequiredTime);
 
                         catalogCompactionFut = CompletableFutures.falseCompletedFuture();
                     } else {
                         catalogCompactionFut = tryCompactCatalog(catalog, topologySnapshot).whenComplete((res, ex) -> {
                             if (ex != null) {
-                                LOG.warn("Catalog compaction has failed (timestamp={})", ex, minRequiredTime);
+                                LOG.warn("Catalog compaction has failed [timestamp={}].", ex, minRequiredTime);
                             } else {
                                 if (res) {
-                                    LOG.info("Catalog compaction completed successfully (timestamp={})", minRequiredTime);
+                                    LOG.info("Catalog compaction completed successfully [timestamp={}].", minRequiredTime);
                                 } else {
-                                    LOG.info("Catalog compaction skipped (timestamp={})", minRequiredTime);
+                                    LOG.info("Catalog compaction skipped [timestamp={}].", minRequiredTime);
                                 }
                             }
                         });
@@ -325,15 +325,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             propagateTimeToReplicas(minActiveTxBeginTime, topologySnapshot.nodes())
                                     .whenComplete((success, ex) -> {
                                         if (ex != null) {
-                                            LOG.warn("Failed to propagate minimum active tx begin time to replicas", ex);
+                                            LOG.warn("Failed to propagate minimum required time to replicas.", ex);
                                         }
 
                                         if (!success) {
                                             LOG.info("Propagation of minimum required time to replicas "
-                                                    + "completed successfully (timestamp={})", minActiveTxBeginTime);
+                                                    + "completed successfully [timestamp={}].", minActiveTxBeginTime);
                                         } else {
                                             LOG.info("Propagation of minimum required time to replicas "
-                                                    + "skipped (timestamp={})", minActiveTxBeginTime);
+                                                    + "skipped [timestamp={}].", minActiveTxBeginTime);
                                         }
                                     });
 
@@ -501,12 +501,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
         int tableId = tableWithPartitions.getIntKey();
         int partitions = tableWithPartitions.getIntValue();
         List<CompletableFuture<?>> partFutures = new ArrayList<>(partitions);
+        HybridTimestamp nowTs = clockService.now();
 
         for (int p = 0; p < partitions; p++) {
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, p);
 
             CompletableFuture<?> fut = placementDriver
-                    .getPrimaryReplica(tablePartitionId, clockService.now())
+                    .getPrimaryReplica(tablePartitionId, nowTs)
                     .thenCompose(meta -> {
                         if (abortFlag.get()) {
                             return CompletableFutures.nullCompletedFuture();
@@ -514,8 +515,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                         // If primary is not elected yet - we'll update replication groups on next iteration.
                         if (meta == null || meta.getLeaseholder() == null) {
-                            LOG.info("Primary replica is not selected yet, aborting minimum tx begin "
-                                    + "time propagation [tablePartitionId={}]", tablePartitionId);
+                            LOG.info("Primary replica is not selected yet, aborting minimum required "
+                                    + "time propagation [tablePartitionId={}].", tablePartitionId);
 
                             abortFlag.set(true);
 
@@ -553,7 +554,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
 
                     if (!missingNodes.isEmpty()) {
-                        LOG.info("Catalog compaction aborted due to missing cluster members (nodes={})", missingNodes);
+                        LOG.info("Catalog compaction aborted due to missing cluster members [nodes={}].", missingNodes);
 
                         return CompletableFutures.falseCompletedFuture();
                     }
