@@ -37,7 +37,7 @@ class BasicAuthenticatorTest {
     @Test
     void authenticate() {
         // when
-        UserDetails userDetails = authenticator.authenticateAsync(new UsernamePasswordRequest("admin", "password"));
+        UserDetails userDetails = authenticator.authenticateAsync(new UsernamePasswordRequest("admin", "password")).join();
 
         // then
         assertEquals("admin", userDetails.username());
