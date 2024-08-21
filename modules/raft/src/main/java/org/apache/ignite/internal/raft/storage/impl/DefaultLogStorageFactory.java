@@ -166,9 +166,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             // all the raft groups
             Env env = db.getEnv();
             // Setup background flushes pool
-            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
+            env.setBackgroundThreads(1, Priority.HIGH);
             // Setup background compactions pool
-            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
+            env.setBackgroundThreads(1, Priority.LOW);
 
             assert (columnFamilyHandles.size() == 2);
             this.confHandle = columnFamilyHandles.get(0);
