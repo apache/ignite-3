@@ -18,14 +18,15 @@
 package org.apache.ignite.internal.security.authentication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.security.authentication.AuthenticationUtils.findBasicProviderName;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
@@ -154,17 +155,27 @@ public class AuthenticationManagerImpl
         var providers = authenticators;
 
         if (providers != null) {
-            return providers.stream()
-                    .map(authenticator -> authenticate(authenticator, authenticationRequest))
-                    .filter(Objects::nonNull)
-                    .findFirst()
-                    .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
+            return authenticate(providers.iterator(), authenticationRequest);
         } else {
             return completedFuture(UserDetails.UNKNOWN);
         }
     }
 
-    @Nullable
+    private CompletableFuture<UserDetails> authenticate(Iterator<Authenticator> iter, AuthenticationRequest<?, ?> authenticationRequest) {
+        if (!iter.hasNext()) {
+            return failedFuture(new InvalidCredentialsException("Authentication failed"));
+        }
+
+        return authenticate(iter.next(), authenticationRequest)
+                .thenCompose(userDetails -> {
+                    if (userDetails != null) {
+                        return completedFuture(userDetails);
+                    }
+
+                    return authenticate(iter, authenticationRequest);
+                });
+    }
+
     private CompletableFuture<UserDetails> authenticate(
             Authenticator authenticator,
             AuthenticationRequest<?, ?> authenticationRequest
@@ -178,14 +189,26 @@ public class AuthenticationManagerImpl
                 }
             });
 
-            return fut;
+            return fut.handle((userDetails, throwable) -> {
+                if (throwable != null) {
+                    if (!(throwable instanceof InvalidCredentialsException
+                            || throwable instanceof UnsupportedAuthenticationTypeException)) {
+                        LOG.error("Unexpected exception during authentication", throwable);
+                    }
+
+                    logAuthenticationFailure(authenticationRequest);
+                    return null;
+                }
+
+                return userDetails;
+            });
         } catch (InvalidCredentialsException | UnsupportedAuthenticationTypeException exception) {
             logAuthenticationFailure(authenticationRequest);
-            return null;
+            return completedFuture(null);
         } catch (Exception e) {
             logAuthenticationFailure(authenticationRequest);
             LOG.error("Unexpected exception during authentication", e);
-            return null;
+            return completedFuture(null);
         }
     }
 
