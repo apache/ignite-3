@@ -111,7 +111,6 @@ public class RocksDbFlusher {
      *      roughly the same time from different threads. For example, several partitions might be flushed at the same time, because they
      *      started at the same time and their flush frequency is also the same.
      * @param onFlushCompleted Flush completion callback. Executed on every individual column family flush.
-     * @param name
      */
     public RocksDbFlusher(
             String name,

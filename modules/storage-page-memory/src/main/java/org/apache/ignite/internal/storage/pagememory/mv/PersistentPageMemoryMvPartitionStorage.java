@@ -248,7 +248,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     /**
-     * Updates partition meta. Hides all the necessary boilderplate in a single place.
+     * Updates partition meta. Hides all the necessary boilerplate in a single place.
      */
     private void updateMeta(MetaUpdateClosure closure) {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();

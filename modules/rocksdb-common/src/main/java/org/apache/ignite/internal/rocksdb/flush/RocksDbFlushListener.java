@@ -45,9 +45,6 @@ class RocksDbFlushListener extends LoggingRocksDbFlushListener {
      */
     private volatile CompletableFuture<?> lastFlushProcessed = nullCompletedFuture();
 
-    private volatile long time;
-    private final String name;
-
     /**
      * Constructor.
      *
@@ -60,7 +57,6 @@ class RocksDbFlushListener extends LoggingRocksDbFlushListener {
 
         this.flusher = flusher;
         this.logSyncer = logSyncer;
-        this.name = name;
     }
 
     @Override
