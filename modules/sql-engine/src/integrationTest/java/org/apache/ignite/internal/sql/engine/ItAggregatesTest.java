@@ -552,8 +552,10 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("provideRules")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22988")
     public void testAvg(String[] rules) {
+        Assumptions.assumeFalse(Arrays.stream(rules).filter(r -> r.startsWith("MapReduce")).count() == 1,
+                "need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-22988");
+
         sql("DELETE FROM numbers");
         sql("INSERT INTO numbers VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1, 1), (2, 2, 2, 2, 2, 2, 2, 2, 2, 2)");
 
@@ -686,8 +688,9 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("provideRules")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22988")
     public void testAvgFromLiterals(String[] rules) {
+        Assumptions.assumeFalse(Arrays.stream(rules).filter(r -> r.startsWith("MapReduce")).count() == 1,
+                "need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-22988");
 
         assertQuery("SELECT "
                 + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), "
