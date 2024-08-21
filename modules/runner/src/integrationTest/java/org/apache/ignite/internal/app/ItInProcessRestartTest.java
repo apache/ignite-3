@@ -69,8 +69,8 @@ class ItInProcessRestartTest extends ClusterPerTestIntegrationTest {
 
         var insertedSomething = new CompletableFuture<Void>();
 
-        AtomicBoolean restarted = new AtomicBoolean(false);
-        AtomicInteger lastInsertedId = new AtomicInteger();
+        var restarted = new AtomicBoolean(false);
+        var lastInsertedId = new AtomicInteger();
 
         CompletableFuture<Void> putsFuture = runAsync(() -> {
             for (int i = 0; !restarted.get(); i++) {
