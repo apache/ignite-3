@@ -150,6 +150,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
+    private static final byte STATE_BEFORE_HANDSHAKE = 0;
+
+    private static final byte STATE_HANDSHAKE_REQUESTED = 1;
+
+    private static final byte STATE_HANDSHAKE_RESPONSE_SENT = 2;
+
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
@@ -187,6 +193,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     /** Context. */
     private ClientContext clientContext;
+
+    /** Current state. */
+    private byte state = STATE_BEFORE_HANDSHAKE;
 
     /** Read-write lock. Protects {@link #clientContext}. */
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -312,13 +321,26 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         // Packer buffer is released by Netty on send, or by inner exception handlers below.
         var packer = getPacker(ctx.alloc());
 
-        if (clientContext == null) {
-            // TODO: Use a flag to avoid multiple handshakes.
-            // Disallow any messages except handshake until the handshake is completed.
-            metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
-            handshake(ctx, unpacker, packer);
-        } else {
-            processOperation(ctx, unpacker, packer);
+        switch (state) {
+            case STATE_BEFORE_HANDSHAKE:
+                state = STATE_HANDSHAKE_REQUESTED;
+                metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
+                handshake(ctx, unpacker, packer);
+
+                break;
+
+            case STATE_HANDSHAKE_REQUESTED:
+                // Handshake is in progress, any messages are not allowed.
+                throw new IgniteException(PROTOCOL_ERR, "Unexpected message received before handshake completion");
+
+            case STATE_HANDSHAKE_RESPONSE_SENT:
+                assert clientContext != null : "Client context != null";
+                processOperation(ctx, unpacker, packer);
+
+                break;
+
+            default:
+                throw new IllegalStateException("Unexpected state: " + state);
         }
     }
 
@@ -399,6 +421,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(0); // Extensions.
 
             write(packer, ctx);
+
+            state = STATE_HANDSHAKE_RESPONSE_SENT;
 
             metrics.sessionsAcceptedIncrement();
             metrics.sessionsActiveIncrement();
