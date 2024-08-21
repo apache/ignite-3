@@ -37,7 +37,7 @@ class BasicAuthenticatorTest {
     @Test
     void authenticate() {
         // when
-        UserDetails userDetails = authenticator.authenticate(new UsernamePasswordRequest("admin", "password"));
+        UserDetails userDetails = authenticator.authenticateAsync(new UsernamePasswordRequest("admin", "password"));
 
         // then
         assertEquals("admin", userDetails.username());
@@ -47,7 +47,7 @@ class BasicAuthenticatorTest {
     void authenticateInvalidCredentials() {
         // when
         InvalidCredentialsException exception = assertThrows(InvalidCredentialsException.class, () -> {
-            authenticator.authenticate(new UsernamePasswordRequest("admin", "invalid"));
+            authenticator.authenticateAsync(new UsernamePasswordRequest("admin", "invalid"));
         });
 
         // then
@@ -59,7 +59,7 @@ class BasicAuthenticatorTest {
         // when
         UnsupportedAuthenticationTypeException exception = assertThrows(
                 UnsupportedAuthenticationTypeException.class,
-                () -> authenticator.authenticate(new AnonymousRequest())
+                () -> authenticator.authenticateAsync(new AnonymousRequest())
         );
 
         // then

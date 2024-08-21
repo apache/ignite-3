@@ -313,6 +313,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         var packer = getPacker(ctx.alloc());
 
         if (clientContext == null) {
+            // TODO: Use a flag to avoid multiple handshakes.
+            // Disallow any messages except handshake until the handshake is completed.
             metrics.bytesReceivedAdd(ClientMessageCommon.MAGIC_BYTES.length);
             handshake(ctx, unpacker, packer);
         } else {
@@ -355,7 +357,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             readWriteLock.writeLock().lock();
             try {
                 AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
-                UserDetails userDetails = authenticationManager.authenticate(authenticationRequest);
+                UserDetails userDetails = authenticationManager.authenticateAsync(authenticationRequest);
                 clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
             } finally {
                 readWriteLock.writeLock().unlock();

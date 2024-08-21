@@ -161,7 +161,7 @@ public class AuthenticationManagerImpl
      * {@inheritDoc}
      */
     @Override
-    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
+    public CompletableFuture<UserDetails> authenticateAsync(AuthenticationRequest<?, ?> authenticationRequest) {
         rwLock.readLock().lock();
         try {
             if (authEnabled) {
@@ -184,7 +184,7 @@ public class AuthenticationManagerImpl
             AuthenticationRequest<?, ?> authenticationRequest
     ) {
         try {
-            var userDetails = authenticator.authenticate(authenticationRequest);
+            var userDetails = authenticator.authenticateAsync(authenticationRequest);
             if (userDetails != null) {
                 logUserAuthenticated(userDetails);
             }

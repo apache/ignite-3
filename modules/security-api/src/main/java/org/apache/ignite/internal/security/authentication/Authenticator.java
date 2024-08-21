@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 
 /**
  * General interface for all authenticators.
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface Authenticator {
     /**
      * Authenticates a user with the given request. Returns the user details if the authentication was successful. Throws an exception
@@ -33,5 +35,5 @@ public interface Authenticator {
      * @throws InvalidCredentialsException If the authentication failed.
      * @throws UnsupportedAuthenticationTypeException If the authentication type is not supported.
      */
-    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest);
+    CompletableFuture<UserDetails> authenticateAsync(AuthenticationRequest<?, ?> authenticationRequest);
 }
