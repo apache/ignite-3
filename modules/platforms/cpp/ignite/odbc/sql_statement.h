@@ -337,6 +337,13 @@ public:
     void describe_param(std::uint16_t param_num, std::int16_t *data_type, SQLULEN *param_size,
         std::int16_t *decimal_digits, std::int16_t *nullable);
 
+    /**
+     * Get a pointer to the current query.
+     *
+     * @return Current query.
+     */
+    [[nodiscard]] query *get_query() { return m_current_query.get(); }
+
 private:
     /**
      * Bind result column to specified data buffer.

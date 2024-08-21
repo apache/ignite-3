@@ -101,9 +101,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
     ) {
-        checkEnlistPossibility();
-
-        enlistPartitionLock.readLock().lock();
+        // No need to wait for lock if commit is in progress.
+        if (!enlistPartitionLock.readLock().tryLock()) {
+            failEnlist();
+            assert false; // Not reachable.
+        }
 
         try {
             checkEnlistPossibility();
@@ -115,14 +117,21 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /**
+     * Fails the operation.
+     */
+    private void failEnlist() {
+        throw new TransactionException(
+                TX_ALREADY_FINISHED_ERR,
+                format("Transaction is already finished [id={}, state={}].", id(), state()));
+    }
+
+    /**
      * Checks that this transaction was not finished and will be able to enlist another partition.
      */
     private void checkEnlistPossibility() {
         if (finishFuture != null) {
             // This means that the transaction is either in final or FINISHING state.
-            throw new TransactionException(
-                    TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [id={}, state={}].", id(), state()));
+            failEnlist();
         }
     }
 
