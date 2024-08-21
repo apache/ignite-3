@@ -240,7 +240,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         CompletableFuture<Void> configUpdateFuture = unwrapIgniteImpl(node(0)).nodeConfiguration().getConfiguration(RaftConfiguration.KEY)
                 .change(cfg -> {
                     cfg.changeVolatileRaft(change -> {
-                        change.changeLogStorage(
+                        change.changeLogStorageBudget(
                                 budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1)
                         );
                     });

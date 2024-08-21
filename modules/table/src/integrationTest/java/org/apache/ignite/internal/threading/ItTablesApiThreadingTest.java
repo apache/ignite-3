@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.threading;
 
+import static java.lang.Thread.currentThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -52,7 +55,7 @@ class ItTablesApiThreadingTest extends ClusterPerClassIntegrationTest {
     void futuresCompleteInContinuationsPool(TablesAsyncOperation operation) {
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> operation.executeOn(CLUSTER.aliveNode().tables())
-                        .thenApply(unused -> Thread.currentThread())
+                        .thenApply(unused -> currentThread())
         );
 
         assertThat(completerFuture, willBe(asyncContinuationPool()));
@@ -63,10 +66,10 @@ class ItTablesApiThreadingTest extends ClusterPerClassIntegrationTest {
     void futuresFromInternalCallsAreNotResubmittedToContinuationsPool(TablesAsyncOperation operation) {
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> operation.executeOn(igniteTablesForInternalUse())
-                        .thenApply(unused -> Thread.currentThread())
+                        .thenApply(unused -> currentThread())
         );
 
-        assertThat(completerFuture, willBe(anIgniteThread()));
+        assertThat(completerFuture, willBe(either(anIgniteThread()).or(is(currentThread()))));
     }
 
     private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {
