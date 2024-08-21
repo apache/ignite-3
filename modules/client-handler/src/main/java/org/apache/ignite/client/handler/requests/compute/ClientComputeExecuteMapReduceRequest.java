@@ -31,9 +31,12 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.MarshallerProvider;
+import org.apache.ignite.marshalling.Marshaller;
 
 /**
  * Compute MapReduce request.
@@ -82,11 +85,17 @@ public class ClientComputeExecuteMapReduceRequest {
     }
 
     static CompletableFuture<Object> sendTaskResult(TaskExecution<Object> execution, NotificationSender notificationSender) {
+        TaskExecution<Object> t = execution;
         return execution.resultAsync().whenComplete((val, err) ->
-                execution.stateAsync().whenComplete((state, errState) ->
+                t.stateAsync().whenComplete((state, errState) ->
                         execution.statesAsync().whenComplete((states, errStates) ->
                                 notificationSender.sendNotification(w -> {
-                                    w.packObjectAsBinaryTuple(val);
+                                    if (t instanceof MarshallerProvider) {
+                                        Marshaller<Object, byte[]> resultMarshaller = ((MarshallerProvider<Object>) t).resultMarshaller();
+                                        ClientComputeJobPacker.packJobResult(val, resultMarshaller, w);
+                                    } else {
+                                        w.packObjectAsBinaryTuple(val);
+                                    }
                                     packTaskState(w, state);
                                     packJobStates(w, states);
                                 }, firstNotNull(err, errState, errStates)))
