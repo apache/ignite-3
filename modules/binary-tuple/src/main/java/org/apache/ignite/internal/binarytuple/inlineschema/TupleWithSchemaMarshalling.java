@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.binarytuple.inlineschema;
 
+
 import static org.apache.ignite.lang.ErrorGroups.Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR;
 
 import java.math.BigDecimal;
@@ -143,26 +144,13 @@ public final class TupleWithSchemaMarshalling {
         BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2, schemaBuff);
         BinaryTupleReader valueReader = new BinaryTupleReader(size, valueBuff);
 
-        String[] columns = new String[size];
-        ColumnType[] types = new ColumnType[size];
         Tuple tup = Tuple.create(size);
 
-        int readerInd = 0;
-        int i = 0;
-        while (i < size) {
-            String colName = schemaReader.stringValue(readerInd++);
-            int colTypeId = schemaReader.intValue(readerInd++);
+        for (int i = 0; i < size; i++) {
+            String colName = schemaReader.stringValue(i * 2);
+            int colTypeId = schemaReader.intValue(i * 2 + 1);
 
-            columns[i] = colName;
-            types[i] = ColumnType.getById(colTypeId);
-
-            i += 1;
-        }
-
-        int k = 0;
-        while (k < size) {
-            setColumnValue(valueReader, tup, columns[k], types[k], k);
-            k += 1;
+            setColumnValue(valueReader, tup, colName, ColumnType.getById(colTypeId), i);
         }
 
         return tup;
