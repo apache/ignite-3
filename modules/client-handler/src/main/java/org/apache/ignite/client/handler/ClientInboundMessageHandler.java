@@ -33,9 +33,11 @@ import io.netty.handler.codec.DecoderException;
 import java.util.BitSet;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -210,6 +212,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     /** Authentication manager. */
     private final AuthenticationManager authenticationManager;
+
+    /** Authentication event queue.
+     * We preserve the events that happen before the handshake because the user is not yet known. */
+    private final Queue<AuthenticationEventParameters> authenticationEvents = new ConcurrentLinkedQueue<>();
 
     private final SchemaVersions schemaVersions;
 
