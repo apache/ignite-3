@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.compute;
 
-description = 'ignite-binary-tuple'
+import org.apache.ignite.marshalling.Marshaller;
+import org.jetbrains.annotations.Nullable;
 
-dependencies {
-    annotationProcessor project(':ignite-configuration-annotation-processor')
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
-    implementation libs.jetbrains.annotations
-
-    testImplementation libs.jackson.core
-    testImplementation libs.jackson.databind
-    testImplementation libs.jackson.datatype.jsr310
+/**
+ * Marshaller provider.
+ */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface MarshallerProvider<R> {
+    /** Returns marshaller or null. */
+    @Nullable Marshaller<R, byte[]> resultMarshaller();
 }

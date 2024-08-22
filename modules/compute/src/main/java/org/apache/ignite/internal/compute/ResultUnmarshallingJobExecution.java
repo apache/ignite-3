@@ -17,52 +17,45 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
+
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
-import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Delegates {@link JobExecution} to the future of {@link JobExecutionInternal}.
+ * Wraps {@link #resultAsync()} with marshalling.
  *
  * @param <R> Result type.
  */
-class DelegatingJobExecution<R> implements JobExecution<R>, MarshallerProvider<R> {
-    private final CompletableFuture<JobExecutionInternal<R>> delegate;
+class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
+    private final JobExecution<R> delegate;
+    private final Marshaller<R, byte[]> resultUnmarshaller;
 
-    DelegatingJobExecution(CompletableFuture<JobExecutionInternal<R>> delegate) {
+    ResultUnmarshallingJobExecution(JobExecution<R> delegate, @Nullable Marshaller<R, byte[]> resultUnmarshaller) {
         this.delegate = delegate;
+        this.resultUnmarshaller = resultUnmarshaller;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return delegate.thenCompose(JobExecutionInternal::resultAsync);
+        return delegate.resultAsync().thenApply(r -> tryUnmarshalOrCast(resultUnmarshaller, r));
     }
 
     @Override
     public CompletableFuture<@Nullable JobState> stateAsync() {
-        return delegate.thenApply(JobExecutionInternal::state);
+        return delegate.stateAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return delegate.thenApply(JobExecutionInternal::cancel);
+        return delegate.cancelAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return delegate.thenApply(jobExecutionInternal -> jobExecutionInternal.changePriority(newPriority));
-    }
-
-    @Override
-    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
-        try {
-            return delegate.thenApply(JobExecutionInternal::resultMarshaller).get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        return delegate.changePriorityAsync(newPriority);
     }
 }

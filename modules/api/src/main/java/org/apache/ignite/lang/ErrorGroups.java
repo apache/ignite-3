@@ -671,5 +671,8 @@ public class ErrorGroups {
 
         /** Unsupported object type error. */
         public static final int UNSUPPORTED_OBJECT_TYPE_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** There format of bytes is wrong. */
+        public static final int UNMARSHALLING_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 3);
     }
 }

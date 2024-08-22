@@ -64,8 +64,7 @@ class ByteArrayMarshallerTest {
     private static Stream<Arguments> cornerValues() {
         return Stream.of(
                "", ".*456+576+$%^&*()_+{}|:<>?`~", "1", "0",
-                -1, 0,
-                new Object()
+                -1, 0
         ).map(Arguments::of);
     }
 
@@ -86,7 +85,9 @@ class ByteArrayMarshallerTest {
     @ParameterizedTest
     @MethodSource("cornerValues")
     void cornerValuesMarshalling(Object obj) {
+        ByteArrayMarshaller<Object> marshaller = ByteArrayMarshaller.create();
 
+        assertEquals(obj, marshaller.unmarshal(marshaller.marshal(obj)));
     }
 
 

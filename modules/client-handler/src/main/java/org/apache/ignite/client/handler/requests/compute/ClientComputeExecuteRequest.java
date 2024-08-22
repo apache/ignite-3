@@ -28,11 +28,16 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute execute request.
@@ -63,7 +68,7 @@ public class ClientComputeExecuteRequest {
         Object arg = unpackPayload(in);
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(
-                candidates, deploymentUnits, jobClassName, options, null, null, arg
+                candidates, deploymentUnits, jobClassName, options,  arg
         );
         sendResultAndState(execution, notificationSender);
 
@@ -104,9 +109,18 @@ public class ClientComputeExecuteRequest {
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            w.packObjectAsBinaryTuple(val, null);
+                            Marshaller<Object, byte[]> marshaller = extractMarshaller(execution);
+                            ClientComputeJobPacker.packJobResult(val, marshaller, w);
                             packJobState(w, state);
                         }, err)));
+    }
+
+    private static <T> @Nullable Marshaller<T, byte[]> extractMarshaller(JobExecution<T> e) {
+        if (e instanceof MarshallerProvider) {
+            return ((MarshallerProvider<T>) e).resultMarshaller();
+        }
+
+        return null;
     }
 
     /**
@@ -115,7 +129,7 @@ public class ClientComputeExecuteRequest {
      * @param in Unpacker.
      * @return Args array.
      */
-    static Object unpackPayload(ClientMessageUnpacker in) {
-        return in.unpackObjectFromBinaryTuple();
+    static @Nullable Object unpackPayload(ClientMessageUnpacker in) {
+        return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(in);
     }
 }

@@ -20,7 +20,9 @@ package org.apache.ignite.internal.compute.executor;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -28,10 +30,12 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Job result type.
  */
-public class JobExecutionInternal<R> {
+public class JobExecutionInternal<R> implements MarshallerProvider<R> {
     private final QueueExecution<R> execution;
 
     private final AtomicBoolean isInterrupted;
+
+    private final Marshaller<R, byte[]> marshaller;
 
     /**
      * Constructor.
@@ -39,9 +43,10 @@ public class JobExecutionInternal<R> {
      * @param execution Internal execution state.
      * @param isInterrupted Flag which is passed to the execution context so that the job can check it for cancellation request.
      */
-    JobExecutionInternal(QueueExecution<R> execution, AtomicBoolean isInterrupted) {
+    JobExecutionInternal(QueueExecution<R> execution, AtomicBoolean isInterrupted, @Nullable Marshaller<R, byte[]> marshaller) {
         this.execution = execution;
         this.isInterrupted = isInterrupted;
+        this.marshaller = marshaller;
     }
 
     public CompletableFuture<R> resultAsync() {
@@ -71,5 +76,10 @@ public class JobExecutionInternal<R> {
      */
     public boolean changePriority(int newPriority) {
         return execution.changePriority(newPriority);
+    }
+
+    @Override
+    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
+        return marshaller;
     }
 }
