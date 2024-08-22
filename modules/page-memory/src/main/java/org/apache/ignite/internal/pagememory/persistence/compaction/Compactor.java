@@ -36,6 +36,7 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
@@ -65,6 +66,9 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class Compactor extends IgniteWorker {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(Compactor.class);
+
     private final Object mux = new Object();
 
     private final @Nullable ThreadPoolExecutor threadPoolExecutor;
@@ -216,6 +220,10 @@ public class Compactor extends IgniteWorker {
                 break;
             }
 
+            LOG.info("Starting new compaction round [files={}]", queue.size());
+
+            long start = System.nanoTime();
+
             updateHeartbeat();
 
             int threads = threadPoolExecutor == null ? 1 : threadPoolExecutor.getMaximumPoolSize();
@@ -268,6 +276,8 @@ public class Compactor extends IgniteWorker {
 
             // Wait and check for errors.
             CompletableFuture.allOf(futures).join();
+
+            LOG.info("Compaction round finished [duration={}ms]", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
         }
     }
 
