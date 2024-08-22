@@ -523,7 +523,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
         assertThat(curDescriptor.colocationColumns(), is(prevDescriptor.colocationColumns()));
-        assertThat(curDescriptor.creationToken(), is(prevDescriptor.creationToken()));
         assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
