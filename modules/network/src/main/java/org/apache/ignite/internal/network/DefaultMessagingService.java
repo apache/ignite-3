@@ -613,7 +613,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Starts the service.
      */
     public void start() {
-        new IgniteThread(timeoutWorker);
+        new IgniteThread(timeoutWorker).start();
 
         criticalWorkerRegistry.register(outboundExecutor);
 

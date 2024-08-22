@@ -193,7 +193,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
                     }
 
-                    new IgniteThread(timeoutWorker);
+                    new IgniteThread(timeoutWorker).start();
 
                     return this;
                 }, asyncContinuationExecutor);
