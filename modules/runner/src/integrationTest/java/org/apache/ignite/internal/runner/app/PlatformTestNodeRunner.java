@@ -138,7 +138,7 @@ public class PlatformTestNodeRunner {
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
-            NODE_NAME, "{\n"
+            NODE_NAME, "ignite {\n"
                     + "  \"clientConnector\":{\"port\": 10942,\"idleTimeout\":6000,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
@@ -150,7 +150,7 @@ public class PlatformTestNodeRunner {
                     + "  rest.port: 10300\n"
                     + "}",
 
-            NODE_NAME2, "{\n"
+            NODE_NAME2, "ignite {\n"
                     + "  \"clientConnector\":{\"port\": 10943,\"idleTimeout\":6000,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
@@ -162,7 +162,7 @@ public class PlatformTestNodeRunner {
                     + "  rest.port: 10301\n"
                     + "}",
 
-            NODE_NAME3, "{\n"
+            NODE_NAME3, "ignite {\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10944,"
                     + "    \"idleTimeout\":6000,"
@@ -184,7 +184,7 @@ public class PlatformTestNodeRunner {
                     + "  rest.port: 10303\n"
                     + "}",
 
-            NODE_NAME4, "{\n"
+            NODE_NAME4, "ignite {\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10945,"
                     + "    \"idleTimeout\":6000,"

@@ -124,7 +124,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      * <p>installSnapshotTimeout is changed to 10 seconds so that sporadic snapshot installation failures still
      * allow tests pass thanks to retries.
      */
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"

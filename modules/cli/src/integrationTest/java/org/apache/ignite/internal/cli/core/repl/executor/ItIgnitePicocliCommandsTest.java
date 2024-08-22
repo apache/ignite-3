@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.repl.executor;
 
-import static java.util.stream.Collectors.flatMapping;
-import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.ClusterPerTestIntegrationTest.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -37,12 +34,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.Session;
@@ -55,7 +48,6 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOp
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
-import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.assertj.core.util.Files;
 import org.jline.reader.Candidate;
 import org.jline.reader.LineReader;
@@ -76,22 +68,33 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
 
     private static final String DEFAULT_REST_URL = "http://localhost:10300";
 
-    private static final List<String> DISTRIBUTED_CONFIGURATION_KEYS;
+    private static final String[] DISTRIBUTED_CONFIGURATION_KEYS = {
+            "eventlog",
+            "gc",
+            "metaStorage",
+            "metrics",
+            "replication",
+            "schemaSync",
+            "security",
+            "sql",
+            "storageUpdate",
+            "transaction"
+    };
 
-    private static final List<String> LOCAL_CONFIGURATION_KEYS;
-
-    static {
-        Map<ConfigurationType, List<String>> configKeysByType = new ServiceLoaderModulesProvider()
-                .modules(ItIgnitePicocliCommandsTest.class.getClassLoader())
-                .stream()
-                .collect(groupingBy(
-                        ConfigurationModule::type,
-                        flatMapping(module -> module.rootKeys().stream().map(RootKey::key), toUnmodifiableList())
-                ));
-
-        DISTRIBUTED_CONFIGURATION_KEYS = configKeysByType.get(ConfigurationType.DISTRIBUTED);
-        LOCAL_CONFIGURATION_KEYS = configKeysByType.get(ConfigurationType.LOCAL);
-    }
+    private static final String[] LOCAL_CONFIGURATION_KEYS = {
+            "ignite.rest",
+            "ignite.raft",
+            "ignite.clientConnector",
+            "ignite.compute",
+            "ignite.network",
+            "ignite.deployment",
+            "ignite.nodeAttributes",
+            "ignite.storage",
+            "ignite.criticalWorkers",
+            "ignite.sql",
+            "ignite.failureHandler",
+            "ignite.system"
+    };
 
     @Inject
     DynamicCompleterRegistry dynamicCompleterRegistry;
@@ -240,7 +243,30 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder(LOCAL_CONFIGURATION_KEYS.toArray(String[]::new))
+                contains("ignite")
+        );
+    }
+
+    private Stream<Arguments> nodeConfigShowSuggestedAfterDotSource() {
+        return Stream.of(
+                words("node", "config", "show", "ignite."),
+                words("node", "config", "show", " --node", "nodeName", "ignite."),
+                words("node", "config", "show", " --verbose", "ignite."),
+                words("node", "config", "show", " -v", "ignite.")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("nodeConfigShowSuggestedAfterDotSource")
+    @DisplayName("node config show selector parameters suggested after initial root key")
+    void nodeConfigShowSuggestedAfterDotSource(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
+        // wait for lazy init of node config completer
+        await("For given parsed words: " + givenParsedLine.words()).until(
+                () -> complete(givenParsedLine),
+                containsInAnyOrder(LOCAL_CONFIGURATION_KEYS)
         );
     }
 
@@ -267,17 +293,41 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
+                contains("ignite")
+        );
+    }
+
+    private Stream<Arguments> nodeConfigUpdateSuggestedAfterDotSource() {
+        return Stream.of(
+                words("node", "config", "update", "ignite."),
+                words("node", "config", "update", " --node", "nodeName", "ignite."),
+                words("node", "config", "update", " --verbose", "ignite."),
+                words("node", "config", "update", " -v", "ignite.")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("nodeConfigUpdateSuggestedAfterDotSource")
+    @DisplayName("node config update selector parameters suggested after initial root key")
+    void nodeConfigUpdateSuggestedAfterDot(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
+        // wait for lazy init of node config completer
+        await("For given parsed words: " + givenParsedLine.words()).until(
+                () -> complete(givenParsedLine),
+                // Compute and raft keys are excluded
                 containsInAnyOrder(
-                        "rest",
-                        "clientConnector",
-                        "network",
-                        "deployment",
-                        "nodeAttributes",
-                        "storage",
-                        "criticalWorkers",
-                        "sql",
-                        "failureHandler",
-                        "system"
+                        "ignite.rest",
+                        "ignite.clientConnector",
+                        "ignite.network",
+                        "ignite.deployment",
+                        "ignite.nodeAttributes",
+                        "ignite.storage",
+                        "ignite.criticalWorkers",
+                        "ignite.sql",
+                        "ignite.failureHandler",
+                        "ignite.system"
                 )
         );
     }
@@ -301,7 +351,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS.toArray(String[]::new))
+                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS)
         );
     }
 
@@ -324,7 +374,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS.toArray(String[]::new))
+                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS)
         );
     }
 

@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.worker.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration for critical workers handling.
  */
-@ConfigurationRoot(rootName = "criticalWorkers", type = ConfigurationType.LOCAL)
+@Config
 public class CriticalWorkersConfigurationSchema {
     /**
      * Interval between liveness checks (ms) performed by the critical workers infrastructure.

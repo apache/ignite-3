@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.internal.rest.node.JdbcPortProvider;
 
 /**
@@ -33,6 +33,6 @@ public class JdbcPortProviderImpl implements JdbcPortProvider {
 
     @Override
     public int jdbcPort() {
-        return configurationRegistry.getConfiguration(ClientConnectorConfiguration.KEY).port().value();
+        return configurationRegistry.getConfiguration(ClientConnectorExtensionConfiguration.KEY).clientConnector().port().value();
     }
 }

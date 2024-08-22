@@ -83,7 +83,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     @Language("HOCON")
     private static String createStartConfig(@Language("HOCON") String nodeAttributes, @Language("HOCON") String storageProfiles) {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder.netClusterNodes: [ {} ]\n"

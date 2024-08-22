@@ -19,10 +19,8 @@ package org.apache.ignite.internal.raft.configuration;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
@@ -36,8 +34,8 @@ public class RaftConfigurationModule implements ConfigurationModule {
     }
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(RaftConfiguration.KEY);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(RaftExtensionConfigurationSchema.class);
     }
 
     @Override

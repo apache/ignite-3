@@ -101,6 +101,7 @@ import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -150,6 +151,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
@@ -180,13 +182,14 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
-import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
@@ -353,7 +356,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );
 
-        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry()
+                .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
         var threadPoolsManager = new ThreadPoolsManager(name);
 
@@ -416,6 +420,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
+        StorageConfiguration storageConfiguration = nodeCfgMgr.configurationRegistry()
+                .getConfiguration(StorageExtensionConfiguration.KEY).storage();
+
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
@@ -423,8 +430,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
-                new NodeAttributesCollector(nodeAttributes,
-                        nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)),
+                new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                 failureProcessor,
                 clusterIdService,
                 cmgRaftConfigurer
@@ -626,7 +632,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         logSyncer,
                         hybridClock
                 ),
-                nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)
+                storageConfiguration
         );
 
         TransactionConfiguration txConfiguration = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
@@ -742,7 +748,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
-                nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
+                nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
                 threadPoolsManager.commonScheduler()
@@ -847,7 +853,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     public void emptyNodeTest() {
         IgniteImpl ignite = startNode(0);
 
-        int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
+        int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkExtensionConfiguration.KEY).network().port().value();
 
         assertEquals(DEFAULT_NODE_PORT, nodePort);
 
@@ -855,7 +861,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ignite = startNode(0);
 
-        nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
+        nodePort = ignite.nodeConfiguration().getConfiguration(NetworkExtensionConfiguration.KEY).network().port().value();
 
         assertEquals(DEFAULT_NODE_PORT, nodePort);
     }
@@ -927,7 +933,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     public void changeConfigurationOnStartTest() {
         IgniteImpl ignite = startNode(0);
 
-        int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
+        int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkExtensionConfiguration.KEY).network().port().value();
 
         assertEquals(DEFAULT_NODE_PORT, nodePort);
 
@@ -935,11 +941,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         int newPort = 3322;
 
-        String updateCfg = "network.port=" + newPort;
+        String updateCfg = "ignite.network.port=" + newPort;
 
         ignite = startNode(0, updateCfg);
 
-        nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
+        nodePort = ignite.nodeConfiguration().getConfiguration(NetworkExtensionConfiguration.KEY).network().port().value();
 
         assertEquals(newPort, nodePort);
     }
@@ -953,7 +959,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Map<String, String> attributes = new HashMap<>();
 
-        NodeAttributesConfiguration attributesConfiguration = ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY);
+        NodeAttributesConfiguration attributesConfiguration = ignite.nodeConfiguration()
+                .getConfiguration(NodeAttributesExtensionConfiguration.KEY).nodeAttributes();
 
         attributesConfiguration.nodeAttributes().value().namedListKeys().forEach(
                 key -> attributes.put(key, attributesConfiguration.nodeAttributes().get(key).attribute().value())
@@ -970,12 +977,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD");
 
-        String updateCfg = "nodeAttributes.nodeAttributes=" + newAttributesCfg;
+        String updateCfg = "ignite.nodeAttributes.nodeAttributes=" + newAttributesCfg;
 
         ignite = startNode(0, updateCfg);
 
-        NodeAttributesConfiguration newAttributesConfiguration =
-                ignite.nodeConfiguration().getConfiguration(NodeAttributesConfiguration.KEY);
+        NodeAttributesConfiguration newAttributesConfiguration = ignite.nodeConfiguration()
+                .getConfiguration(NodeAttributesExtensionConfiguration.KEY).nodeAttributes();
 
         Map<String, String> newAttributes = new HashMap<>();
 

@@ -91,6 +91,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -125,7 +126,7 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
@@ -152,6 +153,7 @@ import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguratio
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
@@ -885,11 +887,10 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             vaultManager = createVault(dir);
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
+                    List.of(NodeConfiguration.KEY),
                     List.of(
-                            NetworkConfiguration.KEY,
-                            StorageConfiguration.KEY
-                    ),
-                    List.of(
+                            NetworkExtensionConfigurationSchema.class,
+                            StorageExtensionConfigurationSchema.class,
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                             VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
                     ),
@@ -903,8 +904,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             TestIgnitionManager.addDefaultsToConfigurationFile(configPath);
 
             nodeCfgMgr = new ConfigurationManager(
-                    List.of(NetworkConfiguration.KEY,
-                            StorageConfiguration.KEY),
+                    List.of(NodeConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                     nodeCfgGenerator,
                     new TestConfigurationValidator()

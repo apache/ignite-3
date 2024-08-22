@@ -130,7 +130,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     private ApiClientFactory clientFactory;
 
     private static String buildConfig(int nodeIdx) {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: " + (BASE_PORT + nodeIdx) + ",\n"
                 + "    nodeFinder: {\n"
@@ -243,7 +243,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     @Test
     void getNodeConfigurationByPath() {
         assertDoesNotThrow(() -> {
-            String configuration = nodeConfigurationApi.getNodeConfigurationByPath("clientConnector.connectTimeout");
+            String configuration = nodeConfigurationApi.getNodeConfigurationByPath("ignite.clientConnector.connectTimeout");
 
             assertNotNull(configuration);
             assertFalse(configuration.isEmpty());

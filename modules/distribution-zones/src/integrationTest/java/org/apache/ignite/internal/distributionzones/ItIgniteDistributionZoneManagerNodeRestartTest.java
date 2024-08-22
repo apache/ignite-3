@@ -117,6 +117,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandle
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
@@ -211,7 +212,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );
 
-        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry()
+                .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 

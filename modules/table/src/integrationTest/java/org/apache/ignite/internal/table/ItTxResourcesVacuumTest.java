@@ -98,7 +98,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     private static final int REPLICAS = 2;
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"

@@ -54,7 +54,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     private static final String TABLE_NAME = "test_table";
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
