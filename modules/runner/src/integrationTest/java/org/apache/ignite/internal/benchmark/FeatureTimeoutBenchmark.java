@@ -85,6 +85,7 @@ public class FeatureTimeoutBenchmark {
         } else {
             requestsMap = new ConcurrentHashMap<>();
             timeoutWorker = new IgniteThread("benchmark", "timeout-worker", new TimeoutRunnable(requestsMap));
+            timeoutWorker.start();
         }
     }
 
