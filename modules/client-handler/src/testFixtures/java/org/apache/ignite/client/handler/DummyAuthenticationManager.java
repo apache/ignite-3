@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -58,7 +59,7 @@ public class DummyAuthenticationManager implements AuthenticationManager {
     }
 
     @Override
-    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
-        return UserDetails.UNKNOWN;
+    public CompletableFuture<UserDetails> authenticateAsync(AuthenticationRequest<?, ?> authenticationRequest) {
+        return completedFuture(UserDetails.UNKNOWN);
     }
 }
