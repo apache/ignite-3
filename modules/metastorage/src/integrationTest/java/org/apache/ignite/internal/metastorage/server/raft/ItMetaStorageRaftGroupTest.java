@@ -245,7 +245,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22986")
-    // TODO The test is disabled for an investigation purposes.
     public void testRangeNextWorksCorrectlyAfterLeaderChange() throws Exception {
         when(mockStorage.range(EXPECTED_RESULT_ENTRY1.key(), new byte[]{4})).thenAnswer(invocation -> {
             List<Entry> entries = List.of(EXPECTED_RESULT_ENTRY1, EXPECTED_RESULT_ENTRY2);
