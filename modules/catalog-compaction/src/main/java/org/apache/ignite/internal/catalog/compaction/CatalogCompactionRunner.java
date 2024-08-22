@@ -331,9 +331,53 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 });
     }
 
+    CompletableFuture<Void> propagateTimeToNodes(long timestamp, Collection<? extends ClusterNode> nodes) {
+        CatalogCompactionPrepareUpdateTxBeginTimeMessage request = COMPACTION_MESSAGES_FACTORY
+                .catalogCompactionPrepareUpdateTxBeginTimeMessage()
+                .timestamp(timestamp)
+                .build();
+
+        List<CompletableFuture<?>> sendFutures = new ArrayList<>(nodes.size());
+
+        for (ClusterNode node : nodes) {
+            sendFutures.add(messagingService.send(node, request));
+        }
+
+        return CompletableFutures.allOf(sendFutures);
+    }
+
+    CompletableFuture<Void> propagateTimeToLocalReplicas(long txBeginTime) {
+        HybridTimestamp nowTs = clockService.now();
+
+        return schemaSyncService.waitForMetadataCompleteness(nowTs)
+                .thenComposeAsync(ignore -> {
+                    Int2IntMap tablesWithPartitions =
+                            catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
+
+                    ObjectIterator<Entry> itr = tablesWithPartitions.int2IntEntrySet().iterator();
+
+                    return invokeOnLocalReplicas(txBeginTime, itr);
+                }, executor);
+    }
+
     private long determineLocalMinimumRequiredTime() {
         // TODO https://issues.apache.org/jira/browse/IGNITE-22637 Provide actual minimum required time.
         return HybridTimestamp.MIN_VALUE.longValue();
+    }
+
+    private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
+        return requiredNodes(catalog)
+                .thenCompose(requiredNodes -> {
+                    List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
+
+                    if (!missingNodes.isEmpty()) {
+                        LOG.info("Catalog compaction aborted due to missing cluster members [nodes={}].", missingNodes);
+
+                        return CompletableFutures.falseCompletedFuture();
+                    }
+
+                    return catalogManagerFacade.compactCatalog(catalog.version());
+                });
     }
 
     private CompletableFuture<Set<String>> requiredNodes(Catalog catalog) {
@@ -389,37 +433,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
-    CompletableFuture<Void> propagateTimeToNodes(long timestamp, Collection<? extends ClusterNode> nodes) {
-        CatalogCompactionPrepareUpdateTxBeginTimeMessage request = COMPACTION_MESSAGES_FACTORY
-                .catalogCompactionPrepareUpdateTxBeginTimeMessage()
-                .timestamp(timestamp)
-                .build();
-
-        List<CompletableFuture<?>> responseFutures = new ArrayList<>(nodes.size());
-
-        for (ClusterNode node : nodes) {
-            CompletableFuture<Void> sendFut = messagingService.send(node, request);
-
-            responseFutures.add(sendFut);
-        }
-
-        return CompletableFutures.allOf(responseFutures);
-    }
-
-    CompletableFuture<Void> propagateTimeToLocalReplicas(long txBeginTime) {
-        HybridTimestamp nowTs = clockService.now();
-
-        return schemaSyncService.waitForMetadataCompleteness(nowTs)
-                .thenComposeAsync(ignore -> {
-                    Int2IntMap tablesWithPartitions =
-                            catalogManagerFacade.collectTablesWithPartitionsBetween(txBeginTime, nowTs.longValue());
-
-                    ObjectIterator<Entry> itr = tablesWithPartitions.int2IntEntrySet().iterator();
-
-                    return invokeOnLocalReplicas(txBeginTime, itr);
-                }, executor);
-    }
-
     private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, ObjectIterator<Entry> tabTtr) {
         if (!tabTtr.hasNext()) {
             return CompletableFutures.nullCompletedFuture();
@@ -465,21 +478,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return CompletableFutures.allOf(partFutures)
                 .thenComposeAsync(ignore -> invokeOnLocalReplicas(txBeginTime, tabTtr), executor);
-    }
-
-    private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
-        return requiredNodes(catalog)
-                .thenCompose(requiredNodes -> {
-                    List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
-
-                    if (!missingNodes.isEmpty()) {
-                        LOG.info("Catalog compaction aborted due to missing cluster members [nodes={}].", missingNodes);
-
-                        return CompletableFutures.falseCompletedFuture();
-                    }
-
-                    return catalogManagerFacade.compactCatalog(catalog.version());
-                });
     }
 
     class CatalogCompactionMessageHandler implements NetworkMessageHandler {
