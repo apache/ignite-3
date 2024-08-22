@@ -29,9 +29,10 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import java.net.InetSocketAddress;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
@@ -177,6 +178,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         log.debug("Connection established [remoteAddress=" + s.remoteAddress() + ']');
                     }
 
+                    new IgniteThread(timeoutWorker).start();
+
                     sock = s;
 
                     return handshakeAsync(DEFAULT_VERSION);
@@ -192,8 +195,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     if (protocolCtx != null) {
                         heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
                     }
-
-                    new IgniteThread(timeoutWorker).start();
 
                     return this;
                 }, asyncContinuationExecutor);
@@ -251,8 +252,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
             }
 
-            awaitForWorkersStop(List.of(timeoutWorker), true, log);
-
             for (CompletableFuture<PayloadInputChannel> handler : notificationHandlers.values()) {
                 try {
                     handler.completeExceptionally(
@@ -261,6 +260,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     // Ignore.
                 }
             }
+
+            awaitForWorkersStop(List.of(timeoutWorker), true, log);
         }
     }
 
@@ -846,16 +847,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 TimeoutObject timeoutObject;
 
                 while (!isCancelled()) {
-                    Iterator<TimeoutObject> objs = requestsMap.values().iterator();
+                    long now = coarseCurrentTimeMillis();
 
-                    while (objs.hasNext()) {
+                    for (Entry<Long, TimeoutObject> entry : new HashMap<>(requestsMap).entrySet()) {
                         updateHeartbeat();
 
-                        timeoutObject = objs.next();
+                        timeoutObject = entry.getValue();
 
                         assert timeoutObject != null : "Unexpected null on the timeout queue.";
 
-                        if (timeoutObject.getEndTime() > 0 && coarseCurrentTimeMillis() > timeoutObject.getEndTime()) {
+                        if (timeoutObject.getEndTime() > 0 && now > timeoutObject.getEndTime()) {
                             CompletableFuture<?> fut = timeoutObject.getFuture();
 
                             if (!fut.isDone()) {
@@ -864,7 +865,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                             // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
                             // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
-                            // objs.remove();
+                            // requestsMap.remove(entry.getKey(), timeoutObject)
                         }
                     }
 

@@ -34,9 +34,11 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -817,23 +819,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 TimeoutObject timeoutObject;
 
                 while (!isCancelled()) {
-                    Iterator<TimeoutObject> objs = requestsMap.values().iterator();
+                    long now = coarseCurrentTimeMillis();
 
-                    while (objs.hasNext()) {
+                    for (Entry<Long, TimeoutObject> entry : new HashMap<>(requestsMap).entrySet()) {
                         updateHeartbeat();
 
-                        timeoutObject = objs.next();
+                        timeoutObject = entry.getValue();
 
                         assert timeoutObject != null : "Unexpected null on the timeout queue.";
 
-                        if (timeoutObject.getEndTime() > 0 && coarseCurrentTimeMillis() > timeoutObject.getEndTime()) {
+                        if (timeoutObject.getEndTime() > 0 && now > timeoutObject.getEndTime()) {
                             CompletableFuture<NetworkMessage> fut = timeoutObject.getFuture();
 
-                            if (!fut.isDone()) {
+                            if (requestsMap.remove(entry.getKey(), timeoutObject) && !fut.isDone()) {
                                 fut.completeExceptionally(new TimeoutException());
                             }
-
-                            objs.remove();
                         }
                     }
 

@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
 import com.lmax.disruptor.dsl.Disruptor;
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -68,7 +68,7 @@ public class FeatureTimeoutBenchmark {
 
     private IgniteThread timeoutWorker;
 
-    private ArrayList<CompletableFuture<?>> futs;
+    private ConcurrentMap<Long, CompletableFuture<?>> futs;
 
     private Disruptor<TimeoutObject> disruptor;
 
@@ -81,7 +81,7 @@ public class FeatureTimeoutBenchmark {
     @Setup
     public void setUp() {
         if (useFutureEmbeddedTimeout) {
-            futs = new ArrayList<>();
+            futs = new ConcurrentHashMap<>();
         } else {
             requestsMap = new ConcurrentHashMap<>();
             timeoutWorker = new IgniteThread("benchmark", "timeout-worker", new TimeoutRunnable(requestsMap));
@@ -95,7 +95,7 @@ public class FeatureTimeoutBenchmark {
     @TearDown
     public void tearDown() throws InterruptedException {
         if (useFutureEmbeddedTimeout) {
-            for (CompletableFuture<?> fut : futs) {
+            for (CompletableFuture<?> fut : futs.values()) {
                 if (!fut.isDone()) {
                     try {
                         fut.get(10, TimeUnit.SECONDS);
@@ -126,9 +126,13 @@ public class FeatureTimeoutBenchmark {
             for (int i = 0; i < 10; i++) {
                 var fut = new CompletableFuture<Void>();
 
-                futs.add(fut);
+                futs.put(ID_GEN.incrementAndGet(), fut);
 
                 fut.orTimeout(10, TimeUnit.MILLISECONDS);
+
+                if (futs.size() > 100_000) {
+                    futs = new ConcurrentHashMap<>();
+                }
             }
         } else {
             for (int i = 0; i < 10; i++) {
@@ -136,6 +140,10 @@ public class FeatureTimeoutBenchmark {
                         System.currentTimeMillis() + 10,
                         new CompletableFuture()
                 ));
+
+                if (requestsMap.size() > 100_000) {
+                    requestsMap = new ConcurrentHashMap<>();
+                }
             }
         }
     }
@@ -173,21 +181,19 @@ public class FeatureTimeoutBenchmark {
                 TimeoutObject timeoutObject;
 
                 while (!Thread.currentThread().isInterrupted()) {
-                    Iterator<TimeoutObject> objs = requestsMap.values().iterator();
+                    long now = coarseCurrentTimeMillis();
 
-                    while (objs.hasNext()) {
-                        timeoutObject = objs.next();
+                    for (Entry<Long, TimeoutObject> entry : new HashMap<>(requestsMap).entrySet()) {
+                        timeoutObject = entry.getValue();
 
                         assert timeoutObject != null : "Unexpected null on the timeout queue.";
 
-                        if (timeoutObject.getEndTime() > 0 && coarseCurrentTimeMillis() > timeoutObject.getEndTime()) {
+                        if (timeoutObject.getEndTime() > 0 && now > timeoutObject.getEndTime()) {
                             CompletableFuture<?> fut = timeoutObject.getFuture();
 
-                            if (!fut.isDone()) {
+                            if (requestsMap.remove(entry.getKey(), timeoutObject) && !fut.isDone()) {
                                 fut.completeExceptionally(new TimeoutException());
                             }
-
-                            objs.remove();
                         }
                     }
 
