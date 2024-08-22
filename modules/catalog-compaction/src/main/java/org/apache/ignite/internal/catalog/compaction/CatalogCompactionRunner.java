@@ -253,7 +253,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private @Nullable Long getMinLocalTime(HybridTimestamp lwm) {
-        Map<TablePartitionId, @Nullable Long> partitionStates = localMinTimeProvider.time();
+        Map<TablePartitionId, @Nullable Long> partitionStates = localMinTimeProvider.minTimePerPartition();
 
         // Find the minimum time among all partitions.
         long partitionMinTime = Long.MAX_VALUE;
@@ -547,8 +547,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
     /** Minimum required time provider. */
     @FunctionalInterface
     public interface MinimumRequiredTimeProvider {
-        /** Returns minimum required timestamp. */
-        Map<TablePartitionId, @Nullable Long> time();
+        /** Returns min required time for each local table partition, if available. */
+        Map<TablePartitionId, @Nullable Long> minTimePerPartition();
     }
 
     static class TimeHolder {

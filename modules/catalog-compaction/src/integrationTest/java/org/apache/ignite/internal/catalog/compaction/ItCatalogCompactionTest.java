@@ -93,7 +93,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder.netClusterNodes: [ {} ]\n"
@@ -106,7 +106,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 + "  },\n"
                 + "  storage.engines: { "
                 + "    aipersist: { checkpoint: { "
-                + "      frequency: " + CHECK_POINT_FREQUENCY_MS
+                + "      interval: " + CHECK_POINT_FREQUENCY_MS
                 + "    } } "
                 + "  },\n"
                 + "  clientConnector.port: {},\n"
@@ -118,7 +118,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         String clusterConfiguration = format(
-                "gc: {lowWatermark: { dataAvailabilityTime: {}, updateFrequency: {} } }",
+                "ignite { gc: {lowWatermark: { dataAvailabilityTime: {}, updateInterval: {} } } }",
                 // dataAvailabilityTime is 2 x updateFrequency by default
                 LW_UPDATE_TIME_MS*2, LW_UPDATE_TIME_MS
         );
