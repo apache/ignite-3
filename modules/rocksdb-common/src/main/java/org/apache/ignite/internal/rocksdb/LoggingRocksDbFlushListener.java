@@ -44,16 +44,18 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
     private final String name;
 
     /**
-     * Type of last processed event. Real amount of events doesn't matter in atomic flush mode. All "completed" events go after all "begin"
-     * events, and vice versa.
+     * Type of last processed flush event. Real amount of events doesn't matter in atomic flush mode. All "completed" events go after all
+     * "begin" events, and vice versa.
      */
     private final AtomicReference<EnabledEventCallback> lastFlushEventType = new AtomicReference<>(ON_FLUSH_COMPLETED);
 
+    /** Type of last processed compaction event. */
     private final AtomicReference<EnabledEventCallback> lastCompactionEventType = new AtomicReference<>(ON_COMPACTION_COMPLETED);
 
     /** This field is used for determining flush duration. */
     private volatile long lastFlushStartTimeNanos;
 
+    /** This field is used for determining compaction duration. */
     private volatile long lastCompactionStartTimeNanos;
 
     /**
@@ -104,6 +106,7 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
             LOG.info("Starting rocksdb compaction process [name='{}', reason={}, input={}, output={}]",
                     name,
                     compactionJobInfo.compactionReason(),
+                    // Extract file names from full paths.
                     compactionJobInfo.inputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList()),
                     compactionJobInfo.outputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList())
             );

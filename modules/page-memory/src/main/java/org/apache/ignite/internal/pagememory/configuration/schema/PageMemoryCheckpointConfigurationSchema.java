@@ -29,12 +29,12 @@ public class PageMemoryCheckpointConfigurationSchema {
     /** Checkpoint frequency in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public long frequency = 60_000;
+    public long frequency = 180_000;
 
     /** Checkpoint frequency deviation. */
     @Range(min = 0, max = 100)
     @Value(hasDefault = true)
-    public int frequencyDeviation = 0;
+    public int frequencyDeviation = 40;
 
     /** Delay before executing a checkpoint triggered by RAFT. */
     @Range(min = 0)

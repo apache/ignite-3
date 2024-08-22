@@ -220,6 +220,7 @@ public class Compactor extends IgniteWorker {
                 break;
             }
 
+            // TODO Expand the comment. https://issues.apache.org/jira/browse/IGNITE-23056
             LOG.info("Starting new compaction round [files={}]", queue.size());
 
             long start = System.nanoTime();
@@ -277,6 +278,7 @@ public class Compactor extends IgniteWorker {
             // Wait and check for errors.
             CompletableFuture.allOf(futures).join();
 
+            // TODO Expand the comment. https://issues.apache.org/jira/browse/IGNITE-23056, handle an exception too.
             LOG.info("Compaction round finished [duration={}ms]", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
         }
     }

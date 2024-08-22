@@ -75,7 +75,6 @@ import org.opentest4j.AssertionFailedError;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class NettyServerTest extends BaseIgniteAbstractTest {
-
     /** Bootstrap factory. */
     private NettyBootstrapFactory bootstrapFactory;
 

@@ -29,16 +29,12 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 
 /**
  * An implementation over {@link CatalogService}.
  */
 public class CatalogValidationSchemasSource implements ValidationSchemasSource {
-    private static final IgniteLogger LOG = Loggers.forClass(CatalogValidationSchemasSource.class);
     private final CatalogService catalogService;
 
     private final SchemaManager schemaManager;
@@ -57,12 +53,9 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
 
     @Override
     public CompletableFuture<Void> waitForSchemaAvailability(int tableId, int schemaVersion) {
-        CompletableFuture<SchemaDescriptor> fut = schemaManager.schemaRegistry(tableId).schemaAsync(schemaVersion);
-
-        if (!fut.isDone()) {
-            LOG.warn("'waitForSchemaAvailability' returned incomplete future.");
-        }
-        return fut.thenApply(unused -> null);
+        return schemaManager.schemaRegistry(tableId)
+                .schemaAsync(schemaVersion)
+                .thenApply(unused -> null);
     }
 
     @Override
