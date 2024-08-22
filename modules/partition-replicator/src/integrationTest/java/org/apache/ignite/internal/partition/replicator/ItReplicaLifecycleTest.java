@@ -370,7 +370,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22928")
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -1084,8 +1083,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
-            KeyValueStorage keyValueStorage = new SimpleInMemoryKeyValueStorage(name);
-//            KeyValueStorage keyValueStorage = new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorage"), failureProcessor);
+            KeyValueStorage keyValueStorage = new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorage"), failureProcessor);
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,

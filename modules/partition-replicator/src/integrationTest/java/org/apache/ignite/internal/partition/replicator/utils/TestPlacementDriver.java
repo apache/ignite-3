@@ -31,6 +31,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -54,12 +55,12 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
-        return getPrimaryReplicaMeta();
+        return getPrimaryReplicaMeta(groupId);
     }
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        return getPrimaryReplicaMeta();
+        return getPrimaryReplicaMeta(replicationGroupId);
     }
 
     @Override
@@ -75,7 +76,11 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
     }
 
-    private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta() {
+    private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta(ReplicationGroupId replicationGroupId) {
+        if (replicationGroupId instanceof ZonePartitionId && ((ZonePartitionId) replicationGroupId).zoneId() == 0) {
+            return nullCompletedFuture();
+        }
+
         if (primary == null) {
             throw new IllegalStateException("Primary replica is not defined in test PlacementDriver");
         }
