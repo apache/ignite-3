@@ -117,6 +117,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -943,7 +944,7 @@ public class PartitionReplicaLifecycleManager  extends
         try {
             pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
         } catch (Exception e) {
-            LOG.error("Pending error " +  pendingAssignmentsEntry.revision());
+            LOG.error("Pending error " + ByteUtils.stringFromBytes(pendingAssignmentsEntry.key()));
             throw e;
         }
 

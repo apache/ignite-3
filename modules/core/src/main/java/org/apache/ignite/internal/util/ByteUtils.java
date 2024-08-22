@@ -237,9 +237,6 @@ public class ByteUtils {
      * @return Byte array.
      */
     public static byte[] toBytes(Object obj) {
-        if (obj == null) {
-            throw new RuntimeException("Null object");
-        }
         try (
                 var bos = new ByteArrayOutputStream();
                 var out = new ObjectOutputStream(bos)

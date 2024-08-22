@@ -49,7 +49,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -114,6 +116,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -127,6 +130,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -1081,6 +1085,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
             KeyValueStorage keyValueStorage = new SimpleInMemoryKeyValueStorage(name);
+//            KeyValueStorage keyValueStorage = new RocksDbKeyValueStorage(name, resolveDir(dir, "metaStorage"), failureProcessor);
 
             var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
@@ -1450,6 +1455,16 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     private static boolean skipMetaStorageInvoke(Collection<Operation> ops, String prefix) {
         return ops.stream().anyMatch(op -> new String(toByteArray(op.key()), StandardCharsets.UTF_8).startsWith(prefix));
+    }
+
+    private static Path resolveDir(Path workDir, String dirName) {
+        Path newDirPath = workDir.resolve(dirName);
+
+        try {
+            return Files.createDirectories(newDirPath);
+        } catch (IOException e) {
+            throw new IgniteInternalException(e);
+        }
     }
 
     private static boolean containsPartition(Node node, int partitionId) {
