@@ -28,7 +28,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
  * A Hybrid Logical Clock implementation.
@@ -61,7 +60,8 @@ public class HybridClockImpl implements HybridClock {
     }
 
     private static long currentTime() {
-        return FastTimestamps.coarseCurrentTimeMillis() << LOGICAL_TIME_BITS_SIZE;
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23049 Benchmarks required.
+        return System.currentTimeMillis() << LOGICAL_TIME_BITS_SIZE;
     }
 
     @Override
