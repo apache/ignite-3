@@ -119,7 +119,6 @@ import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
-import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
