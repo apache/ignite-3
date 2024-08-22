@@ -24,7 +24,6 @@ import static org.mockito.Mockito.mock;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
-import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestValidationUtil;
@@ -35,7 +34,6 @@ import org.apache.ignite.internal.security.authentication.configuration.validato
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
-import org.apache.ignite.internal.security.configuration.SecurityExtensionView;
 import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
@@ -173,9 +171,7 @@ class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
                 securityView.authentication().providers()
         );
 
-        SecurityExtensionView mock = mock(SecurityExtensionView.class);
-        doReturn(securityView).when(mock).security();
-        doReturn(mock).when(ctx).getNewRoot(ClusterConfiguration.KEY);
+        doReturn(securityView).when(ctx).getNewOwner();
 
         TestValidationUtil.validate(
                 AuthenticationProvidersValidatorImpl.INSTANCE,

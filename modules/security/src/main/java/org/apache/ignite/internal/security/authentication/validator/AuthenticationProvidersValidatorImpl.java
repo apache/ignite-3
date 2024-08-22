@@ -26,8 +26,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidator;
-import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
-import org.apache.ignite.internal.security.configuration.SecurityExtensionView;
+import org.apache.ignite.internal.security.configuration.SecurityView;
 
 /**
  * Implementation of {@link AuthenticationProvidersValidator}.
@@ -63,7 +62,8 @@ public class AuthenticationProvidersValidatorImpl implements
             return;
         }
 
-        boolean enabled = ((SecurityExtensionView) ctx.getNewRoot(SecurityExtensionConfiguration.KEY)).security().enabled();
+        SecurityView securityView = ctx.getNewOwner();
+        boolean enabled = securityView.enabled();
         if (enabled && basicProviders.get(0).users().isEmpty()) {
             ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Basic provider must have at least one user."));
         }
