@@ -38,6 +38,8 @@ import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMe
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesResponse;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -525,6 +527,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
+        for (CatalogIndexDescriptor index : catalog.indexes()) {
+            if (index.status() == CatalogIndexStatus.BUILDING || index.status() == CatalogIndexStatus.REGISTERED) {
+                LOG.info("Catalog compaction aborted, index construction is taking place");
+
+                return CompletableFutures.falseCompletedFuture();
+            }
+        }
+
         return requiredNodes(catalog)
                 .thenCompose(requiredNodes -> {
                     List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());

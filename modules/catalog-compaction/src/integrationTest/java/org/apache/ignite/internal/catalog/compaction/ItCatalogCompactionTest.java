@@ -76,14 +76,16 @@ import org.junit.jupiter.api.Test;
 class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     private static final int CLUSTER_SIZE = 3;
 
-    // How often we update low water mark.
+    /** How often we update the low water mark. */
     private static final long LW_UPDATE_TIME_MS = TimeUnit.SECONDS.toMillis(10);
 
-    // Check point frequency determines how often we update a snapshot of minActiveTxBeginTime
-    // it should be less than LW_UPDATE_TIME_MS for the test to work.
-    private static final long CHECK_POINT_FREQUENCY_MS = LW_UPDATE_TIME_MS/2;
+    /**
+     * Checkpoint interval determines how often we update a snapshot of minActiveTxBeginTime,
+     * it should be less than {@link #LW_UPDATE_TIME_MS} for the test to work.
+     */
+    private static final long CHECK_POINT_INTERVAL_MS = LW_UPDATE_TIME_MS / 2;
 
-    // Show be greater than 2 x LW_UPDATE_TIME_MS
+    /** Show be greater than 2 x {@link #LW_UPDATE_TIME_MS}. */
     private static final long COMPACTION_INTERVAL_MS = TimeUnit.SECONDS.toMillis(50);
 
     @Override
@@ -106,7 +108,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 + "  },\n"
                 + "  storage.engines: { "
                 + "    aipersist: { checkpoint: { "
-                + "      interval: " + CHECK_POINT_FREQUENCY_MS
+                + "      interval: " + CHECK_POINT_INTERVAL_MS
                 + "    } } "
                 + "  },\n"
                 + "  clientConnector.port: {},\n"
@@ -120,7 +122,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         String clusterConfiguration = format(
                 "ignite { gc: {lowWatermark: { dataAvailabilityTime: {}, updateInterval: {} } } }",
                 // dataAvailabilityTime is 2 x updateFrequency by default
-                LW_UPDATE_TIME_MS*2, LW_UPDATE_TIME_MS
+                LW_UPDATE_TIME_MS * 2, LW_UPDATE_TIME_MS
         );
 
         builder.clusterConfiguration(clusterConfiguration);
@@ -322,15 +324,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    private static void expectEarliestCatalogVersion(int version) throws InterruptedException {
+    private static void expectEarliestCatalogVersion(int expectedVersion) throws InterruptedException {
         long waitTime = COMPACTION_INTERVAL_MS;
 
         boolean compacted = IgniteTestUtils.waitForCondition(() -> {
-            for (var node : CLUSTER.runningNodes().collect(Collectors.toList()) ) {
+            for (var node : CLUSTER.runningNodes().collect(Collectors.toList())) {
                 IgniteImpl ignite = unwrapIgniteImpl(node);
-
                 CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
-                if (catalogManager.earliestCatalogVersion() != version) {
+
+                if (catalogManager.earliestCatalogVersion() != expectedVersion) {
                     return false;
                 }
             }

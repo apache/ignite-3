@@ -53,6 +53,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
@@ -64,13 +65,18 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -218,6 +224,106 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         // Still send messages to propagate min time to replicas.
         verify(messagingService, times(logicalNodes.size() - 1)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
+    }
+
+    @Test
+    public void mustNotTriggerCompactionWhenIndexBuildingIsTakingPlace() {
+        CatalogCommand command = CreateTableCommand.builder()
+                .tableName("T1")
+                .schemaName("PUBLIC")
+                .columns(List.of(columnParams("key1", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1")).build())
+                .colocationColumns(List.of("key1"))
+                .build();
+
+        CatalogCommand createIndex = CreateHashIndexCommand.builder()
+                .columns(List.of("val"))
+                .tableName("T1")
+                .indexName("T1_VAL_IDX")
+                .schemaName("PUBLIC")
+                .build();
+
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(createIndex), willCompleteSuccessfully());
+
+        Catalog firstCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        CatalogIndexDescriptor index = firstCatalog.indexes().stream().filter(idx -> "T1_VAL_IDX".equals(idx.name()))
+                .findFirst()
+                .orElseThrow();
+        int indexId = index.id();
+
+        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        assertNotNull(catalog1);
+
+        // ConcurrentMap so we can modify it as we go.
+        ConcurrentHashMap<String, Long> nodeToTime = new ConcurrentHashMap<>(Map.of(
+                NODE1.name(), catalog1.time(),
+                NODE2.name(), catalog1.time(),
+                NODE3.name(), catalog1.time()
+        ));
+        CatalogCompactionRunner compactionRunner = createRunner(NODE1, NODE1, nodeToTime::get);
+
+        assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
+        assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
+
+        // The first version after initial compaction.
+        int firstVersion = catalogManager.earliestCatalogVersion();
+
+        // Advances time, so nodes can observe the latest catalog time at the moment.
+        Runnable advanceTime = () -> {
+            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+            long latestTime = catalog.time();
+
+            nodeToTime.put(NODE1.name(), latestTime);
+            nodeToTime.put(NODE2.name(), latestTime);
+            nodeToTime.put(NODE3.name(), latestTime);
+        };
+
+        {
+            // Move the index into building state.
+            CatalogCommand startBuilding = StartBuildingIndexCommand.builder()
+                    .indexId(indexId)
+                    .build();
+            assertThat(catalogManager.execute(startBuilding), willCompleteSuccessfully());
+
+            // Trigger compaction on more time
+            assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
+            assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
+
+            // When an index is not built yet, compaction should run.
+            assertEquals(firstVersion, catalogManager.earliestCatalogVersion());
+
+            // Observe that index is being built.
+            advanceTime.run();
+
+            assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
+            assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
+
+            assertEquals(firstVersion, catalogManager.earliestCatalogVersion(),
+                    "Index is being built but catalog compaction was triggered");
+        }
+
+        {
+            // Make the index available.
+            CatalogCommand makeAvailable = MakeIndexAvailableCommand.builder()
+                    .indexId(indexId)
+                    .build();
+            assertThat(catalogManager.execute(makeAvailable), willCompleteSuccessfully());
+
+            // Run a dummy command.
+            assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+
+            int latestVersion = catalogManager.latestCatalogVersion();
+
+            // Observe that the index is available.
+            advanceTime.run();
+
+            assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
+            assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
+
+            assertEquals(latestVersion - 1, catalogManager.earliestCatalogVersion(),
+                    "Index is available but compaction has not been triggered");
+        }
     }
 
     @Test

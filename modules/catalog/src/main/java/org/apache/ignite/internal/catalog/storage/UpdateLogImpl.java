@@ -199,7 +199,9 @@ public class UpdateLogImpl implements UpdateLog {
             int snapshotVersion = update.version();
 
             Entry oldSnapshotEntry = metastore.getLocally(CatalogKey.snapshotVersion(), metastore.appliedRevision());
-            int oldSnapshotVersion = oldSnapshotEntry.empty() ? 1 : bytesToIntKeepingOrder(Objects.requireNonNull(oldSnapshotEntry.value()));
+            int oldSnapshotVersion = oldSnapshotEntry.empty()
+                    ? 1
+                    : bytesToIntKeepingOrder(Objects.requireNonNull(oldSnapshotEntry.value()));
 
             if (oldSnapshotVersion >= snapshotVersion) {
                 // Nothing to do.
