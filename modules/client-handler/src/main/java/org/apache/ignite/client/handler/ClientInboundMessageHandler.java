@@ -33,14 +33,10 @@ import io.netty.handler.codec.DecoderException;
 import java.util.BitSet;
 import java.util.EnumMap;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -146,6 +142,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Handles messages from thin clients.
+ *
+ * <p>All message handling is sequential, {@link #channelRead} and other handlers are invoked on a single thread.</p>
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements EventListener<AuthenticationEventParameters> {
@@ -199,9 +197,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Current state. */
     private byte state = STATE_BEFORE_HANDSHAKE;
 
-    /** Read-write lock. Protects {@link #clientContext}. */
-    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-
     /** Chanel handler context. */
     private volatile ChannelHandlerContext channelHandlerContext;
 
@@ -212,10 +207,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     /** Authentication manager. */
     private final AuthenticationManager authenticationManager;
-
-    /** Authentication event queue.
-     * We preserve the events that happen before the handshake because the user is not yet known. */
-    private final Queue<AuthenticationEventParameters> authenticationEvents = new ConcurrentLinkedQueue<>();
 
     private final SchemaVersions schemaVersions;
 
@@ -293,16 +284,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) {
-        authenticationEventsToSubscribe().forEach(event -> {
-            authenticationManager.listen(event, this);
-        });
+        authenticationEventsToSubscribe().forEach(event -> authenticationManager.listen(event, this));
     }
 
     @Override
     public void handlerRemoved(ChannelHandlerContext ctx) {
-        authenticationEventsToSubscribe().forEach(event -> {
-            authenticationManager.removeListener(event, this);
-        });
+        authenticationEventsToSubscribe().forEach(event -> authenticationManager.removeListener(event, this));
     }
 
     @Override
@@ -378,22 +365,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
 
-            // TODO: Remove locks, message handler is single-threaded.
-            // It's necessary to perform authentication and update the client context while holding a write lock.
-            // This prevents a race condition where authentication succeeds but the context isn't updated in time.
-            // In such a scenario, we might receive an authentication event and attempt to close the connection,
-            // but fail because the context is still null.
-            readWriteLock.writeLock().lock();
-            try {
-                AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
+            // TODO: Async authn.
+            AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
+            UserDetails userDetails = authenticationManager.authenticateAsync(authenticationRequest).join();
 
-                // TODO: Async authn.
-                UserDetails userDetails = authenticationManager.authenticateAsync(authenticationRequest).join();
-
-                clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
-            } finally {
-                readWriteLock.writeLock().unlock();
-            }
+            clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
@@ -955,11 +931,24 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     @Override
     public CompletableFuture<Boolean> notify(AuthenticationEventParameters parameters) {
-        if (shouldCloseConnection(parameters)) {
-            LOG.warn("Closing connection due to authentication event [connectionId=" + connectionId + ", remoteAddress="
-                    + channelHandlerContext.channel().remoteAddress() + ", event=" + parameters.type() + ']');
-            closeConnection();
+        var channelCtx = channelHandlerContext;
+
+        if (channelCtx == null) {
+            // Not connected yet.
+            return falseCompletedFuture();
         }
+
+        // Use Netty executor (single thread) to process the event sequentially with network operations - no need to synchronize.
+        channelCtx.executor().submit(() -> {
+            if (shouldCloseConnection(parameters)) {
+                LOG.warn("Closing connection due to authentication event [connectionId=" + connectionId + ", remoteAddress="
+                        + channelHandlerContext.channel().remoteAddress() + ", event=" + parameters.type() + ']');
+
+                closeConnection();
+            }
+        });
+
+        // No need to wait for the event processing to complete, return false to continue listening.
         return falseCompletedFuture();
     }
 
@@ -979,12 +968,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private boolean currentUserAffected(AuthenticationProviderEventParameters parameters) {
-        readWriteLock.readLock().lock();
-        try {
-            return clientContext != null && clientContext.userDetails().providerName().equals(parameters.name());
-        } finally {
-            readWriteLock.readLock().unlock();
-        }
+        return clientContext != null && clientContext.userDetails().providerName().equals(parameters.name());
     }
 
     private boolean currentUserAffected(UserEventParameters parameters) {
