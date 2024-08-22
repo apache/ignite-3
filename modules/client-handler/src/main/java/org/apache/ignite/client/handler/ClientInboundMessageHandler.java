@@ -371,45 +371,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                        + clientContext);
-            }
-
-            // Response.
-            ProtocolVersion.LATEST_VER.pack(packer);
-            packer.packNil(); // No error.
-
-            packer.packLong(configuration.idleTimeout());
-
-            ClusterNode localMember = clusterService.topologyService().localMember();
-            packer.packString(localMember.id());
-            packer.packString(localMember.name());
-
-            ClusterTag tag = clusterTag.join();
-            packer.packUuid(tag.clusterId());
-            packer.packString(tag.clusterName());
-
-            packer.packLong(observableTimestamp(null));
-
-            // Pack current version
-            packer.packByte(IgniteProductVersion.CURRENT_VERSION.major());
-            packer.packByte(IgniteProductVersion.CURRENT_VERSION.minor());
-            packer.packByte(IgniteProductVersion.CURRENT_VERSION.maintenance());
-            packer.packByteNullable(IgniteProductVersion.CURRENT_VERSION.patch());
-            packer.packStringNullable(IgniteProductVersion.CURRENT_VERSION.preRelease());
-
-            packer.packBinaryHeader(0); // Features.
-            packer.packInt(0); // Extensions.
-
-            write(packer, ctx);
-
-            state = STATE_HANDSHAKE_RESPONSE_SENT;
-
-            metrics.sessionsAcceptedIncrement();
-            metrics.sessionsActiveIncrement();
-
-            ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
+            sendHandshakeResponse(ctx, packer);
         } catch (Throwable t) {
             LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
                     + t.getMessage(), t);
@@ -435,6 +397,47 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             metrics.sessionsRejectedIncrement();
         } finally {
             unpacker.close();
+        }
+    }
+
+    private void sendHandshakeResponse(ChannelHandlerContext ctx, ClientMessagePacker packer) {
+        ProtocolVersion.LATEST_VER.pack(packer);
+        packer.packNil(); // No error.
+
+        packer.packLong(configuration.idleTimeout());
+
+        ClusterNode localMember = clusterService.topologyService().localMember();
+        packer.packString(localMember.id());
+        packer.packString(localMember.name());
+
+        ClusterTag tag = clusterTag.join();
+        packer.packUuid(tag.clusterId());
+        packer.packString(tag.clusterName());
+
+        packer.packLong(observableTimestamp(null));
+
+        // Pack current version
+        packer.packByte(IgniteProductVersion.CURRENT_VERSION.major());
+        packer.packByte(IgniteProductVersion.CURRENT_VERSION.minor());
+        packer.packByte(IgniteProductVersion.CURRENT_VERSION.maintenance());
+        packer.packByteNullable(IgniteProductVersion.CURRENT_VERSION.patch());
+        packer.packStringNullable(IgniteProductVersion.CURRENT_VERSION.preRelease());
+
+        packer.packBinaryHeader(0); // Features.
+        packer.packInt(0); // Extensions.
+
+        write(packer, ctx);
+
+        state = STATE_HANDSHAKE_RESPONSE_SENT;
+
+        metrics.sessionsAcceptedIncrement();
+        metrics.sessionsActiveIncrement();
+
+        ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                    + clientContext);
         }
     }
 
