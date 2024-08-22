@@ -59,7 +59,7 @@ class ItShowConfigurationCallTest extends CliIntegrationTest {
         // Given
         var input = ClusterConfigShowCallInput.builder()
                 .clusterUrl(NODE_URL)
-                .selector("gc.batchSize")
+                .selector("ignite.gc.batchSize")
                 .build();
 
         // When

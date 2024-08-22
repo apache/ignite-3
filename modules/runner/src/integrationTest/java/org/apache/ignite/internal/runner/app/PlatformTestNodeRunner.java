@@ -75,6 +75,8 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.configuration.ClusterChange;
+import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -83,7 +85,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
-import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionChange;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.partition.HashPartition;
@@ -737,7 +739,8 @@ public class PlatformTestNodeRunner {
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
                     root -> {
-                        SecurityChange securityChange = root.changeRoot(SecurityConfiguration.KEY);
+                        ClusterChange clusterChange = root.changeRoot(ClusterConfiguration.KEY);
+                        SecurityChange securityChange = ((SecurityExtensionChange) clusterChange).changeSecurity();
                         securityChange.changeEnabled(enable);
                         securityChange.changeAuthentication().changeProviders().update("default", defaultProviderChange -> {
                             defaultProviderChange.convert(BasicAuthenticationProviderChange.class).changeUsers(users -> {

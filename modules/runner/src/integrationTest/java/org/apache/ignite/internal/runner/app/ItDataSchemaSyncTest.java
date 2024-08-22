@@ -117,7 +117,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
-                .clusterConfiguration("{\n"
+                .clusterConfiguration("ignite {\n"
                         + "  \"replication\": {\n"
                         + "  \"rpcTimeout\": 3000\n"
                         + "  }\n"

@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Garbage collector configuration schema.
  */
-@ConfigurationRoot(rootName = "gc", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class GcConfigurationSchema {
     /** Number of garbage collector threads. */
     @Value(hasDefault = true)

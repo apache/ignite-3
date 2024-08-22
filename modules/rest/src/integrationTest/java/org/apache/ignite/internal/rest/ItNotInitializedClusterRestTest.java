@@ -160,7 +160,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
-                + "         security.enabled:1 "
+                + "         ignite.security.enabled:1 "
                 + "     }\"\n"
                 + "  }";
 
@@ -174,7 +174,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(initProblem.title(), is("Bad Request")),
                 () -> assertThat(
                         initProblem.detail(),
-                        containsString("'boolean' is expected as a type for the 'security.enabled' configuration value")
+                        containsString("'boolean' is expected as a type for the 'ignite.security.enabled' configuration value")
                 )
         );
 

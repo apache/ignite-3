@@ -196,7 +196,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     @Test
     void getClusterConfigurationByPath() {
         assertDoesNotThrow(() -> {
-            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("gc.batchSize");
+            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("ignite.gc.batchSize");
 
             assertNotNull(configuration);
             assertFalse(configuration.isEmpty());
@@ -281,7 +281,7 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
     void updateClusterConfigurationWithInvalidParam() throws JsonProcessingException {
         ApiException thrown = assertThrows(
                 ApiException.class,
-                () -> clusterConfigurationApi.updateClusterConfiguration("{\n"
+                () -> clusterConfigurationApi.updateClusterConfiguration("ignite {\n"
                         + "    security.enabled:true, \n"
                         + "    security.authentication.providers:null\n"
                         + "}")
@@ -290,6 +290,8 @@ public class ItGeneratedRestClientTest extends BaseIgniteAbstractTest {
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
         assertThat(problem.getStatus(), equalTo(400));
         assertThat(problem.getInvalidParams(), hasSize(1));
+        assertThat(problem.getInvalidParams().get(0).getName(), is("ignite.security.authentication.providers"));
+        assertThat(problem.getInvalidParams().get(0).getReason(), is("At least one provider is required."));
     }
 
     @Test

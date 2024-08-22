@@ -70,10 +70,10 @@ public class TestIgnitionManager {
 
     /** Map with default cluster configuration values. */
     private static final Map<String, String> DEFAULT_CLUSTER_CONFIG = Map.of(
-            "schemaSync.delayDuration", Integer.toString(DEFAULT_DELAY_DURATION_MS),
-            "schemaSync.maxClockSkew", Long.toString(DEFAULT_MAX_CLOCK_SKEW_MS),
-            "metaStorage.idleSyncTimeInterval", Integer.toString(DEFAULT_METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS),
-            "replication.idleSafeTimePropagationDuration", Integer.toString(DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS)
+            "ignite.schemaSync.delayDuration", Integer.toString(DEFAULT_DELAY_DURATION_MS),
+            "ignite.schemaSync.maxClockSkew", Long.toString(DEFAULT_MAX_CLOCK_SKEW_MS),
+            "ignite.metaStorage.idleSyncTimeInterval", Integer.toString(DEFAULT_METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS),
+            "ignite.replication.idleSafeTimePropagationDuration", Integer.toString(DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS)
     );
 
     /**
