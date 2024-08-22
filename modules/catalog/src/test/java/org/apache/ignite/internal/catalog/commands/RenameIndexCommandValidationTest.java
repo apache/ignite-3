@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -29,16 +27,16 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test suite for validating parameters of {@link RenameTableCommand}s.
+ * Test suite for validating parameters of {@link RenameIndexCommand}s.
  */
-public class RenameTableCommandValidationTest extends AbstractCommandValidationTest {
+public class RenameIndexCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void schemaNameMustNotBeNullOrBlank(String name) {
-        RenameTableCommandBuilder builder = RenameTableCommand.builder()
+        RenameIndexCommandBuilder builder = RenameIndexCommand.builder()
                 .schemaName(name)
-                .tableName("TEST")
-                .newTableName("TEST2");
+                .indexName("TEST")
+                .newIndexName("TEST2");
 
         assertThrows(
                 CatalogValidationException.class,
@@ -49,31 +47,31 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
-    void tableNameMustNotBeNullOrBlank(String name) {
-        RenameTableCommandBuilder builder = RenameTableCommand.builder()
+    void indexNameMustNotBeNullOrBlank(String name) {
+        RenameIndexCommandBuilder builder = RenameIndexCommand.builder()
                 .schemaName("TEST")
-                .tableName(name)
-                .newTableName("TEST2");
+                .indexName(name)
+                .newIndexName("TEST2");
 
         assertThrows(
                 CatalogValidationException.class,
                 builder::build,
-                "Name of the table can't be null or blank"
+                "Name of the index can't be null or blank"
         );
     }
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
-    void newTableNameMustNotBeNullOrBlank(String name) {
-        RenameTableCommandBuilder builder = RenameTableCommand.builder()
+    void newIndexNameMustNotBeNullOrBlank(String name) {
+        RenameIndexCommandBuilder builder = RenameIndexCommand.builder()
                 .schemaName("TEST")
-                .tableName("TEST")
-                .newTableName(name);
+                .indexName("TEST")
+                .newIndexName(name);
 
         assertThrows(
                 CatalogValidationException.class,
                 builder::build,
-                "New table name can't be null or blank"
+                "New index name can't be null or blank"
         );
     }
 
@@ -81,10 +79,10 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
     void exceptionIsThrownIfSchemaDoesNotExist() {
         Catalog catalog = catalogWithDefaultZone();
 
-        CatalogCommand command = RenameTableCommand.builder()
+        CatalogCommand command = RenameIndexCommand.builder()
                 .schemaName("TEST")
-                .tableName("TEST")
-                .newTableName("TEST2")
+                .indexName("TEST")
+                .newIndexName("TEST2")
                 .build();
 
         assertThrows(
@@ -95,39 +93,61 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @Test
-    void exceptionIsThrownIfTableWithGivenNameNotFound() {
+    void exceptionIsThrownIfIndexWithGivenNameNotFound() {
         Catalog catalog = catalogWithDefaultZone();
 
-        CatalogCommand command = RenameTableCommand.builder()
+        CatalogCommand command = RenameIndexCommand.builder()
                 .schemaName(SCHEMA_NAME)
-                .tableName("TEST")
-                .newTableName("TEST2")
+                .indexName("TEST")
+                .newIndexName("TEST2")
                 .build();
 
         assertThrows(
                 CatalogValidationException.class,
                 () -> command.get(catalog),
-                "Table with name 'PUBLIC.TEST' not found"
+                "Index with name 'PUBLIC.TEST' not found"
+        );
+    }
+
+    @Test
+    void exceptionIsThrownIfIndexWithNewNameExists() {
+        Catalog catalog = catalog(
+                createTableCommand("TABLE1"),
+                createTableCommand("TABLE2"),
+                createIndexCommand("TABLE1", "TEST1"),
+                createIndexCommand("TABLE2", "TEST2")
+        );
+
+        CatalogCommand command = RenameIndexCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .indexName("TEST1")
+                .newIndexName("TEST2")
+                .build();
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> command.get(catalog),
+                "Index with name 'PUBLIC.TEST2' already exists"
         );
     }
 
     @Test
     void exceptionIsThrownIfTableWithNewNameExists() {
         Catalog catalog = catalog(
-                createTableCommand("TEST"),
-                createTableCommand("TEST2")
+                createTableCommand("TABLE1"),
+                createIndexCommand("TABLE1", "TEST")
         );
 
-        CatalogCommand command = RenameTableCommand.builder()
+        CatalogCommand command = RenameIndexCommand.builder()
                 .schemaName(SCHEMA_NAME)
-                .tableName("TEST")
-                .newTableName("TEST2")
+                .indexName("TEST")
+                .newIndexName("TABLE1")
                 .build();
 
         assertThrows(
                 CatalogValidationException.class,
                 () -> command.get(catalog),
-                "Table with name 'PUBLIC.TEST2' already exists"
+                "Table with name 'PUBLIC.TABLE1' already exists"
         );
     }
 
@@ -139,31 +159,10 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
         builder.schemaName(schema)
                 .tableName("t");
 
-        assertThrowsWithCause(
-                builder::build,
-                CatalogValidationException.class,
-                "Operations with system schemas are not allowed"
-        );
-    }
-
-    @Test
-    void exceptionIsThrownIfPkIndexWithNewNameExists() {
-        Catalog catalog = catalog(
-                createTableCommand("TEST"),
-                createTableCommand("TEST3"),
-                createIndexCommand("TEST3", pkIndexName("TEST2"))
-        );
-
-        CatalogCommand command = RenameTableCommand.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName("TEST")
-                .newTableName("TEST2")
-                .build();
-
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
-                String.format("Index with name 'PUBLIC.%s' already exists", pkIndexName("TEST2"))
+                builder::build,
+                "Operations with system schemas are not allowed"
         );
     }
 }

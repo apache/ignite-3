@@ -330,7 +330,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void testItIsNotPossibleToCreateTablesInSystemSchema(String schema) {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Operations with reserved schemas are not allowed",
+                "Operations with system schemas are not allowed",
                 () -> sql(format("CREATE TABLE {}.SYS_TABLE (NAME VARCHAR PRIMARY KEY, SIZE BIGINT)", schema.toLowerCase())));
     }
 
