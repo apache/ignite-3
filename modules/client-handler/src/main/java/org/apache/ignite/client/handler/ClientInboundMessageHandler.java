@@ -365,39 +365,49 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
 
-            // TODO: Async authn.
-            AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
-            UserDetails userDetails = authenticationManager.authenticateAsync(authenticationRequest).join();
+            authenticationManager
+                    .authenticateAsync(createAuthenticationRequest(extensions))
+                    .handleAsync((user, err) -> {
+                        if (err != null) {
+                            handshakeError(ctx, packer, err);
+                        } else {
+                            clientContext = new ClientContext(clientVer, clientCode, features, user);
 
-            clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
+                            sendHandshakeResponse(ctx, packer);
+                        }
 
-            sendHandshakeResponse(ctx, packer);
+                        return null;
+                    }, ctx.executor());
         } catch (Throwable t) {
-            LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                    + t.getMessage(), t);
-
-            packer.close();
-
-            var errPacker = getPacker(ctx.alloc());
-
-            try {
-                ProtocolVersion.LATEST_VER.pack(errPacker);
-
-                writeErrorCore(t, errPacker);
-
-                write(errPacker, ctx);
-            } catch (Throwable t2) {
-                LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                        + t2.getMessage(), t2);
-
-                errPacker.close();
-                exceptionCaught(ctx, t2);
-            }
-
-            metrics.sessionsRejectedIncrement();
+            handshakeError(ctx, packer, t);
         } finally {
             unpacker.close();
         }
+    }
+
+    private void handshakeError(ChannelHandlerContext ctx, ClientMessagePacker packer, Throwable t) {
+        LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                + t.getMessage(), t);
+
+        packer.close();
+
+        var errPacker = getPacker(ctx.alloc());
+
+        try {
+            ProtocolVersion.LATEST_VER.pack(errPacker);
+
+            writeErrorCore(t, errPacker);
+
+            write(errPacker, ctx);
+        } catch (Throwable t2) {
+            LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                    + t2.getMessage(), t2);
+
+            errPacker.close();
+            exceptionCaught(ctx, t2);
+        }
+
+        metrics.sessionsRejectedIncrement();
     }
 
     private void sendHandshakeResponse(ChannelHandlerContext ctx, ClientMessagePacker packer) {
