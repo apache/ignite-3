@@ -44,12 +44,12 @@ public class PageMemoryCheckpointConfigurationSchema {
     /** Number of checkpoint threads. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public int checkpointThreads = 1;
+    public int checkpointThreads = 4;
 
     /** Number of threads to compact delta files. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public int compactionThreads = 1;
+    public int compactionThreads = 4;
 
     /** Timeout for checkpoint read lock acquisition in milliseconds. */
     @Range(min = 0)
