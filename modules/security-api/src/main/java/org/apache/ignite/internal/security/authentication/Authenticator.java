@@ -30,6 +30,8 @@ public interface Authenticator {
      * Authenticates a user with the given request. Returns the user details if the authentication was successful. Throws an exception
      * otherwise.
      *
+     * <p>Implementations should be non-blocking, this method can be called from an IO thread.
+     *
      * @param authenticationRequest The authentication request.
      * @return The user details.
      * @throws InvalidCredentialsException If the authentication failed.
