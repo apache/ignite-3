@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.en
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogParamsValidationUtils;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 
 /**

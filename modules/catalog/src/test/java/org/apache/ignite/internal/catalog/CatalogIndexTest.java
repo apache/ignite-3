@@ -523,8 +523,6 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         verify(eventListener).notify(any(RemoveIndexEventParameters.class));
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
-
-
     }
 
     @Test
