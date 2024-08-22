@@ -435,10 +435,10 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 distributionZoneMgr
         );
 
-        replicationGroupIds.add(replicaGrpId);
-
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             try {
+                replicationGroupIds.add(replicaGrpId);
+
                 return replicaMgr.startReplica(
                         replicaGrpId,
                         (raftClient) -> new ZonePartitionReplicaListener(
@@ -633,7 +633,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
         return replicationGroupIds.contains(zonePartitionId);
     }
-
 
     /**
      * Creates meta storage listener for pending assignments updates.
