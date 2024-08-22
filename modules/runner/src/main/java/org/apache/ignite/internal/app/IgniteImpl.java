@@ -828,6 +828,7 @@ public class IgniteImpl implements Ignite {
                 replicaSvc,
                 clockService,
                 schemaSyncService,
+                clusterSvc.topologyService(),
                 threadPoolsManager.commonScheduler(),
                 indexNodeFinishedRwTransactionsChecker
         );

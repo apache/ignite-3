@@ -79,6 +79,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -504,6 +505,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         placementDriver = mock(PlacementDriver.class);
         replicaService = mock(ReplicaService.class);
         SchemaSyncService schemaSyncService = mock(SchemaSyncService.class);
+        TopologyService topologyService = mock(TopologyService.class);
 
         CatalogCompactionMessagesFactory messagesFactory = new CatalogCompactionMessagesFactory();
 
@@ -546,8 +548,10 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             TablePartitionId groupId = invocation.getArgument(0);
             LogicalNode node = primaryAffinity.apply(groupId.partitionId());
 
-            return CompletableFuture.completedFuture(node == null ? null : new TestReplicaMeta(node.name()));
+            return CompletableFuture.completedFuture(node == null ? null : new TestReplicaMeta(node.id()));
         });
+
+        when(topologyService.localMember()).thenReturn(localNode);
 
         LogicalTopologySnapshot logicalTop = new LogicalTopologySnapshot(1, topology);
 
@@ -578,6 +582,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 replicaService,
                 clockService,
                 schemaSyncService,
+                topologyService,
                 ForkJoinPool.commonPool(),
                 clockService::now,
                 () -> (Long) timeSupplier.apply(coordinator.name())
@@ -613,7 +618,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         @Override
         public String getLeaseholder() {
-            return leaseHolder;
+            throw new UnsupportedOperationException();
         }
 
         @Override

@@ -54,6 +54,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -121,6 +122,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final SchemaSyncService schemaSyncService;
 
+    private final TopologyService topologyService;
+
     private CompletableFuture<Void> lastRunFuture = CompletableFutures.nullCompletedFuture();
 
     /**
@@ -131,6 +134,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private volatile @Nullable String compactionCoordinatorNodeName;
 
     private volatile HybridTimestamp lowWatermark;
+
+    private volatile String localNodeId;
 
     /**
      * Constructs catalog compaction runner.
@@ -144,11 +149,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ReplicaService replicaService,
             ClockService clockService,
             SchemaSyncService schemaSyncService,
+            TopologyService topologyService,
             Executor executor,
             ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider
     ) {
         this(localNodeName, catalogManager, messagingService, logicalTopologyService, placementDriver, replicaService, clockService,
-                schemaSyncService, executor, activeLocalTxMinimumBeginTimeProvider, null);
+                schemaSyncService, topologyService, executor, activeLocalTxMinimumBeginTimeProvider, null);
     }
 
     /**
@@ -163,6 +169,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ReplicaService replicaService,
             ClockService clockService,
             SchemaSyncService schemaSyncService,
+            TopologyService topologyService,
             Executor executor,
             ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider,
             @Nullable CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
@@ -173,6 +180,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.catalogManagerFacade = new CatalogManagerCompactionFacade(catalogManager);
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
+        this.topologyService = topologyService;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
         this.executor = executor;
@@ -183,6 +191,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         messagingService.addMessageHandler(CatalogCompactionMessageGroup.class, new CatalogCompactionMessageHandler());
+
+        localNodeId = topologyService.localMember().id();
 
         return CompletableFutures.nullCompletedFuture();
     }
@@ -356,7 +366,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
                     ObjectIterator<Entry> itr = tablesWithPartitions.int2IntEntrySet().iterator();
 
-                    return invokeOnLocalReplicas(txBeginTime, itr);
+                    return invokeOnLocalReplicas(txBeginTime, localNodeId, itr);
                 }, executor);
     }
 
@@ -433,7 +443,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
-    private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, ObjectIterator<Entry> tabTtr) {
+    private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, String localNodeId, ObjectIterator<Entry> tabTtr) {
         if (!tabTtr.hasNext()) {
             return CompletableFutures.nullCompletedFuture();
         }
@@ -451,11 +461,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     .getPrimaryReplica(tablePartitionId, nowTs)
                     .thenCompose(meta -> {
                         // If primary is not elected yet - we'll update replication groups on next iteration.
-                        if (meta == null || meta.getLeaseholder() == null) {
+                        if (meta == null || meta.getLeaseholderId() == null) {
                             return CompletableFutures.nullCompletedFuture();
                         }
 
-                        if (!localNodeName.equals(meta.getLeaseholder())) {
+                        // We need to compare leaseHolderId instead of leaseHolder, because after node restart the
+                        // leaseHolder may contain the name of the local node even though the local node is not the primary.
+                        if (!localNodeId.equals(meta.getLeaseholderId())) {
                             return CompletableFutures.nullCompletedFuture();
                         }
 
@@ -477,7 +489,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
 
         return CompletableFutures.allOf(partFutures)
-                .thenComposeAsync(ignore -> invokeOnLocalReplicas(txBeginTime, tabTtr), executor);
+                .thenComposeAsync(ignore -> invokeOnLocalReplicas(txBeginTime, localNodeId, tabTtr), executor);
     }
 
     class CatalogCompactionMessageHandler implements NetworkMessageHandler {
