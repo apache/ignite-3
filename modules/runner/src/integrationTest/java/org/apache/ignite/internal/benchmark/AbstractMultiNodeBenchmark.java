@@ -78,7 +78,7 @@ public class AbstractMultiNodeBenchmark {
      * Starts ignite node and creates table {@link #TABLE_NAME}.
      */
     @Setup
-    public final void nodeSetUp() throws Exception {
+    public void nodeSetUp() throws Exception {
         System.setProperty("jraft.available_processors", "2");
         startCluster();
 
@@ -184,12 +184,16 @@ public class AbstractMultiNodeBenchmark {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         @Language("HOCON")
-        String configTemplate = "{\n"
+        String configTemplate = "ignite {\n"
                 + "  \"network\": {\n"
                 + "    \"port\":{},\n"
                 + "    \"nodeFinder\":{\n"
                 + "      \"netClusterNodes\": [ {} ]\n"
                 + "    }\n"
+                + "  },\n"
+                + "  storage.profiles: {"
+                + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
+                + "        " + DEFAULT_STORAGE_PROFILE + ".size: 2073741824 " // Avoid page replacement.
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"
                 + "  rest.port: {},\n"

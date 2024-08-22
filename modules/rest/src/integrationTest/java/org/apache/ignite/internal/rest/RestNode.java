@@ -107,7 +107,7 @@ public class RestNode {
     private String bootstrapCfg() {
         String keyStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, keyStorePath));
         String trustStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, trustStorePath));
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
                 + "    nodeFinder: {\n"

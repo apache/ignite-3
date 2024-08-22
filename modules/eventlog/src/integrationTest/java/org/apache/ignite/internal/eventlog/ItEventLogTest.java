@@ -73,7 +73,7 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
                 + " channels.testChannel.events: [USER_AUTHENTICATION_SUCCESS, USER_AUTHENTICATION_FAILURE],\n"
                 + "}\n";
 
-        builder.clusterConfiguration(securityConfiguration + eventLog);
+        builder.clusterConfiguration("ignite {\n" + securityConfiguration + eventLog + "}");
     }
 
     @Test

@@ -17,9 +17,6 @@
 
 package org.apache.ignite.configuration;
 
-import org.apache.ignite.configuration.ConfigurationTree;
-import org.apache.ignite.configuration.RootKey;
-
 /**
  * Interface that represent a "change" for the conjunction of all roots in the configuration.
  */

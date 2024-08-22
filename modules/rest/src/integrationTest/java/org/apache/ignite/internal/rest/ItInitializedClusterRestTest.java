@@ -73,14 +73,14 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // Expect node configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
         // And has rest.port config value
-        assertThat(config.getInt("rest.port"), is(equalTo(10300)));
+        assertThat(config.getInt("ignite.rest.port"), is(equalTo(10300)));
     }
 
     @Test
     @DisplayName("Node configuration by path is available when the cluster is initialized")
     void nodeConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/node and path selector is "rest"
-        HttpResponse<String> response = send(get("/management/v1/configuration/node/rest"));
+        HttpResponse<String> response = send(get("/management/v1/configuration/node/ignite.rest"));
 
         // Expect node configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
@@ -92,7 +92,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Node configuration can be changed when the cluster is initialized")
     void nodeConfigurationUpdate() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/node rest.port=10333
-        HttpResponse<String> pathResponse = send(patch("/management/v1/configuration/node", "rest.port=10333"));
+        HttpResponse<String> pathResponse = send(patch("/management/v1/configuration/node", "ignite.rest.port=10333"));
         // Then
         assertThat(pathResponse.statusCode(), is(200));
 
@@ -102,7 +102,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // Then node configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(getResponse.body());
         // And rest.port is updated
-        assertThat(config.getInt("rest.port"), is(equalTo(10333)));
+        assertThat(config.getInt("ignite.rest.port"), is(equalTo(10333)));
     }
 
     @Test
@@ -116,14 +116,14 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // And configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
         // And gc.batchSize can be read
-        assertThat(config.getInt("gc.batchSize"), is(equalTo(5)));
+        assertThat(config.getInt("ignite.gc.batchSize"), is(equalTo(5)));
     }
 
     @Test
     @DisplayName("Cluster configuration can be updated when the cluster is initialized")
     void clusterConfigurationUpdate() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster
-        HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "gc.batchSize=1"));
+        HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "ignite.gc.batchSize=1"));
 
         // Then
         assertThat(patchRequest.statusCode(), is(200));
@@ -132,15 +132,15 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         assertThat(getResponse.statusCode(), is(200));
         // And
         Config config = ConfigFactory.parseString(getResponse.body());
-        assertThat(config.getInt("gc.batchSize"), is(equalTo(1)));
+        assertThat(config.getInt("ignite.gc.batchSize"), is(equalTo(1)));
     }
 
     @Test
     @DisplayName("Cluster configuration can not be updated if provided config did not pass the validation")
     void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster invalid with invalid value
-        HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "{\n"
-                + "    security.enabled:true, \n"
+        HttpResponse<String> patchRequest = send(patch("/management/v1/configuration/cluster", "ignite {\n"
+                + "    security.enabled:true\n"
                 + "    security.authentication.providers:null\n"
                 + "}"));
 
@@ -151,7 +151,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                         400,
                         containsString(
                                 "Validation did not pass for keys: "
-                                        + "[security.authentication.providers, At least one provider is required.]"
+                                        + "[ignite.security.authentication.providers, At least one provider is required.]"
                         )
                 )
         );
@@ -161,7 +161,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Cluster configuration by path is available when the cluster is initialized")
     void clusterConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/cluster and path selector is "gc"
-        HttpResponse<String> response = send(get("/management/v1/configuration/cluster/gc"));
+        HttpResponse<String> response = send(get("/management/v1/configuration/cluster/ignite.gc"));
 
         // Then cluster configuration is not available
         assertThat(response.statusCode(), is(200));

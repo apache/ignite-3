@@ -71,7 +71,7 @@ abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
 
         nodesBootstrapCfg.put(
                 node0Name,
-                "{\n"
+                "ignite {\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[0] + ",\n"
                         + "    nodeFinder: {\n"
@@ -85,7 +85,7 @@ abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
 
         nodesBootstrapCfg.put(
                 node1Name,
-                "{\n"
+                "ignite {\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[1] + ",\n"
                         + "    nodeFinder: {\n"
@@ -99,7 +99,7 @@ abstract class AbstractSchemaChangeTest extends BaseIgniteAbstractTest {
 
         nodesBootstrapCfg.put(
                 node2Name,
-                "{\n"
+                "ignite {\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[2] + ",\n"
                         + "    nodeFinder: {\n"

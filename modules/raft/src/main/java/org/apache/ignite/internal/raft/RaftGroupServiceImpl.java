@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.raft;
 
 import static java.lang.System.currentTimeMillis;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
@@ -53,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -171,19 +174,40 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller
     ) {
-        var service = new RaftGroupServiceImpl(
-                groupId,
-                cluster,
-                factory,
-                configuration,
-                membersConfiguration,
-                null,
-                executor,
-                commandsMarshaller
-        );
+        boolean inBenchmark = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK);
+
+        RaftGroupServiceImpl service;
+        if (inBenchmark) {
+            service = new RaftGroupServiceImpl(
+                    groupId,
+                    cluster,
+                    factory,
+                    configuration,
+                    membersConfiguration,
+                    null,
+                    executor,
+                    commandsMarshaller
+            ) {
+                @Override
+                public <R> CompletableFuture<R> run(Command cmd) {
+                    return cmd.getClass().getSimpleName().contains("UpdateCommand") ? nullCompletedFuture() : super.run(cmd);
+                }
+            };
+        } else {
+            service = new RaftGroupServiceImpl(
+                    groupId,
+                    cluster,
+                    factory,
+                    configuration,
+                    membersConfiguration,
+                    null,
+                    executor,
+                    commandsMarshaller
+            );
+        }
 
         if (!getLeader) {
-            return CompletableFuture.completedFuture(service);
+            return completedFuture(service);
         }
 
         return service.refreshLeader().handle((unused, throwable) -> {
@@ -816,6 +840,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return CompletableFuture.failedFuture(new PeerUnavailableException(peer.consistentId()));
         }
 
-        return CompletableFuture.completedFuture(node);
+        return completedFuture(node);
     }
 }

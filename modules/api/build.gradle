@@ -25,7 +25,6 @@ dependencies {
     annotationProcessor project(':ignite-error-code-annotation-processor')
 
     implementation project(':ignite-error-code-annotation-processor')
-    implementation libs.fastutil.core
     implementation libs.jetbrains.annotations
 
     testImplementation libs.hamcrest.core

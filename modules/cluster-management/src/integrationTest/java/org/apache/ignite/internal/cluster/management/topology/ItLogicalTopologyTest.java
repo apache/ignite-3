@@ -62,7 +62,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private static final String[] STORAGE_PROFILES_LIST = {"lru_rocks", "segmented_aipersist"};
 
     @Language("HOCON")
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
@@ -331,7 +331,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             }
         });
 
-        IgniteServer node = cluster.startEmbeddedNode(1);
+        IgniteServer node = cluster.startEmbeddedNode(1).server();
 
         try {
             Event event = events.poll(10, TimeUnit.SECONDS);

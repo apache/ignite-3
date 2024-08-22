@@ -160,7 +160,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private static final int BASE_REST_PORT = 10300;
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  \"network\": {\n"
             + "    \"port\":{},\n"
             + "    \"nodeFinder\":{\n"
@@ -337,9 +337,9 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(nodes.get(0))
                 .clusterName("cluster")
-                .clusterConfiguration("{"
+                .clusterConfiguration("ignite {"
                         + "gc.lowWatermark.dataAvailabilityTime: 1010,\n"
-                        + "gc.lowWatermark.updateFrequency: 3000,\n"
+                        + "gc.lowWatermark.updateInterval: 3000,\n"
                         + "metrics.exporters.logPush.exporterName: logPush,\n"
                         + "metrics.exporters.logPush.period: 5000\n"
                         + "}")

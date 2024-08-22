@@ -73,7 +73,7 @@ class ItJdbcAuthenticationTest extends BaseIgniteAbstractTest {
         void setUp(TestInfo testInfo, @WorkDirectory Path workDir) {
             cluster = new Cluster(testInfo, workDir);
             cluster.startAndInit(1, builder -> builder.clusterConfiguration(
-                    "{\n"
+                    "ignite {\n"
                             + "  \"security\": {\n"
                             + "  \"enabled\": true,\n"
                             + "    \"authentication\": {\n"

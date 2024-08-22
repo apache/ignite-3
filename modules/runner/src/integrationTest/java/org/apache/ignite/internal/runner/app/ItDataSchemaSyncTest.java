@@ -66,7 +66,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
-            "node0", "{\n"
+            "node0", "ignite {\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
@@ -76,7 +76,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                     + "  rest.port: 10300\n"
                     + "}",
 
-            "node1", "{\n"
+            "node1", "ignite {\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
@@ -87,7 +87,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                     + "  rest.port: 10301\n"
                     + "}",
 
-            "node2", "{\n"
+            "node2", "ignite {\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3346,\n"
                     + "    \"nodeFinder\": {\n"
@@ -117,7 +117,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
-                .clusterConfiguration("{\n"
+                .clusterConfiguration("ignite {\n"
                         + "  \"replication\": {\n"
                         + "  \"rpcTimeout\": 3000\n"
                         + "  }\n"

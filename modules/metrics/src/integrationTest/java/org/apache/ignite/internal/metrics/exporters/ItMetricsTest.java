@@ -57,7 +57,7 @@ public class ItMetricsTest extends BaseIgniteAbstractTest {
     @Test
     void testMetricExporterStartsOnceOnly() {
         cluster.startAndInit(1, builder -> builder.clusterConfiguration(
-                "{metrics.exporters.doubleStart.exporterName: doubleStart}"));
+                "ignite.metrics.exporters.doubleStart.exporterName: doubleStart"));
 
         assertEquals(1, TestDoubleStartExporter.startCounter());
     }

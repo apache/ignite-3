@@ -69,7 +69,7 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
         return Stream.of(
                 Arguments.of("node/state"),
                 Arguments.of("configuration/node"),
-                Arguments.of("configuration/node/rest"),
+                Arguments.of("configuration/node/ignite.rest"),
                 Arguments.of("cluster/topology/physical")
         );
     }
@@ -117,7 +117,7 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
     void nodeConfigAndClusterInitAreEnabled(String path) {
         // But node config and cluster init endpoints are enabled
         assertDoesNotThrow(
-                () -> client.toBlocking().retrieve(HttpRequest.GET(path))
+                () -> client.toBlocking().retrieve(GET(path))
         );
     }
 }
