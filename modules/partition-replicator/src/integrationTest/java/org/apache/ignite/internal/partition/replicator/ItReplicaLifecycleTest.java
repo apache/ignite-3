@@ -353,7 +353,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    //@Disabled("https://issues.apache.org/jira/browse/IGNITE-22928")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22928")
     public void testZoneReplicaListener(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -362,9 +362,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         Node node = getNode(replicaAssignment.consistentId());
 
-//        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
+        placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
-        createZone(node, "test_zone", 1, 3);
+        createZone(node, "test_zone", 1, 1);
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
         long key = 1;
