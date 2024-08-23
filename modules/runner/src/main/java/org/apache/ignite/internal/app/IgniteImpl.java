@@ -201,6 +201,7 @@ import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -230,7 +231,6 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -830,7 +830,8 @@ public class IgniteImpl implements Ignite {
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
                 clockService,
-                placementDriverMgr.placementDriver()
+                placementDriverMgr.placementDriver(),
+                schemaSyncService
         );
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
@@ -850,6 +851,7 @@ public class IgniteImpl implements Ignite {
                 replicaSvc,
                 clockService,
                 schemaSyncService,
+                clusterSvc.topologyService(),
                 threadPoolsManager.commonScheduler(),
                 indexNodeFinishedRwTransactionsChecker
         );

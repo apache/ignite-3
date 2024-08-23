@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
  * A default implementation of {@link SchemaSyncService}.
@@ -40,6 +43,11 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
 
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
+        // There a corner case for tests that are using {@code WatchListenerInhibitor#metastorageEventsInhibitor}
+        // that leads to current time equals {@link HybridTimestamp#MIN_VALUE} and this method is waiting forever.
+        if (HybridTimestamp.MIN_VALUE.equals(clusterTime.currentSafeTime())) {
+            return nullCompletedFuture();
+        }
         return clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
     }
 }
