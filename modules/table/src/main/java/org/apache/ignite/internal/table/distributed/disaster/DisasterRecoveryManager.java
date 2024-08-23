@@ -290,7 +290,14 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             checkPartitionsRange(partitionIds, Set.of(zone));
 
-            return processNewRequest(new ManualGroupRestartRequest(UUID.randomUUID(), zone.id(), table.id(), partitionIds, nodeNames));
+            return processNewRequest(new ManualGroupRestartRequest(
+                    UUID.randomUUID(),
+                    zone.id(),
+                    table.id(),
+                    partitionIds,
+                    nodeNames,
+                    catalog.time()
+            ));
         } catch (Throwable t) {
             return failedFuture(t);
         }

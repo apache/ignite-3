@@ -149,6 +149,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
@@ -167,7 +168,6 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -720,7 +720,13 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
                 Node node = nodes.get(0);
 
-                node.metaStorageManager.put(stablePartAssignmentsKey(partId), Assignments.of(Assignment.forPeer(node.name)).toBytes());
+                int catalogVersion = node.catalogManager.latestCatalogVersion();
+                long timestamp = node.catalogManager.catalog(catalogVersion).time();
+
+                node.metaStorageManager.put(
+                        stablePartAssignmentsKey(partId),
+                        Assignments.of(timestamp, Assignment.forPeer(node.name)).toBytes()
+                );
             }
 
             return null;
@@ -1179,7 +1185,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     rebalanceScheduler,
                     threadPoolsManager.partitionOperationsExecutor(),
                     clockService,
-                    placementDriver);
+                    placementDriver,
+                    schemaSyncService);
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                     .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();

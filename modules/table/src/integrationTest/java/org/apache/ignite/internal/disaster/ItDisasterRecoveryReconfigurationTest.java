@@ -352,13 +352,17 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     public void testIncompleteRebalanceAfterResetPartitions() throws Exception {
         int partId = 0;
 
-        Assignments assignment013 = Assignments.of(
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+
+        Assignments assignment013 = Assignments.of(timestamp,
                 Assignment.forPeer(node(0).name()),
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(3).name())
         );
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
