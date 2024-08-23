@@ -30,7 +30,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 public class HybridClockBenchmark {
     private final Map<String, HybridClock> implementations = new HashMap<>();
 
-    @Param({"HybridClockSystemUTC", "HybridClockCurrentTimeMillis", "HybridClockFastTimestamps"})
+    @Param({"HybridClockSystemUTC", "HybridClockCurrentTimeMillis", "HybridClockFastTimestamps", "HybridClockOriginalSystemUTC", "HybridClockOriginalCurrentTimeMillis", "HybridClockOriginalFastTimestamps"})
     private String implementationName;
 
     /**
@@ -41,6 +41,9 @@ public class HybridClockBenchmark {
         implementations.put("HybridClockSystemUTC", new HybridClockSystemUTC());
         implementations.put("HybridClockCurrentTimeMillis", new HybridClockCurrentTimeMillis());
         implementations.put("HybridClockFastTimestamps", new HybridClockFastTimestamps());
+        implementations.put("HybridClockOriginalSystemUTC", new HybridClockOriginalSystemUTC());
+        implementations.put("HybridClockOriginalCurrentTimeMillis", new HybridClockOriginalCurrentTimeMillis());
+        implementations.put("HybridClockOriginalFastTimestamps", new HybridClockOriginalFastTimestamps());
     }
 
     @Benchmark

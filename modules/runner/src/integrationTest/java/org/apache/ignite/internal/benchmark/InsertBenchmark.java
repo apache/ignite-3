@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Statement;
@@ -57,49 +58,48 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @Fork(1)
 @Threads(1)
-@Warmup(iterations = 10, time = 2)
-@Measurement(iterations = 20, time = 2)
+@Warmup(iterations = 5, time = 2)
+@Measurement(iterations = 10, time = 2)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class InsertBenchmark extends AbstractMultiNodeBenchmark {
-    @Param({"1", "2", "3"})
+    @Param({"1", "3"})
     private int clusterSize;
 
-    @Param({"1", "2", "4", "8", "16", "32"})
+    @Param({"16"})
     private int partitionCount;
 
     /**
      * Benchmark for SQL insert via embedded client.
      */
-    @Benchmark
-    public void sqlPreparedInsert(SqlState state) {
-        state.executeQuery();
-    }
-
-    /**
-     * Benchmark for SQL insert via embedded client.
-     */
-    @Benchmark
-    public void sqlInlinedInsert(SqlState state) {
-        state.executeInlinedQuery();
-    }
-
-    /**
-     * Benchmark for SQL multiple rows insert via embedded client.
-     */
-    @Benchmark
-    public void sqlInsertMulti(SqlStateMultiValues state) {
-        state.executeQuery();
-    }
-
-    /**
-     * Benchmark for SQL script insert via embedded client.
-     */
-    @Benchmark
-    public void sqlInsertScript(SqlState state) {
-        state.executeScript();
-    }
-
+//    @Benchmark
+//    public void sqlPreparedInsert(SqlState state) {
+//        state.executeQuery();
+//    }
+//
+//    /**
+//     * Benchmark for SQL insert via embedded client.
+//     */
+//    @Benchmark
+//    public void sqlInlinedInsert(SqlState state) {
+//        state.executeInlinedQuery();
+//    }
+//
+//    /**
+//     * Benchmark for SQL multiple rows insert via embedded client.
+//     */
+//    @Benchmark
+//    public void sqlInsertMulti(SqlStateMultiValues state) {
+//        state.executeQuery();
+//    }
+//
+//    /**
+//     * Benchmark for SQL script insert via embedded client.
+//     */
+//    @Benchmark
+//    public void sqlInsertScript(SqlState state) {
+//        state.executeScript();
+//    }
     /**
      * Benchmark for KV insert via embedded client.
      */
@@ -108,37 +108,37 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         state.executeQuery();
     }
 
-    /**
-     * Benchmark for JDBC insert.
-     */
-    @Benchmark
-    public void jdbcInsert(JdbcState state) throws SQLException {
-        state.executeQuery();
-    }
-
-    /**
-     * Benchmark for JDBC script insert.
-     */
-    @Benchmark
-    public void jdbcInsertScript(JdbcState state) throws SQLException {
-        state.executeScript();
-    }
-
-    /**
-     * Benchmark for SQL insert via thin client.
-     */
-    @Benchmark
-    public void sqlThinInsert(SqlThinState state) {
-        state.executeQuery();
-    }
-
-    /**
-     * Benchmark for KV insert via thin client.
-     */
-    @Benchmark
-    public void kvThinInsert(KvThinState state) {
-        state.executeQuery();
-    }
+//    /**
+//     * Benchmark for JDBC insert.
+//     */
+//    @Benchmark
+//    public void jdbcInsert(JdbcState state) throws SQLException {
+//        state.executeQuery();
+//    }
+//
+//    /**
+//     * Benchmark for JDBC script insert.
+//     */
+//    @Benchmark
+//    public void jdbcInsertScript(JdbcState state) throws SQLException {
+//        state.executeScript();
+//    }
+//
+//    /**
+//     * Benchmark for SQL insert via thin client.
+//     */
+//    @Benchmark
+//    public void sqlThinInsert(SqlThinState state) {
+//        state.executeQuery();
+//    }
+//
+//    /**
+//     * Benchmark for KV insert via thin client.
+//     */
+//    @Benchmark
+//    public void kvThinInsert(KvThinState state) {
+//        state.executeQuery();
+//    }
 
     /**
      * Benchmark's entry point.

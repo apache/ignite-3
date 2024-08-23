@@ -25,8 +25,10 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.ClockUpdateListener;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -39,18 +41,8 @@ import org.apache.ignite.internal.util.FastTimestamps;
 public class HybridClockFastTimestamps implements HybridClock {
     private final IgniteLogger log = Loggers.forClass(HybridClockFastTimestamps.class);
 
-    /**
-     * Var handle for {@link #latestTime}.
-     */
-    private static final VarHandle LATEST_TIME;
-
-    static {
-        try {
-            LATEST_TIME = MethodHandles.lookup().findVarHandle(HybridClockFastTimestamps.class, "latestTime", long.class);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
+    private static final AtomicLongFieldUpdater<HybridClockFastTimestamps> LATEST_TIME = AtomicLongFieldUpdater.newUpdater(
+            HybridClockFastTimestamps.class, "latestTime");
 
     private volatile long latestTime;
 
@@ -75,6 +67,10 @@ public class HybridClockFastTimestamps implements HybridClock {
 
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = latestTime;
+
+            if (oldLatestTime >= now) {
+                return LATEST_TIME.incrementAndGet(this);
+            }
 
             long newLatestTime = max(oldLatestTime + 1, now);
 
@@ -104,9 +100,8 @@ public class HybridClockFastTimestamps implements HybridClock {
     }
 
     /**
-     * Updates the clock in accordance with an external event timestamp. If the supplied timestamp is ahead of the
-     * current clock timestamp, the clock gets adjusted to make sure it never returns any timestamp before (or equal to)
-     * the supplied external timestamp.
+     * Updates the clock in accordance with an external event timestamp. If the supplied timestamp is ahead of the current clock timestamp,
+     * the clock gets adjusted to make sure it never returns any timestamp before (or equal to) the supplied external timestamp.
      *
      * @param requestTime Timestamp from request.
      * @return The resulting timestamp (guaranteed to exceed both previous clock 'currentTs' and the supplied external ts).

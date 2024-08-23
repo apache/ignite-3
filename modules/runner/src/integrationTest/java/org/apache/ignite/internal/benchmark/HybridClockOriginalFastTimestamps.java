@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.benchmark;
 
 import static java.lang.Math.max;
-import static java.time.Clock.systemUTC;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
@@ -26,23 +25,32 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.ClockUpdateListener;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
  * A Hybrid Logical Clock implementation.
  */
-public class HybridClockCurrentTimeMillis implements HybridClock {
-    private final IgniteLogger log = Loggers.forClass(HybridClockCurrentTimeMillis.class);
+public class HybridClockOriginalFastTimestamps implements HybridClock {
+    private final IgniteLogger log = Loggers.forClass(HybridClockOriginalFastTimestamps.class);
 
-    private static final AtomicLongFieldUpdater<HybridClockCurrentTimeMillis> LATEST_TIME = AtomicLongFieldUpdater.newUpdater(
-            HybridClockCurrentTimeMillis.class, "latestTime");
+    /**
+     * Var handle for {@link #latestTime}.
+     */
+    private static final VarHandle LATEST_TIME;
+
+    static {
+        try {
+            LATEST_TIME = MethodHandles.lookup().findVarHandle(HybridClockOriginalFastTimestamps.class, "latestTime", long.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     private volatile long latestTime;
 
@@ -51,13 +59,13 @@ public class HybridClockCurrentTimeMillis implements HybridClock {
     /**
      * The constructor which initializes the latest time to current time by system clock.
      */
-    public HybridClockCurrentTimeMillis() {
+    public HybridClockOriginalFastTimestamps() {
         this.latestTime = currentTime();
     }
 
     private static long currentTime() {
         // TODO https://issues.apache.org/jira/browse/IGNITE-23049 Benchmarks required.
-        return System.currentTimeMillis() << LOGICAL_TIME_BITS_SIZE;
+        return FastTimestamps.coarseCurrentTimeMillis() << LOGICAL_TIME_BITS_SIZE;
     }
 
     @Override
@@ -67,10 +75,6 @@ public class HybridClockCurrentTimeMillis implements HybridClock {
 
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = latestTime;
-
-            if (oldLatestTime >= now) {
-                return LATEST_TIME.incrementAndGet(this);
-            }
 
             long newLatestTime = max(oldLatestTime + 1, now);
 
@@ -100,8 +104,9 @@ public class HybridClockCurrentTimeMillis implements HybridClock {
     }
 
     /**
-     * Updates the clock in accordance with an external event timestamp. If the supplied timestamp is ahead of the current clock timestamp,
-     * the clock gets adjusted to make sure it never returns any timestamp before (or equal to) the supplied external timestamp.
+     * Updates the clock in accordance with an external event timestamp. If the supplied timestamp is ahead of the
+     * current clock timestamp, the clock gets adjusted to make sure it never returns any timestamp before (or equal to)
+     * the supplied external timestamp.
      *
      * @param requestTime Timestamp from request.
      * @return The resulting timestamp (guaranteed to exceed both previous clock 'currentTs' and the supplied external ts).
