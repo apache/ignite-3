@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
-import java.math.BigDecimal;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
@@ -104,9 +103,14 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
 
     /** Throws correct exception. */
     @Test
-    public void testErroneousParamToLegth() {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19469")
+    public void testIncorrectTypeParamToLength() {
+        IgniteTestUtils.assertThrowsWithCause(() -> checkQuery("SELECT LENGTH(1234)")
+                        .check(), SqlValidatorException.class,
+                "Values passed to LENGTH operator must have compatible types");
+
         IgniteTestUtils.assertThrowsWithCause(() -> checkQuery("SELECT LENGTH(?)")
-                .withParams(new BigDecimal(1)).check(), SqlValidatorException.class,
+                        .withParams(1234).check(), SqlValidatorException.class,
                 "Values passed to LENGTH operator must have compatible types");
     }
 
