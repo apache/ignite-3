@@ -41,6 +41,7 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -120,6 +121,8 @@ import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
+import org.apache.ignite.internal.disaster.system.ServerRestarter;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
@@ -417,6 +420,8 @@ public class IgniteImpl implements Ignite {
     /** Remote triggered resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
+    private final SystemDisasterRecoveryManagerImpl systemDisasterRecoveryManager;
+
     private final IgniteTables publicTables;
     private final IgniteTransactions publicTransactions;
     private final IgniteSql publicSql;
@@ -446,6 +451,7 @@ public class IgniteImpl implements Ignite {
      */
     IgniteImpl(
             IgniteServer node,
+            ServerRestarter restarter,
             Path configPath,
             Path workDir,
             @Nullable ClassLoader serviceProviderClassLoader,
@@ -541,6 +547,15 @@ public class IgniteImpl implements Ignite {
                 clusterIdService,
                 criticalWorkerRegistry,
                 failureProcessor
+        );
+
+        systemDisasterRecoveryManager = new SystemDisasterRecoveryManagerImpl(
+                name,
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService(),
+                vaultMgr,
+                restarter,
+                clusterStateStorage
         );
 
         clock = new HybridClockImpl();
@@ -1190,6 +1205,7 @@ public class IgniteImpl implements Ignite {
                     nettyBootstrapFactory,
                     nettyWorkersRegistrar,
                     clusterSvc,
+                    systemDisasterRecoveryManager,
                     restComponent,
                     partitionsLogStorageFactory,
                     msLogStorageFactory,
@@ -1233,6 +1249,7 @@ public class IgniteImpl implements Ignite {
         return cmgMgr.joinFuture()
                 // Disable REST component during initialization.
                 .thenAcceptAsync(unused -> restComponent.disable(), joinExecutor)
+                .thenComposeAsync(unused -> saveClusterNameToVault(joinExecutor), joinExecutor)
                 .thenComposeAsync(unused -> {
                     LOG.info("Join complete, starting MetaStorage");
 
@@ -1327,6 +1344,11 @@ public class IgniteImpl implements Ignite {
                 }, joinExecutor)
                 // Moving to the common pool on purpose to close the join pool and proceed user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> joinExecutor.shutdownNow());
+    }
+
+    private CompletionStage<Void> saveClusterNameToVault(Executor joinExecutor) {
+        return cmgMgr.clusterState()
+                .thenAcceptAsync(state -> systemDisasterRecoveryManager.saveClusterName(state.clusterTag().clusterName()), joinExecutor);
     }
 
     private CompletableFuture<Void> awaitSelfInLocalLogicalTopology() {
@@ -1599,7 +1621,8 @@ public class IgniteImpl implements Ignite {
                                     clusterCfgMgr.configurationRegistry().initializeConfigurationWith(hoconSource);
                                 }, startupExecutor);
                     }
-                }, startupExecutor);
+                }, startupExecutor)
+                .thenRunAsync(systemDisasterRecoveryManager::markNodeInitialized, startupExecutor);
     }
 
     /**
