@@ -71,6 +71,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -112,6 +113,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -422,6 +424,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 We need to integrate PartitionReplicatorNodeRecovery logic here when
         //  we in the recovery phase.
 
+        Assignments forcedAssignments = stableAssignments.force() ? stableAssignments : null;
+
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
 
         ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partId);
@@ -438,22 +442,36 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 distributionZoneMgr
         );
 
-        replicationGroupIds.add(replicaGrpId);
+        Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
+            try {
+                replicationGroupIds.add(replicaGrpId);
 
-        try {
-            return replicaMgr.startReplica(
-                    replicaGrpId,
-                    (raftClient) -> new ZonePartitionReplicaListener(
-                            new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
-                    new FailFastSnapshotStorageFactory(),
-                    stablePeersAndLearners,
-                    raftGroupListener,
-                    raftGroupEventsListener,
-                    busyLock
-            ).thenApply(ignored -> null);
-        } catch (NodeStoppingException e) {
-            return failedFuture(e);
-        }
+                return replicaMgr.startReplica(
+                        replicaGrpId,
+                        (raftClient) -> new ZonePartitionReplicaListener(
+                                new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
+                        new FailFastSnapshotStorageFactory(),
+                        stablePeersAndLearners,
+                        raftGroupListener,
+                        raftGroupEventsListener,
+                        busyLock
+                ).thenApply(ignored -> true);
+            } catch (NodeStoppingException e) {
+                return failedFuture(e);
+            }
+        };
+
+        return replicaMgr.weakStartReplica(
+                replicaGrpId,
+                startReplicaSupplier,
+                forcedAssignments
+        ).handle((res, ex) -> {
+            if (ex != null) {
+                LOG.warn("Unable to update raft groups on the node [zoneId={}, partitionId={}]", ex, zoneId, partId);
+            }
+            return null;
+        });
+
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
@@ -627,7 +645,6 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
         return replicationGroupIds.contains(zonePartitionId);
     }
-
 
     /**
      * Creates meta storage listener for pending assignments updates.
@@ -813,7 +830,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             }
 
             assert replicaMgr.isReplicaStarted(zonePartitionId)
-                    : "The local node is outside of the replication group [stable=" + stableAssignments
+                    : "The local node is outside of the replication group [groupId=" + zonePartitionId
+                    + ", stable=" + stableAssignments
                     + ", isLeaseholder=" + isLeaseholder + "].";
 
             // Update raft client peers and learners according to the actual assignments.
@@ -848,7 +866,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
     }
 
     private CompletableFuture<?> stopAndDestroyPartition(ReplicationGroupId zonePartitionId) {
-        return stopPartition(zonePartitionId);
+        return weakStopPartition(zonePartitionId);
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
@@ -1161,6 +1179,14 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         return Assignments.fromBytes(entry.value());
     }
 
+    private CompletableFuture<Void> weakStopPartition(ReplicationGroupId zonePartitionId) {
+        return replicaMgr.weakStopReplica(
+                zonePartitionId,
+                WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
+                () -> stopPartition(zonePartitionId).thenAccept(v -> { })
+        );
+    }
+
     /**
      * Stops all resources associated with a given partition, like replicas and partition trackers.
      *
@@ -1195,7 +1221,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 int i = 0;
 
                 for (ReplicationGroupId partitionId : partitionIds) {
-                    stopReplicaFutures[i++] = stopPartition(partitionId);
+                    stopReplicaFutures[i++] = weakStopPartition(partitionId);
                 }
 
                 allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);
