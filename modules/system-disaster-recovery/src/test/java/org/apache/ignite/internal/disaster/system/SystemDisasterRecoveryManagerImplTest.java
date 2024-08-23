@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.randomClusterTag;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -34,6 +35,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -42,6 +44,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -386,12 +389,13 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void savesToVaultWhenGetsMessage(boolean fromSelf) {
+    void savesToVaultWhenGetsMessage(boolean fromSelf) throws Exception {
         NetworkMessageHandler handler = extractMessageHandler();
 
         ClusterNode conductor = fromSelf ? thisNode : node2;
         handler.onReceived(resetClusterMessageOn2Nodes(conductor.name()), conductor, 0L);
 
+        assertTrue(waitForCondition(() -> vaultManager.get(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)) != null, 10_000));
         VaultEntry entry = vaultManager.get(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY));
         assertThat(entry, is(notNullValue()));
 
@@ -444,8 +448,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
         InOrder inOrder = inOrder(messagingService, vaultManager);
 
-        inOrder.verify(vaultManager).put(eq(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)), any());
-        inOrder.verify(messagingService).respond(eq(conductor), messageCaptor.capture(), eq(123L));
+        inOrder.verify(vaultManager, timeout(SECONDS.toMillis(10))).put(eq(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)), any());
+        inOrder.verify(messagingService, timeout(SECONDS.toMillis(10))).respond(eq(conductor), messageCaptor.capture(), eq(123L));
 
         assertThat(messageCaptor.getValue(), instanceOf(SuccessResponseMessage.class));
     }
@@ -472,7 +476,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
         handler.onReceived(resetClusterMessageOn2Nodes(node2.name()), node2, 0L);
 
-        verify(restarter).initiateRestart();
+        verify(restarter, timeout(SECONDS.toMillis(10))).initiateRestart();
     }
 
     @Test

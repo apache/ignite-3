@@ -39,8 +39,10 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
@@ -77,6 +79,9 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
+    /** This executor spawns a thread per task and should only be used for very rare tasks. */
+    private final Executor restartExecutor;
+
     /** Constructor. */
     public SystemDisasterRecoveryManagerImpl(
             String thisNodeName,
@@ -93,6 +98,8 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         this.restarter = restarter;
 
         clusterStateStorageManager = new ClusterStateStorageManager(clusterStateStorage);
+
+        restartExecutor = new ThreadPerTaskExecutor(thisNodeName + "-restart-");
     }
 
     @Override
@@ -110,14 +117,20 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private void handleResetClusterMessage(ResetClusterMessage message, ClusterNode sender, long correlationId) {
-        vaultManager.put(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY), toBytes(message));
+        restartExecutor.execute(() -> {
+            vaultManager.put(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY), toBytes(message));
 
-        messagingService.respond(sender, cmgMessagesFactory.successResponseMessage().build(), correlationId)
-                .thenRun(() -> {
-                    if (!thisNodeName.equals(message.conductor())) {
-                        restarter.initiateRestart();
-                    }
-                });
+            messagingService.respond(sender, successResponseMessage(), correlationId)
+                    .thenRunAsync(() -> {
+                        if (!thisNodeName.equals(message.conductor())) {
+                            restarter.initiateRestart();
+                        }
+                    }, restartExecutor);
+        });
+    }
+
+    private SuccessResponseMessage successResponseMessage() {
+        return cmgMessagesFactory.successResponseMessage().build();
     }
 
     @Override
@@ -180,15 +193,18 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 message
         );
 
-        return allOf(responseFutures.values()).handle((res, ex) -> {
-            if (isMajorityOfCmgAreSuccesses(proposedCmgConsistentIds, responseFutures)) {
-                restarter.initiateRestart();
+        return allOf(responseFutures.values())
+                .handleAsync((res, ex) -> {
+                    // We ignore upstream exceptions on purpose.
 
-                return null;
-            } else {
-                throw new ClusterResetException("Did not get successful responses from new CMG majority, failing cluster reset.");
-            }
-        });
+                    if (isMajorityOfCmgAreSuccesses(proposedCmgConsistentIds, responseFutures)) {
+                        restarter.initiateRestart();
+
+                        return null;
+                    } else {
+                        throw new ClusterResetException("Did not get successful responses from new CMG majority, failing cluster reset.");
+                    }
+                }, restartExecutor);
     }
 
     private Map<String, CompletableFuture<NetworkMessage>> sendResetClusterMessageTo(Collection<ClusterNode> nodesInTopology,
@@ -285,5 +301,25 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .count();
 
         return successes >= (futuresFromNewCmg.size() + 1) / 2;
+    }
+
+    /**
+     * An executor that spawns a thread per task. This is very inefficient for scenarios with many tasks,
+     * but we use it here for very rare tasks; it has an advantage that it doesn't need to be shut down
+     * (node restart is performed in it, so it might cause troubles to use normal pools created in the Ignite node).
+     */
+    private static class ThreadPerTaskExecutor implements Executor {
+        private final String threadNamePrefix;
+
+        private ThreadPerTaskExecutor(String threadNamePrefix) {
+            this.threadNamePrefix = threadNamePrefix;
+        }
+
+        @Override
+        public void execute(Runnable command) {
+            Thread thread = new Thread(command);
+            thread.setName(threadNamePrefix + thread.getId());
+            thread.start();
+        }
     }
 }
