@@ -1873,7 +1873,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             return -1;
         }
 
-        return ByteUtils.bytesToInt(e.value());
+        return ByteUtils.bytesToIntKeepingOrder(e.value());
     }
 
     private static CompletableFuture<?> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
