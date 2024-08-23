@@ -120,6 +120,10 @@ public class IgniteRpcClient implements RpcClientEx {
 
                 blockedMsgs.add(msgData);
 
+                if (timeoutMs > 0) {
+                    fut.orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
+                }
+
                 LOG.info("Blocked message to={} id={} msg={}", peerId.toString(), msgData[2], S.toString(request));
 
                 return fut;
