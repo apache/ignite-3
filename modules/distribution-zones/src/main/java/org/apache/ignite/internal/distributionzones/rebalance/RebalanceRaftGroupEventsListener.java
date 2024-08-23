@@ -46,7 +46,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -121,7 +120,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
     /** Function that calculates assignments for table's partition. */
-    private final BiFunction<TablePartitionId, HybridTimestamp, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
+    private final BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
 
     /**
      * Constructs new listener.
@@ -138,7 +137,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             TablePartitionId tablePartitionId,
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
-            BiFunction<TablePartitionId, HybridTimestamp, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
+            BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
             ScheduledExecutorService rebalanceScheduler
     ) {
         this.metaStorageMgr = metaStorageMgr;
@@ -376,7 +375,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Update successCase;
             Update failCase;
 
-            HybridTimestamp catalogTimestamp = pendingAssignments.timestamp();
+            long catalogTimestamp = pendingAssignments.timestamp();
 
             byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft, catalogTimestamp);
             byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition, catalogTimestamp);

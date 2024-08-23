@@ -61,7 +61,6 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -297,7 +296,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     table.id(),
                     partitionIds,
                     nodeNames,
-                    HybridTimestamp.hybridTimestamp(catalog.time())
+                    catalog.time()
             ));
         } catch (Throwable t) {
             return failedFuture(t);

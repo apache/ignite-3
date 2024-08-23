@@ -158,7 +158,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private AssignmentsTracker assignmentsPlacementDriver;
 
-    private HybridTimestamp assignmentsTimestamp;
+    private long assignmentsTimestamp;
 
     @Nullable
     private ClusterNode leaseholder;
@@ -193,7 +193,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         leaseholder = FAKE_NODE;
 
-        assignmentsTimestamp = clockService.now();
+        assignmentsTimestamp = clockService.now().longValue();
     }
 
     @AfterEach

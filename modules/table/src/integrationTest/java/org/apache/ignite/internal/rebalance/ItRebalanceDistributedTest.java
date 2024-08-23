@@ -135,7 +135,6 @@ import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -729,8 +728,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
             int catalogVersion = node.catalogManager.latestCatalogVersion();
-            long time = node.catalogManager.catalog(catalogVersion).time();
-            HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+            long timestamp = node.catalogManager.catalog(catalogVersion).time();
 
             byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment, timestamp);
 
@@ -803,8 +801,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
         int catalogVersion = node.catalogManager.latestCatalogVersion();
-        long time = node.catalogManager.catalog(catalogVersion).time();
-        HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+        long timestamp = node.catalogManager.catalog(catalogVersion).time();
 
         byte[] bytesPendingAssignments = Assignments.toBytes(newAssignment, timestamp);
 
@@ -894,8 +891,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Node node0 = getNode(0);
 
         int catalogVersion = node0.catalogManager.latestCatalogVersion();
-        long time = node0.catalogManager.catalog(catalogVersion).time();
-        HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+        long timestamp = node0.catalogManager.catalog(catalogVersion).time();
 
         byte[] bytesPendingAssignments = Assignments.toBytes(pendingAssignments, timestamp);
         byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments, timestamp);

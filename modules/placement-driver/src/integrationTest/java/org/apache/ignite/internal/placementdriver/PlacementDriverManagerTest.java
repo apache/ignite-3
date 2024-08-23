@@ -151,7 +151,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     private final AtomicInteger nextTableId = new AtomicInteger();
 
-    private final HybridTimestamp assignmentsTimestamp = new HybridTimestamp(0, 1);
+    private final long assignmentsTimestamp = new HybridTimestamp(0, 1).longValue();
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {

@@ -1597,8 +1597,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Populate the stable assignments before calling table create, if needed.
         if (populateStableAssignmentsBeforeTableCreation) {
             int catalogVersion = node.catalogManager().latestCatalogVersion();
-            long time = node.catalogManager().catalog(catalogVersion).time();
-            HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+            long timestamp = node.catalogManager().catalog(catalogVersion).time();
 
             node.metaStorageManager().put(
                     stablePartAssignmentsKey(partId),

@@ -97,7 +97,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private BiFunction<String, LeaseGrantedMessage, LeaseGrantedMessageResponse> leaseGrantedMessageHandler;
 
-    private final HybridTimestamp assignmentsTimestamp = new HybridTimestamp(0, 1);
+    private final long assignmentsTimestamp = new HybridTimestamp(0, 1).longValue();
 
     @BeforeEach
     public void setUp() {

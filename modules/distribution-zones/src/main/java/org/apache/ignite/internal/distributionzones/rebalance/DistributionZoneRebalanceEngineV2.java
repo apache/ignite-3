@@ -40,7 +40,6 @@ import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -157,7 +156,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
                     Catalog catalog = catalogService.catalog(catalogVersion);
 
-                    HybridTimestamp assignmentsTimestamp = HybridTimestamp.hybridTimestamp(catalog.time());
+                    long assignmentsTimestamp = catalog.time();
 
                     CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
 
@@ -231,7 +230,7 @@ public class DistributionZoneRebalanceEngineV2 {
                             causalityToken,
                             metaStorageManager,
                             busyLock,
-                            HybridTimestamp.hybridTimestamp(catalog.time())
+                            catalog.time()
                     );
                 }));
     }

@@ -119,7 +119,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, replicas);
     private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, replicas);
 
-    private HybridTimestamp assignmentsTimestamp;
+    private long assignmentsTimestamp;
 
     @BeforeEach
     public void setUp() {
@@ -203,7 +203,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             return ret;
         });
 
-        assignmentsTimestamp = clock.now();
+        assignmentsTimestamp = clock.now().longValue();
     }
 
     @AfterEach
@@ -490,7 +490,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             Set<Assignment> expectedStableAssignments,
             Set<Assignment> expectedPendingAssignments,
             Set<Assignment> expectedPlannedAssignments,
-            HybridTimestamp assignmentsTimestamp
+            long assignmentsTimestamp
     ) {
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 

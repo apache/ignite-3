@@ -161,7 +161,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                     msRevision,
                     disasterRecoveryManager.metaStorageManager,
                     localStatesMap,
-                    msSafeTime
+                    catalog.time()
             );
 
             return allOf(futures);
@@ -190,7 +190,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             long revision,
             MetaStorageManager metaStorageManager,
             Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
-            HybridTimestamp timestamp
+            long assignmentsTimestamp
     ) {
         CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
@@ -220,7 +220,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                             metaStorageManager,
                             tableAssignments.get(replicaGrpId.partitionId()).nodes(),
                             localStatesMap.get(replicaGrpId),
-                            timestamp
+                            assignmentsTimestamp
                     )).thenAccept(res -> {
                         DisasterRecoveryManager.LOG.info(
                                 "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
@@ -241,7 +241,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             MetaStorageManager metaStorageMgr,
             Set<Assignment> currentAssignments,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
-            HybridTimestamp timestamp
+            long assignmentsTimestamp
     ) {
         Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
         Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
@@ -260,7 +260,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(partAssignments, timestamp).toBytes(),
+                    Assignments.forced(partAssignments, assignmentsTimestamp).toBytes(),
                     null
             );
         } else {
@@ -272,8 +272,8 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(stableAssignments, timestamp).toBytes(),
-                    Assignments.toBytes(partAssignments, timestamp)
+                    Assignments.forced(stableAssignments, assignmentsTimestamp).toBytes(),
+                    Assignments.toBytes(partAssignments, assignmentsTimestamp)
             );
         }
 

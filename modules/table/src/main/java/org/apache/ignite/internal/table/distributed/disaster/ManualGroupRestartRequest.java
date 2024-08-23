@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 
@@ -42,7 +41,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
 
     private final Set<String> nodeNames;
 
-    private final HybridTimestamp assignmentsTimestamp;
+    private final long assignmentsTimestamp;
 
     ManualGroupRestartRequest(
             UUID operationId,
@@ -50,7 +49,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
             int tableId,
             Set<Integer> partitionIds,
             Set<String> nodeNames,
-            HybridTimestamp assignmentsTimestamp
+            long assignmentsTimestamp
     ) {
         this.operationId = operationId;
         this.zoneId = zoneId;

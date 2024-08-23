@@ -147,7 +147,7 @@ public class ZoneRebalanceUtil {
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> zoneCfgPartAssignments,
-            HybridTimestamp assignmentsTimestamp
+            long assignmentsTimestamp
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
 
@@ -284,7 +284,7 @@ public class ZoneRebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager,
             IgniteSpinBusyLock busyLock,
-            HybridTimestamp assignmentsTimestamp
+            long assignmentsTimestamp
     ) {
         CompletableFuture<Map<Integer, Assignments>> zoneAssignmentsFut = zoneAssignments(
                 metaStorageManager,

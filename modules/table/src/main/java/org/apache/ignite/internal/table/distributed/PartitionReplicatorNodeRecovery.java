@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.MessagingService;
@@ -169,12 +168,12 @@ class PartitionReplicatorNodeRecovery {
             InternalTable internalTable,
             PeersAndLearners newConfiguration,
             Assignment localMemberAssignment,
-            HybridTimestamp timestamp
+            long assignmentsTimestamp
     ) {
         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
         // from the Raft group in order to avoid the double vote problem.
         if (mightNeedGroupRecovery(internalTable)) {
-            return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment, timestamp);
+            return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment, assignmentsTimestamp);
         }
 
         return trueCompletedFuture();
@@ -190,7 +189,7 @@ class PartitionReplicatorNodeRecovery {
             TablePartitionId tablePartitionId,
             PeersAndLearners newConfiguration,
             Assignment localMemberAssignment,
-            HybridTimestamp timestamp
+            long assignmentsTimestamp
     ) {
         int tableId = tablePartitionId.tableId();
         int partId = tablePartitionId.partitionId();
@@ -208,7 +207,7 @@ class PartitionReplicatorNodeRecovery {
                     boolean majorityAvailable = dataNodesCounts.nonEmptyNodes >= (newConfiguration.peers().size() / 2) + 1;
 
                     if (majorityAvailable) {
-                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager, timestamp);
+                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager, assignmentsTimestamp);
 
                         return false;
                     } else {

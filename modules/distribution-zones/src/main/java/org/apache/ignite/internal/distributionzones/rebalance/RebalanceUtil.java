@@ -146,7 +146,7 @@ public class RebalanceUtil {
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> tableCfgPartAssignments,
-            HybridTimestamp assignmentsTimestamp
+            long assignmentsTimestamp
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
 
@@ -282,7 +282,7 @@ public class RebalanceUtil {
             Set<String> dataNodes,
             long storageRevision,
             MetaStorageManager metaStorageManager,
-            HybridTimestamp assignmentsTimestamp
+            long assignmentsTimestamp
     ) {
         CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,

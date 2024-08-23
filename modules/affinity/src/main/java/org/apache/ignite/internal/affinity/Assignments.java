@@ -42,7 +42,7 @@ public class Assignments implements Serializable {
 
     /** Empty assignments. */
     public static final Assignments EMPTY =
-            new Assignments(Collections.emptySet(), false, HybridTimestamp.MIN_VALUE);
+            new Assignments(Collections.emptySet(), false, HybridTimestamp.NULL_HYBRID_TIMESTAMP);
 
     /** Set of nodes. */
     @IgniteToStringInclude
@@ -56,12 +56,12 @@ public class Assignments implements Serializable {
     private final boolean force;
 
     /** Time when the catalog version that the assignments were calculated against becomes active (i. e. available for use). */
-    private final HybridTimestamp timestamp;
+    private final long timestamp;
 
     /**
      * Constructor.
      */
-    private Assignments(Collection<Assignment> nodes, boolean force, HybridTimestamp timestamp) {
+    private Assignments(Collection<Assignment> nodes, boolean force, long timestamp) {
         // A set of nodes must be a HashSet in order for serialization to produce stable results,
         // that could be compared as byte arrays.
         this.nodes = nodes instanceof HashSet ? ((HashSet<Assignment>) nodes) : new HashSet<>(nodes);
@@ -74,7 +74,7 @@ public class Assignments implements Serializable {
      *
      * @param nodes Set of nodes.
      */
-    public static Assignments of(Set<Assignment> nodes, HybridTimestamp timestamp) {
+    public static Assignments of(Set<Assignment> nodes, long timestamp) {
         return new Assignments(nodes, false, timestamp);
     }
 
@@ -83,7 +83,7 @@ public class Assignments implements Serializable {
      *
      * @param nodes Array of nodes.
      */
-    public static Assignments of(HybridTimestamp timestamp, Assignment... nodes) {
+    public static Assignments of(long timestamp, Assignment... nodes) {
         return new Assignments(Arrays.asList(nodes), false, timestamp);
     }
 
@@ -93,7 +93,7 @@ public class Assignments implements Serializable {
      * @param nodes Set of nodes.
      * @see #force()
      */
-    public static Assignments forced(Set<Assignment> nodes, HybridTimestamp timestamp) {
+    public static Assignments forced(Set<Assignment> nodes, long timestamp) {
         return new Assignments(nodes, true, timestamp);
     }
 
@@ -116,7 +116,7 @@ public class Assignments implements Serializable {
     /**
      * Returns a timestamp when the catalog version that the assignments were calculated against becomes active.
      */
-    public HybridTimestamp timestamp() {
+    public long timestamp() {
         return timestamp;
     }
 
@@ -148,7 +148,7 @@ public class Assignments implements Serializable {
      *
      * @see #toBytes()
      */
-    public static byte[] toBytes(Set<Assignment> assignments, HybridTimestamp timestamp) {
+    public static byte[] toBytes(Set<Assignment> assignments, long timestamp) {
         return new Assignments(assignments, false, timestamp).toBytes();
     }
 

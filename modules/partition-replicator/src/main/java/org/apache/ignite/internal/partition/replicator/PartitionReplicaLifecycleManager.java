@@ -596,14 +596,14 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             // Safe to get catalog by version here as the version either comes from iteration from the latest to earliest,
             // or from the handler of catalog version creation.
             Catalog catalog = catalogMgr.catalog(catalogVersion);
-            HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(catalog.time());
+            long assignmentsTimestamp = catalog.time();
 
             assignmentsFuture = distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
                     .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
                             dataNodes,
                             zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
-                    ).stream().map(assignments -> Assignments.of(assignments, timestamp)).collect(toList()));
+                    ).stream().map(assignments -> Assignments.of(assignments, assignmentsTimestamp)).collect(toList()));
 
             assignmentsFuture.thenAccept(assignmentsList -> LOG.info(
                     "Assignments calculated from data nodes [zone={}, zoneId={}, assignments={}, revision={}]",
@@ -700,10 +700,10 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
 
                     Assignments assignments = Assignments.fromBytes(evt.entryEvent().newEntry().value());
 
-                    HybridTimestamp assignmentsTimestamp = assignments.timestamp();
+                    long assignmentsTimestamp = assignments.timestamp();
 
                     return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                        int catalogVersion = catalogMgr.activeCatalogVersion(assignmentsTimestamp.longValue());
+                        int catalogVersion = catalogMgr.activeCatalogVersion(assignmentsTimestamp);
 
                         CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zoneId, catalogVersion);
 
@@ -1058,8 +1058,8 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
         return assignments.stream().anyMatch(isLocalNodeAssignment);
     }
 
-    private CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        return schemaSyncService.waitForMetadataCompleteness(ts);
+    private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
+        return schemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
     }
 
     /**

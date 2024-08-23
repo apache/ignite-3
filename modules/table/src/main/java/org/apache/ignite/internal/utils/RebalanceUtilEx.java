@@ -40,7 +40,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -67,7 +66,7 @@ public class RebalanceUtilEx {
             TablePartitionId partId,
             Assignment peerAssignment,
             MetaStorageManager metaStorageMgr,
-            HybridTimestamp timestamp
+            long assignmentsTimestamp
     ) {
         ByteArray key = switchReduceKey(partId);
 
@@ -86,7 +85,7 @@ public class RebalanceUtilEx {
                                 Operations.noop()
                         );
                     } else {
-                        var newValue = Assignments.of(new HashSet<>(), timestamp);
+                        var newValue = Assignments.of(new HashSet<>(), assignmentsTimestamp);
 
                         newValue.add(peerAssignment);
 
@@ -98,7 +97,7 @@ public class RebalanceUtilEx {
                     }
                 }).thenCompose(res -> {
                     if (!res) {
-                        return startPeerRemoval(partId, peerAssignment, metaStorageMgr, timestamp);
+                        return startPeerRemoval(partId, peerAssignment, metaStorageMgr, assignmentsTimestamp);
                     }
 
                     return nullCompletedFuture();
@@ -122,7 +121,7 @@ public class RebalanceUtilEx {
             int replicas,
             TablePartitionId partId,
             WatchEvent event,
-            HybridTimestamp timestamp
+            long assignmentsTimestamp
     ) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
@@ -141,8 +140,8 @@ public class RebalanceUtilEx {
 
         Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments, timestamp);
-        byte[] assignmentsByteArray = Assignments.toBytes(assignments, timestamp);
+        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments, assignmentsTimestamp);
+        byte[] assignmentsByteArray = Assignments.toBytes(assignments, assignmentsTimestamp);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
         byte[] rev = longToBytesKeepingOrder(entry.revision());

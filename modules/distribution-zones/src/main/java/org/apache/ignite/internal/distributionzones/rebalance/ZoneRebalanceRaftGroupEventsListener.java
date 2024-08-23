@@ -53,7 +53,6 @@ import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -399,7 +398,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Update successCase;
             Update failCase;
 
-            HybridTimestamp catalogTimestamp = pendingAssignments.timestamp();
+            long catalogTimestamp = pendingAssignments.timestamp();
 
             byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft, catalogTimestamp);
             byte[] additionByteArray = Assignments.toBytes(calculatedPendingAddition, catalogTimestamp);
@@ -566,7 +565,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             int replicas,
             ZonePartitionId partId,
             WatchEvent event,
-            HybridTimestamp assignmentsTimestamp
+            long assignmentsTimestamp
     ) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();

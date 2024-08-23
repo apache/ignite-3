@@ -69,7 +69,6 @@ import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -356,8 +355,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
 
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
-        long time = node0.catalogManager().catalog(catalogVersion).time();
-        HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(time);
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
 
         Assignments assignment013 = Assignments.of(timestamp,
                 Assignment.forPeer(node(0).name()),
