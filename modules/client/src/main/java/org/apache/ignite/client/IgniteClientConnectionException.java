@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -28,7 +29,7 @@ public class IgniteClientConnectionException extends IgniteException {
     private static final long serialVersionUID = 0L;
 
     /** The endpoint that caused the exception. */
-    private final String endpoint;
+    private final @Nullable String endpoint;
 
     /**
      * Constructs a new exception with the specified cause and detail message.
@@ -37,8 +38,8 @@ public class IgniteClientConnectionException extends IgniteException {
      * @param msg   the detail message.
      * @param cause the cause.
      */
-    public IgniteClientConnectionException(int code, String msg, String endpoint, @Nullable Throwable cause) {
-        super(code, msg, cause);
+    public IgniteClientConnectionException(int code, String msg, @Nullable String endpoint, @Nullable Throwable cause) {
+        super(code, getMessage(msg, endpoint), cause);
 
         this.endpoint = endpoint;
     }
@@ -49,7 +50,7 @@ public class IgniteClientConnectionException extends IgniteException {
      * @param code  the error code.
      * @param msg   the detail message.
      */
-    public IgniteClientConnectionException(int code, String msg, String endpoint) {
+    public IgniteClientConnectionException(int code, String msg, @Nullable String endpoint) {
         this(code, msg, endpoint, null);
     }
 
@@ -58,7 +59,11 @@ public class IgniteClientConnectionException extends IgniteException {
      *
      * @return the endpoint that caused the exception.
      */
-    public String endpoint() {
+    public @Nullable String endpoint() {
         return endpoint;
+    }
+
+    private static @NotNull String getMessage(String msg, String endpoint) {
+        return endpoint == null || endpoint.isEmpty() ? msg : msg + " [endpoint=" + endpoint + "]";
     }
 }
