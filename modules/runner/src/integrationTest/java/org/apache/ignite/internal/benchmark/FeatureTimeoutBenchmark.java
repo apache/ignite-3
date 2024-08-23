@@ -51,7 +51,14 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Feature timeout benchmark.
+ * Feature timeout benchmark - measures the latency of the assignment of the future timeout in two ways:
+ * 1. Based on the embedded CompletableFuture#orTimeout.
+ * 2. Based on the additional thread that is scanning collection and completing all the futures already have been explored.
+ *
+ * <p>Results on 11th Gen Intel® Core™ i7-1165G7 @ 2.80GHz, openjdk 11.0.24, Windows 10 Pro:
+ * Benchmark                     (useFutureEmbeddedTimeout)  Mode  Cnt   Score    Error  Units
+ * FeatureTimeoutBenchmark.test                       false  avgt   20   1,501 ±  0,058  us/op
+ * FeatureTimeoutBenchmark.test                        true  avgt   20  32,573 ± 47,598  us/op
  */
 @State(Scope.Benchmark)
 @Fork(1)
@@ -102,7 +109,8 @@ public class FeatureTimeoutBenchmark {
                     } catch (ExecutionException e) {
                         assert e.getCause() instanceof TimeoutException : "Unexpected exception type: " + e.getCause().getClass();
                     } catch (TimeoutException e) {
-                        throw new RuntimeException(e);
+                        // Ignore exception.
+                        break;
                     }
                 }
             }
@@ -129,10 +137,10 @@ public class FeatureTimeoutBenchmark {
                 futs.put(ID_GEN.incrementAndGet(), fut);
 
                 fut.orTimeout(10, TimeUnit.MILLISECONDS);
+            }
 
-                if (futs.size() > 100_000) {
-                    futs = new ConcurrentHashMap<>();
-                }
+            if (futs.size() > 100_000) {
+                futs = new ConcurrentHashMap<>();
             }
         } else {
             for (int i = 0; i < 10; i++) {
@@ -140,10 +148,10 @@ public class FeatureTimeoutBenchmark {
                         System.currentTimeMillis() + 10,
                         new CompletableFuture()
                 ));
+            }
 
-                if (requestsMap.size() > 100_000) {
-                    requestsMap = new ConcurrentHashMap<>();
-                }
+            if (requestsMap.size() > 100_000) {
+                requestsMap = new ConcurrentHashMap<>();
             }
         }
     }
