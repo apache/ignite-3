@@ -79,7 +79,7 @@ public class IgniteClientConnectionException extends IgniteException {
         return endpoint;
     }
 
-    private static @NotNull String getMessage(String msg, String endpoint) {
+    private static @NotNull String getMessage(String msg, @Nullable String endpoint) {
         return endpoint == null || endpoint.isEmpty() ? msg : msg + " [endpoint=" + endpoint + "]";
     }
 }
