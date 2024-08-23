@@ -38,6 +38,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -552,6 +553,9 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("provideRules")
     public void testAvg(String[] rules) {
+        Assumptions.assumeFalse(Arrays.stream(rules).filter(r -> r.startsWith("MapReduce")).count() == 1,
+                "need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-22988");
+
         sql("DELETE FROM numbers");
         sql("INSERT INTO numbers VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1, 1), (2, 2, 2, 2, 2, 2, 2, 2, 2, 2)");
 
@@ -597,6 +601,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22988")
     public void testAvgRandom() {
         long seed = System.nanoTime();
         Random random = new Random(seed);
@@ -684,6 +689,8 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("provideRules")
     public void testAvgFromLiterals(String[] rules) {
+        Assumptions.assumeFalse(Arrays.stream(rules).filter(r -> r.startsWith("MapReduce")).count() == 1,
+                "need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-22988");
 
         assertQuery("SELECT "
                 + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), "

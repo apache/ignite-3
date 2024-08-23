@@ -199,18 +199,6 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     public void afterTest() {
         ComponentContext componentContext = new ComponentContext();
 
-        if (logStorageFactory3 != null) {
-            assertThat(logStorageFactory3.stopAsync(componentContext), willCompleteSuccessfully());
-        }
-
-        if (logStorageFactory2 != null) {
-            assertThat(logStorageFactory2.stopAsync(componentContext), willCompleteSuccessfully());
-        }
-
-        if (logStorageFactory1 != null) {
-            assertThat(logStorageFactory1.stopAsync(componentContext), willCompleteSuccessfully());
-        }
-
         if (metaStorageRaftSrv3 != null) {
             metaStorageRaftSrv3.stopRaftNodes(MetastorageGroupId.INSTANCE);
             assertThat(metaStorageRaftSrv3.stopAsync(componentContext), willCompleteSuccessfully());
@@ -227,6 +215,18 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
             metaStorageRaftSrv1.stopRaftNodes(MetastorageGroupId.INSTANCE);
             assertThat(metaStorageRaftSrv1.stopAsync(componentContext), willCompleteSuccessfully());
             metaStorageRaftGrpSvc1.shutdown();
+        }
+
+        if (logStorageFactory3 != null) {
+            assertThat(logStorageFactory3.stopAsync(componentContext), willCompleteSuccessfully());
+        }
+
+        if (logStorageFactory2 != null) {
+            assertThat(logStorageFactory2.stopAsync(componentContext), willCompleteSuccessfully());
+        }
+
+        if (logStorageFactory1 != null) {
+            assertThat(logStorageFactory1.stopAsync(componentContext), willCompleteSuccessfully());
         }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);

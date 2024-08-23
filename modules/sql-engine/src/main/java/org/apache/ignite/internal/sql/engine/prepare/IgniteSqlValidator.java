@@ -45,7 +45,9 @@ import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.runtime.PairList;
+import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
@@ -78,6 +80,7 @@ import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.AliasNamespace;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
 import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
@@ -289,6 +292,28 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             syncSelectList(select, update);
         }
     }
+
+    @Override
+    public CalciteContextException newValidationError(
+            SqlNode node,
+            Resources.ExInst<SqlValidatorException> e
+    ) {
+        CalciteContextException ex = super.newValidationError(node, e);
+
+        String newMessage = IgniteSqlValidatorErrorMessages.resolveErrorMessage(ex.getMessage());
+
+        CalciteContextException newEx;
+        if (newMessage != null) {
+            newEx = new IgniteContextException(newMessage, ex.getCause());
+            newEx.setPosition(ex.getPosLine(), ex.getPosColumn(), ex.getEndPosLine(), ex.getEndPosColumn());
+            newEx.setOriginalStatement(ex.getOriginalStatement());
+        } else {
+            newEx = ex;
+        }
+
+        return newEx;
+    }
+
 
     private IgniteTable getTableForModification(SqlIdentifier identifier) {
         SqlValidatorTable table = getCatalogReader().getTable(identifier.names);

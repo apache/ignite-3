@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -34,8 +35,11 @@ import static org.mockito.Mockito.verify;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.EventListener;
@@ -47,6 +51,7 @@ import org.apache.ignite.internal.security.authentication.event.AuthenticationPr
 import org.apache.ignite.internal.security.authentication.event.UserEventParameters;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
@@ -65,7 +70,10 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
     private static final UsernamePasswordRequest USERNAME_PASSWORD_REQUEST = new UsernamePasswordRequest(USERNAME, PASSWORD);
 
-    @InjectConfiguration(polymorphicExtensions = CustomAuthenticationProviderConfigurationSchema.class, rootName = "security")
+    @InjectConfiguration(polymorphicExtensions = CustomAuthenticationProviderConfigurationSchema.class, rootName = "ignite",
+            type = ConfigurationType.DISTRIBUTED)
+    private ClusterConfiguration clusterConfiguration;
+
     private SecurityConfiguration securityConfiguration;
 
     private AuthenticationManagerImpl manager;
@@ -79,6 +87,8 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
+        securityConfiguration = ((SecurityExtensionConfiguration) clusterConfiguration).security();
+
         manager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
 
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.listen(event, listener));
@@ -271,7 +281,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // successful authentication with valid credentials
-        assertEquals(USERNAME, manager.authenticate(USERNAME_PASSWORD_REQUEST).username());
+        assertEquals(USERNAME, manager.authenticateAsync(USERNAME_PASSWORD_REQUEST).join().username());
     }
 
     @Test
@@ -281,8 +291,10 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // failed authentication with invalid credentials
-        assertThrows(InvalidCredentialsException.class,
-                () -> manager.authenticate(new UsernamePasswordRequest(USERNAME, "invalid-password")));
+        CompletionException ex = assertThrows(CompletionException.class,
+                () -> manager.authenticateAsync(new UsernamePasswordRequest(USERNAME, "invalid-password")).join());
+
+        assertInstanceOf(InvalidCredentialsException.class, ex.getCause());
     }
 
     @Test
@@ -291,7 +303,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         disableAuthentication();
 
         // then
-        assertEquals(UserDetails.UNKNOWN, manager.authenticate(USERNAME_PASSWORD_REQUEST));
+        assertEquals(UserDetails.UNKNOWN, manager.authenticateAsync(USERNAME_PASSWORD_REQUEST).join());
     }
 
     @Test
@@ -299,26 +311,26 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         UsernamePasswordRequest credentials = new UsernamePasswordRequest("admin", "password");
 
         Authenticator authenticator1 = mock(Authenticator.class);
-        doThrow(new InvalidCredentialsException("Invalid credentials")).when(authenticator1).authenticate(credentials);
+        doThrow(new InvalidCredentialsException("Invalid credentials")).when(authenticator1).authenticateAsync(credentials);
 
         Authenticator authenticator2 = mock(Authenticator.class);
-        doThrow(new UnsupportedAuthenticationTypeException("Unsupported type")).when(authenticator2).authenticate(credentials);
+        doThrow(new UnsupportedAuthenticationTypeException("Unsupported type")).when(authenticator2).authenticateAsync(credentials);
 
         Authenticator authenticator3 = mock(Authenticator.class);
-        doThrow(new RuntimeException("Test exception")).when(authenticator3).authenticate(credentials);
+        doThrow(new RuntimeException("Test exception")).when(authenticator3).authenticateAsync(credentials);
 
         Authenticator authenticator4 = mock(Authenticator.class);
-        doReturn(new UserDetails("admin", "mock")).when(authenticator4).authenticate(credentials);
+        doReturn(CompletableFuture.completedFuture(new UserDetails("admin", "mock")))
+                .when(authenticator4).authenticateAsync(credentials);
 
-        manager.authEnabled(true);
         manager.authenticators(List.of(authenticator1, authenticator2, authenticator3, authenticator4));
 
-        assertEquals("admin", manager.authenticate(credentials).username());
+        assertEquals("admin", manager.authenticateAsync(credentials).join().username());
 
-        verify(authenticator1).authenticate(credentials);
-        verify(authenticator2).authenticate(credentials);
-        verify(authenticator3).authenticate(credentials);
-        verify(authenticator4).authenticate(credentials);
+        verify(authenticator1).authenticateAsync(credentials);
+        verify(authenticator2).authenticateAsync(credentials);
+        verify(authenticator3).authenticateAsync(credentials);
+        verify(authenticator4).authenticateAsync(credentials);
     }
 
     private void enableAuthentication() {

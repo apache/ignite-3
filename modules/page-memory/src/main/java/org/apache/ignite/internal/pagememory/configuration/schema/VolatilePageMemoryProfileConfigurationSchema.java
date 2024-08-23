@@ -46,8 +46,4 @@ public class VolatilePageMemoryProfileConfigurationSchema extends StorageProfile
     /** Maximum memory region size in bytes. */
     @Value(hasDefault = true)
     public long maxSize = DFLT_DATA_REGION_MAX_SIZE;
-
-    /** Maximum amount of empty pages to keep in memory. */
-    @Value(hasDefault = true)
-    public int emptyPagesPoolSize = 100;
 }

@@ -44,7 +44,7 @@ public class NodeConfig {
      * @return Config pattern.
      */
     public static String restSslBootstrapConfig(@Nullable String ciphers) {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
@@ -81,7 +81,7 @@ public class NodeConfig {
      * @return Config pattern.
      */
     public static String clientConnectorSslBootstrapConfig(@Nullable String ciphers) {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"

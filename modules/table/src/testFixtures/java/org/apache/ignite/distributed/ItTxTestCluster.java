@@ -40,7 +40,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -603,12 +602,7 @@ public class ItTxTestCluster {
                 .mapToObj(i -> new TablePartitionId(tableId, i))
                 .collect(toList());
 
-        Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
-
         List<CompletableFuture<?>> partitionReadyFutures = new ArrayList<>();
-
-        ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
-                new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
 
         int indexId = globalCatalogId.getAndIncrement();
 

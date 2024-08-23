@@ -184,7 +184,7 @@ public class AbstractMultiNodeBenchmark {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         @Language("HOCON")
-        String configTemplate = "{\n"
+        String configTemplate = "ignite {\n"
                 + "  \"network\": {\n"
                 + "    \"port\":{},\n"
                 + "    \"nodeFinder\":{\n"

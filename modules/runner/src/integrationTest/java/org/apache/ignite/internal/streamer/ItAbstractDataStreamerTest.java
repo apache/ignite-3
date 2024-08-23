@@ -188,7 +188,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SimplePublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
+            var options = DataStreamerOptions.builder().autoFlushInterval(100).build();
             streamerFut = view.streamData(publisher, options);
 
             publisher.submit(tuple(1, "foo"));
@@ -204,7 +204,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SimplePublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
+            var options = DataStreamerOptions.builder().autoFlushInterval(-1).build();
             streamerFut = view.streamData(publisher, options);
 
             publisher.submit(tuple(1, "foo"));

@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.junit.jupiter.api.Test;
 
 class ItEventLogConfigurationValidationTest extends ClusterPerClassIntegrationTest {
@@ -51,6 +52,7 @@ class ItEventLogConfigurationValidationTest extends ClusterPerClassIntegrationTe
     }
 
     private static EventLogConfiguration eventLogConfiguration() {
-        return unwrapIgniteImpl(CLUSTER.aliveNode()).clusterConfiguration().getConfiguration(EventLogConfiguration.KEY);
+        return unwrapIgniteImpl(CLUSTER.aliveNode()).clusterConfiguration()
+                .getConfiguration(EventLogExtensionConfiguration.KEY).eventlog();
     }
 }

@@ -24,7 +24,7 @@ public class FastTimestamps {
     private static volatile long coarseCurrentTimeMillis = System.currentTimeMillis();
 
     /** Note: don't change this value, because it's crucial for a timestamp generation. */
-    private static final long UPDATE_FREQUENCY_MS = 1;
+    private static final long UPDATE_INTERVAL_MS = 1;
 
     static {
         startUpdater();
@@ -38,7 +38,7 @@ public class FastTimestamps {
                 while (true) {
                     coarseCurrentTimeMillis = System.currentTimeMillis();
                     try {
-                        Thread.sleep(UPDATE_FREQUENCY_MS);
+                        Thread.sleep(UPDATE_INTERVAL_MS);
                     } catch (InterruptedException e) {
                         break;
                     }
