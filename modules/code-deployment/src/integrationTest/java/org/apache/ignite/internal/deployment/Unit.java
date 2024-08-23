@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
+import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
 
 class Unit {
     private final IgniteImpl deployedNode;
@@ -94,7 +94,7 @@ class Unit {
 
     Path getNodeUnitDirectory(IgniteImpl ignite) {
         String deploymentFolder = ignite.nodeConfiguration()
-                .getConfiguration(DeploymentConfiguration.KEY)
+                .getConfiguration(DeploymentExtensionConfiguration.KEY).deployment()
                 .deploymentLocation().value();
         return workDir
                 .resolve(ignite.name())

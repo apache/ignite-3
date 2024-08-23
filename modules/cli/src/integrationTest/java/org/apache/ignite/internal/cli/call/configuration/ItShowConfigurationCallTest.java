@@ -59,7 +59,7 @@ class ItShowConfigurationCallTest extends CliIntegrationTest {
         // Given
         var input = ClusterConfigShowCallInput.builder()
                 .clusterUrl(NODE_URL)
-                .selector("gc.batchSize")
+                .selector("ignite.gc.batchSize")
                 .build();
 
         // When
@@ -94,7 +94,7 @@ class ItShowConfigurationCallTest extends CliIntegrationTest {
         // Given
         var input = NodeConfigShowCallInput.builder()
                 .nodeUrl(NODE_URL)
-                .selector("clientConnector.connectTimeout")
+                .selector("ignite.clientConnector.connectTimeout")
                 .build();
 
         // When

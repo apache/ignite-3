@@ -49,7 +49,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
@@ -66,7 +66,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
-    public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
@@ -87,7 +87,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
-    protected static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    protected static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"

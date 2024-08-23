@@ -29,6 +29,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-transactions')
     implementation project(':ignite-catalog')
@@ -37,6 +38,8 @@ dependencies {
     implementation libs.auto.service.annotations
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    testAnnotationProcessor libs.jmh.annotation.processor
+
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation project(':ignite-configuration')
@@ -47,6 +50,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
+    testImplementation libs.jmh.core
 }
 
 description = 'ignite-storage-rocksdb'

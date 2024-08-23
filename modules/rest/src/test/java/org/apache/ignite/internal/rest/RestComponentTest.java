@@ -39,14 +39,18 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
+import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
+import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -68,12 +72,19 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
     private HttpClient client;
 
+    @InjectConfiguration
+    private SecurityConfiguration securityConfiguration;
+
     @BeforeEach
     public void setup() {
 
-        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(RestConfiguration.KEY, NetworkConfiguration.KEY);
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+                List.of(NodeConfiguration.KEY),
+                List.of(RestExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
+                List.of()
+        );
         ConfigurationManager configurationManager = new ConfigurationManager(
-                List.of(RestConfiguration.KEY, NetworkConfiguration.KEY),
+                List.of(NodeConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
                 new TestConfigurationValidator()
@@ -81,8 +92,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
         assertThat(configurationManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ConfigurationRegistry configurationRegistry = configurationManager.configurationRegistry();
-        RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestConfiguration.KEY);
-        SecurityConfiguration securityConfiguration = configurationRegistry.getConfiguration(SecurityConfiguration.KEY);
+        RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestExtensionConfiguration.KEY).rest();
 
         ClusterManagementGroupManager cmg = mock(ClusterManagementGroupManager.class);
 

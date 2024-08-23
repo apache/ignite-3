@@ -300,6 +300,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         });
     }
 
+    @Override
+    public @Nullable ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        Lease lease = getLease(replicationGroupId);
+
+        if (lease.isAccepted() && clockService.after(lease.getExpirationTime(), timestamp)) {
+            return lease;
+        }
+
+        return null;
+    }
+
     /**
      * Helper method that checks whether tracker for given groupId is present in {@code primaryReplicaWaiters} map, whether it's empty
      * and removes it if it's true.

@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for StorageUpdateHandler.
  */
-@ConfigurationRoot(rootName = "storageUpdate", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class StorageUpdateConfigurationSchema {
 
     /**

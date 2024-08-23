@@ -1,4 +1,3 @@
-#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements. See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -13,11 +12,43 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
-# Overrides messages used by Apache Calcite.
-# This message should be the same as or very similar to the one produced by
-# org.apache.ignite.internal.schema.Column::nullConstraintViolationMessage
-ColumnNotNullable=Column ''{0}'' does not allow NULLs
-# TODO Remove this after https://issues.apache.org/jira/browse/IGNITE-22295
-NaturalOrUsingColumnNotCompatible=Column ''{0}'' matched using NATURAL keyword or USING clause has incompatible types in this context: ''{1}'' to ''{2}''
+NIL = 0
+
+BOOLEAN = 1
+
+INT8 = 2
+
+INT16 = 3
+
+INT32 = 4
+
+INT64 = 5
+
+FLOAT = 6
+
+DOUBLE = 7
+
+DECIMAL = 8
+
+DATE = 9
+
+TIME = 10
+
+DATETIME = 11
+
+TIMESTAMP = 12
+
+UUID = 13
+
+BITMASK = 14
+
+STRING = 15
+
+BYTE_ARRAY = 16
+
+PERIOD = 17
+
+DURATION = 18
+
+NUMBER = 19

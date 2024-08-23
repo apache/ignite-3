@@ -42,7 +42,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.BeforeEach;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -51,12 +51,7 @@ import org.junit.jupiter.api.Test;
 public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
     private static final int PARTITIONS = 10;
 
-    private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
-
-    @BeforeEach
-    void setUp() {
-        mvPartitionStorages = new MvPartitionStorages(0, PARTITIONS);
-    }
+    private final MvPartitionStorages<MvPartitionStorage> mvPartitionStorages = new MvPartitionStorages<>(0, PARTITIONS);
 
     @Test
     void testGet() {
@@ -572,18 +567,24 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
 
     @Test
     void testWaitOperationOnGetAllForCloseOrDestroy() {
-        CompletableFuture<Void> createStorageOperationFuture = new CompletableFuture<>();
-        CompletableFuture<Void> destroyStorageOperationFuture = new CompletableFuture<>();
-        CompletableFuture<Void> clearStorageOperationFuture = new CompletableFuture<>();
-        CompletableFuture<Void> startRebalanceStorageOperationFuture = new CompletableFuture<>();
-        CompletableFuture<Void> abortRebalanceStorageOperationFuture = new CompletableFuture<>();
-        CompletableFuture<Void> finishRebalanceStorageOperationFuture = new CompletableFuture<>();
+        var startCreateStorageOperationFuture = new CompletableFuture<Void>();
+        var finishCreateStorageOperationFuture = new CompletableFuture<Void>();
+
+        var destroyStorageOperationFuture = new CompletableFuture<Void>();
+        var clearStorageOperationFuture = new CompletableFuture<Void>();
+        var startRebalanceStorageOperationFuture = new CompletableFuture<Void>();
+        var abortRebalanceStorageOperationFuture = new CompletableFuture<Void>();
+        var finishRebalanceStorageOperationFuture = new CompletableFuture<Void>();
 
         CompletableFuture<?> create0StorageFuture = runAsync(() -> mvPartitionStorages.create(0, partId -> {
-            assertThat(createStorageOperationFuture, willCompleteSuccessfully());
+            startCreateStorageOperationFuture.complete(null);
+
+            assertThat(finishCreateStorageOperationFuture, willCompleteSuccessfully());
 
             return mock(MvPartitionStorage.class);
         }));
+
+        assertThat(startCreateStorageOperationFuture, willCompleteSuccessfully());
 
         assertThat(createMvStorage(1), willCompleteSuccessfully());
         assertThat(createMvStorage(2), willCompleteSuccessfully());
@@ -617,7 +618,7 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
         assertThat(allForCloseOrDestroyFuture, willTimeoutFast());
 
         // Let's finish creating the storage.
-        createStorageOperationFuture.complete(null);
+        finishCreateStorageOperationFuture.complete(null);
 
         assertThat(create0StorageFuture, willCompleteSuccessfully());
         assertThat(allForCloseOrDestroyFuture, willTimeoutFast());
@@ -690,7 +691,7 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
         assertThat(abortRebalanceFuture, willCompleteSuccessfully());
     }
 
-    private MvPartitionStorage getMvStorage(int partitionId) {
+    private @Nullable MvPartitionStorage getMvStorage(int partitionId) {
         return mvPartitionStorages.get(partitionId);
     }
 
@@ -718,7 +719,7 @@ public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
         return mvPartitionStorages.finishRebalance(partitionId, mvStorage -> nullCompletedFuture());
     }
 
-    private int getPartitionIdOutOfConfig() {
+    private static int getPartitionIdOutOfConfig() {
         return PARTITIONS;
     }
 }
