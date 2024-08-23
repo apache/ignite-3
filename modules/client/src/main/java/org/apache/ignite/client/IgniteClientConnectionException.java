@@ -19,7 +19,6 @@ package org.apache.ignite.client;
 
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -79,7 +78,7 @@ public class IgniteClientConnectionException extends IgniteException {
         return endpoint;
     }
 
-    private static @NotNull String getMessage(String msg, @Nullable String endpoint) {
+    private static String getMessage(String msg, @Nullable String endpoint) {
         return endpoint == null || endpoint.isEmpty() ? msg : msg + " [endpoint=" + endpoint + "]";
     }
 }
