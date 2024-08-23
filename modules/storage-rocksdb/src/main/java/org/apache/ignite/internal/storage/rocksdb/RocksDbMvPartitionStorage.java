@@ -50,7 +50,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 
@@ -58,6 +58,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -256,14 +257,23 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             if (leaseBytes == null) {
                 leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
             } else {
-                leaseStartTime = fromBytes(leaseBytes, 0, Long.BYTES);
+                leaseStartTime = bytesToLong(leaseBytes);
 
                 int primaryReplicaNodeIdLength = bytesToInt(leaseBytes, Long.BYTES);
-                primaryReplicaNodeId = fromBytes(leaseBytes, Long.BYTES + Integer.BYTES, primaryReplicaNodeIdLength);
+                primaryReplicaNodeId = new String(
+                        leaseBytes,
+                        Long.BYTES + Integer.BYTES,
+                        primaryReplicaNodeIdLength,
+                        StandardCharsets.UTF_8
+                );
 
                 int primaryReplicaNodeNameLength = bytesToInt(leaseBytes, Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength);
-                primaryReplicaNodeName = fromBytes(leaseBytes, Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength + Integer.BYTES,
-                        primaryReplicaNodeNameLength);
+                primaryReplicaNodeName = new String(
+                        leaseBytes,
+                        Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength + Integer.BYTES,
+                        primaryReplicaNodeNameLength,
+                        StandardCharsets.UTF_8
+                );
             }
 
             byte[] estimatedSizeBytes = db.get(meta, readOpts, estimatedSizeKey);
@@ -1105,11 +1115,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 outputStream.write(longToBytes(leaseStartTime));
 
                 byte[] primaryReplicaNodeIdBytes = stringToBytes(primaryReplicaNodeId);
-                outputStream.write(primaryReplicaNodeIdBytes.length);
+                outputStream.write(intToBytes(primaryReplicaNodeIdBytes.length));
                 outputStream.write(primaryReplicaNodeIdBytes);
 
                 byte[] primaryReplicaNodeNameBytes = stringToBytes(primaryReplicaNodeName);
-                outputStream.write(primaryReplicaNodeNameBytes.length);
+                outputStream.write(intToBytes(primaryReplicaNodeNameBytes.length));
                 outputStream.write(primaryReplicaNodeNameBytes);
 
                 writeBatch.put(meta, leaseKey, outputStream.toByteArray());
