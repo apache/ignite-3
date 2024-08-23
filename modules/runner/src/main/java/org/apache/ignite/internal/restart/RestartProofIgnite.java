@@ -38,6 +38,7 @@ public class RestartProofIgnite implements Ignite, Wrapper {
     private final IgniteAttachmentLock attachmentLock;
 
     private final IgniteTables tables;
+    private final IgniteTransactions transactions;
 
     /**
      * Constructor.
@@ -46,6 +47,7 @@ public class RestartProofIgnite implements Ignite, Wrapper {
         this.attachmentLock = attachmentLock;
 
         tables = new RestartProofIgniteTables(attachmentLock);
+        transactions = new RestartProofIgniteTransactions(attachmentLock);
     }
 
     @Override
@@ -60,8 +62,7 @@ public class RestartProofIgnite implements Ignite, Wrapper {
 
     @Override
     public IgniteTransactions transactions() {
-        // TODO: IGNITE-23012 - add a wrapper.
-        return attachmentLock.attached(Ignite::transactions);
+        return attachmentLock.attached(ignite -> transactions);
     }
 
     @Override

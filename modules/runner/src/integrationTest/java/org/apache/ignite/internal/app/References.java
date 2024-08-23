@@ -29,6 +29,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * References to API objects extracted from an {@link IgniteServer} instance.
@@ -37,6 +38,7 @@ class References {
     final Ignite ignite;
 
     final IgniteTables tables;
+    final IgniteTransactions transactions;
 
     final Table table; // From table().
     final Table tableFromTableAsync;
@@ -57,6 +59,8 @@ class References {
         ignite = server.api();
 
         tables = ignite.tables();
+        transactions = ignite.transactions();
+
         table = tables.table(TEST_TABLE_NAME);
         tableFromTableAsync = tables.tableAsync(TEST_TABLE_NAME).get(10, SECONDS);
         tableFromTables = tables.tables().get(0);

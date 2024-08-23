@@ -103,7 +103,14 @@ enum SyncApiOperation {
 
     TYPED_RECORD_VIEW_GET(refs -> refs.typedRecordView.get(null, new Record(1, ""))),
 
-    MAPPED_RECORD_VIEW_GET(refs -> refs.mappedRecordView.get(null, new Record(1, "")));
+    MAPPED_RECORD_VIEW_GET(refs -> refs.mappedRecordView.get(null, new Record(1, ""))),
+
+    TRANSACTIONS_BEGIN(refs -> refs.transactions.begin()),
+    TRANSACTIONS_BEGIN_WITH_OPTS(refs -> refs.transactions.begin(null)),
+    TRANSACTIONS_RUN_CONSUMER_IN_TRANSACTION(refs -> refs.transactions.runInTransaction(tx -> {})),
+    TRANSACTIONS_RUN_CONSUMER_IN_TRANSACTION_WITH_OPTS(refs -> refs.transactions.runInTransaction(tx -> {}, null)),
+    TRANSACTIONS_RUN_FUNCTION_IN_TRANSACTION(refs -> refs.transactions.runInTransaction(tx -> null)),
+    TRANSACTIONS_RUN_FUNCTION_IN_TRANSACTION_WITH_OPTS(refs -> refs.transactions.runInTransaction(tx -> null, null));
 
     private final Consumer<References> action;
 

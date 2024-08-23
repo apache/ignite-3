@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.app.ApiReferencesTestUtils.FULL_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.KEY_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.TEST_TABLE_NAME;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.VALUE_TUPLE;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
 import java.util.Map;
@@ -110,7 +111,12 @@ enum AsyncApiOperation {
     PARTITION_MANAGER_PRIMARY_REPLICA(refs -> refs.partitionManager.primaryReplicaAsync(new HashPartition(0))),
     PARTITION_MANAGER_PRIMARY_REPLICAS(refs -> refs.partitionManager.primaryReplicasAsync()),
     PARTITION_MANAGER_PARTITION_BY_KEY(refs -> refs.partitionManager.partitionAsync(1, Mapper.of(Integer.class))),
-    PARTITION_MANAGER_PARTITION_BY_TUPLE(refs -> refs.partitionManager.partitionAsync(KEY_TUPLE));
+    PARTITION_MANAGER_PARTITION_BY_TUPLE(refs -> refs.partitionManager.partitionAsync(KEY_TUPLE)),
+
+    TRANSACTIONS_BEGIN(refs -> refs.transactions.beginAsync()),
+    TRANSACTIONS_BEGIN_WITH_OPTS(refs -> refs.transactions.beginAsync(null)),
+    TRANSACTIONS_RUN_IN_TRANSACTION(refs -> refs.transactions.runInTransactionAsync(tx -> nullCompletedFuture())),
+    TRANSACTIONS_RUN_IN_TRANSACTION_WITH_OPTS(refs -> refs.transactions.runInTransactionAsync(tx -> nullCompletedFuture(), null));
 
     private final Function<References, CompletableFuture<?>> action;
 
