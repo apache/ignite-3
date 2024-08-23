@@ -78,7 +78,7 @@ public class ConnectionTest extends AbstractClientTest {
 
         // It does not seem possible to verify that it's a 'Connection refused' exception because with different
         // user locales the message differs, so let's just check that the message ends with the known suffix.
-        assertThat(errMsg, endsWith(": /127.0.0.1:47500"));
+        assertThat(errMsg, endsWith(" [endpoint=127.0.0.1:47500]"));
     }
 
     @Test

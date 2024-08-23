@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +39,20 @@ public class IgniteClientConnectionException extends IgniteException {
      * @param msg   the detail message.
      * @param cause the cause.
      */
+    public IgniteClientConnectionException(UUID traceId, int code, String msg, @Nullable Throwable cause) {
+        super(traceId, code, msg, cause);
+
+        this.endpoint = null;
+    }
+
+    /**
+     * Constructs a new exception with the specified cause and detail message.
+     *
+     * @param code the error code.
+     * @param msg the detail message.
+     * @param endpoint the endpoint.
+     * @param cause the cause.
+     */
     public IgniteClientConnectionException(int code, String msg, @Nullable String endpoint, @Nullable Throwable cause) {
         super(code, getMessage(msg, endpoint), cause);
 
@@ -47,8 +62,9 @@ public class IgniteClientConnectionException extends IgniteException {
     /**
      * Constructs a new exception with the specified detail message.
      *
-     * @param code  the error code.
-     * @param msg   the detail message.
+     * @param code the error code.
+     * @param msg the detail message.
+     * @param endpoint the endpoint.
      */
     public IgniteClientConnectionException(int code, String msg, @Nullable String endpoint) {
         this(code, msg, endpoint, null);
