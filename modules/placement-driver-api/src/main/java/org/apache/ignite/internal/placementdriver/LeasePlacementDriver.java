@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Service that provides an ability to await and retrieve primary replicas for replication groups.
@@ -69,6 +70,15 @@ public interface LeasePlacementDriver extends EventProducer<PrimaryReplicaEvent,
      * @return Primary replica future. {@code ReplicaMeta} will be {@code null} if there is no active lease.
      */
     CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp);
+
+    /**
+     * Returns the current primary replica without waiting.
+     *
+     * @param replicationGroupId Replication group id.
+     * @param timestamp The timestamp.
+     * @return Metadata information or null if not available.
+     */
+    @Nullable ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp);
 
     /**
      * Returns a future that completes when all expiration event {@link PrimaryReplicaEvent#PRIMARY_REPLICA_EXPIRED} listeners of previous

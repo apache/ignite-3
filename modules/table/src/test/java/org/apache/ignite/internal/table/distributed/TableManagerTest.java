@@ -83,6 +83,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -119,6 +120,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
@@ -387,7 +389,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
         TableManager tableManager = tblManagerFut.join();
-        List<Assignments> assignmentsList = List.of(Assignments.of(Assignment.forPeer(node.id())));
+        long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
+        List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.id())));
 
         // the first case scenario
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
@@ -873,7 +876,9 @@ public class TableManagerTest extends IgniteAbstractTest {
             ConfigurationRegistry mockedRegistry,
             Path storagePath
     ) {
-        when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(storageConfiguration);
+        StorageExtensionConfiguration mock = mock(StorageExtensionConfiguration.class);
+        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(mock);
+        when(mock.storage()).thenReturn(storageConfiguration);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 List.of(new PersistentPageMemoryDataStorageModule())

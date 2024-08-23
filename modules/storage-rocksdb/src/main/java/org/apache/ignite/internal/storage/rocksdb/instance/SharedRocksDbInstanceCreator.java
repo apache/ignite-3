@@ -100,6 +100,7 @@ public class SharedRocksDbInstanceCreator {
             RocksDbMetaStorage meta = null;
             ColumnFamily partitionCf = null;
             ColumnFamily gcQueueCf = null;
+            ColumnFamily dataCf = null;
             ColumnFamily hashIndexCf = null;
             var sortedIndexCfs = new ArrayList<ColumnFamily>();
 
@@ -120,6 +121,11 @@ public class SharedRocksDbInstanceCreator {
 
                     case GC_QUEUE:
                         gcQueueCf = cf;
+
+                        break;
+
+                    case DATA:
+                        dataCf = cf;
 
                         break;
 
@@ -149,6 +155,7 @@ public class SharedRocksDbInstanceCreator {
                     requireNonNull(meta, "meta"),
                     requireNonNull(partitionCf, "partitionCf"),
                     requireNonNull(gcQueueCf, "gcQueueCf"),
+                    requireNonNull(dataCf, "dataCf"),
                     requireNonNull(hashIndexCf, "hashIndexCf"),
                     sortedIndexCfs,
                     resources // Trusts the inner class to copy the resources!!
@@ -198,6 +205,7 @@ public class SharedRocksDbInstanceCreator {
         switch (ColumnFamilyType.fromCfName(utf8cfName)) {
             case META:
             case GC_QUEUE:
+            case DATA:
                 return add(new ColumnFamilyOptions());
 
             case PARTITION:

@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.network.configuration.SslConfigurationValidator;
@@ -27,8 +26,7 @@ import org.apache.ignite.internal.network.configuration.SslConfigurationValidato
 /**
  * Configuration schema for REST endpoint subtree.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "rest", type = ConfigurationType.LOCAL)
+@Config
 public class RestConfigurationSchema {
     /** TCP port. */
     @Range(min = 1024, max = 0xFFFF)

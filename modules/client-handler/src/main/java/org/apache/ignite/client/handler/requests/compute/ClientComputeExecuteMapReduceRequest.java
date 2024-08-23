@@ -86,7 +86,7 @@ public class ClientComputeExecuteMapReduceRequest {
                 execution.stateAsync().whenComplete((state, errState) ->
                         execution.statesAsync().whenComplete((states, errStates) ->
                                 notificationSender.sendNotification(w -> {
-                                    w.packObjectAsBinaryTuple(val, null);
+                                    w.packObjectAsBinaryTuple(val);
                                     packTaskState(w, state);
                                     packJobStates(w, states);
                                 }, firstNotNull(err, errState, errStates)))

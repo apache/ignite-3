@@ -22,6 +22,7 @@ import static java.util.function.Function.identity;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
  * Decorates a {@link SchemaSyncService} to make sure that completion stages depending on the returned futures are always completed

@@ -48,7 +48,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--url", NODE_URL, "{metaStorage: {idleSyncTimeInterval: 1000}}");
+        execute("cluster", "config", "update", "--url", NODE_URL, "{ignite{metaStorage: {idleSyncTimeInterval: 1000}}}");
 
         // Then
         assertAll(
@@ -73,7 +73,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     void addNodeConfigKeyValue() {
         // When update default data storage to rocksdb
         execute("node", "config", "update", "--url", NODE_URL,
-                "network.nodeFinder.netClusterNodes : [ \"localhost:3344\", \"localhost:3345\" ]");
+                "ignite.network.nodeFinder.netClusterNodes : [ \"localhost:3344\", \"localhost:3345\" ]");
 
         // Then
         assertAll(
@@ -98,7 +98,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--url", NODE_URL, "metaStorage.idleSyncTimeInterval=2000");
+        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.metaStorage.idleSyncTimeInterval=2000");
 
         // Then
         assertAll(
@@ -122,7 +122,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateClusterConfigWithoutQuoting() {
         execute("cluster", "config", "update", "--url", NODE_URL,
-                "security.authentication.providers.default={type=basic,users=[{username=asd,password=pass1}]}");
+                "ignite.security.authentication.providers.default={type=basic,users=[{username=asd,password=pass1}]}");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -133,7 +133,8 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
         // Emulate config with spaces
         execute("cluster", "config", "update", "--url", NODE_URL,
-                "security.authentication.providers.default", "=", "{", "type=basic,", "users=[{", "username=asd,", "password=pass2}]}");
+                "ignite.security.authentication.providers.default", "=",
+                "{", "type=basic,", "users=[{", "username=asd,", "password=pass2}]}");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -147,7 +148,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     void updateClusterWithQuotedArgs() {
         // Emulate quoting config
         execute("cluster", "config", "update", "--url", NODE_URL,
-                "\"security.authentication.providers.default={type=basic,users=[{username=asd,password=pass3}]}\"");
+                "\"ignite.security.authentication.providers.default={type=basic,users=[{username=asd,password=pass3}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -157,7 +158,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
         // Emulate quoting config
         execute("cluster", "config", "update", "--url", NODE_URL,
-                "\"security.authentication.providers.default\"", "\"={type=basic,users=[{username=asd,password=pass4}]}\"");
+                "\"ignite.security.authentication.providers.default\"", "\"={type=basic,users=[{username=asd,password=pass4}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -167,7 +168,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
         // Emulate quoting config
         execute("cluster", "config", "update", "--url", NODE_URL,
-                "security.authentication.providers.default", "\"={type=basic,users=[{username=asd,password=pass5}]}\"");
+                "ignite.security.authentication.providers.default", "\"={type=basic,users=[{username=asd,password=pass5}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -180,7 +181,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Test using arguments in parameters")
     void useOptionsInArguments() {
         execute("cluster", "config", "update", "--url", NODE_URL,
-                "security.authentication.providers.default={type=basic,users=[{username:", "--verbose,", "password=--verbose}]}");
+                "ignite.security.authentication.providers.default={type=basic,users=[{username:", "--verbose,", "password=--verbose}]}");
 
         assertAll(
                 () -> assertExitCodeIs(2),
@@ -189,7 +190,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         execute("cluster", "config", "update", "--url", NODE_URL,
-                "\"security.authentication.providers.default={type=basic,users=[{username: --verbose, password=--verbose}]}\"");
+                "\"ignite.security.authentication.providers.default={type=basic,users=[{username: --verbose, password=--verbose}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -200,26 +201,27 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
     @Test
     void updateWithWrongData() {
-        execute("node", "config", "update", "--url", NODE_URL, "network.foo=\"bar\"");
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.network.foo=\"bar\"");
 
         assertAll(
                 () -> assertExitCodeIs(1),
-                () -> assertErrOutputContains("'network' configuration doesn't have the 'foo' sub-configuration"),
+                () -> assertErrOutputContains("'ignite.network' configuration doesn't have the 'foo' sub-configuration"),
                 this::assertOutputIsEmpty
         );
 
-        execute("node", "config", "update", "--url", NODE_URL, "network.shutdownQuietPeriod=asd");
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.network.shutdownQuietPeriod=asd");
 
         assertAll(
                 () -> assertExitCodeIs(1),
-                () -> assertErrOutputContains("'long' is expected as a type for the 'network.shutdownQuietPeriod' configuration value"),
+                () -> assertErrOutputContains("'long' is expected as a type for the "
+                        + "'ignite.network.shutdownQuietPeriod' configuration value"),
                 this::assertOutputIsEmpty
         );
     }
 
     @Test
     public void partialGet() {
-        execute("node", "config", "show", "--url", NODE_URL, "network");
+        execute("node", "config", "show", "--url", NODE_URL, "ignite.network");
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
@@ -55,7 +56,7 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
             LogSyncer logSyncer,
             HybridClock clock
     ) throws StorageException {
-        StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageConfiguration.KEY);
+        StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
         VolatilePageMemoryStorageEngineConfiguration engineConfig =
                 ((VolatilePageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aimem();

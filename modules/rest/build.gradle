@@ -30,6 +30,7 @@ dependencies {
 
     implementation project(':ignite-api')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-rest-api')
     implementation project(':ignite-core')

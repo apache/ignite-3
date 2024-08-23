@@ -29,6 +29,7 @@ import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.compute.JobStateImpl;
@@ -65,11 +66,9 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 .thenApply(r -> {
                     // Notifications require explicit input close.
                     try (r) {
-                        Object o = r.in().unpackObjectFromBinaryTuple();
-                        R result = marshaller != null ? marshaller.unmarshal((byte[]) o) : (R) o;
-
+                        Object result = ClientComputeJobUnpacker.unpackJobResult(marshaller, r.in());
                         stateFuture.complete(unpackJobState(r));
-                        return result;
+                        return (R) result;
                     }
                 });
     }

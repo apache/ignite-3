@@ -27,7 +27,10 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.util.List;
 import org.apache.ignite.configuration.SuperRootChange;
+import org.apache.ignite.internal.configuration.ClusterConfiguration;
+import org.apache.ignite.internal.configuration.ClusterView;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
@@ -35,7 +38,11 @@ import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticat
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
-import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityChange;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionChange;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionConfigurationSchema;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionView;
 import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +58,7 @@ class SecurityConfigurationModuleTest {
     @BeforeEach
     void setUp() {
         generator = new ConfigurationTreeGenerator(
-                module.rootKeys(),
+                List.of(ClusterConfiguration.KEY),
                 module.schemaExtensions(),
                 module.polymorphicSchemaExtensions()
         );
@@ -72,8 +79,8 @@ class SecurityConfigurationModuleTest {
     }
 
     @Test
-    void hasConfigurationRoots() {
-        assertThat(module.rootKeys(), contains(SecurityConfiguration.KEY));
+    void hasNoRootKeys() {
+        assertThat(module.rootKeys(), is(empty()));
     }
 
     @Test
@@ -85,8 +92,8 @@ class SecurityConfigurationModuleTest {
     }
 
     @Test
-    void providesNoSchemaExtensions() {
-        assertThat(module.schemaExtensions(), is(empty()));
+    void providesSchemaExtensions() {
+        assertThat(module.schemaExtensions(), contains(SecurityExtensionConfigurationSchema.class));
     }
 
     @Test
@@ -98,7 +105,8 @@ class SecurityConfigurationModuleTest {
     void setDefaultUserIfProvidersIsEmpty() {
         module.patchConfigurationWithDynamicDefaults(rootChange);
 
-        SecurityView securityView = rootChange.viewRoot(SecurityConfiguration.KEY);
+        ClusterView clusterView = rootChange.viewRoot(ClusterConfiguration.KEY);
+        SecurityView securityView = ((SecurityExtensionView) clusterView).security();
 
         assertThat(securityView.authentication().providers().size(), is(1));
 
@@ -114,16 +122,16 @@ class SecurityConfigurationModuleTest {
 
     @Test
     void doNotSetDefaultUserIfProvidersIsNotEmpty() {
-        rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
-            authenticationChange.changeProviders().create("basic", change -> {
-                change.convert(BasicAuthenticationProviderChange.class)
-                        .changeUsers(users -> users.create("admin", user -> user.changePassword("password")));
-            });
+        SecurityChange securityChange =
+                ((SecurityExtensionChange) rootChange.changeRoot(SecurityExtensionConfiguration.KEY)).changeSecurity();
+        securityChange.changeAuthentication().changeProviders().create("basic", change -> {
+            change.convert(BasicAuthenticationProviderChange.class)
+                    .changeUsers(users -> users.create("admin", user -> user.changePassword("password")));
         });
 
         module.patchConfigurationWithDynamicDefaults(rootChange);
 
-        SecurityView securityView = rootChange.viewRoot(SecurityConfiguration.KEY);
+        SecurityView securityView = ((SecurityExtensionView) rootChange.viewRoot(SecurityExtensionConfiguration.KEY)).security();
 
         assertThat(securityView.authentication().providers().size(), is(1));
 

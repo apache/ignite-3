@@ -150,11 +150,10 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
         {
             assertThrowsSqlException(
                     STMT_VALIDATION_ERR,
-                    "operator must have compatible types",
+                    "Values passed to VALUES operator must have compatible types",
                     () -> executeScript(
-                            "INSERT INTO test VALUES (?);"
-                                    + "INSERT INTO test VALUES (1)",
-                            "Incompatible param"
+                            "INSERT INTO test VALUES (?), (?)",
+                            "1", 2
                     )
             );
 

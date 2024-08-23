@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.network.configuration;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for network endpoint subtree.
  */
-@ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
+@Config
 public class NetworkConfigurationSchema {
     /** Default network port. */
     public static final int DEFAULT_PORT = 47500;
