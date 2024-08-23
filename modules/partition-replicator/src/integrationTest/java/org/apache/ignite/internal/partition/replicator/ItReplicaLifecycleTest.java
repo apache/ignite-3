@@ -613,6 +613,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23063")
     void testStableAreWrittenAfterRestart(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 1);
 
