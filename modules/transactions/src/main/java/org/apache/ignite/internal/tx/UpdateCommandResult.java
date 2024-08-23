@@ -33,13 +33,13 @@ public class UpdateCommandResult implements Serializable {
     @Nullable
     private final Long currentLeaseStartTime;
 
-    /** {@code true} if primary replica belongs to the raft group topology, (@code false) otherwise. */
+    /** {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise. */
     private final boolean primaryInPeersAndLearners;
 
     /**
      * Constructor.
      *
-     * @param primaryReplicaMatch Whether the command should be successfully applied on primary replica.
+     * @param primaryReplicaMatch Whether the command was executed successfully or failed due to mismatch of primary replica information.
      */
     public UpdateCommandResult(boolean primaryReplicaMatch, boolean primaryInPeersAndLearners) {
         this(primaryReplicaMatch, null, primaryInPeersAndLearners);
@@ -48,9 +48,10 @@ public class UpdateCommandResult implements Serializable {
     /**
      * Constructor.
      *
-     * @param primaryReplicaMatch Whether the command should be successfully applied on primary replica.
+     * @param primaryReplicaMatch Whether the command was executed successfully or failed due to mismatch of primary replica information.
      * @param currentLeaseStartTime Actual lease start time.
-     * @param primaryInPeersAndLearners {@code true} if primary replica belongs to the raft group topology, (@code false) otherwise.
+     * @param primaryInPeersAndLearners {@code true} if primary replica belongs to the raft group topology: peers and learners,
+     * (@code false) otherwise.
      */
     public UpdateCommandResult(
             boolean primaryReplicaMatch,
@@ -65,9 +66,10 @@ public class UpdateCommandResult implements Serializable {
     }
 
     /**
-     * Whether the command should be successfully applied on primary replica.
+     * Whether the command was executed successfully or failed due to mismatch of primary replica information, i.e. lease start time that
+     * was sent along with the command doesn't match the one in raft updated by handlePrimaryReplicaChangeCommand.
      *
-     * @return Whether the command should be successfully applied on primary replica.
+     * @return Whether the command was executed successfully or failed due to mismatch of primary replica information.
      */
     public boolean isPrimaryReplicaMatch() {
         return primaryReplicaMatch;
@@ -84,9 +86,9 @@ public class UpdateCommandResult implements Serializable {
     }
 
     /**
-     * Returns whether primary replica belongs to the raft group topology.
+     * Returns whether primary replica belongs to the raft group topology: peers and learners.
      *
-     * @return {@code true} if primary replica belongs to the raft group topology, (@code false) otherwise.
+     * @return {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise.
      */
     public boolean isPrimaryInPeersAndLearners() {
         return primaryInPeersAndLearners;

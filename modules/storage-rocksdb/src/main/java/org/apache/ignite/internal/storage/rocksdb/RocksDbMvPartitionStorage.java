@@ -48,6 +48,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -257,11 +258,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             } else {
                 leaseStartTime = fromBytes(leaseBytes, 0, Long.BYTES);
 
-                byte primaryReplicaNodeIdLength = leaseBytes[Long.BYTES];
-                primaryReplicaNodeId = fromBytes(leaseBytes, Long.BYTES + 1, primaryReplicaNodeIdLength);
+                int primaryReplicaNodeIdLength = bytesToInt(leaseBytes, Long.BYTES);
+                primaryReplicaNodeId = fromBytes(leaseBytes, Long.BYTES + Integer.BYTES, primaryReplicaNodeIdLength);
 
-                byte primaryReplicaNodeNameLength = leaseBytes[Long.BYTES + 1 + primaryReplicaNodeIdLength];
-                primaryReplicaNodeName = fromBytes(leaseBytes, Long.BYTES + 1 + primaryReplicaNodeIdLength + 1,
+                int primaryReplicaNodeNameLength = bytesToInt(leaseBytes, Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength);
+                primaryReplicaNodeName = fromBytes(leaseBytes, Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength + Integer.BYTES,
                         primaryReplicaNodeNameLength);
             }
 
@@ -1104,17 +1105,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 outputStream.write(longToBytes(leaseStartTime));
 
                 byte[] primaryReplicaNodeIdBytes = stringToBytes(primaryReplicaNodeId);
-                assert primaryReplicaNodeIdBytes.length < Byte.MAX_VALUE :
-                        format("Primary replica node id bytes length exceeds the limit [length={}].",
-                                primaryReplicaNodeIdBytes.length);
-                outputStream.write((byte) primaryReplicaNodeIdBytes.length);
+                outputStream.write(primaryReplicaNodeIdBytes.length);
                 outputStream.write(primaryReplicaNodeIdBytes);
 
                 byte[] primaryReplicaNodeNameBytes = stringToBytes(primaryReplicaNodeName);
-                assert primaryReplicaNodeNameBytes.length < Byte.MAX_VALUE;
-                format("Primary replica node name bytes length exceeds the limit [length={}].",
-                        primaryReplicaNodeNameBytes.length);
-                outputStream.write((byte) primaryReplicaNodeNameBytes.length);
+                outputStream.write(primaryReplicaNodeNameBytes.length);
                 outputStream.write(primaryReplicaNodeNameBytes);
 
                 writeBatch.put(meta, leaseKey, outputStream.toByteArray());

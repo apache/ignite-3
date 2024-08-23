@@ -2751,7 +2751,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return resultFuture.thenCompose(res -> {
                     UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
-                    if (full && updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
+                    if (full && !updateCommandResult.isPrimaryReplicaMatch()) {
                         throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
                     }
 
@@ -2773,7 +2773,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             );
                         }
 
-                        return null;
+                        return nullCompletedFuture();
                     }
                 });
             }

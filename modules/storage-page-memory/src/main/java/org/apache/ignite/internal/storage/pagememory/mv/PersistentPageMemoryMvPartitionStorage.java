@@ -376,6 +376,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-15119 nodeId type should be changed from String to UUID, after the fix
+    // TODO nodeID will be stored in meta directly and not the blob storage.
     @Override
     public @Nullable String primaryReplicaNodeId() {
         return busy(() -> {
@@ -434,7 +436,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 }
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
-                        "Failed to read primary replica node id: [tableId={}, partitionId={}]",
+                        "Failed to read primary replica node name: [tableId={}, partitionId={}]",
                         e,
                         tableStorage.getTableId(), partitionId
                 );

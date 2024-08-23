@@ -308,7 +308,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         assert storage.primaryReplicaNodeId() != null;
         assert localNodeId != null;
 
-        if (cmd.full() || (!cmd.full() && !localNodeId.equals(storage.primaryReplicaNodeId()))) {
+        if (cmd.full() || !localNodeId.equals(storage.primaryReplicaNodeId())) {
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
@@ -323,6 +323,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         } else {
             // We MUST bump information about last updated index+term.
             // See a comment in #onWrite() for explanation.
+            // If we get here, that means that we are collocated with primary and data was already inserted there, thus it's only required
+            // to update information about index and term.
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
@@ -360,7 +362,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         UUID txId = cmd.txId();
 
-        if (cmd.full() || (!cmd.full() && !localNodeId.equals(storage.primaryReplicaNodeId()))) {
+        if (cmd.full() || !localNodeId.equals(storage.primaryReplicaNodeId())) {
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),
@@ -373,6 +375,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         } else {
             // We MUST bump information about last updated index+term.
             // See a comment in #onWrite() for explanation.
+            // If we get here, that means that we are collocated with primary and data was already inserted there, thus it's only required
+            // to update information about index and term.
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
@@ -810,14 +814,14 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     /**
-     * Checks whether the primary replica belongs to the raft group topology within a raft linearized context. On the primary replica
-     * election prior to the lease publication, the placement driver sends a PrimaryReplicaChangeCommand that populates the raft listener
-     * and the underneath storage with lease-related information, such as primaryReplicaNodeId, primaryReplicaNodeName and leaseStartTime.
-     * In Update(All)Command  handling, which occurs strictly after PrimaryReplicaChangeCommand processing, given information is used in
-     * order to detect whether primary belongs to the raft group topology.
+     * Checks whether the primary replica belongs to the raft group topology (peers and learners) within a raft linearized context.
+     * On the primary replica election prior to the lease publication, the placement driver sends a PrimaryReplicaChangeCommand that
+     * populates the raft listener and the underneath storage with lease-related information, such as primaryReplicaNodeId,
+     * primaryReplicaNodeName and leaseStartTime. In Update(All)Command  handling, which occurs strictly after PrimaryReplicaChangeCommand
+     * processing, given information is used in order to detect whether primary belongs to the raft group topology (peers and learners).
      *
      *
-     * @return {@code true} if primary replica belongs to the raft group topology, (@code false) otherwise.
+     * @return {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise.
      */
     private boolean isPrimaryInGroupTopology() {
         assert currentGroupTopology != null : "Current group topology is null";
