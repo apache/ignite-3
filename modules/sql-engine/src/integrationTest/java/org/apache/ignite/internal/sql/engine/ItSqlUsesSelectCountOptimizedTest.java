@@ -43,40 +43,67 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void countOptBypassesCache() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+        // Run with optimization disabled, so the first plan is not fast count(*) plan.
+        System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", "false");
+
+        assertQuery("SELECT COUNT(a) FROM test as x (a, b)")
+                .matches(QueryChecker.containsSubPlan("Aggregate"))
+                .returns(10L)
+                .check();
+
+        // Run with optimization enabled, so the plan is not reused.
+        System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", "true");
+
+        assertQuery("SELECT COUNT(a) FROM test as x (a, b)")
+                .matches(QueryChecker.containsSubPlan("SelectCount"))
+                .returns(10L)
+                .check();
+    }
+
+    @Test
     public void countOpt() {
         assertQuery("SELECT COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
+                .columnNames("COUNT(*)")
                 .check();
 
         assertQuery("SELECT 1, COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(1, 10L)
+                .columnNames("1", "COUNT(*)")
                 .check();
 
         assertQuery("SELECT ?, COUNT(*) FROM test")
                 .withParam(1)
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(1, 10L)
+                .columnNames("EXPR$0", "COUNT(*)")
                 .check();
 
         assertQuery("SELECT COUNT(1) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
+                .columnNames("COUNT(1)")
                 .check();
 
         assertQuery("SELECT COUNT(1), 1, COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L, 1, 10L)
+                .columnNames("COUNT(1)", "1", "COUNT(*)")
                 .check();
 
         assertQuery("SELECT COUNT(*) FROM test as x (a, b)")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
+                .columnNames("COUNT(*)")
                 .check();
 
         assertQuery("SELECT COUNT(a) FROM test as x (a, b)")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
+                .columnNames("COUNT(A)")
                 .returns(10L)
                 .check();
     }

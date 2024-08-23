@@ -72,7 +72,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -360,20 +359,18 @@ public final class PlannerHelper {
 
     /**
      * Whether we can optimize a query that looks like {@code SELECT count(*)} or not.
-     * If this method returns {@code true}, then {@link #tryOptimizeSelectCount(IgnitePlanner, QueryTransactionContext, SqlNode)}
-     * can be applied to the given query.
+     *
+     * <p>If this method returns {@code true}, then {@link #tryOptimizeSelectCount(IgnitePlanner, SqlNode)}
      *
      * @param planner Planner.
-     * @param txContext Context.
      * @param node Node.
      * @return Returns {@code true} select count(*) optimization is applicable.
      */
     public static boolean canOptimizeSelectCount(
             IgnitePlanner planner,
-            @Nullable QueryTransactionContext txContext,
             SqlNode node
     ) {
-        SqlSelect select = getSelectCountOptimizationNode(txContext, node);
+        SqlSelect select = getSelectCountOptimizationNode(node);
         if (select == null) {
             return false;
         }
@@ -399,16 +396,14 @@ public final class PlannerHelper {
      * Tries to optimize a query that looks like {@code SELECT count(*)}.
      *
      * @param planner Planner.
-     * @param txContext Transactional context.
      * @param node Query node.
      * @return Plan node with list of aliases, if the optimization is applicable.
      */
     public static @Nullable Pair<IgniteRel, List<String>> tryOptimizeSelectCount(
             IgnitePlanner planner,
-            @Nullable QueryTransactionContext txContext,
             SqlNode node
     ) {
-        SqlSelect select = getSelectCountOptimizationNode(txContext, node);
+        SqlSelect select = getSelectCountOptimizationNode(node);
         if (select == null) {
             return null;
         }
@@ -457,6 +452,8 @@ public final class PlannerHelper {
                 return null;
             }
 
+            System.err.println("SELECT_COUNT");
+
             String alias = planner.validator().deriveAlias(selectItem, expressionNames.size());
             expressionNames.add(alias);
         }
@@ -475,11 +472,7 @@ public final class PlannerHelper {
         return new Pair<>(rel, expressionNames);
     }
 
-    private static @Nullable SqlSelect getSelectCountOptimizationNode(@Nullable QueryTransactionContext txContext, SqlNode node) {
-        if (txContext != null && txContext.explicitTx() != null) {
-            return null;
-        }
-
+    private static @Nullable SqlSelect getSelectCountOptimizationNode(SqlNode node) {
         // Unwrap SELECT .. from SELECT x FROM t ORDER BY ...
         if (node instanceof SqlOrderBy) {
             SqlOrderBy orderBy = (SqlOrderBy) node;

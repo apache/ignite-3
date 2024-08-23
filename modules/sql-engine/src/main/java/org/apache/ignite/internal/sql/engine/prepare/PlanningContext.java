@@ -157,12 +157,15 @@ public final class PlanningContext implements Context {
 
     private @Nullable CalciteCatalogReader catalogReader;
 
+    private final boolean explicitTx;
+
     /** Private constructor, used by a builder. */
     private PlanningContext(
             FrameworkConfig config,
             String qry,
             long plannerTimeout,
-            Int2ObjectMap<Object> parameters
+            Int2ObjectMap<Object> parameters,
+            boolean explicitTx
     ) {
         this.parentCtx = config.getContext();
 
@@ -173,6 +176,7 @@ public final class PlanningContext implements Context {
 
         this.plannerTimeout = plannerTimeout;
         this.parameters = parameters;
+        this.explicitTx = explicitTx;
     }
 
     /** Get framework config. */
@@ -301,6 +305,11 @@ public final class PlanningContext implements Context {
         return timeouted;
     }
 
+    /** Returns {@code true} if planning is taking place within an explicit transaction. */
+    public boolean explicitTx() {
+        return explicitTx;
+    }
+
     /**
      * Planner context builder.
      */
@@ -318,6 +327,8 @@ public final class PlanningContext implements Context {
         private long plannerTimeout;
 
         private Int2ObjectMap<Object> parameters = Int2ObjectMaps.emptyMap();
+
+        private boolean explicitTx;
 
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkConfig = Objects.requireNonNull(frameworkCfg);
@@ -342,13 +353,19 @@ public final class PlanningContext implements Context {
             return this;
         }
 
+        /** Sets whether explicit transaction is present. */
+        public Builder explicitTx(boolean explicitTx) {
+            this.explicitTx = explicitTx;
+            return this;
+        }
+
         /**
          * Builds planner context.
          *
          * @return Planner context.
          */
         public PlanningContext build() {
-            return new PlanningContext(frameworkConfig, qry, plannerTimeout, parameters);
+            return new PlanningContext(frameworkConfig, qry, plannerTimeout, parameters, explicitTx);
         }
     }
 }

@@ -280,6 +280,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 )
                 .query(sql)
                 .parameters(paramsMap)
+                // Assume that we use explicit transactions by default.
+                .explicitTx(true)
                 .build();
 
         IgnitePlanner planner = ctx.planner();

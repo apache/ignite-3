@@ -64,7 +64,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -234,15 +233,17 @@ public class PrepareServiceImpl implements PrepareService {
         // Or trigger timeout immediately if operation has already timed out.
         QueryCancel cancelHandler = operationContext.cancel();
         assert cancelHandler != null;
+        boolean explicitTx = operationContext.txContext() != null && operationContext.txContext().explicitTx() != null;
 
         PlanningContext planningContext = PlanningContext.builder()
                 .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                 .query(parsedResult.originalQuery())
                 .plannerTimeout(plannerTimeout)
                 .parameters(Commons.arrayToMap(operationContext.parameters()))
+                .explicitTx(explicitTx)
                 .build();
 
-        result = prepareAsync0(parsedResult, planningContext, operationContext.txContext());
+        result = prepareAsync0(parsedResult, planningContext);
 
         return result.exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
@@ -254,18 +255,17 @@ public class PrepareServiceImpl implements PrepareService {
 
     private CompletableFuture<QueryPlan> prepareAsync0(
             ParsedResult parsedResult,
-            PlanningContext planningContext,
-            @Nullable QueryTransactionContext txContext
+            PlanningContext planningContext
     ) {
         switch (parsedResult.queryType()) {
             case QUERY:
-                return prepareQuery(parsedResult, planningContext, txContext);
+                return prepareQuery(parsedResult, planningContext);
             case DDL:
                 return prepareDdl(parsedResult, planningContext);
             case DML:
                 return prepareDml(parsedResult, planningContext);
             case EXPLAIN:
-                return prepareExplain(parsedResult, planningContext, txContext);
+                return prepareExplain(parsedResult, planningContext);
             default:
                 throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
         }
@@ -281,8 +281,7 @@ public class PrepareServiceImpl implements PrepareService {
 
     private CompletableFuture<QueryPlan> prepareExplain(
             ParsedResult parsedResult,
-            PlanningContext ctx,
-            @Nullable QueryTransactionContext txContext
+            PlanningContext ctx
     ) {
         SqlNode parsedTree = parsedResult.parsedTree();
 
@@ -310,7 +309,7 @@ public class PrepareServiceImpl implements PrepareService {
         CompletableFuture<QueryPlan> result;
         switch (queryType) {
             case QUERY:
-                result = prepareQuery(newParsedResult, ctx, txContext);
+                result = prepareQuery(newParsedResult, ctx);
                 break;
             case DML:
                 result = prepareDml(newParsedResult, ctx);
@@ -332,17 +331,29 @@ public class PrepareServiceImpl implements PrepareService {
 
     private CompletableFuture<QueryPlan> prepareQuery(
             ParsedResult parsedResult,
-            PlanningContext ctx,
-            @Nullable QueryTransactionContext txContext
+            PlanningContext ctx
     ) {
-        // Check cache plan first, because ParserService's parsedResult.parseTree() can lazily parse a SQL query.
+
         CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
+
         if (f != null) {
-            return f;
+            return f.thenCompose(p -> {
+                // If a cached plan is not a regular one, return it.
+                if (!(p instanceof MultiStepPlan)) {
+                    return CompletableFuture.completedFuture(p);
+                } else {
+                    return doOptimizeQuery(parsedResult, ctx);
+                }
+            });
         }
 
+        // Otherwise plan and cache (if necessary)
+        return doOptimizeQuery(parsedResult, ctx);
+    }
+
+    private CompletableFuture<QueryPlan> doOptimizeQuery(ParsedResult parsedResult, PlanningContext ctx) {
         // If fast optimization is applicable, then plan can not be cached.
-        boolean canOptimizeFast = canOptimizeFast(parsedResult, ctx, txContext);
+        boolean canOptimizeFast = canOptimizeFast(parsedResult, ctx);
 
         // First validate statement
 
@@ -366,7 +377,7 @@ public class PrepareServiceImpl implements PrepareService {
         return validFut.thenCompose(stmt -> {
             if (canOptimizeFast) {
                 // Try to produce a fast plan, if successful, then return that plan w/o caching it.
-                QueryPlan fastPlan = tryOptimizeFast(stmt, ctx, txContext);
+                QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
                 if (fastPlan != null) {
                     return CompletableFuture.completedFuture(fastPlan);
                 }
@@ -476,31 +487,29 @@ public class PrepareServiceImpl implements PrepareService {
         });
     }
 
-    private static boolean canOptimizeFast(ParsedResult parsedResult,
-            PlanningContext planningContext,
-            @Nullable QueryTransactionContext txContext) {
-
-        // If fast query optimization is disabled, then proceed with the regular planning.
-        if (!fastQueryOptimizationEnabled()) {
+    private static boolean canOptimizeFast(
+            ParsedResult parsedResult,
+            PlanningContext planningContext
+    ) {
+        // If fast query optimization is disabled or explicit transaction is present, then proceed with the regular planning.
+        if (!fastQueryOptimizationEnabled() || planningContext.explicitTx()) {
             return false;
         }
 
-        return PlannerHelper.canOptimizeSelectCount(planningContext.planner(), txContext, parsedResult.parsedTree());
+        return PlannerHelper.canOptimizeSelectCount(planningContext.planner(), parsedResult.parsedTree());
     }
 
     private @Nullable QueryPlan tryOptimizeFast(
             ValidStatement<ValidationResult> stmt,
-            PlanningContext planningContext,
-            @Nullable QueryTransactionContext txContext
+            PlanningContext planningContext
     ) {
-        // If fast query optimization is disabled, then proceed with the regular planning.
-        if (!fastQueryOptimizationEnabled()) {
+        // If fast query optimization is disabled or explicit transaction is present, then proceed with the regular planning.
+        if (!fastQueryOptimizationEnabled() || planningContext.explicitTx()) {
             return null;
         }
 
         Pair<IgniteRel, List<String>> relAndAliases = PlannerHelper.tryOptimizeSelectCount(
                 planningContext.planner(),
-                txContext,
                 stmt.value.sqlNode()
         );
 
