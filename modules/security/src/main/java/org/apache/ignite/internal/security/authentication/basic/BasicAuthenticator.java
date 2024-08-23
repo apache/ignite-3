@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.security.authentication.basic;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.Authenticator;
@@ -47,7 +49,7 @@ public class BasicAuthenticator implements Authenticator {
     }
 
     @Override
-    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
+    public CompletableFuture<UserDetails> authenticateAsync(AuthenticationRequest<?, ?> authenticationRequest) {
         if (!(authenticationRequest instanceof UsernamePasswordRequest)) {
             throw new UnsupportedAuthenticationTypeException(
                     "Unsupported authentication type: " + authenticationRequest.getClass().getName()
@@ -60,7 +62,7 @@ public class BasicAuthenticator implements Authenticator {
         BasicUser basicUser = users.get(requestUsername);
         if (basicUser != null) {
             if (basicUser.password().equals(requestPassword)) {
-                return new UserDetails(basicUser.name(), providerName);
+                return completedFuture(new UserDetails(basicUser.name(), providerName));
             }
         }
 

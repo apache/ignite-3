@@ -225,7 +225,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         String clusterConfigurationFile1 = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").getAbsolutePath();
         String clusterConfigurationFile2 = copyResourceToTempFile("cluster-configuration-with-default.conf").getAbsolutePath();
 
-        var expectedClusterConfiguration = "security: {\n"
+        var expectedClusterConfiguration = "ignite.security: {\n"
                 + "  enabled: true,\n"
                 + "  authentication: {\n"
                 + "    providers.default: {\n"
@@ -243,10 +243,10 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "    }\n"
                 + "  }\n"
                 + "}\n"
-                + "schemaSync.delayDuration: 100,\n"
-                + "schemaSync.maxClockSkew: 7,\n"
-                + "metaStorage.idleSyncTimeInterval: 10,\n"
-                + "replication.idleSafeTimePropagationDuration: 100";
+                + "ignite.schemaSync.delayDuration: 100,\n"
+                + "ignite.schemaSync.maxClockSkew: 7,\n"
+                + "ignite.metaStorage.idleSyncTimeInterval: 10,\n"
+                + "ignite.replication.idleSafeTimePropagationDuration: 100";
 
         var expectedSentContent = "{\n"
                 + "  \"metaStorageNodes\": [\n"

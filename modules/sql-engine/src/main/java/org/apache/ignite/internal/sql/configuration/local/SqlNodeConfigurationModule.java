@@ -19,9 +19,8 @@ package org.apache.ignite.internal.sql.configuration.local;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /** {@link ConfigurationModule} for SQL node-local configuration. */
@@ -33,9 +32,8 @@ public class SqlNodeConfigurationModule implements ConfigurationModule {
         return ConfigurationType.LOCAL;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(SqlLocalConfiguration.KEY);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(SqlNodeExtensionConfigurationSchema.class);
     }
 }

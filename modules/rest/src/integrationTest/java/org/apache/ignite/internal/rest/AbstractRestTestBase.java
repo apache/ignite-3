@@ -118,7 +118,7 @@ public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
 
         nodesBootstrapCfg.put(
                 node0Name,
-                "{\n"
+                "ignite {\n"
                         + "  network: {\n"
                         + "    port: " + NETWORK_PORTS[0] + ",\n"
                         + "    nodeFinder: {\n"
@@ -133,7 +133,7 @@ public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
 
         nodesBootstrapCfg.put(
                 node1Name,
-                "{\n"
+                "ignite {\n"
                         + "  network: {\n"
                         + "    port: " + NETWORK_PORTS[1] + ",\n"
                         + "    nodeFinder: {\n"
@@ -148,7 +148,7 @@ public abstract class AbstractRestTestBase extends BaseIgniteAbstractTest {
 
         nodesBootstrapCfg.put(
                 node2Name,
-                "{\n"
+                "ignite {\n"
                         + "  network: {\n"
                         + "    port: " + NETWORK_PORTS[2] + ",\n"
                         + "    nodeFinder: {\n"

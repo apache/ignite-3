@@ -335,15 +335,14 @@ public class PrepareServiceImpl implements PrepareService {
             PlanningContext ctx,
             @Nullable QueryTransactionContext txContext
     ) {
+        // Check cache plan first, because ParserService's parsedResult.parseTree() can lazily parse a SQL query.
+        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
+        if (f != null) {
+            return f;
+        }
+
         // If fast optimization is applicable, then plan can not be cached.
         boolean canOptimizeFast = canOptimizeFast(parsedResult, ctx, txContext);
-
-        if (!canOptimizeFast) {
-            CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
-            if (f != null) {
-                return f;
-            }
-        }
 
         // First validate statement
 

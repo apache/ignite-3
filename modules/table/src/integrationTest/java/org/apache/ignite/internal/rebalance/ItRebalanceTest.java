@@ -91,7 +91,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
      */
     @Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
-        cluster.startAndInit(4, builder -> builder.clusterConfiguration("{\n"
+        cluster.startAndInit(4, builder -> builder.clusterConfiguration("ignite {\n"
                 + "    \"replication\": {\n"
                 + "        \"rpcTimeout\": 8000 \n"
                 + "    }"

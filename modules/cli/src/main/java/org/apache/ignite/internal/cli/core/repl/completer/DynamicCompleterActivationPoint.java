@@ -91,7 +91,7 @@ public class DynamicCompleterActivationPoint {
                 CompleterConf.builder()
                         .command("node", "config", "update")
                         .singlePositionalParameter()
-                        .filter(new ExclusionsCompleterFilter("compute", "raft"))
+                        .filter(new ExclusionsCompleterFilter("ignite.compute", "ignite.raft"))
                         .build(),
                 nodeConfigDynamicCompleterFactory
         );

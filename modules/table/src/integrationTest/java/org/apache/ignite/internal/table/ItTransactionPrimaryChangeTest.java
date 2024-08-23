@@ -54,7 +54,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     private static final String TABLE_NAME = "test_table";
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
@@ -85,7 +85,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     protected void customizeInitParameters(InitParametersBuilder builder) {
         super.customizeInitParameters(builder);
 
-        builder.clusterConfiguration("{"
+        builder.clusterConfiguration("ignite {"
                 + "  transaction: {"
                 + "      implicitTransactionTimeout: 30000,"
                 + "      txnResourceTtl: 2"

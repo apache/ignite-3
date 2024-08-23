@@ -83,7 +83,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
     @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithoutSsl {
         @Language("JSON")
-        String sslDisabledBoostrapConfig = "{\n"
+        String sslDisabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
                 + "    ssl.enabled: false,\n"
                 + "    port: {},\n"
@@ -169,7 +169,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
     @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithSsl {
         @Language("JSON")
-        String sslEnabledBoostrapConfig = "{\n"
+        String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"
@@ -381,7 +381,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
     @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithSslAndClientAuth {
         @Language("JSON")
-        String sslEnabledBoostrapConfig = "{\n"
+        String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"
@@ -542,7 +542,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
 
     @Language("JSON")
     private String createBoostrapConfig(String ciphers) {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"

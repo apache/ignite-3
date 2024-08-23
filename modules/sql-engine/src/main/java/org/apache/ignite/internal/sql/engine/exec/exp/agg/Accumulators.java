@@ -530,7 +530,7 @@ public class Accumulators {
     private static class DecimalSumEmptyIsZero implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = DecimalSumEmptyIsZero::new;
 
-        private BigDecimal sum;
+        private BigDecimal sum = BigDecimal.ZERO;
 
         /** {@inheritDoc} */
         @Override
@@ -541,13 +541,13 @@ public class Accumulators {
                 return;
             }
 
-            sum = sum == null ? in : sum.add(in);
+            sum = sum.add(in);
         }
 
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            return sum != null ? sum : BigDecimal.ZERO;
+            return sum;
         }
 
         /** {@inheritDoc} */
@@ -559,7 +559,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true);
+            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), false);
         }
     }
 

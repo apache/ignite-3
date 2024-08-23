@@ -77,7 +77,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
         nodesBootstrapCfg.put(
                 node0Name,
-                "{\n"
+                "ignite {\n"
                         + "  network.port: 3344,\n"
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
                         + "  clientConnector.port: 10800,\n"
@@ -88,7 +88,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
         nodesBootstrapCfg.put(
                 node1Name,
-                "{\n"
+                "ignite {\n"
                         + "  network.port: 3345,\n"
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
                         + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
