@@ -145,7 +145,7 @@ public class ConnectionTest extends AbstractClientTest {
             assertThrowsWithCause(
                     clientBuilder::build,
                     IgniteClientConnectionException.class,
-                    "Handshake timeout"
+                    "Handshake timeout [endpoint=127.0.0.1:" + testServer.port() + "]"
             );
 
             testServer.enableClientRequestHandling();
