@@ -93,7 +93,7 @@ public class Cluster {
     private static final int QUERY_TIMEOUT_MS = 10_000;
 
     /** Default nodes bootstrap configuration pattern. */
-    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "{\n"
+    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  \"network\": {\n"
             + "    \"port\":{},\n"
             + "    \"nodeFinder\":{\n"
@@ -308,6 +308,13 @@ public class Cluster {
                 .map(index -> BASE_PORT + index)
                 .mapToObj(port -> "\"localhost:" + port + '\"')
                 .collect(joining(", "));
+    }
+
+    /**
+     * Returns an Ignite server by its index.
+     */
+    public IgniteServer server(int index) {
+        return igniteServers.get(index);
     }
 
     /**

@@ -48,6 +48,7 @@ dependencies {
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-rest')
     implementation project(':ignite-api')
@@ -164,6 +165,7 @@ dependencies {
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation project(':ignite-partition-replicator')
+    integrationTestImplementation project(':ignite-configuration-root')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))

@@ -30,13 +30,11 @@ import java.util.UUID;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
-import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.BatchedArguments;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid
- * extra buffers and indirection.
+ * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid extra buffers and indirection.
  *
  * <p>Releases wrapped buffer on {@link #close()} .
  */
@@ -379,7 +377,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * <p>Should be followed by {@link #writePayload(byte[])} method to write the extension body.
      *
-     * @param extType    the extension type tag to be written.
+     * @param extType the extension type tag to be written.
      * @param payloadLen number of bytes of a payload binary to be written.
      */
     public void packExtensionTypeHeader(byte extType, int payloadLen) {
@@ -599,7 +597,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals, @Nullable Marshaller<Object, byte[]> marshaller) {
+    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals) {
         assert !closed : "Packer is closed";
 
         if (vals == null) {
@@ -619,7 +617,7 @@ public class ClientMessagePacker implements AutoCloseable {
         var builder = new BinaryTupleBuilder(vals.length * 3);
 
         for (Object arg : vals) {
-            ClientBinaryTupleUtils.appendObject(builder, arg, marshaller);
+            ClientBinaryTupleUtils.appendObject(builder, arg);
         }
 
         packBinaryTuple(builder);
@@ -651,7 +649,7 @@ public class ClientMessagePacker implements AutoCloseable {
             var builder = new BinaryTupleBuilder(rowLen * 3);
 
             for (Object value : values) {
-                ClientBinaryTupleUtils.appendObject(builder, value, null);
+                ClientBinaryTupleUtils.appendObject(builder, value);
             }
 
             packBinaryTuple(builder);
@@ -663,7 +661,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param val Object array.
      */
-    public <T> void packObjectAsBinaryTuple(@Nullable T val, @Nullable Marshaller<T, byte[]> marshaller) {
+    public <T> void packObjectAsBinaryTuple(@Nullable T val) {
         assert !closed : "Packer is closed";
 
         if (val == null) {
@@ -675,7 +673,7 @@ public class ClientMessagePacker implements AutoCloseable {
         // Builder with inline schema.
         // Value is represented by 3 tuple elements: type, scale, value.
         var builder = new BinaryTupleBuilder(3, 3, false);
-        ClientBinaryTupleUtils.appendObject(builder, val, marshaller);
+        ClientBinaryTupleUtils.appendObject(builder, val);
 
         packBinaryTuple(builder);
     }
@@ -716,6 +714,18 @@ public class ClientMessagePacker implements AutoCloseable {
     public void packBinaryTuple(BinaryTupleBuilder builder) {
         ByteBuffer buf = builder.build();
         packByteBuffer(buf);
+    }
+
+    /**
+     * Pack binary.
+     *
+     * @param buf Byte array.
+     */
+    public void packBinary(byte[] buf) {
+        assert !closed : "Packer is closed";
+
+        packBinaryHeader(buf.length);
+        writePayload(buf);
     }
 
     /**

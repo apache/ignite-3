@@ -25,21 +25,69 @@
 namespace ignite::detail {
 
 /**
+ * Compute Job Type.
+ */
+enum class compute_job_type {
+    /** Native. */
+    NATIVE = 0,
+
+    /** Marshalled Tuple. */
+    MARSHALLED_TUPLE = 1,
+
+    /** Marshalled Object. */
+    MARSHALLED_OBJECT = 2,
+};
+
+
+/**
+ * Get Compute Job Type from Type ID.
+ * @param type_id Type ID.
+ * @return Compute Job Type.
+ */
+compute_job_type from_type_id(ignite_type type_id) {
+    auto type_conv = compute_job_type(type_id);
+
+    if (type_conv == compute_job_type::MARSHALLED_TUPLE || type_conv == compute_job_type::MARSHALLED_OBJECT)
+        return type_conv;
+
+    return compute_job_type::NATIVE;
+}
+
+
+/**
  * Write a collection of primitives as a binary tuple.
  *
  * @param writer Writer to use.
  * @param arg Argument.
  */
-void write_object_as_binary_tuple(protocol::writer &writer, const binary_object &arg) {
+void write_object_as_binary_tuple(protocol::writer &writer, const primitive &arg) {
     binary_tuple_builder args_builder{3};
 
     args_builder.start();
-    protocol::claim_primitive_with_type(args_builder, arg.get_primitive());
+    protocol::claim_primitive_with_type(args_builder, arg);
     args_builder.layout();
-    protocol::append_primitive_with_type(args_builder, arg.get_primitive());
+    protocol::append_primitive_with_type(args_builder, arg);
 
     auto args_data = args_builder.build();
     writer.write_binary(args_data);
+}
+
+/**
+ * Pack compute argument.
+ *
+ * @param writer Writer.
+ * @param arg Argument.
+ */
+void pack_compute_argument(protocol::writer &writer, const binary_object &arg) {
+    auto prim = arg.get_primitive();
+    if (prim.is_null()) {
+        writer.write(std::int32_t(ignite_type::NIL));
+        writer.write_nil();
+        return;
+    }
+
+    writer.write(std::int32_t(compute_job_type::NATIVE));
+    write_object_as_binary_tuple(writer, prim);
 }
 
 /**
@@ -58,14 +106,17 @@ primitive read_primitive_from_binary_tuple(protocol::reader &reader) {
 }
 
 /**
- * Read primitive from a stream, which is encoded as a binary tuple.
+ * Unpack compute execution result.
  *
  * @param reader Reader.
  * @return Value.
  */
-std::optional<primitive> read_primitive_from_binary_tuple_nullable(protocol::reader &reader) {
-    if (reader.try_read_nil())
-        return std::nullopt;
+primitive unpack_compute_result(protocol::reader &reader) {
+    auto type_id = ignite_type(reader.read_int32());
+    auto job_id = from_type_id(type_id);
+
+    if (job_id != compute_job_type::NATIVE)
+        throw ignite_error("Only native compute results are supported currently");
 
     return read_primitive_from_binary_tuple(reader);
 }
@@ -190,7 +241,7 @@ public:
             job_state state;
 
             auto read_res = result_of_operation<void>([&]() {
-                res = read_primitive_from_binary_tuple_nullable(reader);
+                res = unpack_compute_result(reader);
                 state = read_job_state(reader);
             });
 
@@ -240,7 +291,7 @@ void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, std::
         writer.write(descriptor->get_execution_options().get_priority());
         writer.write(descriptor->get_execution_options().get_max_retries());
 
-        write_object_as_binary_tuple(writer, arg);
+        pack_compute_argument(writer, arg);
     };
 
     auto handler = std::make_shared<response_handler_compute>(shared_from_this(), std::move(callback), false);
@@ -278,7 +329,7 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
                     writer.write(descriptor->get_execution_options().get_priority());
                     writer.write(descriptor->get_execution_options().get_max_retries());
 
-                    write_object_as_binary_tuple(writer, arg);
+                    pack_compute_argument(writer, arg);
                 };
 
                 auto handler = std::make_shared<response_handler_compute>(self, std::move(callback), true);

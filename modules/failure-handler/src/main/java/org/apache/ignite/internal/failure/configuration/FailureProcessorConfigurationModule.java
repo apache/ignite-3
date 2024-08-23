@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.failure.handlers.configuration.IgnoredFailureTypesValidator;
@@ -41,8 +40,8 @@ public class FailureProcessorConfigurationModule implements ConfigurationModule 
     }
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(FailureProcessorConfiguration.KEY);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(FailureProcessorExtensionConfigurationSchema.class);
     }
 
     @Override

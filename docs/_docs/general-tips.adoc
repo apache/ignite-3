@@ -55,8 +55,8 @@ You can get information about the data region by using the `cluster config show 
     "checkpointDelayMillis" : 200,
     "checkpointThreads" : 4,
     "compactionThreads" : 4,
-    "frequency" : 180000,
-    "frequencyDeviation" : 40,
+    "interval" : 180000,
+    "intervalDeviation" : 40,
     "logReadLockThresholdTimeout" : 0,
     "readLockTimeout" : 10000,
     "useAsyncFileIoFactory" : true

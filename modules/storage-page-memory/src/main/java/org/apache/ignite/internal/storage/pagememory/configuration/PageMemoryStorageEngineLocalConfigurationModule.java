@@ -26,7 +26,8 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
-import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionChange;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 
@@ -60,8 +61,9 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
 
     @Override
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
-        rootChange.changeRoot(StorageConfiguration.KEY).changeProfiles(ch -> ch.createOrUpdate(DEFAULT_PROFILE_NAME, p -> {
+        StorageExtensionChange storageExtensionChange = (StorageExtensionChange) rootChange.changeRoot(StorageExtensionConfiguration.KEY);
+        storageExtensionChange.changeStorage().changeProfiles().createOrUpdate(DEFAULT_PROFILE_NAME, p -> {
             p.convert(PersistentPageMemoryProfileChange.class);
-        }));
+        });
     }
 }

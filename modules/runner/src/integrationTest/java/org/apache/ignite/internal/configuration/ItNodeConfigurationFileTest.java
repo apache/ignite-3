@@ -57,7 +57,7 @@ public class ItNodeConfigurationFileTest {
     @Test
     public void illegalConfigurationValueType(TestInfo testInfo, @WorkDirectory Path workDir) {
         String config =
-                "{\n"
+                "ignite {\n"
                 + "  rest: {\n"
                 + "    ssl: {\n"
                 + "      enabled: true,\n"
@@ -72,12 +72,12 @@ public class ItNodeConfigurationFileTest {
         assertThrowsWithCause(
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
                 ConfigurationValidationException.class,
-                "'String' is expected as a type for the 'rest.ssl.keyStore.path' configuration value");
+                "'String' is expected as a type for the 'ignite.rest.ssl.keyStore.path' configuration value");
     }
 
     @Test
     public void illegalConfigurationValue(TestInfo testInfo, @WorkDirectory Path workDir) {
-        String config = "{\n"
+        String config = "ignite {\n"
                 + "  rest: {\n"
                 + "    ssl: {\n"
                 + "      enabled: true,\n"
@@ -92,6 +92,6 @@ public class ItNodeConfigurationFileTest {
         assertThrowsWithCause(
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
                 ConfigurationValidationException.class,
-                "Validation did not pass for keys: [rest.ssl.keyStore, Key store file doesn't exist at bad_path]");
+                "Validation did not pass for keys: [ignite.rest.ssl.keyStore, Key store file doesn't exist at bad_path]");
     }
 }

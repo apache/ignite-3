@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNonSystemSchemaUsed;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -51,5 +52,6 @@ public abstract class AbstractIndexCommand implements CatalogCommand {
     private void validate() {
         validateIdentifier(schemaName, "Name of the schema");
         validateIdentifier(indexName, "Name of the index");
+        ensureNonSystemSchemaUsed(schemaName);
     }
 }

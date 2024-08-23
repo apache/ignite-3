@@ -570,7 +570,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .pageSize(1)
                 .perPartitionParallelOperations(1)
-                .autoFlushFrequency(50)
+                .autoFlushInterval(50)
                 .build();
 
         CompletableFuture<Void> fut;

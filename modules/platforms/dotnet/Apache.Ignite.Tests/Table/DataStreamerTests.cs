@@ -147,7 +147,7 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestAutoFlushFrequency(
+    public async Task TestAutoFlushInterval(
         [Values(true, false)] bool enabled,
         [Values(true, false)] bool withReceiver)
     {
@@ -155,7 +155,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         var options = new DataStreamerOptions
         {
-            AutoFlushFrequency = enabled
+            AutoFlushInterval = enabled
                 ? TimeSpan.FromMilliseconds(50)
                 : TimeSpan.MaxValue
         };
@@ -210,8 +210,8 @@ public class DataStreamerTests : IgniteTestsBase
         AssertException(DataStreamerOptions.Default with { PageSize = -10 }, "PageSize should be positive.");
         AssertException(DataStreamerOptions.Default with { RetryLimit = -1 }, "RetryLimit should be non-negative.");
         AssertException(
-            DataStreamerOptions.Default with { AutoFlushFrequency = TimeSpan.FromDays(-1) },
-            "AutoFlushFrequency should be positive.");
+            DataStreamerOptions.Default with { AutoFlushInterval = TimeSpan.FromDays(-1) },
+            "AutoFlushInterval should be positive.");
 
         void AssertException(DataStreamerOptions options, string message)
         {

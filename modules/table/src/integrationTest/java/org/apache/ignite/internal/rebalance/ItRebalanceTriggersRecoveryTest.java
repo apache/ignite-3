@@ -53,7 +53,7 @@ import org.junit.jupiter.api.Test;
 public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTest {
     private static final int PARTITION_ID = 0;
 
-    private static final String US_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    private static final String US_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
@@ -67,7 +67,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
             + "  rest.port: {}\n"
             + "}";
 
-    private static final String GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    private static final String GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"

@@ -261,7 +261,7 @@ public class ItLozaTest extends IgniteAbstractTest {
             }
         };
 
-        LogStorageBudgetView volatileCfg = raftConfiguration.volatileRaft().logStorage().value();
+        LogStorageBudgetView volatileCfg = raftConfiguration.volatileRaft().logStorageBudget().value();
 
         LogStorageFactory volatileLogStorageFactory = volatileLogStorageFactoryCreator.factory(volatileCfg);
 

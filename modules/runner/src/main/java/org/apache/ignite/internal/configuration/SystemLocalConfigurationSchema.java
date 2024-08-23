@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * System Configuration schema.
  */
-@ConfigurationRoot(rootName = "system", type = ConfigurationType.LOCAL)
+@Config
 public class SystemLocalConfigurationSchema {
 
     /**
