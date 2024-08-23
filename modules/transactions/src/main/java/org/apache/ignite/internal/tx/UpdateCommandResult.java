@@ -51,7 +51,7 @@ public class UpdateCommandResult implements Serializable {
      * @param primaryReplicaMatch Whether the command was executed successfully or failed due to mismatch of primary replica information.
      * @param currentLeaseStartTime Actual lease start time.
      * @param primaryInPeersAndLearners {@code true} if primary replica belongs to the raft group topology: peers and learners,
-     * (@code false) otherwise.
+     *     (@code false) otherwise.
      */
     public UpdateCommandResult(
             boolean primaryReplicaMatch,
