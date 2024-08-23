@@ -99,7 +99,6 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
         // No-op.
     }
 
-
     @Override
     public void onCompactionBegin(RocksDB db, CompactionJobInfo compactionJobInfo) {
         if (lastCompactionEventType.compareAndSet(ON_COMPACTION_COMPLETED, ON_COMPACTION_BEGIN)) {

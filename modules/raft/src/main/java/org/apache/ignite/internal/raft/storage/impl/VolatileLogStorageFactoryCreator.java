@@ -115,9 +115,9 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
             // all the raft groups
             Env env = db.getEnv();
             // Setup background flushes pool
-            env.setBackgroundThreads(1, Priority.HIGH);
+            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
             // Setup background compactions pool
-            env.setBackgroundThreads(1, Priority.LOW);
+            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
 
             assert (columnFamilyHandles.size() == 1);
             this.columnFamily = columnFamilyHandles.get(0);
