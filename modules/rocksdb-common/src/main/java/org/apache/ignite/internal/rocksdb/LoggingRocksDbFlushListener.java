@@ -72,9 +72,11 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
     @Override
     public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
         if (lastFlushEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
-            LOG.info("Starting rocksdb flush process [name='{}', reason={}]", name, flushJobInfo.getFlushReason());
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Starting rocksdb flush process [name='{}', reason={}]", name, flushJobInfo.getFlushReason());
 
-            lastFlushStartTimeNanos = System.nanoTime();
+                lastFlushStartTimeNanos = System.nanoTime();
+            }
 
             onFlushBeginCallback(db, flushJobInfo);
         }
@@ -83,9 +85,11 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
     @Override
     public void onFlushCompleted(RocksDB db, FlushJobInfo flushJobInfo) {
         if (lastFlushEventType.compareAndSet(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED)) {
-            long duration = System.nanoTime() - lastFlushStartTimeNanos;
+            if (LOG.isInfoEnabled()) {
+                long duration = System.nanoTime() - lastFlushStartTimeNanos;
 
-            LOG.info("Finishing rocksdb flush process [name='{}', duration={}ms]", name, TimeUnit.NANOSECONDS.toMillis(duration));
+                LOG.info("Finishing rocksdb flush process [name='{}', duration={}ms]", name, TimeUnit.NANOSECONDS.toMillis(duration));
+            }
 
             onFlushCompletedCallback(db, flushJobInfo);
         }
@@ -102,24 +106,28 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
     @Override
     public void onCompactionBegin(RocksDB db, CompactionJobInfo compactionJobInfo) {
         if (lastCompactionEventType.compareAndSet(ON_COMPACTION_COMPLETED, ON_COMPACTION_BEGIN)) {
-            LOG.info("Starting rocksdb compaction process [name='{}', reason={}, input={}, output={}]",
-                    name,
-                    compactionJobInfo.compactionReason(),
-                    // Extract file names from full paths.
-                    compactionJobInfo.inputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList()),
-                    compactionJobInfo.outputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList())
-            );
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Starting rocksdb compaction process [name='{}', reason={}, input={}, output={}]",
+                        name,
+                        compactionJobInfo.compactionReason(),
+                        // Extract file names from full paths.
+                        compactionJobInfo.inputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList()),
+                        compactionJobInfo.outputFiles().stream().map(path -> Paths.get(path).getFileName()).collect(Collectors.toList())
+                );
 
-            lastCompactionStartTimeNanos = System.nanoTime();
+                lastCompactionStartTimeNanos = System.nanoTime();
+            }
         }
     }
 
     @Override
     public void onCompactionCompleted(RocksDB db, CompactionJobInfo compactionJobInfo) {
         if (lastCompactionEventType.compareAndSet(ON_COMPACTION_BEGIN, ON_COMPACTION_COMPLETED)) {
-            long duration = System.nanoTime() - lastCompactionStartTimeNanos;
+            if (LOG.isInfoEnabled()) {
+                long duration = System.nanoTime() - lastCompactionStartTimeNanos;
 
-            LOG.info("Finishing rocksdb compaction process [name='{}', duration={}ms]", name, TimeUnit.NANOSECONDS.toMillis(duration));
+                LOG.info("Finishing rocksdb compaction process [name='{}', duration={}ms]", name, TimeUnit.NANOSECONDS.toMillis(duration));
+            }
         }
     }
 }
