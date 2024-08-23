@@ -47,6 +47,8 @@ final class Script implements Iterable<Command>, AutoCloseable {
             "query", Query::new,
             "loop", Loop::new,
             "endloop", EndLoop::new,
+            "for", For::new,
+            "endfor", EndFor::new,
             "skipif", SkipIf::new,
             "onlyif", OnlyIf::new
     );

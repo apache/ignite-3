@@ -63,14 +63,67 @@ statement error: From line 1,    column 8
 SELECT col
 
 # check loop
-loop i 0 10
+loop i 0 2
 
 query I
-SELECT MIN(c1) FROM (VALUES(${i}), (-1), (2)) t(c1);
+SELECT c1 FROM (VALUES (${i})) t(c1);
 ----
--1
+${i}
 
 endloop
+
+
+# check for
+for e 0, 2
+
+query I
+SELECT c1 FROM (VALUES (${e})) t(c1);
+----
+${e}
+
+endfor
+
+# check for
+# multiword vars
+for e TEXT 1, TEXT 2
+
+query I
+SELECT c1 FROM (VALUES ('${e}')) t(c1);
+----
+${e}
+
+endfor
+
+# check for loop
+# trailing , is ignored
+for e 0, 2, 4,
+
+query I
+SELECT c1 FROM (VALUES (${e})) t(c1);
+----
+${e}
+
+endfor
+
+# check for loop
+# empty val is ignored
+for e 0, , 4
+
+query I
+SELECT c1 FROM (VALUES (${e})) t(c1);
+----
+${e}
+
+endfor
+
+# for loop
+# check error message
+for type INTEGER, BOOLEAN
+
+statement error: Cast function cannot convert value of type BINARY(1) to type ${type}
+SELECT CAST(x'00' AS ${type});
+
+endfor
 
 # skipif <engine>
 
@@ -95,3 +148,13 @@ query I
 SELECT 2
 ----
 2
+
+# Pragma set null label
+statement ok
+PRAGMA null=nil
+
+query T
+SELECT NULL
+----
+nil
+

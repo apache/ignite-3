@@ -98,33 +98,24 @@ SELECT CAST(x'00'::BINARY AS BIGINT);
 statement error: Cast function cannot convert value of type VARBINARY to type BIGINT
 SELECT CAST(x'00'::VARBINARY AS BIGINT);
 
+for interval_type YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS
+
 query T
-SELECT CAST(INTERVAL 11 YEAR AS BIGINT);
+SELECT CAST(INTERVAL 11 ${interval_type} AS BIGINT);
 ----
 11
 
-query T
-SELECT CAST(INTERVAL 11 MONTH AS BIGINT);
-----
-11
+endfor
 
-query T
-SELECT CAST(INTERVAL 11 DAYS AS BIGINT);
-----
-11
+for interval_type DAY TO HOUR, DAY TO MINUTE, DAY TO SECOND, HOUR TO MINUTE, HOUR TO SECOND, MINUTE TO SECOND, YEAR TO MONTH
 
-query T
-SELECT CAST(INTERVAL 11 HOURS AS BIGINT);
-----
-11
+statement error: Cast function cannot convert value of type INTERVAL ${interval_type} to type BIGINT
+SELECT CAST(INTERVAL '0 01:02' ${interval_type} AS BIGINT);
 
-query T
-SELECT CAST(INTERVAL 11 MINUTES AS BIGINT);
-----
-11
+endfor
 
 statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type BIGINT
-SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS BIGINT);
+SELECT CAST(INTERVAL '0 01' DAY TO HOUR AS BIGINT);
 
 statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type BIGINT
 SELECT CAST(INTERVAL '0 01:02' DAYS TO MINUTES AS BIGINT);
