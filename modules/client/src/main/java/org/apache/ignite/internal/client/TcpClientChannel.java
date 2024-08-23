@@ -226,12 +226,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             for (ClientRequestFuture<?> pendingReq : pendingReqs.values()) {
-                pendingReq.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", cause));
+                pendingReq.completeExceptionally(
+                        new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
             }
 
             for (CompletableFuture<PayloadInputChannel> handler : notificationHandlers.values()) {
                 try {
-                    handler.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", cause));
+                    handler.completeExceptionally(
+                            new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
                 } catch (Exception ignored) {
                     // Ignore.
                 }
@@ -314,7 +316,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             @Nullable PayloadReader<T> payloadReader,
             @Nullable CompletableFuture<PayloadInputChannel> notificationFut) {
         if (closed()) {
-            throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed");
+            throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint());
         }
 
         ClientRequestFuture<T> fut = new ClientRequestFuture<>(payloadReader, notificationFut);
@@ -337,7 +339,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
                     String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
-                    IgniteClientConnectionException ex = new IgniteClientConnectionException(CONNECTION_ERR, msg, f.cause());
+                    IgniteClientConnectionException ex = new IgniteClientConnectionException(CONNECTION_ERR, msg, endpoint(), f.cause());
                     fut.completeExceptionally(ex);
                     log.warn(msg + "]: " + f.cause().getMessage(), f.cause());
 
@@ -414,7 +416,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (pendingReq == null) {
             log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
 
-            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId), endpoint());
         }
 
         metrics.requestsActiveDecrement();
@@ -451,7 +453,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (handler == null) {
             log.error("Unexpected notification ID [remoteAddress=" + cfg.getAddress() + "]: " + id);
 
-            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id));
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id), endpoint());
         }
 
         try {
@@ -559,7 +561,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         handshakeReqAsync(ver).addListener(f -> {
             if (!f.isSuccess()) {
                 fut.completeExceptionally(
-                        new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send handshake request", f.cause()));
+                        new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send handshake request", endpoint(), f.cause()));
             }
         });
 
@@ -572,12 +574,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     if (err != null) {
                         if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
                             metrics.handshakesFailedTimeoutIncrement();
-                            throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", err);
+                            throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
                         } else {
                             metrics.handshakesFailedIncrement();
                         }
 
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", err);
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
                     }
 
                     return res;
@@ -727,6 +729,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return S.toString(TcpClientChannel.class.getSimpleName(), "remoteAddress", sock.remoteAddress(), false);
     }
 
+    @Override
+    public String endpoint() {
+        return cfg.getAddress().toString();
+    }
+
     /**
      * Client request future.
      */
@@ -770,7 +777,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                                     if (e instanceof TimeoutException) {
                                         log.warn("Heartbeat timeout, closing the channel [remoteAddress=" + cfg.getAddress() + ']');
 
-                                        close(new IgniteClientConnectionException(CONNECTION_ERR, "Heartbeat timeout", e), false);
+                                        close(new IgniteClientConnectionException(
+                                                CONNECTION_ERR, "Heartbeat timeout", endpoint(), e), false);
                                     }
 
                                     return null;

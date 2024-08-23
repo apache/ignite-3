@@ -203,6 +203,11 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         }
 
         @Override
+        public String endpoint() {
+            return "test";
+        }
+
+        @Override
         public void close() {
             // No-op.
         }

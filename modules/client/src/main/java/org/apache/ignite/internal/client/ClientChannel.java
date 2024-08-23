@@ -74,6 +74,13 @@ public interface ClientChannel extends AutoCloseable {
     ProtocolContext protocolContext();
 
     /**
+     * Returns endpoint.
+     *
+     * @return Endpoint.
+     */
+    String endpoint();
+
+    /**
      * Send heartbeat request.
      *
      * @param payloadWriter Payload writer or {@code null} for no payload.
