@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.SELECT_IDS_QUERY;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.TEST_TABLE_NAME;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.UPDATE_QUERY;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -39,6 +43,7 @@ class References {
 
     final IgniteTables tables;
     final IgniteTransactions transactions;
+    final IgniteSql sql;
 
     final Table table; // From table().
     final Table tableFromTableAsync;
@@ -55,11 +60,15 @@ class References {
 
     final PartitionManager partitionManager;
 
+    final Statement selectIdsStatement;
+    final Statement updateStatement;
+
     References(IgniteServer server) throws Exception {
         ignite = server.api();
 
         tables = ignite.tables();
         transactions = ignite.transactions();
+        sql = ignite.sql();
 
         table = tables.table(TEST_TABLE_NAME);
         tableFromTableAsync = tables.tableAsync(TEST_TABLE_NAME).get(10, SECONDS);
@@ -75,5 +84,8 @@ class References {
         mappedRecordView = table.recordView(Mapper.of(Record.class));
 
         partitionManager = table.partitionManager();
+
+        selectIdsStatement = sql.createStatement(SELECT_IDS_QUERY);
+        updateStatement = sql.createStatement(UPDATE_QUERY);
     }
 }
