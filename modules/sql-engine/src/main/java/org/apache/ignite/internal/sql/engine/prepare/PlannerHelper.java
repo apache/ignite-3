@@ -452,8 +452,6 @@ public final class PlannerHelper {
                 return null;
             }
 
-            System.err.println("SELECT_COUNT");
-
             String alias = planner.validator().deriveAlias(selectItem, expressionNames.size());
             expressionNames.add(alias);
         }
