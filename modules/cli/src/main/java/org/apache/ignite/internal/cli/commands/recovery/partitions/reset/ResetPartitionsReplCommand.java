@@ -17,6 +17,17 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.partitions.reset;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.ABBREVIATE_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.COMMAND_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.DESCRIPTION_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.OPTION_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.PARAMETER_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.REQUIRED_OPTION_MARKER;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_OPTIONS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
+
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCall;
 import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCallInput;
@@ -29,7 +40,21 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** Command to reset partitions. */
-@Command(name = "reset", description = "Resets partitions.")
+@Command(
+        name = "reset",
+        description = "Resets partitions.",
+
+        descriptionHeading = DESCRIPTION_HEADING,
+        optionListHeading = OPTION_LIST_HEADING,
+        synopsisHeading = SYNOPSIS_HEADING,
+        requiredOptionMarker = REQUIRED_OPTION_MARKER,
+        usageHelpAutoWidth = USAGE_HELP_AUTO_WIDTH,
+        sortOptions = SORT_OPTIONS,
+        sortSynopsis = SORT_SYNOPSIS,
+        abbreviateSynopsis = ABBREVIATE_SYNOPSIS,
+        commandListHeading = COMMAND_LIST_HEADING,
+        parameterListHeading = PARAMETER_LIST_HEADING
+)
 public class ResetPartitionsReplCommand extends BaseCommand implements Runnable {
     /** Cluster endpoint URL option. */
     @Mixin

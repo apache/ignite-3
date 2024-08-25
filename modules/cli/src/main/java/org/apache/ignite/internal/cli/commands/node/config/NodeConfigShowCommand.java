@@ -17,6 +17,17 @@
 
 package org.apache.ignite.internal.cli.commands.node.config;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.ABBREVIATE_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.COMMAND_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.DESCRIPTION_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.OPTION_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.PARAMETER_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.REQUIRED_OPTION_MARKER;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_OPTIONS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
@@ -34,7 +45,21 @@ import picocli.CommandLine.Parameters;
 /**
  * Command that shows configuration from the cluster.
  */
-@Command(name = "show", description = "Shows node configuration")
+@Command(
+        name = "show",
+        description = "Shows node configuration",
+
+        descriptionHeading = DESCRIPTION_HEADING,
+        optionListHeading = OPTION_LIST_HEADING,
+        synopsisHeading = SYNOPSIS_HEADING,
+        requiredOptionMarker = REQUIRED_OPTION_MARKER,
+        usageHelpAutoWidth = USAGE_HELP_AUTO_WIDTH,
+        sortOptions = SORT_OPTIONS,
+        sortSynopsis = SORT_SYNOPSIS,
+        abbreviateSynopsis = ABBREVIATE_SYNOPSIS,
+        commandListHeading = COMMAND_LIST_HEADING,
+        parameterListHeading = PARAMETER_LIST_HEADING
+)
 public class NodeConfigShowCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.cluster;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.CLUSTER_URL_OPTION_ORDER;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION_DESC;
 
@@ -29,7 +30,12 @@ import picocli.CommandLine.Option;
  */
 public class ClusterUrlMixin {
     /** Cluster endpoint URL option. */
-    @Option(names = CLUSTER_URL_OPTION, description = CLUSTER_URL_OPTION_DESC, converter = UrlConverter.class)
+    @Option(
+            names = CLUSTER_URL_OPTION,
+            description = CLUSTER_URL_OPTION_DESC,
+            converter = UrlConverter.class,
+            order = CLUSTER_URL_OPTION_ORDER
+    )
     private URL clusterUrl;
 
     public String getClusterUrl() {

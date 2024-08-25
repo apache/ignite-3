@@ -18,6 +18,17 @@
 package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.ABBREVIATE_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.COMMAND_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.DESCRIPTION_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.OPTION_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.PARAMETER_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.REQUIRED_OPTION_MARKER;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_OPTIONS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
+
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitReplCallFactory;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -30,7 +41,21 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** Command to deploy a unit in REPL mode. */
-@Command(name = "deploy", description = "Deploys a unit")
+@Command(
+        name = "deploy",
+        description = "Deploys a unit",
+
+        descriptionHeading = DESCRIPTION_HEADING,
+        optionListHeading = OPTION_LIST_HEADING,
+        synopsisHeading = SYNOPSIS_HEADING,
+        requiredOptionMarker = REQUIRED_OPTION_MARKER,
+        usageHelpAutoWidth = USAGE_HELP_AUTO_WIDTH,
+        sortOptions = SORT_OPTIONS,
+        sortSynopsis = SORT_SYNOPSIS,
+        abbreviateSynopsis = ABBREVIATE_SYNOPSIS,
+        commandListHeading = COMMAND_LIST_HEADING,
+        parameterListHeading = PARAMETER_LIST_HEADING
+)
 public class ClusterUnitDeployReplCommand extends BaseCommand implements Runnable {
 
     @Mixin
@@ -50,13 +75,13 @@ public class ClusterUnitDeployReplCommand extends BaseCommand implements Runnabl
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(options::toDeployUnitCallInput)
                 .then(Flows.mono(input ->
-                    CallExecutionPipeline.asyncBuilder(callFactory::create)
-                            .inputProvider(() -> input)
-                            .output(spec.commandLine().getOut())
-                            .errOutput(spec.commandLine().getErr())
-                            .verbose(verbose)
-                            .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot deploy unit"))
-                            .build().runPipeline()
+                        CallExecutionPipeline.asyncBuilder(callFactory::create)
+                                .inputProvider(() -> input)
+                                .output(spec.commandLine().getOut())
+                                .errOutput(spec.commandLine().getErr())
+                                .verbose(verbose)
+                                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot deploy unit"))
+                                .build().runPipeline()
                 ))
                 .start();
     }

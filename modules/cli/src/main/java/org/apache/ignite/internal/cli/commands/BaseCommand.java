@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.HELP_OPTION_ORDER;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.VERBOSE_OPTION_ORDER;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION_SHORT;
@@ -33,11 +35,11 @@ import picocli.CommandLine.Spec;
  */
 public abstract class BaseCommand {
     /** Help option specification. */
-    @Option(names = {HELP_OPTION, HELP_OPTION_SHORT}, usageHelp = true, description = HELP_OPTION_DESC, order = 100)
+    @Option(names = {HELP_OPTION, HELP_OPTION_SHORT}, description = HELP_OPTION_DESC, order = HELP_OPTION_ORDER)
     protected boolean usageHelpRequested;
 
     /** Verbose option specification. */
-    @Option(names = {VERBOSE_OPTION, VERBOSE_OPTION_SHORT}, description = VERBOSE_OPTION_DESC, order = 101)
+    @Option(names = {VERBOSE_OPTION, VERBOSE_OPTION_SHORT}, description = VERBOSE_OPTION_DESC, order = VERBOSE_OPTION_ORDER)
     protected boolean verbose;
 
     /** Instance of picocli command specification. */

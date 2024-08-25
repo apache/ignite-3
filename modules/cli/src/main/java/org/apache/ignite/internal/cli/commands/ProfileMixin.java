@@ -26,7 +26,7 @@ import picocli.CommandLine.Option;
  * Mixin for profile option.
  */
 public class ProfileMixin {
-    @Option(names = PROFILE_OPTION, description = PROFILE_OPTION_DESC)
+    @Option(names = PROFILE_OPTION, description = PROFILE_OPTION_DESC, order = 11)
     private String profileName;
 
     /**

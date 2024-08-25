@@ -17,6 +17,16 @@
 
 package org.apache.ignite.internal.cli.commands.cliconfig.profile;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.ABBREVIATE_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.COMMAND_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.DESCRIPTION_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.OPTION_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.PARAMETER_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.REQUIRED_OPTION_MARKER;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_OPTIONS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_ACTIVATE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_ACTIVATE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_COPY_FROM_OPTION;
@@ -35,7 +45,21 @@ import picocli.CommandLine.Parameters;
 /**
  * Command for create CLI profile.
  */
-@Command(name = "create", description = "Creates profile")
+@Command(
+        name = "create",
+        description = "Creates profile",
+
+        descriptionHeading = DESCRIPTION_HEADING,
+        optionListHeading = OPTION_LIST_HEADING,
+        synopsisHeading = SYNOPSIS_HEADING,
+        requiredOptionMarker = REQUIRED_OPTION_MARKER,
+        usageHelpAutoWidth = USAGE_HELP_AUTO_WIDTH,
+        sortOptions = SORT_OPTIONS,
+        sortSynopsis = SORT_SYNOPSIS,
+        abbreviateSynopsis = ABBREVIATE_SYNOPSIS,
+        commandListHeading = COMMAND_LIST_HEADING,
+        parameterListHeading = PARAMETER_LIST_HEADING
+)
 public class CliConfigProfileCreateCommand extends BaseCommand implements Callable<Integer> {
     @Parameters(arity = "1", description = "Name of new profile")
     private String profileName;
