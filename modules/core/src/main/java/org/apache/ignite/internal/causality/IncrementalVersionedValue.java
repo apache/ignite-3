@@ -189,10 +189,6 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
      * @return Future for updated value.
      */
     public CompletableFuture<T> update(long causalityToken, BiFunction<T, Throwable, CompletableFuture<T>> updater) {
-        if (causalityToken == 359) {
-            System.out.println("KKK");
-            Thread.dumpStack();
-        }
         synchronized (updateMutex) {
             if (expectedToken == -1) {
                 assert causalityToken > lastCompleteToken

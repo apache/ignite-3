@@ -55,7 +55,6 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -541,7 +540,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         if (e.empty() || e.tombstone()) {
             return false;
         }
-        System.out.println("doRemove " + ByteUtils.stringFromBytes(key));
+
         doPut(key, TOMBSTONE, curRev);
 
         return true;

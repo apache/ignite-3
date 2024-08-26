@@ -121,7 +121,6 @@ import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReaso
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -169,8 +168,6 @@ public class PartitionReplicaLifecycleManager  extends
     private final Map<Integer, Set<Integer>> replicationGroupIds = new ConcurrentHashMap<>();
 
     private final Map<Integer, StampedLock> partitionsPerZone = new ConcurrentHashMap<>();
-
-//    private final Map<ZoneParReplica> replicas = null;
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -548,12 +545,13 @@ public class PartitionReplicaLifecycleManager  extends
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
         Set<ReplicationGroupId> rpIds = new HashSet<>();
+
         replicationGroupIds.forEach((zoneId, parts) -> {
             parts.forEach(p -> {
                 rpIds.add(new ZonePartitionId(zoneId, p));
             });
         });
-        LOG.info("KKK to stop " + topologyService.localMember() + " " + rpIds);
+
         cleanUpPartitionsResources(rpIds);
     }
 
@@ -741,10 +739,6 @@ public class PartitionReplicaLifecycleManager  extends
 
                 try {
                     Entry newEntry = evt.entryEvent().newEntry();
-
-                    if (!(newEntry.value() == null || newEntry.empty()) && newEntry.value().length == 0) {
-                        LOG.error("KKK old entry " + evt.entryEvent().oldEntry() + " new entry " + evt.entryEvent().newEntry());
-                    }
 
                     return handleChangePendingAssignmentEvent(newEntry, evt.revision(), false);
                 } finally {
@@ -970,14 +964,7 @@ public class PartitionReplicaLifecycleManager  extends
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
-        Assignments pendingAssignments;
-
-        try {
-            pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
-        } catch (Exception e) {
-            LOG.error("Pending error " + ByteUtils.stringFromBytes(pendingAssignmentsEntry.key()));
-            throw e;
-        }
+        Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
 
         if (!busyLock.enterBusy()) {
             return CompletableFuture.<Void>failedFuture(new NodeStoppingException());

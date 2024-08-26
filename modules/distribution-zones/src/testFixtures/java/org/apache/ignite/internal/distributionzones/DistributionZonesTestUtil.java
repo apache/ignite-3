@@ -156,7 +156,7 @@ public class DistributionZonesTestUtil {
         );
     }
 
-    public static void createZone(
+    private static void createZone(
             CatalogManager catalogManager,
             String zoneName,
             @Nullable Integer partitions,

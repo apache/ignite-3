@@ -245,12 +245,7 @@ public class ByteUtils {
 
             out.flush();
 
-            var result = bos.toByteArray();
-            if (result.length == 0) {
-
-                throw new RuntimeException("Null result");
-            }
-            return result;
+            return bos.toByteArray();
         } catch (IOException e) {
             throw new IgniteInternalException(String.format("Could not serialize a class [cls=%s]", obj.getClass()), e);
         }
