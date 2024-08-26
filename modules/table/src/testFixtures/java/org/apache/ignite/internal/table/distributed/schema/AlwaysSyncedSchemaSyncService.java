@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
  * Test implementation of {@link SchemaSyncService} that never waits and always behaves as if the metadata was already in sync for any
