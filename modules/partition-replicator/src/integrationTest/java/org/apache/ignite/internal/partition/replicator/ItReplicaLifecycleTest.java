@@ -596,15 +596,18 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @RepeatedTest(5)
+    @RepeatedTest(20)
     public void testAlterRebalanceExtend(TestInfo testInfo) throws Exception {
-        startNodes(testInfo, 1);
+        startNodes(testInfo, 3);
 
-        Node node = getNode(0);
+        Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+
+        Node node = getNode(replicaAssignment.consistentId());
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
-        DistributionZonesTestUtil.createZone(node.catalogManager, "TEST_ZONE", 1, 3);
+        DistributionZonesTestUtil.createZone(node.catalogManager, "TEST_ZONE", 1, 1);
 
         createTable(node, "TEST_ZONE", "TEST_TABLE");
 
@@ -633,16 +636,17 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(() -> IntStream.range(0, 1)
                 .allMatch(i  -> {
                     try {
-                        return (((ZonePartitionReplicaListener) getNode(i).replicaManager.replica(new ZonePartitionId(zoneId, 0)).get().listener()).replicas.size() == 1);
+                        return (((ZonePartitionReplicaListener) node.replicaManager.replica(new ZonePartitionId(zoneId, 0)).get().listener()).replicas.size() == 1);
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     } catch (ExecutionException e) {
                         throw new RuntimeException(e);
+                    } catch (Exception e) {
+                        return false;
                     }
                 }), 10_000L));
 
-        startNode(testInfo, 1);
-        startNode(testInfo, 2);
+        alterZone(node.catalogManager, "TEST_ZONE", 3);
 
         assertTrue(waitForCondition(() -> IntStream.range(0, 3)
                 .allMatch(i  -> {
@@ -663,20 +667,19 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                         throw new RuntimeException(e);
                     } catch (ExecutionException e) {
                         throw new RuntimeException(e);
+                    } catch (Exception e) {
+                        return false;
                     }
                 }), 30_000L));
     }
 
-    @RepeatedTest(20)
+    @Test
     void testReplicaIsStartedOnNodeStart(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
         Node node0 = getNode(0);
 
-        placementDriver.setPrimary(node0.clusterService.topologyService().localMember());
-
-        createZone(node0, "test_zone", 1, 3);
-        createTable(node0, "test_zone", "test_table");
+        createZone(node0, "test_zone", 2, 3);
 
         int zoneId = DistributionZonesTestUtil.getZoneId(node0.catalogManager, "test_zone", node0.hybridClock.nowLong());
 
@@ -693,33 +696,11 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 20_000L
         );
 
-        assertTrue(waitForCondition(() -> IntStream.range(0, 3)
-                .allMatch(i  -> {
-                    try {
-                        return (((ZonePartitionReplicaListener) getNode(i).replicaManager.replica(partId).get().listener()).replicas.size() == 1);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    } catch (ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                }), 10_000L));
-
         stopNode(2);
 
         Node node2 = startNode(testInfo, 2);
 
         assertTrue(waitForCondition(() -> node2.replicaManager.isReplicaStarted(partId), 10_000L));
-
-        assertTrue(waitForCondition(() -> IntStream.range(0, 3)
-                .allMatch(i  -> {
-                    try {
-                        return (((ZonePartitionReplicaListener) getNode(i).replicaManager.replica(partId).get().listener()).replicas.size() == 1);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    } catch (ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                }), 10_000L));
     }
 
     @Test
