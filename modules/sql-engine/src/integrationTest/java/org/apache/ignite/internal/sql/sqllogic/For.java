@@ -18,6 +18,8 @@
 
 package org.apache.ignite.internal.sql.sqllogic;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,9 +96,9 @@ final class For extends Command {
                 throw script.reportInvalidCommand("Unexpected for syntax. Expected [ but got " + leftBracket, cmdTokens);
             }
 
-            String lastTok = cmdTokens[cmdTokens.length - 1];
-            if (!"]".equalsIgnoreCase(leftBracket) && !lastTok.endsWith("]"))  {
-                throw script.reportInvalidCommand("Unexpected for syntax. Expected ] but got " + lastTok, cmdTokens);
+            String rightBracket = cmdTokens[cmdTokens.length - 1];
+            if (!"]".equalsIgnoreCase(leftBracket) && !rightBracket.endsWith("]"))  {
+                throw script.reportInvalidCommand("Unexpected for syntax. Expected ] but got " + rightBracket, cmdTokens);
             }
 
             elements = new ArrayList<>();
@@ -117,10 +119,13 @@ final class For extends Command {
                 if (tok.endsWith(",")) {
                     String str = current.toString();
                     String e = str.substring(0, str.length() - 1).trim();
+
                     if (!e.isEmpty()) {
+                        // Unescape comma
                         elements.add(e.replace("\\,", ","));
                     } else {
-                        throw script.reportInvalidCommand("Unexpected for syntax. For loop element can not be empty. Index: " + elem, cmdTokens);
+                        String error = format("Unexpected for syntax. For loop element can not be empty. Index: {}", elem);
+                        throw script.reportInvalidCommand(error, cmdTokens);
                     }
 
                     current.setLength(0);
