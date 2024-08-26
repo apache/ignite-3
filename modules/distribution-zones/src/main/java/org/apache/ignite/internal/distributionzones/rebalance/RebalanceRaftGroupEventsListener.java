@@ -332,7 +332,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             }
 
             // We wait for catalog metadata to be applied up to the provided timestamp, so it should be safe to use the timestamp.
-            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tablePartitionId, pendingAssignments.timestamp()).get();
+            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tablePartitionId, pendingAssignments.timestamp())
+                    .get();
 
             // Were reduced
             Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stableFromRaft);
