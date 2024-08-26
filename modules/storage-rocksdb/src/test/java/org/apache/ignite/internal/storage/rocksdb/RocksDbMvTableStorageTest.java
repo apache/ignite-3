@@ -23,6 +23,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -137,10 +138,14 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         MvPartitionStorage partitionStorage0 = getOrCreateMvPartition(PARTITION_ID);
 
         RowId rowId0 = new RowId(PARTITION_ID);
+        long leaseStartTime = 1234567;
+        String primaryReplicaNodeId = UUID.randomUUID().toString();
+        String primaryReplicaNodeName = primaryReplicaNodeId + "name";
 
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
+            partitionStorage0.updateLease(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
             return partitionStorage0.addWrite(rowId0, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
@@ -156,6 +161,10 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         assertThat(tableStorage.getMvPartition(PARTITION_ID_1), is(nullValue()));
         assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow()),
                 is(equalTo(unwrap(testData))));
+
+        assertEquals(leaseStartTime, tableStorage.getMvPartition(PARTITION_ID).leaseStartTime());
+        assertEquals(primaryReplicaNodeId, tableStorage.getMvPartition(PARTITION_ID).primaryReplicaNodeId());
+        assertEquals(primaryReplicaNodeName, tableStorage.getMvPartition(PARTITION_ID).primaryReplicaNodeName());
     }
 
     @Test

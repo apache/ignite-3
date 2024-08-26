@@ -486,7 +486,6 @@ public class StorageUpdateHandler {
 
                 ReadResult item = cursor.next();
 
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Prevent double storage updates within primary
                 if (item.isWriteIntent()) {
                     // We are aborting only those write intents that belong to the provided transaction.
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20347 to check transaction id in the storage
