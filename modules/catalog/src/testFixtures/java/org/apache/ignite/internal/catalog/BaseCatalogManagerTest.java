@@ -44,6 +44,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.commands.RenameIndexCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
@@ -275,6 +276,14 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return DropIndexCommand.builder()
                 .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .indexName(indexName)
+                .build();
+    }
+
+    protected static CatalogCommand renameIndexCommand(String indexName, String newIndexName) {
+        return RenameIndexCommand.builder()
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .indexName(indexName)
+                .newIndexName(newIndexName)
                 .build();
     }
 

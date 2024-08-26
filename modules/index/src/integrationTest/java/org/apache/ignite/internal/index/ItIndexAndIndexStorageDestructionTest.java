@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.lang.ErrorGroups.Storage.ALREADY_DESTROYED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -27,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -54,7 +56,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
     private static final int PREEXISTING_KEY = 1;
     private static final int ANOTHER_KEY = 2;
 
-    private IgniteImpl node;
+    private Ignite node;
 
     @Override
     protected int initialNodes() {
@@ -96,7 +98,8 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
     }
 
     private int indexId(String indexName) {
-        CatalogIndexDescriptor indexDescriptor = node.catalogManager().aliveIndex(indexName, node.clock().nowLong());
+        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
+        CatalogIndexDescriptor indexDescriptor = igniteImpl.catalogManager().aliveIndex(indexName, igniteImpl.clock().nowLong());
         assertThat(indexDescriptor, is(notNullValue()));
 
         return indexDescriptor.id();

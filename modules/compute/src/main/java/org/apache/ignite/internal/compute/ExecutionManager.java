@@ -36,6 +36,7 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -92,6 +93,12 @@ public class ExecutionManager {
     public CompletableFuture<?> resultAsync(UUID jobId) {
         JobExecution<?> execution = executions.get(jobId);
         if (execution != null) {
+            if (execution instanceof MarshallerProvider) {
+                Marshaller<Object, byte[]> marshaller = ((MarshallerProvider) execution).resultMarshaller();
+                if (marshaller != null) {
+                    return execution.resultAsync().thenApply(marshaller::marshal);
+                }
+            }
             return execution.resultAsync();
         }
         return failedFuture(new ComputeException(RESULT_NOT_FOUND_ERR, "Job result not found for the job with ID: " + jobId));

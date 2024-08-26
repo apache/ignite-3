@@ -24,6 +24,7 @@ import com.jayway.jsonpath.JsonPath;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -169,6 +170,18 @@ public class CatalogParamsValidationUtils {
                             tableStorageProfile
                     )
             );
+        }
+    }
+
+    /**
+     * Validates that given schema name is not a reserved system name.
+     *
+     * @param schemaName Schema name to check.
+     * @throws CatalogValidationException If given schema name is reserved system name.
+     */
+    public static void ensureNonSystemSchemaUsed(String schemaName) {
+        if (schemaName != null && CatalogUtils.isSystemSchema(schemaName)) {
+            throw new CatalogValidationException(format("Operations with system schemas are not allowed, schema: {}", schemaName));
         }
     }
 }

@@ -103,7 +103,7 @@ internal static class HashUtils
     /// </summary>
     /// <param name="data">Input data.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(Span<byte> data) => data.IsEmpty ? 0 : Hash32Internal(data, 0);
+    public static int Hash32(ReadOnlySpan<byte> data) => data.IsEmpty ? 0 : Hash32Internal(data, 0);
 
     /// <summary>
     /// Generates 32-bit hash.
@@ -177,14 +177,14 @@ internal static class HashUtils
         }
     }
 
-    private static int Hash32Internal(Span<byte> data, ulong seed)
+    private static int Hash32Internal(ReadOnlySpan<byte> data, ulong seed)
     {
         var hash64 = Hash64Internal(data, seed);
 
         return (int)(hash64 ^ (hash64 >> 32));
     }
 
-    private static ulong Hash64Internal(Span<byte> data, ulong seed)
+    private static ulong Hash64Internal(ReadOnlySpan<byte> data, ulong seed)
     {
         unchecked
         {

@@ -21,6 +21,7 @@ import static java.lang.Thread.currentThread;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
@@ -137,7 +138,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Set<ClusterNode> justNonEntryNode() {
-        return Set.of(CLUSTER.node(1).node());
+        return Set.of(unwrapIgniteImpl(CLUSTER.node(1)).node());
     }
 
     private static class NoOpJob implements ComputeJob<Void, String> {

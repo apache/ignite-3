@@ -34,12 +34,12 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -83,7 +83,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
     @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithoutSsl {
         @Language("JSON")
-        String sslDisabledBoostrapConfig = "{\n"
+        String sslDisabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
                 + "    ssl.enabled: false,\n"
                 + "    port: {},\n"
@@ -169,7 +169,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
     @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithSsl {
         @Language("JSON")
-        String sslEnabledBoostrapConfig = "{\n"
+        String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"
@@ -381,7 +381,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
     @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithSslAndClientAuth {
         @Language("JSON")
-        String sslEnabledBoostrapConfig = "{\n"
+        String sslEnabledBoostrapConfig = "ignite {\n"
                 + "  network: {\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"
@@ -521,20 +521,20 @@ public class ItSslTest extends BaseIgniteAbstractTest {
             String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
             String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
 
-            IgniteServer node1 = incompatibleTestCluster.startEmbeddedNode(10, sslEnabledWithCipher1BoostrapConfig);
+            ServerRegistration successfulRegistration = incompatibleTestCluster.startEmbeddedNode(10, sslEnabledWithCipher1BoostrapConfig);
 
             InitParameters initParameters = InitParameters.builder()
-                    .metaStorageNodes(node1)
+                    .metaStorageNodes(successfulRegistration.server())
                     .clusterName("cluster")
                     .build();
 
-            TestIgnitionManager.init(node1, initParameters);
+            TestIgnitionManager.init(successfulRegistration.server(), initParameters);
 
             // First node will initialize the cluster with single node successfully since the second node can't connect to it.
-            assertThat(node1.waitForInitAsync(), willCompleteSuccessfully());
+            assertThat(successfulRegistration.registrationFuture(), willCompleteSuccessfully());
 
-            IgniteServer node2 = incompatibleTestCluster.startEmbeddedNode(11, sslEnabledWithCipher2BoostrapConfig);
-            assertThat(node2.waitForInitAsync(), willTimeoutIn(1, TimeUnit.SECONDS));
+            ServerRegistration failingRegistration = incompatibleTestCluster.startEmbeddedNode(11, sslEnabledWithCipher2BoostrapConfig);
+            assertThat(failingRegistration.registrationFuture(), willTimeoutIn(1, TimeUnit.SECONDS));
         } finally {
             incompatibleTestCluster.shutdown();
         }
@@ -542,7 +542,7 @@ public class ItSslTest extends BaseIgniteAbstractTest {
 
     @Language("JSON")
     private String createBoostrapConfig(String ciphers) {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    ssl : {"
                 + "      enabled: true,\n"

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.affinity.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.largecluster.LargeClusterFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -53,7 +54,6 @@ public class ExecutionTargetFactorySelfTest {
     private static final List<String> NODE_SET2 = List.of("node2", "node3", "node5");
     private static final List<String> NODE_SUBSET = List.of("node2", "node5");
     private static final List<String> SINGLE_NODE_SET = List.of("node4");
-    private static final List<String> INVALID_NODE_SET = List.of("node0");
 
     private static List<ExecutionTargetFactory> clusterFactory() {
         return List.of(
@@ -74,7 +74,6 @@ public class ExecutionTargetFactorySelfTest {
     @MethodSource("clusterFactory")
     void targetsResolution(ExecutionTargetFactory f) {
         assertThat(f.resolveNodes(f.allOf(NODE_SET)), equalTo(NODE_SET));
-        assertThat(f.resolveNodes(f.allOf(NODE_SET)), equalTo(NODE_SET));
         assertThat(f.resolveNodes(f.someOf(NODE_SET)), hasItems(in(NODE_SET)));
         assertThat(f.resolveNodes(f.oneOf(NODE_SET)), containsSingleFrom(NODE_SET));
         assertThat(f.resolveNodes(f.partitioned(assignmentFromPrimaries(NODE_SET))), equalTo(NODE_SET));
@@ -82,16 +81,28 @@ public class ExecutionTargetFactorySelfTest {
 
     @ParameterizedTest
     @MethodSource("clusterFactory")
-    void targetValidation(ExecutionTargetFactory f) {
-        assertThrows(AssertionError.class, () -> f.allOf(List.of()), null);
-        assertThrows(AssertionError.class, () -> f.someOf(List.of()), null);
-        assertThrows(AssertionError.class, () -> f.oneOf(List.of()), null);
-        assertThrows(AssertionError.class, () -> f.partitioned(List.of()), null);
+    void emptyTargets(ExecutionTargetFactory f) {
+        assertThrows(AssertionError.class, () -> f.allOf(List.of()), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.someOf(List.of()), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.oneOf(List.of()), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.partitioned(List.of()), "Empty target is not allowed");
+    }
 
-        assertThrows(Throwable.class, () -> f.allOf(INVALID_NODE_SET), "invalid node");
-        assertThrows(Throwable.class, () -> f.someOf(INVALID_NODE_SET), "invalid node");
-        assertThrows(Throwable.class, () -> f.oneOf(INVALID_NODE_SET), "invalid node");
-        assertThrows(Throwable.class, () -> f.partitioned(assignmentFromPrimaries(INVALID_NODE_SET)), "invalid node");
+    @ParameterizedTest
+    @MethodSource("clusterFactory")
+    void invalidTargets(ExecutionTargetFactory f) {
+        List<String> invalidNodeSet = List.of("node100");
+        List<String> partiallyInvalidNodeSet = CollectionUtils.concat(SINGLE_NODE_SET, invalidNodeSet);
+
+        assertThrows(AssertionError.class, () -> f.allOf(invalidNodeSet), "invalid node");
+        assertThrows(AssertionError.class, () -> f.someOf(invalidNodeSet), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.oneOf(invalidNodeSet), "Empty target is not allowed");
+        assertThrows(AssertionError.class, () -> f.partitioned(assignmentFromPrimaries(invalidNodeSet)), "No partition node found");
+
+        assertThrows(Throwable.class, () -> f.allOf(partiallyInvalidNodeSet), "invalid node");
+        assertThat(f.resolveNodes(f.someOf(partiallyInvalidNodeSet)), equalTo(SINGLE_NODE_SET));
+        assertThat(f.resolveNodes(f.oneOf(partiallyInvalidNodeSet)), equalTo(SINGLE_NODE_SET));
+        assertThat(f.resolveNodes(f.partitioned(assignment(partiallyInvalidNodeSet, partiallyInvalidNodeSet))), equalTo(SINGLE_NODE_SET));
     }
 
     @ParameterizedTest

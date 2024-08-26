@@ -19,9 +19,8 @@ package org.apache.ignite.internal.worker.configuration;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
-import java.util.Set;
+import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
@@ -35,7 +34,7 @@ public class CriticalWorkersConfigurationModule implements ConfigurationModule {
     }
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return Set.of(CriticalWorkersConfiguration.KEY);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(CriticalWorkersExtensionConfigurationSchema.class);
     }
 }

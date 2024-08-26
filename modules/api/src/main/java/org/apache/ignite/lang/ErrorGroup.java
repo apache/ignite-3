@@ -20,8 +20,8 @@ package org.apache.ignite.lang;
 import static java.util.regex.Pattern.DOTALL;
 import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
 
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,7 +46,7 @@ public class ErrorGroup {
     private final short groupCode;
 
     /** Contains error codes for this error group. */
-    private final IntSet codes = new IntOpenHashSet();
+    private final Set<Short> codes = new HashSet<>();
 
     /**
      * Creates a new error group with the specified name and corresponding code.

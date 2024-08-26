@@ -23,6 +23,7 @@
         <SignAssembly>true</SignAssembly>
         <AssemblyOriginatorKeyFile>Apache.Ignite.Benchmarks.snk</AssemblyOriginatorKeyFile>
         <ServerGarbageCollection>true</ServerGarbageCollection>
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>

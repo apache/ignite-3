@@ -45,12 +45,15 @@ import org.apache.ignite.client.handler.DummyAuthenticationManager;
 import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
+import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -62,7 +65,8 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -163,9 +167,13 @@ public class TestServer implements AutoCloseable {
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
-        generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
+        generator = new ConfigurationTreeGenerator(
+                List.of(NodeConfiguration.KEY),
+                List.of(ClientConnectorExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
+                List.of()
+        );
         cfg = new ConfigurationRegistry(
-                List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
+                List.of(NodeConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
                 new TestConfigurationValidator()
@@ -175,14 +183,17 @@ public class TestServer implements AutoCloseable {
 
         assertThat(cfg.startAsync(componentContext), willCompleteSuccessfully());
 
-        cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
+        ClientConnectorConfiguration clientConnectorConfiguration = cfg
+                .getConfiguration(ClientConnectorExtensionConfiguration.KEY).clientConnector();
+
+        clientConnectorConfiguration.change(
                 local -> local
                         .changePort(port != null ? port : getFreePort())
                         .changeIdleTimeout(idleTimeout)
                         .changeSendServerExceptionStackTraceToClient(true)
         ).join();
 
-        bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
+        bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkExtensionConfiguration.KEY).network(), "TestServer-");
 
         assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
@@ -218,8 +229,6 @@ public class TestServer implements AutoCloseable {
                 .clusterName("Test Server")
                 .clusterId(clusterId)
                 .build();
-
-        ClientConnectorConfiguration clientConnectorConfiguration = cfg.getConfiguration(ClientConnectorConfiguration.KEY);
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(

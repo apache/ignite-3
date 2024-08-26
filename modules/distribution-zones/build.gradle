@@ -83,6 +83,7 @@ dependencies {
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-configuration')
+    integrationTestImplementation project(':ignite-configuration-root')
     integrationTestImplementation project(':ignite-metastorage-api')
     integrationTestImplementation project(':ignite-vault')
     integrationTestImplementation project(':ignite-table')

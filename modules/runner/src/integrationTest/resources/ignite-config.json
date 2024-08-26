@@ -1,10 +1,12 @@
 {
-    "network": {
-        "port": 3344,
-        "nodeFinder": {
-            "netClusterNodes": [
-                "localhost:3344"
-            ]
+    "ignite": {
+        "network": {
+            "port": 3344,
+            "nodeFinder": {
+                "netClusterNodes": [
+                    "localhost:3344"
+                ]
+            }
         }
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,12 +37,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs.AllInteractiveJobsApi;
@@ -77,19 +80,19 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         return new int[]{0, 1, 2};
     }
 
-    private static Set<String> workerCandidates(IgniteImpl... nodes) {
+    private static Set<String> workerCandidates(Ignite... nodes) {
         return Arrays.stream(nodes)
-                .map(IgniteImpl::node)
-                .map(ClusterNode::name)
-                .collect(Collectors.toSet());
+                .map(Ignite::name)
+                .collect(toSet());
     }
 
     private Set<ClusterNode> clusterNodesByNames(Set<String> nodes) {
         return nodes.stream()
                 .map(NODES_NAMES_TO_INDEXES::get)
                 .map(this::node)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .map(IgniteImpl::node)
-                .collect(Collectors.toSet());
+                .collect(toSet());
     }
 
     /**
@@ -110,7 +113,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     @Test
     void remoteExecutionWorkerShutdown() throws Exception {
         // Given entry node.
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
         // And remote candidates to execute a job.
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
@@ -163,7 +166,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     @Test
     void remoteExecutionSingleWorkerShutdown() throws Exception {
         // Given.
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
         // And only one remote candidate to execute a job.
         Set<String> remoteWorkerCandidates = workerCandidates(node(1));
 
@@ -187,7 +190,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     @Test
     void localExecutionWorkerShutdown() throws Exception {
         // Given entry node.
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         // When execute job locally.
         TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, Set.of(entryNode.name()));
@@ -209,7 +212,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     @Test
     void broadcastExecutionWorkerShutdown() {
         // Given entry node.
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
         // And prepare communication channels.
         InteractiveJobs.initChannels(allNodeNames());
 
@@ -249,7 +252,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     @Test
     void cancelRemoteExecutionOnRestartedJob() throws Exception {
         // Given entry node.
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
         // And remote candidates to execute a job.
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
@@ -289,7 +292,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         ClusterNode primaryReplica = getPrimaryReplica(cluster.node(0));
 
         // When start colocated job on node that is not primary replica.
-        IgniteImpl entryNode = anyNodeExcept(primaryReplica);
+        Ignite entryNode = anyNodeExcept(primaryReplica);
         TestingJobExecution<Object> execution = new TestingJobExecution<>(
                 compute(entryNode).submit(
                         JobTarget.colocated(TABLE_NAME, Tuple.create(1).set("K", 1)),
@@ -321,18 +324,20 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         assertThat(failoverNodeName, not(equalTo(firstWorkerNodeName)));
     }
 
-    private ClusterNode getPrimaryReplica(IgniteImpl node) {
+    private ClusterNode getPrimaryReplica(Ignite node) {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
+
         try {
-            HybridClock clock = node.clock();
+            HybridClock clock = igniteImpl.clock();
             TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
             TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partition(Tuple.create(1).set("K", 1)));
 
-            ReplicaMeta replicaMeta = node.placementDriver().getPrimaryReplica(tablePartitionId, clock.now()).get();
+            ReplicaMeta replicaMeta = igniteImpl.placementDriver().getPrimaryReplica(tablePartitionId, clock.now()).get();
             if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
                 throw new RuntimeException("Can not find primary replica for partition.");
             }
 
-            return nodeByName(replicaMeta.getLeaseholder()).node();
+            return unwrapIgniteImpl(nodeByName(replicaMeta.getLeaseholder())).node();
 
         } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
@@ -343,11 +348,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         stopNode(clusterNode.name());
     }
 
-    private void stopNode(IgniteImpl ignite) {
+    private void stopNode(Ignite ignite) {
         stopNode(ignite.name());
     }
 
-    private IgniteImpl anyNodeExcept(ClusterNode except) {
+    private Ignite anyNodeExcept(ClusterNode except) {
         String candidateName = allNodeNames()
                 .stream()
                 .filter(name -> !name.equals(except.name()))
@@ -357,11 +362,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         return nodeByName(candidateName);
     }
 
-    private IgniteImpl nodeByName(String candidateName) {
+    private Ignite nodeByName(String candidateName) {
         return cluster.runningNodes().filter(node -> node.name().equals(candidateName)).findFirst().orElseThrow();
     }
 
-    private TestingJobExecution<String> executeGlobalInteractiveJob(IgniteImpl entryNode, Set<String> nodes) {
+    private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes) {
         return new TestingJobExecution<>(
                 compute(entryNode).submit(
                         JobTarget.anyNode(clusterNodesByNames(nodes)),
@@ -369,7 +374,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         );
     }
 
-    abstract IgniteCompute compute(IgniteImpl entryNode);
+    abstract IgniteCompute compute(Ignite entryNode);
 
     private void createReplicatedTestTableWithOneRow() {
         // Number of replicas == number of nodes and number of partitions == 1. This gives us the majority on primary replica stop.

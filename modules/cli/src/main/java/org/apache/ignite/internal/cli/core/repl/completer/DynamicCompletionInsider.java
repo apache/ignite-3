@@ -60,7 +60,7 @@ public class DynamicCompletionInsider {
 
             boolean hasPositional = parseResult.hasMatchedPositional(0);
             boolean wasTrimmed = trimmedWords.length == typedWords.length;
-            String matchedPositional = parseResult.matchedArgs().get(0).originalStringValues().get(0);
+            String matchedPositional = parseResult.matchedPositionals().get(0).originalStringValues().get(0);
             boolean lastWordIsPositional = matchedPositional.equals(trimmedWords[trimmedWords.length - 1]);
             boolean positionalTyping = wasTrimmed && hasPositional && lastWordIsPositional;
 

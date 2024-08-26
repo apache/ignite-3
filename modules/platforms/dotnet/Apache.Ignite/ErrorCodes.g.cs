@@ -639,6 +639,9 @@ namespace Apache.Ignite
 
             /// <summary> UnsupportedObjectType error. </summary>
             public const int UnsupportedObjectType = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> Unmarshalling error. </summary>
+            public const int Unmarshalling = (GroupCode << 16) | (3 & 0xFFFF);
         }
     }
 }

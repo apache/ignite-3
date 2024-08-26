@@ -23,8 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import javax.annotation.Nullable;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -61,7 +61,7 @@ public class ItColumnNameMappingTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void accessQuotedColumnViaKvView() {
-        IgniteImpl node = CLUSTER.aliveNode();
+        Ignite node = CLUSTER.aliveNode();
         Table table = node.tables().table("test_quoted");
 
         KeyValueView<Tuple, Tuple> view = table.keyValueView();
@@ -94,7 +94,7 @@ public class ItColumnNameMappingTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void accessQuotedColumnViaRecordView() {
-        IgniteImpl node = CLUSTER.aliveNode();
+        Ignite node = CLUSTER.aliveNode();
         Table table = node.tables().table("test_quoted");
 
         RecordView<Tuple> view = table.recordView();
@@ -127,7 +127,7 @@ public class ItColumnNameMappingTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void accessUnquotedColumnViaKvView() {
-        IgniteImpl node = CLUSTER.aliveNode();
+        Ignite node = CLUSTER.aliveNode();
         Table table = node.tables().table("test_simple");
 
         KeyValueView<Tuple, Tuple> view = table.keyValueView();
@@ -157,7 +157,7 @@ public class ItColumnNameMappingTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void accessUnquotedColumnViaRecordView() {
-        IgniteImpl node = CLUSTER.aliveNode();
+        Ignite node = CLUSTER.aliveNode();
         Table table = node.tables().table("test_simple");
 
         RecordView<Tuple> view = table.recordView();

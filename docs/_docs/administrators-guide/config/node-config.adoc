@@ -78,26 +78,6 @@ See the link:/clients/overview[Clients] section for information on configuring c
 |======
 
 
-== Expiration Configuration
-
-[source, json]
-----
-  "expiration" : {
-    "batchSize" : 1000,
-    "checkFrequency" : 600000,
-    "parallelismLevel" : 1
-  },
-----
-
-[cols="1,1,3",opts="header", stripes=none]
-|======
-|Property|Default|Description
-|batchSize|1000|The number of items that can be expired at once.
-|checkFrequency|600000|How often the data is checked for expiration.
-|parallelismLevel|1|The number of threads used for data expiry.
-|======
-
-
 == Network Configuration
 
 [source, json]
@@ -232,9 +212,9 @@ See the link:/clients/overview[Clients] section for information on configuring c
     "responseTimeout" : 3000,
     "retryDelay" : 200,
     "retryTimeout" : 10000,
-    "rpcInstallSnapshotTimeout" : 300000,
+    "installSnapshotTimeout" : 300000,
     "volatileRaft" : {
-      "logStorage" : {
+      "logStorageBudget" : {
         "name" : "unlimited"
       }
     }
@@ -248,8 +228,8 @@ See the link:/clients/overview[Clients] section for information on configuring c
 |responseTimeout|3000|Raft group response timeout.
 |retryDelay|200|The delay before the request is retried.
 |retryTimeout|10000|The timeout after which the request is considered timed out.
-|rpcInstallSnapshotTimeout|300000|The maximum allowed duration from sending InstallSnapshot request and getting a response to it. During it, the snapshot must be fully transferred to a recipient and installed.
-|volatileRaft.logStorage.name||The name of the log storage used by the node.
+|installSnapshotTimeout|300000|The maximum allowed duration from sending InstallSnapshot request and getting a response to it. During it, the snapshot must be fully transferred to a recipient and installed.
+|volatileRaft.logStorageBudget.name||The name of the log storage budget used by the node.
 
 |======
 

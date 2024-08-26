@@ -87,7 +87,7 @@ public class SqlIndexScanBenchmark extends AbstractMultiNodeBenchmark {
     @Setup
     public void setUp() throws Exception {
         try {
-            sql = clusterNode.sql();
+            sql = publicIgnite.sql();
 
             if (!Files.exists(workDir().resolve(DATASET_READY_MARK_FILE_NAME))) {
                 sql.executeScript(
@@ -96,7 +96,7 @@ public class SqlIndexScanBenchmark extends AbstractMultiNodeBenchmark {
                                 + "CREATE INDEX test_val_idx ON test(val);"
                 );
 
-                CompletableFuture<?> result = clusterNode.tables().table("test")
+                CompletableFuture<?> result = publicIgnite.tables().table("test")
                         .recordView()
                         .streamData(SubscriptionUtils.fromIterable(() -> IntStream.range(0, TABLE_SIZE)
                                 .mapToObj(i -> DataStreamerItem.of(Tuple.create()

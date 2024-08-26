@@ -28,6 +28,7 @@ dependencies {
     api project(':ignite-network-api')
 
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-core')
     implementation project(':ignite-vault')
     implementation project(':ignite-workers')
@@ -69,6 +70,7 @@ dependencies {
 
     testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-configuration')
+    testFixturesImplementation project(':ignite-configuration-root')
     testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))

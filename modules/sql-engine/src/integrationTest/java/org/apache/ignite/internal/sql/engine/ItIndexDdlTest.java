@@ -30,8 +30,8 @@ import static org.hamcrest.Matchers.containsString;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -150,7 +150,7 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void createIndexFutureFailsIfNodeIsStoppedBeforeIndexIsAvailable() throws Exception {
-        IgniteImpl node = CLUSTER.node(0);
+        Ignite node = CLUSTER.node(0);
 
         // Prevent index build by starting a transaction.
         node.transactions().begin(new TransactionOptions().readOnly(false));

@@ -44,9 +44,9 @@ import jakarta.inject.Inject;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
@@ -97,7 +97,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
 
-        nodeNames = CLUSTER.runningNodes().map(IgniteImpl::name).collect(toSet());
+        nodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(toSet());
     }
 
     @Test
@@ -207,7 +207,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testLocalPartitionStatesByNodes() {
-        Set<String> nodeNames = Set.of(CLUSTER.node(0).node().name(), CLUSTER.node(1).node().name());
+        Set<String> nodeNames = Set.of(CLUSTER.node(0).name(), CLUSTER.node(1).name());
 
         String url = "state/local?nodeNames=" + String.join(",", nodeNames);
 
@@ -220,7 +220,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testLocalPartitionStatesByNodesIsCaseSensitive() {
-        Set<String> nodeNames = Set.of(CLUSTER.node(0).node().name(), CLUSTER.node(1).node().name());
+        Set<String> nodeNames = Set.of(CLUSTER.node(0).name(), CLUSTER.node(1).name());
 
         String url = "state/local?nodeNames=" + String.join(",", nodeNames).toUpperCase();
 

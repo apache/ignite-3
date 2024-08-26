@@ -61,9 +61,9 @@ public class ItSqlReplCommandNotInitialedClusterTest extends CliIntegrationTest 
                 () -> assertErrOutputContains("Connection refused:")
         );
 
-        IgniteServer node0 = CLUSTER.startEmbeddedNode(0);
-        IgniteServer node1 = CLUSTER.startEmbeddedNode(1);
-        IgniteServer node2 = CLUSTER.startEmbeddedNode(2);
+        IgniteServer node0 = CLUSTER.startEmbeddedNode(0).server();
+        IgniteServer node1 = CLUSTER.startEmbeddedNode(1).server();
+        IgniteServer node2 = CLUSTER.startEmbeddedNode(2).server();
 
         session.onConnect(SessionInfo
                 .builder()

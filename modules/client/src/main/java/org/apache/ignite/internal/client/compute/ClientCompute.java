@@ -48,6 +48,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -421,7 +422,7 @@ public class ClientCompute implements IgniteCompute {
         w.packString(jobClassName);
         w.packInt(options.priority());
         w.packInt(options.maxRetries());
-        w.packObjectAsBinaryTuple(args, marshaller);
+        ClientComputeJobPacker.packJobArgument(args, marshaller, w);
     }
 
     private static void packTask(ClientMessagePacker w,
@@ -431,7 +432,7 @@ public class ClientCompute implements IgniteCompute {
             @Nullable Marshaller<Object, byte[]> marshaller) {
         w.packDeploymentUnits(units);
         w.packString(taskClassName);
-        w.packObjectAsBinaryTuple(arg, marshaller);
+        ClientComputeJobPacker.packJobArgument(arg, marshaller, w);
     }
 
     /**

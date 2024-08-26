@@ -381,10 +381,28 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
-        public void TestVarlenEmptyByte()
+        public void TestVarlenEmptyByte([Values(1, 2, 123)] int count)
         {
-            var bytes = new[] { BinaryTupleCommon.VarlenEmptyByte };
+            var bytes = Enumerable.Repeat(BinaryTupleCommon.VarlenEmptyByte, count).ToArray();
             var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(bytes));
+            var res = reader.GetBytes(0);
+
+            CollectionAssert.AreEqual(bytes, res);
+        }
+
+        [Test]
+        public void TestVarlenEmptyByteBufferWriter([Values(1, 2, 123)] int count)
+        {
+            var bytes = Enumerable.Repeat(BinaryTupleCommon.VarlenEmptyByte, count).ToArray();
+
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(
+                (writer, arg) =>
+                {
+                    arg.CopyTo(writer.GetSpan(arg.Length));
+                    writer.Advance(arg.Length);
+                },
+                bytes));
+
             var res = reader.GetBytes(0);
 
             CollectionAssert.AreEqual(bytes, res);
@@ -395,6 +413,24 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             var bytes = Enumerable.Range(1, count).Select(x => (byte)x).ToArray();
             var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(bytes));
+            var res = reader.GetBytesSpan(0).ToArray();
+
+            CollectionAssert.AreEqual(bytes, res);
+        }
+
+        [Test]
+        public void TestBytesBufferWriter([Values(0, 1, 123, 65537)] int count)
+        {
+            var bytes = Enumerable.Range(1, count).Select(x => (byte)x).ToArray();
+
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(
+                (writer, arg) =>
+                {
+                    arg.CopyTo(writer.GetSpan(arg.Length));
+                    writer.Advance(arg.Length);
+                },
+                bytes));
+
             var res = reader.GetBytesSpan(0).ToArray();
 
             CollectionAssert.AreEqual(bytes, res);

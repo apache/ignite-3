@@ -30,6 +30,7 @@ namespace Apache.Ignite.Tests
     using Ignite.Sql;
     using Internal.Buffers;
     using Internal.Common;
+    using Internal.Compute;
     using Internal.Network;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
@@ -771,6 +772,7 @@ namespace Apache.Ignite.Tests
             var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
 
+            writer.Write(ComputePacker.Native); // ComputePacker.Native
             writer.Write(builder.Build().Span);
 
             // Status

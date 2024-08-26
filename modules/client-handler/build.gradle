@@ -27,6 +27,7 @@ dependencies {
 
     implementation project(':ignite-client-common')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-api')
     implementation project(':ignite-table')
     implementation project(':ignite-sql-engine')
@@ -67,6 +68,7 @@ dependencies {
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-security')
@@ -76,6 +78,7 @@ dependencies {
     integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-eventlog')
+    integrationTestImplementation project(':ignite-configuration-root')
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))

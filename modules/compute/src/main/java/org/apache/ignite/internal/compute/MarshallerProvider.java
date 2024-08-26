@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.compute;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.marshalling.Marshaller;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Implements Schema Synchronization wait logic as defined in IEP-98.
+ * Marshaller provider.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface SchemaSyncService {
-    /**
-     * Waits till metadata (like table/index schemas) is complete for the given timestamp. The 'complete' here means
-     * that no metadata change can arrive later that would change how a table/index/etc looks at the given timestamp.
-     *
-     * @param ts Timestamp of interest.
-     * @return Future that completes when it is safe to query the Catalog at the given timestamp (as its data will
-     *     remain unchanged for the timestamp).
-     */
-    CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts);
+public interface MarshallerProvider<R> {
+    /** Returns marshaller or null. */
+    @Nullable Marshaller<R, byte[]> resultMarshaller();
 }

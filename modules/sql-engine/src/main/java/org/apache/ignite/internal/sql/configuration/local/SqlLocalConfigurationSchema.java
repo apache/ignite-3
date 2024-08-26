@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.sql.configuration.local;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /** Configuration schema for local sql endpoint subtree. */
-@ConfigurationRoot(rootName = "sql", type = ConfigurationType.LOCAL)
+@Config
 public class SqlLocalConfigurationSchema {
     /** Represent a configuration related to SQL execution. */
     @ConfigValue

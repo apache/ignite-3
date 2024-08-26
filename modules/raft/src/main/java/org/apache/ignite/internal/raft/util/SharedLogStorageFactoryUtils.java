@@ -23,6 +23,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
+import org.jetbrains.annotations.TestOnly;
 
 /** Utility methods for creating {@link LogStorageFactory}is for the Shared Log. */
 public class SharedLogStorageFactoryUtils {
@@ -33,10 +34,15 @@ public class SharedLogStorageFactoryUtils {
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
 
     /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation. */
-    public static LogStorageFactory create(String nodeName, Path lazyLogStoragePath) {
-        return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
-                ? new LogitLogStorageFactory(nodeName, new StoreOptions(), lazyLogStoragePath)
-                : new DefaultLogStorageFactory(nodeName, lazyLogStoragePath);
+    @TestOnly
+    public static LogStorageFactory create(String nodeName, Path logStoragePath) {
+        return create("test", nodeName, logStoragePath);
     }
 
+    /** Creates a LogStorageFactory with the {@link DefaultLogStorageFactory} implementation. */
+    public static LogStorageFactory create(String factoryName, String nodeName, Path logStoragePath) {
+        return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
+                ? new LogitLogStorageFactory(nodeName, new StoreOptions(), logStoragePath)
+                : new DefaultLogStorageFactory(factoryName, nodeName, logStoragePath);
+    }
 }

@@ -22,6 +22,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -71,7 +73,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     void raftMetaStorageIsVolatileForVolatilePartitions() {
         createInMemoryTable();
 
-        IgniteImpl ignite = node(0);
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
 
         assertThat(partitionRaftMetaPaths(ignite), everyItem(not(exists())));
     }
@@ -118,7 +120,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     void raftLogStorageIsVolatileForVolatilePartitions() throws Exception {
         createInMemoryTable();
 
-        IgniteImpl ignite = node(0);
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
         String nodeName = ignite.name();
         String tablePartitionPrefix = testTablePartitionPrefix(ignite);
 
@@ -159,7 +161,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     void raftMetaStorageIsPersistentForPersistentPartitions() {
         createPersistentTable();
 
-        IgniteImpl ignite = node(0);
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
 
         assertThat(partitionRaftMetaPaths(ignite), everyItem(exists()));
     }
@@ -178,7 +180,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     void raftLogStorageIsPersistentForPersistentPartitions() throws Exception {
         createPersistentTable();
 
-        IgniteImpl ignite = node(0);
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
         String nodeName = ignite.name();
         String tablePartitionPrefix = testTablePartitionPrefix(ignite);
 
@@ -236,10 +238,10 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
     @SuppressWarnings("resource")
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        CompletableFuture<Void> configUpdateFuture = node(0).nodeConfiguration().getConfiguration(RaftConfiguration.KEY).change(cfg -> {
-            cfg.changeVolatileRaft(change -> {
-                change.changeLogStorage(budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1));
-            });
+        RaftConfiguration raftConfiguration = unwrapIgniteImpl(node(0)).nodeConfiguration()
+                .getConfiguration(RaftExtensionConfiguration.KEY).raft();
+        CompletableFuture<Void> configUpdateFuture = raftConfiguration.change(cfg -> {
+            cfg.changeVolatileRaft().changeLogStorageBudget().convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1);
         });
         assertThat(configUpdateFuture, willCompleteSuccessfully());
 

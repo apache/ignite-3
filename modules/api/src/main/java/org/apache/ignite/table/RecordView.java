@@ -35,7 +35,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Gets a record with the same key column values as the given one from a table.
      *
-     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param tx     Transaction or {@code null} for implicit transaction.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return Record with all columns filled from the table.
      */
@@ -44,7 +44,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously gets a record with the same key column values as the given one from a table.
      *
-     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param tx     Transaction or {@code null} for implicit transaction.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
@@ -53,7 +53,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Gets records from a table.
      *
-     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param tx      Transaction or {@code null} for implicit transaction.
      * @param keyRecs Records with key columns set. The records cannot be {@code null}.
      * @return Records with all columns filled from the table. The order of collection elements is
      *     guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
@@ -64,7 +64,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously gets records from a table.
      *
-     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param tx      Transaction or {@code null} for implicit transaction.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
      * @return Future that will return records with all columns filled from the table. The order of collection elements is
      *      guaranteed to be the same as the order of {@code keyRecs}. If a record does not exist, the
@@ -75,7 +75,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Determines whether a table contains an entry for the specified key.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param keyRec A record with key columns set. The key cannot be {@code null}.
      * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
@@ -85,7 +85,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Determines whether a table contains an entry for the specified key.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param keyRec A record with key columns set. The key cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key doesn't match the schema.
@@ -95,7 +95,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Determines whether a table contains entries for all given keys.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
      * @return {@code True} if a value exists for every specified key, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
@@ -105,7 +105,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Determines whether a table contains entries for all given keys.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param keys Keys whose presence is to be verified. The collection and it's values cannot be {@code null}.
      * @return Future that represents the pending completion of the operation. The result of the future will be {@code true} if a value
      *      exists for every specified key, {@code false} otherwise.
@@ -116,7 +116,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Inserts a record into a table, if it does not exist, or replaces an existing one.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      */
     void upsert(@Nullable Transaction tx, R rec);
@@ -124,7 +124,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
@@ -133,7 +133,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Inserts records into a table, if they do not exist, or replaces the existing ones.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx   Transaction or {@code null} for implicit transaction.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
      */
     void upsertAll(@Nullable Transaction tx, Collection<R> recs);
@@ -141,7 +141,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx   Transaction or {@code null} for implicit transaction.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
@@ -150,7 +150,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Inserts a record into a table, or replaces an existing record and returns the replaced record.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec A record to insert into the table. The record cannot be {@code null}.
      * @return Replaced record or {@code null} if it did not exist.
      */
@@ -159,7 +159,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously inserts a record into a table, or replaces an existing record and returns the replaced record.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
@@ -168,7 +168,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Inserts a record into a table if it does not exists.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      * @return {@code True} if successful, {@code false} otherwise.
      */
@@ -177,7 +177,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously inserts a record into a table if it does not exists.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
@@ -186,7 +186,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Inserts into a table records that do not exist, skips those that exist.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
      * @return Skipped records. The order of collection elements is guaranteed to be the same as the order of {@code recs}. If a record is
      *         inserted, the element will be excluded from the collection result.
@@ -196,7 +196,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously inserts into a table records that do not exist, skips those that exist.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
      * @return Future representing pending completion of the operation, with rejected rows for insertion in the result. The order of
      *         collection elements is guaranteed to be the same as the order of {@code recs}. If a record is inserted, the element will be
@@ -207,7 +207,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Replaces an existing record associated with the same key column values as the given record.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to replace with. The record cannot be {@code null}.
      * @return {@code True} if a record was found and replaced successfully, {@code false} otherwise.
      */
@@ -216,7 +216,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Replaces an expected record in the table with the given new one.
      *
-     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param tx     Transaction or {@code null} for implicit transaction.
      * @param oldRec Record to replace. The record cannot be {@code null}.
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
@@ -226,7 +226,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously replaces an existing record associated with the same key columns values as the given record.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
@@ -235,7 +235,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously replaces an existing record in the table with the given new one.
      *
-     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param tx     Transaction or {@code null} for implicit transaction.
      * @param oldRec Record to replace. The record cannot be {@code null}.
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
@@ -245,7 +245,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Gets an existing record associated with the same key columns values as the given one, then replaces it with the given one.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to replace with. The record cannot be {@code null}.
      * @return Replaced record or {@code null} if it did not exist.
      */
@@ -255,7 +255,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * Asynchronously gets an existing record associated with the same key column values as the given one,
      * then replaces it with the given one.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
@@ -264,7 +264,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Deletes a record with the same key column values as the given one from a table.
      *
-     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param tx     Transaction or {@code null} for implicit transaction.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return {@code True} if removed successfully, {@code false} otherwise.
      */
@@ -273,7 +273,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously deletes a record with the same key column values as the given one from a table.
      *
-     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param tx     Transaction or {@code null} for implicit transaction.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
@@ -282,7 +282,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Deletes the given record from a table.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to delete. The record cannot be {@code null}.
      * @return {@code True} if removed successfully, {@code false} otherwise.
      */
@@ -291,7 +291,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously deletes the given record from a table.
      *
-     * @param tx  Transaction or {@code null} to auto-commit.
+     * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to delete. The record cannot be {@code null}.
      * @return Future tha represents the pending completion of the operation.
      */
@@ -300,7 +300,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Gets and deletes from a table a record with the same key column values as the given one.
      *
-     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param tx     Transaction or {@code null} for implicit transaction.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return Removed record or {@code null} if it did not exist.
      */
@@ -309,7 +309,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously gets and deletes from a table a record with the same key columns values as the given one.
      *
-     * @param tx     Transaction or {@code null} to auto-commit.
+     * @param tx     Transaction or {@code null} for implicit transaction.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
@@ -318,7 +318,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Removes from a table records with the same key column values as the given one.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
      * @return Records with the key columns set that did not exist. The order of collection elements is guaranteed to be the same as the
      *         order of {@code keyRecs}. If a record is removed, the element will be excluded from the collection result.
@@ -328,7 +328,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously removes from a table records with the same key column values as the given one.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
      * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
      *         collection elements is guaranteed to be the same as the order of {@code keyRecs}. If a record is removed, the element will be
@@ -339,7 +339,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Remove the given records from a table.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to delete. The records cannot be {@code null}.
      * @return Records that were not deleted. The order of collection elements is guaranteed to be the same as the order of {@code recs}. If
      *         a record is removed, the element will be excluded from the collection result.
@@ -349,7 +349,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     /**
      * Asynchronously removes the given records from a table.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to delete. The records cannot be {@code null}.
      * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
      *         collection elements is guaranteed to be the same as the order of {@code recs}. If a record is removed, the element will be

@@ -41,8 +41,8 @@ public class LowWatermarkConfigurationSchema {
     @Value(hasDefault = true)
     public long dataAvailabilityTime = TimeUnit.MINUTES.toMillis(10);
 
-    /** Low watermark update frequency (in milliseconds). */
+    /** Low watermark update interval (in milliseconds). */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public long updateFrequency = TimeUnit.MINUTES.toMillis(5);
+    public long updateInterval = TimeUnit.MINUTES.toMillis(5);
 }

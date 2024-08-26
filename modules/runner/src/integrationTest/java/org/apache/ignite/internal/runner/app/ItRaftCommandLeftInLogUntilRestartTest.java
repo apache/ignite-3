@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -159,17 +162,17 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     private void restartClusterWithNotAppliedCommands(
             Consumer<Transaction> beforeBlock,
             Consumer<Transaction> afterBlock,
-            Consumer<IgniteImpl> checkAction
+            Consumer<Ignite> checkAction
     ) throws Exception {
-        var node0 = CLUSTER.node(0);
-        var node1 = CLUSTER.node(1);
+        IgniteImpl node0 = unwrapIgniteImpl(CLUSTER.node(0));
+        IgniteImpl node1 = unwrapIgniteImpl(CLUSTER.node(1));
 
         AtomicReference<IgniteBiTuple<ClusterNode, String>> leaderAndGroupRef = new AtomicReference<>();
 
         var appliedIndexNode0 = partitionUpdateInhibitor(node0, leaderAndGroupRef);
         var appliedIndexNode1 = partitionUpdateInhibitor(node1, leaderAndGroupRef);
 
-        TableViewInternal table = (TableViewInternal) createTable(DEFAULT_TABLE_NAME, 2, 1);
+        TableViewInternal table = unwrapTableViewInternal(createTable(DEFAULT_TABLE_NAME, 2, 1));
 
         ClusterNode leader = ReplicaTestUtils.leaderAssignment(node0, table.tableId(), 0);
 
@@ -290,7 +293,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         return appliedIndex;
     }
 
-    private void checkData(IgniteImpl ignite, Object[][] dataSet) {
+    private void checkData(Ignite ignite, Object[][] dataSet) {
         TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
         assertNotNull(table);
@@ -306,7 +309,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
                 BinaryRowEx testKey = marshalKey(table, Tuple.create().set("ID", row[0]));
 
-                BinaryRow readOnlyBinaryRow = table.internalTable().get(testKey, ignite.clock().now(), ignite.node()).get();
+                IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
+                BinaryRow readOnlyBinaryRow = table.internalTable().get(testKey, igniteImpl.clock().now(), igniteImpl.node()).get();
 
                 assertNotNull(readOnlyBinaryRow);
 
@@ -340,7 +344,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
      *
      * @param ignite Ignite instance.
      */
-    private void transferLeadershipToLocalNode(IgniteImpl ignite) {
+    private void transferLeadershipToLocalNode(Ignite ignite) {
         TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
         RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(ignite, table.tableId(), 0)

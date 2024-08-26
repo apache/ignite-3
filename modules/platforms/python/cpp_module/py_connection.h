@@ -33,10 +33,10 @@ struct py_connection {
     PyObject_HEAD
 
     /** Environment. */
-    ignite::sql_environment *m_env;
+    ignite::sql_environment *m_environment;
 
     /** Connection. */
-    ignite::sql_connection *m_conn;
+    ignite::sql_connection *m_connection;
 };
 
 /**

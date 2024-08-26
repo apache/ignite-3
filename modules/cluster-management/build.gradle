@@ -40,6 +40,7 @@ dependencies {
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-storage-api')
     implementation project(':ignite-security')
+    implementation project(':ignite-configuration-root')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations

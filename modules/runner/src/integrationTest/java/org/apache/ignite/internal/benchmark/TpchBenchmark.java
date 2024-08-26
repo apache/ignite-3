@@ -89,7 +89,7 @@ public class TpchBenchmark extends AbstractMultiNodeBenchmark {
     @Setup
     public void setUp() throws Exception {
         try {
-            sql = clusterNode.sql();
+            sql = publicIgnite.sql();
 
             if (!Files.exists(workDir().resolve(DATASET_READY_MARK_FILE_NAME))) {
                 if (pathToDataset == null) {

@@ -18,13 +18,16 @@
 namespace Apache.Ignite.Tests.Compute
 {
     using System;
+    using System.Buffers;
     using System.Collections;
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
     using System.Net;
+    using System.Text;
     using System.Threading.Tasks;
     using Ignite.Compute;
+    using Ignite.Marshalling;
     using Ignite.Table;
     using Internal.Compute;
     using Internal.Network;
@@ -836,6 +839,47 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsFalse(changePriorityRes);
         }
 
+        [Test]
+        public async Task TestNestedObjectsWithJsonMarshaller()
+        {
+            var job = new JobDescriptor<MyArg, MyResult>(PlatformTestNodeRunner + "$JsonMarshallerJob")
+            {
+                ArgMarshaller = new JsonMarshaller<MyArg>(),
+                ResultMarshaller = new JsonMarshaller<MyResult>()
+            };
+
+            var arg = new MyArg(1, "foo", new Nested(Guid.NewGuid(), 1.234m));
+
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
+            MyResult res = await exec.GetResultAsync();
+
+            Assert.AreEqual("foo_1", res.Data);
+            Assert.AreEqual(arg.Nested, res.Nested);
+        }
+
+        [Test]
+        public async Task TestCustomMarshaller()
+        {
+            var job = new JobDescriptor<Nested, Nested>(PlatformTestNodeRunner + "$ToStringMarshallerJob")
+            {
+                ArgMarshaller = new ToStringMarshaller(),
+                ResultMarshaller = new ToStringMarshaller()
+            };
+
+            var arg = new Nested(Guid.NewGuid(), 1.234m);
+
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
+            Nested res = await exec.GetResultAsync();
+
+            var nullExec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null!);
+            Nested nullRes = await nullExec.GetResultAsync();
+
+            Assert.AreEqual(arg.Id, res.Id);
+            Assert.AreEqual(arg.Price + 1, res.Price);
+
+            Assert.IsNull(nullRes);
+        }
+
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
         {
             JobState? state = await jobExecution.GetStateAsync();
@@ -859,5 +903,27 @@ namespace Apache.Ignite.Tests.Compute
         private async Task<IJobTarget<IClusterNode>> GetNodeAsync(int index) =>
             JobTarget.Node(
                 (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).First());
+
+        private record Nested(Guid Id, decimal Price);
+
+        private record MyArg(int Id, string Name, Nested Nested);
+
+        private record MyResult(string Data, Nested Nested);
+
+        private class ToStringMarshaller : IMarshaller<Nested>
+        {
+            public void Marshal(Nested obj, IBufferWriter<byte> writer)
+            {
+                var str = obj.Id + ":" + obj.Price;
+                Encoding.ASCII.GetBytes(str, writer);
+            }
+
+            public Nested Unmarshal(ReadOnlySpan<byte> bytes)
+            {
+                var str = Encoding.ASCII.GetString(bytes);
+                var parts = str.Split(':');
+                return new(Guid.Parse(parts[0]), decimal.Parse(parts[1]));
+            }
+        }
     }
 }

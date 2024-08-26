@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -932,7 +933,9 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     @Test
     public void testNoFailHandlerForRuntimeSqlError() {
         InterceptFailHandler interceptor = new InterceptFailHandler();
-        CLUSTER.runningNodes().forEach(node -> node.failureProcessor().setInterceptor(interceptor));
+        CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .forEach(node -> node.failureProcessor().setInterceptor(interceptor));
         try {
             sql("CREATE TABLE test_tbl(ID INT PRIMARY KEY, VAL TINYINT)");
             sql("INSERT INTO test_tbl VALUES (1, 1);");
@@ -943,7 +946,9 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             assertThrowsSqlException(Sql.RUNTIME_ERR, "Subquery returned more than 1 value",
                     () -> sql("INSERT INTO test_tbl (ID, VAL) VALUES (2, (SELECT * FROM TABLE(SYSTEM_RANGE(0, 10))))"));
         } finally {
-            CLUSTER.runningNodes().forEach(node -> node.failureProcessor().setInterceptor(null));
+            CLUSTER.runningNodes()
+                    .map(TestWrappers::unwrapIgniteImpl)
+                    .forEach(node -> node.failureProcessor().setInterceptor(null));
         }
 
         assertTrue(interceptor.getFails().isEmpty(), "Expected no fail handler invocation");

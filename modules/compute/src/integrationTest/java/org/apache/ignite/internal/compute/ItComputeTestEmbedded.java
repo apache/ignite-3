@@ -49,6 +49,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -56,7 +57,6 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -84,10 +84,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void cancelsJobLocally() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(entryNode.node()), job, new CountDownLatch(1));
+        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(entryNode)), job, new CountDownLatch(1));
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
@@ -98,8 +98,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void cancelsQueuedJobLocally() {
-        IgniteImpl entryNode = node(0);
-        var nodes = JobTarget.node(entryNode.node());
+        Ignite entryNode = node(0);
+        var nodes = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
@@ -128,10 +128,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22577")
     void cancelsJobRemotely() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(node(1).node()), job, new CountDownLatch(1));
+        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(node(1))), job, new CountDownLatch(1));
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
@@ -142,10 +142,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void changeExecutingJobPriorityLocally() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(entryNode.node()), job, new CountDownLatch(1));
+        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(entryNode)), job, new CountDownLatch(1));
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
@@ -155,10 +155,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22577")
     void changeExecutingJobPriorityRemotely() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(node(1).node()), job, new CountDownLatch(1));
+        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(node(1))), job, new CountDownLatch(1));
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
@@ -167,8 +167,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void changeJobPriorityLocally() {
-        IgniteImpl entryNode = node(0);
-        JobTarget jobTarget = JobTarget.node(entryNode.node());
+        Ignite entryNode = node(0);
+        JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
@@ -208,8 +208,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesJobLocallyWithOptions() {
-        IgniteImpl entryNode = node(0);
-        JobTarget jobTarget = JobTarget.node(entryNode.node());
+        Ignite entryNode = node(0);
+        JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
@@ -260,12 +260,12 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void shouldNotConvertIgniteException() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         IgniteException exception = new IgniteException(INTERNAL_ERR, "Test exception");
 
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
-                JobTarget.node(entryNode.node()),
+                JobTarget.node(clusterNode(entryNode)),
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 exception));
 
@@ -274,12 +274,12 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void shouldNotConvertIgniteCheckedException() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         IgniteCheckedException exception = new IgniteCheckedException(INTERNAL_ERR, "Test exception");
 
         IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, () -> entryNode.compute().execute(
-                JobTarget.node(entryNode.node()),
+                JobTarget.node(clusterNode(entryNode)),
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 exception));
 
@@ -298,10 +298,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @ParameterizedTest
     @MethodSource("privateExceptions")
     void shouldConvertToComputeException(Throwable throwable) {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
-                JobTarget.node(entryNode.node()),
+                JobTarget.node(clusterNode(entryNode)),
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 throwable));
 
@@ -315,17 +315,17 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         int entryNodeIndex = 0;
 
-        IgniteImpl entryNode = node(entryNodeIndex);
-        IgniteImpl targetNode = node(targetNodeIndex);
+        Ignite entryNode = node(entryNodeIndex);
+        Ignite targetNode = node(targetNodeIndex);
 
         assertDoesNotThrow(() -> entryNode.compute().execute(
-                JobTarget.node(targetNode.node()),
+                JobTarget.node(clusterNode(targetNode)),
                 JobDescriptor.builder(PerformSyncKvGetPutJob.class).build(), null));
     }
 
     @Test
     void executesNullReturningJobViaSyncBroadcast() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         Map<ClusterNode, Object> results = entryNode.compute()
                 .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null);
@@ -336,7 +336,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesNullReturningJobViaAsyncBroadcast() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute().executeBroadcastAsync(
                 new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null
@@ -350,7 +350,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesNullReturningJobViaSubmitBroadcast() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute().submitBroadcast(
                 new HashSet<>(entryNode.clusterNodes()),

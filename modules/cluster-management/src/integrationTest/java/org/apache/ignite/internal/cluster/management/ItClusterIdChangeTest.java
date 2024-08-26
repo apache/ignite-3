@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -44,8 +45,8 @@ class ItClusterIdChangeTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void nodesWithDifferentClusterIdsCannotCommunicate() throws Exception {
-        IgniteImpl node1 = node(0);
-        IgniteImpl node2 = node(1);
+        IgniteImpl node1 = unwrapIgniteImpl(node(0));
+        IgniteImpl node2 = unwrapIgniteImpl(node(1));
 
         node2.clusterIdService().clusterId(UUID.randomUUID());
 

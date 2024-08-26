@@ -86,12 +86,12 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
     private static class Options implements StreamerOptions {
         private final int batchSize;
         private final int perPartitionParallelOperations;
-        private final int autoFlushFrequency;
+        private final int autoFlushInterval;
 
-        Options(int batchSize, int perPartitionParallelOperations, int autoFlushFrequency) {
+        Options(int batchSize, int perPartitionParallelOperations, int autoFlushInterval) {
             this.batchSize = batchSize;
             this.perPartitionParallelOperations = perPartitionParallelOperations;
-            this.autoFlushFrequency = autoFlushFrequency;
+            this.autoFlushInterval = autoFlushInterval;
         }
 
         @Override
@@ -105,8 +105,8 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public int autoFlushFrequency() {
-            return autoFlushFrequency;
+        public int autoFlushInterval() {
+            return autoFlushInterval;
         }
     }
 

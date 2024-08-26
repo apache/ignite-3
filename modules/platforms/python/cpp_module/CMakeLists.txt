@@ -22,8 +22,9 @@ set(TARGET ${PROJECT_NAME})
 find_package(ODBC REQUIRED)
 
 set(SOURCES
-    py_connection.cpp
     module.cpp
+    py_connection.cpp
+    py_cursor.cpp
 )
 
 set(LIBRARIES

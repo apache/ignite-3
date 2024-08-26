@@ -52,6 +52,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidatorErrorMessages;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -409,8 +410,12 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ColumnDescriptor column = desc.columnDescriptor(i);
 
             if (!column.nullable() && rowHandler.isNull(i, row)) {
-                String message = Static.RESOURCE.columnNotNullable(column.name()).ex().getMessage();
-                throw new SqlException(CONSTRAINT_VIOLATION_ERR, message);
+                Exception ex = Static.RESOURCE.columnNotNullable(column.name()).ex();
+                String originalMessage = ex.getMessage();
+
+                String resolvedMessage = IgniteSqlValidatorErrorMessages.resolveErrorMessage(originalMessage);
+
+                throw new SqlException(CONSTRAINT_VIOLATION_ERR, resolvedMessage != null ? resolvedMessage : originalMessage);
             }
         }
     }

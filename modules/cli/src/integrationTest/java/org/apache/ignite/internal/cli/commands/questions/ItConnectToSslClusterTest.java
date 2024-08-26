@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.NodeConfig;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
@@ -120,6 +121,7 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
         await().until(() -> !nodeNameRegistry.names().isEmpty());
 
         List<String> urls = CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
                 .map(IgniteImpl::restHttpsAddress)
                 .map(address -> "https://" + address)
                 .collect(Collectors.toList());

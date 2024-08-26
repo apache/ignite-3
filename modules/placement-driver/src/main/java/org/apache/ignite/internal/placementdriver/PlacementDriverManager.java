@@ -300,6 +300,11 @@ public class PlacementDriverManager implements IgniteComponent {
             }
 
             @Override
+            public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+                return leaseTracker.getCurrentPrimaryReplica(replicationGroupId, timestamp);
+            }
+
+            @Override
             public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId replicationGroupId) {
                 return leaseTracker.previousPrimaryExpired(replicationGroupId);
             }

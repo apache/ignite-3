@@ -35,6 +35,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,6 +60,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
+import org.apache.ignite.internal.catalog.commands.RenameIndexCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -764,6 +766,75 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertThat(tableIndexIds(catalogVersion, tableId(TABLE_NAME)), equalTo(List.of(indexId0, indexId1, indexId2)));
     }
 
+    @Test
+    public void testRenameIndex() {
+        createSomeTable(TABLE_NAME);
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        long beforeRename = clock.nowLong();
+
+        CatalogIndexDescriptor index = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        assertThat(index, is(notNullValue()));
+
+        int indexId = index.id();
+
+        // Rename index.
+        renameIndex(INDEX_NAME, INDEX_NAME_2);
+
+        // Ensure index is available by new name.
+        assertThat(manager.aliveIndex(INDEX_NAME, clock.nowLong()), is(nullValue()));
+
+        index = manager.aliveIndex(INDEX_NAME_2, clock.nowLong());
+        assertThat(index, is(notNullValue()));
+        assertThat(index.id(), is(indexId));
+        assertThat(index.name(), is(INDEX_NAME_2));
+
+        // Ensure renamed index is available for historical queries.
+        CatalogIndexDescriptor oldDescriptor = manager.aliveIndex(INDEX_NAME, beforeRename);
+        assertThat(oldDescriptor, is(notNullValue()));
+        assertThat(oldDescriptor.id(), is(indexId));
+
+        // Ensure can create new index with same name.
+        createSomeIndex(TABLE_NAME, INDEX_NAME);
+
+        index = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        assertThat(index, is(notNullValue()));
+        assertThat(index.id(), not(indexId));
+    }
+
+    @Test
+    public void testRenamePkIndex() {
+        createSomeTable(TABLE_NAME);
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, clock.nowLong());
+        assertThat(table, is(notNullValue()));
+
+        assertThat(manager.aliveIndex(INDEX_NAME, clock.nowLong()), is(nullValue()));
+        assertThat(manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()), is(notNullValue()));
+
+        int primaryKeyIndexId = table.primaryKeyIndexId();
+
+        // Rename index.
+        renameIndex(pkIndexName(TABLE_NAME), INDEX_NAME);
+
+        CatalogIndexDescriptor index = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        assertThat(index, is(notNullValue()));
+        assertThat(index.id(), is(primaryKeyIndexId));
+        assertThat(index.name(), is(INDEX_NAME));
+
+        assertThat(manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()), is(nullValue()));
+    }
+
+    @Test
+    public void testRenameNonExistingIndex() {
+        createSomeTable(TABLE_NAME);
+
+        assertThat(
+                manager.execute(RenameIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).newIndexName("TEST").build()),
+                willThrowFast(IndexNotFoundValidationException.class)
+        );
+    }
+
     private @Nullable CatalogIndexDescriptor index(int catalogVersion, String indexName) {
         return manager.schema(catalogVersion).aliveIndex(indexName);
     }
@@ -798,6 +869,13 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     private void createSomeSortedIndex(String tableName, String indexName) {
         assertThat(
                 manager.execute(createSortedIndexCommand(tableName, indexName, false, List.of("key1"), List.of(ASC_NULLS_LAST))),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private void renameIndex(String indexName, String newIndexName) {
+        assertThat(
+                manager.execute(renameIndexCommand(indexName, newIndexName)),
                 willCompleteSuccessfully()
         );
     }

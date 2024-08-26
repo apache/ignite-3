@@ -55,8 +55,8 @@ The table below describes checkpoint configuration:
 |checkpointDelayMillis|200| Delay before staring a checkpoint after receiving the command.
 |checkpointThreads|4| Number of CPU threads dedicated to checkpointing.
 |compactionThreads|4| Number of CPU threads dedicated to data compaction.
-|frequency|180000|Checkpoint frequency in milliseconds.
-|frequencyDeviation|40| Allowed deviation in checkpoint frequency, in milliseconds.
+|interval|180000|Interval between checkpoints in milliseconds.
+|intervalDeviation|40| Allowed deviation in checkpoint interval, percent.
 |logReadLockThresholdTimeout|0| Threshold for logging long read locks, in milliseconds.
 |readLockTimeout|10000| Timeout for checkpoint read lock acquisition, in milliseconds.
 |useAsyncFileIoFactory|true| If Ignite uses asynchronous file I/O operations provider.

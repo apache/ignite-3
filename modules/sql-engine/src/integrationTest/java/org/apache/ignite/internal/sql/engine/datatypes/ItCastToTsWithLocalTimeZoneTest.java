@@ -38,7 +38,6 @@ import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -147,7 +146,6 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("valuesWithExpectedResult")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22779")
     void implicitCastOfDynParamsOnInsert(Object param, int zoneOffset, Object expectedResult) {
         ZoneId zone = ZoneOffset.ofHours(zoneOffset);
 

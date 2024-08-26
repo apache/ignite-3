@@ -341,7 +341,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             return;
         }
 
-        int interval = options.autoFlushFrequency();
+        int interval = options.autoFlushInterval();
 
         if (interval <= 0) {
             return;

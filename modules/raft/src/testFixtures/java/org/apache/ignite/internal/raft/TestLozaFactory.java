@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -62,6 +63,8 @@ public class TestLozaFactory {
                 new NoOpMetricManager(),
                 raftConfig,
                 clock,
-                raftGroupEventsClientListener);
+                raftGroupEventsClientListener,
+                new NoOpFailureProcessor()
+        );
     }
 }

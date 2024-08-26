@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
@@ -50,8 +51,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -62,6 +65,7 @@ import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -95,7 +99,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     private static final int REPLICAS = 2;
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
@@ -139,7 +143,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     protected void customizeInitParameters(InitParametersBuilder builder) {
         super.customizeInitParameters(builder);
 
-        builder.clusterConfiguration("{"
+        builder.clusterConfiguration("ignite {"
                 + "  transaction: {"
                 + "      txnResourceTtl: 0"
                 + "  },"
@@ -287,7 +291,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     public void testAbandonedTxnsAreNotVacuumizedUntilRecovered() throws InterruptedException {
         setTxResourceTtl(1);
 
-        IgniteImpl leaseholder = cluster.node(0);
+        IgniteImpl leaseholder = unwrapIgniteImpl(cluster.node(0));
 
         Tuple tuple = findTupleToBeHostedOnNode(leaseholder, TABLE_NAME, null, INITIAL_TUPLE, NEXT_TUPLE, true);
 
@@ -514,7 +518,11 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         assertThat(cleanupStarted, willCompleteSuccessfully());
 
-        transferPrimary(cluster.runningNodes().collect(toSet()), commitPartGrpId, commitPartNodes::contains);
+        transferPrimary(
+                cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()),
+                commitPartGrpId,
+                commitPartNodes::contains
+        );
 
         cleanupAllowed[0] = true;
 
@@ -581,21 +589,24 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         boolean[] cleanupAllowed = new boolean[1];
 
         // Cleanup may be triggered by the primary replica reelection as well.
-        runningNodes().filter(n -> commitPartNodes.contains(n.name())).forEach(nd -> nd.dropMessages((n, msg) -> {
-            if (msg instanceof TxCleanupMessage) {
-                log.info("Test: perform cleanup on [node={}, msg={}].", n, msg);
+        runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(n -> commitPartNodes.contains(n.name()))
+                .forEach(nd -> nd.dropMessages((n, msg) -> {
+                    if (msg instanceof TxCleanupMessage) {
+                        log.info("Test: perform cleanup on [node={}, msg={}].", n, msg);
 
-                cleanupStarted.complete(null);
+                        cleanupStarted.complete(null);
 
-                if (!cleanupAllowed[0]) {
-                    log.info("Test: dropping cleanup on [node={}].", n);
+                        if (!cleanupAllowed[0]) {
+                            log.info("Test: dropping cleanup on [node={}].", n);
 
-                    return true;
-                }
-            }
+                            return true;
+                        }
+                    }
 
-            return false;
-        }));
+                    return false;
+                }));
 
         Transaction roTxBefore = beginReadOnlyTx(anyNode());
 
@@ -650,7 +661,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testRecoveryAfterPersistentStateVacuumized() throws InterruptedException {
         // This node isn't going to be stopped, so let it be node 0.
-        IgniteImpl commitPartitionLeaseholder = cluster.node(0);
+        IgniteImpl commitPartitionLeaseholder = unwrapIgniteImpl(cluster.node(0));
 
         Tuple tuple0 = findTupleToBeHostedOnNode(commitPartitionLeaseholder, TABLE_NAME, null, INITIAL_TUPLE, NEXT_TUPLE, true);
 
@@ -804,8 +815,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     }
 
     private void setTxResourceTtl(long ttl) {
-        CompletableFuture<Void> changeFuture = anyNode().clusterConfiguration().change(c ->
-                c.changeRoot(TransactionConfiguration.KEY).changeTxnResourceTtl(ttl));
+        TransactionConfiguration transactionConfiguration = anyNode().clusterConfiguration()
+                .getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
+        CompletableFuture<Void> changeFuture = transactionConfiguration.change(c -> c.changeTxnResourceTtl(ttl));
 
         assertThat(changeFuture, willCompleteSuccessfully());
     }
@@ -817,19 +829,21 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         runningNodes().forEach(node -> {
             log.info("Test: triggering vacuum manually on node: " + node.name());
 
-            CompletableFuture<Void> vacuumFut = node.txManager().vacuum();
+            CompletableFuture<Void> vacuumFut = unwrapIgniteImpl(node).txManager().vacuum();
             assertThat(vacuumFut, willCompleteSuccessfully());
         });
     }
 
     private boolean checkVolatileTxStateOnNodes(Set<String> nodeConsistentIds, UUID txId) {
         return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
                 .filter(n -> nodeConsistentIds.contains(n.name()))
                 .allMatch(n -> volatileTxState(n, txId) != null);
     }
 
     private boolean checkPersistentTxStateOnNodes(Set<String> nodeConsistentIds, UUID txId, int partId) {
         return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
                 .filter(n -> nodeConsistentIds.contains(n.name()))
                 .allMatch(n -> persistentTxState(n, txId, partId) != null);
     }
@@ -856,7 +870,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * @param timeMs Time to wait.
      */
     private void waitForTxStateVacuum(UUID txId, int partId, boolean checkPersistent, long timeMs) throws InterruptedException {
-        waitForTxStateVacuum(cluster.runningNodes().map(IgniteImpl::name).collect(toSet()), txId, partId, checkPersistent, timeMs);
+        waitForTxStateVacuum(cluster.runningNodes().map(Ignite::name).collect(toSet()), txId, partId, checkPersistent, timeMs);
     }
 
     /**
@@ -886,7 +900,10 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * @param txId Transaction id.
      */
     private void waitForCleanupCompletion(Set<String> commitPartitionNodeNames, UUID txId) throws InterruptedException {
-        Set<IgniteImpl> commitPartitionNodes = runningNodes().filter(n -> commitPartitionNodeNames.contains(n.name())).collect(toSet());
+        Set<IgniteImpl> commitPartitionNodes = runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(n -> commitPartitionNodeNames.contains(n.name()))
+                .collect(toSet());
 
         assertTrue(waitForCondition(() -> {
             boolean res = false;
@@ -921,7 +938,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * @param checkPersistent Whether to wait for vacuum of persistent tx state as well.
      */
     private void assertTxStateVacuumized(UUID txId, String tableName, int partId, boolean checkPersistent) {
-        Set<String> allNodes = cluster.runningNodes().map(IgniteImpl::name).collect(toSet());
+        Set<String> allNodes = cluster.runningNodes().map(Ignite::name).collect(toSet());
 
         assertTxStateVacuumized(allNodes, txId, tableName, partId, checkPersistent);
     }
@@ -1004,7 +1021,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             cpPrimaryId = replicaMeta.getLeaseholderId();
         }
 
-        for (Iterator<IgniteImpl> iterator = cluster.runningNodes().iterator(); iterator.hasNext();) {
+        for (Iterator<IgniteImpl> iterator = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).iterator(); iterator.hasNext();) {
             IgniteImpl node = iterator.next();
 
             if (!nodeConsistentIds.contains(node.name())) {
@@ -1020,14 +1037,20 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     }
 
     private void logCurrentTxState(Set<String> nodeConsistentIds, UUID txId, String table, int partId) {
-        cluster.runningNodes().filter(n -> nodeConsistentIds.contains(n.name())).forEach(node -> {
-            log.info("Test: volatile   state [tx={}, node={}, state={}].", txId, node.name(), volatileTxState(node, txId));
-            log.info("Test: persistent state [tx={}, node={}, state={}].", txId, node.name(), persistentTxState(node, txId, table, partId));
-        });
+        cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(n -> nodeConsistentIds.contains(n.name()))
+                .forEach(node -> {
+                    log.info("Test: volatile   state [tx={}, node={}, state={}].", txId, node.name(), volatileTxState(node, txId));
+                    log.info(
+                            "Test: persistent state [tx={}, node={}, state={}].",
+                            txId, node.name(), persistentTxState(node, txId, table, partId)
+                    );
+                });
     }
 
     private IgniteImpl anyNode() {
-        return runningNodes().findFirst().orElseThrow();
+        return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
     }
 
     @Nullable
@@ -1054,6 +1077,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
     private IgniteImpl findNode(Predicate<IgniteImpl> filter) {
         return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
                 .filter(n -> n != null && filter.test(n))
                 .findFirst()
                 .get();

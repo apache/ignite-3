@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.tx.configuration;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for transactions.
  */
-@ConfigurationRoot(rootName = "transaction", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class TransactionConfigurationSchema {
     /** Default checking transaction interval. */
     public static final long DEFAULT_ABANDONED_CHECK_TS = 5_000;

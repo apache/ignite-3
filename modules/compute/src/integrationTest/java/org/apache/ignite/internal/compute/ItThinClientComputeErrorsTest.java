@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.client.IgniteClient;
@@ -36,7 +38,7 @@ class ItThinClientComputeErrorsTest extends ItComputeErrorsBaseTest {
 
     @Override
     protected IgniteCompute compute() {
-        String address = "127.0.0.1:" + CLUSTER.node(0).clientAddress().port();
+        String address = "127.0.0.1:" + unwrapIgniteImpl(CLUSTER.node(0)).clientAddress().port();
         IgniteClient client = IgniteClient.builder().addresses(address).build();
         clients.put(address, client);
         return client.compute();

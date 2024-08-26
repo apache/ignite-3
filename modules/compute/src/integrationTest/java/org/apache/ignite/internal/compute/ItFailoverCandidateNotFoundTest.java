@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -57,7 +58,7 @@ public class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegrationTe
 
     @Test
     void embeddedFailoverCandidateLeavesCluster() throws Exception {
-        String address = "127.0.0.1:" + node(0).clientAddress().port();
+        String address = "127.0.0.1:" + unwrapIgniteImpl(node(0)).clientAddress().port();
         try (IgniteClient client = IgniteClient.builder().addresses(address).build()) {
             failoverCandidateLeavesCluster(client.compute());
         }
@@ -65,7 +66,7 @@ public class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegrationTe
 
     private void failoverCandidateLeavesCluster(IgniteCompute compute) throws Exception {
         // Given remote candidates to execute a job.
-        Set<ClusterNode> remoteWorkerCandidates = Set.of(node(1).node(), node(2).node());
+        Set<ClusterNode> remoteWorkerCandidates = Set.of(unwrapIgniteImpl(node(1)).node(), unwrapIgniteImpl(node(2)).node());
         Set<String> remoteWorkerCandidateNames = remoteWorkerCandidates.stream()
                 .map(ClusterNode::name)
                 .collect(Collectors.toCollection(HashSet::new));

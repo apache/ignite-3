@@ -34,7 +34,7 @@ class SchemaSynchronizationConfigurationModuleTest {
     }
 
     @Test
-    void rootKeysAreAsExpected() {
-        assertThat(module.rootKeys(), contains(SchemaSynchronizationConfiguration.KEY));
+    void schemaExtensionsAreAsExpected() {
+        assertThat(module.schemaExtensions(), contains(SchemaSynchronizationExtensionConfigurationSchema.class));
     }
 }
