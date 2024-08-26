@@ -635,9 +635,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         if (recoverable(err)) {
             Peer randomPeer = randomNode(peer);
 
-//            if (LOG.isDebugEnabled()) {
+            if (LOG.isDebugEnabled()) {
                 if (err instanceof TimeoutException) {
-                    LOG.warn(
+                    LOG.debug(
                             "Recoverable TimeoutException during the request occurred (will be retried on the randomly selected"
                                     + " node) [request={}, peer={}, newPeer={}].",
                             includeSensitive() ? sentRequest : sentRequest.toStringForLightLogging(),
@@ -645,7 +645,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             randomPeer
                     );
                 } else {
-                    LOG.warn(
+                    LOG.debug(
                             "Recoverable error during the request occurred (will be retried on the randomly selected node) "
                                     + "[request={}, peer={}, newPeer={}].",
                             err,
@@ -654,7 +654,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             randomPeer
                     );
                 }
-//            }
+            }
 
             scheduleRetry(() -> sendWithRetry(randomPeer, requestFactory, stopTime, fut, retriesCount + 1));
         } else {
