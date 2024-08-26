@@ -459,8 +459,6 @@ public class PartitionReplicaLifecycleManager  extends
 
                 AtomicLong stamp = new AtomicLong();
 
-                replicationGroupIds.add(replicaGrpId);
-
                 return replicaMgr.startReplica(
                         replicaGrpId,
                         (raftClient) -> new ZonePartitionReplicaListener(
@@ -506,9 +504,8 @@ public class PartitionReplicaLifecycleManager  extends
                                 return lock;
                             });
                         }).whenComplete((unused, throwable) -> {
-                            System.out.println("KKK removing writeLock");
                             partitionsPerZone.get(zoneId).unlockWrite(stamp.get());
-                        })
+                        }).thenApply(unused -> false);
             } catch (NodeStoppingException e) {
                 return failedFuture(e);
             }
