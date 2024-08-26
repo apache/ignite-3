@@ -716,13 +716,14 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         long minActiveTxBeginTime0 = minActiveTxBeginTime;
+        long timestamp = cmd.timestamp();
 
-        assert minActiveTxBeginTime0 <= cmd.timestamp() : "maxTime=" + minActiveTxBeginTime0 + ", cmdTime=" + cmd.timestamp();
+        assert minActiveTxBeginTime0 <= timestamp : "maxTime=" + minActiveTxBeginTime0 + ", cmdTime=" + timestamp;
 
-        minActiveTxBeginTime = cmd.timestamp();
+        minActiveTxBeginTime = timestamp;
 
         storage.flush(false).whenComplete((r, t) -> {
-            snapshottedMinActiveTxBeginTime = minActiveTxBeginTime;
+            snapshottedMinActiveTxBeginTime = timestamp;
         });
     }
 
