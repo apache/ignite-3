@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -47,6 +48,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * Tests for {@link PartitionPruningMetadataExtractor} against optimized expressions.
  */
+@WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
 public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
     private static final IgniteSchema TABLE_C1 = createSchema(TestBuilders.table().name("T")
@@ -137,39 +139,66 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
     }
 
     enum TestCaseBasicInsert {
-        SIMPLE_1a1("t(C1) VALUES (SELECT 100)", TABLE_C1_NULLABLE_C2),
-        // values with rex expression case
-        SIMPLE_1a2("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
-        SIMPLE_1a3("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),
-        // union can be used here
-        SIMPLE_1a4("t(C1) VALUES (?), (?), (1)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=1]"),
-        // values with projection and rex expression case
-        SIMPLE_1a5("t(C2, C1) VALUES (null, 1), (null, 2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
-        SIMPLE_1a6("t(C2, C1) VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]", "[c1=?3]"),
-        SIMPLE_1a7("t(C2, C1) VALUES (?, ?), ((SELECT 1), (SELECT 1))", TABLE_C1_NULLABLE_C2),
-        SIMPLE_1a8("t(C2, C1) VALUES (null, ?), (null, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]"),
+        // single tuple insert
+        CASE_1l("t VALUES (1, 10)", TABLE_C1, "[c1=1]"),
+        CASE_1dp("t VALUES (?, ?)", TABLE_C1, "[c1=?0]"),
 
-        SIMPLE_1a9("t(C2, C1) VALUES (?, ?), (?, 1)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=1, c2=?2]"),
-        SIMPLE_1a10("t(C2, C1) VALUES (?, ?), (2, 1)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=1, c2=2]"),
-        SIMPLE_1a11("t(C2, C1) VALUES (?, ?), (2, (SELECT 1))", TABLE_C1_C2_NULLABLE_C3),
-        SIMPLE_1a12("t(C2, C1) VALUES (?, ?), (2, (OCTET_LENGTH('TEST')))", TABLE_C1_C2_NULLABLE_C3),
+        // single tuple insert with reversed columns order
+        CASE_2l("t(c2, c1) VALUES (10, 1)", TABLE_C1, "[c1=1]"),
+        CASE_2dp("t(c2, c1) VALUES (?, ?)", TABLE_C1, "[c1=?1]"),
 
-        // pure values case
-        SIMPLE_1b1("t(C1, C2) VALUES (1, 2), (2, 3)", TABLE_C1, "[c1=1]", "[c1=2]"),
-        // values with projection case
-        SIMPLE_1b2("t(C2, C1) VALUES (2, 1), (3, 2)", TABLE_C1, "[c1=1]", "[c1=2]"),
+        // multi tuple insert
+        CASE_3l("t VALUES (1, 10), (2, 20)", TABLE_C1, "[c1=1]", "[c1=2]"),
+        CASE_3dp("t VALUES (?, ?), (?, ?)", TABLE_C1, "[c1=?0]", "[c1=?2]"),
 
-        SIMPLE_1d("t(C1) VALUES (OCTET_LENGTH('TEST')), (2)", TABLE_C1_NULLABLE_C2),
-        SIMPLE_1e("t(C1) VALUES (SELECT 1), (2)", TABLE_C1_NULLABLE_C2),
+        // multi tuple insert with reversed columns order
+        CASE_4l("t(c2, c1) VALUES (10, 1), (20, 2)", TABLE_C1, "[c1=1]", "[c1=2]"),
+        CASE_4dp("t(c2, c1) VALUES (?, ?), (?, ?)", TABLE_C1, "[c1=?1]", "[c1=?3]"),
 
-        SIMPLE_1f1("t(C1, C2, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
-                "[c1=1, c2=?0]", "[c1=2, c2=?1]", "[c1=3, c2=?2]"),
-        SIMPLE_1f2("t(C2, C1, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
-                "[c1=?0, c2=1]", "[c1=?1, c2=2]", "[c1=?2, c2=3]"),
+        // meta is compiled partially from Project rel and partially from single tuple Values rel
+        CASE_5l("t SELECT 10, x, x FROM (VALUES (1)) as s(x)", TABLE_C1_C2, "[c1=10, c2=1]"),
+        // supposed to be similar, but because of explicit cast all expressions are taken from Project rel
+        CASE_5dp("t SELECT ?, x, x FROM (VALUES (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]"),
 
-        SIMPLE_1j1("t(C4, C2, C3, C1) VALUES (1, 2, 3, 4), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=4, c2=2, c3=3]", "[c1=5, c2=3, c3=4]"),
-        SIMPLE_1j2("t(C4, C2, C3, C1) VALUES (?, 1, ?, ?), (?, 1, ?, ?)", TABLE_C1_C2_C3, "[c1=?2, c2=1, c3=?1]", "[c1=?5, c2=1, c3=?4]"),
-        SIMPLE_1j3("t(C4, C2, C3, C1) VALUES (?, ?, ?, ?), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=?3, c2=?1, c3=?2]", "[c1=5, c2=3, c3=4]"),
+        // meta is compiled partially from Project rel and partially from multi-tuple Values rel
+        CASE_6l("t SELECT 10, x, x FROM (VALUES (1), (2)) as s(x)", TABLE_C1_C2, "[c1=10, c2=1]", "[c1=10, c2=2]"),
+        // supposed to be similar, but because of explicit cast all expressions are taken from Project rel. Also plan contains UnionAll rel
+        CASE_6dp("t SELECT ?, x, x FROM (VALUES (?::INT), (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
+
+        // simple plan with explicit UnionAll rel
+        CASE_7l("t SELECT 1, 10 UNION ALL SELECT 2, 20", TABLE_C1, "[c1=1]", "[c1=2]"),
+        CASE_7dp("t SELECT ?, 10 UNION ALL SELECT ?, 20", TABLE_C1, "[c1=?0]", "[c1=?1]"),
+
+        // UnionAll rel with project on top. Meta is compiled partially from project on top, partially from every input of UnionAll rel
+        CASE_8l("t SELECT 10, x, x FROM (SELECT 1 UNION ALL SELECT 2) s(x)", TABLE_C1_C2, "[c1=10, c2=1]", "[c1=10, c2=2]"),
+        // supposed to be similar, but because of explicit cast all expressions are taken from Project rel
+        CASE_8dp("t SELECT ?, x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
+
+        // mixed case, where only one branch contains additional projection
+        CASE_9l_dp("t SELECT ?, x, x FROM (SELECT 1 UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=1]", "[c1=?0, c2=?1]"),
+
+        // one of the UnionAll branches contains ALWAYS FALSE predicate, thus must be ignored
+        CASE_10l("t SELECT x, x FROM (SELECT 1 UNION ALL SELECT 2 FROM (VALUES (0)) WHERE FALSE UNION ALL SELECT 3) s(x)",
+                TABLE_C1, "[c1=1]", "[c1=3]"),
+        CASE_10dp("t SELECT x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT FROM (VALUES (0)) WHERE FALSE UNION ALL SELECT ?::INT) s(x)",
+                TABLE_C1, "[c1=?0]", "[c1=?2]"),
+
+        // single tuple insert with implicit cast
+        CASE_11("t VALUES ('1', 10)", TABLE_C1, "[c1=1]"),
+
+        // single tuple insert with explicit cast
+        CASE_12("t VALUES ('1'::smallint, 10)", TABLE_C1, "[c1=1]"),
+
+        // Joins are not supported at the moment
+        CASE_13("t SELECT sr1.x, sr2.x FROM system_range(1, 4) sr1,  system_range(1, 4) sr2", TABLE_C1),
+        CASE_14("t(c1) VALUES (1), (SELECT 2)", TABLE_C1_NULLABLE_C2),
+
+        // overflow is handled properly
+        CASE_15(String.format("t(C1) VALUES (%d)", Long.MAX_VALUE), TABLE_C1_NULLABLE_C2),
+
+        // expressions are not supported at the moment
+        CASE_16("t(c1) VALUES (?), (? * 10)", TABLE_C1_NULLABLE_C2),
+        CASE_17("t(c1) VALUES (?), (OCTET_LENGTH('TEST'))", TABLE_C1_NULLABLE_C2)
         ;
 
         private final TestCase data;
@@ -565,7 +594,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
         IgniteRel igniteRel;
         try {
-            igniteRel = physicalPlan(statement, testCase.schema);
+            igniteRel = physicalPlan(statement, testCase.schema, DISABLE_KEY_VALUE_MODIFY_RULES);
         } catch (Exception e) {
             throw new IllegalStateException("Unable to build a physical plan", e);
         }

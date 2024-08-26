@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -149,7 +150,13 @@ public class DistributionZoneRebalanceEngineV2 {
                     int zoneId = extractZoneIdDataNodes(evt.entryEvent().newEntry().key());
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
+                    // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
+                    //  in the catalog. Better to store this version when writing datanodes.
                     int catalogVersion = catalogService.latestCatalogVersion();
+
+                    Catalog catalog = catalogService.catalog(catalogVersion);
+
+                    long assignmentsTimestamp = catalog.time();
 
                     CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
 
@@ -173,7 +180,8 @@ public class DistributionZoneRebalanceEngineV2 {
                             filteredDataNodes,
                             evt.entryEvent().newEntry().revision(),
                             metaStorageManager,
-                            busyLock
+                            busyLock,
+                            assignmentsTimestamp
                     );
                 });
             }
@@ -214,12 +222,15 @@ public class DistributionZoneRebalanceEngineV2 {
                         return nullCompletedFuture();
                     }
 
+                    Catalog catalog = catalogService.catalog(catalogVersion);
+
                     return triggerZonePartitionsRebalance(
                             zoneDescriptor,
                             dataNodes,
                             causalityToken,
                             metaStorageManager,
-                            busyLock
+                            busyLock,
+                            catalog.time()
                     );
                 }));
     }

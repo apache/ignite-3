@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
@@ -153,13 +152,6 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource
     public <T> void testRecordViewQuery(CriteriaQuerySource<T> view, Function<T, Tuple> mapper) {
-        assertThrowsWithCode(
-                CriteriaException.class,
-                STMT_VALIDATION_ERR,
-                () -> view.query(null, columnValue("id", equalTo("2"))),
-                "Dynamic parameter requires adding explicit type cast"
-        );
-
         Matcher<Tuple> person0 = allOf(tupleValue("id", is(0)), tupleValue("name", Matchers.nullValue()), tupleValue("salary", is(0.0d)),
                 tupleValue("hash", is("hash0".getBytes())));
         Matcher<Tuple> person1 = allOf(tupleValue("id", is(1)), tupleValue("name", is("name1")), tupleValue("salary", is(10.0d)),
@@ -172,6 +164,10 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         }
 
         try (Cursor<T> cur = view.query(null, columnValue("id", equalTo(2)))) {
+            assertThat(mapToTupleList(cur, mapper), containsInAnyOrder(person2));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", equalTo("2")))) {
             assertThat(mapToTupleList(cur, mapper), containsInAnyOrder(person2));
         }
 
@@ -259,13 +255,6 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource
     public <T> void testKeyValueView(CriteriaQuerySource<T> view, Function<T, Entry<Tuple, Tuple>> mapper) {
-        assertThrowsWithCode(
-                CriteriaException.class,
-                STMT_VALIDATION_ERR,
-                () -> view.query(null, columnValue("id", equalTo("2"))),
-                "Dynamic parameter requires adding explicit type cast"
-        );
-
         Matcher<Tuple> personKey0 = tupleValue("id", is(0));
         Matcher<Tuple> person0 = allOf(tupleValue("name", Matchers.nullValue()), tupleValue("salary", is(0.0d)),
                 tupleValue("hash", is("hash0".getBytes())));
@@ -283,6 +272,13 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                     aMapWithSize(3),
                     hasEntry(personKey0, person0),
                     hasEntry(personKey1, person1),
+                    hasEntry(personKey2, person2)
+            ));
+        }
+
+        try (Cursor<T> cur = view.query(null, columnValue("id", equalTo("2")))) {
+            assertThat(mapToTupleMap(cur, mapper), allOf(
+                    aMapWithSize(1),
                     hasEntry(personKey2, person2)
             ));
         }
