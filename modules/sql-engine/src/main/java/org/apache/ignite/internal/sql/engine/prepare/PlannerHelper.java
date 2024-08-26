@@ -500,19 +500,15 @@ public final class PlannerHelper {
                 return false;
             }
             SqlNode operand = call.getOperandList().get(0);
-            return !isCountStartOperand(operand);
-        }
-    }
 
-    private static boolean isCountStartOperand(SqlNode node) {
-        if (SqlUtil.isNull(node)) {
-            return true;
-        } else if (SqlUtil.isLiteral(node)) {
-            return false;
-        } else if (node instanceof SqlIdentifier && ((SqlIdentifier) node).isStar()) {
-            return false;
-        } else {
-            return true;
+            if (SqlUtil.isNull(operand)) {
+                // COUNT(NULL) always returns 0
+                return false;
+            } else if (SqlUtil.isLiteral(operand)) {
+                return true;
+            } else {
+                return operand instanceof SqlIdentifier && ((SqlIdentifier) operand).isStar();
+            }
         }
     }
 }
