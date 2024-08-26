@@ -27,12 +27,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -40,9 +40,9 @@ import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMe
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesResponse;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionPrepareUpdateTxBeginTimeMessage;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
-import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionPrepareUpdateTxBeginTimeMessage;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -411,12 +411,20 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
 
     private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
+        for (CatalogIndexDescriptor index : catalog.indexes()) {
+            if (index.status() == CatalogIndexStatus.BUILDING || index.status() == CatalogIndexStatus.REGISTERED) {
+                LOG.info("Catalog compaction aborted, index construction is taking place");
+
+                return CompletableFutures.falseCompletedFuture();
+            }
+        }
+
         return requiredNodes(catalog)
                 .thenCompose(requiredNodes -> {
                     List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
 
                     if (!missingNodes.isEmpty()) {
-                        LOG.info("Catalog compaction aborted due to missing cluster members [nodes={}].", missingNodes);
+                        LOG.info("Catalog compaction aborted due to missing cluster members (nodes={})", missingNodes);
 
                         return CompletableFutures.falseCompletedFuture();
                     }
@@ -527,30 +535,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenComposeAsync(ignore -> invokeOnLocalReplicas(txBeginTime, localNodeId, tabTtr), executor);
     }
 
-    private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
-        for (CatalogIndexDescriptor index : catalog.indexes()) {
-            if (index.status() == CatalogIndexStatus.BUILDING || index.status() == CatalogIndexStatus.REGISTERED) {
-                LOG.info("Catalog compaction aborted, index construction is taking place");
-
-                return CompletableFutures.falseCompletedFuture();
-            }
-        }
-
-        return requiredNodes(catalog)
-                .thenCompose(requiredNodes -> {
-                    List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
-
-                    if (!missingNodes.isEmpty()) {
-                        LOG.info("Catalog compaction aborted due to missing cluster members (nodes={})", missingNodes);
-
-                        return CompletableFutures.falseCompletedFuture();
-                    }
-
-                    return catalogManagerFacade.compactCatalog(catalog.version());
-                });
-    }
-
-    class CatalogCompactionMessageHandler implements NetworkMessageHandler {
+    private class CatalogCompactionMessageHandler implements NetworkMessageHandler {
         @Override
         public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
             assert message.groupType() == CatalogCompactionMessageGroup.GROUP_TYPE : message.groupType();
@@ -574,8 +559,16 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
 
         private void handleMinimumTimesRequest(ClusterNode sender, Long correlationId) {
+            HybridTimestamp lwm = lowWatermark;
+            Long minRequiredTime = lwm != null ? getMinLocalTime(lwm) : null;
+
+            // We do not have local min time yet. Reply with the absolute min time.
+            if (minRequiredTime == null) {
+                minRequiredTime = HybridTimestamp.MIN_VALUE.longValue();
+            }
+
             CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
-                    .minimumRequiredTime(localMinTimeProvider.time())
+                    .minimumRequiredTime(minRequiredTime)
                     .minimumActiveTxTime(activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue())
                     .build();
 

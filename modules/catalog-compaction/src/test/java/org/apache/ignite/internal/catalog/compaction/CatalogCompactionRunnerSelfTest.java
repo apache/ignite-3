@@ -232,7 +232,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     }
 
     @Test
-    public void mustNotTriggerCompactionWhenIndexBuildingIsTakingPlace() {
+    public void mustNotTriggerCompactionWhenIndexBuildingIsTakingPlace() throws InterruptedException {
         CatalogCommand command = CreateTableCommand.builder()
                 .tableName("T1")
                 .schemaName("PUBLIC")
@@ -304,8 +304,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
             assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
 
-            assertEquals(firstVersion, catalogManager.earliestCatalogVersion(),
-                    "Index is being built but catalog compaction was triggered");
+            boolean done = waitForCondition(() -> catalogManager.earliestCatalogVersion() == firstVersion, 5_000);
+            assertTrue(done, "Index is being built but catalog compaction was triggered");
         }
 
         {
@@ -326,8 +326,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
             assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
 
-            assertEquals(latestVersion - 1, catalogManager.earliestCatalogVersion(),
-                    "Index is available but compaction has not been triggered");
+            boolean done = waitForCondition(() -> catalogManager.earliestCatalogVersion() == latestVersion - 1, 5_000);
+            assertTrue(done, "Index is available but compaction has not been triggered");
         }
     }
 

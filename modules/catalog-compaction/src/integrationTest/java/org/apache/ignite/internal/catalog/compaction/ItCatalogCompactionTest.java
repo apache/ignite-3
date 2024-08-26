@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -139,6 +138,8 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             IgniteImpl ignite = unwrapIgniteImpl(node);
             ignite.catalogCompactionRunner().enable(true);
         }
+
+        dropAllTables();
     }
 
     @Test
