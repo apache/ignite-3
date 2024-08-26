@@ -64,7 +64,7 @@ public class RaftConfigurationSchema {
      * Call fsync when need.
      */
     @Value(hasDefault = true)
-    public boolean fsync = true;
+    public boolean fsync = false;
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
