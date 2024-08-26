@@ -55,6 +55,7 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
             assertQuery((InternalTransaction) tx, "SELECT COUNT(*) FROM test")
                     .matches(QueryChecker.containsSubPlan("Aggregate"))
                     .returns(10L)
+                    .columnNames("COUNT(*)")
                     .check();
 
             tx.commit();
@@ -66,6 +67,7 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
             assertQuery((InternalTransaction) tx, "SELECT COUNT(*) FROM test")
                     .matches(QueryChecker.containsSubPlan("Aggregate"))
                     .returns(10L)
+                    .columnNames("COUNT(*)")
                     .check();
 
             tx.commit();
@@ -102,15 +104,16 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
                 .columnNames("COUNT(1)", "1", "COUNT(*)")
                 .check();
 
-        assertQuery("SELECT COUNT(id) FROM test")
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .returns(10L)
-                .check();
-
         assertQuery("SELECT COUNT(*) FROM test as x (a, b)")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
                 .columnNames("COUNT(*)")
+                .check();
+
+        assertQuery("SELECT COUNT(id) FROM test")
+                .matches(QueryChecker.containsSubPlan("Aggregate"))
+                .returns(10L)
+                .columnNames("COUNT(ID)")
                 .check();
 
         // Disable fast query optimization

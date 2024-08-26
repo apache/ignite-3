@@ -55,7 +55,6 @@ import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
-import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -402,7 +401,7 @@ public final class PlannerHelper {
         for (SqlNode selectItem : select.getSelectList()) {
             SqlNode expr = SqlUtil.stripAs(selectItem);
 
-            if (isCountStar(planner.validator(), expr)) {
+            if (isCountStar(expr)) {
                 RexBuilder rexBuilder = planner.cluster().getRexBuilder();
                 RexSlot countValRef = rexBuilder.makeInputRef(countResultType, 0);
 
@@ -487,7 +486,7 @@ public final class PlannerHelper {
         }
     }
 
-    private static boolean isCountStar(SqlValidator validator, SqlNode node) {
+    private static boolean isCountStar(SqlNode node) {
         if (!SqlUtil.isCallTo(node, SqlStdOperatorTable.COUNT)) {
             // The SQL node was checked by the validator and the call has correct number of arguments.
             return false;
@@ -501,20 +500,17 @@ public final class PlannerHelper {
                 return false;
             }
             SqlNode operand = call.getOperandList().get(0);
-            return !isNullableOperand(validator, operand);
+            return !isCountStartOperand(operand);
         }
     }
 
-    private static boolean isNullableOperand(SqlValidator validator, SqlNode node) {
+    private static boolean isCountStartOperand(SqlNode node) {
         if (SqlUtil.isNull(node)) {
             return true;
         } else if (SqlUtil.isLiteral(node)) {
             return false;
         } else if (node instanceof SqlIdentifier && ((SqlIdentifier) node).isStar()) {
             return false;
-        } else if (node instanceof SqlIdentifier) {
-            RelDataType type = validator.getValidatedNodeType(node);
-            return type.isNullable();
         } else {
             return true;
         }

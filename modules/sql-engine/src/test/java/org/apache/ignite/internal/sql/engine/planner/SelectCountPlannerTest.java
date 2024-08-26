@@ -138,26 +138,6 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    public void optimizeCountNonNullableCol() {
-        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
-
-        QueryPlan plan = node.prepare("SELECT count(id) FROM test");
-
-        assertThat(plan, instanceOf(SelectCountPlan.class));
-        assertExpressions((SelectCountPlan) plan, "$0");
-    }
-
-    @Test
-    public void optimizeCountNonNulleCols() {
-        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT NOT NULL)");
-
-        QueryPlan plan = node.prepare("SELECT count(id), count(val) FROM test");
-
-        assertThat(plan, instanceOf(SelectCountPlan.class));
-        assertExpressions((SelectCountPlan) plan, "$0", "$0");
-    }
-
-    @Test
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
     @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "true")
     public void optimizeCountStarWhenEnabled() {
@@ -187,12 +167,12 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         }
 
         {
-            QueryPlan plan = node.prepare("SELECT count(*) FROM test ORDER BY 1 OFFSET 2");
-            assertThat(plan, not(instanceOf(SelectCountPlan.class)));
+            QueryPlan plan = node.prepare("SELECT count(*), 1 as c FROM test ORDER BY c");
+            assertThat(plan, instanceOf(SelectCountPlan.class));
         }
 
         {
-            QueryPlan plan = node.prepare("SELECT count(*), 1 as c FROM test ORDER BY c");
+            QueryPlan plan = node.prepare("SELECT count(*) FROM test ORDER BY 1 OFFSET 2");
             assertThat(plan, not(instanceOf(SelectCountPlan.class)));
         }
     }
@@ -258,6 +238,15 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
 
         QueryPlan plan = node.prepare("SELECT count(?) FROM test", 1);
+
+        assertThat(plan, not(instanceOf(SelectCountPlan.class)));
+    }
+
+    @Test
+    public void doNotOptimizeCountNonNullableCol() {
+        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+
+        QueryPlan plan = node.prepare("SELECT count(id) FROM test");
 
         assertThat(plan, not(instanceOf(SelectCountPlan.class)));
     }

@@ -39,7 +39,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * Relational operator that represents a {@code SELECT COUNT(*) FROM table} queries such as:
  *<ul>
  *     <li>{@code SELECT COUNT(*) FROM table}</li>
- *     <li>{@code SELECT COUNT(not_null_col) FROM table}</li>
  *     <li>{@code SELECT COUNT(1) FROM table}</li>
  *</ul>
  *
