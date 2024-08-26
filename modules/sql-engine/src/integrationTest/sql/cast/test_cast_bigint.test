@@ -29,50 +29,14 @@ SELECT CAST(1e40 AS BIGINT);
 statement error
 SELECT CAST(-1e40 AS BIGINT);
 
+for val in [100::TINYINT, 100::SMALLINT, 100::INT, 100::DECIMAL, 100::DECIMAL(3), 100.1::DECIMAL(4\,1), 100.1::REAL, 100.1::FLOAT, 100.1::DOUBLE]
+
 query T
-SELECT CAST(100::TINYINT AS BIGINT);
+SELECT CAST(${val} AS BIGINT);
 ----
 100
 
-query T
-SELECT CAST(100::SMALLINT AS BIGINT);
-----
-100
-
-query T
-SELECT CAST(100::INT AS BIGINT);
-----
-100
-
-query T
-SELECT CAST(100::DECIMAL AS BIGINT);
-----
-100
-
-query T
-SELECT CAST(100::DECIMAL(3) AS BIGINT);
-----
-100
-
-query T
-SELECT CAST(100.1::DECIMAL(4, 1) AS BIGINT);
-----
-100
-
-query T
-SELECT CAST(100.1::REAL AS BIGINT);
-----
-100
-
-query T
-SELECT CAST(100.1::FLOAT AS BIGINT);
-----
-100
-
-query T
-SELECT CAST(100.1::DOUBLE AS BIGINT);
-----
-100
+endfor
 
 statement error: Invalid input string for type BIGINT: "100x"
 SELECT CAST('100x' AS BIGINT);
@@ -98,7 +62,7 @@ SELECT CAST(x'00'::BINARY AS BIGINT);
 statement error: Cast function cannot convert value of type VARBINARY to type BIGINT
 SELECT CAST(x'00'::VARBINARY AS BIGINT);
 
-for interval_type YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS
+for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
 
 query T
 SELECT CAST(INTERVAL 11 ${interval_type} AS BIGINT);
@@ -107,7 +71,7 @@ SELECT CAST(INTERVAL 11 ${interval_type} AS BIGINT);
 
 endfor
 
-for interval_type DAY TO HOUR, DAY TO MINUTE, DAY TO SECOND, HOUR TO MINUTE, HOUR TO SECOND, MINUTE TO SECOND, YEAR TO MONTH
+for interval_type in [DAY TO HOUR, DAY TO MINUTE, DAY TO SECOND, HOUR TO MINUTE, HOUR TO SECOND, MINUTE TO SECOND, YEAR TO MONTH]
 
 statement error: Cast function cannot convert value of type INTERVAL ${interval_type} to type BIGINT
 SELECT CAST(INTERVAL '0 01:02' ${interval_type} AS BIGINT);
