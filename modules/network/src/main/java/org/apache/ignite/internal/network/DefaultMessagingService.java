@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getLong;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
@@ -34,11 +33,9 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,11 +44,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.future.timeout.TimeoutObject;
+import org.apache.ignite.internal.future.timeout.TimeoutWorker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -69,7 +66,6 @@ import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedExecutor;
-import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
 import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
@@ -168,7 +164,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         inboundExecutors = new CriticalLazyStripedExecutors(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
 
-        timeoutWorker = new TimeoutWorker(LOG, nodeName, "MessagingService-timeout-worker", requestsMap);
+        timeoutWorker = new TimeoutWorker(LOG, nodeName, "MessagingService-timeout-worker", requestsMap, true);
     }
 
     /**
@@ -575,8 +571,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private void onInvokeResponse(NetworkMessage response, Long correlationId) {
         TimeoutObject responseFuture = requestsMap.remove(correlationId);
+
         if (responseFuture != null) {
-            responseFuture.getFuture().complete(response);
+            CompletableFuture<NetworkMessage> fut = (CompletableFuture<NetworkMessage>) responseFuture.future();
+
+            fut.complete(response);
         }
     }
 
@@ -633,7 +632,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     public void stop() {
         var exception = new NodeStoppingException();
 
-        requestsMap.values().forEach(fut -> fut.getFuture().completeExceptionally(exception));
+        requestsMap.values().forEach(fut -> fut.future().completeExceptionally(exception));
 
         requestsMap.clear();
 
@@ -781,117 +780,5 @@ public class DefaultMessagingService extends AbstractMessagingService {
         });
 
         return address != null ? address : createResolved(recipientNode.address());
-    }
-
-    /**
-     * Timeout object worker.
-     */
-    private static class TimeoutWorker extends IgniteWorker {
-        /** Worker sleep interval. */
-        private final long sleepInterval = getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
-
-        /** Active operation. */
-        public final ConcurrentMap<Long, TimeoutObject> requestsMap;
-
-        /**
-         * Constructor.
-         *
-         * @param log Logger.
-         * @param igniteInstanceName Name of the Ignite instance this runnable is used in.
-         * @param name Worker name. Note that in general thread name and worker (runnable) name are two different things. The same
-         *         worker can be executed by multiple threads and therefore for logging and debugging purposes we separate the two.
-         * @param requestsMap Active operations.
-         */
-        public TimeoutWorker(
-                IgniteLogger log,
-                String igniteInstanceName,
-                String name,
-                ConcurrentMap<Long, TimeoutObject> requestsMap
-        ) {
-            super(log, igniteInstanceName, name, null);
-
-            this.requestsMap = requestsMap;
-        }
-
-        @Override
-        protected void body() {
-            try {
-                TimeoutObject timeoutObject;
-
-                while (!isCancelled()) {
-                    long now = coarseCurrentTimeMillis();
-
-                    for (Entry<Long, TimeoutObject> entry : new HashMap<>(requestsMap).entrySet()) {
-                        updateHeartbeat();
-
-                        timeoutObject = entry.getValue();
-
-                        assert timeoutObject != null : "Unexpected null on the timeout queue.";
-
-                        if (timeoutObject.getEndTime() > 0 && now > timeoutObject.getEndTime()) {
-                            CompletableFuture<NetworkMessage> fut = timeoutObject.getFuture();
-
-                            if (requestsMap.remove(entry.getKey(), timeoutObject) && !fut.isDone()) {
-                                fut.completeExceptionally(new TimeoutException());
-                            }
-                        }
-                    }
-
-                    try {
-                        Thread.sleep(sleepInterval);
-                    } catch (InterruptedException e) {
-                        log.info("The timeout worker was interrupted, probably the node is stopping.");
-                    }
-
-                    updateHeartbeat();
-                }
-
-            } catch (Throwable t) {
-                // failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
-
-                throw new IgniteInternalException(t);
-            }
-        }
-    }
-
-    /**
-     * Timeout object.
-     * The class is a wrapper over the complete future.
-     */
-    private static class TimeoutObject {
-        /** End time. */
-        private final long endTime;
-
-        /** Target future. */
-        private final CompletableFuture<NetworkMessage> fut;
-
-        /**
-         * Constructor.
-         *
-         * @param endTime End timestamp in milliseconds.
-         * @param fut Target future.
-         */
-        public TimeoutObject(long endTime, CompletableFuture<NetworkMessage> fut) {
-            this.endTime = endTime;
-            this.fut = fut;
-        }
-
-        /**
-         * Gets end timestamp.
-         *
-         * @return End timestamp in milliseconds.
-         */
-        public long getEndTime() {
-            return endTime;
-        }
-
-        /**
-         * Gets a target future.
-         *
-         * @return A future.
-         */
-        public CompletableFuture<NetworkMessage> getFuture() {
-            return fut;
-        }
     }
 }

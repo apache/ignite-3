@@ -18,11 +18,10 @@
 package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
+import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 
 import com.lmax.disruptor.dsl.Disruptor;
-import java.util.HashMap;
-import java.util.Map.Entry;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -30,7 +29,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.future.timeout.TimeoutObject;
+import org.apache.ignite.internal.future.timeout.TimeoutWorker;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -51,14 +52,14 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Feature timeout benchmark - measures the latency of the assignment of the future timeout in two ways:
+ * Future timeout benchmark - measures the latency of the assignment of the future timeout in two ways:
  * 1. Based on the embedded CompletableFuture#orTimeout.
  * 2. Based on the additional thread that is scanning collection and completing all the futures already have been explored.
  *
  * <p>Results on 11th Gen Intel® Core™ i7-1165G7 @ 2.80GHz, openjdk 11.0.24, Windows 10 Pro:
- * Benchmark                     (useFutureEmbeddedTimeout)  Mode  Cnt   Score    Error  Units
- * FeatureTimeoutBenchmark.test                       false  avgt   20   1,501 ±  0,058  us/op
- * FeatureTimeoutBenchmark.test                        true  avgt   20  32,573 ± 47,598  us/op
+ * Benchmark                    (useFutureEmbeddedTimeout)  Mode  Cnt   Score    Error  Units
+ * FutureTimeoutBenchmark.test                       false  avgt   20   0,875 ±  0,020  us/op
+ * FutureTimeoutBenchmark.test                        true  avgt   20  28,409 ± 27,269  us/op
  */
 @State(Scope.Benchmark)
 @Fork(1)
@@ -67,13 +68,13 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
-public class FeatureTimeoutBenchmark {
+public class FutureTimeoutBenchmark {
     private static AtomicLong ID_GEN = new AtomicLong();
 
-    /** Active operation. */
+    /** Active operations. */
     public ConcurrentMap<Long, TimeoutObject> requestsMap;
 
-    private IgniteThread timeoutWorker;
+    private TimeoutWorker timeoutWorker;
 
     private ConcurrentMap<Long, CompletableFuture<?>> futs;
 
@@ -91,8 +92,18 @@ public class FeatureTimeoutBenchmark {
             futs = new ConcurrentHashMap<>();
         } else {
             requestsMap = new ConcurrentHashMap<>();
-            timeoutWorker = new IgniteThread("benchmark", "timeout-worker", new TimeoutRunnable(requestsMap));
-            timeoutWorker.start();
+            this.timeoutWorker = new TimeoutWorker(
+                    Loggers.forClass(FutureTimeoutBenchmark.class),
+                    "test-node",
+                    "FutureTimeoutBenchmark-timeout-worker",
+                    requestsMap,
+                    // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
+                    // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
+                    true
+            );
+
+
+            new IgniteThread(timeoutWorker).start();
         }
     }
 
@@ -120,13 +131,12 @@ public class FeatureTimeoutBenchmark {
         } else {
             assert waitForCondition(requestsMap::isEmpty, 10_000);
 
-            timeoutWorker.interrupt();
-            timeoutWorker = null;
+            awaitForWorkersStop(List.of(timeoutWorker), true, null);
         }
     }
 
     /**
-     * Benchmark for KV upsert via embedded client.
+     * Target method to benchmark.
      */
     @Benchmark
     public void test() {
@@ -140,7 +150,7 @@ public class FeatureTimeoutBenchmark {
             }
 
             if (futs.size() > 100_000) {
-                futs = new ConcurrentHashMap<>();
+                futs.clear();
             }
         } else {
             for (int i = 0; i < 10; i++) {
@@ -151,7 +161,7 @@ public class FeatureTimeoutBenchmark {
             }
 
             if (requestsMap.size() > 100_000) {
-                requestsMap = new ConcurrentHashMap<>();
+                requestsMap.clear();
             }
         }
     }
@@ -161,96 +171,9 @@ public class FeatureTimeoutBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + FeatureTimeoutBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + FutureTimeoutBenchmark.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(opt).run();
-    }
-
-    /**
-     * Timeout object worker.
-     */
-    private static class TimeoutRunnable implements Runnable {
-        /** Active operation. */
-        public final ConcurrentMap<Long, TimeoutObject> requestsMap;
-
-        /**
-         * Constructor.
-         *
-         * @param requestsMap Active operations.
-         */
-        public TimeoutRunnable(ConcurrentMap<Long, TimeoutObject> requestsMap) {
-            this.requestsMap = requestsMap;
-        }
-
-        @Override
-        public void run() {
-            try {
-                TimeoutObject timeoutObject;
-
-                while (!Thread.currentThread().isInterrupted()) {
-                    long now = coarseCurrentTimeMillis();
-
-                    for (Entry<Long, TimeoutObject> entry : new HashMap<>(requestsMap).entrySet()) {
-                        timeoutObject = entry.getValue();
-
-                        assert timeoutObject != null : "Unexpected null on the timeout queue.";
-
-                        if (timeoutObject.getEndTime() > 0 && now > timeoutObject.getEndTime()) {
-                            CompletableFuture<?> fut = timeoutObject.getFuture();
-
-                            if (requestsMap.remove(entry.getKey(), timeoutObject) && !fut.isDone()) {
-                                fut.completeExceptionally(new TimeoutException());
-                            }
-                        }
-                    }
-
-                    Thread.sleep(200);
-                }
-            } catch (Throwable t) {
-                throw new IgniteInternalException(t);
-            }
-        }
-    }
-
-    /**
-     * Timeout object.
-     * The class is a wrapper over the complete future.
-     */
-    private static class TimeoutObject {
-        /** End time. */
-        private final long endTime;
-
-        /** Target future. */
-        private final CompletableFuture<?> fut;
-
-        /**
-         * Constructor.
-         *
-         * @param endTime End timestamp in milliseconds.
-         * @param fut Target future.
-         */
-        public TimeoutObject(long endTime, CompletableFuture<?> fut) {
-            this.endTime = endTime;
-            this.fut = fut;
-        }
-
-        /**
-         * Gets end timestamp.
-         *
-         * @return End timestamp in milliseconds.
-         */
-        public long getEndTime() {
-            return endTime;
-        }
-
-        /**
-         * Gets a target future.
-         *
-         * @return A future.
-         */
-        public CompletableFuture<?> getFuture() {
-            return fut;
-        }
     }
 }
