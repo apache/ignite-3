@@ -567,14 +567,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param stopTime Stop time.
      * @param fut The future.
      * @param <R> Response type.
-     * @param retriesCount Retries count.
+     * @param retryCount Number of retries made. sendWithRetry method has a recursion nature, in case of recoverable exceptions or peer
+     *     unavailability it'll be scheduled for a next attempt. Generally a request will be retried until success or timeout.
      */
     private <R extends NetworkMessage> void sendWithRetry(
             Peer peer,
             Function<Peer, ? extends NetworkMessage> requestFactory,
             long stopTime,
             CompletableFuture<R> fut,
-            int retriesCount
+            int retryCount
 
     ) {
         if (!busyLock.enterBusy()) {
@@ -586,7 +587,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         try {
             if (currentTimeMillis() >= stopTime) {
                 fut.completeExceptionally(
-                        new TimeoutException(format("Send with retry timed out [retriesCount = {}].", retriesCount)));
+                        new TimeoutException(format("Send with retry timed out [retryCount = {}].", retryCount)));
 
                 return;
             }
@@ -605,9 +606,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         }
 
                         if (err != null) {
-                            handleThrowable(err, peer, request, requestFactory, stopTime, fut, retriesCount);
+                            handleThrowable(err, peer, request, requestFactory, stopTime, fut, retryCount);
                         } else if (resp instanceof ErrorResponse) {
-                            handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut, retriesCount);
+                            handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut, retryCount);
                         } else if (resp instanceof SMErrorResponse) {
                             handleSmErrorResponse((SMErrorResponse) resp, fut);
                         } else {
@@ -628,7 +629,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             Function<Peer, ? extends NetworkMessage> requestFactory,
             long stopTime,
             CompletableFuture<? extends NetworkMessage> fut,
-            int retriesCount
+            int retryCount
     ) {
         err = unwrapCause(err);
 
@@ -656,7 +657,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 }
             }
 
-            scheduleRetry(() -> sendWithRetry(randomPeer, requestFactory, stopTime, fut, retriesCount + 1));
+            scheduleRetry(() -> sendWithRetry(randomPeer, requestFactory, stopTime, fut, retryCount + 1));
         } else {
             fut.completeExceptionally(err);
         }
@@ -669,7 +670,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             Function<Peer, ? extends NetworkMessage> requestFactory,
             long stopTime,
             CompletableFuture<? extends NetworkMessage> fut,
-            int retriesCount
+            int retryCount
     ) {
         RaftError error = RaftError.forNumber(resp.errorCode());
 
@@ -683,7 +684,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             case EBUSY:
             case EAGAIN:
-                scheduleRetry(() -> sendWithRetry(peer, requestFactory, stopTime, fut, retriesCount + 1));
+                scheduleRetry(() -> sendWithRetry(peer, requestFactory, stopTime, fut, retryCount + 1));
 
                 break;
 
@@ -692,9 +693,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     // If changing peers or requesting a leader and something is not found
                     // probably target peer is doing rebalancing, try another peer.
                     if (sentRequest instanceof GetLeaderRequest || sentRequest instanceof ChangePeersAndLearnersAsyncRequest) {
-                        sendWithRetry(randomNode(peer), requestFactory, stopTime, fut, retriesCount + 1);
+                        sendWithRetry(randomNode(peer), requestFactory, stopTime, fut, retryCount + 1);
                     } else {
-                        sendWithRetry(peer, requestFactory, stopTime, fut, retriesCount + 1);
+                        sendWithRetry(peer, requestFactory, stopTime, fut, retryCount + 1);
                     }
                 });
 
@@ -705,11 +706,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             case UNKNOWN:
             case EINTERNAL:
                 if (resp.leaderId() == null) {
-                    scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut, retriesCount + 1));
+                    scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut, retryCount + 1));
                 } else {
                     leader = parsePeer(resp.leaderId()); // Update a leader.
 
-                    scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut, retriesCount + 1));
+                    scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut, retryCount + 1));
                 }
 
                 break;
