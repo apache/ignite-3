@@ -763,7 +763,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 if (System.currentTimeMillis() - lastSendMillis > interval) {
                     var fut = serviceAsync(ClientOp.HEARTBEAT, null, null, false);
 
-                    if (connectTimeout > 0) {
+                    if (heartbeatTimeout > 0) {
                         fut
                                 .orTimeout(heartbeatTimeout, TimeUnit.MILLISECONDS)
                                 .exceptionally(e -> {
