@@ -40,6 +40,16 @@ import picocli.CommandLine.Help.Ansi;
  * Base class for testing 'connect' command.
  */
 public class ItConnectToClusterTestBase extends CliIntegrationTest {
+    protected static final String AUTH_ERROR_QUESTION = "Authentication error occurred while connecting to the node,"
+            + " it could be due to the wrong basic auth configuration. Do you want to configure them now? [Y/n] ";
+    protected static final String REMEMBER_CREDENTIALS_QUESTION = "Remember current credentials? [Y/n] ";
+
+    protected static final String USERNAME_QUESTION = "Enter username: ";
+
+    protected static final String PASSWORD_QUESTION = "Enter user password: ";
+
+    protected static final String RECONNECT_QUESTION = "Do you want to reconnect to the last connected node http://localhost:10300? [Y/n] ";
+
     @Inject
     protected TestStateConfigProvider stateConfigProvider;
 
@@ -86,9 +96,25 @@ public class ItConnectToClusterTestBase extends CliIntegrationTest {
         Files.writeString(input, String.join("\n", answers) + "\n");
     }
 
+    protected void resetTerminalOutput() {
+        output.reset();
+    }
+
     protected void assertTerminalOutputIsEmpty() {
         assertThat(output.toString())
                 .as("Expected terminal output to be empty")
                 .isEmpty();
+    }
+
+    protected void assertTerminalOutputIs(String expectedTerminalOutput) {
+        assertThat(output.toString())
+                .as("Expected terminal output to be equal to:")
+                .isEqualTo(expectedTerminalOutput);
+    }
+
+    protected void assertPromptIs(String expectedPromptOutput) {
+        assertThat(getPrompt())
+                .as("Expected prompt to be equal to:")
+                .isEqualTo(expectedPromptOutput);
     }
 }
