@@ -586,7 +586,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         try {
             if (currentTimeMillis() >= stopTime) {
                 fut.completeExceptionally(
-                        new TimeoutException(format("Send with retry times out [retriesCount = {}].", retriesCount)));
+                        new TimeoutException(format("Send with retry timed out [retriesCount = {}].", retriesCount)));
 
                 return;
             }
