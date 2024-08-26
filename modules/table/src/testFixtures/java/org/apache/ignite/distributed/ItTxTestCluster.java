@@ -720,7 +720,7 @@ public class ItTxTestCluster {
                         clockServices.get(assignment),
                         mock(IndexMetaStorage.class),
                         // TODO use proper index.
-                        cluster.get(0).topologyService().getByConsistentId(assignment).id()
+                        clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id()
                 );
 
                 Function<RaftGroupService, ReplicaListener> createReplicaListener = raftClient -> newReplicaListener(

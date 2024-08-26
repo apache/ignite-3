@@ -354,7 +354,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     this.primaryReplicaNodeName = primaryReplicaNodeName;
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException(
-                            "Cannot save committed group configuration: [tableId={}, partitionId={}]",
+                            "Cannot save lease meta: [tableId={}, partitionId={}]",
                             e,
                             tableStorage.getTableId(), partitionId
                     );
@@ -382,32 +382,31 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public @Nullable String primaryReplicaNodeId() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
+            primaryReplicaMetaReadWriteLock.readLock().lock();
 
             try {
-                primaryReplicaMetaReadWriteLock.readLock().lock();
+                if (primaryReplicaNodeId == null) {
+                    long primaryReplicaNodeIdFirstPageId = meta.primaryReplicaNodeIdFirstPageId();
 
-                try {
-                    if (primaryReplicaNodeId == null) {
-                        long primaryReplicaNodeIdFirstPageId = meta.primaryReplicaNodeIdFirstPageId();
-
-                        // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
-                        // for example, if the lease itself has not yet been elected.
-                        if (primaryReplicaNodeIdFirstPageId != BlobStorage.NO_PAGE_ID) {
-                            primaryReplicaNodeId = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeIdFirstPageId));
-                        }
+                    // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
+                    // for example, if the lease itself has not yet been elected.
+                    if (primaryReplicaNodeIdFirstPageId != BlobStorage.NO_PAGE_ID) {
+                        primaryReplicaNodeId = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeIdFirstPageId));
                     }
-
-                    return primaryReplicaNodeId;
-                } finally {
-                    primaryReplicaMetaReadWriteLock.readLock().unlock();
                 }
+
+                return primaryReplicaNodeId;
+
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
                         "Failed to read primary replica node id: [tableId={}, partitionId={}]",
                         e,
                         tableStorage.getTableId(), partitionId
                 );
+            } finally {
+                primaryReplicaMetaReadWriteLock.readLock().unlock();
             }
+
         });
     }
 
@@ -416,30 +415,29 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
+            primaryReplicaMetaReadWriteLock.readLock().lock();
+
             try {
-                primaryReplicaMetaReadWriteLock.readLock().lock();
+                if (primaryReplicaNodeName == null) {
+                    long primaryReplicaNodeNameFirstPageId = meta.primaryReplicaNodeNameFirstPageId();
 
-                try {
-                    if (primaryReplicaNodeName == null) {
-                        long primaryReplicaNodeNameFirstPageId = meta.primaryReplicaNodeNameFirstPageId();
-
-                        // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
-                        // for example, if the lease itself has not yet been elected.
-                        if (primaryReplicaNodeNameFirstPageId != BlobStorage.NO_PAGE_ID) {
-                            primaryReplicaNodeName = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeNameFirstPageId));
-                        }
+                    // It's possible to face BlobStorage.NO_PAGE_ID if a lease information has not yet been recorded in storage,
+                    // for example, if the lease itself has not yet been elected.
+                    if (primaryReplicaNodeNameFirstPageId != BlobStorage.NO_PAGE_ID) {
+                        primaryReplicaNodeName = ByteUtils.stringFromBytes(blobStorage.readBlob(primaryReplicaNodeNameFirstPageId));
                     }
-
-                    return primaryReplicaNodeName;
-                } finally {
-                    primaryReplicaMetaReadWriteLock.readLock().unlock();
                 }
+
+                return primaryReplicaNodeName;
+
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
                         "Failed to read primary replica node name: [tableId={}, partitionId={}]",
                         e,
                         tableStorage.getTableId(), partitionId
                 );
+            } finally {
+                primaryReplicaMetaReadWriteLock.readLock().unlock();
             }
         });
     }

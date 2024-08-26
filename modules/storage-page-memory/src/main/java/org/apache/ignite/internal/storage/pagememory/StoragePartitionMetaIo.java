@@ -48,13 +48,12 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
 
     private static final int LEASE_START_TIME_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
 
-    /** Estimated size here is not a size of a meta, but an approximate rows count. */
-    private static final int ESTIMATED_SIZE_OFF = LEASE_START_TIME_OFF + Long.BYTES;
-
-    private static final int PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF = ESTIMATED_SIZE_OFF + Long.BYTES;
+    private static final int PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF = LEASE_START_TIME_OFF + Long.BYTES;
 
     private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF = PRIMARY_REPLICA_NODE_ID_FIRST_PAGE_ID_OFF + Long.BYTES;
 
+    /** Estimated size here is not a size of a meta, but an approximate rows count. */
+    private static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF + Long.BYTES;
 
     /** I/O versions. */
     public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(new StoragePartitionMetaIo(1));
