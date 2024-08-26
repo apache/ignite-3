@@ -27,23 +27,17 @@ import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_OPTI
 import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNOPSIS;
 import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
 import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.HELP_OPTION_SHORT;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_SHORT;
 import static picocli.CommandLine.Command;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCall;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
-import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 /**
@@ -64,21 +58,13 @@ import picocli.CommandLine.Spec;
         commandListHeading = COMMAND_LIST_HEADING,
         parameterListHeading = PARAMETER_LIST_HEADING
 )
-public class ClusterInitReplCommand implements Runnable {
+public class ClusterInitReplCommand extends BaseCommand implements Runnable {
     @Mixin
     private ClusterInitOptions clusterInitOptions;
 
     /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlMixin clusterUrl;
-
-    /** Help option specification. */
-    @Option(names = {HELP_OPTION, HELP_OPTION_SHORT}, usageHelp = true, description = HELP_OPTION_DESC)
-    protected boolean usageHelpRequested;
-
-    /** Verbose option specification. */
-    @Option(names = {VERBOSE_OPTION, VERBOSE_OPTION_SHORT}, description = VERBOSE_OPTION_DESC)
-    protected boolean verbose;
 
     /** Instance of picocli command specification. */
     @Spec
