@@ -63,7 +63,7 @@ public class StoragePartitionMeta extends PartitionMeta {
      * @param pageCount Count of pages in the partition.
      * @param lastAppliedIndex Last applied index value.
      * @param lastAppliedTerm Last applied term value.
-     * @param lastReplicationProtocolGroupConfigFirstPageId ID of the first page in a chain storing a blob representing.
+     * @param lastReplicationProtocolGroupConfigFirstPageId ID of the first page in a chain storing a blob representing last replication protocol group config.
      * @param leaseStartTime Lease start time.
      * @param primaryReplicaNodeIdFirstPageId ID of the first page in a chain storing a blob representing of a primary replica node id.
      * @param primaryReplicaNodeNameFirstPageId ID of the first page in a chain storing a blob representing of a primary replica node name.
