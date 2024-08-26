@@ -3,6 +3,9 @@
 # group: [self_test]
 # prefixed with _ so they will run first.
 
+statement ok
+PRAGMA enable_verification
+
 # check for
 for e in [0, 2]
 
