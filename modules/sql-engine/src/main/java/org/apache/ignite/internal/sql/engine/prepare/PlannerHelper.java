@@ -358,41 +358,6 @@ public final class PlannerHelper {
     }
 
     /**
-     * Whether we can optimize a query that looks like {@code SELECT count(*)} or not.
-     *
-     * <p>If this method returns {@code true}, then {@link #tryOptimizeSelectCount(IgnitePlanner, SqlNode)}
-     *
-     * @param planner Planner.
-     * @param node Node.
-     * @return Returns {@code true} select count(*) optimization is applicable.
-     */
-    public static boolean canOptimizeSelectCount(
-            IgnitePlanner planner,
-            SqlNode node
-    ) {
-        SqlSelect select = getSelectCountOptimizationNode(node);
-        if (select == null) {
-            return false;
-        }
-
-        boolean countAdded = false;
-
-        // Check select list for SELECT COUNT(*) and literals
-
-        for (SqlNode selectItem : select.getSelectList()) {
-            SqlNode expr = SqlUtil.stripAs(selectItem);
-
-            if (isCountStar(planner.validator(), expr, false)) {
-                countAdded = true;
-            } else if (!(expr instanceof SqlLiteral) && !(expr instanceof SqlDynamicParam)) {
-                return false;
-            }
-        }
-
-        return countAdded;
-    }
-
-    /**
      * Tries to optimize a query that looks like {@code SELECT count(*)}.
      *
      * @param planner Planner.
@@ -437,7 +402,7 @@ public final class PlannerHelper {
         for (SqlNode selectItem : select.getSelectList()) {
             SqlNode expr = SqlUtil.stripAs(selectItem);
 
-            if (isCountStar(planner.validator(), expr, true)) {
+            if (isCountStar(planner.validator(), expr)) {
                 RexBuilder rexBuilder = planner.cluster().getRexBuilder();
                 RexSlot countValRef = rexBuilder.makeInputRef(countResultType, 0);
 
@@ -522,23 +487,10 @@ public final class PlannerHelper {
         }
     }
 
-    private static boolean isCountStar(SqlValidator validator, SqlNode node, boolean typeCheck) {
+    private static boolean isCountStar(SqlValidator validator, SqlNode node) {
         if (!SqlUtil.isCallTo(node, SqlStdOperatorTable.COUNT)) {
-            if (typeCheck) {
-                // Type check is true, then the SQL node was checked by the validator and the call has correct number of arguments.
-                return false;
-            } else {
-                // w/o type checking check operator name and operand count
-                if (node instanceof SqlBasicCall) {
-                    SqlBasicCall call = (SqlBasicCall) node;
-                    boolean countOperator = call.getOperator() != null
-                            && SqlStdOperatorTable.COUNT.getName().equals(call.getOperator().getName());
-
-                    return countOperator && call.getOperandList().size() == 1;
-                } else {
-                    return false;
-                }
-            }
+            // The SQL node was checked by the validator and the call has correct number of arguments.
+            return false;
         } else {
             SqlCall call = (SqlCall) node;
             // Reject COUNT(DISTINCT ...)
@@ -549,11 +501,11 @@ public final class PlannerHelper {
                 return false;
             }
             SqlNode operand = call.getOperandList().get(0);
-            return !isNullableOperand(validator, operand, typeCheck);
+            return !isNullableOperand(validator, operand);
         }
     }
 
-    private static boolean isNullableOperand(SqlValidator validator, SqlNode node, boolean typeCheck) {
+    private static boolean isNullableOperand(SqlValidator validator, SqlNode node) {
         if (SqlUtil.isNull(node)) {
             return true;
         } else if (SqlUtil.isLiteral(node)) {
@@ -561,13 +513,8 @@ public final class PlannerHelper {
         } else if (node instanceof SqlIdentifier && ((SqlIdentifier) node).isStar()) {
             return false;
         } else if (node instanceof SqlIdentifier) {
-            if (typeCheck) {
-                RelDataType type = validator.getValidatedNodeType(node);
-                return type.isNullable();
-            } else {
-                // Assume columns are not nullable (so we can check it later).
-                return false;
-            }
+            RelDataType type = validator.getValidatedNodeType(node);
+            return type.isNullable();
         } else {
             return true;
         }

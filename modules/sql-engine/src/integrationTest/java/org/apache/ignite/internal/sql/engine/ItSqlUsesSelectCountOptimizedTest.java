@@ -18,20 +18,19 @@
 package org.apache.ignite.internal.sql.engine;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for SELECT COUNT(*) optimization.
  */
-@ExtendWith(SystemPropertiesExtension.class)
 public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
 
     @BeforeAll
@@ -42,28 +41,36 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
                 + "INSERT INTO test SELECT x, x FROM TABLE(system_range(1, 10));");
     }
 
-    @Test
-    public void countOptBypassesCache() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
-        // Run with optimization disabled, so the first plan is not fast count(*) plan.
-        System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", "false");
-
-        assertQuery("SELECT COUNT(a) FROM test as x (a, b)")
-                .matches(QueryChecker.containsSubPlan("Aggregate"))
-                .returns(10L)
-                .check();
-
-        // Run with optimization enabled, so the plan is not reused.
-        System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", "true");
-
-        assertQuery("SELECT COUNT(a) FROM test as x (a, b)")
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .returns(10L)
-                .check();
+    @BeforeEach
+    @AfterEach
+    public void resetFastOpt() {
+        System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", String.valueOf(Commons.fastQueryOptimizationEnabled()));
     }
 
     @Test
     public void countOpt() {
+        {
+            Transaction tx = igniteTx().begin(new TransactionOptions().readOnly(false));
+
+            assertQuery((InternalTransaction) tx, "SELECT COUNT(*) FROM test")
+                    .matches(QueryChecker.containsSubPlan("Aggregate"))
+                    .returns(10L)
+                    .check();
+
+            tx.commit();
+        }
+
+        {
+            Transaction tx = igniteTx().begin(new TransactionOptions().readOnly(true));
+
+            assertQuery((InternalTransaction) tx, "SELECT COUNT(*) FROM test")
+                    .matches(QueryChecker.containsSubPlan("Aggregate"))
+                    .returns(10L)
+                    .check();
+
+            tx.commit();
+        }
+
         assertQuery("SELECT COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
@@ -95,59 +102,38 @@ public class ItSqlUsesSelectCountOptimizedTest extends BaseSqlIntegrationTest {
                 .columnNames("COUNT(1)", "1", "COUNT(*)")
                 .check();
 
+        assertQuery("SELECT COUNT(id) FROM test ")
+                .matches(QueryChecker.containsSubPlan("SelectCount"))
+                .returns(10L)
+                .check();
+
         assertQuery("SELECT COUNT(*) FROM test as x (a, b)")
                 .matches(QueryChecker.containsSubPlan("SelectCount"))
                 .returns(10L)
                 .columnNames("COUNT(*)")
                 .check();
 
-        assertQuery("SELECT COUNT(a) FROM test as x (a, b)")
-                .matches(QueryChecker.containsSubPlan("SelectCount"))
-                .columnNames("COUNT(A)")
-                .returns(10L)
-                .check();
-    }
+        // Disable fast query optimization
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+        System.setProperty("FAST_QUERY_OPTIMIZATION_ENABLED", "false");
 
-    @Test
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
-    @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
-    public void optimizationDisabled() {
         assertQuery("SELECT COUNT(*) FROM test")
                 .matches(QueryChecker.containsSubPlan("Aggregate"))
                 .returns(10L)
+                .columnNames("COUNT(*)")
                 .check();
-    }
 
-    @Test
-    public void notOptimizeAliasedWhenUsesNull() {
+        assertQuery("SELECT COUNT(id) FROM test")
+                .matches(QueryChecker.containsSubPlan("Aggregate"))
+                .returns(10L)
+                .columnNames("COUNT(ID)")
+                .check();
+
         assertQuery("SELECT COUNT(b) FROM test as x (a, b)")
                 .matches(QueryChecker.containsSubPlan("Aggregate"))
                 .returns(10L)
+                .columnNames("COUNT(B)")
                 .check();
-    }
-
-    @Test
-    public void noOptimizationForRoTx() {
-        Transaction tx = igniteTx().begin(new TransactionOptions().readOnly(true));
-
-        assertQuery((InternalTransaction) tx, "SELECT COUNT(*) FROM test")
-                .matches(QueryChecker.containsSubPlan("Aggregate"))
-                .returns(10L)
-                .check();
-
-        tx.commit();
-    }
-
-    @Test
-    public void noOptimizationForRwTx() {
-        Transaction tx = igniteTx().begin(new TransactionOptions().readOnly(false));
-
-        assertQuery((InternalTransaction) tx, "SELECT COUNT(*) FROM test")
-                .matches(QueryChecker.containsSubPlan("Aggregate"))
-                .returns(10L)
-                .check();
-
-        tx.commit();
     }
 
     @Test

@@ -337,23 +337,25 @@ public class PrepareServiceImpl implements PrepareService {
         CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
 
         if (f != null) {
-            return f.thenCompose(p -> {
-                // If a cached plan is not a regular one, return it.
-                if (!(p instanceof MultiStepPlan)) {
-                    return CompletableFuture.completedFuture(p);
+            return f.thenApply((plan) -> {
+                // We assume that non-multi-step plans is always better then a multi-step plan.
+                // or fast query optimization is disabled return a regular plan.
+                boolean fastQueryOptEnabled = fastQueryOptimizationEnabled();
+
+                if (!(plan instanceof MultiStepPlan) || !fastQueryOptEnabled) {
+                    return plan;
                 } else {
-                    return doOptimizeQuery(parsedResult, ctx);
+                    MultiStepPlan regularPlan = (MultiStepPlan) plan;
+                    QueryPlan fastPlan = regularPlan.fastPlan();
+
+                    if (fastPlan != null && !ctx.explicitTx()) {
+                        return fastPlan;
+                    } else {
+                        return regularPlan;
+                    }
                 }
             });
         }
-
-        // Otherwise plan and cache (if necessary)
-        return doOptimizeQuery(parsedResult, ctx);
-    }
-
-    private CompletableFuture<QueryPlan> doOptimizeQuery(ParsedResult parsedResult, PlanningContext ctx) {
-        // If fast optimization is applicable, then plan can not be cached.
-        boolean canOptimizeFast = canOptimizeFast(parsedResult, ctx);
 
         // First validate statement
 
@@ -375,7 +377,7 @@ public class PrepareServiceImpl implements PrepareService {
         }, planningPool);
 
         return validFut.thenCompose(stmt -> {
-            if (canOptimizeFast) {
+            if (!ctx.explicitTx()) {
                 // Try to produce a fast plan, if successful, then return that plan w/o caching it.
                 QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
                 if (fastPlan != null) {
@@ -395,6 +397,7 @@ public class PrepareServiceImpl implements PrepareService {
                 SqlNode validatedNode = validated.sqlNode();
 
                 IgniteRel optimizedRel = doOptimize(ctx, validatedNode, planner, key);
+                QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
 
@@ -407,7 +410,7 @@ public class PrepareServiceImpl implements PrepareService {
                 }
 
                 var plan = new MultiStepPlan(
-                        nextPlanId(), SqlQueryType.QUERY, optimizedRel, resultSetMetadata, parameterMetadata, catalogVersion
+                        nextPlanId(), SqlQueryType.QUERY, optimizedRel, resultSetMetadata, parameterMetadata, catalogVersion, fastPlan
                 );
 
                 if (LOG.isDebugEnabled()) {
@@ -472,7 +475,7 @@ public class PrepareServiceImpl implements PrepareService {
                     );
                 } else {
                     plan = new MultiStepPlan(
-                            nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, catalogVersion
+                            nextPlanId(), SqlQueryType.DML, optimizedRel, DML_METADATA, parameterMetadata, catalogVersion, null
                     );
                 }
 
@@ -487,24 +490,12 @@ public class PrepareServiceImpl implements PrepareService {
         });
     }
 
-    private static boolean canOptimizeFast(
-            ParsedResult parsedResult,
-            PlanningContext planningContext
-    ) {
-        // If fast query optimization is disabled or explicit transaction is present, then proceed with the regular planning.
-        if (!fastQueryOptimizationEnabled() || planningContext.explicitTx()) {
-            return false;
-        }
-
-        return PlannerHelper.canOptimizeSelectCount(planningContext.planner(), parsedResult.parsedTree());
-    }
-
     private @Nullable QueryPlan tryOptimizeFast(
             ValidStatement<ValidationResult> stmt,
             PlanningContext planningContext
     ) {
-        // If fast query optimization is disabled or explicit transaction is present, then proceed with the regular planning.
-        if (!fastQueryOptimizationEnabled() || planningContext.explicitTx()) {
+        // If fast query optimization is disabled, then proceed with the regular planning.
+        if (!fastQueryOptimizationEnabled()) {
             return null;
         }
 
