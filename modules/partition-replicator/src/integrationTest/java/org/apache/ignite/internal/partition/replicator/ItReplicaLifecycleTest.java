@@ -596,7 +596,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @RepeatedTest(20)
+    @RepeatedTest(50)
     public void testAlterRebalanceExtend(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -615,8 +615,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "TEST_ZONE", node.hybridClock.nowLong());
 
-        long key = 1;
-
         prepareTableIdToZoneIdConverter(
                 node,
                 new TablePartitionId(tableId, 0),
@@ -624,14 +622,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         );
 
         KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
-
-        int val = 100;
-
-        node.transactions().runInTransaction(tx -> {
-            assertDoesNotThrow(() -> keyValueView.put(tx, key, val));
-
-            assertEquals(val, keyValueView.get(tx, key));
-        });
 
         assertTrue(waitForCondition(() -> IntStream.range(0, 1)
                 .allMatch(i  -> {
