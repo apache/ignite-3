@@ -104,10 +104,11 @@ final class For extends Command {
             for (int i = 3, elem = 0; i < cmdTokens.length; i++, elem++) {
                 String tok = cmdTokens[i];
 
-                // if a token start with [vv or ends with vv], we should remove them.
-                if (tok.startsWith("[")) {
+                // if the first token start with [vv, remove [
+                // If the last token ends with vv], we should remove ] .
+                if (elem == 0 && tok.startsWith("[")) {
                     current.append(tok.substring(1));
-                } else if (tok.endsWith("]")) {
+                } else if (i + 1 == cmdTokens.length && tok.endsWith("]")) {
                     current.append(tok, 0, tok.length() - 1);
                 } else {
                     current.append(tok);
