@@ -37,12 +37,14 @@ import org.apache.ignite.internal.cli.commands.recovery.RecoveryReplCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlReplCommand;
 import org.apache.ignite.internal.cli.commands.version.VersionCommand;
 import picocli.CommandLine;
+import picocli.CommandLine.Command;
 import picocli.shell.jline3.PicocliCommands;
 
 /**
  * Top-level command that just prints help.
  */
-@CommandLine.Command(name = "",
+@Command(
+        name = "",
         footer = {"", "Press Ctrl-D to exit."},
         subcommands = {
                 SqlReplCommand.class,

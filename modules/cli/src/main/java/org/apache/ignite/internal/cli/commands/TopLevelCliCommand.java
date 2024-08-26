@@ -44,12 +44,14 @@ import picocli.CommandLine.Option;
 /**
  * Top-level command that prints help and declares subcommands.
  */
-@Command(name = "ignite",
+@Command(
+        name = "ignite",
         versionProvider = VersionProvider.class,
         description = {
                 "Welcome to Ignite Shell alpha.",
                 "Run without command to enter interactive mode.",
-                ""},
+                ""
+        },
         subcommands = {
                 SqlCommand.class,
                 CommandLine.HelpCommand.class,

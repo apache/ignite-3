@@ -37,8 +37,6 @@ import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Model.CommandSpec;
-import picocli.CommandLine.Spec;
 
 /**
  * Initializes an Ignite cluster.
@@ -65,10 +63,6 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
     /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlMixin clusterUrl;
-
-    /** Instance of picocli command specification. */
-    @Spec
-    protected CommandSpec spec;
 
     @Inject
     private ClusterInitCall call;

@@ -36,8 +36,9 @@ import picocli.shell.jline3.PicocliCommands.ClearScreen;
 /**
  * Top level SQL REPL command.
  */
-@Command(name = "",
-        description = {""},
+@Command(
+        name = "",
+        description = "",
         subcommands = {
                 ClearScreen.class,
                 ExitCommand.class,

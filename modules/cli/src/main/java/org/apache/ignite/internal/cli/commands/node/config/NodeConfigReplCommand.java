@@ -34,7 +34,8 @@ import picocli.CommandLine.Command;
 /**
  * Node config command in REPL mode.
  */
-@Command(name = "config",
+@Command(
+        name = "config",
         subcommands = {
                 NodeConfigShowReplCommand.class,
                 NodeConfigUpdateReplCommand.class

@@ -34,7 +34,8 @@ import picocli.CommandLine.Command;
 /**
  * Root profile command.
  */
-@Command(name = "profile",
+@Command(
+        name = "profile",
         description = "Profile commands",
         subcommands = {
                 CliConfigProfileCreateCommand.class,
