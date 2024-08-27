@@ -72,6 +72,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -113,12 +114,15 @@ import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReason;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -464,7 +468,7 @@ public class PartitionReplicaLifecycleManager  extends
                                 raftGroupListener,
                                 raftGroupEventsListener,
                                 busyLock
-                        ).thenCompose(unused -> {
+                        ).thenCompose(replica -> {
                             zonePartitionsLocks.compute(zoneId, (id, lock) -> {
                                 if (lock == null) {
                                     lock = new StampedLock();
@@ -479,7 +483,9 @@ public class PartitionReplicaLifecycleManager  extends
 
                             return fireEvent(
                                     PartitionReplicaEvent.AFTER_REPLICA_STARTED,
-                                    new PartitionReplicaEventParameters(zoneDescriptor, replicaGrpId.partitionId())
+                                    new PartitionReplicaEventParameters(
+                                            zoneDescriptor,
+                                            replicaGrpId.partitionId())
                             );
                         })
                         .whenComplete((unused, throwable) -> zonePartitionsLocks.get(zoneId).unlockWrite(stamp.get()))
@@ -666,6 +672,8 @@ public class PartitionReplicaLifecycleManager  extends
     /**
      * Check if the current node has local replica for this {@link ZonePartitionId}.
      *
+     * <p> Important: this method must be invoked alwaus under the according stamped lock
+     *
      * @param zonePartitionId Zone partition id.
      * @return true if local replica exists, false otherwise.
      */
@@ -674,16 +682,6 @@ public class PartitionReplicaLifecycleManager  extends
         assert zonePartitionsLocks.get(zonePartitionId.zoneId()).tryWriteLock() == 0;
 
         return replicationGroupIds.contains(zonePartitionId);
-    }
-
-    public Replica replica(ZonePartitionId zonePartitionId) {
-        assert replicaMgr.replica(zonePartitionId).isDone();
-
-        try {
-            return replicaMgr.replica(zonePartitionId).get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new IgniteInternalException(e);
-        }
     }
 
     /**
@@ -1281,6 +1279,12 @@ public class PartitionReplicaLifecycleManager  extends
         }
     }
 
+    /**
+     * Lock the zones replica list for any changes. {@link #hasLocalPartition(ZonePartitionId)} must be executed under this lock always.
+     *
+     * @param zoneId Zone id.
+     * @return Stamp, which must be used for further unlock.
+     */
     public long lockZoneIdForRead(int zoneId) {
         AtomicLong stamp = new AtomicLong();
 
@@ -1297,7 +1301,29 @@ public class PartitionReplicaLifecycleManager  extends
         return stamp.get();
     }
 
+    /**
+     * Unlock zones replica list.
+     *
+     * @param zoneId Zone id.
+     * @param stamp Stamp, produced by the according {@link #hasLocalPartition(ZonePartitionId) call.}
+     */
     public void unlockZoneIdForRead(int zoneId, long stamp) {
         zonePartitionsLocks.get(zoneId).unlockRead(stamp);
+    }
+
+    /**
+     * Load a new table partition listener to the zone replica.
+     *
+     * @param zonePartitionId Zone partition id.
+     * @param tablePartitionId Table partition id.
+     * @param createListener Lazy replica listener from RAFT command runner builder.
+     */
+    public void loadTableListenerToZoneReplica(ZonePartitionId zonePartitionId, TablePartitionId tablePartitionId,
+            Function<RaftCommandRunner, ReplicaListener> createListener) {
+        CompletableFuture<Replica> replicaFut = replicaMgr.replica(zonePartitionId);
+
+        assert replicaFut != null && replicaFut.isDone();
+
+        ((ZonePartitionReplicaListener) replicaFut.join().listener()).addTableReplicaListener(tablePartitionId, createListener);
     }
 }

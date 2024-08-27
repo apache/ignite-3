@@ -143,7 +143,6 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaEvent;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
-import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -830,11 +829,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     partitionUpdateHandlers,
                     raftClient);
 
-            Replica replica = partitionReplicaLifecycleManager.replica(new ZonePartitionId(zoneId, partId));
-
-            ((ZonePartitionReplicaListener) replica.listener()).addTableReplicaListener(
-                            new TablePartitionId(tableId, partId), createListener
-                    );
+            partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
+                    new ZonePartitionId(zoneId, partId),
+                    new TablePartitionId(tableId, partId), createListener);
         });
     }
 
