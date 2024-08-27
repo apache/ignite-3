@@ -64,7 +64,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
     private static final String TABLE_NAME = "TEST_TABLE";
 
-    private String zoneNameForUpdateCatalogVersionOnly = "FAKE_TEST_ZONE";
+    private static final String ZONE_NAME_FOR_UPDATE_CATALOG_VERSION_ONLY = "FAKE_TEST_ZONE";
 
     @Override
     protected int initialNodes() {
@@ -73,20 +73,15 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
     @BeforeEach
     void setUp() {
-        if (node() != null) {
-            createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TEST_PROFILE_NAME);
-            createZoneOnlyIfNotExists(zoneNameForUpdateCatalogVersionOnly, 1, 1, TEST_PROFILE_NAME);
-            createTableOnly(TABLE_NAME, zoneName(TABLE_NAME));
-        }
+        createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TEST_PROFILE_NAME);
+        createZoneOnlyIfNotExists(ZONE_NAME_FOR_UPDATE_CATALOG_VERSION_ONLY, 1, 1, TEST_PROFILE_NAME);
+        createTableOnly(TABLE_NAME, zoneName(TABLE_NAME));
     }
 
     @AfterEach
     void tearDown() {
-        if (node() != null) {
-            sql("DROP TABLE IF EXISTS " + TABLE_NAME);
-            sql("DROP ZONE IF EXISTS " + zoneName(TABLE_NAME));
-            sql("DROP ZONE IF EXISTS " + zoneNameForUpdateCatalogVersionOnly);
-        }
+        dropAllTables();
+        dropAllZonesExceptDefaultOne();
     }
 
     @Test
@@ -251,15 +246,13 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
                 .count();
     }
 
-    private void fakeUpdateCatalog() {
+    private static void fakeUpdateCatalog() {
         int oldLatestCatalogVersion = latestCatalogVersion();
 
-        String oldZoneName = zoneNameForUpdateCatalogVersionOnly;
-        String newZoneName = zoneNameForUpdateCatalogVersionOnly + 0;
+        String oldZoneName = ZONE_NAME_FOR_UPDATE_CATALOG_VERSION_ONLY;
+        String newZoneName = ZONE_NAME_FOR_UPDATE_CATALOG_VERSION_ONLY + 0;
 
         sql(String.format("ALTER ZONE %s RENAME TO %s", oldZoneName, newZoneName));
-
-        zoneNameForUpdateCatalogVersionOnly = newZoneName;
 
         assertThat(latestCatalogVersion(), greaterThan(oldLatestCatalogVersion));
     }
