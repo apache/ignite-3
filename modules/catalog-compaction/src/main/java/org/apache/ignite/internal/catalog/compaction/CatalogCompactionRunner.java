@@ -253,7 +253,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             Long state = e.getValue();
 
             if (state == null) {
-                LOG.debug("Partition state is missing [partition={}, all={}]", e.getKey(), partitionStates);
+                LOG.debug("Partition state is missing [partition={}].", e.getKey());
                 return null;
             }
 
@@ -263,7 +263,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         // Choose the minimum time between the low watermark and the minimum time among all partitions.
         long chosenMinTime = Math.min(lwm.longValue(), partitionMinTime);
 
-        LOG.debug("Local minimum required time: [partitionMinTime={}, lowWatermark={}, chosen={}]",
+        LOG.debug("Local minimum required time: [partitionMinTime={}, lowWatermark={}, chosen={}].",
                 partitionMinTime,
                 lwm,
                 chosenMinTime
@@ -273,7 +273,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private CompletableFuture<Void> startCompaction(HybridTimestamp lwm, LogicalTopologySnapshot topologySnapshot) {
-        LOG.info("Catalog compaction started at [lowWaterMark={}]", lwm);
+        LOG.info("Catalog compaction started at [lowWaterMark={}].", lwm);
 
         Long localMinRequiredTime = getMinLocalTime(lwm);
 
@@ -292,7 +292,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     CompletableFuture<Boolean> catalogCompactionFut;
 
                     if (catalog == null) {
-                        LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}]. No catalog at minRequiredTime",
+                        LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}]. No catalog at minRequiredTime.",
                                 minRequiredTime);
 
                         catalogCompactionFut = CompletableFutures.falseCompletedFuture();
@@ -310,7 +310,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         });
                     }
 
-                    LOG.debug("Propagate minimum active tx begin time to replicas [timestamp={}]", minActiveTxBeginTime);
+                    LOG.debug("Propagate minimum active tx begin time to replicas [timestamp={}].", minActiveTxBeginTime);
 
                     CompletableFuture<Void> propagateToReplicasFut =
                             propagateTimeToNodes(minActiveTxBeginTime, topologySnapshot.nodes())
@@ -324,11 +324,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             catalogCompactionFut,
                             propagateToReplicasFut
                     );
-                }, executor).whenComplete((r, t) -> {
-                    if (t != null) {
-                        LOG.warn("startCompaction launched has failed", t);
-                    }
-                });
+                }, executor);
     }
 
     CompletableFuture<TimeHolder> determineGlobalMinimumRequiredTime(
@@ -407,7 +403,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
         for (CatalogIndexDescriptor index : catalog.indexes()) {
             if (index.status() == CatalogIndexStatus.BUILDING || index.status() == CatalogIndexStatus.REGISTERED) {
-                LOG.info("Catalog compaction aborted, index construction is taking place");
+                LOG.info("Catalog compaction aborted, index construction is taking place.");
 
                 return CompletableFutures.falseCompletedFuture();
             }
@@ -418,7 +414,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
 
                     if (!missingNodes.isEmpty()) {
-                        LOG.info("Catalog compaction aborted due to missing cluster members [nodes={}]", missingNodes);
+                        LOG.info("Catalog compaction aborted due to missing cluster members [nodes={}].", missingNodes);
 
                         return CompletableFutures.falseCompletedFuture();
                     }
