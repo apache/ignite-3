@@ -469,6 +469,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
             if (ex != null) {
                 LOG.warn("Unable to update raft groups on the node [zoneId={}, partitionId={}]", ex, zoneId, partId);
             }
+
             return null;
         });
 
@@ -1221,7 +1222,7 @@ public class PartitionReplicaLifecycleManager implements IgniteComponent {
                 int i = 0;
 
                 for (ReplicationGroupId partitionId : partitionIds) {
-                    stopReplicaFutures[i++] = weakStopPartition(partitionId);
+                    stopReplicaFutures[i++] = stopPartition(partitionId);
                 }
 
                 allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);
