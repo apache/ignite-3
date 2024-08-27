@@ -179,6 +179,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
 
+    /** Futures for stopping raft nodes if the corresponding replicas weren't started. */
+    private final Map<RaftNodeId, CompletableFuture<TopologyAwareRaftGroupService>> raftClientsFutures = new ConcurrentHashMap<>();
+
     private final ClockService clockService;
 
     /** Scheduled executor for idle safe time sync. */
@@ -720,9 +723,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupEventsListener raftGroupEventsListener,
             IgniteSpinBusyLock busyLock
     ) throws NodeStoppingException {
-        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                false,
-                snapshotStorageFactory);
+        RaftGroupOptions groupOptions = groupOptionsForPartition(false, snapshotStorageFactory);
 
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
 
@@ -735,18 +736,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftGroupServiceFactory
         );
 
+        raftClientsFutures.put(raftNodeId, newRaftClientFut);
+
         return newRaftClientFut.thenComposeAsync(raftClient -> {
             if (!busyLock.enterBusy()) {
-                try {
-                    raftManager.stopRaftNodes(replicaGrpId);
-                } catch (NodeStoppingException e) {
-                    return failedFuture(e);
-                }
-
                 return failedFuture(new NodeStoppingException());
             }
 
             try {
+                raftClientsFutures.remove(raftNodeId);
+
                 LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
                 Replica newReplica = new ZonePartitionReplicaImpl(
@@ -959,6 +958,23 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(replicasCreationExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+
+        try {
+            CompletableFuture.allOf(raftClientsFutures.values().toArray(new CompletableFuture<?>[0]))
+                    .get(shutdownTimeoutSeconds, TimeUnit.SECONDS);
+
+            raftClientsFutures.forEach((raftNodeId, raftClientFuture) -> {
+                raftClientFuture.thenAccept(RaftGroupService::shutdown);
+
+                try {
+                    raftManager.stopRaftNode(raftNodeId);
+                } catch (NodeStoppingException e) {
+                    LOG.debug("Raft node is already stopping [raftNodeId={}]", raftNodeId, e);
+                }
+            });
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new AssertionError("There are undone raft clients starting future", e);
+        }
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="
