@@ -58,7 +58,6 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -135,7 +134,7 @@ import org.jetbrains.annotations.Nullable;
  * - Support the rebalance mechanism and start the new replication nodes when the rebalance triggers occurred.
  */
 public class PartitionReplicaLifecycleManager  extends
-        AbstractEventProducer<PartitionReplicaLifecycleEvent, PartitionReplicaLifecycleEventParameters> implements IgniteComponent {
+        AbstractEventProducer<PartitionReplicaEvent, PartitionReplicaEventParameters> implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
@@ -165,9 +164,10 @@ public class PartitionReplicaLifecycleManager  extends
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaLifecycleManager.class);
 
-    private final Map<Integer, Set<Integer>> replicationGroupIds = new ConcurrentHashMap<>();
+    private final Set<ReplicationGroupId> replicationGroupIds = ConcurrentHashMap.newKeySet();
 
-    private final Map<Integer, StampedLock> partitionsPerZone = new ConcurrentHashMap<>();
+    /** (zoneId -> lock) map to provide concurrent access to the zone replicas list. */
+    private final Map<Integer, StampedLock> zonePartitionsLocks = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -386,11 +386,11 @@ public class PartitionReplicaLifecycleManager  extends
             CompletableFuture<List<Assignments>> assignmentsFutureAfterInvoke =
                     writeZoneAssignmentsToMetastore(zoneDescriptor.id(), assignmentsFuture);
 
-            return createZoneReplicationNodes(assignmentsFutureAfterInvoke, zoneDescriptor.id(), causalityToken);
+            return createZoneReplicationNodes(assignmentsFutureAfterInvoke, zoneDescriptor.id());
         });
     }
 
-    private CompletableFuture<Void> createZoneReplicationNodes(CompletableFuture<List<Assignments>> assignmentsFuture, int zoneId, long revision) {
+    private CompletableFuture<Void> createZoneReplicationNodes(CompletableFuture<List<Assignments>> assignmentsFuture, int zoneId) {
         return inBusyLockAsync(busyLock, () -> assignmentsFuture.thenCompose(assignments -> {
             assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
 
@@ -401,7 +401,7 @@ public class PartitionReplicaLifecycleManager  extends
 
                 Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
 
-                partitionsStartFutures.add(createZonePartitionReplicationNode(zoneId, partId, localMemberAssignment, zoneAssignment, revision));
+                partitionsStartFutures.add(createZonePartitionReplicationNode(zoneId, partId, localMemberAssignment, zoneAssignment));
             }
 
             return allOf(partitionsStartFutures.toArray(new CompletableFuture<?>[0]));
@@ -422,8 +422,7 @@ public class PartitionReplicaLifecycleManager  extends
             int zoneId,
             int partId,
             @Nullable Assignment localMemberAssignment,
-            Assignments stableAssignments,
-            long revision
+            Assignments stableAssignments
     ) {
         if (localMemberAssignment == null) {
             return nullCompletedFuture();
@@ -457,52 +456,34 @@ public class PartitionReplicaLifecycleManager  extends
                 AtomicLong stamp = new AtomicLong();
 
                 return replicaMgr.startReplica(
-                        replicaGrpId,
-                        (raftClient) -> new ZonePartitionReplicaListener(
-                                new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
-                        new FailFastSnapshotStorageFactory(),
-                        stablePeersAndLearners,
-                        raftGroupListener,
-                        raftGroupEventsListener,
-                        busyLock
-                ).thenCompose(unused -> {
-                    partitionsPerZone.compute(zoneId, (id, lock) -> {
-                        if (lock == null) {
-                            lock = new StampedLock();
-                        }
+                                replicaGrpId,
+                                (raftClient) -> new ZonePartitionReplicaListener(
+                                        new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor)),
+                                new FailFastSnapshotStorageFactory(),
+                                stablePeersAndLearners,
+                                raftGroupListener,
+                                raftGroupEventsListener,
+                                busyLock
+                        ).thenCompose(unused -> {
+                            zonePartitionsLocks.compute(zoneId, (id, lock) -> {
+                                if (lock == null) {
+                                    lock = new StampedLock();
+                                }
 
-                        System.out.println("KKK getting writeLock");
-                        stamp.set(lock.writeLock());
-
-                        return lock;
-                    });
-
-                    if (zoneDescriptor.id() != 0) {
-                        System.out.println("KKK fire event about replica started");
-                    }
-
-                    return fireEvent(
-                            PartitionReplicaLifecycleEvent.AFTER_REPLICA_STARTED,
-                            new PartitionReplicaLifecycleEventParameters(revision, zoneDescriptor, replicaGrpId.partitionId())
-                    );
-                })
-                        .thenApply(unused -> {
-                            return partitionsPerZone.compute(zoneId, (id, lock) -> {
-                                replicationGroupIds.compute(zoneId, (_id, partitions) -> {
-                                    if (partitions == null) {
-                                        partitions = new HashSet<>();
-                                    }
-
-                                    partitions.add(replicaGrpId.partitionId());
-
-                                    return partitions;
-                                });
+                                stamp.set(lock.writeLock());
 
                                 return lock;
                             });
-                        }).whenComplete((unused, throwable) -> {
-                            partitionsPerZone.get(zoneId).unlockWrite(stamp.get());
-                        }).thenApply(unused -> false);
+
+                            replicationGroupIds.add(replicaGrpId);
+
+                            return fireEvent(
+                                    PartitionReplicaEvent.AFTER_REPLICA_STARTED,
+                                    new PartitionReplicaEventParameters(zoneDescriptor, replicaGrpId.partitionId())
+                            );
+                        })
+                        .whenComplete((unused, throwable) -> zonePartitionsLocks.get(zoneId).unlockWrite(stamp.get()))
+                        .thenApply(unused -> false);
             } catch (NodeStoppingException e) {
                 return failedFuture(e);
             }
@@ -544,15 +525,7 @@ public class PartitionReplicaLifecycleManager  extends
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        Set<ReplicationGroupId> rpIds = new HashSet<>();
-
-        replicationGroupIds.forEach((zoneId, parts) -> {
-            parts.forEach(p -> {
-                rpIds.add(new ZonePartitionId(zoneId, p));
-            });
-        });
-
-        cleanUpPartitionsResources(rpIds);
+        cleanUpPartitionsResources(replicationGroupIds);
     }
 
     /**
@@ -698,18 +671,9 @@ public class PartitionReplicaLifecycleManager  extends
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 replace this method by the replicas await process.
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
-        assert partitionsPerZone.get(zonePartitionId.zoneId()).tryWriteLock() == 0;
-        // KKK NOT SAFE
-        return replicationGroupIds.getOrDefault(zonePartitionId.zoneId(), new HashSet<>()).contains(zonePartitionId.partitionId());
-    }
+        assert zonePartitionsLocks.get(zonePartitionId.zoneId()).tryWriteLock() == 0;
 
-    public void stopReplica() {
-        /**
-         * order of first 2???
-         * - remove from replicationGroupIds
-         * - fire event about replica stop
-         * - stop replica
-         */
+        return replicationGroupIds.contains(zonePartitionId);
     }
 
     public Replica replica(ZonePartitionId zonePartitionId) {
@@ -1053,8 +1017,7 @@ public class PartitionReplicaLifecycleManager  extends
                     zoneId,
                     partitionId,
                     localMemberAssignment,
-                    computedStableAssignments,
-                    revision
+                    computedStableAssignments
             );
         } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
@@ -1322,14 +1285,13 @@ public class PartitionReplicaLifecycleManager  extends
 
     public long lockZoneIdForRead(int zoneId) {
         AtomicLong stamp = new AtomicLong();
-        partitionsPerZone.compute(zoneId, (id, l) -> {
+
+        zonePartitionsLocks.compute(zoneId, (id, l) -> {
             if (l == null) {
                 l = new StampedLock();
             }
 
-            System.out.println("KKK trying to get read lock");
             stamp.set(l.readLock());
-            System.out.println("KKK read lock received");
 
             return l;
         });
@@ -1338,6 +1300,6 @@ public class PartitionReplicaLifecycleManager  extends
     }
 
     public void unlockZoneIdForRead(int zoneId, long stamp) {
-        partitionsPerZone.get(zoneId).unlockRead(stamp);
+        zonePartitionsLocks.get(zoneId).unlockRead(stamp);
     }
 }

@@ -19,6 +19,12 @@ package org.apache.ignite.internal.partition.replicator;
 
 import org.apache.ignite.internal.event.Event;
 
-public enum PartitionReplicaLifecycleEvent implements Event {
+/**
+ * Events produced by {@link PartitionReplicaLifecycleManager}.
+ */
+public enum PartitionReplicaEvent implements Event {
+    /**
+     * Fired when partition replica has started.
+     */
     AFTER_REPLICA_STARTED
 }

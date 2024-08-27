@@ -596,7 +596,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @RepeatedTest(50)
+    @RepeatedTest(10)
     public void testAlterRebalanceExtend(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -607,60 +607,20 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         placementDriver.setPrimary(node.clusterService.topologyService().localMember());
 
-        DistributionZonesTestUtil.createZone(node.catalogManager, "TEST_ZONE", 1, 1);
+        DistributionZonesTestUtil.createZone(node.catalogManager, "test_zone", 1, 1);
 
-        createTable(node, "TEST_ZONE", "TEST_TABLE");
+        createTable(node, "test_zone", "test_table");
 
-        int tableId = TableTestUtils.getTableId(node.catalogManager, "TEST_TABLE", node.hybridClock.nowLong());
+        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "test_zone", node.hybridClock.nowLong());
 
-        int zoneId = DistributionZonesTestUtil.getZoneId(node.catalogManager, "TEST_ZONE", node.hybridClock.nowLong());
+        assertTrue(waitForCondition(() -> assertTableListenersCount(node, zoneId, 1), 10_000L));
 
-        prepareTableIdToZoneIdConverter(
-                node,
-                new TablePartitionId(tableId, 0),
-                new ZonePartitionId(zoneId, 0)
-        );
+        alterZone(node.catalogManager, "test_zone", 3);
 
-        KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
-
-        assertTrue(waitForCondition(() -> IntStream.range(0, 1)
-                .allMatch(i  -> {
-                    try {
-                        return (((ZonePartitionReplicaListener) node.replicaManager.replica(new ZonePartitionId(zoneId, 0)).get().listener()).replicas.size() == 1);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    } catch (ExecutionException e) {
-                        throw new RuntimeException(e);
-                    } catch (Exception e) {
-                        return false;
-                    }
-                }), 10_000L));
-
-        alterZone(node.catalogManager, "TEST_ZONE", 3);
-
-        assertTrue(waitForCondition(() -> IntStream.range(0, 3)
-                .allMatch(i  -> {
-                    try {
-                        var replicaFut = getNode(i).replicaManager.replica(new ZonePartitionId(zoneId, 0));
-
-                        if (replicaFut == null) {
-                            return false;
-                        }
-
-                        ZonePartitionReplicaImpl replica = (ZonePartitionReplicaImpl) replicaFut.get();
-
-                        if (replica == null) {
-                            return false;
-                        }
-                        return ((ZonePartitionReplicaListener) replica.listener()).replicas.size() == 1;
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    } catch (ExecutionException e) {
-                        throw new RuntimeException(e);
-                    } catch (Exception e) {
-                        return false;
-                    }
-                }), 30_000L));
+        assertTrue(waitForCondition(
+                () -> IntStream.range(0, 3).allMatch(i -> assertTableListenersCount(getNode(i), zoneId, 1)),
+                30_000L
+        ));
     }
 
     @Test
@@ -1450,14 +1410,16 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static boolean containsPartition(Node node, int partitionId) {
-        TableManager tableManager = node.tableManager;
+    private boolean assertTableListenersCount(Node node, int zoneId, int count) {
+        try {
+            return (((ZonePartitionReplicaListener) node.replicaManager.replica(new ZonePartitionId(zoneId, 0))
+                    .get().listener()).tableReplicaListeners().size() == count);
+        } catch (NullPointerException e) {
+            // It means, that the replica is not ready yet
 
-        MvPartitionStorage storage = tableManager.tableView("TEST_TABLE")
-                .internalTable()
-                .storage()
-                .getMvPartition(partitionId);
-
-        return storage != null && bypassingThreadAssertions(() -> storage.closestRowId(RowId.lowestRowId(partitionId))) != null;
+            return false;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

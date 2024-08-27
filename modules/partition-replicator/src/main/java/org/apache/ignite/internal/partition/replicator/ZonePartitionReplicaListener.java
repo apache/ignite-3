@@ -35,6 +35,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Zone partition replica listener.
@@ -45,7 +46,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 await for the table replica listener if needed.
-    public final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
+    private final Map<TablePartitionId, ReplicaListener> replicas = new ConcurrentHashMap<>();
 
     private final RaftCommandRunner raftClient;
 
@@ -121,7 +122,13 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         replicas.put(partitionId, replicaListener.apply(raftClient));
     }
 
-    public String toString() {
-        return "Table processors: " + replicas.size();
+    /**
+     * Return table replicas listeners.
+     *
+     * @return Table replicas listeners.
+     */
+    @VisibleForTesting
+    public Map<TablePartitionId, ReplicaListener> tableReplicaListeners() {
+        return replicas;
     }
 }
