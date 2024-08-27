@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import org.apache.ignite.internal.raft.storage.impl.OnHeapLogs;
+import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorage;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
 class VolatileLogStorageTest extends BaseLogStorageTest {

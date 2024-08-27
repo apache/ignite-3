@@ -15,16 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-/**
- * Thrown if something wrong happens in the log storage.
- */
-class LogStorageException extends IgniteInternalException {
-    public LogStorageException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
+class RocksDbSharedLogStorageUtils {
+    /**
+     * Returns start prefix for the group.
+     *
+     * @param groupId ID of the group.
+     */
+    static byte[] groupStartPrefix(String groupId) {
+        return (groupId + (char) 0).getBytes(UTF_8);
+    }
+
+    /**
+     * Returns end prefix for the group.
+     *
+     * @param groupId ID of the group.
+     */
+    static byte[] groupEndPrefix(String groupId) {
+        return (groupId + (char) 1).getBytes(UTF_8);
     }
 }
