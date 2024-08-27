@@ -94,7 +94,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final AtomicLong reqId = new AtomicLong(1);
 
     /** Pending requests. */
-    private final ConcurrentMap<Long, TimeoutObject<ClientRequestFuture<?>>> pendingReqs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, ClientRequestFuture<?>> pendingReqs = new ConcurrentHashMap<>();
 
     /** Notification handlers. */
     private final Map<Long, CompletableFuture<PayloadInputChannel>> notificationHandlers = new ConcurrentHashMap<>();
@@ -248,8 +248,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 sock.close();
             }
 
-            for (TimeoutObject pendingReq : pendingReqs.values()) {
-                pendingReq.future().completeExceptionally(
+            for (ClientRequestFuture<?> pendingReq : pendingReqs.values()) {
+                pendingReq.completeExceptionally(
                         new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
             }
 
@@ -342,9 +342,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint());
         }
 
-        ClientRequestFuture<T> fut = new ClientRequestFuture<>(payloadReader, notificationFut);
+        ClientRequestFuture<T> fut = new ClientRequestFuture<>(payloadReader, notificationFut, timeout);
 
-        pendingReqs.put(id, new TimeoutObject<>(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, fut));
+        pendingReqs.put(id, fut);
 
         metrics.requestsActiveIncrement();
 
@@ -419,7 +419,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ClientMessageUnpacker unpacker) throws IgniteException {
         if (protocolCtx == null) {
             // Process handshake.
-            complete(pendingReqs.remove(-1L).future(), unpacker);
+            complete(pendingReqs.remove(-1L), unpacker);
             return;
         }
 
@@ -436,7 +436,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return;
         }
 
-        ClientRequestFuture<?> pendingReq = pendingReqs.remove(resId).future();
+        ClientRequestFuture<?> pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
             log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
@@ -580,8 +580,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Client handshake. */
     private CompletableFuture<Object> handshakeAsync(ProtocolVersion ver)
             throws IgniteClientConnectionException {
-        ClientRequestFuture<Object> fut = new ClientRequestFuture<>(r -> handshakeRes(r.in()), null);
-        pendingReqs.put(-1L, new TimeoutObject<>(connectTimeout > 0 ? coarseCurrentTimeMillis() + connectTimeout : 0, fut));
+        ClientRequestFuture<Object> fut = new ClientRequestFuture<>(r -> handshakeRes(r.in()), null, connectTimeout);
+        pendingReqs.put(-1L, fut);
 
         handshakeReqAsync(ver).addListener(f -> {
             if (!f.isSuccess()) {
@@ -758,18 +758,33 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Client request future.
      */
-    private static class ClientRequestFuture<T> extends CompletableFuture<T> {
+    private static class ClientRequestFuture<T> extends CompletableFuture<T> implements TimeoutObject<CompletableFuture<T>> {
         @Nullable
         private final PayloadReader<T> payloadReader;
 
         @Nullable
         private final CompletableFuture<PayloadInputChannel> notificationFut;
 
+        private final long endTime;
+
         private ClientRequestFuture(
                 @Nullable PayloadReader<T> payloadReader,
-                @Nullable CompletableFuture<PayloadInputChannel> notificationFut) {
+                @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
+                long timeout
+        ) {
             this.payloadReader = payloadReader;
             this.notificationFut = notificationFut;
+            this.endTime = timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0;
+        }
+
+        @Override
+        public long endTime() {
+            return endTime;
+        }
+
+        @Override
+        public CompletableFuture<T> future() {
+            return this;
         }
     }
 

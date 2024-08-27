@@ -20,42 +20,21 @@ package org.apache.ignite.internal.future.timeout;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Timeout object.
- * The class is a wrapper over the complete future.
+ * Timeout object interface.
+ * It is used to limit a time to wait on the future compilation.
  */
-public class TimeoutObject<T extends CompletableFuture<?>> {
-    /** End time (milliseconds since Unix epoch). */
-    private final long endTime;
-
-    /** Target future. */
-    private final T fut;
-
-    /**
-     * Constructor.
-     *
-     * @param endTime End timestamp in milliseconds.
-     * @param fut Target future.
-     */
-    public TimeoutObject(long endTime, T fut) {
-        this.endTime = endTime;
-        this.fut = fut;
-    }
-
+public interface TimeoutObject<T extends CompletableFuture<?>> {
     /**
      * Gets end timestamp.
      *
      * @return End timestamp in milliseconds.
      */
-    public long endTime() {
-        return endTime;
-    }
+    long endTime();
 
     /**
      * Gets a target future.
      *
      * @return A future.
      */
-    public T future() {
-        return fut;
-    }
+    T future();
 }

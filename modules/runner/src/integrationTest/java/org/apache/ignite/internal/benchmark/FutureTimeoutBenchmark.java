@@ -57,8 +57,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  *
  * <p>Results on 11th Gen Intel® Core™ i7-1165G7 @ 2.80GHz, openjdk 11.0.24, Windows 10 Pro:
  * Benchmark                    (useFutureEmbeddedTimeout)  Mode  Cnt   Score    Error  Units
- * FutureTimeoutBenchmark.test                       false  avgt   20   0,810 ±  0,112  us/op
- * FutureTimeoutBenchmark.test                        true  avgt   20  30,261 ± 34,762  us/op
+ * FutureTimeoutBenchmark.test                       false  avgt   20   0,760 ±  0,002  us/op
+ * FutureTimeoutBenchmark.test                        true  avgt   20  36,123 ± 44,414  us/op
  */
 @State(Scope.Benchmark)
 @Fork(1)
@@ -71,7 +71,7 @@ public class FutureTimeoutBenchmark {
     private static AtomicLong ID_GEN = new AtomicLong();
 
     /** Active operations. */
-    public ConcurrentMap<Long, TimeoutObject<CompletableFuture<Void>>> requestsMap;
+    public ConcurrentMap<Long, TimeoutObjectImpl> requestsMap;
 
     private TimeoutWorker timeoutWorker;
 
@@ -151,7 +151,7 @@ public class FutureTimeoutBenchmark {
             }
         } else {
             for (int i = 0; i < 10; i++) {
-                requestsMap.put(ID_GEN.incrementAndGet(), new TimeoutObject(
+                requestsMap.put(ID_GEN.incrementAndGet(), new TimeoutObjectImpl(
                         System.currentTimeMillis() + 10,
                         new CompletableFuture()
                 ));
@@ -172,5 +172,37 @@ public class FutureTimeoutBenchmark {
                 .build();
 
         new Runner(opt).run();
+    }
+
+    /**
+     * Timeout object wrapper for the completable future.
+     */
+    private static class TimeoutObjectImpl implements TimeoutObject<CompletableFuture<Void>> {
+        /** End time (milliseconds since Unix epoch). */
+        private final long endTime;
+
+        /** Target future. */
+        private final CompletableFuture<Void> fut;
+
+        /**
+         * Constructor.
+         *
+         * @param endTime End timestamp in milliseconds.
+         * @param fut Target future.
+         */
+        public TimeoutObjectImpl(long endTime, CompletableFuture<Void> fut) {
+            this.endTime = endTime;
+            this.fut = fut;
+        }
+
+        @Override
+        public long endTime() {
+            return endTime;
+        }
+
+        @Override
+        public CompletableFuture<Void> future() {
+            return fut;
+        }
     }
 }
