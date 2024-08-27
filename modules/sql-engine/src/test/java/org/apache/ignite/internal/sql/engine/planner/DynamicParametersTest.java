@@ -62,8 +62,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT NULL + ?", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:INTEGER"),
                 sql("SELECT ? + NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:INTEGER"),
 
-                sql("SELECT 1 + ?", "1").fails("Values passed to + operator must have compatible types"),
-                sql("SELECT ? + 1", "1").fails("Values passed to + operator must have compatible types"),
+                sql("SELECT 1 + ?", "1").parameterTypes(nullable(NativeTypes.STRING)).project("+(1, CAST(?0):INTEGER)"),
+                sql("SELECT ? + 1", "1").parameterTypes(nullable(NativeTypes.STRING)).project("+(CAST(?0):INTEGER, 1)"),
 
                 // NULL is allowed in arithmetic expressions, if another operand is present.
                 sql("SELECT ? * 2", new Object[]{null})
@@ -83,16 +83,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         return Stream.of(
                 // comparison
                 sql("SELECT ? > 1", 1).parameterTypes(nullable(NativeTypes.INT32)).ok(),
+                sql("SELECT ? > 1", "1").parameterTypes(nullable(NativeTypes.STRING)).ok(),
+                sql("SELECT 1 > ?", "1").parameterTypes(nullable(NativeTypes.STRING)).ok(),
                 sql("SELECT ? > 1", Unspecified.UNKNOWN).parameterTypes(nullable(NativeTypes.INT32)).ok(),
                 sql("SELECT 1 > ?", Unspecified.UNKNOWN).parameterTypes(nullable(NativeTypes.INT32)).ok(),
                 sql("SELECT ? > ?", Unspecified.UNKNOWN, Unspecified.UNKNOWN).fails("Ambiguous operator <UNKNOWN> > <UNKNOWN>"),
-
-                sql("SELECT ? > 1", "1")
-                        .fails("Values passed to > operator must have compatible types"),
-
-                sql("SELECT 1 > ?", "1")
-                        .fails("Values passed to > operator must have compatible types"),
-
                 sql("SELECT ? > NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:BOOLEAN"),
                 sql("SELECT NULL = ?", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:BOOLEAN"),
                 sql("SELECT ? = NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:BOOLEAN"),
@@ -107,12 +102,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
      */
     @TestFactory
     public Stream<DynamicTest> testInExpression() {
-        String requireExplicitCast =
-                "Values passed to IN operator must have compatible types. Dynamic parameter requires adding explicit type cast";
-
         return Stream.of(
                 sql("SELECT ? IN ('1', '2')", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
-                sql("SELECT ? IN (1, 2)", "1").fails(requireExplicitCast),
                 sql("SELECT ? IN (1, 2)", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
 
                 sql("SELECT ? IN (1)", Unspecified.UNKNOWN)
@@ -135,6 +126,12 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .project("OR(=(?0, 1), =(?0, 2))")
         );
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23039 Add support for Sarg serialization/deserialization
+        // sql("SELECT ? IN (1, 2)", "1")
+        //        .parameterTypes(nullable(NativeTypes.STRING))
+        //        .project("SEARCH(CAST(?0):INTEGER, Sarg[1, 2])"),
+
         // TODO https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
         // sql("SELECT (?,?) IN ((1,2))", 1, 2)
         //        .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT32))
@@ -164,7 +161,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .project("CASE(=(?0, _UTF-8'1'), CAST(?1):DOUBLE, ?2)"),
 
                 sql("SELECT CASE ? = ? WHEN true THEN 1 ELSE 2 END", 1, "1")
-                        .fails("Values passed to = operator must have compatible types"),
+                        .parameterTypes(nullable(NativeTypes.INT32), nullableVarchar)
+                        .project("CASE(=(?0, CAST(?1):INTEGER), 1, 2)"),
 
                 sql("SELECT CASE WHEN ? = '1' THEN ? ELSE ? END", "1", "2", 2.5)
                         .fails("Illegal mixing of types in CASE or COALESCE statement"),
@@ -230,11 +228,14 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .table("t1", "int_col", NativeTypes.INT32)
-                        .sql("SELECT * FROM t1 WHERE int_col = ?", "1").fails("Values passed to = operator must have compatible types"),
+                        .sql("SELECT * FROM t1 WHERE int_col = ?", "1")
+                        .parameterTypes(nullable(NativeTypes.STRING))
+                        .ok(),
 
                 checkStatement()
                         .table("t1", "str_col", NativeTypes.STRING)
-                        .sql("SELECT * FROM t1 WHERE str_col = ?", 1).fails("Values passed to = operator must have compatible types")
+                        .sql("SELECT * FROM t1 WHERE str_col = ?", 1)
+                        .ok()
         );
     }
 
@@ -428,12 +429,13 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .fails("Ambiguous operator <UNKNOWN> = <UNKNOWN>"),
 
                 checkStatement()
-                        .sql("SELECT NULLIF(?, ?)", 1, "1")
-                        .fails("Values passed to = operator must have compatible types"),
-
-                checkStatement()
                         .sql("SELECT NULLIF(?, 1)", Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter"),
+
+                checkStatement()
+                        .sql("SELECT NULLIF(?, ?)", 1, "1")
+                        .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.STRING))
+                        .project("CASE(=(?0, CAST(?1):INTEGER), null:INTEGER, ?0)"),
 
                 checkStatement()
                         .sql("SELECT NULLIF(CAST(? AS INTEGER), 1)", Unspecified.UNKNOWN)
@@ -534,20 +536,19 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .project("CAST(?0):BIGINT"),
 
-
-                // Incompatible types in dynamic params
-
                 checkStatement()
                         .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("INSERT INTO t1 VALUES (?)", "10")
-                        .fails("Values passed to VALUES operator must have compatible types"),
+                        .parameterTypes(nullable(NativeTypes.STRING))
+                        .project("CAST(?0):INTEGER"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
                         .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
                         .sql("INSERT INTO t1 (c1, c2) SELECT c1, ? FROM t2", "10")
-                        .fails("Values passed to VALUES operator must have compatible types")
+                        .parameterTypes(nullable(NativeTypes.STRING))
+                        .project("$t0", "CAST(?0):INTEGER")
         );
     }
 
@@ -576,19 +577,18 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .project("$t0", "CAST(?0):BIGINT"),
 
+                checkStatement()
+                        .table("t1", "c1", NativeTypes.INT64)
+                        .sql("UPDATE t1 SET c1 = ?", "10")
+                        .parameterTypes(nullable(NativeTypes.STRING))
+                        .project("$t0", "CAST(?0):BIGINT"),
+
                 // null
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("UPDATE t1 SET c1 = ?", new Object[]{null})
                         .parameterTypes(new NativeType[]{null})
-                        .project("$t0", "CAST(?0):INTEGER"),
-
-                // Incompatible types in dynamic params
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32)
-                        .sql("UPDATE t1 SET c1 = ?", "10")
-                        .fails("Assignment from VARCHAR to INTEGER can not be performed")
+                        .project("$t0", "CAST(?0):INTEGER")
         );
     }
 
@@ -620,6 +620,17 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .project("$0", "$1", "?0"),
 
+                checkStatement()
+                        .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
+                        .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
+                        .sql(() -> {
+                            String sql = "MERGE INTO T2 dst USING t1 src ON dst.c1 = src.c1 "
+                                    + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, ?)";
+                            return sql;
+                        }, "1")
+                        .parameterTypes(nullable(NativeTypes.STRING))
+                        .project("$0", "$1", "CAST(?0):INTEGER"),
+
                 // null
 
                 checkStatement()
@@ -631,19 +642,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                             return sql;
                         }, new Object[]{null})
                         .parameterTypes(new NativeType[]{null})
-                        .project("$0", "$1", "CAST(?0):INTEGER"),
-
-                // incompatible types
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
-                        .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
-                        .sql(() -> {
-                            String sql = "MERGE INTO T2 dst USING t1 src ON dst.c1 = src.c1 "
-                                    + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, ?)";
-                            return sql;
-                        }, "1")
-                        .fails("Values passed to VALUES operator must have compatible types")
+                        .project("$0", "$1", "CAST(?0):INTEGER")
         );
     }
 
@@ -675,8 +674,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT64))
                         .project("$3", "$4", "?1", "$0", "$1", "$2", "?0"),
 
-                // Incompatible types
-
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
                         .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
@@ -686,7 +683,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                                     + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, 1)";
                             return sql;
                         }, "1")
-                        .fails("Assignment from VARCHAR to INTEGER can not be performed"),
+                        .parameterTypes(nullable(NativeTypes.STRING))
+                        .project("$3", "$4", "1", "$0", "$1", "$2", "CAST(?0):INTEGER"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
@@ -697,7 +695,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                                     + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, ?)";
                             return sql;
                         }, 1, "1")
-                        .fails("Values passed to VALUES operator must have compatible types")
+                        .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.STRING))
+                        .project("$3", "$4", "CAST(?1):INTEGER", "$0", "$1", "$2", "?0")
         );
     }
 
@@ -765,10 +764,10 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("SELECT SUBSTRING(SUBSTRING(?, 1), 2)", "123456")
                         .project("SUBSTRING(SUBSTRING(?0, 1), 2)"),
 
-                // nested function call - invalid dynamic parameter
+                // nested function call with implicit parameter casting
                 checkStatement()
                         .sql("SELECT SUBSTRING(SUBSTRING(?, 1), 2)", 123456)
-                        .fails("Values passed to SUBSTRING operator must have compatible types")
+                        .project("SUBSTRING(SUBSTRING(CAST(?0):VARCHAR CHARACTER SET \"UTF-8\", 1), 2)")
         );
     }
 

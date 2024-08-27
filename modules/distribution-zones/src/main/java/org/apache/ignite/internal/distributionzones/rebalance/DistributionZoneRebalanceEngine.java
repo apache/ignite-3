@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -204,9 +205,13 @@ public class DistributionZoneRebalanceEngine {
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    // TODO: IGNITE-22661 Potentially unsafe to use the latest catalog version, as the tables might not already present
+                    // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
                     //  in the catalog. Better to store this version when writing datanodes.
                     int catalogVersion = catalogService.latestCatalogVersion();
+
+                    Catalog catalog = catalogService.catalog(catalogVersion);
+
+                    long assignmentsTimestamp = catalog.time();
 
                     CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
 
@@ -231,7 +236,8 @@ public class DistributionZoneRebalanceEngine {
                             evt.entryEvent().newEntry().revision(),
                             zoneDescriptor,
                             filteredDataNodes,
-                            tableDescriptors
+                            tableDescriptors,
+                            assignmentsTimestamp
                     );
                 });
             }
@@ -273,11 +279,14 @@ public class DistributionZoneRebalanceEngine {
 
                     List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneDescriptor.id(), catalogVersion, catalogService);
 
+                    Catalog catalog = catalogService.catalog(catalogVersion);
+
                     return triggerPartitionsRebalanceForAllTables(
                             causalityToken,
                             zoneDescriptor,
                             dataNodes,
-                            tableDescriptors
+                            tableDescriptors,
+                            catalog.time()
                     );
                 });
     }
@@ -286,7 +295,8 @@ public class DistributionZoneRebalanceEngine {
             long revision,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
-            List<CatalogTableDescriptor> tableDescriptors
+            List<CatalogTableDescriptor> tableDescriptors,
+            long assignmentsTimestamp
     ) {
         List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
 
@@ -296,7 +306,8 @@ public class DistributionZoneRebalanceEngine {
                     zoneDescriptor,
                     dataNodes,
                     revision,
-                    metaStorageManager
+                    metaStorageManager,
+                    assignmentsTimestamp
             );
 
             // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,

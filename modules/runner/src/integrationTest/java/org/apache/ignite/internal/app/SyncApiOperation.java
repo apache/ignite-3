@@ -19,12 +19,15 @@ package org.apache.ignite.internal.app;
 
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.FULL_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.KEY_TUPLE;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.SELECT_IDS_QUERY;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.TEST_TABLE_NAME;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.UPDATE_QUERY;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.VALUE_TUPLE;
 
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.mapper.Mapper;
 
 /**
@@ -47,9 +50,9 @@ enum SyncApiOperation {
     TABLE_KV_VIEW(refs -> refs.table.keyValueView()),
     TABLE_TYPED_KV_VIEW(refs -> refs.table.keyValueView(Integer.class, String.class)),
     TABLE_MAPPED_KV_VIEW(refs -> refs.table.keyValueView(Mapper.of(Integer.class), Mapper.of(String.class))),
-    TABLE_RECORDVIEW(refs -> refs.table.recordView()),
-    TABLE_TYPED_RECORDVIEW(refs -> refs.table.recordView(Record.class)),
-    TABLE_MAPPED_RECORDVIEW(refs -> refs.table.recordView(Mapper.of(Record.class))),
+    TABLE_RECORD_VIEW(refs -> refs.table.recordView()),
+    TABLE_TYPED_RECORD_VIEW(refs -> refs.table.recordView(Record.class)),
+    TABLE_MAPPED_RECORD_VIEW(refs -> refs.table.recordView(Mapper.of(Record.class))),
     TABLE_PARTITION_MANAGER(refs -> refs.table.partitionManager()),
 
     TABLE_FROM_TABLE_ASYNC_PUT(refs -> refs.tableFromTableAsync.keyValueView().put(null, KEY_TUPLE, VALUE_TUPLE)),
@@ -103,7 +106,25 @@ enum SyncApiOperation {
 
     TYPED_RECORD_VIEW_GET(refs -> refs.typedRecordView.get(null, new Record(1, ""))),
 
-    MAPPED_RECORD_VIEW_GET(refs -> refs.mappedRecordView.get(null, new Record(1, "")));
+    MAPPED_RECORD_VIEW_GET(refs -> refs.mappedRecordView.get(null, new Record(1, ""))),
+
+    TRANSACTIONS_BEGIN(refs -> refs.transactions.begin()),
+    TRANSACTIONS_BEGIN_WITH_OPTS(refs -> refs.transactions.begin(null)),
+    TRANSACTIONS_RUN_CONSUMER_IN_TRANSACTION(refs -> refs.transactions.runInTransaction(tx -> {})),
+    TRANSACTIONS_RUN_CONSUMER_IN_TRANSACTION_WITH_OPTS(refs -> refs.transactions.runInTransaction(tx -> {}, null)),
+    TRANSACTIONS_RUN_FUNCTION_IN_TRANSACTION(refs -> refs.transactions.runInTransaction(tx -> null)),
+    TRANSACTIONS_RUN_FUNCTION_IN_TRANSACTION_WITH_OPTS(refs -> refs.transactions.runInTransaction(tx -> null, null)),
+
+    SQL_CREATE_STATEMENT(refs -> refs.sql.createStatement(SELECT_IDS_QUERY)),
+    SQL_STATEMENT_BUILDER(refs -> refs.sql.statementBuilder()),
+    SQL_EXECUTE(refs -> refs.sql.execute(null, SELECT_IDS_QUERY)),
+    SQL_EXECUTE_STATEMENT(refs -> refs.sql.execute(null, refs.selectIdsStatement)),
+    // TODO: IGNITE-18695 - uncomment the following 2 lines.
+    // SQL_EXECUTE_WITH_MAPPER(refs -> refs.sql.execute(null, Mapper.of(Integer.class), SELECT_IDS_QUERY)),
+    // SQL_EXECUTE_STATEMENT_WITH_MAPPER(refs -> refs.sql.execute(null, Mapper.of(Integer.class), refs.selectIdsStatement)),
+    SQL_EXECUTE_BATCH(refs -> refs.sql.executeBatch(null, UPDATE_QUERY, BatchedArguments.of(999))),
+    SQL_EXECUTE_BATCH_STATEMENT(refs -> refs.sql.executeBatch(null, refs.updateStatement, BatchedArguments.of(999))),
+    SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScript(SELECT_IDS_QUERY));
 
     private final Consumer<References> action;
 
@@ -113,5 +134,11 @@ enum SyncApiOperation {
 
     void execute(References references) {
         action.accept(references);
+    }
+
+    boolean worksAfterShutdown() {
+        return this == IGNITE_TABLES
+                || this == IGNITE_TRANSACTIONS
+                || this == IGNITE_SQL;
     }
 }

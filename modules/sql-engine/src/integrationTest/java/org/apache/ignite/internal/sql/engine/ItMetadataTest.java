@@ -86,6 +86,9 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
         assertQuery("select salary, count(name) from person group by salary").columnNames("SALARY", "COUNT(NAME)").check();
 
         assertQuery("select 1, -1, 'some string' from person").columnNames("1", "-1", "'some string'").check();
+
+        // id, name, salary
+        assertQuery("SELECT SUM(sal) FROM person as p (i, n, sal)").columnNames("SUM(SAL)").check();
     }
 
     @Test

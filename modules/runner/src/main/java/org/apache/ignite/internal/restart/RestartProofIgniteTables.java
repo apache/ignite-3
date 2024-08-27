@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  * Reference to {@link IgniteTables} under a swappable {@link Ignite} instance. When a restart happens, this switches to the new Ignite
  * instance.
  *
- * <p>API operations on this are linearized wrt node restarts. Normally (except for situations when timeouts trigger), user
+ * <p>API operations on this are linearized with respect to node restarts. Normally (except for situations when timeouts trigger), user
  * operations will not interact with detached objects.
  */
 class RestartProofIgniteTables implements IgniteTables, Wrapper {

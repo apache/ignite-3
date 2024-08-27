@@ -48,12 +48,17 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
-import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -198,6 +203,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** On-heap-cached lease start time value. */
     private volatile long leaseStartTime;
 
+    /** On-heap-cached lease node id. */
+    private volatile String primaryReplicaNodeId;
+
+    /** On-heap-cached lease node name. */
+    private volatile String primaryReplicaNodeName;
+
     /** On-heap-cached last committed group configuration. */
     private volatile byte @Nullable [] lastGroupConfig;
 
@@ -241,12 +252,29 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             lastGroupConfig = db.get(meta, readOpts, lastGroupConfigKey);
 
-            byte[] leaseStartTimeBytes = db.get(meta, readOpts, leaseKey);
-            ByteBuffer leaseStartTimeBuf = leaseStartTimeBytes == null
-                    ? null
-                    : ByteBuffer.wrap(leaseStartTimeBytes).order(ByteOrder.LITTLE_ENDIAN);
+            byte[] leaseBytes = db.get(meta, readOpts, leaseKey);
 
-            leaseStartTime = leaseStartTimeBuf == null ? HybridTimestamp.MIN_VALUE.longValue() : leaseStartTimeBuf.getLong();
+            if (leaseBytes == null) {
+                leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
+            } else {
+                leaseStartTime = bytesToLong(leaseBytes);
+
+                int primaryReplicaNodeIdLength = bytesToInt(leaseBytes, Long.BYTES);
+                primaryReplicaNodeId = new String(
+                        leaseBytes,
+                        Long.BYTES + Integer.BYTES,
+                        primaryReplicaNodeIdLength,
+                        StandardCharsets.UTF_8
+                );
+
+                int primaryReplicaNodeNameLength = bytesToInt(leaseBytes, Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength);
+                primaryReplicaNodeName = new String(
+                        leaseBytes,
+                        Long.BYTES + Integer.BYTES + primaryReplicaNodeIdLength + Integer.BYTES,
+                        primaryReplicaNodeNameLength,
+                        StandardCharsets.UTF_8
+                );
+            }
 
             byte[] estimatedSizeBytes = db.get(meta, readOpts, estimatedSizeKey);
 
@@ -1070,7 +1098,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
+    public void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
         busy(() -> {
             if (leaseStartTime <= this.leaseStartTime) {
                 return null;
@@ -1079,14 +1111,23 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             AbstractWriteBatch writeBatch = requireWriteBatch();
 
             try {
-                byte[] leaseBytes = new byte[Long.BYTES];
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                outputStream.write(longToBytes(leaseStartTime));
 
-                putLongToBytes(leaseStartTime, leaseBytes, 0);
+                byte[] primaryReplicaNodeIdBytes = stringToBytes(primaryReplicaNodeId);
+                outputStream.write(intToBytes(primaryReplicaNodeIdBytes.length));
+                outputStream.write(primaryReplicaNodeIdBytes);
 
-                writeBatch.put(meta, leaseKey, leaseBytes);
+                byte[] primaryReplicaNodeNameBytes = stringToBytes(primaryReplicaNodeName);
+                outputStream.write(intToBytes(primaryReplicaNodeNameBytes.length));
+                outputStream.write(primaryReplicaNodeNameBytes);
+
+                writeBatch.put(meta, leaseKey, outputStream.toByteArray());
 
                 this.leaseStartTime = leaseStartTime;
-            } catch (RocksDBException e) {
+                this.primaryReplicaNodeId = primaryReplicaNodeId;
+                this.primaryReplicaNodeName = primaryReplicaNodeName;
+            } catch (RocksDBException | IOException e) {
                 throw new StorageException(e);
             }
 
@@ -1097,6 +1138,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public long leaseStartTime() {
         return busy(() -> leaseStartTime);
+    }
+
+    @Override
+    public @Nullable String primaryReplicaNodeId() {
+        return busy(() -> primaryReplicaNodeId);
+    }
+
+    @Override
+    public @Nullable String primaryReplicaNodeName() {
+        return busy(() -> primaryReplicaNodeName);
     }
 
     /**

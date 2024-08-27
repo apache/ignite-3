@@ -33,7 +33,6 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -157,7 +156,6 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("valuesWithExpectedResult")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22779")
     void implicitCastOfDynParamsOnInsert(Object param, Object expectedResult) {
         assertQuery("INSERT INTO test VALUES (?)")
                 .withParam(param)
@@ -171,7 +169,6 @@ public class ItCastToBigintTest extends BaseSqlIntegrationTest {
     @SuppressWarnings("ThrowableNotThrown")
     @ParameterizedTest
     @MethodSource("valuesWithOverflow")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22779")
     void implicitCastOfDynParamsOnInsertWithOverflow(Object param) {
         SqlTestUtils.assertThrowsSqlException(
                 Sql.RUNTIME_ERR,

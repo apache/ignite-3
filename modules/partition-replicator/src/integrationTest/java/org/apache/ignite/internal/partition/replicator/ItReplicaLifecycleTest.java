@@ -124,7 +124,6 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
@@ -149,6 +148,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
@@ -167,7 +167,6 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -190,7 +189,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
@@ -318,7 +316,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
 
-        placementDriver.setPrimary(node0.toClusterNode());
+        placementDriver.setPrimary(node0.clusterService.topologyService().localMember());
 
         nodes.values().forEach(Node::waitWatches);
 
@@ -615,6 +613,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23063")
     void testStableAreWrittenAfterRestart(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 1);
 
@@ -720,7 +719,13 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
                 Node node = nodes.get(0);
 
-                node.metaStorageManager.put(stablePartAssignmentsKey(partId), Assignments.of(Assignment.forPeer(node.name)).toBytes());
+                int catalogVersion = node.catalogManager.latestCatalogVersion();
+                long timestamp = node.catalogManager.catalog(catalogVersion).time();
+
+                node.metaStorageManager.put(
+                        stablePartAssignmentsKey(partId),
+                        Assignments.of(timestamp, Assignment.forPeer(node.name)).toBytes()
+                );
             }
 
             return null;
@@ -1179,7 +1184,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     rebalanceScheduler,
                     threadPoolsManager.partitionOperationsExecutor(),
                     clockService,
-                    placementDriver);
+                    placementDriver,
+                    schemaSyncService);
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                     .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
@@ -1335,10 +1341,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();
-        }
-
-        ClusterNode toClusterNode() {
-            return new ClusterNodeImpl(name, name, networkAddress);
         }
     }
 

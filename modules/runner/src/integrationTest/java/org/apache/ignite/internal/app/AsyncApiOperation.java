@@ -19,8 +19,11 @@ package org.apache.ignite.internal.app;
 
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.FULL_TUPLE;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.KEY_TUPLE;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.SELECT_IDS_QUERY;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.TEST_TABLE_NAME;
+import static org.apache.ignite.internal.app.ApiReferencesTestUtils.UPDATE_QUERY;
 import static org.apache.ignite.internal.app.ApiReferencesTestUtils.VALUE_TUPLE;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.partition.HashPartition;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
@@ -110,7 +114,21 @@ enum AsyncApiOperation {
     PARTITION_MANAGER_PRIMARY_REPLICA(refs -> refs.partitionManager.primaryReplicaAsync(new HashPartition(0))),
     PARTITION_MANAGER_PRIMARY_REPLICAS(refs -> refs.partitionManager.primaryReplicasAsync()),
     PARTITION_MANAGER_PARTITION_BY_KEY(refs -> refs.partitionManager.partitionAsync(1, Mapper.of(Integer.class))),
-    PARTITION_MANAGER_PARTITION_BY_TUPLE(refs -> refs.partitionManager.partitionAsync(KEY_TUPLE));
+    PARTITION_MANAGER_PARTITION_BY_TUPLE(refs -> refs.partitionManager.partitionAsync(KEY_TUPLE)),
+
+    TRANSACTIONS_BEGIN(refs -> refs.transactions.beginAsync()),
+    TRANSACTIONS_BEGIN_WITH_OPTS(refs -> refs.transactions.beginAsync(null)),
+    TRANSACTIONS_RUN_IN_TRANSACTION(refs -> refs.transactions.runInTransactionAsync(tx -> nullCompletedFuture())),
+    TRANSACTIONS_RUN_IN_TRANSACTION_WITH_OPTS(refs -> refs.transactions.runInTransactionAsync(tx -> nullCompletedFuture(), null)),
+
+    SQL_EXECUTE(refs -> refs.sql.executeAsync(null, SELECT_IDS_QUERY)),
+    SQL_EXECUTE_STATEMENT(refs -> refs.sql.executeAsync(null, refs.selectIdsStatement)),
+    // TODO: IGNITE-18695 - uncomment the following 2 lines.
+    // SQL_EXECUTE_WITH_MAPPER(refs -> refs.sql.executeAsync(null, Mapper.of(Integer.class), SELECT_IDS_QUERY)),
+    // SQL_EXECUTE_STATEMENT_WITH_MAPPER(refs -> refs.sql.executeAsync(null, Mapper.of(Integer.class), refs.selectIdsStatement)),
+    SQL_EXECUTE_BATCH(refs -> refs.sql.executeBatchAsync(null, UPDATE_QUERY, BatchedArguments.of(999))),
+    SQL_EXECUTE_BATCH_STATEMENT(refs -> refs.sql.executeBatchAsync(null, refs.updateStatement, BatchedArguments.of(999))),
+    SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScriptAsync(SELECT_IDS_QUERY));
 
     private final Function<References, CompletableFuture<?>> action;
 

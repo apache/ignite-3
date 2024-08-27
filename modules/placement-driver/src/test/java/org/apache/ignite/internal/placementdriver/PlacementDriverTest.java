@@ -158,6 +158,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private AssignmentsTracker assignmentsPlacementDriver;
 
+    private long assignmentsTimestamp;
+
     @Nullable
     private ClusterNode leaseholder;
 
@@ -190,6 +192,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
         leaseholder = FAKE_NODE;
+
+        assignmentsTimestamp = clockService.now().longValue();
     }
 
     @AfterEach
@@ -843,7 +847,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(assignmentsKey, Assignments.toBytes(assignments)),
+                put(assignmentsKey, Assignments.toBytes(assignments, assignmentsTimestamp)),
                 noop()
         );
 

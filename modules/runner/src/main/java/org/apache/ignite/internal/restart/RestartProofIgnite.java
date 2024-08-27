@@ -31,13 +31,15 @@ import org.apache.ignite.tx.IgniteTransactions;
 /**
  * Reference to a swappable {@link Ignite} instance. When a restart happens, this switches to the new Ignite instance.
  *
- * <p>API operations on this are linearized wrt node restarts. Normally (except for situations when timeouts trigger), user
+ * <p>API operations on this are linearized with respect to node restarts. Normally (except for situations when timeouts trigger), user
  * operations will not interact with detached objects.
  */
 public class RestartProofIgnite implements Ignite, Wrapper {
     private final IgniteAttachmentLock attachmentLock;
 
     private final IgniteTables tables;
+    private final IgniteTransactions transactions;
+    private final IgniteSql sql;
 
     /**
      * Constructor.
@@ -46,6 +48,8 @@ public class RestartProofIgnite implements Ignite, Wrapper {
         this.attachmentLock = attachmentLock;
 
         tables = new RestartProofIgniteTables(attachmentLock);
+        transactions = new RestartProofIgniteTransactions(attachmentLock);
+        sql = new RestartProofIgniteSql(attachmentLock);
     }
 
     @Override
@@ -55,19 +59,17 @@ public class RestartProofIgnite implements Ignite, Wrapper {
 
     @Override
     public IgniteTables tables() {
-        return attachmentLock.attached(ignite -> tables);
+        return tables;
     }
 
     @Override
     public IgniteTransactions transactions() {
-        // TODO: IGNITE-23012 - add a wrapper.
-        return attachmentLock.attached(Ignite::transactions);
+        return transactions;
     }
 
     @Override
     public IgniteSql sql() {
-        // TODO: IGNITE-23013 - add a wrapper.
-        return attachmentLock.attached(Ignite::sql);
+        return sql;
     }
 
     @Override

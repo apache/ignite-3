@@ -68,6 +68,7 @@ dependencies {
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-security')

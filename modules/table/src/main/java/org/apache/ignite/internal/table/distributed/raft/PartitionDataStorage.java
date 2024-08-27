@@ -232,8 +232,14 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * Updates the current lease start time in the storage.
      *
      * @param leaseStartTime Lease start time.
+     * @param primaryReplicaNodeId Primary replica node id.
+     * @param primaryReplicaNodeName Primary replica node name.
      */
-    void updateLease(long leaseStartTime);
+    void updateLease(
+            long leaseStartTime,
+            String primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    );
 
     /**
      * Return the start time of the known lease for this replication group.
@@ -241,4 +247,18 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @return Lease start time.
      */
     long leaseStartTime();
+
+    /**
+     * Return the node id of the known lease for this replication group.
+     *
+     * @return Primary replica node id.
+     */
+    String primaryReplicaNodeId();
+
+    /**
+     * Return the node name of the known lease for this replication group.
+     *
+     * @return Primary replica node name.
+     */
+    String primaryReplicaNodeName();
 }

@@ -48,6 +48,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -119,6 +120,8 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     private IgniteTriFunction<LeaseGrantedMessage, String, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
+
+    private final long assignmentsTimestamp = new HybridTimestamp(0, 1).longValue();
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
@@ -601,6 +604,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Replication group id.
      */
     private TablePartitionId createTableAssignment() {
-        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames);
+        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames, assignmentsTimestamp);
     }
 }
