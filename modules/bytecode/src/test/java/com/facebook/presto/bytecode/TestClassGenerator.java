@@ -25,7 +25,7 @@ import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static java.nio.file.Files.createTempDirectory;
-import static java.nio.file.Files.deleteIfExists;
+import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
