@@ -17,12 +17,38 @@ SELECT CAST('1e2' AS DECIMAL);
 100
 
 # overflow
-statement error
+
+statement error: Numeric field overflow. A field with precision 5, scale 0 must round to an absolute value less than 10^5.
 SELECT CAST(1e20 AS DECIMAL(5));
 
-# overflow
-statement error
+statement error: Numeric field overflow. A field with precision 5, scale 0 must round to an absolute value less than 10^5.
 SELECT CAST(-1e20 AS DECIMAL(5));
+
+statement error: Numeric field overflow. A field with precision 3, scale 5 must round to an absolute value less than 10^-2.
+SELECT 0.3::DECIMAL(3, 5);
+
+statement error: Numeric field overflow. A field with precision 3, scale 3 must round to an absolute value less than 1.
+SELECT -1::DECIMAL(3, 3);
+
+# the first cast produces must report an error
+statement error: Numeric field overflow. A field with precision 3, scale 0 must round to an absolute value less than 10^3.
+SELECT 9999999::DECIMAL(3)::DECIMAL(4, 2);
+
+for val in ['10000', 10000::SMALLINT, 10000::INT, 10000::BIGINT, 10000::REAL, 10000::FLOAT, 10000::DOUBLE, 10000::DECIMAL, 10000::DECIMAL(10)]
+
+statement error: Numeric field overflow. A field with precision 4, scale 2 must round to an absolute value less than 10^2.
+SELECT ${val}::DECIMAL(4, 2);
+
+statement error: Numeric field overflow. A field with precision 2, scale 4 must round to an absolute value less than 10^-2.
+SELECT ${val}::DECIMAL(2, 4);
+
+statement error: Numeric field overflow. A field with precision 2, scale 2 must round to an absolute value less than 1.
+SELECT ${val}::DECIMAL(2, 2);
+
+statement error: Numeric field overflow. A field with precision 3, scale 0 must round to an absolute value less than 10^3.
+SELECT ${val}::DECIMAL(3);
+
+endfor
 
 for val in [100::TINYINT, 100::SMALLINT, 100::INT, 100::BIGINT, 100::DECIMAL, 100::DECIMAL(3)]
 
