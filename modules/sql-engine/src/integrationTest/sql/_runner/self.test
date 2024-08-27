@@ -72,6 +72,30 @@ ${i}
 
 endloop
 
+# check nested loops
+loop i 0 3
+
+query T
+SELECT 'i=${i} start'
+----
+i=${i} start
+
+loop j 0 4
+
+query T
+SELECT '${i}.${j}'
+----
+${i}.${j}
+
+endloop
+
+query T
+SELECT 'i=${i} end'
+----
+i=${i} end
+
+endloop
+
 # skipif <engine>
 
 skipif ignite3

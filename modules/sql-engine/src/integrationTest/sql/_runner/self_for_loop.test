@@ -73,3 +73,29 @@ statement error: Cast function cannot convert value of type BINARY(1) to type ${
 SELECT CAST(x'00' AS ${type});
 
 endfor
+
+# nested fors
+
+# check nested loops
+for i in [0, 1, 2]
+
+query T
+SELECT 'i=${i} start'
+----
+i=${i} start
+
+for j in [0, 1, 2, 3]
+
+query T
+SELECT '${i}.${j}'
+----
+${i}.${j}
+
+endloop
+
+query T
+SELECT 'i=${i} end'
+----
+i=${i} end
+
+endloop
