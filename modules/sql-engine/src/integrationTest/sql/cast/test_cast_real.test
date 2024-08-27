@@ -34,35 +34,14 @@ SELECT CAST('   1e1' AS REAL);
 ----
 10.0
 
+for val in [100::TINYINT, 100::SMALLINT, 100::INT, 100::BIGINT, 100::DECIMAL, 100::DECIMAL(3)]
+
 query T
-SELECT CAST(100::TINYINT AS REAL);
+SELECT CAST(${val} AS REAL);
 ----
 100
 
-query T
-SELECT CAST(100::SMALLINT AS REAL);
-----
-100
-
-query T
-SELECT CAST(100::INT AS REAL);
-----
-100
-
-query T
-SELECT CAST(100::BIGINT AS REAL);
-----
-100
-
-query T
-SELECT CAST(100::DECIMAL AS REAL);
-----
-100
-
-query T
-SELECT CAST(100::DECIMAL(3) AS REAL);
-----
-100
+endfor
 
 query T
 SELECT CAST(100.1::DECIMAL(4, 1) AS REAL);
@@ -98,24 +77,12 @@ SELECT CAST(x'00'::BINARY AS REAL);
 statement error: Cast function cannot convert value of type VARBINARY to type REAL
 SELECT CAST(x'00'::VARBINARY AS REAL);
 
+for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
 
 statement error: Cast function cannot convert value
-SELECT CAST(INTERVAL 11 YEAR AS REAL);
+SELECT CAST(INTERVAL 11 ${interval_type} AS REAL);
 
-statement error: Cast function cannot convert value
-SELECT CAST(INTERVAL 11 MONTH AS REAL);
-
-statement error: Cast function cannot convert value
-SELECT CAST(INTERVAL 11 DAYS AS REAL);
-
-statement error: Cast function cannot convert value
-SELECT CAST(INTERVAL 11 HOURS AS REAL);
-
-statement error: Cast function cannot convert value
-SELECT CAST(INTERVAL 11 MINUTES AS REAL);
-
-statement error: Cast function cannot convert value
-SELECT CAST(INTERVAL 11 SECONDS AS REAL);
+endfor
 
 statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type REAL
 SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS REAL);
