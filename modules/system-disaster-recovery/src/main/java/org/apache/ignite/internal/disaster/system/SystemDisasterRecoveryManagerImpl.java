@@ -202,7 +202,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private void ensureContainsThisNodeName(List<String> proposedCmgConsistentIds) {
-        if (!new HashSet<>(proposedCmgConsistentIds).contains(thisNodeName)) {
+        if (!proposedCmgConsistentIds.contains(thisNodeName)) {
             throw new ClusterResetException("Current node is not contained in the new CMG, so it cannot conduct a cluster reset.");
         }
     }
