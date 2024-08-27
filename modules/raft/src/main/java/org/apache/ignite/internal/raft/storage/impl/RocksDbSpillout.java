@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
@@ -138,14 +138,32 @@ public class RocksDbSpillout implements Logs {
         this.db = db;
         this.columnFamily = columnFamily;
         this.executor = executor;
-        this.groupStartPrefix = (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
-        this.groupEndPrefix = (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
+        this.groupStartPrefix = groupStartPrefix(groupId);
+        this.groupEndPrefix = groupEndPrefix(groupId);
         this.groupStartBound = new Slice(groupStartPrefix);
         this.groupEndBound = new Slice(groupEndPrefix);
 
         this.writeOptions = new WriteOptions();
         this.writeOptions.setDisableWAL(true);
         this.writeOptions.setSync(false);
+    }
+
+    /**
+     * Returns start prefix for the group.
+     *
+     * @param groupId ID of the group.
+     */
+    public static byte[] groupStartPrefix(String groupId) {
+        return (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Returns end prefix for the group.
+     *
+     * @param groupId ID of the group.
+     */
+    public static byte[] groupEndPrefix(String groupId) {
+        return (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
@@ -296,7 +314,21 @@ public class RocksDbSpillout implements Logs {
     }
 
     private void deleteWholeGroupRange() throws RocksDBException {
-        db.deleteRange(columnFamily, groupStartPrefix, groupEndPrefix);
+        deleteAllEntriesBetween(db, columnFamily, groupStartPrefix, groupEndPrefix);
+    }
+
+    /**
+     * Deletes all entries starting with start prefix and not ending with end prefix.
+     *
+     * @param db The DB.
+     * @param columnFamily The column family.
+     * @param startPrefix Start prefix.
+     * @param endPrefix End prefix.
+     * @throws RocksDBException If something goes wrong.
+    */
+    public static void deleteAllEntriesBetween(RocksDB db, ColumnFamilyHandle columnFamily, byte[] startPrefix, byte[] endPrefix)
+            throws RocksDBException {
+        db.deleteRange(columnFamily, startPrefix, endPrefix);
     }
 
     @Override

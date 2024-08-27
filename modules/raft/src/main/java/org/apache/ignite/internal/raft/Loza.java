@@ -199,7 +199,7 @@ public class Loza implements RaftManager {
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            RaftServiceFactory<T> factory,
+            @Nullable RaftServiceFactory<T> factory,
             RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException {
         RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
@@ -392,6 +392,24 @@ public class Loza implements RaftManager {
             }
 
             return factory.startRaftGroupService(groupId, configuration, raftConfiguration, executor, commandsMarshaller);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Override
+    public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptionsConfigurer raftGroupOptionsConfigurer)
+            throws NodeStoppingException {
+        RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
+
+        raftGroupOptionsConfigurer.configure(groupOptions);
+
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            raftServer.destroyRaftNodeStorages(nodeId, groupOptions);
         } finally {
             busyLock.leaveBusy();
         }

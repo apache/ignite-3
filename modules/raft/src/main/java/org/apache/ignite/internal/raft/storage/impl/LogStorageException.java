@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
-import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link LogStorageBudget} that always allows everything.
+ * Thrown if something wrong happens in the log storage.
  */
-public class UnlimitedBudget implements LogStorageBudget {
-    @Override
-    public boolean hasRoomFor(LogEntry entry) {
-        return true;
+class LogStorageException extends IgniteInternalException {
+    public LogStorageException(String msg, @Nullable Throwable cause) {
+        super(msg, cause);
     }
 }

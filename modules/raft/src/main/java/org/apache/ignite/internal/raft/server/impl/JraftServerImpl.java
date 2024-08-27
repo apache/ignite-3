@@ -456,11 +456,7 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setLogUri(nodeIdStr(nodeId));
 
-            Path dataPath = groupOptions.serverDataPath();
-
-            assert dataPath != null : "Raft metadata path was not set.";
-
-            Path serverDataPath = getServerDataPath(dataPath, nodeId);
+            Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
 
             if (!groupOptions.volatileStores()) {
                 try {
@@ -525,6 +521,14 @@ public class JraftServerImpl implements RaftServer {
         }
     }
 
+    private static Path serverDataPathForNodeId(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
+        Path dataPath = groupOptions.serverDataPath();
+
+        assert dataPath != null : "Raft metadata path was not set.";
+
+        return getServerDataPath(dataPath, nodeId);
+    }
+
     @Override
     public boolean isStarted(RaftNodeId nodeId) {
         return nodes.containsKey(nodeId);
@@ -557,6 +561,17 @@ public class JraftServerImpl implements RaftServer {
                 return false;
             }
         });
+    }
+
+    @Override
+    public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
+        String uri = nodeIdStr(nodeId);
+        groupOptions.getLogStorageFactory().destroyLogStorage(uri);
+
+        Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
+
+        // This destroys both meta storage and snapshots storage as they are stored under serverDataPath.
+        IgniteUtils.deleteIfExists(serverDataPath);
     }
 
     /**

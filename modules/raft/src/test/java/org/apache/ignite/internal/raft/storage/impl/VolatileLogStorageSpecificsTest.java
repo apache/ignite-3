@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
 import static org.apache.ignite.raft.jraft.test.TestUtils.mockEntry;
 import static org.hamcrest.MatcherAssert.assertThat;

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.FeatureChecker;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
@@ -97,6 +98,15 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         Path storagePath = resolveLogStoragePath(groupId);
 
         return new LogitLogStorage(storagePath, storeOptions, raftOptions, checkpointExecutor);
+    }
+
+    @Override
+    public boolean destroyLogStorage(String uri) {
+        Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
+
+        Path storagePath = resolveLogStoragePath(uri);
+
+        return IgniteUtils.deleteIfExists(storagePath);
     }
 
     @Override

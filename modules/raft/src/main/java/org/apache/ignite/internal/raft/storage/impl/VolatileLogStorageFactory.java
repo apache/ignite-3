@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSpillout.groupEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSpillout.groupStartPrefix;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashMap;
@@ -27,6 +29,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -34,17 +38,16 @@ import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
-import org.apache.ignite.raft.jraft.storage.impl.OnHeapLogs;
-import org.apache.ignite.raft.jraft.storage.impl.RocksDbSpillout;
-import org.apache.ignite.raft.jraft.storage.impl.VolatileLogStorage;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 
 /**
  * Log storage factory based on {@link VolatileLogStorage}.
  */
 public class VolatileLogStorageFactory implements LogStorageFactory {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatileLogStorageFactory.class);
+
     private final LogStorageBudgetView logStorageBudgetConfig;
 
     /** Shared db instance. */
@@ -116,6 +119,18 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
     public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
         RocksDbSpillout spiltOnDisk = new RocksDbSpillout(db, columnFamily, groupId, executor);
         return new VolatileLogStorage(createLogStorageBudget(), new OnHeapLogs(), spiltOnDisk);
+    }
+
+    @Override
+    public boolean destroyLogStorage(String uri) {
+        try {
+            RocksDbSpillout.deleteAllEntriesBetween(db, columnFamily, groupStartPrefix(uri), groupEndPrefix(uri));
+            return true;
+        } catch (RocksDBException e) {
+            LOG.error("Fail to destroy the log storage spillout for {}.", e, uri);
+
+            return false;
+        }
     }
 
     private LogStorageBudget createLogStorageBudget() {

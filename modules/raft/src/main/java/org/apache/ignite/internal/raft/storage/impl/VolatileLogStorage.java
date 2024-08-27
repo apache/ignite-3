@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.storage.impl;
+
+package org.apache.ignite.internal.raft.storage.impl;
 
 import java.util.List;
 import java.util.concurrent.locks.Lock;
@@ -57,6 +58,9 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
 
     private volatile boolean initialized = false;
 
+    /**
+     * Constructor.
+     */
     public VolatileLogStorage(LogStorageBudget inMemoryBudget, Logs inMemoryLogs, Logs spiltOnDisk) {
         this.inMemoryBudget = inMemoryBudget;
 

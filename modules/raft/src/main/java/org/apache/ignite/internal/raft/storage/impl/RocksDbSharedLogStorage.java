@@ -165,13 +165,21 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.confHandle = confHandle;
         this.dataHandle = dataHandle;
         this.executor = executor;
-        this.groupStartPrefix = (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
-        this.groupEndPrefix = (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
+        this.groupStartPrefix = groupStartPrefix(groupId);
+        this.groupEndPrefix = groupEndPrefix(groupId);
         this.groupStartBound = new Slice(groupStartPrefix);
         this.groupEndBound = new Slice(groupEndPrefix);
 
         this.writeOptions = new WriteOptions();
         this.writeOptions.setSync(raftOptions.isSync());
+    }
+
+    static byte[] groupStartPrefix(String groupId) {
+        return (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
+    }
+
+    static byte[] groupEndPrefix(String groupId) {
+        return (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
     }
 
     /**
@@ -539,8 +547,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
         try {
             LogEntry entry = getEntry(nextLogIndex);
-            db.deleteRange(dataHandle, groupStartPrefix, groupEndPrefix);
-            db.deleteRange(confHandle, groupStartPrefix, groupEndPrefix);
+            destroyAllEntriesBetween(db, confHandle, dataHandle, groupStartPrefix, groupEndPrefix);
 
             onReset(nextLogIndex);
 
@@ -561,6 +568,17 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         } finally {
             this.manageLock.unlock();
         }
+    }
+
+    static void destroyAllEntriesBetween(
+            RocksDB db,
+            ColumnFamilyHandle confHandle,
+            ColumnFamilyHandle dataHandle,
+            byte[] startPrefix,
+            byte[] endPrefix
+    ) throws RocksDBException {
+        db.deleteRange(dataHandle, startPrefix, endPrefix);
+        db.deleteRange(confHandle, startPrefix, endPrefix);
     }
 
     /** {@inheritDoc} */
