@@ -19,9 +19,9 @@ package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -211,7 +211,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
         sharedStorages.forEach(Lifecycle::shutdown);
         assertThat(provider.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        deleteDirectory(benchmarkPath.toFile());
+        deleteIfExists(benchmarkPath);
     }
 
     private static void testIsolated(int batchSize, int logSize, int totalLogs, List<String> grps) throws IOException {
@@ -239,23 +239,6 @@ public class SharedVsNonSharedLogStorageBenchmark {
 
         isolatedStorages.forEach(Lifecycle::shutdown);
 
-        deleteDirectory(benchmarkPath.toFile());
-    }
-
-    private static void deleteDirectory(File directory) {
-        // if the file is directory or not
-        if (directory.isDirectory()) {
-            File[] files = directory.listFiles();
-
-            // if the directory contains any file
-            if (files != null) {
-                for (File file : files) {
-                    // recursive call if the subdirectory is non-empty
-                    deleteDirectory(file);
-                }
-            }
-        }
-
-        directory.delete();
+        deleteIfExists(benchmarkPath);
     }
 }

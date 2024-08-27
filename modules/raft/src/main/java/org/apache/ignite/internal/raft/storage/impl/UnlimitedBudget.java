@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
-import org.junit.jupiter.api.Test;
 
-class UnlimitedBudgetTest {
-    private final UnlimitedBudget budget = new UnlimitedBudget();
-
-    @Test
-    void allowsAppend() {
-        assertTrue(budget.hasRoomFor(new LogEntry()));
+/**
+ * {@link LogStorageBudget} that always allows everything.
+ */
+public class UnlimitedBudget implements LogStorageBudget {
+    @Override
+    public boolean hasRoomFor(LogEntry entry) {
+        return true;
     }
 }

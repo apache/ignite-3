@@ -15,16 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.sql.sqllogic;
 
-import org.apache.ignite.raft.jraft.entity.LogEntry;
+import java.util.Arrays;
 
 /**
- * {@link LogStorageBudget} that always allows everything.
+ * EndFor command serves as a marker that ends a block of commands that forms a for loop.
+ *
+ * @see For For loop command
  */
-public class UnlimitedBudget implements LogStorageBudget {
+final class EndFor extends Command {
+
+    /** Creates an instance of Endloop command by parsing it from script and token. **/
+    EndFor(Script script, ScriptContext ctx, String[] tokens) {
+        super(script.scriptPosition());
+        if (tokens.length > 1) {
+            throw new IllegalArgumentException("EndFor accepts no arguments: " + Arrays.toString(tokens));
+        }
+    }
+
     @Override
-    public boolean hasRoomFor(LogEntry entry) {
-        return true;
+    void execute(ScriptContext ctx) {
+        // No-op.
     }
 }

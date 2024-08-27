@@ -24,28 +24,10 @@ SELECT CAST(1e20 AS DECIMAL(5));
 statement error
 SELECT CAST(-1e20 AS DECIMAL(5));
 
-query T
-SELECT CAST(100::TINYINT AS DECIMAL);
-----
-100
+for val in [100::TINYINT, 100::SMALLINT, 100::INT, 100::BIGINT, 100::DECIMAL, 100::DECIMAL(3)]
 
 query T
-SELECT CAST(100::SMALLINT AS DECIMAL);
-----
-100
-
-query T
-SELECT CAST(100::INT AS DECIMAL);
-----
-100
-
-query T
-SELECT CAST(100::BIGINT AS DECIMAL);
-----
-100
-
-query T
-SELECT CAST(100::DECIMAL(3) AS DECIMAL);
+SELECT CAST(${val} AS DECIMAL);
 ----
 100
 
@@ -98,67 +80,25 @@ SELECT CAST(x'00'::BINARY AS DECIMAL);
 statement error: Cast function cannot convert value of type VARBINARY to type DECIMAL
 SELECT CAST(x'00'::VARBINARY AS DECIMAL);
 
+for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
+
 query T
-SELECT CAST(INTERVAL 11 YEAR AS DECIMAL(5));
+SELECT CAST(INTERVAL 11 ${interval_type} AS DECIMAL);
 ----
 11
 
-query T
-SELECT CAST(INTERVAL 11 MONTH AS DECIMAL(5));
-----
-11
-
-query T
-SELECT CAST(INTERVAL 11 DAYS AS DECIMAL(5));
-----
-11
-
-query T
-SELECT CAST(INTERVAL 11 HOURS AS DECIMAL(5));
-----
-11
-
-query T
-SELECT CAST(INTERVAL 11 MINUTES AS DECIMAL(5));
-----
-11
-
-query T
-SELECT CAST(INTERVAL 11 SECONDS AS DECIMAL(5));
-----
-11
+endfor
 
 # Comparison ignores trailing zeros. It treats 11 as 11.00
 
+for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
+
 query T
-SELECT CAST(INTERVAL 11 YEAR AS DECIMAL(5, 2));
+SELECT CAST(INTERVAL 11 ${interval_type} AS DECIMAL(5,2));
 ----
 11
 
-query T
-SELECT CAST(INTERVAL 11 MONTH AS DECIMAL(5, 2));
-----
-11
-
-query T
-SELECT CAST(INTERVAL 11 DAYS AS DECIMAL(5, 2));
-----
-11
-
-query T
-SELECT CAST(INTERVAL 11 HOURS AS DECIMAL(5, 2));
-----
-11
-
-query T
-SELECT CAST(INTERVAL 11 MINUTES AS DECIMAL(5, 2));
-----
-11
-
-query T
-SELECT CAST(INTERVAL 11 SECONDS AS DECIMAL(5, 2));
-----
-11
+endfor
 
 statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type DECIMAL
 SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS DECIMAL(5));
@@ -190,23 +130,12 @@ SELECT CAST(INTERVAL '1-0' YEARS TO MONTHS AS DECIMAL(5));
 statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DECIMAL
 SELECT CAST(INTERVAL '1-1' YEARS TO MONTHS AS DECIMAL(5));
 
-statement error: Numeric field overflow
-SELECT CAST(INTERVAL 11 YEAR AS DECIMAL(1));
+for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
 
 statement error: Numeric field overflow
-SELECT CAST(INTERVAL 11 MONTH AS DECIMAL(1));
+SELECT CAST(INTERVAL 11 ${interval_type} AS DECIMAL(1));
 
-statement error: Numeric field overflow
-SELECT CAST(INTERVAL 11 DAYS AS DECIMAL(1));
-
-statement error: Numeric field overflow
-SELECT CAST(INTERVAL 11 HOURS AS DECIMAL(1));
-
-statement error: Numeric field overflow
-SELECT CAST(INTERVAL 11 MINUTES AS DECIMAL(1));
-
-statement error: Numeric field overflow
-SELECT CAST(INTERVAL 11 SECONDS AS DECIMAL(1));
+endfor
 
 statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type DECIMAL
 SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS DECIMAL(1));
