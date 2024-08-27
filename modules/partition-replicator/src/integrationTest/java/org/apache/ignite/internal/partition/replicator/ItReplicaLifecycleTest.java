@@ -206,7 +206,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -592,7 +591,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testAlterRebalanceExtend(TestInfo testInfo) throws Exception {
+    public void testTableReplicaListenersCreationAfterRebalance(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(
