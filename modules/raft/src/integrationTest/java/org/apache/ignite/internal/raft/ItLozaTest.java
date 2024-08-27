@@ -325,7 +325,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         RaftGroupListener raftGroupListener = new DrainingRaftGroupListener();
 
-        TestReplicationGroupId replicationGroupId = new TestReplicationGroupId("persistent");
+        var replicationGroupId = new TestReplicationGroupId("persistent");
         var nodeId = new RaftNodeId(replicationGroupId, peer);
 
         RaftGroupOptionsConfigurer configurer = RaftGroupOptionsConfigHelper.configureProperties(
