@@ -277,11 +277,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         Long localMinRequiredTime = getMinLocalTime(lwm);
 
-        if (localMinRequiredTime == null) {
-            // If do not have local time yet, Use a placeholder value that is going to be overwritten.
-            localMinRequiredTime = Long.MAX_VALUE;
-        }
-
         return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinRequiredTime)
                 .thenComposeAsync(timeHolder -> {
                     long minRequiredTime = timeHolder.minRequiredTime;
