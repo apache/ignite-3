@@ -34,6 +34,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -109,6 +110,7 @@ public class ConnectionTest extends AbstractClientTest {
 
     @SuppressWarnings("ThrowableNotThrown")
     @Test
+    @WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "10")
     public void testNoResponseFromServerWithinOperationTimeoutThrowsException() {
         Function<Integer, Integer> responseDelay = x -> x > 2 ? 100 : 0;
 
