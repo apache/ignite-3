@@ -400,15 +400,14 @@ public class Loza implements RaftManager {
     @Override
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptionsConfigurer raftGroupOptionsConfigurer)
             throws NodeStoppingException {
-        RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
-
-        raftGroupOptionsConfigurer.configure(groupOptions);
-
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
+            RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
+            raftGroupOptionsConfigurer.configure(groupOptions);
+
             raftServer.destroyRaftNodeStorages(nodeId, groupOptions);
         } finally {
             busyLock.leaveBusy();
