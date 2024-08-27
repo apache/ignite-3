@@ -333,7 +333,7 @@ public class ItLozaTest extends IgniteAbstractTest {
                 partitionsWorkDir.metaPath()
         );
 
-        CompletableFuture<RaftGroupService> serviceFuture = loza.startRaftGroupNode(
+        CompletableFuture<RaftGroupService> startServiceFuture = loza.startRaftGroupNode(
                 nodeId,
                 configuration,
                 raftGroupListener,
@@ -341,8 +341,8 @@ public class ItLozaTest extends IgniteAbstractTest {
                 null,
                 configurer
         );
-        assertThat(serviceFuture, willCompleteSuccessfully());
-        RaftGroupService service = serviceFuture.join();
+        assertThat(startServiceFuture, willCompleteSuccessfully());
+        RaftGroupService service = startServiceFuture.join();
 
         assertThat(service.run(testWriteCommand("foo")), willCompleteSuccessfully());
 
