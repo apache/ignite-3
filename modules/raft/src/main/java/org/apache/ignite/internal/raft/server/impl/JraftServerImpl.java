@@ -524,7 +524,7 @@ public class JraftServerImpl implements RaftServer {
     private static Path serverDataPathForNodeId(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
         Path dataPath = groupOptions.serverDataPath();
 
-        assert dataPath != null : "Raft metadata path was not set.";
+        assert dataPath != null : "Raft metadata path was not set, nodeId is " + nodeId;
 
         return getServerDataPath(dataPath, nodeId);
     }
