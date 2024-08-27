@@ -125,7 +125,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts = new AtomicInteger(0);
 
-    /** Function that calculates assignments for table's partition. */
+    /** Function that calculates assignments for zone's partition. */
     private final BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
 
     /**
@@ -136,6 +136,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param busyLock Busy lock.
      * @param partitionMover Class that moves partition between nodes.
      * @param rebalanceScheduler Executor for scheduling rebalance retries.
+     * @param calculateAssignmentsFn Function that calculates assignments for zone's partition.
      */
     public ZoneRebalanceRaftGroupEventsListener(
             MetaStorageManager metaStorageMgr,

@@ -217,7 +217,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 try {
                     Set<Assignment> stable = createAssignments(configuration);
 
-                    doStableKeySwitch(stable, tablePartitionId, metaStorageMgr);
+                    doStableKeySwitch(stable, tablePartitionId, metaStorageMgr, calculateAssignmentsFn);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -291,10 +291,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /**
      * Updates stable value with the new applied assignment.
      */
-    private void doStableKeySwitch(
+    private static void doStableKeySwitch(
             Set<Assignment> stableFromRaft,
             TablePartitionId tablePartitionId,
-            MetaStorageManager metaStorageMgr
+            MetaStorageManager metaStorageMgr,
+            BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
         try {
             ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(tablePartitionId);
@@ -460,7 +461,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 doStableKeySwitch(
                         stableFromRaft,
                         tablePartitionId,
-                        metaStorageMgr
+                        metaStorageMgr,
+                        calculateAssignmentsFn
                 );
 
                 return;
