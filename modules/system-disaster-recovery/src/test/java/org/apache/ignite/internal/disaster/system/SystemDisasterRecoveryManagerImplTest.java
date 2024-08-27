@@ -78,6 +78,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -280,13 +281,17 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void assertThatResetClusterMessageIsAsExpected(ResetClusterMessage message) {
+        assertThatResetClusterMessageContentIsAsExpected(message, thisNodeName);
+    }
+
+    private void assertThatResetClusterMessageContentIsAsExpected(@Nullable ResetClusterMessage message, String expectedConductor) {
         assertThat(message, is(notNullValue()));
         assertThat(message.cmgNodes(), containsInAnyOrder(thisNodeName, node2.name()));
         assertThat(message.metaStorageNodes(), is(usualClusterState.metaStorageNodes()));
         assertThat(message.clusterName(), is(CLUSTER_NAME));
         assertThat(message.clusterId(), is(not(usualClusterState.clusterTag().clusterId())));
         assertThat(message.formerClusterIds(), contains(usualClusterState.clusterTag().clusterId()));
-        assertThat(message.conductor(), is(thisNodeName));
+        assertThat(message.conductor(), is(expectedConductor));
     }
 
     @Test
@@ -369,13 +374,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
         ResetClusterMessage savedMessage = fromBytes(entry.value());
 
-        assertThat(savedMessage.cmgNodes(), containsInAnyOrder(thisNodeName, node2.name()));
-        assertThat(savedMessage.metaStorageNodes(), is(usualClusterState.metaStorageNodes()));
-        assertThat(savedMessage.clusterName(), is(CLUSTER_NAME));
-        assertThat(savedMessage.clusterId(), is(notNullValue()));
-        assertThat(savedMessage.clusterId(), is(not(usualClusterState.clusterTag().clusterId())));
-        assertThat(savedMessage.formerClusterIds(), is(List.of(usualClusterState.clusterTag().clusterId())));
-        assertThat(savedMessage.conductor(), is(conductor.name()));
+        assertThatResetClusterMessageContentIsAsExpected(savedMessage, conductor.name());
     }
 
     private NetworkMessageHandler extractMessageHandler() {
