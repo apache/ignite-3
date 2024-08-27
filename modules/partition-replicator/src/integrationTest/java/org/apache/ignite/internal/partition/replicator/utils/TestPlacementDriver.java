@@ -38,8 +38,9 @@ import org.apache.ignite.network.ClusterNode;
  * Trivial placement driver for tests.
  */
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
-public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>  implements
-        PlacementDriver {
+public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
+        implements PlacementDriver {
+    private static final int DEFAULT_ZONE_ID = 0;
 
     private volatile ClusterNode primary;
 
@@ -64,8 +65,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
-    public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId,
-            HybridTimestamp timestamp) {
+    public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return getPrimaryReplicaMeta(replicationGroupId).join();
     }
 
@@ -83,7 +83,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta(ReplicationGroupId replicationGroupId) {
-        if (replicationGroupId instanceof ZonePartitionId && ((ZonePartitionId) replicationGroupId).zoneId() == 0) {
+        if (replicationGroupId instanceof ZonePartitionId && ((ZonePartitionId) replicationGroupId).zoneId() == DEFAULT_ZONE_ID) {
             return nullCompletedFuture();
         }
 

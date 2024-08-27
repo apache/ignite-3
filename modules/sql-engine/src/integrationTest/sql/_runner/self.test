@@ -63,12 +63,36 @@ statement error: From line 1,    column 8
 SELECT col
 
 # check loop
-loop i 0 10
+loop i 0 2
 
 query I
-SELECT MIN(c1) FROM (VALUES(${i}), (-1), (2)) t(c1);
+SELECT c1 FROM (VALUES (${i})) t(c1);
 ----
--1
+${i}
+
+endloop
+
+# check nested loops
+loop i 0 3
+
+query T
+SELECT 'i=${i} start'
+----
+i=${i} start
+
+loop j 0 4
+
+query T
+SELECT '${i}.${j}'
+----
+${i}.${j}
+
+endloop
+
+query T
+SELECT 'i=${i} end'
+----
+i=${i} end
 
 endloop
 

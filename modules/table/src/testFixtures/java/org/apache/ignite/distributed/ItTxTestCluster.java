@@ -91,6 +91,7 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -111,6 +112,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -178,6 +181,8 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private final List<NetworkAddress> localAddresses;
 
@@ -713,7 +718,9 @@ public class ItTxTestCluster {
                         catalogService,
                         schemaManager,
                         clockServices.get(assignment),
-                        mock(IndexMetaStorage.class)
+                        mock(IndexMetaStorage.class),
+                        // TODO use proper index.
+                        clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id()
                 );
 
                 Function<RaftGroupService, ReplicaListener> createReplicaListener = raftClient -> newReplicaListener(
@@ -754,6 +761,35 @@ public class ItTxTestCluster {
 
                 partitionReadyFutures.add(partitionReadyFuture);
             }
+        }
+
+        allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
+
+        for (int p = 0; p < assignments.size(); p++) {
+            TablePartitionId grpId = grpIds.get(p);
+            CompletableFuture<ReplicaMeta> primaryFuture = placementDriver.getPrimaryReplica(grpId,
+                    clockServices.values().iterator().next().now());
+
+            // TestPlacementDriver always returns completed futures.
+            assert primaryFuture.isDone();
+
+            ReplicaMeta primary = primaryFuture.join();
+
+            assert primary.getLeaseholderId() != null;
+
+            PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                    .leaseStartTime(primary.getStartTime().longValue())
+                    .primaryReplicaNodeId(primary.getLeaseholderId())
+                    .primaryReplicaNodeName(primary.getLeaseholder())
+                    .build();
+
+            CompletableFuture<RaftGroupService> raftClientFuture = getRaftClientForGroup(grpId);
+
+            assertThat(raftClientFuture, willCompleteSuccessfully());
+
+            CompletableFuture<?> primaryReplicaChangePropagationFuture = raftClientFuture.join().run(cmd);
+
+            partitionReadyFutures.add(primaryReplicaChangePropagationFuture);
         }
 
         allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();

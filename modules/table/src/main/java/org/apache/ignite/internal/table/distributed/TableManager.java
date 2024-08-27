@@ -1173,7 +1173,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             catalogService,
                             table.schemaView(),
                             clockService,
-                            indexMetaStorage
+                            indexMetaStorage,
+                            topologyService.localMember().id()
                     );
 
                     SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,

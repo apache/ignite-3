@@ -51,6 +51,13 @@ public class ReplManager {
     private EventListeningActivationPoint eventListeningActivationPoint;
 
     /**
+     * Subscribes to CLI events. Should be called before {@link #startReplMode()}.
+     */
+    public void subscribe() {
+        eventListeningActivationPoint.subscribe();
+    }
+
+    /**
      * Enters REPL mode.
      */
     public void startReplMode() {
@@ -69,7 +76,6 @@ public class ReplManager {
                 .withOnStart(question::askQuestionOnReplStart)
                 .withHistoryFileName("history")
                 .withAutosuggestionsWidgets()
-                .withEventSubscriber(eventListeningActivationPoint)
                 .build());
     }
 }

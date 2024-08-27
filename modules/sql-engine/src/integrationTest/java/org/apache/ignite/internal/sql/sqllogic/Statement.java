@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 
@@ -117,9 +118,11 @@ final class Statement extends Command {
                         () -> ctx.executeQuery(qry),
                         "Not expected result at: " + posDesc + ". Statement: " + qry + ". No error occurred");
 
+                Matcher<String> errorMatcher = expected.errorMatcher(ctx);
+
                 assertThat(
                         "Not expected result at: " + posDesc + ". Statement: " + qry + ". Expected: " + expected.errorMessage,
-                        err.getMessage(), expected.errorMessage);
+                        err.getMessage(), errorMatcher);
             }
         }
     }
@@ -136,9 +139,9 @@ final class Statement extends Command {
 
         private final boolean successful;
 
-        private final org.hamcrest.Matcher<String> errorMessage;
+        private final @Nullable String errorMessage;
 
-        ExpectedStatementStatus(boolean successful, @Nullable org.hamcrest.Matcher<String> errorMessage) {
+        ExpectedStatementStatus(boolean successful, @Nullable String errorMessage) {
             if (successful && errorMessage != null) {
                 throw new IllegalArgumentException("Successful status with error message: " + errorMessage);
             }
@@ -151,11 +154,19 @@ final class Statement extends Command {
         }
 
         static ExpectedStatementStatus error() {
-            return new ExpectedStatementStatus(false, anyOf(nullValue(String.class), any(String.class)));
+            return new ExpectedStatementStatus(false, null);
         }
 
         static ExpectedStatementStatus error(String errorMessage) {
-            return new ExpectedStatementStatus(false, containsString(errorMessage));
+            return new ExpectedStatementStatus(false, errorMessage);
+        }
+
+        Matcher<String> errorMatcher(ScriptContext ctx) {
+            if (errorMessage == null) {
+                return anyOf(nullValue(String.class), any(String.class));
+            } else {
+                return containsString(ctx.replaceVars(errorMessage));
+            }
         }
 
         @Override

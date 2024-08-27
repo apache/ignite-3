@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.storage.impl;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.junit.jupiter.api.Test;
 

@@ -46,6 +46,11 @@ public class LocalLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
+    public void destroyLogStorage(String uri) {
+        // This creates on-heap storages, nothing to destroy.
+    }
+
+    @Override
     public void sync() {
         // no-op
     }

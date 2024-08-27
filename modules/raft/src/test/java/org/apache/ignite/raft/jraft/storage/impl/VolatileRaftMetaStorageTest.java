@@ -17,17 +17,18 @@
 
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.option.RaftMetaStorageOptions;
-import org.apache.ignite.raft.jraft.storage.VolatileStorage;
-import org.junit.jupiter.api.Test;
-
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.apache.ignite.internal.raft.storage.impl.VolatileRaftMetaStorage;
+import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.option.RaftMetaStorageOptions;
+import org.apache.ignite.raft.jraft.storage.VolatileStorage;
+import org.junit.jupiter.api.Test;
 
 class VolatileRaftMetaStorageTest {
     private final VolatileRaftMetaStorage storage = new VolatileRaftMetaStorage();

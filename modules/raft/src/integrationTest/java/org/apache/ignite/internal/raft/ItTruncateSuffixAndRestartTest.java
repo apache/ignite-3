@@ -64,6 +64,9 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.OnHeapLogs;
+import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -80,9 +83,6 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.OnHeapLogs;
-import org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget;
-import org.apache.ignite.raft.jraft.storage.impl.VolatileLogStorage;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -387,6 +387,11 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         @Override
         public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
             return logStorage;
+        }
+
+        @Override
+        public void destroyLogStorage(String uri) {
+            // No-op.
         }
 
         @Override
