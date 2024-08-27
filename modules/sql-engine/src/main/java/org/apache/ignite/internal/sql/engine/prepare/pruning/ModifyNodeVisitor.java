@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
@@ -295,6 +296,11 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
     @Override
     public @Nullable List<List<RexNode>> visit(IgniteKeyValueModify rel) {
         return processUnexpected("KV plans are not supposed to be part of distributed plans [node={}].", rel.getClass().getName());
+    }
+
+    @Override
+    public @Nullable List<List<RexNode>> visit(IgniteSelectCount rel) {
+        return processUnexpected("SelectCountPlan is not supposed to be part of distributed plans [node={}].", rel.getClass().getName());
     }
 
     @Override
