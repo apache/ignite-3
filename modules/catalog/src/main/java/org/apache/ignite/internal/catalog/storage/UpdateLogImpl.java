@@ -225,8 +225,6 @@ public class UpdateLogImpl implements UpdateLog {
 
             Iif iif = iif(versionIsRecent, saveSnapshotAndDropOutdatedUpdates, ops().yield(false));
 
-            LOG.info("Snapshot version is updated. [Old version: {}, new version: {}]", oldSnapshotVersion, snapshotVersion);
-
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
         } catch (CatalogMarshallerException ex) {
             LOG.warn("Failed to append update log.", ex);

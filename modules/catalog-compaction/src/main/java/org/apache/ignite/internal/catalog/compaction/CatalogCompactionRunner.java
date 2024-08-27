@@ -253,9 +253,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             Long state = e.getValue();
 
             if (state == null) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Partition state is missing [partition={}, all={}]", e.getKey(), partitionStates);
-                }
+                LOG.debug("Partition state is missing [partition={}, all={}]", e.getKey(), partitionStates);
                 return null;
             }
 
@@ -265,13 +263,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
         // Choose the minimum time between the low watermark and the minimum time among all partitions.
         long chosenMinTime = Math.min(lwm.longValue(), partitionMinTime);
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Local minimum required time: [partitionMinTime={}, lowWatermark={}, chosen={}]",
-                    partitionMinTime,
-                    lwm,
-                    chosenMinTime
-            );
-        }
+        LOG.debug("Local minimum required time: [partitionMinTime={}, lowWatermark={}, chosen={}]",
+                partitionMinTime,
+                lwm,
+                chosenMinTime
+        );
 
         return chosenMinTime;
     }
@@ -298,10 +294,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     CompletableFuture<Boolean> catalogCompactionFut;
 
                     if (catalog == null) {
-                        if (LOG.isInfoEnabled()) {
-                            LOG.info("Catalog compaction skipped, nothing to compact (timestamp={}). No catalog at minRequiredTime",
-                                    minRequiredTime);
-                        }
+                        LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}]. No catalog at minRequiredTime",
+                                minRequiredTime);
 
                         catalogCompactionFut = CompletableFutures.falseCompletedFuture();
                     } else {
@@ -318,9 +312,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         });
                     }
 
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Propagate minimum active tx begin time to replicas (timestamp={})", minActiveTxBeginTime);
-                    }
+                    LOG.debug("Propagate minimum active tx begin time to replicas [timestamp={}]", minActiveTxBeginTime);
 
                     CompletableFuture<Void> propagateToReplicasFut =
                             propagateTimeToNodes(minActiveTxBeginTime, topologySnapshot.nodes())
@@ -336,7 +328,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     );
                 }, executor).whenComplete((r, t) -> {
                     if (t != null) {
-                        LOG.warn("startCompaction launched (time) has failed", t);
+                        LOG.warn("startCompaction launched has failed", t);
                     }
                 });
     }
@@ -424,7 +416,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
 
                     if (!missingNodes.isEmpty()) {
-                        LOG.info("Catalog compaction aborted due to missing cluster members (nodes={})", missingNodes);
+                        LOG.info("Catalog compaction aborted due to missing cluster members [nodes={}]", missingNodes);
 
                         return CompletableFutures.falseCompletedFuture();
                     }
