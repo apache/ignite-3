@@ -147,7 +147,7 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
         Path storagePath = logStorageFactory.resolveLogStoragePath(uri());
         assertTrue(Files.isDirectory(storagePath));
 
-        assertTrue(logStorageFactory.destroyLogStorage(uri()));
+        logStorageFactory.destroyLogStorage(uri());
 
         assertFalse(Files.exists(storagePath));
     }

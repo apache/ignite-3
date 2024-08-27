@@ -390,8 +390,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public boolean destroyLogStorage(String uri) {
-            return true;
+        public void destroyLogStorage(String uri) {
+            // No-op.
         }
 
         @Override

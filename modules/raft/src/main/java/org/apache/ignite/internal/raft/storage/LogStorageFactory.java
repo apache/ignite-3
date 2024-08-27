@@ -38,7 +38,6 @@ public interface LogStorageFactory extends LogSyncer, IgniteComponent {
      * Destroys a log storage (that is, removes it from the disk).
      *
      * @param uri Log storage URI.
-     * @return Whether the storage was successfully destroyed.
      */
-    boolean destroyLogStorage(String uri);
+    void destroyLogStorage(String uri);
 }

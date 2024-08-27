@@ -23,7 +23,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Thrown if something wrong happens in the log storage.
  */
-class LogStorageException extends IgniteInternalException {
+public class LogStorageException extends IgniteInternalException {
+    public LogStorageException(String msg) {
+        super(msg);
+    }
+
     public LogStorageException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }

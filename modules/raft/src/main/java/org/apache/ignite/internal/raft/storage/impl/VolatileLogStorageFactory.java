@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSpillout.groupEndPrefix;
-import static org.apache.ignite.internal.raft.storage.impl.RocksDbSpillout.groupStartPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupStartPrefix;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashMap;
@@ -29,8 +29,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -46,8 +44,6 @@ import org.rocksdb.RocksDBException;
  * Log storage factory based on {@link VolatileLogStorage}.
  */
 public class VolatileLogStorageFactory implements LogStorageFactory {
-    private static final IgniteLogger LOG = Loggers.forClass(VolatileLogStorageFactory.class);
-
     private final LogStorageBudgetView logStorageBudgetConfig;
 
     /** Shared db instance. */
@@ -122,14 +118,11 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public boolean destroyLogStorage(String uri) {
+    public void destroyLogStorage(String uri) {
         try {
             RocksDbSpillout.deleteAllEntriesBetween(db, columnFamily, groupStartPrefix(uri), groupEndPrefix(uri));
-            return true;
         } catch (RocksDBException e) {
-            LOG.error("Fail to destroy the log storage spillout for {}.", e, uri);
-
-            return false;
+            throw new LogStorageException("Fail to destroy the log storage spillout for " + uri, e);
         }
     }
 
