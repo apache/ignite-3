@@ -193,6 +193,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                 var err = new IgniteClientConnectionException(
                         Client.CONNECTION_ERR,
                         "Client failed to connect: " + cause.getMessage(),
+                        addr.toString(),
                         cause);
 
                 fut.completeExceptionally(err);

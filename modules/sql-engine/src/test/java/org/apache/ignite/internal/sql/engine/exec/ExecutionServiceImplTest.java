@@ -116,6 +116,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.ExplicitTxContext;
+import org.apache.ignite.internal.sql.engine.framework.ImplicitTxContext;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -131,6 +132,7 @@ import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.SelectCountPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -141,6 +143,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
@@ -1015,6 +1018,36 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         awaitExecutionTimeout(execService, plan, 500, QueryCancelledException.class);
     }
 
+    @Test
+    public void testTimeoutSelectCount() {
+        // SELECT COUNT(*) does not run in transactional context.
+        QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
+
+        // Use a separate context, so planning won't timeout.
+        SqlOperationContext planCtx = operationContext(null)
+                .txContext(txContext)
+                .build();
+
+        QueryPlan plan = prepare("SELECT count(*) FROM test_tbl", planCtx);
+
+        assertInstanceOf(SelectCountPlan.class, plan);
+
+        int deadlineMillis = 500;
+
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
+
+        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
+        tableRegistry.setGetTableDelay(delay);
+
+        Function<QueryCancel, SqlOperationContext> implicitTx = (cancel) -> operationContext(null)
+                .cancel(cancel)
+                .txContext(txContext)
+                .build();
+
+        awaitExecutionTimeout(execService, plan, implicitTx, 500, SqlException.class);
+    }
+
     /**
      * Test ensures that there are no unexpected errors when a timeout occurs during the mapping phase.
      *
@@ -1227,15 +1260,28 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             long deadlineMillis,
             Class<? extends RuntimeException> errorClass
     ) {
+        // operationContext uses explicit transaction by default.
+        Function<QueryCancel, SqlOperationContext> explicitTx = (cancel) -> operationContext(null)
+                .cancel(cancel)
+                .build();
+
+        awaitExecutionTimeout(execService, plan, explicitTx, deadlineMillis, errorClass);
+    }
+
+    private void awaitExecutionTimeout(
+            ExecutionService execService,
+            QueryPlan plan,
+            Function<QueryCancel, SqlOperationContext> execCtxFunc,
+            long deadlineMillis,
+            Class<? extends RuntimeException> errorClass
+    ) {
         int attempts = 10;
 
         for (int k = 0; k < attempts; k++) {
             QueryCancel queryCancel = new QueryCancel();
             CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
 
-            SqlOperationContext execCtx = operationContext(null)
-                    .cancel(queryCancel)
-                    .build();
+            SqlOperationContext execCtx = execCtxFunc.apply(queryCancel);
 
             AsyncCursor<InternalSqlRow> cursor;
             try {

@@ -98,6 +98,7 @@ public class HeartbeatTest extends BaseIgniteAbstractTest {
                     .reconnectThrottlingPeriod(5000)
                     .reconnectThrottlingRetries(0)
                     .heartbeatInterval(50)
+                    .connectTimeout(0)
                     .loggerFactory(loggerFactory);
 
             try (var ignored = builder.build()) {

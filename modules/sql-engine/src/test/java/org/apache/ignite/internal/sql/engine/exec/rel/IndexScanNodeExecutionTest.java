@@ -266,6 +266,11 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             throw new UnsupportedOperationException();
         }
 
+        @Override
+        public CompletableFuture<Long> estimatedSize() {
+            throw new UnsupportedOperationException();
+        }
+
         private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithToken,
                 RowFactory<RowT> rowFactory) {
 
