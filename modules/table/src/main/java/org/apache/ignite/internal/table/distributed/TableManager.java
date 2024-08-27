@@ -944,7 +944,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     Assignments.assignmentListToString(newAssignments)
                             );
 
-                            throw ExceptionUtils.sneakyThrow(e);
+                            throw sneakyThrow(e);
                         }
 
                         return invokeResult;
@@ -995,7 +995,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         if (e != null) {
                             LOG.error("Couldn't get assignments from metastore for table [tableId={}].", e, tableId);
 
-                            throw ExceptionUtils.sneakyThrow(e);
+                            throw sneakyThrow(e);
                         }
 
                         return realAssignments;

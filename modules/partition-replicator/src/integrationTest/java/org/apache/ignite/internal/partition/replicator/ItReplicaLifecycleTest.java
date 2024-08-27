@@ -1372,8 +1372,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 }
             }
 
-            // TODO: KKK fix
-//            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
+
             try {
                 stopAsync(new ComponentContext(), components).join();
             } catch (Exception ex) {
