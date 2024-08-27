@@ -69,6 +69,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -422,7 +423,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Void> readyToProcessTableStarts = new CompletableFuture<>();
 
-    private final ConcurrentHashMap<Integer, Set<TableImpl>> tablesPerZone = new ConcurrentHashMap<>();
+    private final Map<Integer, Set<TableImpl>> tablesPerZone = new HashMap<>();
 
     /**
      * Creates a new table manager.
@@ -647,7 +648,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryReplicaExpired);
 
-
             return nullCompletedFuture();
         });
     }
@@ -664,9 +664,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         List<CompletableFuture<?>> futs = new ArrayList<>();
 
         readyToProcessTableStarts.thenRun(() -> {
-            Set<TableImpl> zoneTables = tables(parameters.zoneDescriptor().id());
+            Set<TableImpl> zoneTables = zoneTables(parameters.zoneDescriptor().id());
 
-            final PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.partitionId());
+            PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.partitionId());
 
             zoneTables.forEach(tbl -> {
                 futs.add(inBusyLockAsync(busyLock,
@@ -766,7 +766,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table))
                 .handle((v, th) -> {
-                    add(zoneDescriptor.id(), table);
+                    addTableToZone(zoneDescriptor.id(), table);
                     partitionReplicaLifecycleManager.unlockZoneIdForRead(zoneDescriptor.id(), stamp);
 
                     if (th != null) {
@@ -2908,7 +2908,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.streamerReceiverRunner = runner;
     }
 
-    private Set<TableImpl> tables(int zoneId) {
+    private Set<TableImpl> zoneTables(int zoneId) {
         return tablesPerZone.compute(zoneId, (id, tables) -> {
             if (tables == null) {
                 tables = new HashSet<>();
@@ -2918,7 +2918,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private void add(int zoneId, TableImpl table) {
+    private void addTableToZone(int zoneId, TableImpl table) {
         tablesPerZone.compute(zoneId, (id, tbls) -> {
             if (tbls == null) {
                 tbls = new HashSet<>();

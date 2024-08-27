@@ -264,7 +264,7 @@ public class ByteUtils {
         ) {
             return (T) in.readObject();
         } catch (IOException | ClassNotFoundException e) {
-            throw new IgniteInternalException("Could not deserialize an object " + bytes.length, e);
+            throw new IgniteInternalException("Could not deserialize an object", e);
         }
     }
 

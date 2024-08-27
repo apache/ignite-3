@@ -681,10 +681,8 @@ public class PartitionReplicaLifecycleManager  extends
 
         try {
             return replicaMgr.replica(zonePartitionId).get();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
+        } catch (InterruptedException | ExecutionException e) {
+            throw new IgniteInternalException(e);
         }
     }
 
