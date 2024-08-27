@@ -565,13 +565,16 @@ public class JraftServerImpl implements RaftServer {
 
     @Override
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
-        String uri = nodeIdStr(nodeId);
-        groupOptions.getLogStorageFactory().destroyLogStorage(uri);
+        // TODO: IGNITE-23079 - improve on what we do if it was not possible to destroy any of the storages.
+        try {
+            String uri = nodeIdStr(nodeId);
+            groupOptions.getLogStorageFactory().destroyLogStorage(uri);
+        } finally {
+            Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
 
-        Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
-
-        // This destroys both meta storage and snapshots storage as they are stored under serverDataPath.
-        IgniteUtils.deleteIfExists(serverDataPath);
+            // This destroys both meta storage and snapshots storage as they are stored under serverDataPath.
+            IgniteUtils.deleteIfExists(serverDataPath);
+        }
     }
 
     /**
