@@ -213,7 +213,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     ) {
         Set<String> consistentIdsOfNodesInTopology = nodesInTopology.stream().map(ClusterNode::name).collect(toSet());
 
-        HashSet<String> notInTopology = new HashSet<>(proposedCmgConsistentIds);
+        Set<String> notInTopology = new HashSet<>(proposedCmgConsistentIds);
         notInTopology.removeAll(consistentIdsOfNodesInTopology);
 
         if (!notInTopology.isEmpty()) {
