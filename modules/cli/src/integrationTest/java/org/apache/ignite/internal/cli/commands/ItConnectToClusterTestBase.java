@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import jakarta.inject.Inject;
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,6 +42,7 @@ import picocli.CommandLine.Help.Ansi;
 public class ItConnectToClusterTestBase extends CliIntegrationTest {
     @Inject
     protected TestStateConfigProvider stateConfigProvider;
+
     @Inject
     protected ConnectToClusterQuestion question;
 
@@ -51,6 +53,8 @@ public class ItConnectToClusterTestBase extends CliIntegrationTest {
 
     private Path input;
 
+    private ByteArrayOutputStream output;
+
     @Override
     protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;
@@ -59,7 +63,8 @@ public class ItConnectToClusterTestBase extends CliIntegrationTest {
     @BeforeEach
     public void setUpTerminal() throws Exception {
         input = Files.createTempFile(WORK_DIR, "input", "");
-        terminal = new DumbTerminal(Files.newInputStream(input), new FileOutputStream(FileDescriptor.out));
+        output = new ByteArrayOutputStream();
+        terminal = new DumbTerminal(Files.newInputStream(input), output);
         QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
     }
 
@@ -73,11 +78,17 @@ public class ItConnectToClusterTestBase extends CliIntegrationTest {
         return Ansi.OFF.string(promptProvider.getPrompt());
     }
 
-    protected String nodeName() {
+    protected static String nodeName() {
         return CLUSTER.node(0).name();
     }
 
     protected void bindAnswers(String... answers) throws IOException {
         Files.writeString(input, String.join("\n", answers) + "\n");
+    }
+
+    protected void assertTerminalOutputIsEmpty() {
+        assertThat(output.toString())
+                .as("Expected terminal output to be empty")
+                .isEmpty();
     }
 }
