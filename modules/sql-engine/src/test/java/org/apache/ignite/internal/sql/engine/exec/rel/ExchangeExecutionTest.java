@@ -753,6 +753,11 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
                 }
             };
         }
+
+        @Override
+        public long estimatedSize() {
+            return times;
+        }
     }
 
     @Override

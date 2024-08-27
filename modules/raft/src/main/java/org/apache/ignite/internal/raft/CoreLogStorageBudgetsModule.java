@@ -22,10 +22,10 @@ import java.util.Map;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetView;
 import org.apache.ignite.internal.raft.configuration.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.raft.storage.impl.EntryCountBudget;
+import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
-import org.apache.ignite.raft.jraft.storage.impl.EntryCountBudget;
-import org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget;
 
 /**
  * Provides core budget factories.

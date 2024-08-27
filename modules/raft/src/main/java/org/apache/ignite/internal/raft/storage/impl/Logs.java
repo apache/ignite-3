@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.storage.impl;
+
+package org.apache.ignite.internal.raft.storage.impl;
 
 import java.util.List;
 import org.apache.ignite.raft.jraft.Lifecycle;
@@ -27,32 +28,32 @@ import org.apache.ignite.raft.jraft.storage.Storage;
  */
 interface Logs extends Lifecycle<LogStorageOptions>, Storage {
     /**
-     * Get logEntry by index.
+     * Gets logEntry by index.
      */
-    LogEntry getEntry(final long index);
+    LogEntry getEntry(long index);
 
     /**
-     * Append entries to log.
+     * Appends entries to log.
      */
-    void appendEntry(final LogEntry entry);
+    void appendEntry(LogEntry entry);
 
     /**
-     * Append entries to log.
+     * Appends entries to log.
      */
-    void appendEntries(final List<LogEntry> entries);
+    void appendEntries(List<LogEntry> entries);
 
     /**
-     * Delete logs from storage's head, [first_log_index, first_index_kept) will be discarded.
+     * Deletes logs from storage's head, [first_log_index, first_index_kept) will be discarded.
      */
-    void truncatePrefix(final long firstIndexKept);
+    void truncatePrefix(long firstIndexKept);
 
     /**
-     * Delete uncommitted logs from storage's tail, (last_index_kept, last_log_index] will be discarded.
+     * Deletes uncommitted logs from storage's tail, (last_index_kept, last_log_index] will be discarded.
      */
-    void truncateSuffix(final long lastIndexKept);
+    void truncateSuffix(long lastIndexKept);
 
     /**
-     * Drop all the existing logs and reset next log index to |next_log_index|. This function is called after installing
+     * Drops all the existing logs and reset next log index to |next_log_index|. This function is called after installing
      * snapshot from leader.
      */
     void reset();

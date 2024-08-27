@@ -26,6 +26,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
@@ -36,6 +38,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -64,6 +67,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -74,7 +78,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.storage.LogManager;
-import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -236,30 +239,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         Peer peer = configuration.peer(nodeName);
 
-        // Raft listener that simply drains the given iterators.
-        RaftGroupListener raftGroupListener = new RaftGroupListener() {
-            @Override
-            public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-                iterator.forEachRemaining(c -> c.result(null));
-            }
-
-            @Override
-            public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-            }
-
-            @Override
-            public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-            }
-
-            @Override
-            public boolean onSnapshotLoad(Path path) {
-                return true;
-            }
-
-            @Override
-            public void onShutdown() {
-            }
-        };
+        RaftGroupListener raftGroupListener = new DrainingRaftGroupListener();
 
         LogStorageBudgetView volatileCfg = raftConfiguration.volatileRaft().logStorageBudget().value();
 
@@ -320,5 +300,86 @@ public class ItLozaTest extends IgniteAbstractTest {
         LogEntry entry = logManager.getEntry(lastLogIndex);
 
         assertThat(entry, is(notNullValue()));
+    }
+
+    @Test
+    void destroysRaftNodeStorages(@InjectConfiguration RaftConfiguration raftConfiguration) throws Exception {
+        ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
+
+        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+                clusterService.nodeName(),
+                partitionsWorkDir.raftLogPath()
+        );
+        logStorageFactory = spy(logStorageFactory);
+
+        allComponents.add(logStorageFactory);
+
+        assertThat(logStorageFactory.startAsync(componentContext), willCompleteSuccessfully());
+
+        loza = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+
+        assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
+
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(clusterService.nodeName()));
+        Peer peer = configuration.peer(clusterService.nodeName());
+
+        RaftGroupListener raftGroupListener = new DrainingRaftGroupListener();
+
+        var replicationGroupId = new TestReplicationGroupId("persistent");
+        var nodeId = new RaftNodeId(replicationGroupId, peer);
+
+        RaftGroupOptionsConfigurer configurer = RaftGroupOptionsConfigHelper.configureProperties(
+                logStorageFactory,
+                partitionsWorkDir.metaPath()
+        );
+
+        CompletableFuture<RaftGroupService> startServiceFuture = loza.startRaftGroupNode(
+                nodeId,
+                configuration,
+                raftGroupListener,
+                RaftGroupEventsListener.noopLsnr,
+                null,
+                configurer
+        );
+        assertThat(startServiceFuture, willCompleteSuccessfully());
+        RaftGroupService service = startServiceFuture.join();
+
+        assertThat(service.run(testWriteCommand("foo")), willCompleteSuccessfully());
+
+        loza.stopRaftNodes(replicationGroupId);
+
+        String groupUri = nodeId.groupId().toString() + "_" + nodeId.peer().consistentId() + "_" + nodeId.peer().idx();
+        Path groupRaftStoragesPath = partitionsWorkDir.metaPath().resolve(groupUri);
+
+        assertTrue(Files.isDirectory(groupRaftStoragesPath));
+
+        loza.destroyRaftNodeStorages(nodeId, configurer);
+
+        verify(logStorageFactory).destroyLogStorage(groupUri);
+        assertFalse(Files.exists(groupRaftStoragesPath));
+    }
+
+    private static class DrainingRaftGroupListener implements RaftGroupListener {
+        @Override
+        public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+            iterator.forEachRemaining(c -> c.result(null));
+        }
+
+        @Override
+        public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
+        }
+
+        @Override
+        public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+        }
+
+        @Override
+        public boolean onSnapshotLoad(Path path) {
+            return true;
+        }
+
+        @Override
+        public void onShutdown() {
+        }
     }
 }

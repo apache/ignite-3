@@ -15,19 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
-import org.apache.ignite.raft.jraft.entity.LogEntry;
-import org.junit.jupiter.api.Test;
+class RocksDbSharedLogStorageUtils {
+    /**
+     * Returns start prefix for the group.
+     *
+     * @param groupId ID of the group.
+     */
+    static byte[] groupStartPrefix(String groupId) {
+        return (groupId + (char) 0).getBytes(UTF_8);
+    }
 
-class UnlimitedBudgetTest {
-    private final UnlimitedBudget budget = new UnlimitedBudget();
-
-    @Test
-    void allowsAppend() {
-        assertTrue(budget.hasRoomFor(new LogEntry()));
+    /**
+     * Returns end prefix for the group.
+     *
+     * @param groupId ID of the group.
+     */
+    static byte[] groupEndPrefix(String groupId) {
+        return (groupId + (char) 1).getBytes(UTF_8);
     }
 }

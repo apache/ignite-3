@@ -568,7 +568,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     /** Delegates call to {@link #destroyCmg()} but fires the associated events. */
     private CompletableFuture<Void> destroyCmgWithEvents() {
-        LOG.info("CMG cancellation procedure started");
+        LOG.info("CMG destruction procedure started");
         return inBusyLockAsync(busyLock,
                 () -> fireEvent(ClusterManagerGroupEvent.BEFORE_DESTROY_RAFT_GROUP, EmptyEventParameters.INSTANCE)
                         .thenRunAsync(this::destroyCmg, this.scheduledExecutor)
@@ -592,6 +592,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 }
 
                 raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
+
+                RaftNodeId nodeId = raftNodeId(new Peer(clusterService.nodeName()));
+                raftManager.destroyRaftNodeStorages(nodeId, raftGroupOptionsConfigurer);
 
                 localStateStorage.clear();
             } catch (Exception e) {
@@ -712,7 +715,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         try {
             return raftManager
                     .startRaftGroupNodeAndWaitNodeReadyFuture(
-                            new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
+                            raftNodeId(serverPeer),
                             raftConfiguration,
                             new CmgRaftGroupListener(clusterStateStorageMgr, logicalTopology, validationManager,
                                     this::onLogicalTopologyChanged),
@@ -723,6 +726,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         } catch (Exception e) {
             return failedFuture(e);
         }
+    }
+
+    private static RaftNodeId raftNodeId(Peer serverPeer) {
+        return new RaftNodeId(CmgGroupId.INSTANCE, serverPeer);
     }
 
     private void onLogicalTopologyChanged(long term) {

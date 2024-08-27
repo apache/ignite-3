@@ -15,16 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.sql.sqllogic;
 
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
+import java.util.Arrays;
 
 /**
- * Thrown if something wrong happens in the log storage.
+ * EndFor command serves as a marker that ends a block of commands that forms a for loop.
+ *
+ * @see For For loop command
  */
-class LogStorageException extends IgniteInternalException {
-    public LogStorageException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
+final class EndFor extends Command {
+
+    /** Creates an instance of Endloop command by parsing it from script and token. **/
+    EndFor(Script script, ScriptContext ctx, String[] tokens) {
+        super(script.scriptPosition());
+        if (tokens.length > 1) {
+            throw new IllegalArgumentException("EndFor accepts no arguments: " + Arrays.toString(tokens));
+        }
+    }
+
+    @Override
+    void execute(ScriptContext ctx) {
+        // No-op.
     }
 }
