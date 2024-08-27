@@ -278,7 +278,10 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         @Override
         public void execute(Runnable command) {
             Thread thread = new Thread(command);
+
             thread.setName(threadNamePrefix + thread.getId());
+            thread.setDaemon(true);
+
             thread.start();
         }
     }
