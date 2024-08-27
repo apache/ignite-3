@@ -442,7 +442,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             compactor.triggerCompaction(now);
 
             assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
-            waitForCondition(() -> catalogManager.earliestCatalogVersion() != 0, 1_000);
+            waitForCondition(() -> catalogManager.earliestCatalogVersion() == catalog.version() - 1, 1_000);
 
             assertThat(catalogManager.earliestCatalogVersion(), is(catalog.version() - 1));
         }
