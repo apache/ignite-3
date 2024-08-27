@@ -103,8 +103,6 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             if (message instanceof ResetClusterMessage) {
                 assert correlationId != null;
                 handleResetClusterMessage((ResetClusterMessage) message, sender, correlationId);
-            } else {
-                assert false : "Unsupported message " + message;
             }
         });
 
