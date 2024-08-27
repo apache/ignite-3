@@ -22,7 +22,7 @@ import java.util.Arrays;
 /**
  * EndFor command serves as a marker that ends a block of commands that forms a for loop.
  *
- * @see For loop command
+ * @see For For loop command
  */
 final class EndFor extends Command {
 
