@@ -23,12 +23,12 @@ import java.util.concurrent.CompletableFuture;
  * Timeout object.
  * The class is a wrapper over the complete future.
  */
-public class TimeoutObject {
+public class TimeoutObject<T extends CompletableFuture<?>> {
     /** End time (milliseconds since Unix epoch). */
     private final long endTime;
 
     /** Target future. */
-    private final CompletableFuture<?> fut;
+    private final T fut;
 
     /**
      * Constructor.
@@ -36,7 +36,7 @@ public class TimeoutObject {
      * @param endTime End timestamp in milliseconds.
      * @param fut Target future.
      */
-    public TimeoutObject(long endTime, CompletableFuture<?> fut) {
+    public TimeoutObject(long endTime, T fut) {
         this.endTime = endTime;
         this.fut = fut;
     }
@@ -55,7 +55,7 @@ public class TimeoutObject {
      *
      * @return A future.
      */
-    public CompletableFuture<?> future() {
+    public T future() {
         return fut;
     }
 }

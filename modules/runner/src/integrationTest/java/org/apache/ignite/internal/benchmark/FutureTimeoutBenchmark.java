@@ -20,7 +20,6 @@ package org.apache.ignite.internal.benchmark;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 
-import com.lmax.disruptor.dsl.Disruptor;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,8 +57,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  *
  * <p>Results on 11th Gen Intel® Core™ i7-1165G7 @ 2.80GHz, openjdk 11.0.24, Windows 10 Pro:
  * Benchmark                    (useFutureEmbeddedTimeout)  Mode  Cnt   Score    Error  Units
- * FutureTimeoutBenchmark.test                       false  avgt   20   0,875 ±  0,020  us/op
- * FutureTimeoutBenchmark.test                        true  avgt   20  28,409 ± 27,269  us/op
+ * FutureTimeoutBenchmark.test                       false  avgt   20   0,810 ±  0,112  us/op
+ * FutureTimeoutBenchmark.test                        true  avgt   20  30,261 ± 34,762  us/op
  */
 @State(Scope.Benchmark)
 @Fork(1)
@@ -72,13 +71,11 @@ public class FutureTimeoutBenchmark {
     private static AtomicLong ID_GEN = new AtomicLong();
 
     /** Active operations. */
-    public ConcurrentMap<Long, TimeoutObject> requestsMap;
+    public ConcurrentMap<Long, TimeoutObject<CompletableFuture<Void>>> requestsMap;
 
     private TimeoutWorker timeoutWorker;
 
     private ConcurrentMap<Long, CompletableFuture<?>> futs;
-
-    private Disruptor<TimeoutObject> disruptor;
 
     @Param({"false", "true"})
     private boolean useFutureEmbeddedTimeout;

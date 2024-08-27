@@ -106,7 +106,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private volatile ConnectionManager connectionManager;
 
     /** Collection that maps correlation id to the future for an invocation request. */
-    private final ConcurrentMap<Long, TimeoutObject> requestsMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, TimeoutObject<CompletableFuture<NetworkMessage>>> requestsMap = new ConcurrentHashMap<>();
 
     /** Correlation id generator. */
     private final AtomicLong correlationIdGenerator = new AtomicLong();
@@ -300,7 +300,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<>();
 
-        requestsMap.put(correlationId, new TimeoutObject(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, responseFuture));
+        requestsMap.put(correlationId, new TimeoutObject<>(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, responseFuture));
 
         InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
 
@@ -570,12 +570,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Request's correlation id.
      */
     private void onInvokeResponse(NetworkMessage response, Long correlationId) {
-        TimeoutObject responseFuture = requestsMap.remove(correlationId);
+        TimeoutObject<CompletableFuture<NetworkMessage>> responseFuture = requestsMap.remove(correlationId);
 
         if (responseFuture != null) {
-            CompletableFuture<NetworkMessage> fut = (CompletableFuture<NetworkMessage>) responseFuture.future();
-
-            fut.complete(response);
+            responseFuture.future().complete(response);
         }
     }
 

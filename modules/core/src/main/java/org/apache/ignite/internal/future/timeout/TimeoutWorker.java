@@ -36,7 +36,7 @@ public class TimeoutWorker extends IgniteWorker {
     private final long sleepInterval = getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
 
     /** Active operations. */
-    public final ConcurrentMap<Long, TimeoutObject> requestsMap;
+    public final ConcurrentMap<Long, TimeoutObject<?>> requestsMap;
 
     /** True means removing object from the operation map on timeout. */
     private final boolean removeOnTimeout;
@@ -55,7 +55,7 @@ public class TimeoutWorker extends IgniteWorker {
             IgniteLogger log,
             String igniteInstanceName,
             String name,
-            ConcurrentMap<Long, TimeoutObject> requestsMap,
+            ConcurrentMap requestsMap,
             boolean removeOnTimeout
     ) {
         super(log, igniteInstanceName, name, null);
@@ -67,12 +67,12 @@ public class TimeoutWorker extends IgniteWorker {
     @Override
     protected void body() {
         try {
-            TimeoutObject timeoutObject;
+            TimeoutObject<?> timeoutObject;
 
             while (!isCancelled()) {
                 long now = coarseCurrentTimeMillis();
 
-                for (Entry<Long, TimeoutObject> entry : requestsMap.entrySet()) {
+                for (Entry<Long, TimeoutObject<?>> entry : requestsMap.entrySet()) {
                     updateHeartbeat();
 
                     timeoutObject = entry.getValue();

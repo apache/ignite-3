@@ -94,7 +94,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final AtomicLong reqId = new AtomicLong(1);
 
     /** Pending requests. */
-    private final ConcurrentMap<Long, TimeoutObject> pendingReqs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, TimeoutObject<ClientRequestFuture<?>>> pendingReqs = new ConcurrentHashMap<>();
 
     /** Notification handlers. */
     private final Map<Long, CompletableFuture<PayloadInputChannel>> notificationHandlers = new ConcurrentHashMap<>();
@@ -344,7 +344,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         ClientRequestFuture<T> fut = new ClientRequestFuture<>(payloadReader, notificationFut);
 
-        pendingReqs.put(id, new TimeoutObject(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, fut));
+        pendingReqs.put(id, new TimeoutObject<>(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, fut));
 
         metrics.requestsActiveIncrement();
 
@@ -419,7 +419,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ClientMessageUnpacker unpacker) throws IgniteException {
         if (protocolCtx == null) {
             // Process handshake.
-            complete((ClientRequestFuture<?>) pendingReqs.remove(-1L).future(), unpacker);
+            complete(pendingReqs.remove(-1L).future(), unpacker);
             return;
         }
 
@@ -436,7 +436,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return;
         }
 
-        ClientRequestFuture<?> pendingReq = (ClientRequestFuture<?>) pendingReqs.remove(resId).future();
+        ClientRequestFuture<?> pendingReq = pendingReqs.remove(resId).future();
 
         if (pendingReq == null) {
             log.error("Unexpected response ID [remoteAddress=" + cfg.getAddress() + "]: " + resId);
@@ -581,7 +581,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private CompletableFuture<Object> handshakeAsync(ProtocolVersion ver)
             throws IgniteClientConnectionException {
         ClientRequestFuture<Object> fut = new ClientRequestFuture<>(r -> handshakeRes(r.in()), null);
-        pendingReqs.put(-1L, new TimeoutObject(connectTimeout > 0 ? coarseCurrentTimeMillis() + connectTimeout : 0, fut));
+        pendingReqs.put(-1L, new TimeoutObject<>(connectTimeout > 0 ? coarseCurrentTimeMillis() + connectTimeout : 0, fut));
 
         handshakeReqAsync(ver).addListener(f -> {
             if (!f.isSuccess()) {
