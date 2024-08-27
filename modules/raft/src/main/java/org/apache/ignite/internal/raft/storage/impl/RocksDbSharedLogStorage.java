@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupStartPrefix;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -172,14 +173,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
         this.writeOptions = new WriteOptions();
         this.writeOptions.setSync(raftOptions.isSync());
-    }
-
-    static byte[] groupStartPrefix(String groupId) {
-        return (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
-    }
-
-    static byte[] groupEndPrefix(String groupId) {
-        return (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
     }
 
     /**

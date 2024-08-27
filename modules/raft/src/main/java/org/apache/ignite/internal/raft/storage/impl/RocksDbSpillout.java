@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupStartPrefix;
+
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Lock;
@@ -146,24 +148,6 @@ public class RocksDbSpillout implements Logs {
         this.writeOptions = new WriteOptions();
         this.writeOptions.setDisableWAL(true);
         this.writeOptions.setSync(false);
-    }
-
-    /**
-     * Returns start prefix for the group.
-     *
-     * @param groupId ID of the group.
-     */
-    public static byte[] groupStartPrefix(String groupId) {
-        return (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
-    }
-
-    /**
-     * Returns end prefix for the group.
-     *
-     * @param groupId ID of the group.
-     */
-    public static byte[] groupEndPrefix(String groupId) {
-        return (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
