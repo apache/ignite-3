@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.disaster.system;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -26,10 +25,8 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -49,7 +46,6 @@ import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessageGroup;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
@@ -65,7 +61,6 @@ import org.apache.ignite.network.ClusterNode;
  */
 public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecoveryManager, IgniteComponent {
     private static final String NODE_INITIALIZED_VAULT_KEY = "systemRecovery.nodeInitialized";
-    private static final String CLUSTER_NAME_VAULT_KEY = "systemRecovery.clusterName";
     private static final String RESET_CLUSTER_MESSAGE_VAULT_KEY = "systemRecovery.resetClusterMessage";
 
     private final String thisNodeName;
@@ -139,25 +134,6 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     @Override
-    public void saveClusterName(String clusterName) {
-        ByteArray key = new ByteArray(CLUSTER_NAME_VAULT_KEY);
-        byte[] newBytes = clusterName.getBytes(UTF_8);
-
-        VaultEntry existingEntry = vaultManager.get(key);
-        if (existingEntry != null) {
-            if (!Arrays.equals(existingEntry.value(), newBytes)) {
-                throw new IgniteInternalException(
-                        INTERNAL_ERR,
-                        "Cluster name is different: old one is '" + new String(existingEntry.value(), UTF_8)
-                                + "', new one is '" + clusterName + "'."
-                );
-            }
-        } else {
-            vaultManager.put(key, newBytes);
-        }
-    }
-
-    @Override
     public void markNodeInitialized() {
         vaultManager.put(new ByteArray(NODE_INITIALIZED_VAULT_KEY), new byte[]{1});
     }
@@ -178,13 +154,11 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
         ensureAllProposedCmgNodesAreInTopology(proposedCmgConsistentIds, nodesInTopology);
 
-        String clusterName = ensureClusterNameIsSaved();
         ensureNodeIsInitialized();
         ClusterState clusterState = ensureClusterStateIsPresent();
 
         ResetClusterMessage message = buildResetClusterMessage(
                 proposedCmgConsistentIds,
-                clusterName,
                 clusterState
         );
 
@@ -249,14 +223,6 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         }
     }
 
-    private String ensureClusterNameIsSaved() {
-        VaultEntry clusterNameEntry = vaultManager.get(new ByteArray(CLUSTER_NAME_VAULT_KEY));
-        if (clusterNameEntry == null) {
-            throw new ClusterResetException("Node does not have cluster name saved and cannot serve as a cluster reset conductor.");
-        }
-        return new String(clusterNameEntry.value(), UTF_8);
-    }
-
     private ClusterState ensureClusterStateIsPresent() {
         ClusterState clusterState = clusterStateStorageManager.getClusterState();
         if (clusterState == null) {
@@ -265,11 +231,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         return clusterState;
     }
 
-    private ResetClusterMessage buildResetClusterMessage(
-            List<String> proposedCmgConsistentIds,
-            String clusterName,
-            ClusterState clusterState
-    ) {
+    private ResetClusterMessage buildResetClusterMessage(List<String> proposedCmgConsistentIds, ClusterState clusterState) {
         List<UUID> formerClusterIds = new ArrayList<>(requireNonNullElse(clusterState.formerClusterIds(), new ArrayList<>()));
         formerClusterIds.add(clusterState.clusterTag().clusterId());
 
@@ -277,7 +239,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .conductor(thisNodeName)
                 .cmgNodes(new HashSet<>(proposedCmgConsistentIds))
                 .metaStorageNodes(clusterState.metaStorageNodes())
-                .clusterName(clusterName)
+                .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(randomUUID())
                 .formerClusterIds(formerClusterIds)
                 .build();

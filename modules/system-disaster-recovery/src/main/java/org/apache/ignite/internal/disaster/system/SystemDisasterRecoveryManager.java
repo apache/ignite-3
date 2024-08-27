@@ -26,13 +26,6 @@ import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
  */
 public interface SystemDisasterRecoveryManager {
     /**
-     * Saves cluster name to the Vault if not already saved.
-     *
-     * @param clusterName Name of the cluster to save.
-     */
-    void saveClusterName(String clusterName);
-
-    /**
      * Marks this node as initialized.
      */
     void markNodeInitialized();

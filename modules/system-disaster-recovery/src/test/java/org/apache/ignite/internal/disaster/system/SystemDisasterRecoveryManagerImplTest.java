@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.disaster.system;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -98,7 +97,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private static final String CLUSTER_NAME = "cluster";
 
     private static final String NODE_INITIALIZED_VAULT_KEY = "systemRecovery.nodeInitialized";
-    private static final String CLUSTER_NAME_VAULT_KEY = "systemRecovery.clusterName";
     private static final String RESET_CLUSTER_MESSAGE_VAULT_KEY = "systemRecovery.resetClusterMessage";
 
     @WorkDirectory
@@ -184,15 +182,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void savesClusterName() {
-        manager.saveClusterName("name");
-
-        VaultEntry entry = vaultManager.get(new ByteArray(CLUSTER_NAME_VAULT_KEY));
-        assertThat(entry, is(notNullValue()));
-        assertThat(entry.value(), is("name".getBytes(UTF_8)));
-    }
-
-    @Test
     void resetClusterRejectsDuplicateNodeNames() {
         ClusterResetException ex = assertWillThrow(
                 manager.resetCluster(List.of(thisNodeName, thisNodeName)),
@@ -227,7 +216,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     void resetClusterRequiresClusterState() {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode));
-        putClusterNameToVault();
         marksNodeInitialized();
 
         ClusterResetException ex = assertWillThrow(
@@ -241,7 +229,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     void resetClusterRequiresNodeToBeInitialized() {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode));
-        putClusterNameToVault();
         putClusterState();
 
         ClusterResetException ex = assertWillThrow(
@@ -254,20 +241,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     private void putClusterState() {
         clusterStateStorageManager.putClusterState(usualClusterState);
-    }
-
-    @Test
-    void resetClusterRequiresNodeToHaveSavedClusterName() {
-        when(topologyService.allMembers()).thenReturn(List.of(thisNode));
-        putClusterState();
-        makeNodeInitialized();
-
-        ClusterResetException ex = assertWillThrow(
-                manager.resetCluster(List.of(thisNodeName)),
-                ClusterResetException.class,
-                10, SECONDS
-        );
-        assertThat(ex.getMessage(), is("Node does not have cluster name saved and cannot serve as a cluster reset conductor."));
     }
 
     private void makeNodeInitialized() {
@@ -302,13 +275,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void prepareNodeStateForClusterReset() {
-        putClusterNameToVault();
         makeNodeInitialized();
         putClusterState();
-    }
-
-    private void putClusterNameToVault() {
-        vaultManager.put(new ByteArray(CLUSTER_NAME_VAULT_KEY), CLUSTER_NAME.getBytes(UTF_8));
     }
 
     private void assertThatResetClusterMessageIsAsExpected(ResetClusterMessage message) {

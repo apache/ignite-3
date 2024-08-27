@@ -41,7 +41,6 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -1249,7 +1248,6 @@ public class IgniteImpl implements Ignite {
         return cmgMgr.joinFuture()
                 // Disable REST component during initialization.
                 .thenAcceptAsync(unused -> restComponent.disable(), joinExecutor)
-                .thenComposeAsync(unused -> saveClusterNameToVault(joinExecutor), joinExecutor)
                 .thenComposeAsync(unused -> {
                     LOG.info("Join complete, starting MetaStorage");
 
@@ -1344,11 +1342,6 @@ public class IgniteImpl implements Ignite {
                 }, joinExecutor)
                 // Moving to the common pool on purpose to close the join pool and proceed user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> joinExecutor.shutdownNow());
-    }
-
-    private CompletionStage<Void> saveClusterNameToVault(Executor joinExecutor) {
-        return cmgMgr.clusterState()
-                .thenAcceptAsync(state -> systemDisasterRecoveryManager.saveClusterName(state.clusterTag().clusterName()), joinExecutor);
     }
 
     private CompletableFuture<Void> awaitSelfInLocalLogicalTopology() {
