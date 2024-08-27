@@ -58,9 +58,7 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
 
     private volatile boolean initialized = false;
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     public VolatileLogStorage(LogStorageBudget inMemoryBudget, Logs inMemoryLogs, Logs spiltOnDisk) {
         this.inMemoryBudget = inMemoryBudget;
 
