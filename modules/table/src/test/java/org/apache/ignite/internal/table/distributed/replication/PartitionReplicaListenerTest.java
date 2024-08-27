@@ -319,9 +319,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 return v;
             });
 
-            return completedFuture(new UpdateCommandResult(true));
+            return completedFuture(new UpdateCommandResult(true, true));
         } else if (cmd instanceof UpdateAllCommand) {
-            return completedFuture(new UpdateCommandResult(true));
+            return completedFuture(new UpdateCommandResult(true, true));
         } else if (cmd instanceof FinishTxCommand) {
             FinishTxCommand command = (FinishTxCommand) cmd;
 
@@ -1573,7 +1573,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             assertFalse(replicaCleanupFut.isDone());
 
-            writeFut.complete(new UpdateCommandResult(true));
+            writeFut.complete(new UpdateCommandResult(true, true));
 
             assertThat(replicaCleanupFut, willSucceedFast());
         } finally {

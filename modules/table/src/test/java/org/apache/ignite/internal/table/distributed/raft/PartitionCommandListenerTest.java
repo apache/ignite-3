@@ -49,6 +49,7 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -221,6 +222,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private IndexMetaStorage indexMetaStorage;
 
+    private ClusterService clusterService;
+
     /**
      * Initializes a table listener before tests.
      */
@@ -228,9 +231,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     public void before() {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
 
-        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
 
         when(clusterService.topologyService().localMember().address()).thenReturn(addr);
+        when(clusterService.topologyService().localMember().id()).thenReturn(addr.toString());
+        when(clusterService.nodeName()).thenReturn(addr.toString());
 
         safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
@@ -285,8 +290,30 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 catalogService,
                 SCHEMA_REGISTRY,
                 clockService,
-                indexMetaStorage
+                indexMetaStorage,
+                clusterService.topologyService().localMember().id()
         );
+
+        // Update(All)Command handling requires both information about raft group topology and the primary replica,
+        // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
+        {
+            commandListener.onConfigurationCommitted(new CommittedConfiguration(
+                    raftIndex.incrementAndGet(),
+                    1,
+                    List.of(clusterService.nodeName()),
+                    Collections.emptyList(),
+                    null,
+                    null
+            ));
+
+            PrimaryReplicaChangeCommand command = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                    .primaryReplicaNodeName("primary")
+                    .primaryReplicaNodeId(UUID.randomUUID().toString())
+                    .leaseStartTime(HybridTimestamp.MIN_VALUE.addPhysicalTime(1).longValue())
+                    .build();
+
+            commandListener.onWrite(List.of(writeCommandCommandClosure(raftIndex.incrementAndGet(), 1, command)).iterator());
+        }
     }
 
     /**
@@ -386,11 +413,15 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 writeCommandCommandClosure(6, 1, primaryReplicaChangeCommand, commandClosureResultCaptor)
         ).iterator());
 
-        verify(mvPartitionStorage, never()).runConsistently(any(WriteClosure.class));
-        verify(mvPartitionStorage, times(1)).lastApplied(anyLong(), anyLong());
+        // Two storage runConsistently runs are expected: one for configuration application and another for primaryReplicaChangeCommand
+        // handling. Both comes from initial configuration preparation in @BeforeEach
+        verify(mvPartitionStorage, times(2)).runConsistently(any(WriteClosure.class));
+        verify(mvPartitionStorage, times(3)).lastApplied(anyLong(), anyLong());
 
-        assertThat(updateCommandClosureResultCaptor.getAllValues(), containsInAnyOrder(new UpdateCommandResult(true),
-                new UpdateCommandResult(true)));
+        assertThat(updateCommandClosureResultCaptor.getAllValues(),
+                containsInAnyOrder(new UpdateCommandResult(true, false),
+                        new UpdateCommandResult(true, false))
+        );
         assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null, null}));
 
         // Checks for TxStateStorage.
@@ -473,7 +504,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 catalogService,
                 SCHEMA_REGISTRY,
                 clockService,
-                indexMetaStorage
+                indexMetaStorage,
+                clusterService.topologyService().localMember().id()
         );
 
         txStateStorage.lastApplied(3L, 1L);
@@ -593,7 +625,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     @Test
     void updatesGroupConfigurationOnConfigCommit() {
         commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+                raftIndex.incrementAndGet(), 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
         ));
 
         RaftGroupConfiguration expectedConfig = new RaftGroupConfiguration(
@@ -610,10 +642,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     @Test
     void updatesLastAppliedIndexAndTermOnConfigCommit() {
         commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+                3, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
         ));
 
-        verify(mvPartitionStorage).lastApplied(1, 2);
+        verify(mvPartitionStorage).lastApplied(3, 2);
     }
 
     @Test
@@ -624,20 +656,21 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
         ));
 
-        verify(mvPartitionStorage, never()).committedGroupConfiguration(any());
-        verify(mvPartitionStorage, never()).lastApplied(eq(1L), anyLong());
+        // Exact one call is expected because it's done in @BeforeEach in order to prepare initial configuration.
+        verify(mvPartitionStorage, times(1)).committedGroupConfiguration(any());
+        verify(mvPartitionStorage, times(1)).lastApplied(eq(1L), anyLong());
     }
 
     @Test
     void locksOnConfigCommit() {
         commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+                raftIndex.incrementAndGet(), 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
         ));
 
         InOrder inOrder = inOrder(partitionDataStorage);
 
         inOrder.verify(partitionDataStorage).acquirePartitionSnapshotsReadLock();
-        inOrder.verify(partitionDataStorage).lastApplied(1, 2);
+        inOrder.verify(partitionDataStorage).lastApplied(raftIndex.get(), 2);
         inOrder.verify(partitionDataStorage).releasePartitionSnapshotsReadLock();
     }
 
@@ -706,10 +739,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .build();
 
         commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, 2, command)
+                writeCommandCommandClosure(raftIndex.incrementAndGet(), 2, command)
         ).iterator());
 
-        verify(mvPartitionStorage).lastApplied(3, 2);
+        verify(mvPartitionStorage).lastApplied(raftIndex.get(), 2);
     }
 
     @ParameterizedTest
