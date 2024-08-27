@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.SelectCountPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -113,6 +114,11 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
                 RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
             return CompletableFuture.completedFuture(rowFactory.create());
+        }
+
+        @Override
+        public CompletableFuture<Long> estimatedSize() {
+            return CompletableFuture.completedFuture(42L);
         }
     };
 
@@ -202,7 +208,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         cluster.start();
 
         TestNode gatewayNode = cluster.node("N1");
-        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID = 1");
+        QueryPlan plan = gatewayNode.prepare("SELECT val, 100 FROM t1 WHERE ID = 1");
 
         for (InternalSqlRow row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
@@ -341,5 +347,18 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         MultiStepPlan plan = (MultiStepPlan) gatewayNode.prepare("SELECT * FROM t1 WHERE val = ?");
         assertThat(plan.explain(), containsString("index=[T1_NEW_HASH_VAK_IDX], type=[HASH]"));
+    }
+
+    @Test
+    public void testGetCountPlan() {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+
+        SelectCountPlan plan = (SelectCountPlan) gatewayNode.prepare("SELECT 'hello', COUNT(*) FROM t1");
+        BatchedResult<InternalSqlRow> results = await(gatewayNode.executePlan(plan).requestNextAsync(10_000));
+
+        List<List<Object>> rows = convertSqlRows(results.items());
+        assertEquals(List.of(List.of("hello", 42L)), rows);
     }
 }

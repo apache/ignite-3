@@ -116,4 +116,7 @@ public interface ScannableTable {
             RowT key,
             @Nullable BitSet requiredColumns
     );
+
+    /** Returns the number of rows in this table. */
+    CompletableFuture<Long> estimatedSize();
 }

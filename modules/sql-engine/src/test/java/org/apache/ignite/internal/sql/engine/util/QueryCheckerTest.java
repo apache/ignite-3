@@ -39,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -55,6 +56,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @SuppressWarnings("ThrowableNotThrown")
 @ExtendWith(QueryCheckerExtension.class)
+@WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
 public class QueryCheckerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "N1";
 
