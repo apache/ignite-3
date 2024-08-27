@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.sqllogic;
 import java.util.Arrays;
 
 /**
- * EndLoop command serves as a marker that ends a block of commands that forms a loop.
+ * EndFor command serves as a marker that ends a block of commands that forms a for loop.
  *
  * @see For loop command
  */
@@ -30,7 +30,7 @@ final class EndFor extends Command {
     EndFor(Script script, ScriptContext ctx, String[] tokens) {
         super(script.scriptPosition());
         if (tokens.length > 1) {
-            throw new IllegalArgumentException("EndLoop accepts no arguments: " + Arrays.toString(tokens));
+            throw new IllegalArgumentException("EndFor accepts no arguments: " + Arrays.toString(tokens));
         }
     }
 
