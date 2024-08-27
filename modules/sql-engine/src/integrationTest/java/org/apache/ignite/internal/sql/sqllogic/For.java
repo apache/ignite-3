@@ -27,21 +27,7 @@ import java.util.List;
 /**
  * For command allows to perform a block of commands multiple times:
  * <pre>
- *     # variable is one or multiple words
- *     for variable first_elem, second_elem, ... last_elem
- *
- *     for var in [1, 2, 3]
- *     ...
- *     endfor
- *
- *     for var in [TEXT 1, TEXT 2, TEXT 3]
- *     ...
- *     endfor
- *
- *     # it is possible to escape a comma symbol:
- *      for var in [DECIMAL(2\,1)]
- *      ...
- *      endfor
+ *     for variable in [ value1, value2, ..., valueN ]
  * </pre>
  * When an SQL statement or an SQL query is executed inside a for loop, all placeholders {@code ${variable}}
  * in that statement/query including results and error messages are replaced with the current value of that {@code variable}.
@@ -49,10 +35,10 @@ import java.util.List;
  *     # Executes the query 2 times with i=0 and i=2
  *     for k in [0, 2]
  *     query I
- *     SELECT c1 FROM (VALUES (${i})) t(c1);
+ *     SELECT c1 FROM (VALUES (${i})) t(c1)
  *     ----
  *     ${i}
- *     # A loop must be terminated by a EndLoop command.
+ *     # A for loop must be terminated by a EndLoop command.
  *     endfor
  *
  *     # The above loop is equivalent to two query commands:
@@ -66,7 +52,18 @@ import java.util.List;
  *     ----
  *     2
  * </pre>
+ * Additional examples:
+ * <pre>
+ *     # variable is one or multiple words
+ *     for var in [TEXT 1, TEXT 2, TEXT 3]
+ *     ...
+ *     endfor
  *
+ *     # it is possible to escape a comma symbol:
+ *     for var in [DECIMAL(2\,1)]
+ *     ...
+ *     endfor
+ * </pre>
  * @see EndFor endfor command
  */
 final class For extends Command {
