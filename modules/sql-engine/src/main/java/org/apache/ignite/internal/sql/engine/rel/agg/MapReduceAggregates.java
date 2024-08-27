@@ -645,8 +645,15 @@ public class MapReduceAggregates {
 
                 sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
             } else {
-                RexNode divideRef = rexBuilder.makeCall(SqlStdOperatorTable.DIVIDE, numeratorRef, denominatorRef);
-                sumDivCnt = rexBuilder.makeCast(call.getType(), divideRef, true, false);
+                RelDataType resultType = typeFactory.decimalOf(call.type);
+                int precision = resultType.getPrecision(); // not used.
+                int scale = resultType.getScale();
+
+                RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
+                RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
+
+                sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
+                sumDivCnt = rexBuilder.makeCast(call.getType(), sumDivCnt, true, false);
             }
 
             if (canBeNull) {

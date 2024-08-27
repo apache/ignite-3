@@ -361,7 +361,7 @@ public class IgniteSqlFunctions {
      * (see {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}, their values are ignored at runtime.
      */
     public static BigDecimal decimalDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
-        return sum.divide(cnt, MathContext.DECIMAL64);
+        return sum.divide(cnt, s, RoundingMode.HALF_EVEN); // TODO: HALF_UP is expected
     }
 
     private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {

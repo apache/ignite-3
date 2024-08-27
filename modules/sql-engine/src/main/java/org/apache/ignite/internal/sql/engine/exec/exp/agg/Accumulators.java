@@ -27,16 +27,17 @@ import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -104,7 +105,7 @@ public class Accumulators {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
             case DECIMAL:
-                return DecimalAvg.FACTORY;
+                return () -> DecimalAvg.FACTORY.apply(call.type.getScale());
             case DOUBLE:
             case REAL:
             case FLOAT:
@@ -114,7 +115,8 @@ public class Accumulators {
                 if (call.type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
                 }
-                return DoubleAvg.FACTORY;
+                RelDataType dataType = typeFactory.decimalOf(call.type);
+                return () -> DoubleAvg.FACTORY.apply(dataType.getScale());
         }
     }
 
@@ -305,11 +307,17 @@ public class Accumulators {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static class DecimalAvg implements Accumulator {
-        public static final Supplier<Accumulator> FACTORY = DecimalAvg::new;
+        public static final IntFunction<Accumulator> FACTORY = DecimalAvg::new;
+
+        private final int scale;
 
         private BigDecimal sum = BigDecimal.ZERO;
 
         private BigDecimal cnt = BigDecimal.ZERO;
+
+        public DecimalAvg(int scale) {
+            this.scale = scale;
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -327,7 +335,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : sum.divide(cnt, MathContext.DECIMAL64);
+            return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : IgniteSqlFunctions.decimalDivide(sum, cnt, -1, scale);
         }
 
         /** {@inheritDoc} */
@@ -339,7 +347,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true);
+            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL, RelDataType.PRECISION_NOT_SPECIFIED, scale), true);
         }
     }
 
@@ -348,11 +356,17 @@ public class Accumulators {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static class DoubleAvg implements Accumulator {
-        public static final Supplier<Accumulator> FACTORY = DoubleAvg::new;
+        public static final IntFunction<Accumulator> FACTORY = DoubleAvg::new;
 
         private double sum;
 
         private long cnt;
+
+        private int scale;
+
+        public DoubleAvg(int scale) {
+            this.scale = scale;
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -370,7 +384,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            return cnt > 0 ? sum / cnt : null;
+            return cnt > 0 ? IgniteSqlFunctions.sround(sum / cnt, scale) : null;
         }
 
         /** {@inheritDoc} */
