@@ -287,8 +287,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     long minRequiredTime = timeHolder.minRequiredTime;
                     long minActiveTxBeginTime = timeHolder.minActiveTxBeginTime;
 
-                    assert minRequiredTime != Long.MAX_VALUE : "Unexpected minRequiredTime is returned from determineGlobalMin call";
-
                     Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
 
                     CompletableFuture<Boolean> catalogCompactionFut;
@@ -335,7 +333,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     CompletableFuture<TimeHolder> determineGlobalMinimumRequiredTime(
             Collection<? extends ClusterNode> nodes,
-            long localMinimumRequiredTime
+            @Nullable Long localMinimumRequiredTime
     ) {
         CatalogCompactionMinimumTimesRequest request = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesRequest().build();
         List<CompletableFuture<CatalogCompactionMinimumTimesResponse>> responseFutures = new ArrayList<>(nodes.size() - 1);
@@ -353,19 +351,23 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         return CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]))
                 .thenApply(ignore -> {
-                    long globalMinimumRequiredTime = localMinimumRequiredTime;
+                    Long globalMinimumRequiredTime = localMinimumRequiredTime;
                     long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
 
                     for (CompletableFuture<CatalogCompactionMinimumTimesResponse> fut : responseFutures) {
                         CatalogCompactionMinimumTimesResponse response = fut.join();
 
-                        if (response.minimumRequiredTime() < globalMinimumRequiredTime) {
+                        if (globalMinimumRequiredTime == null || response.minimumRequiredTime() < globalMinimumRequiredTime) {
                             globalMinimumRequiredTime = response.minimumRequiredTime();
                         }
 
                         if (response.minimumActiveTxTime() < globalMinimumActiveTxTime) {
                             globalMinimumActiveTxTime = response.minimumActiveTxTime();
                         }
+                    }
+
+                    if (globalMinimumRequiredTime == null) {
+                        globalMinimumRequiredTime = HybridTimestamp.MIN_VALUE.longValue();
                     }
 
                     return new TimeHolder(globalMinimumRequiredTime, globalMinimumActiveTxTime);
