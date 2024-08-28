@@ -78,7 +78,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     private static final int CLUSTER_SIZE = 3;
 
     /** How often we update the low water mark. */
-    private static final long LW_UPDATE_TIME_MS = TimeUnit.SECONDS.toMillis(10);
+    private static final long LW_UPDATE_TIME_MS = TimeUnit.MILLISECONDS.toMillis(500);
 
     /**
      * Checkpoint interval determines how often we update a snapshot of minActiveTxBeginTime,

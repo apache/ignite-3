@@ -157,7 +157,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             TopologyService topologyService,
             Executor executor,
             ActiveLocalTxMinimumBeginTimeProvider activeLocalTxMinimumBeginTimeProvider,
-            CatalogCompactionRunner.MinimumRequiredTimeProvider localMinTimeProvider
+            MinimumRequiredTimeProvider localMinTimeProvider
     ) {
         this.localNodeName = localNodeName;
         this.messagingService = messagingService;
@@ -263,7 +263,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         // Choose the minimum time between the low watermark and the minimum time among all partitions.
         long chosenMinTime = Math.min(lwm.longValue(), partitionMinTime);
 
-        LOG.debug("Local minimum required time: [partitionMinTime={}, lowWatermark={}, chosen={}].",
+        LOG.debug("Minimum required time was chosen [partitionMinTime={}, lowWatermark={}, chosen={}].",
                 partitionMinTime,
                 lwm,
                 chosenMinTime
@@ -273,7 +273,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     private CompletableFuture<Void> startCompaction(HybridTimestamp lwm, LogicalTopologySnapshot topologySnapshot) {
-        LOG.info("Catalog compaction started at [lowWaterMark={}].", lwm);
+        LOG.info("Catalog compaction started [lowWaterMark={}].", lwm);
 
         Long localMinRequiredTime = getMinLocalTime(lwm);
 
@@ -282,28 +282,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     long minRequiredTime = timeHolder.minRequiredTime;
                     long minActiveTxBeginTime = timeHolder.minActiveTxBeginTime;
 
-                    Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
-
-                    CompletableFuture<Boolean> catalogCompactionFut;
-
-                    if (catalog == null) {
-                        LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}]. No catalog at minRequiredTime.",
-                                minRequiredTime);
-
-                        catalogCompactionFut = CompletableFutures.falseCompletedFuture();
-                    } else {
-                        catalogCompactionFut = tryCompactCatalog(catalog, topologySnapshot).whenComplete((res, ex) -> {
-                            if (ex != null) {
-                                LOG.warn("Catalog compaction has failed [timestamp={}].", ex, minRequiredTime);
-                            } else {
-                                if (res) {
-                                    LOG.info("Catalog compaction completed successfully [timestamp={}].", minRequiredTime);
-                                } else {
-                                    LOG.info("Catalog compaction skipped [timestamp={}].", minRequiredTime);
-                                }
-                            }
-                        });
-                    }
+                    CompletableFuture<Boolean> catalogCompactionFut = tryCompactCatalog(minRequiredTime, topologySnapshot);
 
                     LOG.debug("Propagate minimum active tx begin time to replicas [timestamp={}].", minActiveTxBeginTime);
 
@@ -395,7 +374,18 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
 
-    private CompletableFuture<Boolean> tryCompactCatalog(Catalog catalog, LogicalTopologySnapshot topologySnapshot) {
+    private CompletableFuture<Boolean> tryCompactCatalog(
+            long minRequiredTime,
+            LogicalTopologySnapshot topologySnapshot
+    ) {
+        Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
+
+        if (catalog == null) {
+            LOG.info("Catalog compaction skipped, nothing to compact [timestamp={}].", minRequiredTime);
+
+            return CompletableFutures.falseCompletedFuture();
+        }
+
         for (CatalogIndexDescriptor index : catalog.indexes()) {
             if (index.status() == CatalogIndexStatus.BUILDING || index.status() == CatalogIndexStatus.REGISTERED) {
                 LOG.info("Catalog compaction aborted, index construction is taking place.");
@@ -415,6 +405,16 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     }
 
                     return catalogManagerFacade.compactCatalog(catalog.version());
+                }).whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        LOG.warn("Catalog compaction has failed [timestamp={}].", ex, minRequiredTime);
+                    } else {
+                        if (res) {
+                            LOG.info("Catalog compaction completed successfully [timestamp={}].", minRequiredTime);
+                        } else {
+                            LOG.info("Catalog compaction skipped [timestamp={}].", minRequiredTime);
+                        }
+                    }
                 });
     }
 
@@ -570,13 +570,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         return null;
                     });
         }
-    }
-
-    /** Minimum required time provider. */
-    @FunctionalInterface
-    public interface MinimumRequiredTimeProvider {
-        /** Returns min required time for each local table partition, if available. */
-        Map<TablePartitionId, @Nullable Long> minTimePerPartition();
     }
 
     static class TimeHolder {
