@@ -718,7 +718,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         assert minActiveTxBeginTime0 <= timestamp : "maxTime=" + minActiveTxBeginTime0 + ", cmdTime=" + timestamp;
 
         storage.flush(false).whenComplete((r, t) -> {
-            minActiveTxBeginTime = timestamp;
+            if (timestamp > minActiveTxBeginTime) {
+                minActiveTxBeginTime = timestamp;
+            }
         });
     }
 
