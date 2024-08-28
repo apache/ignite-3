@@ -34,6 +34,8 @@ public class CommandConstants {
 
 
     public static final int CLUSTER_URL_OPTION_ORDER = 10;
+    public static final int PROFILE_OPTION_ORDER = 11;
     public static final int HELP_OPTION_ORDER = 100;
     public static final int VERBOSE_OPTION_ORDER = 101;
+    public static final int VERSION_OPTION_ORDER = 102;
 }
