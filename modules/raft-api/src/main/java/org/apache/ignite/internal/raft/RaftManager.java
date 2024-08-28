@@ -189,6 +189,7 @@ public interface RaftManager extends IgniteComponent {
      */
     void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptionsConfigurer raftGroupOptionsConfigurer)
             throws NodeStoppingException;
+
     /**
      * Get a state accessor for the given group type.
      *
