@@ -87,7 +87,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -139,12 +138,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
             .version(IgniteProductVersion.CURRENT_VERSION.toString())
             .clusterTag(randomClusterTag(cmgMessagesFactory, CLUSTER_NAME))
             .build();
-
-    @Captor
-    private ArgumentCaptor<ResetClusterMessage> resetClusterMessageCaptor;
-
-    @Captor
-    private ArgumentCaptor<NetworkMessage> messageCaptor;
 
     private final SuccessResponseMessage successResponseMessage = cmgMessagesFactory.successResponseMessage().build();
 
@@ -250,6 +243,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void resetClusterSendsMessages() {
+        ArgumentCaptor<ResetClusterMessage> messageCaptor = ArgumentCaptor.forClass(ResetClusterMessage.class);
+
         when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
         prepareNodeStateForClusterReset();
 
@@ -259,16 +254,16 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> future = manager.resetCluster(List.of(thisNodeName, node2.name()));
         assertThat(future, willCompleteSuccessfully());
 
-        verify(messagingService).invoke(eq(thisNode), resetClusterMessageCaptor.capture(), anyLong());
-        ResetClusterMessage messageToSelf = resetClusterMessageCaptor.getValue();
+        verify(messagingService).invoke(eq(thisNode), messageCaptor.capture(), anyLong());
+        ResetClusterMessage messageToSelf = messageCaptor.getValue();
         assertThatResetClusterMessageIsAsExpected(messageToSelf);
 
-        verify(messagingService).invoke(eq(node2), resetClusterMessageCaptor.capture(), anyLong());
-        ResetClusterMessage messageToOtherNewCmgNode = resetClusterMessageCaptor.getValue();
+        verify(messagingService).invoke(eq(node2), messageCaptor.capture(), anyLong());
+        ResetClusterMessage messageToOtherNewCmgNode = messageCaptor.getValue();
         assertThatResetClusterMessageIsAsExpected(messageToOtherNewCmgNode);
 
-        verify(messagingService).invoke(eq(node3), resetClusterMessageCaptor.capture(), anyLong());
-        ResetClusterMessage messageToOtherNonCmgNode = resetClusterMessageCaptor.getValue();
+        verify(messagingService).invoke(eq(node3), messageCaptor.capture(), anyLong());
+        ResetClusterMessage messageToOtherNonCmgNode = messageCaptor.getValue();
         assertThatResetClusterMessageIsAsExpected(messageToOtherNonCmgNode);
 
         assertThat(messageToSelf.clusterId(), is(messageToOtherNewCmgNode.clusterId()));
@@ -408,6 +403,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void respondsWhenGetsMessageFromSelf() {
+        ArgumentCaptor<NetworkMessage> messageCaptor = ArgumentCaptor.forClass(NetworkMessage.class);
+
         NetworkMessageHandler handler = extractMessageHandler();
         ClusterNode conductor = thisNode;
 
@@ -423,6 +420,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void respondsWhenGetsMessageFromOtherNode() {
+        ArgumentCaptor<NetworkMessage> messageCaptor = ArgumentCaptor.forClass(NetworkMessage.class);
+
         NetworkMessageHandler handler = extractMessageHandler();
         ClusterNode conductor = node2;
 
