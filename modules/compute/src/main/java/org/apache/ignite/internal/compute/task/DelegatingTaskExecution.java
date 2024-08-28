@@ -65,6 +65,8 @@ public class DelegatingTaskExecution<I, M, T, R> implements TaskExecution<R>, Ma
 
     @Override
     public @Nullable Marshaller<R, byte[]> resultMarshaller() {
+        assert delegate.isDone() : "Task execution is supposed to be done before calling `resultMarshaller()`";
+
         return delegate.join().resultMarshaller();
     }
 }

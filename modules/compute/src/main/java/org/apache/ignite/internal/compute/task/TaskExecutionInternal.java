@@ -84,7 +84,7 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
 
     private final AtomicBoolean isCancelled;
 
-    private final AtomicReference<Marshaller<R, byte[]>> reduceResultMarshallerRef = new AtomicReference<>();
+    private volatile @Nullable Marshaller<R, byte[]> reduceResultMarshallerRef;
 
     /**
      * Construct an execution object and starts executing.
@@ -110,7 +110,7 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
                 () -> {
                     MapReduceTask<I, M, T, R> task = instantiateTask(taskClass);
 
-                    reduceResultMarshallerRef.set(task.reduceJobResultMarshaller());
+                    reduceResultMarshallerRef = task.reduceJobResultMarshaller();
 
                     return task.splitAsync(context, tryUnmarshalOrCast(task.splitJobInputMarshaller(), arg))
                             .thenApply(jobs -> new SplitResult<>(task, jobs));
@@ -307,7 +307,7 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
 
     @Override
     public @Nullable Marshaller<R, byte[]> resultMarshaller() {
-        return reduceResultMarshallerRef.get();
+        return reduceResultMarshallerRef;
     }
 
     private static class SplitResult<I, M, T, R> {

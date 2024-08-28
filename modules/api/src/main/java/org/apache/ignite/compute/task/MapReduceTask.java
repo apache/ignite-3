@@ -55,12 +55,12 @@ public interface MapReduceTask<I, M, T, R> {
      */
     CompletableFuture<R> reduceAsync(TaskExecutionContext taskContext, Map<UUID, T> results);
 
-    /** The marshaller that is called to unmarshall split job argument if not null. */
+    /** The marshaller that is called to unmarshal split job argument if not null. */
     default @Nullable Marshaller<I, byte[]> splitJobInputMarshaller() {
         return null;
     }
 
-    /** The marshaller that is called to marshall split job argument if not null. */
+    /** The marshaller that is called to marshal split job argument if not null. */
     default @Nullable Marshaller<R, byte[]> reduceJobResultMarshaller() {
         return null;
     }
