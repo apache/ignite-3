@@ -103,20 +103,23 @@ public class Accumulators {
 
     private Supplier<Accumulator> avgFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
+            case TINYINT:
+            case SMALLINT:
+            case INTEGER:
             case BIGINT:
+                return () -> DecimalAvg.FACTORY.apply(0);
             case DECIMAL:
+                // TODO: support intervals.
                 return () -> DecimalAvg.FACTORY.apply(call.type.getScale());
             case DOUBLE:
             case REAL:
             case FLOAT:
-            case INTEGER:
             default:
                 // IgniteCustomType: AVG for a custom type should go here.
                 if (call.type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
                 }
-                RelDataType dataType = typeFactory.decimalOf(call.type);
-                return () -> DoubleAvg.FACTORY.apply(dataType.getScale());
+                return DoubleAvg.FACTORY;
         }
     }
 
@@ -315,7 +318,7 @@ public class Accumulators {
 
         private BigDecimal cnt = BigDecimal.ZERO;
 
-        public DecimalAvg(int scale) {
+        DecimalAvg(int scale) {
             this.scale = scale;
         }
 
@@ -356,17 +359,11 @@ public class Accumulators {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static class DoubleAvg implements Accumulator {
-        public static final IntFunction<Accumulator> FACTORY = DoubleAvg::new;
+        public static final Supplier<Accumulator> FACTORY = DoubleAvg::new;
 
         private double sum;
 
         private long cnt;
-
-        private int scale;
-
-        public DoubleAvg(int scale) {
-            this.scale = scale;
-        }
 
         /** {@inheritDoc} */
         @Override
@@ -384,7 +381,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            return cnt > 0 ? IgniteSqlFunctions.sround(sum / cnt, scale) : null;
+            return cnt > 0 ? sum / cnt : null;
         }
 
         /** {@inheritDoc} */

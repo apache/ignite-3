@@ -23,19 +23,22 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.util.NumberUtil;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -577,7 +580,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT AVG(dec4_2_col) FROM numbers")
                 .disableRules(rules)
-                .returns(new BigDecimal("1.66"))
+                .returns(new BigDecimal("1.67"))
                 .check();
 
         sql("DELETE FROM numbers");
@@ -613,7 +616,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
             numbers.add(num);
 
             String query = "INSERT INTO numbers (id, int_col, dec10_2_col) VALUES(?, ?, ?)";
-            sql(query, i, num.setScale(0, RoundingMode.HALF_UP).intValue(), num);
+            sql(query, i, NumberUtil.rescaleBigDecimal(num,0).intValue(), num);
         }
 
         BigDecimal avg = numbers.stream()
@@ -621,6 +624,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .divide(BigDecimal.valueOf(numbers.size()), 2, RoundingMode.HALF_UP);
 
         for (String[] rules : makePermutations(DISABLED_RULES)) {
+            System.out.println(String.join(",", rules));
             assertQuery("SELECT AVG(int_col), AVG(dec10_2_col) FROM numbers")
                     .disableRules(rules)
                     .returns(avg.intValue(), avg)
