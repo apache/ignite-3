@@ -307,7 +307,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void after() {
-        System.out.println("----------------");
         metaStorageInvokeInterceptorByNode.clear();
         nodes.values().forEach(Node::stop);
     }
@@ -1373,12 +1372,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             }
 
             assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
-
-            try {
-                stopAsync(new ComponentContext(), components).join();
-            } catch (Exception ex) {
-                LOG.error("Can't stop components", ex);
-            }
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();
