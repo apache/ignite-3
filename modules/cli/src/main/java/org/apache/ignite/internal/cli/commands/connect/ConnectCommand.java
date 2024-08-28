@@ -17,24 +17,15 @@
 
 package org.apache.ignite.internal.cli.commands.connect;
 
-import static org.apache.ignite.internal.cli.commands.CommandConstants.ABBREVIATE_SYNOPSIS;
-import static org.apache.ignite.internal.cli.commands.CommandConstants.COMMAND_LIST_HEADING;
-import static org.apache.ignite.internal.cli.commands.CommandConstants.DESCRIPTION_HEADING;
-import static org.apache.ignite.internal.cli.commands.CommandConstants.OPTION_LIST_HEADING;
-import static org.apache.ignite.internal.cli.commands.CommandConstants.PARAMETER_LIST_HEADING;
-import static org.apache.ignite.internal.cli.commands.CommandConstants.REQUIRED_OPTION_MARKER;
-import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_OPTIONS;
-import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNOPSIS;
-import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
-import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
 
 import jakarta.inject.Inject;
 import java.net.URL;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.ReplManager;
-import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.converters.UrlConverter;
@@ -45,32 +36,18 @@ import picocli.CommandLine.Parameters;
 /**
  * Connects to the Ignite 3 node.
  */
-@Command(
-        name = "connect",
-        description = "Connects to Ignite 3 node",
-
-        descriptionHeading = DESCRIPTION_HEADING,
-        optionListHeading = OPTION_LIST_HEADING,
-        synopsisHeading = SYNOPSIS_HEADING,
-        requiredOptionMarker = REQUIRED_OPTION_MARKER,
-        usageHelpAutoWidth = USAGE_HELP_AUTO_WIDTH,
-        sortOptions = SORT_OPTIONS,
-        sortSynopsis = SORT_SYNOPSIS,
-        abbreviateSynopsis = ABBREVIATE_SYNOPSIS,
-        commandListHeading = COMMAND_LIST_HEADING,
-        parameterListHeading = PARAMETER_LIST_HEADING
-)
+@Command(name = "connect", description = "Connects to Ignite 3 node")
 public class ConnectCommand extends BaseCommand implements Callable<Integer> {
 
     /** Node URL option. */
-    @Parameters(description = NODE_URL_OPTION_DESC, converter = UrlConverter.class)
+    @Parameters(description = NODE_URL_OPTION_DESC, descriptionKey = CLUSTER_URL_KEY, converter = UrlConverter.class)
     private URL nodeUrl;
 
     @ArgGroup(exclusive = false)
     private ConnectOptions connectOptions;
 
     @Inject
-    private ConnectCall connectCall;
+    private ConnectWizardCall connectCall;
 
     @Inject
     private ReplManager replManager;
