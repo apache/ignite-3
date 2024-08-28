@@ -72,7 +72,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     private final ClusterStateStorageManager clusterStateStorageManager;
 
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
-    private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
+    private static final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
     /** This executor spawns a thread per task and should only be used for very rare tasks. */
     private final Executor restartExecutor;
