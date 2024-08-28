@@ -65,6 +65,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
+import org.apache.ignite.internal.catalog.compaction.MinimumRequiredTimeProvider;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
@@ -850,8 +851,8 @@ public class IgniteImpl implements Ignite {
                 PartitionListener.class
         );
 
-        CatalogCompactionRunner.MinimumRequiredTimeProvider partitionStateProvider =
-                () -> groupStateProvider.getState(PartitionListener::snapshottedMinActiveTxBeginTime);
+        MinimumRequiredTimeProvider partitionStateProvider =
+                () -> groupStateProvider.getState(PartitionListener::minimumActiveTxBeginTime);
 
         CatalogCompactionRunner catalogCompactionRunner = new CatalogCompactionRunner(
                 name,

@@ -143,9 +143,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      */
     private volatile long minActiveTxBeginTime = UNDEFINED_MIN_TX_TIME;
 
-    /** {@link #minActiveTxBeginTime} stored for the latest data storage flush. */
-    private volatile long snapshottedMinActiveTxBeginTime = UNDEFINED_MIN_TX_TIME;
-
     /** Constructor. */
     public PartitionListener(
             TxManager txManager,
@@ -596,20 +593,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     /**
-     * Returns minimum starting time among all active RW transactions in the cluster for the latest data storage flush,
-     * or {@code null} if the value has not yet been set.
-     */
-    public @Nullable Long snapshottedMinActiveTxBeginTime() {
-        long minActiveTxBeginSnapshot = snapshottedMinActiveTxBeginTime;
-
-        if (minActiveTxBeginSnapshot == UNDEFINED_MIN_TX_TIME) {
-            return null;
-        }
-
-        return minActiveTxBeginSnapshot;
-    }
-
-    /**
      * Returns underlying storage.
      */
     @TestOnly
@@ -621,7 +604,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * Returns minimum starting time among all active RW transactions in the cluster,
      * or {@code null} if the value has not yet been set.
      */
-    @TestOnly
     public @Nullable Long minimumActiveTxBeginTime() {
         long minActiveTxBeginTime0 = minActiveTxBeginTime;
 
@@ -735,12 +717,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         assert minActiveTxBeginTime0 <= timestamp : "maxTime=" + minActiveTxBeginTime0 + ", cmdTime=" + timestamp;
 
-        minActiveTxBeginTime = timestamp;
-
         storage.flush(false).whenComplete((r, t) -> {
-            if (timestamp > snapshottedMinActiveTxBeginTime) {
-                snapshottedMinActiveTxBeginTime = timestamp;
-            }
+            minActiveTxBeginTime = timestamp;
         });
     }
 
