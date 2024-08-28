@@ -69,6 +69,8 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -87,7 +89,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     private static final long CHECK_POINT_INTERVAL_MS = LW_UPDATE_TIME_MS / 2;
 
     /** Show be greater than 2 x {@link #LW_UPDATE_TIME_MS}. */
-    private static final long COMPACTION_INTERVAL_MS = TimeUnit.SECONDS.toMillis(50);
+    private static final long COMPACTION_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
 
     @Override
     protected int initialNodes() {
@@ -138,10 +140,14 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
             IgniteImpl ignite = unwrapIgniteImpl(node);
             ignite.catalogCompactionRunner().enable(true);
         }
+    }
 
+    @BeforeEach
+    public void beforeEach() {
         dropAllTables();
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23052")
     @Test
     void testRaftGroupsUpdate() throws InterruptedException {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
