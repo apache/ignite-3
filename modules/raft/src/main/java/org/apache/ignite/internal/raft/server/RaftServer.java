@@ -101,6 +101,14 @@ public interface RaftServer extends IgniteComponent {
     boolean stopRaftNodes(ReplicationGroupId groupId);
 
     /**
+     * Destroys Raft group node storages (log storage, metadata storage and snapshots storage).
+     *
+     * @param nodeId ID of the Raft node.
+     * @param groupOptions Options for this group.
+     */
+    void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions);
+
+    /**
      * Returns local nodes running the given Raft group.
      *
      * @param groupId Raft group ID.

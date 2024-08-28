@@ -31,14 +31,16 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.network.ClusterNode;
 
 /**
  * Trivial placement driver for tests.
  */
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this code
-public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>  implements
-        PlacementDriver {
+public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
+        implements PlacementDriver {
+    private static final int DEFAULT_ZONE_ID = 0;
 
     private volatile ClusterNode primary;
 
@@ -54,18 +56,17 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
-        return getPrimaryReplicaMeta();
+        return getPrimaryReplicaMeta(groupId);
     }
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        return getPrimaryReplicaMeta();
+        return getPrimaryReplicaMeta(replicationGroupId);
     }
 
     @Override
-    public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId,
-            HybridTimestamp timestamp) {
-        return getPrimaryReplicaMeta().join();
+    public ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        return getPrimaryReplicaMeta(replicationGroupId).join();
     }
 
     @Override
@@ -81,7 +82,11 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
     }
 
-    private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta() {
+    private CompletableFuture<ReplicaMeta> getPrimaryReplicaMeta(ReplicationGroupId replicationGroupId) {
+        if (replicationGroupId instanceof ZonePartitionId && ((ZonePartitionId) replicationGroupId).zoneId() == DEFAULT_ZONE_ID) {
+            return nullCompletedFuture();
+        }
+
         if (primary == null) {
             throw new IllegalStateException("Primary replica is not defined in test PlacementDriver");
         }

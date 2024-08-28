@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
-import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
-import org.apache.ignite.raft.jraft.entity.LogEntry;
-import org.junit.jupiter.api.Test;
+/**
+ * Thrown if something wrong happens in the log storage.
+ */
+public class LogStorageException extends IgniteInternalException {
+    public LogStorageException(String msg) {
+        super(msg);
+    }
 
-class UnlimitedBudgetTest {
-    private final UnlimitedBudget budget = new UnlimitedBudget();
-
-    @Test
-    void allowsAppend() {
-        assertTrue(budget.hasRoomFor(new LogEntry()));
+    public LogStorageException(String msg, @Nullable Throwable cause) {
+        super(msg, cause);
     }
 }

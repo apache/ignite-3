@@ -33,4 +33,11 @@ public interface LogStorageFactory extends LogSyncer, IgniteComponent {
      * @return Log storage.
      */
     LogStorage createLogStorage(String uri, RaftOptions raftOptions);
+
+    /**
+     * Destroys a log storage (that is, removes it from the disk).
+     *
+     * @param uri Log storage URI.
+     */
+    void destroyLogStorage(String uri);
 }

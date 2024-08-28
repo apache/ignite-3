@@ -15,16 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.future.timeout;
 
-import org.apache.ignite.raft.jraft.entity.LogEntry;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * {@link LogStorageBudget} that always allows everything.
+ * Timeout object interface.
+ * It is used to limit a time to wait on the future compilation.
  */
-public class UnlimitedBudget implements LogStorageBudget {
-    @Override
-    public boolean hasRoomFor(LogEntry entry) {
-        return true;
-    }
+public interface TimeoutObject<T extends CompletableFuture<?>> {
+    /**
+     * Gets end timestamp.
+     *
+     * @return End timestamp in milliseconds.
+     */
+    long endTime();
+
+    /**
+     * Gets a target future.
+     *
+     * @return A future.
+     */
+    T future();
 }

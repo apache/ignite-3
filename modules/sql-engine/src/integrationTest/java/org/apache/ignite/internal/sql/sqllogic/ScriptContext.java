@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.sqllogic;
 
+import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
+
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -50,7 +52,7 @@ final class ScriptContext {
     final String engineName;
 
     /** Loop variables. */
-    final Map<String, Integer> loopVars = new HashMap<>();
+    final Map<String, String> loopVars = new HashMap<>();
 
     /** String presentation of null's. */
     String nullLbl = NULL;
@@ -74,11 +76,7 @@ final class ScriptContext {
     }
 
     List<List<?>> executeQuery(String sql) {
-        if (!loopVars.isEmpty()) {
-            for (Map.Entry<String, Integer> loopVar : loopVars.entrySet()) {
-                sql = sql.replaceAll("\\$\\{" + loopVar.getKey() + "\\}", loopVar.getValue().toString());
-            }
-        }
+        sql = replaceVars(sql);
 
         log.info("Execute: " + sql);
 
@@ -103,5 +101,17 @@ final class ScriptContext {
                 return Collections.singletonList(Collections.singletonList(rs.wasApplied()));
             }
         }
+    }
+
+    String replaceVars(String str) {
+        if (nullOrEmpty(str)) {
+            return str;
+        }
+        if (!loopVars.isEmpty()) {
+            for (Map.Entry<String, String> loopVar : loopVars.entrySet()) {
+                str = str.replaceAll("\\$\\{" + loopVar.getKey() + "\\}", loopVar.getValue());
+            }
+        }
+        return str;
     }
 }
