@@ -71,7 +71,8 @@ public class AbstractMultiNodeBenchmark {
     protected static Ignite publicIgnite;
     protected static IgniteImpl igniteImpl;
 
-    @Param({"false", "true"})
+    //@Param({"false", "true"})
+    @Param({"false"})
     private boolean fsync;
 
     /**
@@ -190,6 +191,10 @@ public class AbstractMultiNodeBenchmark {
                 + "    \"nodeFinder\":{\n"
                 + "      \"netClusterNodes\": [ {} ]\n"
                 + "    }\n"
+                + "  },\n"
+                + "  storage.profiles: {"
+                + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
+                + "        " + DEFAULT_STORAGE_PROFILE + ".size: 2073741824 "
                 + "  },\n"
                 + "  storage.profiles: {"
                 + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
