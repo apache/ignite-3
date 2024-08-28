@@ -22,6 +22,8 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 description = 'ignite-bytecode'
 
 dependencies {
+    implementation project(':ignite-core')
+
     implementation libs.jetbrains.annotations
     api libs.asm.core
     api libs.asm.tree

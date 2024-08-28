@@ -171,7 +171,7 @@ final class MappingTestRunner {
             ResultSetMetadataImpl resultSetMetadata = new ResultSetMetadataImpl(Collections.emptyList());
             ParameterMetadata parameterMetadata = new ParameterMetadata(Collections.emptyList());
             MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel,
-                    resultSetMetadata, parameterMetadata, schema.catalogVersion());
+                    resultSetMetadata, parameterMetadata, schema.catalogVersion(), null);
 
             String actualText = produceMapping(testDef.nodeName, targetProvider, snapshot, multiStepPlan);
 

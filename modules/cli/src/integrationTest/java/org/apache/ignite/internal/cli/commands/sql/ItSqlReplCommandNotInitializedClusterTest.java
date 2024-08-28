@@ -24,6 +24,7 @@ import io.micronaut.context.annotation.Replaces;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
@@ -31,7 +32,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link SqlReplCommand} with not initialized cluster. */
-public class ItSqlReplCommandNotInitialedClusterTest extends CliIntegrationTest {
+public class ItSqlReplCommandNotInitializedClusterTest extends CliIntegrationTest {
     private final Session session = new Session();
 
     @Bean
@@ -44,6 +45,11 @@ public class ItSqlReplCommandNotInitialedClusterTest extends CliIntegrationTest 
     @Replaces(Session.class)
     public Session session() {
         return session;
+    }
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
     }
 
     @Override

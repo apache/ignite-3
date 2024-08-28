@@ -88,6 +88,7 @@ public class Main {
         System.out.println(banner(versionProvider));
 
         ReplManager replManager = micronautFactory.create(ReplManager.class);
+        replManager.subscribe();
         replManager.startReplMode();
     }
 

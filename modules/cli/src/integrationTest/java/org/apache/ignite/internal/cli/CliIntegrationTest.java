@@ -113,7 +113,9 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
-        eventListeningActivationPoint.subscribe();
+        if (needToSubscribe()) {
+            eventListeningActivationPoint.subscribe();
+        }
         resetOutput();
         CommandLineContextProvider.setCmd(cmd);
     }
@@ -132,6 +134,16 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
 
     protected Class<?> getCommandClass() {
         return TopLevelCliCommand.class;
+    }
+
+    /**
+     * If {@code true}, the test subscribes to CLI event. Return {@code false} to more closely emulate real CLI app, where we subscribe
+     * explicitly before the REPL mode start.
+     *
+     * @return Whether to subscribe to CLI events or not.
+     */
+    protected boolean needToSubscribe() {
+        return true;
     }
 
     protected void execute(String... args) {

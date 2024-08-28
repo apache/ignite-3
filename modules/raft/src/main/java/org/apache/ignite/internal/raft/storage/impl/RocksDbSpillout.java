@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
+
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.groupStartPrefix;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Lock;
@@ -138,8 +140,8 @@ public class RocksDbSpillout implements Logs {
         this.db = db;
         this.columnFamily = columnFamily;
         this.executor = executor;
-        this.groupStartPrefix = (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
-        this.groupEndPrefix = (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
+        this.groupStartPrefix = groupStartPrefix(groupId);
+        this.groupEndPrefix = groupEndPrefix(groupId);
         this.groupStartBound = new Slice(groupStartPrefix);
         this.groupEndBound = new Slice(groupEndPrefix);
 
@@ -296,7 +298,21 @@ public class RocksDbSpillout implements Logs {
     }
 
     private void deleteWholeGroupRange() throws RocksDBException {
-        db.deleteRange(columnFamily, groupStartPrefix, groupEndPrefix);
+        deleteAllEntriesBetween(db, columnFamily, groupStartPrefix, groupEndPrefix);
+    }
+
+    /**
+     * Deletes all entries starting with start prefix and not ending with end prefix.
+     *
+     * @param db The DB.
+     * @param columnFamily The column family.
+     * @param startPrefix Start prefix.
+     * @param endPrefix End prefix.
+     * @throws RocksDBException If something goes wrong.
+    */
+    public static void deleteAllEntriesBetween(RocksDB db, ColumnFamilyHandle columnFamily, byte[] startPrefix, byte[] endPrefix)
+            throws RocksDBException {
+        db.deleteRange(columnFamily, startPrefix, endPrefix);
     }
 
     @Override

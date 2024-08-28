@@ -180,4 +180,13 @@ public interface RaftManager extends IgniteComponent {
             @Nullable Marshaller commandsMarshaller
     ) throws NodeStoppingException;
 
+    /**
+     * Destroys Raft group node storages (log storage, metadata storage and snapshots storage).
+     *
+     * @param nodeId ID of the Raft node.
+     * @param raftGroupOptionsConfigurer Group options configurer.
+     * @throws NodeStoppingException If the node is already being stopped.
+     */
+    void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptionsConfigurer raftGroupOptionsConfigurer)
+            throws NodeStoppingException;
 }

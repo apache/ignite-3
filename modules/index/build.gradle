@@ -75,6 +75,7 @@ dependencies {
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
