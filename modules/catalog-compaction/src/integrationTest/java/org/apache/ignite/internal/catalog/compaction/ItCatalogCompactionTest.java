@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_P
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -70,7 +69,6 @@ import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -145,62 +143,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     @BeforeEach
     public void beforeEach() {
         dropAllTables();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23052")
-    @Test
-    void testRaftGroupsUpdate() throws InterruptedException {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
-        int partsCount = 16;
-
-        sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
-                partsCount, initialNodes()));
-        sql("alter zone test set default");
-        sql("create table a(a int primary key)");
-
-        Catalog minRequiredCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-        assertNotNull(minRequiredCatalog);
-
-        sql("create table b(a int primary key)");
-
-        List<TablePartitionId> expectedReplicationGroups = prepareExpectedGroups(catalogManager, partsCount);
-
-        // Raft groups update procedure is aborted if a primary
-        // for a replication group is not selected.
-        // Therefore, after creating the tables, before starting the
-        // procedure, we must wait for the selection of primary replicas.
-        waitPrimaryReplicas(expectedReplicationGroups);
-
-        // Latest active catalog contains all required tables.
-        {
-            HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(minRequiredCatalog.time());
-
-            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToNodes(expectedTime.longValue(), ignite.clusterNodes());
-
-            assertThat(fut, willCompleteSuccessfully());
-
-            ensureTimestampStoredInAllReplicas(expectedTime, expectedReplicationGroups);
-        }
-
-        // Latest active catalog does not contain all required tables.
-        // Replicas of dropped tables must also be updated.
-        long requiredTime = ignite.clockService().nowLong();
-
-        {
-            sql("drop table a");
-            sql("drop table b");
-
-            HybridTimestamp expectedTime = HybridTimestamp.hybridTimestamp(requiredTime);
-
-            CompletableFuture<Void> fut = ignite.catalogCompactionRunner()
-                    .propagateTimeToNodes(expectedTime.longValue(), ignite.clusterNodes());
-
-            assertThat(fut, willCompleteSuccessfully());
-
-            ensureTimestampStoredInAllReplicas(expectedTime, expectedReplicationGroups);
-        }
     }
 
     @Test
