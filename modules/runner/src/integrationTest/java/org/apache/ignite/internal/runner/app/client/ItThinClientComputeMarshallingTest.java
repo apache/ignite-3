@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,14 +43,15 @@ import org.apache.ignite.internal.runner.app.Jobs.ArgumentAndResultMarshallingJo
 import org.apache.ignite.internal.runner.app.Jobs.ArgumentStringMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.MapReduce;
+import org.apache.ignite.internal.runner.app.Jobs.MapReduceTuples;
 import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
 import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
 import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
 import org.apache.ignite.internal.runner.app.Jobs.ResultStringUnMarshaller;
+import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -196,7 +201,6 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     }
 
 
-
     @Test
     void submitBroadcast() {
         // When.
@@ -264,20 +268,45 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22787")
     void mapReduce() {
-        // When run job with custom marshaller for string argument.
-        String result = client().compute().executeMapReduce(
-                TaskDescriptor.builder(MapReduce.class).build(),
-                List.of("Input_0", "Input_1"));
-
-        // Then both client and server marshaller were called.
-        assertEquals("Input"
-                        + ":marshalledOnClient"
-                        + ":unmarshalledOnServer"
-                        + ":processedOnServer",
-                result
+        // When.
+        List<String> result = client().compute().executeMapReduce(
+                TaskDescriptor.builder(MapReduce.class)
+                        .splitJobArgumentMarshaller(ByteArrayMarshaller.create())
+                        .reduceJobArgumentMarshaller(ByteArrayMarshaller.create())
+                        .build(),
+                // input_O goes to 0 node and input_1 goes to 1 node
+                List.of("Input_0", "Input_1")
         );
+
+        // Then.
+        assertThat(
+                result,
+                hasItem(containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer"))
+        );
+        // And.
+        assertThat(
+                result,
+                hasItem(containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer"))
+        );
+    }
+
+    @Test
+    void mapReduceTuples() {
+        // When execute MapReduce job that uses Tuple as an argument at any stage.
+        Tuple result = client().compute().executeMapReduce(
+                TaskDescriptor.builder(MapReduceTuples.class).build(),
+                Tuple.create().set("from", "client")
+        );
+
+        // Then the job completes successfully and tuples were processed.
+        Tuple expectedTuple = Tuple.create();
+        expectedTuple.set("from", "client");
+        expectedTuple.set("split", "call");
+        expectedTuple.set("reduce", "call");
+        expectedTuple.set("echo", "echo");
+
+        assertThat(result, equalTo(expectedTuple));
     }
 
     private ClusterNode node(int idx) {
