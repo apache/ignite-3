@@ -1126,7 +1126,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return nullCompletedFuture();
         }
 
-        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+        CompletableFuture<ApplyCommandResult<Object>> resultFuture = new CompletableFuture<>();
 
         applyCmdWithRetryOnSafeTimeReorderException(
                 REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(clockService.now()).build(),
@@ -1755,7 +1755,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
                     }
 
-                    TransactionResult result = (TransactionResult) txOutcome;
+                    TransactionResult result = (TransactionResult) txOutcome.getResult();
 
                     markFinished(txId, result.transactionState(), result.commitTimestamp());
 
@@ -1773,7 +1773,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return list;
     }
 
-    private CompletableFuture<Object> applyFinishCommand(
+    private CompletableFuture<ApplyCommandResult<Object>> applyFinishCommand(
             UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
@@ -1791,7 +1791,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (commit) {
                 finishTxCmdBldr.commitTimestamp(commitTimestamp);
             }
-            CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+            CompletableFuture<ApplyCommandResult<Object>> resultFuture = new CompletableFuture<>();
 
             applyCmdWithRetryOnSafeTimeReorderException(finishTxCmdBldr.build(), resultFuture);
 
@@ -1899,7 +1899,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 indexIdsAtRwTxBeginTs(transactionId)
         );
 
-        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+        CompletableFuture<ApplyCommandResult<Object>> resultFuture = new CompletableFuture<>();
 
         applyCmdWithRetryOnSafeTimeReorderException(wiSwitchCmd, resultFuture);
 
@@ -1907,7 +1907,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .exceptionally(e -> {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + transactionId + ']', e);
 
-                    return nullCompletedFuture();
+                    return new ApplyCommandResult<> (wiSwitchCmd, null);
                 })
                 .thenApply(res -> new WriteIntentSwitchReplicatedInfo(transactionId, replicationGroupId));
     }
@@ -2637,7 +2637,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param cmd Raft command.
      * @return Raft future.
      */
-    private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd, CompletableFuture<Object> resultFuture) {
+    // TODO sanpwc javadoc for return type.
+    private CompletableFuture<ApplyCommandResult<Object>> applyCmdWithExceptionHandling(Command cmd, CompletableFuture<ApplyCommandResult<Object>> resultFuture) {
         applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
 
         return resultFuture.exceptionally(throwable -> {
@@ -2651,11 +2652,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
-    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture) {
+    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<ApplyCommandResult<T>> resultFuture) {
         applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture, 0);
     }
 
-    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture, int attemptsCounter) {
+    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<ApplyCommandResult<T>> resultFuture, int attemptsCounter) {
         attemptsCounter++;
         if (attemptsCounter >= MAX_RETIES_ON_SAFE_TIME_REORDERING) {
             resultFuture.completeExceptionally(
@@ -2680,7 +2681,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     resultFuture.completeExceptionally(ex);
                 }
             } else {
-                resultFuture.complete((T) res);
+                resultFuture.complete(new ApplyCommandResult(cmd, res));
             }
         });
     }
@@ -2744,19 +2745,19 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return completedFuture(fut);
             } else {
-                CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+                CompletableFuture<ApplyCommandResult<Object>> resultFuture = new CompletableFuture<>();
 
                 applyCmdWithExceptionHandling(cmd, resultFuture);
 
                 return resultFuture.thenCompose(res -> {
-                    UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
+                    UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
 
                     if (!updateCommandResult.isPrimaryReplicaMatch()) {
                         throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
                     }
 
                     if (updateCommandResult.isPrimaryInPeersAndLearners()) {
-                        return safeTime.waitFor(cmd.safeTime()).thenApply(ignored -> null);
+                        return safeTime.waitFor(((UpdateCommand)res.getCommand()).safeTime()).thenApply(ignored -> null);
                     } else {
                         if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK)) {
                             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
@@ -2882,7 +2883,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             } else {
                 return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                         .thenCompose(res -> {
-                            UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
+                            UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
 
                             if (!updateCommandResult.isPrimaryReplicaMatch()) {
                                 throw new PrimaryReplicaMissException(
@@ -2892,7 +2893,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 );
                             }
                             if (updateCommandResult.isPrimaryInPeersAndLearners()) {
-                                return safeTime.waitFor(cmd.safeTime()).thenApply(ignored -> null);
+                                return safeTime.waitFor(((UpdateAllCommand)res.getCommand()).safeTime()).thenApply(ignored -> null);
                             } else {
                                 // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                                 storageUpdateHandler.handleUpdateAll(
@@ -4077,7 +4078,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .safeTime(clockService.now())
                 .build();
 
-        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+        CompletableFuture<ApplyCommandResult<Object>> resultFuture = new CompletableFuture<>();
 
         // The timestamp must increase monotonically, otherwise it will have to be
         // stored on disk so that reordering does not occur after the node is restarted.
@@ -4143,5 +4144,25 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return result;
+    }
+
+    // TODO sanpwc javadoc.
+    // TODO why it's static
+    private static class ApplyCommandResult<T> {
+        private final Command command;
+        private final @Nullable T result;
+
+        ApplyCommandResult(Command command, @Nullable T result) {
+            this.command = command;
+            this.result = result;
+        }
+
+        Command getCommand() {
+            return command;
+        }
+
+        @Nullable T getResult() {
+            return result;
+        }
     }
 }
