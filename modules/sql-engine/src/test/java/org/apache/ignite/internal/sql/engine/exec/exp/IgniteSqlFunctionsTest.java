@@ -523,9 +523,9 @@ public class IgniteSqlFunctionsTest {
     @ParameterizedTest
     @CsvSource(
             value = {
-                    "1; 2; 0.5",
-                    "1; 3; 0.3333333333333333",
-                    "6; 2; 3",
+                    "1; 2; 0.50",
+                    "1; 3; 0.33",
+                    "6; 2; 3.00",
                     "1; 0;",
             },
             delimiterString = ";"
