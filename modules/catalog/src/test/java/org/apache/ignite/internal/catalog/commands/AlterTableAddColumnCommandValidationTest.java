@@ -203,7 +203,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "Operations with reserved schemas are not allowed"
+                "Operations with system schemas are not allowed"
         );
     }
 }

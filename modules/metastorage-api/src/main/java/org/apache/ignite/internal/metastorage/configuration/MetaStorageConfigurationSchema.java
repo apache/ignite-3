@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.metastorage.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for the Meta Storage module.
  */
-@ConfigurationRoot(rootName = "metaStorage", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class MetaStorageConfigurationSchema {
     /**
      * Duration (in milliseconds) used to determine how often to issue time sync commands when the Meta Storage is idle

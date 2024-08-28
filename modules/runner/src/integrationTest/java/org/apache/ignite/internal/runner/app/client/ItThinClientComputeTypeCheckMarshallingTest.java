@@ -46,6 +46,7 @@ import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -81,7 +82,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         await().untilAsserted(() -> assertStatusCompleted(result));
-        assertThrows(ClassCastException.class, () -> {
+        assertThrows(UnmarshallingException.class, () -> {
             String str = getSafe(result.resultAsync());
         });
     }
@@ -187,8 +188,8 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
             return fut.get(waitSec, TimeUnit.SECONDS);
         } catch (ExecutionException e) {
             var cause = e.getCause();
-            if (cause instanceof ClassCastException) {
-                throw (ClassCastException) cause;
+            if (cause instanceof UnmarshallingException) {
+                throw (UnmarshallingException) cause;
             }
             throw new RuntimeException(e);
         } catch (InterruptedException | TimeoutException e) {

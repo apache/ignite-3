@@ -66,6 +66,7 @@ dependencies {
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-configuration')
+    integrationTestImplementation project(':ignite-configuration-root')
     integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation project(':ignite-index')
     integrationTestImplementation project(':ignite-failure-handler')

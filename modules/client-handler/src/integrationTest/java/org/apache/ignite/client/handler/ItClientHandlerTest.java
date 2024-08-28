@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
@@ -35,12 +36,14 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,7 +63,9 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
     private int serverPort;
 
-    @InjectConfiguration(rootName = "security")
+    @InjectConfiguration(rootName = "ignite", type = DISTRIBUTED)
+    private ClusterConfiguration clusterConfiguration;
+
     private SecurityConfiguration securityConfiguration;
 
     @InjectConfiguration
@@ -71,6 +76,8 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
+        securityConfiguration = ((SecurityExtensionConfiguration) clusterConfiguration).security();
+
         testServer = new TestServer(null, securityConfiguration, clientConnectorConfiguration, networkConfiguration);
         serverModule = testServer.start(testInfo);
         serverPort = serverModule.localAddress().getPort();

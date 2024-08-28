@@ -80,7 +80,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
                     + "}]}";
         }
 
-        builder.clusterConfiguration(config);
+        builder.clusterConfiguration("ignite {\n" + config + "\n}");
     }
 
     @Test
@@ -136,7 +136,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
         }
 
         // Change credentials.
-        String updateRestAuthConfigBody = "security.authentication.providers.default.users.admin.password=new-password";
+        String updateRestAuthConfigBody = "ignite.security.authentication.providers.default.users.admin.password=new-password";
 
         updateClusterConfiguration(unwrapIgniteImpl(node(0)).restHttpAddress(), "admin", "password", updateRestAuthConfigBody);
 

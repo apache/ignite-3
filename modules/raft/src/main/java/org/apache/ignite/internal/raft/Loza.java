@@ -169,7 +169,7 @@ public class Loza implements RaftManager {
         metricManager.enable(stripeSource);
 
         opts.setRaftMetrics(stripeSource);
-        opts.setRpcInstallSnapshotTimeout(raftConfig.rpcInstallSnapshotTimeout());
+        opts.setRpcInstallSnapshotTimeout(raftConfig.installSnapshotTimeout());
         opts.setStripes(raftConfig.stripes());
         opts.setLogStripesCount(raftConfig.logStripesCount());
         opts.setLogYieldStrategy(raftConfig.logYieldStrategy());

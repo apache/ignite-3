@@ -30,7 +30,6 @@ When it is enabled for the data region, Ignite stores all data in the data regio
 |name|| The name of the data region.
 |initSize|`256 * 1024 * 1024`| Sets the initial space allocated to the data region.
 |maxSize|`256 * 1024 * 1024`| Sets the maximum space that can be allocated to the data region.
-|emptyPagesPoolSize|100| The maximum number of empty pages Ignite will try to keep.
 |pageSize|16384| The size of pages in the storage, in bytes.
 |===
 

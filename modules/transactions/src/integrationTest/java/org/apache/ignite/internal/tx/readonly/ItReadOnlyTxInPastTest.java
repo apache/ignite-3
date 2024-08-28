@@ -44,7 +44,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     @BeforeEach
     void prepareCluster() {
         // Setting idleSafeTimePropagationDuration to 1 second so that an RO tx has a potential to look before a table was created.
-        cluster.startAndInit(1, builder -> builder.clusterConfiguration("replication.idleSafeTimePropagationDuration: 1000"));
+        cluster.startAndInit(1, builder -> builder.clusterConfiguration("ignite.replication.idleSafeTimePropagationDuration: 1000"));
 
         cluster.doInSession(0, session -> {
             executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.lang;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import org.apache.ignite.error.code.annotations.ErrorCodeGroup;
 
 /**
@@ -28,7 +28,7 @@ import org.apache.ignite.error.code.annotations.ErrorCodeGroup;
 @SuppressWarnings("PublicInnerClass")
 public class ErrorGroups {
     /** List of all registered error groups. */
-    private static final Int2ObjectMap<ErrorGroup> registeredGroups = new Int2ObjectOpenHashMap<>();
+    private static final Map<Short, ErrorGroup> registeredGroups = new HashMap<>();
 
     /**
      * Initializes and register all error groups and error codes.

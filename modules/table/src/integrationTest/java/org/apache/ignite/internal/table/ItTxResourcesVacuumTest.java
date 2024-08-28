@@ -65,6 +65,7 @@ import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -98,7 +99,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     private static final int REPLICAS = 2;
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
@@ -142,7 +143,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     protected void customizeInitParameters(InitParametersBuilder builder) {
         super.customizeInitParameters(builder);
 
-        builder.clusterConfiguration("{"
+        builder.clusterConfiguration("ignite {"
                 + "  transaction: {"
                 + "      txnResourceTtl: 0"
                 + "  },"
@@ -814,8 +815,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     }
 
     private void setTxResourceTtl(long ttl) {
-        CompletableFuture<Void> changeFuture = anyNode().clusterConfiguration().change(c ->
-                c.changeRoot(TransactionConfiguration.KEY).changeTxnResourceTtl(ttl));
+        TransactionConfiguration transactionConfiguration = anyNode().clusterConfiguration()
+                .getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
+        CompletableFuture<Void> changeFuture = transactionConfiguration.change(c -> c.changeTxnResourceTtl(ttl));
 
         assertThat(changeFuture, willCompleteSuccessfully());
     }

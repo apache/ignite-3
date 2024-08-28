@@ -27,7 +27,7 @@ Generic configuration settings are applied to all tables and indexes in the clus
 |gcThreads|16| Number of CPU threads dedicated to garbage collection.
 |globalIdCounter|0|Current global ID of the table. Incremented automatically when a new table is created.
 |lowWatermark.dataAvailabilityTime|2700000|The duration deleted data is kept in database, in milliseconds.
-|lowWatermark.updateFrequency|300000| Low watermark update frequency (in milliseconds).
+|lowWatermark.updateInterval|300000| Low watermark update interval (in milliseconds).
 |===
 
 

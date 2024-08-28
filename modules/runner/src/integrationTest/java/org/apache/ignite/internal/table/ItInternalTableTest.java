@@ -101,7 +101,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
     private static final int BASE_PORT = 3344;
 
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  \"network\": {\n"
             + "    \"port\":{},\n"
             + "    \"nodeFinder\":{\n"

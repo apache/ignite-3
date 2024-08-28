@@ -40,7 +40,7 @@ import org.junit.jupiter.api.TestInfo;
  * Integration tests running against a single Ignite node.
  */
 public class ItSingleNodeTest extends IgniteAbstractTest {
-    private static final String NODE_CONFIG = "network.nodeFinder.netClusterNodes: [ \"localhost:" + DEFAULT_PORT + "\"]";
+    private static final String NODE_CONFIG = "ignite.network.nodeFinder.netClusterNodes: [ \"localhost:" + DEFAULT_PORT + "\"]";
 
     private static final String TABLE_NAME = "TEST_TABLE";
 

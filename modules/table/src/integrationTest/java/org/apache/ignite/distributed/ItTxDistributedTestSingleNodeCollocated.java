@@ -17,7 +17,6 @@
 
 package org.apache.ignite.distributed;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -37,13 +36,6 @@ public class ItTxDistributedTestSingleNodeCollocated extends ItTxAbstractDistrib
     @Override
     protected boolean startClient() {
         return false;
-    }
-
-    /** {@inheritDoc} */
-    @BeforeEach
-    @Override
-    public void before() throws Exception {
-        super.before();
     }
 }
 

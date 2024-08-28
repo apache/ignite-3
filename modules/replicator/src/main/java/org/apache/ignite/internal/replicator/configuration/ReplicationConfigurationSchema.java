@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.replicator.configuration;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration for Replication.
  */
-@ConfigurationRoot(rootName = "replication", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class ReplicationConfigurationSchema {
     /** Default value for {@link #idleSafeTimePropagationDuration}. */
     public static final long DEFAULT_IDLE_SAFE_TIME_PROP_DURATION = TimeUnit.SECONDS.toMillis(1);

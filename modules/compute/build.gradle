@@ -26,6 +26,7 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-table')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-core')
     implementation project(':ignite-code-deployment')
     implementation project(':ignite-cluster-management')

@@ -51,7 +51,7 @@ import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -249,7 +249,10 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void testChangePrimaryOnCleanup() throws Exception {
-        unwrapIgniteImpl(node(0)).clusterConfiguration().getConfiguration(ReplicationConfiguration.KEY).change(replicationChange ->
+        ReplicationExtensionConfiguration replicationExtensionConfiguration = unwrapIgniteImpl(node(0)).clusterConfiguration()
+                .getConfiguration(ReplicationExtensionConfiguration.KEY);
+
+        replicationExtensionConfiguration.replication().change(replicationChange ->
                 replicationChange.changeRpcTimeout(3000));
 
         Context context = prepareTransactionData();

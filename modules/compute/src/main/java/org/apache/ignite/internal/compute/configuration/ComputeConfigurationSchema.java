@@ -20,16 +20,14 @@ package org.apache.ignite.internal.compute.configuration;
 import static java.lang.Math.max;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for Compute functionality.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "compute", type = ConfigurationType.LOCAL)
+@Config
 public class ComputeConfigurationSchema {
     /** Job thread pool size. */
     @Range(min = 1)

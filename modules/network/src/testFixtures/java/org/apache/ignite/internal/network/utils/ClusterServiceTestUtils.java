@@ -29,6 +29,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -42,6 +43,8 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.StaleIds;
@@ -154,14 +157,20 @@ public class ClusterServiceTestUtils {
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier
     ) {
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+                List.of(NodeConfiguration.KEY),
+                List.of(NetworkExtensionConfigurationSchema.class),
+                List.of()
+        );
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
-                Collections.singleton(NetworkConfiguration.KEY),
+                Collections.singleton(NodeConfiguration.KEY),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
-                new ConfigurationTreeGenerator(NetworkConfiguration.KEY),
+                generator,
                 new TestConfigurationValidator()
         );
 
-        NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry()
+                .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
         var bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
@@ -195,10 +204,7 @@ public class ClusterServiceTestUtils {
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 nodeConfigurationMgr.startAsync(componentContext).join();
 
-                NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry()
-                        .getConfiguration(NetworkConfiguration.KEY);
-
-                configuration.change(netCfg ->
+                networkConfiguration.change(netCfg ->
                         netCfg
                                 .changePort(port)
                                 .changeNodeFinder(c -> c

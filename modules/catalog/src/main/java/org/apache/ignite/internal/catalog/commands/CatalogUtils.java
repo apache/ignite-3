@@ -145,7 +145,7 @@ public class CatalogUtils {
     public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
 
     /** System schema names. */
-    static boolean isSystemSchema(String schemaName) {
+    public static boolean isSystemSchema(String schemaName) {
         return SYSTEM_SCHEMAS.contains(schemaName);
     }
 

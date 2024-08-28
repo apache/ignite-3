@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.eventlog.config.schema;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /** Configuration schema for event log. */
-@ConfigurationRoot(rootName = "eventlog", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class EventLogConfigurationSchema {
     /** The configuration schema for sinks. */
     @NamedConfigValue

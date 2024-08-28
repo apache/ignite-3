@@ -102,4 +102,4 @@ CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
 ----
 --
 
-Additionally, the data streamer periodically flushes incomplete buffers to avoid messages being stuck for a long time (a specific buffer can fill up slowly or never fill completely at all, depending on the data distribution). This is configured with the `autoFlushFrequency` (5000ms by default) property.
+Additionally, the data streamer periodically flushes incomplete buffers to avoid messages being stuck for a long time (a specific buffer can fill up slowly or never fill completely at all, depending on the data distribution). This is configured with the `autoFlushInterval` (5000ms by default) property.

@@ -121,15 +121,15 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     /**
      * Nodes bootstrap configuration pattern.
      *
-     * <p>rpcInstallSnapshotTimeout is changed to 10 seconds so that sporadic snapshot installation failures still
+     * <p>installSnapshotTimeout is changed to 10 seconds so that sporadic snapshot installation failures still
      * allow tests pass thanks to retries.
      */
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
-            + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
+            + "  raft.installSnapshotTimeout: 10000,\n"
             + "  storage.profiles: {"
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "

@@ -57,7 +57,7 @@ public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
     protected void configureInitParameters(InitParametersBuilder builder) {
         super.configureInitParameters(builder);
 
-        builder.clusterConfiguration("{metrics.exporters.jmx.exporterName: jmx}");
+        builder.clusterConfiguration("ignite.metrics.exporters.jmx.exporterName: jmx");
     }
 
     @AfterEach

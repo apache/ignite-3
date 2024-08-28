@@ -58,7 +58,7 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder.netClusterNodes: [ {} ]\n"

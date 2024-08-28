@@ -40,12 +40,12 @@ public class ItUpdateConfigurationCallTest extends CliIntegrationTest {
     @DisplayName("Should update cluster configuration")
     void shouldUpdateClusterConfiguration() {
         // Given default write buffer size
-        String givenConfigurationProperty = readConfigurationProperty("gc.batchSize");
+        String givenConfigurationProperty = readConfigurationProperty("ignite.gc.batchSize");
         assertThat(givenConfigurationProperty).isEqualTo("5");
         // And
         var input = ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(NODE_URL)
-                .config("{gc: {batchSize: 1}}")
+                .config("ignite{gc: {batchSize: 1}}")
                 .build();
 
         // When update buffer size
@@ -56,19 +56,19 @@ public class ItUpdateConfigurationCallTest extends CliIntegrationTest {
         // And
         assertThat(output.body()).contains("Cluster configuration was updated successfully");
         // And buffer size is updated
-        String updatedConfigurationProperty = readConfigurationProperty("gc.batchSize");
+        String updatedConfigurationProperty = readConfigurationProperty("ignite.gc.batchSize");
         assertThat(updatedConfigurationProperty).isEqualTo("1");
 
         // When update buffer size back to default but using key-value format
         updateCall.execute(
                 ClusterConfigUpdateCallInput.builder()
                         .clusterUrl(NODE_URL)
-                        .config("gc.batchSize=5")
+                        .config("ignite.gc.batchSize=5")
                         .build()
         );
 
         // Then buffer size is updated
-        assertThat(readConfigurationProperty("gc.batchSize")).isEqualTo("5");
+        assertThat(readConfigurationProperty("ignite.gc.batchSize")).isEqualTo("5");
     }
 
     private String readConfigurationProperty(String selector) {

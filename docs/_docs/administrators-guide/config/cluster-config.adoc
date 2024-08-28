@@ -24,7 +24,7 @@ Ignite 3 cluster configuration is shared across the whole cluster. Regardless of
     "batchSize" : 5,
     "lowWatermark" : {
       "dataAvailabilityTime" : 600000,
-      "updateFrequency" : 300000
+      "updateInterval" : 300000
     },
     "threads" : 16
   },
@@ -35,7 +35,7 @@ Ignite 3 cluster configuration is shared across the whole cluster. Regardless of
 |Property|Default|Description
 |batchSize|5|Garbage collection batch size.
 |lowWatermark.dataAvailabilityTime|600000|The duration outdated versions are available for.
-|lowWatermark.updateFrequency|300000|The frequency of low watermark updates.
+|lowWatermark.updateInterval|300000|The interval between low watermark updates.
 |threads|16|The number of threads used by garbage collector.
 |======
 

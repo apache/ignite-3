@@ -25,9 +25,9 @@ using System;
 /// <param name="PageSize">The number of entries that will be sent to the cluster in one network call.</param>
 /// <param name="RetryLimit">Retry limit for a batch. If a batch fails to be sent to the cluster,
 /// the streamer will retry it a number of times.</param>
-/// <param name="AutoFlushFrequency">Auto flush frequency - the period of time after which the streamer
+/// <param name="AutoFlushInterval">Auto flush interval - the period of time after which the streamer
 /// will flush the per-node buffer even if it is not full.</param>
-public sealed record DataStreamerOptions(int PageSize, int RetryLimit, TimeSpan AutoFlushFrequency)
+public sealed record DataStreamerOptions(int PageSize, int RetryLimit, TimeSpan AutoFlushInterval)
 {
     /// <summary>
     /// Default streamer options.
@@ -41,7 +41,7 @@ public sealed record DataStreamerOptions(int PageSize, int RetryLimit, TimeSpan 
         : this(
             PageSize: 1000,
             RetryLimit: 16,
-            AutoFlushFrequency: TimeSpan.FromSeconds(5))
+            AutoFlushInterval: TimeSpan.FromSeconds(5))
     {
         // No-op.
     }

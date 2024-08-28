@@ -19,7 +19,12 @@ project(ignite-network)
 
 set(TARGET ${PROJECT_NAME})
 
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL)
+if (EXISTS ${OPENSSL_INCLUDE_DIR})
+    message(STATUS "OPENSSL_INCLUDE_DIR: " ${OPENSSL_INCLUDE_DIR})
+else()
+    message(FATAL_ERROR "Can not resolve OPENSSL_INCLUDE_DIR.")
+endif()
 
 set(SOURCES
     async_client_pool_adapter.cpp

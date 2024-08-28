@@ -34,7 +34,7 @@ class ReplicationConfigurationModuleTest {
     }
 
     @Test
-    void rootKeysAreAsExpected() {
-        assertThat(module.rootKeys(), contains(ReplicationConfiguration.KEY));
+    void schemaExtensionsAreAsExpected() {
+        assertThat(module.schemaExtensions(), contains(ReplicationExtensionConfigurationSchema.class));
     }
 }

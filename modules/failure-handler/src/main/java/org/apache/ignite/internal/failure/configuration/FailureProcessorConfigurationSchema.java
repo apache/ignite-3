@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.failure.configuration;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerConfigurationSchema;
 
 /**
  * Failure processor configuration schema.
  */
-@ConfigurationRoot(rootName = "failureHandler", type = ConfigurationType.LOCAL)
+@Config
 public class FailureProcessorConfigurationSchema {
     @ConfigValue
     public FailureHandlerConfigurationSchema handler;
