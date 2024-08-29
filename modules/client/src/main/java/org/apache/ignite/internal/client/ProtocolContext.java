@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
@@ -42,7 +43,7 @@ public class ProtocolContext {
     private final ClusterNode clusterNode;
 
     /** Cluster ids. */
-    private final Set<UUID> clusterIds;
+    private final List<UUID> clusterIds;
 
     /** Cluster name. */
     private final String clusterName;
@@ -57,12 +58,12 @@ public class ProtocolContext {
      * @param clusterIds Cluster ids.
      * @param clusterName Cluster name.
      */
-    public ProtocolContext(
+    ProtocolContext(
             ProtocolVersion ver,
             EnumSet<ProtocolBitmaskFeature> features,
             long serverIdleTimeout,
             ClusterNode clusterNode,
-            Set<UUID> clusterIds,
+            List<UUID> clusterIds,
             String clusterName
     ) {
         this.ver = ver;
@@ -132,12 +133,21 @@ public class ProtocolContext {
     }
 
     /**
-     * Returns cluster id.
+     * Returns cluster ids, from older to newer. The last id is the current cluster id.
      *
-     * @return Cluster id.
+     * @return Cluster ids.
      */
-    public Set<UUID> clusterIds() {
+    public List<UUID> clusterIds() {
         return clusterIds;
+    }
+
+    /**
+     * Returns current cluster id.
+     *
+     * @return Current cluster id.
+     */
+    public UUID clusterId() {
+        return clusterIds.get(clusterIds.size() - 1);
     }
 
     /**

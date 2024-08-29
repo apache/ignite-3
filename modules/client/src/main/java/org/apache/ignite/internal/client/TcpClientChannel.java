@@ -28,6 +28,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -663,9 +664,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var addr = sock.remoteAddress();
             var clusterNode = new ClientClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
 
-            int clusterIdLen = unpacker.unpackBinaryHeader();
-            Set<UUID> clusterIds = new HashSet<>();
-            for (int i = 0; i < clusterIdLen; i++) {
+            int clusterIdsLen = unpacker.unpackBinaryHeader();
+            List<UUID> clusterIds = new ArrayList<>(clusterIdsLen);
+            for (int i = 0; i < clusterIdsLen; i++) {
                 clusterIds.add(unpacker.unpackUuid());
             }
 
