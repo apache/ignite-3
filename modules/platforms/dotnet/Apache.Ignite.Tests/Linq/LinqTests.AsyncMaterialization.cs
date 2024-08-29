@@ -252,10 +252,10 @@ public partial class LinqTests
     [Test]
     public async Task TestAverageAsync()
     {
-        Assert.AreEqual(4.0d, await PocoIntView.AsQueryable().Select(x => x.Key).AverageAsync());
+        Assert.AreEqual(5.0d, await PocoIntView.AsQueryable().Select(x => x.Key).AverageAsync());
         Assert.AreEqual(14.0d, await PocoIntView.AsQueryable().AverageAsync(x => x.Key + 10));
 
-        Assert.AreEqual(4.0d, await PocoLongView.AsQueryable().Select(x => x.Key).AverageAsync());
+        Assert.AreEqual(5.0d, await PocoLongView.AsQueryable().Select(x => x.Key).AverageAsync());
         Assert.AreEqual(14.0d, await PocoLongView.AsQueryable().AverageAsync(x => x.Key + 10));
 
         Assert.AreEqual(4.5d, await PocoDoubleView.AsQueryable().Select(x => x.Key).AverageAsync());
@@ -273,7 +273,7 @@ public partial class LinqTests
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable();
 
-        Assert.AreEqual(7.0d, await query.Select(x => x.Int32).AverageAsync());
+        Assert.AreEqual(8.0d, await query.Select(x => x.Int32).AverageAsync());
         Assert.AreEqual(17.0d, await query.AverageAsync(x => x.Int32 + 10));
 
         Assert.AreEqual(8.0d, await query.Select(x => x.Int64).AverageAsync());
