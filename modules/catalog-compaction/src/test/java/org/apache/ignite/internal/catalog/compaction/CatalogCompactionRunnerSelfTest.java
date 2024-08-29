@@ -920,9 +920,9 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 bitSet.set(i);
             }
 
-            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-
             List<AvailablePartitionsMessage> availablePartitions = new ArrayList<>();
+
+            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
             for (CatalogTableDescriptor table : catalog.tables()) {
                 AvailablePartitionsMessage partitionsMessage = messagesFactory.availablePartitionsMessage()
