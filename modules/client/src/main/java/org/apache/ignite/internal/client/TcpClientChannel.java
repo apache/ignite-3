@@ -665,6 +665,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var clusterNode = new ClientClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
 
             int clusterIdsLen = unpacker.unpackInt();
+            if (clusterIdsLen <= 0) {
+                throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected cluster ids count: " + clusterIdsLen, endpoint());
+            }
+
             List<UUID> clusterIds = new ArrayList<>(clusterIdsLen);
             for (int i = 0; i < clusterIdsLen; i++) {
                 clusterIds.add(unpacker.unpackUuid());
