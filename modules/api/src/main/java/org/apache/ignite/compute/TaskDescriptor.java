@@ -153,6 +153,12 @@ public class TaskDescriptor<T, R> {
             return this;
         }
 
+        /**
+         * Sets the marshaller for reduce job result.
+         *
+         * @param reduceJobResultMarshaller Marshaller for reduce job result.
+         * @return This builder.
+         */
         public Builder<T, R> reduceJobArgumentMarshaller(Marshaller<R, byte[]> reduceJobResultMarshaller) {
             this.reduceJobResultMarshaller = reduceJobResultMarshaller;
             return this;
