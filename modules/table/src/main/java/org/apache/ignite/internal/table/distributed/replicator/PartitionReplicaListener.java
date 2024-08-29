@@ -222,15 +222,14 @@ import org.jetbrains.annotations.Nullable;
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener {
     /**
-     * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock. This causes
-     * the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
+     * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock.
+     * This causes the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
      *
      * <p>A RAFT snapshot of a partition consists of MV data, TX state data and metadata (which includes RAFT applied index).
      * Here, the 'slight' inconsistency is that MV data might be ahead of the snapshot meta (namely, RAFT applied index) and TX state data.
      *
-     * <p>This listener by its nature cannot advance RAFT applied index (as it works out of the RAFT framework). This alone makes
-     * the partition 'slightly inconsistent' in the same way as defined above. So, if we solve this inconsistency, we don't need to take the
-     * partition snapshots read lock as well.
+     * <p>This listener by its nature cannot advance RAFT applied index (as it works out of the RAFT framework). This alone makes     * the partition 'slightly inconsistent' in the same way as defined above. So, if we solve this inconsistency,
+     * we don't need to take the partition snapshots read lock as well.
      *
      * <p>The inconsistency does not cause any real problems because it is further resolved.
      * <ul>
@@ -329,8 +328,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final PlacementDriver placementDriver;
 
     /**
-     * Mutex for command processing linearization. Some actions like update or updateAll require strict ordering within their application to
-     * storage on all nodes in replication group. Given ordering should match corresponding command's safeTime.
+     * Mutex for command processing linearization.
+     * Some actions like update or updateAll require strict ordering within their application to storage on all nodes in replication group.
+     * Given ordering should match corresponding command's safeTime.
      */
     private final Object commandProcessingLinearizationMutex = new Object();
 
@@ -676,8 +676,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Request.
      * @param isPrimary Whether the current replica is primary.
      * @param opStartTsIfDirectRo Start timestamp in case of direct RO tx.
-     * @param lst Lease start time of the current lease that was active at the moment of the start of request processing, in the
-     *         case of {@link PrimaryReplicaRequest}, otherwise should be {@code null}.
+     * @param lst Lease start time of the current lease that was active at the moment of the start of request processing,
+     *     in the case of {@link PrimaryReplicaRequest}, otherwise should be {@code null}.
      * @return Future.
      */
     private CompletableFuture<?> processOperationRequest(
@@ -3516,8 +3516,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Replica request.
      * @return Future with {@link IgniteBiTuple} containing {@code boolean} (whether the replica is primary) and the start time of current
-     *         lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
-     *         lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
+     *     lease. The boolean is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary. The
+     *     lease start time is not {@code null} in case of {@link PrimaryReplicaRequest}.
      */
     private CompletableFuture<IgniteBiTuple<Boolean, Long>> ensureReplicaIsPrimary(ReplicaRequest request) {
         HybridTimestamp now = clockService.now();
