@@ -874,6 +874,11 @@ class RelJson {
                     return rexBuilder.makeNullLiteral(type);
                 }
 
+                if (literal instanceof Long) {
+                    // Avoid different representation for exact literal and approx type.
+                    return rexBuilder.makeExactLiteral(BigDecimal.valueOf((long) literal), type);
+                }
+
                 if (literal instanceof BigInteger) {
                     // If the literal is a BigInteger, RexBuilder assumes it represents a long value
                     // within the valid range and converts it without checking the bounds. If the
