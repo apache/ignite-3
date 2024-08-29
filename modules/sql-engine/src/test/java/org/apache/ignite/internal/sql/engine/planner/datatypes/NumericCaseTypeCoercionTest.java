@@ -120,12 +120,13 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
     // It is necessary to have a guarantee that two values in a row will be different.
     private static String generateLiteralWithNoRepeatitio(NativeType type) {
-        String result;
+        String val;
         do {
-            result = SqlTestUtils.generateLiteralForType(type);
-        } while (result.equals(prevResult));
-        prevResult = result;
-        return result;
+            val = SqlTestUtils.generateValueByType(type).toString();
+        } while (val.equals(prevResult));
+        prevResult = val;
+
+        return SqlTestUtils.generateLiteral(val, type.spec().asColumnType());
     }
 
     static Matcher<IgniteRel> operandCaseMatcher(Matcher<RexNode> first, Matcher<RexNode> second) {
