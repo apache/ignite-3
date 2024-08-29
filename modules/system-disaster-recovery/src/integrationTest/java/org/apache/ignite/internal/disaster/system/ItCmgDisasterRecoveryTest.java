@@ -18,22 +18,30 @@
 package org.apache.ignite.internal.disaster.system;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -52,6 +60,8 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         });
         waitTillClusterStateIsSavedToVaultOnConductor(1);
 
+        UUID originalClusterId = clusterState(igniteImpl(0)).clusterTag().clusterId();
+
         // This makes the CMG majority go away.
         cluster.stopNode(0);
 
@@ -63,6 +73,10 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
         waitTillCmgHasMajority(restartedIgniteImpl1);
+
+        ClusterState newClusterState = clusterState(restartedIgniteImpl1);
+        assertThat(newClusterState.clusterTag().clusterId(), is(not(originalClusterId)));
+        assertThat(newClusterState.formerClusterIds(), contains(originalClusterId));
 
         assertResetClusterMessageIsNotPresentAt(restartedIgniteImpl1);
         assertResetClusterMessageIsNotPresentAt(waitTillNodeRestartsInternally(2));
@@ -100,7 +114,10 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
     private IgniteImpl waitTillNodeRestartsInternally(int nodeIndex) throws InterruptedException {
         // restartOrShutdownFuture() becomes non-null when restart or shutdown is initiated; we know it's restart.
 
-        assertTrue(waitForCondition(() -> restartOrShutdownFuture(nodeIndex) != null, SECONDS.toMillis(20)));
+        assertTrue(
+                waitForCondition(() -> restartOrShutdownFuture(nodeIndex) != null, SECONDS.toMillis(20)),
+                "Node did not attempt to be restarted (or shut down) in time"
+        );
         assertThat(restartOrShutdownFuture(nodeIndex), willCompleteSuccessfully());
 
         return unwrapIgniteImpl(cluster.server(nodeIndex).api());
@@ -109,6 +126,11 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
     @Nullable
     private CompletableFuture<Void> restartOrShutdownFuture(int nodeIndex) {
         return ((IgniteServerImpl) cluster.server(nodeIndex)).restartOrShutdownFuture();
+    }
+
+    private static ClusterState clusterState(IgniteImpl restartedIgniteImpl1)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        return restartedIgniteImpl1.clusterManagementGroupManager().clusterState().get(10, SECONDS);
     }
 
     private static void assertResetClusterMessageIsNotPresentAt(IgniteImpl ignite) {
@@ -200,7 +222,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void nodesThatSawNoReparationHaveSeparatePhysicalTopology() throws Exception {
+    void nodesThatSawNoReparationHaveSeparatePhysicalTopologies() throws Exception {
         cluster.startAndInit(2, paramsBuilder -> {
             paramsBuilder.cmgNodeNames(nodeNames(0));
             paramsBuilder.metaStorageNodeNames(nodeNames(1));
@@ -222,5 +244,111 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
                 waitForCondition(() -> restartedIgniteImpl1.clusterNodes().size() > 1, SECONDS.toMillis(3)),
                 "Nodes from different clusters were able to establish a connection"
         );
+    }
+
+    @Test
+    void migratesNodesThatSawNoReparationToNewCluster() throws Exception {
+        cluster.startAndInit(2, paramsBuilder -> {
+            paramsBuilder.cmgNodeNames(nodeNames(0));
+            paramsBuilder.metaStorageNodeNames(nodeNames(1));
+        });
+        waitTillClusterStateIsSavedToVaultOnConductor(1);
+
+        // This makes the CMG majority go away.
+        cluster.stopNode(0);
+
+        // Repair CMG with just node 1.
+        initiateCmgRepairVia(igniteImpl(1), 1);
+        IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
+        waitTillCmgHasMajority(restartedIgniteImpl1);
+
+        migrate(0, 1);
+
+        LogicalTopologySnapshot topologySnapshot = igniteImpl(1).logicalTopologyService().logicalTopologyOnLeader().get(10, SECONDS);
+        assertTopologyContainsNode(0, topologySnapshot);
+    }
+
+    private void assertTopologyContainsNode(int nodeIndex, LogicalTopologySnapshot topologySnapshot) {
+        assertTrue(topologySnapshot.nodes().stream().anyMatch(node -> node.name().equals(cluster.nodeName(nodeIndex))));
+    }
+
+    private void migrate(int oldClusterNodeIndex, int newClusterNodeIndex) throws Exception {
+        // Starting the node that did not see the repair.
+        IgniteImpl nodeMissingRepair = ((IgniteServerImpl) cluster.startEmbeddedNode(oldClusterNodeIndex).server()).igniteImpl();
+
+        initiateMigrationToNewCluster(nodeMissingRepair, igniteImpl(newClusterNodeIndex));
+
+        waitTillNodeRestartsInternally(oldClusterNodeIndex);
+    }
+
+    private static void initiateMigrationToNewCluster(IgniteImpl nodeMissingRepair, IgniteImpl repairedNode) throws Exception {
+        // TODO: IGNITE-22879 - initiate migration via CLI.
+
+        ClusterState newClusterState = clusterState(repairedNode);
+
+        CompletableFuture<Void> migrationFuture = nodeMissingRepair.systemDisasterRecoveryManager().migrate(newClusterState);
+        assertThat(migrationFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void migratesManyNodesThatSawNoReparationToNewCluster() throws Exception {
+        cluster.startAndInit(5, paramsBuilder -> {
+            paramsBuilder.cmgNodeNames(nodeNames(0, 1, 2));
+            paramsBuilder.metaStorageNodeNames(nodeNames(2, 3, 4));
+        });
+        waitTillClusterStateIsSavedToVaultOnConductor(2);
+
+        // Stop the majority of CMG.
+        IntStream.of(0, 1).parallel().forEach(cluster::stopNode);
+
+        // Repair CMG with nodes 2, 3, 4.
+        initiateCmgRepairVia(igniteImpl(2), 2, 3, 4);
+        IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
+        waitTillCmgHasMajority(restartedIgniteImpl2);
+
+        // Starting the nodes that did not see the repair.
+        List<IgniteImpl> partialNodes = IntStream.of(0, 1).parallel()
+                .mapToObj(index -> ((IgniteServerImpl) cluster.startEmbeddedNode(index).server()).igniteImpl())
+                .collect(toList());
+
+        initiateMigrationToNewCluster(partialNodes.get(0), igniteImpl(2));
+
+        waitTillNodeRestartsInternally(0);
+        waitTillNodeRestartsInternally(1);
+
+        LogicalTopologySnapshot topologySnapshot = igniteImpl(2).logicalTopologyService().logicalTopologyOnLeader().get(10, SECONDS);
+        assertTopologyContainsNode(0, topologySnapshot);
+        assertTopologyContainsNode(1, topologySnapshot);
+
+        // TODO: IGNITE-23096 - remove after the hang is fixed.
+        waitTillNodesRestartInProcess(3, 4);
+    }
+
+    @Test
+    void repeatedRepairWorks() throws Exception {
+        cluster.startAndInit(2, paramsBuilder -> {
+            paramsBuilder.cmgNodeNames(nodeNames(0));
+            paramsBuilder.metaStorageNodeNames(nodeNames(1));
+        });
+        waitTillClusterStateIsSavedToVaultOnConductor(1);
+
+        // This makes the CMG majority go away.
+        cluster.stopNode(0);
+
+        // Repair CMG with just node 1.
+        initiateCmgRepairVia(igniteImpl(1), 1);
+        IgniteImpl restartedIgniteImpl1 = waitTillNodeRestartsInternally(1);
+        waitTillCmgHasMajority(restartedIgniteImpl1);
+
+        // Starting the node that did not see the repair.
+        migrate(0, 1);
+
+        // Second repair.
+        initiateCmgRepairVia(igniteImpl(1), 1);
+        IgniteImpl igniteImpl1RestartedSecondTime = waitTillNodeRestartsInternally(1);
+        waitTillCmgHasMajority(igniteImpl1RestartedSecondTime);
+
+        // TODO: IGNITE-23096 - remove after the hang is fixed.
+        waitTillNodesRestartInProcess(0, 1);
     }
 }

@@ -46,4 +46,13 @@ public interface SystemDisasterRecoveryManager {
      * @return Future completing with the result of the operation ({@link ResetClusterMessage} in case of error related to reset logic).
      */
     CompletableFuture<Void> resetCluster(List<String> proposedCmgConsistentIds);
+
+    /**
+     * Migrates nodes missed during CMG repair to the new cluster (which is the result of the repair). To do so, sends the
+     * corresponding {@link ResetClusterMessage} to all nodes that are in the physical topology (including itself).
+     *
+     * @param targetClusterState State of the new cluster.
+     * @return Future completing with the result of the operation.
+     */
+    CompletableFuture<Void> migrate(ClusterState targetClusterState);
 }
