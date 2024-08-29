@@ -72,6 +72,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.ActiveLocalTxMinimumBeginTimeProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -281,25 +282,17 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         LocalMinTime localMinRequiredTime = getMinLocalTime(lwm);
         Long minTime = localMinRequiredTime != null ? localMinRequiredTime.time : null;
-        Map<Integer, BitSet> availablePartitions = localMinRequiredTime != null ? localMinRequiredTime.availablePartitions : null;
 
         return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), minTime)
                 .thenComposeAsync(timeHolder -> {
 
-                    if (minTime != null && availablePartitions != null) {
-                        for (Map<Integer, BitSet> remotePartitions : timeHolder.remotePartitions) {
-                            if (!availablePartitions.equals(remotePartitions)) {
-                                LOG.info("Catalog compaction aborted due to mismatching table partitions.");
-
-                                return CompletableFutures.nullCompletedFuture();
-                            }
-                        }
-                    }
-
                     long minRequiredTime = timeHolder.minRequiredTime;
                     long minActiveTxBeginTime = timeHolder.minActiveTxBeginTime;
 
-                    CompletableFuture<Boolean> catalogCompactionFut = tryCompactCatalog(minRequiredTime, topologySnapshot);
+                    CompletableFuture<Boolean> catalogCompactionFut = tryCompactCatalog(minRequiredTime,
+                            topologySnapshot,
+                            timeHolder.remotePartitions
+                    );
 
                     LOG.debug("Propagate minimum active tx begin time to replicas [timestamp={}].", minActiveTxBeginTime);
 
@@ -323,15 +316,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
             @Nullable Long localMinimumRequiredTime
     ) {
         CatalogCompactionMinimumTimesRequest request = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesRequest().build();
-        List<CompletableFuture<CatalogCompactionMinimumTimesResponse>> responseFutures = new ArrayList<>(nodes.size() - 1);
+        List<CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>>> responseFutures = new ArrayList<>(nodes.size() - 1);
 
         for (ClusterNode node : nodes) {
             if (localNodeName.equals(node.name())) {
                 continue;
             }
 
-            CompletableFuture<CatalogCompactionMinimumTimesResponse> fut = messagingService.invoke(node, request, ANSWER_TIMEOUT)
-                    .thenApply(CatalogCompactionMinimumTimesResponse.class::cast);
+            CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>> fut = messagingService.invoke(node, request, ANSWER_TIMEOUT)
+                    .thenApply(CatalogCompactionMinimumTimesResponse.class::cast).thenApply(r -> new Pair<>(node.name(), r));
 
             responseFutures.add(fut);
         }
@@ -340,10 +333,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenApply(ignore -> {
                     Long globalMinimumRequiredTime = localMinimumRequiredTime;
                     long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
-                    List<Map<Integer, BitSet>> remotePartitions = new ArrayList<>(responseFutures.size());
+                    Map<String, Map<Integer, BitSet>> remotePartitions = new HashMap<>();
 
-                    for (CompletableFuture<CatalogCompactionMinimumTimesResponse> fut : responseFutures) {
-                        CatalogCompactionMinimumTimesResponse response = fut.join();
+                    for (CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>> fut : responseFutures) {
+                        Pair<String, CatalogCompactionMinimumTimesResponse> p = fut.join();
+
+                        String nodeId = p.getFirst();
+                        CatalogCompactionMinimumTimesResponse response = p.getSecond();
 
                         if (globalMinimumRequiredTime == null || response.minimumRequiredTime() < globalMinimumRequiredTime) {
                             globalMinimumRequiredTime = response.minimumRequiredTime();
@@ -353,7 +349,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             globalMinimumActiveTxTime = response.minimumActiveTxTime();
                         }
 
-                        remotePartitions.add(response.partitions());
+                        remotePartitions.put(nodeId, response.partitions());
                     }
 
                     if (globalMinimumRequiredTime == null) {
@@ -396,7 +392,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private CompletableFuture<Boolean> tryCompactCatalog(
             long minRequiredTime,
-            LogicalTopologySnapshot topologySnapshot
+            LogicalTopologySnapshot topologySnapshot,
+            Map<String, Map<Integer, BitSet>> remotePartitions
     ) {
         Catalog catalog = catalogManagerFacade.catalogByTsNullable(minRequiredTime);
 
@@ -414,8 +411,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
             }
         }
 
-        return requiredNodes(catalog)
-                .thenCompose(requiredNodes -> {
+        return validatePartitions(catalog, remotePartitions)
+                .thenCompose(result -> {
+                    if (!result.getFirst()) {
+                        LOG.info("Catalog compaction aborted due to mismatching table partitions.");
+
+                        return CompletableFutures.falseCompletedFuture();
+                    }
+
+                    Set<String> requiredNodes = result.getSecond();
                     List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
 
                     if (!missingNodes.isEmpty()) {
@@ -438,21 +442,40 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 });
     }
 
-    private CompletableFuture<Set<String>> requiredNodes(Catalog catalog) {
+    private CompletableFuture<Pair<Boolean, Set<String>>> validatePartitions(
+            Catalog catalog,
+            Map<String, Map<Integer, BitSet>> remotePartitions
+    ) {
         HybridTimestamp nowTs = clockService.now();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+        Map<String, Map<Integer, BitSet>> actualPartitions = new ConcurrentHashMap<>();
+
         return CompletableFutures.allOf(catalog.tables().stream()
-                .map(table -> collectRequiredNodes(catalog, table, required, nowTs))
+                .map(table -> collectRequiredNodes(catalog, table, required, nowTs, actualPartitions))
                 .collect(Collectors.toList())
-        ).thenApply(ignore -> required);
+        ).thenApply(ignore -> {
+
+            for (Map.Entry<String, Map<Integer, BitSet>> e : remotePartitions.entrySet()) {
+                String remoteId = e.getKey();
+                Map<Integer, BitSet> remoteParts = e.getValue();
+                Map<Integer, BitSet> actualParts = actualPartitions.get(remoteId);
+
+                if (!remoteParts.equals(actualParts)) {
+                    return new Pair<>(false, required);
+                }
+            }
+
+            return new Pair<>(true, required);
+        });
     }
 
     private CompletableFuture<Void> collectRequiredNodes(
             Catalog catalog,
             CatalogTableDescriptor table,
             Set<String> required,
-            HybridTimestamp nowTs
+            HybridTimestamp nowTs,
+            Map<String, Map<Integer, BitSet>> actualPartitions
     ) {
         CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
@@ -461,9 +484,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
         int partitions = zone.partitions();
 
         List<TablePartitionId> replicationGroupIds = new ArrayList<>(partitions);
+        BitSet bitSet = new BitSet();
 
         for (int p = 0; p < partitions; p++) {
             replicationGroupIds.add(new TablePartitionId(table.id(), p));
+            bitSet.set(p);
         }
 
         return placementDriver.getAssignments(replicationGroupIds, nowTs)
@@ -477,7 +502,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
                                     + "[group=" + replicationGroupIds.get(p) + ']');
                         }
 
-                        assignment.nodes().forEach(a -> required.add(a.consistentId()));
+                        assignment.nodes().forEach(a -> {
+                            String nodeId = a.consistentId();
+                            required.add(nodeId);
+
+                            Map<Integer, BitSet> nodeTables = actualPartitions.computeIfAbsent(nodeId, (k) -> new ConcurrentHashMap<>());
+                            nodeTables.put(table.id(), bitSet);
+                        });
                     }
                 });
     }
@@ -641,9 +672,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
     static class TimeHolder {
         final long minRequiredTime;
         final long minActiveTxBeginTime;
-        final List<Map<Integer, BitSet>> remotePartitions;
+        final Map<String, Map<Integer, BitSet>> remotePartitions;
 
-        private TimeHolder(long minRequiredTime, long minActiveTxBeginTime, List<Map<Integer, BitSet>> remotePartitions) {
+        private TimeHolder(long minRequiredTime, long minActiveTxBeginTime, Map<String, Map<Integer, BitSet>> remotePartitions) {
             this.minRequiredTime = minRequiredTime;
             this.minActiveTxBeginTime = minActiveTxBeginTime;
             this.remotePartitions = remotePartitions;

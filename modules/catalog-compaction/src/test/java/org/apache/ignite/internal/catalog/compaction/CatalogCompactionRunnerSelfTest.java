@@ -78,6 +78,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -129,7 +130,16 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
     @Test
     public void routineSucceedOnCoordinator() throws InterruptedException {
-        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        CreateTableCommandBuilder table = CreateTableCommand.builder()
+                .tableName("test")
+                .schemaName("PUBLIC")
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
+                .colocationColumns(List.of("key2"));
+
+        assertThat(catalogManager.execute(table.build()), willCompleteSuccessfully());
+
+//        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
@@ -615,7 +625,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
-            verify(replicaService, times(/* tables */ 3 * /* partitions */ (25 - /* skipped */ 1)))
+            verify(replicaService, times(/* tables */ 3 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
                     .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
         }
 
@@ -709,12 +719,21 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                         }
 
                         BitSet bitSet = new BitSet();
-                        bitSet.set(1);
+                        for (int i = 0; i < CatalogUtils.DEFAULT_PARTITION_COUNT; i++) {
+                            bitSet.set(i);
+                        }
+
+                        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+                        Map<Integer, BitSet> availablePartitions = new HashMap<>();
+                        for (CatalogTableDescriptor table : catalog.tables()) {
+                            availablePartitions.put(table.id(), bitSet);
+                        }
 
                         return messagesFactory.catalogCompactionMinimumTimesResponse()
                                 .minimumRequiredTime(time)
                                 .minimumActiveTxTime(clockService.nowLong())
-                                .partitions(Map.of(1, bitSet))
+                                .partitions(availablePartitions)
                                 .build();
                     });
                 });
@@ -776,8 +795,16 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 () -> {
                     Long minTime = timeSupplier.minLocalTimeAtNode(coordinator.name());
                     Map<TablePartitionId, Long> values = new HashMap<>();
-                    // key is not used.
-                    values.put(new TablePartitionId(1, 1), minTime);
+
+                    int version = catalogManager.latestCatalogVersion();
+                    Catalog catalog = catalogManager.catalog(version);
+
+                    for (CatalogTableDescriptor table : catalog.tables()) {
+                        for (int i = 0; i < CatalogUtils.DEFAULT_PARTITION_COUNT; i++) {
+                            values.put(new TablePartitionId(table.id(), i), minTime);
+                        }
+                    }
+
                     return values;
                 });
 
