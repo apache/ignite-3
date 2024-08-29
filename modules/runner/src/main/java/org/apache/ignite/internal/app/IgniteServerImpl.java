@@ -329,7 +329,7 @@ public class IgniteServerImpl implements IgniteServer {
     }
 
     private CompletableFuture<Void> doStartAsync() {
-        IgniteImpl instance = new IgniteImpl(this, configPath, workDir, classLoader, asyncContinuationExecutor);
+        IgniteImpl instance = new IgniteImpl(this, this::restartAsync, configPath, workDir, classLoader, asyncContinuationExecutor);
 
         ackBanner();
 

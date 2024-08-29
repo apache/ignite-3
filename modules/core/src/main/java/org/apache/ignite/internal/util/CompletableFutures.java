@@ -116,7 +116,7 @@ public class CompletableFutures {
      *
      * @param futures List of futures.
      */
-    public static CompletableFuture<Void> allOf(Collection<CompletableFuture<?>> futures) {
+    public static CompletableFuture<Void> allOf(Collection<? extends CompletableFuture<?>> futures) {
         return futures.isEmpty() ? nullCompletedFuture() : CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
     }
 

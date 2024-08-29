@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands.node.config;
 
-import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
-import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -80,7 +78,6 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
 
         execute("node config update --url " + mockUrl + " local.baseline.autoAdjust.enabled=true");
 
-        assertSuccessfulOutputIs("Node configuration updated. "
-                + fg(Color.YELLOW).mark("Restart the node to apply changes."));
+        assertSuccessfulOutputIs("Node configuration updated. Restart the node to apply changes.");
     }
 }

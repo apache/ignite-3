@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import jakarta.inject.Inject;
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,8 +40,19 @@ import picocli.CommandLine.Help.Ansi;
  * Base class for testing 'connect' command.
  */
 public class ItConnectToClusterTestBase extends CliIntegrationTest {
+    protected static final String AUTH_ERROR_QUESTION = "Authentication error occurred while connecting to the node,"
+            + " it could be due to the wrong basic auth configuration. Do you want to configure them now? [Y/n] ";
+    protected static final String REMEMBER_CREDENTIALS_QUESTION = "Remember current credentials? [Y/n] ";
+
+    protected static final String USERNAME_QUESTION = "Enter username: ";
+
+    protected static final String PASSWORD_QUESTION = "Enter user password: ";
+
+    protected static final String RECONNECT_QUESTION = "Do you want to reconnect to the last connected node http://localhost:10300? [Y/n] ";
+
     @Inject
     protected TestStateConfigProvider stateConfigProvider;
+
     @Inject
     protected ConnectToClusterQuestion question;
 
@@ -51,6 +63,8 @@ public class ItConnectToClusterTestBase extends CliIntegrationTest {
 
     private Path input;
 
+    private ByteArrayOutputStream output;
+
     @Override
     protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;
@@ -59,7 +73,8 @@ public class ItConnectToClusterTestBase extends CliIntegrationTest {
     @BeforeEach
     public void setUpTerminal() throws Exception {
         input = Files.createTempFile(WORK_DIR, "input", "");
-        terminal = new DumbTerminal(Files.newInputStream(input), new FileOutputStream(FileDescriptor.out));
+        output = new ByteArrayOutputStream();
+        terminal = new DumbTerminal(Files.newInputStream(input), output);
         QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
     }
 
@@ -73,11 +88,33 @@ public class ItConnectToClusterTestBase extends CliIntegrationTest {
         return Ansi.OFF.string(promptProvider.getPrompt());
     }
 
-    protected String nodeName() {
+    protected static String nodeName() {
         return CLUSTER.node(0).name();
     }
 
     protected void bindAnswers(String... answers) throws IOException {
         Files.writeString(input, String.join("\n", answers) + "\n");
+    }
+
+    protected void resetTerminalOutput() {
+        output.reset();
+    }
+
+    protected void assertTerminalOutputIsEmpty() {
+        assertThat(output.toString())
+                .as("Expected terminal output to be empty")
+                .isEmpty();
+    }
+
+    protected void assertTerminalOutputIs(String expectedTerminalOutput) {
+        assertThat(output.toString())
+                .as("Expected terminal output to be equal to:")
+                .isEqualTo(expectedTerminalOutput);
+    }
+
+    protected void assertPromptIs(String expectedPromptOutput) {
+        assertThat(getPrompt())
+                .as("Expected prompt to be equal to:")
+                .isEqualTo(expectedPromptOutput);
     }
 }

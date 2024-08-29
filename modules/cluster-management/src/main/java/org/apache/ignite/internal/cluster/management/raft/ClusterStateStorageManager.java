@@ -62,7 +62,7 @@ public class ClusterStateStorageManager {
      *
      * @param state Cluster state.
      */
-    void putClusterState(ClusterState state) {
+    public void putClusterState(ClusterState state) {
         storage.put(CMG_STATE_KEY, toBytes(state));
     }
 
