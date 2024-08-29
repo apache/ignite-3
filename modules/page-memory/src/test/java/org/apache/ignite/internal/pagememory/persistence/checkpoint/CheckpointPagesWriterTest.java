@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
@@ -129,6 +130,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 tracker,
                 writePageIds,
+                singletonList(pageMemory),
                 updatedPartitions,
                 doneFuture,
                 beforePageWrite,
@@ -196,6 +198,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 new CheckpointMetricsTracker(),
                 new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(fullPageId(0, 0, 1)))),
+                singletonList(pageMemory),
                 new ConcurrentHashMap<>(),
                 doneFuture,
                 () -> {},
@@ -246,6 +249,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 new CheckpointMetricsTracker(),
                 writePageIds,
+                singletonList(pageMemory),
                 updatedPartitions,
                 doneFuture,
                 () -> {},
