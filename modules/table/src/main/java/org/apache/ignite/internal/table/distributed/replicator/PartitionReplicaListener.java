@@ -228,7 +228,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * <p>A RAFT snapshot of a partition consists of MV data, TX state data and metadata (which includes RAFT applied index).
      * Here, the 'slight' inconsistency is that MV data might be ahead of the snapshot meta (namely, RAFT applied index) and TX state data.
      *
-     * <p>This listener by its nature cannot advance RAFT applied index (as it works out of the RAFT framework). This alone makes     * the partition 'slightly inconsistent' in the same way as defined above. So, if we solve this inconsistency,
+     * <p>This listener by its nature cannot advance RAFT applied index (as it works out of the RAFT framework). This alone makes
+     * the partition 'slightly inconsistent' in the same way as defined above. So, if we solve this inconsistency,
      * we don't need to take the partition snapshots read lock as well.
      *
      * <p>The inconsistency does not cause any real problems because it is further resolved.
@@ -3687,12 +3688,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
             return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
-                    () -> storageUpdateHandler.switchWriteIntents(
-                            txId,
-                            txState == COMMITTED,
-                            commitTimestamp,
-                            indexIdsAtRwTxBeginTs(txId)
-                    )
+                   () -> storageUpdateHandler.switchWriteIntents(
+                           txId,
+                           txState == COMMITTED,
+                           commitTimestamp,
+                           indexIdsAtRwTxBeginTs(txId)
+                   )
             )).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
