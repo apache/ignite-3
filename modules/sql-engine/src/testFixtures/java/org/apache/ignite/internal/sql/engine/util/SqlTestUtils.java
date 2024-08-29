@@ -252,7 +252,7 @@ public class SqlTestUtils {
             case INT64:
                 return RND.nextLong(Integer.MAX_VALUE + 1, Long.MAX_VALUE) + 1;
             case FLOAT:
-                return RND.nextFloat(Float.MAX_VALUE);
+               return RND.nextFloat();
             case DOUBLE:
                 return RND.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE);
             case STRING:
