@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.security.authentication.basic;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 
 import java.util.List;
@@ -51,9 +52,9 @@ public class BasicAuthenticator implements Authenticator {
     @Override
     public CompletableFuture<UserDetails> authenticateAsync(AuthenticationRequest<?, ?> authenticationRequest) {
         if (!(authenticationRequest instanceof UsernamePasswordRequest)) {
-            throw new UnsupportedAuthenticationTypeException(
+            return failedFuture(new UnsupportedAuthenticationTypeException(
                     "Unsupported authentication type: " + authenticationRequest.getClass().getName()
-            );
+            ));
         }
 
         Object requestUsername = authenticationRequest.getIdentity();
@@ -66,6 +67,6 @@ public class BasicAuthenticator implements Authenticator {
             }
         }
 
-        throw new InvalidCredentialsException("Invalid credentials");
+        return failedFuture(new InvalidCredentialsException("Invalid credentials"));
     }
 }
