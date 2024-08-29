@@ -17,28 +17,17 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
-import java.util.List;
+import java.util.BitSet;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
-/**
- * Response message containing timestamps from the entire cluster required to safely perform catalog compaction.
- *
- * <p>This includes the following:
- * <ol>
- *     <li>the minimum timestamp to which, from the local node's perspective, the catalog history can be safely truncated</li>
- *     <li>the minimum starting time among locally started active RW transactions</li>
- *     <li>A list of currently available table partitions.</li>
- * </ol>
- */
-@Transferable(CatalogCompactionMessageGroup.MINIMUM_TIMES_RESPONSE)
-public interface CatalogCompactionMinimumTimesResponse extends NetworkMessage {
-    /** Returns node's minimum required time. */
-    long minimumRequiredTime();
+/** Information on available partitions. */
+@Transferable(CatalogCompactionMessageGroup.AVAILABLE_PARTITIONS)
+public interface AvailablePartitionsMessage extends NetworkMessage {
 
-    /** Returns node's minimum starting time among locally started active RW transactions. */
-    long minimumActiveTxTime();
+    /** Returns table id. */
+    int tableId();
 
-    /** Returns available table partitions. */
-    List<AvailablePartitionsMessage> partitions();
+    /** Returns bit set that contains available partitions. */
+    BitSet partitions();
 }

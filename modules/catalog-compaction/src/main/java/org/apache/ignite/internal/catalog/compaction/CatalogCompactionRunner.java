@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.TokenizedAssignments;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.compaction.message.AvailablePartitionsMessage;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessageGroup;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
@@ -356,7 +357,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             globalMinimumActiveTxTime = response.minimumActiveTxTime();
                         }
 
-                        remotePartitions.put(nodeId, response.partitions());
+                        remotePartitions.put(nodeId, avaiblePartitionListToMap(response.partitions()));
                     }
 
                     if (globalMinimumRequiredTime == null) {
@@ -629,7 +630,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                     .minimumRequiredTime(minRequiredTime)
                     .minimumActiveTxTime(activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue())
-                    .partitions(availablePartitions)
+                    .partitions(availablePartitionsMessages(availablePartitions))
                     .build();
 
             messagingService.respond(sender, response, correlationId);
@@ -688,5 +689,20 @@ public class CatalogCompactionRunner implements IgniteComponent {
             this.minActiveTxBeginTime = minActiveTxBeginTime;
             this.remotePartitions = remotePartitions;
         }
+    }
+
+    private List<AvailablePartitionsMessage> availablePartitionsMessages(Map<Integer, BitSet> availablePartitions) {
+        return availablePartitions.entrySet().stream()
+                .map(e -> COMPACTION_MESSAGES_FACTORY.availablePartitionsMessage()
+                        .tableId(e.getKey())
+                        .partitions(e.getValue())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private static Map<Integer, BitSet> avaiblePartitionListToMap(List<AvailablePartitionsMessage> availablePartitions) {
+        return availablePartitions.stream()
+                .map(a -> Map.entry(a.tableId(), a.partitions()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

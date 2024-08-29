@@ -44,6 +44,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -77,6 +78,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.compaction.message.AvailablePartitionsMessage;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesResponse;
@@ -920,10 +922,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
-            Map<Integer, BitSet> availablePartitions = new HashMap<>();
-            for (CatalogTableDescriptor table : catalog.tables()) {
+            List<AvailablePartitionsMessage> availablePartitions = new ArrayList<>();
 
-                availablePartitions.put(table.id(), bitSet);
+            for (CatalogTableDescriptor table : catalog.tables()) {
+                AvailablePartitionsMessage partitionsMessage = messagesFactory.availablePartitionsMessage()
+                        .tableId(table.id())
+                        .partitions(bitSet)
+                        .build();
+
+                availablePartitions.add(partitionsMessage);
             }
 
             return messagesFactory.catalogCompactionMinimumTimesResponse()
