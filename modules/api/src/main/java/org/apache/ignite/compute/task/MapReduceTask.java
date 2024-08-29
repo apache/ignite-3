@@ -60,7 +60,7 @@ public interface MapReduceTask<I, M, T, R> {
         return null;
     }
 
-    /** The marshaller that is called to marshal split job argument if not null. */
+    /** The marshaller that is called to marshal reduce job result if not null. */
     default @Nullable Marshaller<R, byte[]> reduceJobResultMarshaller() {
         return null;
     }

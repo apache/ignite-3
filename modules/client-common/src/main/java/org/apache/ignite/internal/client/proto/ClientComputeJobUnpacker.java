@@ -63,7 +63,7 @@ public final class ClientComputeJobUnpacker {
             case NATIVE:
                 if (marshaller != null) {
                     throw new UnmarshallingException(
-                            "Can not unpack object because the marshaller is provided but the object were packed without marshaller."
+                            "Can not unpack object because the marshaller is provided but the object was packed without marshaller."
                     );
                 }
 
@@ -74,7 +74,7 @@ public final class ClientComputeJobUnpacker {
             case MARSHALLED_OBJECT:
                 if (marshaller == null) {
                     throw new UnmarshallingException(
-                            "Can not unpack object because the marshaller is not provided but the object were packed with marshaller."
+                            "Can not unpack object because the marshaller is not provided but the object was packed with marshaller."
                     );
                 }
                 return tryUnmarshalOrCast(marshaller, unpacker.readBinary());

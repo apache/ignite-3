@@ -90,12 +90,8 @@ public class ClientComputeExecuteMapReduceRequest {
                 t.stateAsync().whenComplete((state, errState) ->
                         execution.statesAsync().whenComplete((states, errStates) ->
                                 notificationSender.sendNotification(w -> {
-                                    if (t instanceof MarshallerProvider) {
                                         Marshaller<Object, byte[]> resultMarshaller = ((MarshallerProvider<Object>) t).resultMarshaller();
                                         ClientComputeJobPacker.packJobResult(val, resultMarshaller, w);
-                                    } else {
-                                        throw new IllegalArgumentException(t.getClass() + " does not implement MarshallerProvider");
-                                    }
                                     packTaskState(w, state);
                                     packJobStates(w, states);
                                 }, firstNotNull(err, errState, errStates)))
