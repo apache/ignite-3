@@ -122,7 +122,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         int precision = IgniteTypeSystem.INSTANCE.getMaxPrecision(sqlTypeName);
         int scale = IgniteTypeSystem.INSTANCE.getMaxScale(sqlTypeName);
 
-        //To prevent generation too big arrays
+        // To prevent generate too big arrays.
         if (columnType == ColumnType.BYTE_ARRAY) {
             precision = 7_000;
         }
