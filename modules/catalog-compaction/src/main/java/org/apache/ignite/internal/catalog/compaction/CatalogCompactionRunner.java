@@ -287,7 +287,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenComposeAsync(timeHolder -> {
 
                     if (minTime != null && availablePartitions != null) {
-                        for (Map<Integer, BitSet> remotePartitions : timeHolder.tablePartitions) {
+                        for (Map<Integer, BitSet> remotePartitions : timeHolder.remotePartitions) {
                             if (!availablePartitions.equals(remotePartitions)) {
                                 LOG.info("Catalog compaction aborted due to mismatching table partitions.");
 
@@ -340,7 +340,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenApply(ignore -> {
                     Long globalMinimumRequiredTime = localMinimumRequiredTime;
                     long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
-                    List<Map<Integer, BitSet>> tablePartitions = new ArrayList<>(responseFutures.size());
+                    List<Map<Integer, BitSet>> remotePartitions = new ArrayList<>(responseFutures.size());
 
                     for (CompletableFuture<CatalogCompactionMinimumTimesResponse> fut : responseFutures) {
                         CatalogCompactionMinimumTimesResponse response = fut.join();
@@ -353,15 +353,14 @@ public class CatalogCompactionRunner implements IgniteComponent {
                             globalMinimumActiveTxTime = response.minimumActiveTxTime();
                         }
 
-                        Map<Integer, BitSet> remoteTablePartitions = response.partitions();
-                        tablePartitions.add(remoteTablePartitions);
+                        remotePartitions.add(response.partitions());
                     }
 
                     if (globalMinimumRequiredTime == null) {
                         globalMinimumRequiredTime = HybridTimestamp.MIN_VALUE.longValue();
                     }
 
-                    return new TimeHolder(globalMinimumRequiredTime, globalMinimumActiveTxTime, tablePartitions);
+                    return new TimeHolder(globalMinimumRequiredTime, globalMinimumActiveTxTime, remotePartitions);
                 });
     }
 
@@ -640,12 +639,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
     static class TimeHolder {
         final long minRequiredTime;
         final long minActiveTxBeginTime;
-        final List<Map<Integer, BitSet>> tablePartitions;
+        final List<Map<Integer, BitSet>> remotePartitions;
 
-        private TimeHolder(long minRequiredTime, long minActiveTxBeginTime, List<Map<Integer, BitSet>> tablePartitions) {
+        private TimeHolder(long minRequiredTime, long minActiveTxBeginTime, List<Map<Integer, BitSet>> remotePartitions) {
             this.minRequiredTime = minRequiredTime;
             this.minActiveTxBeginTime = minActiveTxBeginTime;
-            this.tablePartitions = tablePartitions;
+            this.remotePartitions = remotePartitions;
         }
     }
 }
