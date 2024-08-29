@@ -2640,7 +2640,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     private <T> CompletableFuture<T> applyCmdWithExceptionHandling(Command cmd, CompletableFuture<T> resultFuture) {
         applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
 
-
         return resultFuture.exceptionally(throwable -> {
             if (throwable instanceof TimeoutException) {
                 throw new ReplicationTimeoutException(replicationGroupId);
