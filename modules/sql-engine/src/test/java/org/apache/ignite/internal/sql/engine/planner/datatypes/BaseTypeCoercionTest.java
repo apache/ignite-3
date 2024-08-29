@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
@@ -41,8 +42,11 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -223,5 +227,31 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
         Arguments secondOpBeSame() {
             return Arguments.of(pair, firstOpMatcher, ofTypeWithoutCast(pair.second()));
         }
+    }
+
+    /**
+     * Generates SQL value with a random value for given type.
+     *
+     * @param type Type to generate literal value.
+     * @param auxiliaryType Type which can affect generating value for main type.
+     *
+     * @return Generated value as string representation of a SQL literal.
+     */
+    static String generateLiteral(NativeType type, NativeType auxiliaryType) {
+        Object val = SqlTestUtils.generateValueByType(type);
+        // We have different behaviour of planner depending on value it can put CAST or not to do it.
+        // So we will generate all values which more then Short.MAX_VALUE and CAST will be always putted.
+        if (auxiliaryType.spec() == NativeTypeSpec.INT16 && type.spec() == NativeTypeSpec.DECIMAL) {
+            DecimalNativeType t = ((DecimalNativeType) type);
+            // for five-digit we can have value less or more then Short.MaX_VALUE.
+            // To get rid of vagueness let's generate always bigger value.
+            if (t.precision() - t.scale() == 5) {
+                BigDecimal bd = ((BigDecimal) val);
+                if (bd.intValue() < Short.MAX_VALUE) {
+                    val = bd.add(BigDecimal.valueOf(Short.MAX_VALUE));
+                }
+            }
+        }
+        return SqlTestUtils.generateLiteral(val.toString(), type.spec().asColumnType());
     }
 }

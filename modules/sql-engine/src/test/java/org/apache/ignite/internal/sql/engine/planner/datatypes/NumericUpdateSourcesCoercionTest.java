@@ -56,7 +56,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
-        Object val = SqlTestUtils.generateValueByType(pair.second().spec().asColumnType());
+        Object val = generateLiteral(pair.second(), pair.first());
 
         assertPlan("UPDATE T SET c1=" + val, schema, modifyOperandMatcher(operandMatcher)::matches, List.of());
     }
@@ -69,7 +69,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
-        Object val = SqlTestUtils.generateValueByType(pair.second().spec().asColumnType());
+        Object val = SqlTestUtils.generateValueByType(pair.second());
 
         assertPlan("UPDATE T SET c1=?", schema, modifyOperandMatcher(operandMatcher)::matches, List.of(val));
     }
@@ -130,7 +130,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT8)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_1_0)
-                        .opMatches(castTo(NativeTypes.INT8)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT8)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_2_1)
                         .opMatches(castTo(NativeTypes.INT8)),
@@ -139,7 +139,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT8)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_2_0)
-                        .opMatches(castTo(NativeTypes.INT8)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT8)),
 
                 forTypePair(NumericPair.TINYINT_DECIMAL_3_1)
                         .opMatches(castTo(NativeTypes.INT8)),
@@ -172,7 +172,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT16)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_1_0)
-                        .opMatches(castTo(NativeTypes.INT16)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT16)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_2_1)
                         .opMatches(castTo(NativeTypes.INT16)),
@@ -181,7 +181,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT16)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_2_0)
-                        .opMatches(castTo(NativeTypes.INT16)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT16)),
 
                 forTypePair(NumericPair.SMALLINT_DECIMAL_3_1)
                         .opMatches(castTo(NativeTypes.INT16)),
@@ -211,7 +211,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_1_0)
-                        .opMatches(castTo(NativeTypes.INT32)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_2_1)
                         .opMatches(castTo(NativeTypes.INT32)),
@@ -220,7 +220,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_2_0)
-                        .opMatches(castTo(NativeTypes.INT32)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_3_1)
                         .opMatches(castTo(NativeTypes.INT32)),
@@ -229,7 +229,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_5_0)
-                        .opMatches(castTo(NativeTypes.INT32)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT32)),
 
                 forTypePair(NumericPair.INT_DECIMAL_6_1)
                         .opMatches(castTo(NativeTypes.INT32)),
@@ -247,7 +247,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_1_0)
-                        .opMatches(castTo(NativeTypes.INT64)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_2_1)
                         .opMatches(castTo(NativeTypes.INT64)),
@@ -256,7 +256,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_2_0)
-                        .opMatches(castTo(NativeTypes.INT64)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_3_1)
                         .opMatches(castTo(NativeTypes.INT64)),
@@ -265,7 +265,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_5_0)
-                        .opMatches(castTo(NativeTypes.INT64)),
+                        .opMatches(ofTypeWithoutCast(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.BIGINT_DECIMAL_6_1)
                         .opMatches(castTo(NativeTypes.INT64)),
@@ -280,13 +280,13 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(NativeTypes.INT64)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0)
-                        .opMatches(castTo(Types.DECIMAL_1_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_1)
-                        .opMatches(castTo(Types.DECIMAL_1_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_4_3)
-                        .opMatches(castTo(Types.DECIMAL_1_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_0)
                         .opMatches(castTo(Types.DECIMAL_1_0)),
@@ -313,10 +313,10 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1)
-                        .opMatches(castTo(Types.DECIMAL_2_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_4_3)
-                        .opMatches(castTo(Types.DECIMAL_2_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_0)
                         .opMatches(castTo(Types.DECIMAL_2_1)),
@@ -343,7 +343,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_2_1)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3)
-                        .opMatches(castTo(Types.DECIMAL_4_3)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_4_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_2_0)
                         .opMatches(castTo(Types.DECIMAL_4_3)),
@@ -370,13 +370,13 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_4_3)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
-                        .opMatches(castTo(Types.DECIMAL_2_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1)
-                        .opMatches(castTo(Types.DECIMAL_2_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3)
-                        .opMatches(castTo(Types.DECIMAL_2_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_0)
                         .opMatches(castTo(Types.DECIMAL_2_0)),
@@ -394,10 +394,10 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
-                        .opMatches(castTo(Types.DECIMAL_3_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_3)
-                        .opMatches(castTo(Types.DECIMAL_3_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_0)
                         .opMatches(castTo(Types.DECIMAL_3_1)),
@@ -415,7 +415,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3)
-                        .opMatches(castTo(Types.DECIMAL_5_3)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_0)
                         .opMatches(castTo(Types.DECIMAL_5_3)),
@@ -433,13 +433,13 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_5_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0)
-                        .opMatches(castTo(Types.DECIMAL_5_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_6_1)
-                        .opMatches(castTo(Types.DECIMAL_5_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_8_3)
-                        .opMatches(castTo(Types.DECIMAL_5_0)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_REAL)
                         .opMatches(castTo(Types.DECIMAL_5_0)),
@@ -448,10 +448,10 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1)
-                        .opMatches(castTo(Types.DECIMAL_6_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_8_3)
-                        .opMatches(castTo(Types.DECIMAL_6_1)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_REAL)
                         .opMatches(castTo(Types.DECIMAL_6_1)),
@@ -460,7 +460,7 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(castTo(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3)
-                        .opMatches(castTo(Types.DECIMAL_8_3)),
+                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_8_3_REAL)
                         .opMatches(castTo(Types.DECIMAL_8_3)),
@@ -481,35 +481,112 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
 
     private static Stream<Arguments> argsForUpdateWithColumnAsValue() {
         // Difference between the original parameters.
-        Map<NumericPair, Arguments> map = new EnumMap<>(NumericPair.class);
-        map.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0,
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0).opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)));
-        map.put(NumericPair.DECIMAL_2_1_DECIMAL_2_1,
-                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1).opMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)));
-        map.put(NumericPair.DECIMAL_4_3_DECIMAL_4_3,
-                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_4_3)));
-        map.put(NumericPair.DECIMAL_2_0_DECIMAL_2_0,
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0).opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)));
-        map.put(NumericPair.DECIMAL_3_1_DECIMAL_3_1,
-                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1).opMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)));
-        map.put(NumericPair.DECIMAL_5_3_DECIMAL_5_3,
-                forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_5_3)));
-        map.put(NumericPair.DECIMAL_5_0_DECIMAL_5_0,
-                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0).opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)));
-        map.put(NumericPair.DECIMAL_6_1_DECIMAL_6_1,
-                forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1).opMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)));
-        map.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3,
-                forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_8_3)));
-        map.put(NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT)));
+        Map<NumericPair, Arguments> diff = new EnumMap<>(NumericPair.class);
 
-        return argsForUpdateWithLiteralValue().map(v -> map.getOrDefault(v.get()[0], v));
+        diff.put(NumericPair.TINYINT_DECIMAL_1_0,
+                forTypePair(NumericPair.TINYINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT8)));
+        diff.put(NumericPair.TINYINT_DECIMAL_2_0,
+                forTypePair(NumericPair.TINYINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT8)));
+        diff.put(NumericPair.SMALLINT_DECIMAL_1_0,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT16)));
+        diff.put(NumericPair.SMALLINT_DECIMAL_2_0,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT16)));
+        diff.put(NumericPair.INT_DECIMAL_1_0,
+                forTypePair(NumericPair.INT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT32)));
+        diff.put(NumericPair.INT_DECIMAL_2_0,
+                forTypePair(NumericPair.INT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT32)));
+        diff.put(NumericPair.INT_DECIMAL_5_0,
+                forTypePair(NumericPair.INT_DECIMAL_5_0).opMatches(castTo(NativeTypes.INT32)));
+        diff.put(NumericPair.BIGINT_DECIMAL_1_0,
+                forTypePair(NumericPair.BIGINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT64)));
+        diff.put(NumericPair.BIGINT_DECIMAL_2_0,
+                forTypePair(NumericPair.BIGINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT64)));
+        diff.put(NumericPair.BIGINT_DECIMAL_5_0,
+                forTypePair(NumericPair.BIGINT_DECIMAL_5_0).opMatches(castTo(NativeTypes.INT64)));
+        diff.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_1).opMatches(castTo(Types.DECIMAL_1_0)));
+        diff.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_4_3).opMatches(castTo(Types.DECIMAL_1_0)));
+        diff.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_4_3).opMatches(castTo(Types.DECIMAL_2_1)));
+        diff.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1).opMatches(castTo(Types.DECIMAL_2_0)));
+        diff.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3).opMatches(castTo(Types.DECIMAL_2_0)));
+        diff.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_3).opMatches(castTo(Types.DECIMAL_3_1)));
+        diff.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_6_1).opMatches(castTo(Types.DECIMAL_5_0)));
+        diff.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_8_3).opMatches(castTo(Types.DECIMAL_5_0)));
+        diff.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_8_3).opMatches(castTo(Types.DECIMAL_6_1)));
+        diff.put(NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT)));
+
+        return argsForUpdateWithLiteralValue().map(v -> diff.getOrDefault(v.get()[0], v));
     }
 
     private static Stream<Arguments> argsDyn() {
         // Difference between the original parameters.
-        Map<NumericPair, Arguments> diff = Map.of(
-                NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT))
-        );
+        Map<NumericPair, Arguments> diff = new EnumMap<>(NumericPair.class);
+
+        diff.put(NumericPair.TINYINT_DECIMAL_1_0,
+                forTypePair(NumericPair.TINYINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT8)));
+        diff.put(NumericPair.TINYINT_DECIMAL_2_0,
+                forTypePair(NumericPair.TINYINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT8)));
+        diff.put(NumericPair.SMALLINT_DECIMAL_1_0,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT16)));
+        diff.put(NumericPair.SMALLINT_DECIMAL_2_0,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT16)));
+        diff.put(NumericPair.INT_DECIMAL_1_0,
+                forTypePair(NumericPair.INT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT32)));
+        diff.put(NumericPair.INT_DECIMAL_2_0,
+                forTypePair(NumericPair.INT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT32)));
+        diff.put(NumericPair.INT_DECIMAL_5_0,
+                forTypePair(NumericPair.INT_DECIMAL_5_0).opMatches(castTo(NativeTypes.INT32)));
+        diff.put(NumericPair.BIGINT_DECIMAL_1_0,
+                forTypePair(NumericPair.BIGINT_DECIMAL_1_0).opMatches(castTo(NativeTypes.INT64)));
+        diff.put(NumericPair.BIGINT_DECIMAL_2_0,
+                forTypePair(NumericPair.BIGINT_DECIMAL_2_0).opMatches(castTo(NativeTypes.INT64)));
+        diff.put(NumericPair.BIGINT_DECIMAL_5_0,
+                forTypePair(NumericPair.BIGINT_DECIMAL_5_0).opMatches(castTo(NativeTypes.INT64)));
+        diff.put(NumericPair.DECIMAL_1_0_DECIMAL_1_0,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0).opMatches(castTo(Types.DECIMAL_1_0)));
+        diff.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_1).opMatches(castTo(Types.DECIMAL_1_0)));
+        diff.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_4_3).opMatches(castTo(Types.DECIMAL_1_0)));
+        diff.put(NumericPair.DECIMAL_2_1_DECIMAL_2_1,
+                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1).opMatches(castTo(Types.DECIMAL_2_1)));
+        diff.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_4_3).opMatches(castTo(Types.DECIMAL_2_1)));
+        diff.put(NumericPair.DECIMAL_4_3_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3).opMatches(castTo(Types.DECIMAL_4_3)));
+        diff.put(NumericPair.DECIMAL_2_0_DECIMAL_2_0,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0).opMatches(castTo(Types.DECIMAL_2_0)));
+        diff.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1).opMatches(castTo(Types.DECIMAL_2_0)));
+        diff.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3).opMatches(castTo(Types.DECIMAL_2_0)));
+        diff.put(NumericPair.DECIMAL_3_1_DECIMAL_3_1,
+                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1).opMatches(castTo(Types.DECIMAL_3_1)));
+        diff.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_3).opMatches(castTo(Types.DECIMAL_3_1)));
+        diff.put(NumericPair.DECIMAL_5_3_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3).opMatches(castTo(Types.DECIMAL_5_3)));
+        diff.put(NumericPair.DECIMAL_5_0_DECIMAL_5_0,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0).opMatches(castTo(Types.DECIMAL_5_0)));
+        diff.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_6_1).opMatches(castTo(Types.DECIMAL_5_0)));
+        diff.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_8_3).opMatches(castTo(Types.DECIMAL_5_0)));
+        diff.put(NumericPair.DECIMAL_6_1_DECIMAL_6_1,
+                forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1).opMatches(castTo(Types.DECIMAL_6_1)));
+        diff.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_8_3).opMatches(castTo(Types.DECIMAL_6_1)));
+        diff.put(NumericPair.DECIMAL_8_3_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3).opMatches(castTo(Types.DECIMAL_8_3)));
+        diff.put(NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(castTo(NativeTypes.FLOAT)));
 
         return argsForUpdateWithLiteralValue().map(v -> diff.getOrDefault(v.get()[0], v));
     }

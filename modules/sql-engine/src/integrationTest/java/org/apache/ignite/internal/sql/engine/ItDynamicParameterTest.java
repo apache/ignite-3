@@ -76,7 +76,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
             mode = Mode.EXCLUDE
     )
     void testMetadataTypesForDynamicParameters(ColumnType type) {
-        Object param = SqlTestUtils.generateValueByType(type);
+        Object param = SqlTestUtils.generateValueByType(type, 9, 9);
         List<List<Object>> ret = sql("SELECT typeof(?)", param);
         String type0 = (String) ret.get(0).get(0);
 

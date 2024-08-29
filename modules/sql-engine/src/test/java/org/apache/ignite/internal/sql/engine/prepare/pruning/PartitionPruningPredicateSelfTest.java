@@ -239,12 +239,12 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     }
 
     private Object generateFieldValue(IgniteTable table, int index) {
-        ColumnType columnType = table.descriptor().columnDescriptor(index).physicalType().spec().asColumnType();
+        NativeType type = table.descriptor().columnDescriptor(index).physicalType();
 
         Random current = new Random();
         current.setSeed(seed);
 
-        Object val = SqlTestUtils.generateValueByType(current.nextInt(100), columnType);
+        Object val = SqlTestUtils.generateValueByType(type);
         assert val != null;
 
         return val;

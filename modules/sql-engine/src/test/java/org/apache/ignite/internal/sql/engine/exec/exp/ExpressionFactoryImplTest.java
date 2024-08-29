@@ -38,7 +38,6 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
@@ -727,9 +726,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
         log.info("Seed: " + seed);
 
-        Random rnd = new Random(seed);
-
-        Object val1 = SqlTestUtils.generateValueByType(rnd.nextInt(), columnType);
+        Object val1 = SqlTestUtils.generateValueByType(columnType, 9, 9);
         RexNode expr1 = SqlTestUtils.generateLiteralOrValueExpr(columnType, val1);
         assertTrue(expr1 instanceof RexLiteral);
 

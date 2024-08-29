@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,8 +73,7 @@ public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoSingleColumnTable(pair.first(), pair.second());
 
-        Object val = SqlTestUtils.generateValueByType(pair.second().spec().asColumnType());
-
+        String val = generateLiteral(pair.second(), pair.first());
         assertPlan("MERGE INTO T1 dst USING T2 src ON dst.c1 = src.c2 WHEN MATCHED THEN UPDATE SET c1 = " + val, schema,
                 mergeOperandMatcher(matcher)::matches, List.of());
     }
@@ -86,7 +86,7 @@ public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoSingleColumnTable(pair.first(), pair.second());
 
-        Object val = SqlTestUtils.generateValueByType(pair.second().spec().asColumnType());
+        Object val = SqlTestUtils.generateValueByType(pair.second());
 
         assertPlan("MERGE INTO T1 dst USING T2 src ON dst.c1 = src.c2 WHEN MATCHED THEN UPDATE SET c1 = ?", schema,
                 mergeOperandMatcher(matcher)::matches, List.of(val));
@@ -470,20 +470,79 @@ public class MergeSourcesCoercionTest extends BaseTypeCoercionTest {
 
     private static Stream<Arguments> argsForMergeWithLiteralValue() {
         // Difference between the original parameters.
-        Map<NumericPair, Arguments> diff = Map.of(
-                NumericPair.DECIMAL_1_0_DECIMAL_1_0, forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0).opMatches(castTo(Types.DECIMAL_1_0)),
-                NumericPair.DECIMAL_2_1_DECIMAL_2_1, forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1).opMatches(castTo(Types.DECIMAL_2_1)),
-                NumericPair.DECIMAL_4_3_DECIMAL_4_3, forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3).opMatches(castTo(Types.DECIMAL_4_3)),
-                NumericPair.DECIMAL_2_0_DECIMAL_2_0, forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0).opMatches(castTo(Types.DECIMAL_2_0)),
-                NumericPair.DECIMAL_3_1_DECIMAL_3_1, forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1).opMatches(castTo(Types.DECIMAL_3_1)),
-                NumericPair.DECIMAL_5_3_DECIMAL_5_3, forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3).opMatches(castTo(Types.DECIMAL_5_3)),
-                NumericPair.DECIMAL_5_0_DECIMAL_5_0, forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0).opMatches(castTo(Types.DECIMAL_5_0)),
-                NumericPair.DECIMAL_6_1_DECIMAL_6_1, forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1).opMatches(castTo(Types.DECIMAL_6_1)),
-                NumericPair.DECIMAL_8_3_DECIMAL_8_3, forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3).opMatches(castTo(Types.DECIMAL_8_3)),
-                NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(ofTypeWithoutCast(NativeTypes.FLOAT))
-        );
+        Map<NumericPair, Arguments> map = new EnumMap<>(NumericPair.class);
+        map.put(NumericPair.TINYINT_DECIMAL_1_0,
+                forTypePair(NumericPair.TINYINT_DECIMAL_1_0).opMatches(ofTypeWithoutCast(NativeTypes.INT8)));
+        map.put(NumericPair.TINYINT_DECIMAL_2_1,
+                forTypePair(NumericPair.TINYINT_DECIMAL_2_1).opMatches(ofTypeWithoutCast(NativeTypes.INT8)));
+        map.put(NumericPair.TINYINT_DECIMAL_4_3,
+                forTypePair(NumericPair.TINYINT_DECIMAL_4_3).opMatches(ofTypeWithoutCast(NativeTypes.INT8)));
+        map.put(NumericPair.TINYINT_DECIMAL_2_0,
+                forTypePair(NumericPair.TINYINT_DECIMAL_2_0).opMatches(ofTypeWithoutCast(NativeTypes.INT8)));
+        map.put(NumericPair.TINYINT_DECIMAL_3_1,
+                forTypePair(NumericPair.TINYINT_DECIMAL_3_1).opMatches(ofTypeWithoutCast(NativeTypes.INT8)));
+        map.put(NumericPair.TINYINT_DECIMAL_5_3,
+                forTypePair(NumericPair.TINYINT_DECIMAL_5_3).opMatches(ofTypeWithoutCast(NativeTypes.INT8)));
+        map.put(NumericPair.SMALLINT_DECIMAL_1_0,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_1_0).opMatches(ofTypeWithoutCast(NativeTypes.INT16)));
+        map.put(NumericPair.SMALLINT_DECIMAL_2_1,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_2_1).opMatches(ofTypeWithoutCast(NativeTypes.INT16)));
+        map.put(NumericPair.SMALLINT_DECIMAL_4_3,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_4_3).opMatches(ofTypeWithoutCast(NativeTypes.INT16)));
+        map.put(NumericPair.SMALLINT_DECIMAL_2_0,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_2_0).opMatches(ofTypeWithoutCast(NativeTypes.INT16)));
+        map.put(NumericPair.SMALLINT_DECIMAL_3_1,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_3_1).opMatches(ofTypeWithoutCast(NativeTypes.INT16)));
+        map.put(NumericPair.SMALLINT_DECIMAL_5_3,
+                forTypePair(NumericPair.SMALLINT_DECIMAL_5_3).opMatches(ofTypeWithoutCast(NativeTypes.INT16)));
+        map.put(NumericPair.INT_DECIMAL_1_0, forTypePair(NumericPair.INT_DECIMAL_1_0).opMatches(ofTypeWithoutCast(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_2_1, forTypePair(NumericPair.INT_DECIMAL_2_1).opMatches(ofTypeWithoutCast(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_4_3, forTypePair(NumericPair.INT_DECIMAL_4_3).opMatches(ofTypeWithoutCast(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_2_0, forTypePair(NumericPair.INT_DECIMAL_2_0).opMatches(ofTypeWithoutCast(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_3_1, forTypePair(NumericPair.INT_DECIMAL_3_1).opMatches(ofTypeWithoutCast(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_5_3, forTypePair(NumericPair.INT_DECIMAL_5_3).opMatches(ofTypeWithoutCast(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_5_0, forTypePair(NumericPair.INT_DECIMAL_5_0).opMatches(ofTypeWithoutCast(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_6_1, forTypePair(NumericPair.INT_DECIMAL_6_1).opMatches(ofTypeWithoutCast(NativeTypes.INT32)));
+        map.put(NumericPair.INT_DECIMAL_8_3, forTypePair(NumericPair.INT_DECIMAL_8_3).opMatches(ofTypeWithoutCast(NativeTypes.INT32)));
+        map.put(NumericPair.BIGINT_DECIMAL_1_0,
+                forTypePair(NumericPair.BIGINT_DECIMAL_1_0).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_2_1,
+                forTypePair(NumericPair.BIGINT_DECIMAL_2_1).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_4_3,
+                forTypePair(NumericPair.BIGINT_DECIMAL_4_3).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_2_0,
+                forTypePair(NumericPair.BIGINT_DECIMAL_2_0).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_3_1,
+                forTypePair(NumericPair.BIGINT_DECIMAL_3_1).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_5_3,
+                forTypePair(NumericPair.BIGINT_DECIMAL_5_3).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_5_0,
+                forTypePair(NumericPair.BIGINT_DECIMAL_5_0).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_6_1,
+                forTypePair(NumericPair.BIGINT_DECIMAL_6_1).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
+        map.put(NumericPair.BIGINT_DECIMAL_8_3,
+                forTypePair(NumericPair.BIGINT_DECIMAL_8_3).opMatches(ofTypeWithoutCast(NativeTypes.INT64)));
+        map.put(NumericPair.DECIMAL_1_0_DECIMAL_2_1,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_1).opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)));
+        map.put(NumericPair.DECIMAL_1_0_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_4_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)));
+        map.put(NumericPair.DECIMAL_2_1_DECIMAL_4_3,
+                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_4_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)));
+        map.put(NumericPair.DECIMAL_2_0_DECIMAL_3_1,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1).opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)));
+        map.put(NumericPair.DECIMAL_2_0_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)));
+        map.put(NumericPair.DECIMAL_3_1_DECIMAL_5_3,
+                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)));
+        map.put(NumericPair.DECIMAL_5_0_DECIMAL_6_1,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_6_1).opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)));
+        map.put(NumericPair.DECIMAL_5_0_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_8_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)));
+        map.put(NumericPair.DECIMAL_6_1_DECIMAL_8_3,
+                forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_8_3).opMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)));
+        map.put(NumericPair.REAL_DOUBLE, forTypePair(NumericPair.REAL_DOUBLE).opMatches(ofTypeWithoutCast(NativeTypes.FLOAT)));
 
-        return argsForMergeWithColumnAsValue().map(v -> diff.getOrDefault(v.get()[0], v));
+        return argsForMergeWithColumnAsValue().map(v -> map.getOrDefault(v.get()[0], v));
     }
 
     private static Stream<Arguments> argsDyn() {

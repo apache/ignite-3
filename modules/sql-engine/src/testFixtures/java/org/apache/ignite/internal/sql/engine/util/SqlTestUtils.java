@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomTime;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,6 +48,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -57,6 +60,11 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
@@ -195,68 +203,118 @@ public class SqlTestUtils {
     }
 
     /**
+     * Generate random value for given type.
+     *
+     * @param type {@link NativeType} type to generate value.
+     * @return Generated value for given type.
+     */
+    public static Object generateValueByType(NativeType type) {
+        int scale = 0;
+        int precision = 0;
+        if (type instanceof DecimalNativeType) {
+            scale = ((DecimalNativeType) type).scale();
+            precision = ((DecimalNativeType) type).precision();
+        } else if (type instanceof TemporalNativeType) {
+            precision = ((TemporalNativeType) type).precision();
+        } else if (type instanceof VarlenNativeType) {
+            precision = ((VarlenNativeType) type).length();
+        }
+
+        return generateValueByType(type.spec().asColumnType(), scale, precision);
+    }
+
+    /**
+     * Generate random value for given type.
+     *
+     * @param type {@link RelDataType} type to generate value.
+     * @return Generated value for given type.
+     */
+    public static Object generateValueByType(RelDataType type) {
+        return generateValueByType(columnType(type), type.getScale(), type.getPrecision());
+    }
+
+    /**
      * Generate random value for given SQL type.
      *
      * @param type SQL type to generate value related to the type.
      * @return Generated value for given SQL type.
      */
-    public static Object generateValueByType(ColumnType type) {
-        return generateValueByType(RND.nextInt(Short.MAX_VALUE), type);
-    }
-
-    /**
-     * Generate value for given SQL type.
-     *
-     * @param base Base value to generate value.
-     * @param type SQL type to generate value related to the type.
-     * @return Generated value for given SQL type.
-     */
-    public static Object generateValueByType(int base, ColumnType type) {
-        base = Math.abs(base);
-
+    public static Object generateValueByType(ColumnType type, int scale, int precision) {
         switch (type) {
             case BOOLEAN:
-                return base % 2 == 0;
+                return RND.nextBoolean();
             case INT8:
-                return (byte) base;
+                return (byte) RND.nextInt(Byte.MAX_VALUE + 1);
             case INT16:
-                return (short) (Short.MAX_VALUE - (byte) base);
+                return (short) RND.nextInt(Byte.MAX_VALUE + 1, Short.MAX_VALUE + 1);
             case INT32:
-                return Integer.MAX_VALUE - (short) base;
+                return RND.nextInt(Short.MAX_VALUE + 1, Integer.MAX_VALUE) + 1;
             case INT64:
-                return Long.MAX_VALUE - base;
+                return RND.nextLong(Integer.MAX_VALUE + 1, Long.MAX_VALUE) + 1;
             case FLOAT:
-                return Float.MAX_VALUE - (short) base + ((float) base / 1000);
+                return RND.nextFloat(Float.MAX_VALUE);
             case DOUBLE:
-                return Double.MAX_VALUE - base + ((double) base / 1000);
+                return RND.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE);
             case STRING:
-                return "str_" + base;
+                return IgniteTestUtils.randomString(RND, precision);
             case BYTE_ARRAY:
-                return new byte[]{(byte) base, (byte) (base + 1), (byte) (base + 2)};
+                return IgniteTestUtils.randomBytes(RND, precision);
             case NULL:
                 return null;
             case DECIMAL:
-                return BigDecimal.valueOf(base + ((double) base / 1000)).add(BigDecimal.valueOf(Long.MAX_VALUE));
+                BigDecimal b = IgniteTestUtils.randomBigDecimal(RND, scale, precision);
+                return b;
             case UUID:
-                return new UUID(base, base);
+                return new UUID(RND.nextLong(), RND.nextLong());
             case DURATION:
-                return Duration.ofNanos(base);
+                return Duration.ofNanos(RND.nextLong());
             case DATETIME:
                 return LocalDateTime.of(
-                        (LocalDate) generateValueByType(base, ColumnType.DATE),
-                        (LocalTime) generateValueByType(base, ColumnType.TIME)
+                        (LocalDate) generateValueByType(ColumnType.DATE, scale, precision),
+                        (LocalTime) generateValueByType(ColumnType.TIME, scale, precision)
                 );
             case TIMESTAMP:
                 return Instant.from(
-                        ZonedDateTime.of((LocalDateTime) generateValueByType(base, ColumnType.DATETIME), ZoneId.systemDefault()));
+                        ZonedDateTime.of((LocalDateTime) generateValueByType(ColumnType.DATETIME, scale, precision),
+                                ZoneId.systemDefault()));
             case DATE:
-                return LocalDate.of(2022, 01, 01).plusDays(base % 30);
+                return LocalDate.of(1900 + RND.nextInt(1000), 1 + RND.nextInt(12), 1 + RND.nextInt(28));
             case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(base % 1000);
+                return randomTime(RND, scale);
             case PERIOD:
-                return Period.of(base % 2, base % 12, base % 29);
+                return Period.of(RND.nextInt(200), RND.nextInt(200), RND.nextInt(200));
             default:
                 throw new IllegalArgumentException("unsupported type " + type);
+        }
+    }
+
+    /**
+     * Generates SQL value with a random value for given type.
+     *
+     * @param type Type to generate literal value.
+     *
+     * @return Generated value as string representation of a SQL literal.
+     */
+    public static String generateLiteralForType(NativeType type) {
+        Object value = generateValueByType(type);
+        return generateLiteral(value.toString(), type.spec().asColumnType());
+    }
+
+    /**
+     * Makes SQL literal for given value with a given type.
+     *
+     * @param value Value to present as SQL literal.
+     * @param type Type of value to generate literal.
+     *
+     * @returnString representation of value as a SQL literal.
+     */
+    public static String generateLiteral(String value, ColumnType type) {
+        switch (type) {
+            case DECIMAL:
+                String literal = "DECIMAL '" + value + "' ";
+                return literal;
+            default:
+                return String.valueOf(value);
         }
     }
 
