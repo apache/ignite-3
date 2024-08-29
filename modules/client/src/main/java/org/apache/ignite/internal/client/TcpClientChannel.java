@@ -664,7 +664,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var addr = sock.remoteAddress();
             var clusterNode = new ClientClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
 
-            int clusterIdsLen = unpacker.unpackBinaryHeader();
+            int clusterIdsLen = unpacker.unpackInt();
             List<UUID> clusterIds = new ArrayList<>(clusterIdsLen);
             for (int i = 0; i < clusterIdsLen; i++) {
                 clusterIds.add(unpacker.unpackUuid());
