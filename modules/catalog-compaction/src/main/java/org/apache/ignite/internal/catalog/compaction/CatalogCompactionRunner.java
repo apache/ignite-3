@@ -566,23 +566,25 @@ public class CatalogCompactionRunner implements IgniteComponent {
         private void handleMinimumTimesRequest(ClusterNode sender, Long correlationId) {
             HybridTimestamp lwm = lowWatermark;
             Long minRequiredTime;
+            Map<Integer, BitSet> availablePartitions;
             if (lwm != null) {
                 LocalMinTime minLocalTime = getMinLocalTime(lwm);
                 if (minLocalTime != null) {
                     minRequiredTime = minLocalTime.time;
+                    availablePartitions = minLocalTime.availablePartitions;
                 } else {
                     minRequiredTime = null;
+                    availablePartitions = Collections.emptyMap();
                 }
             } else {
                 minRequiredTime = null;
+                availablePartitions = Collections.emptyMap();
             }
 
             // We do not have local min time yet. Reply with the absolute min time.
             if (minRequiredTime == null) {
                 minRequiredTime = HybridTimestamp.MIN_VALUE.longValue();
             }
-
-            Map<Integer, BitSet> availablePartitions = buildTablePartitions(localMinTimeProvider.minTimePerPartition());
 
             CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                     .minimumRequiredTime(minRequiredTime)
