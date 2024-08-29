@@ -316,11 +316,12 @@ public class Accumulators {
 
         private BigDecimal cnt = BigDecimal.ZERO;
 
-        private final int precision = RelDataType.PRECISION_NOT_SPECIFIED;;
+        private final int precision;
 
         private final int scale;
 
         DecimalAvg(int scale) {
+            this.precision = RelDataType.PRECISION_NOT_SPECIFIED;
             this.scale = scale;
         }
 

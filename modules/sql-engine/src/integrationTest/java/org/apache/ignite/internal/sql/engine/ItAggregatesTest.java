@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.util.NumberUtil;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -37,8 +36,6 @@ import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -616,7 +613,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
             numbers.add(num);
 
             String query = "INSERT INTO numbers (id, int_col, dec10_2_col) VALUES(?, ?, ?)";
-            sql(query, i, NumberUtil.rescaleBigDecimal(num,0).intValue(), num);
+            sql(query, i, NumberUtil.rescaleBigDecimal(num, 0).intValue(), num);
         }
 
         BigDecimal avg = numbers.stream()
