@@ -35,8 +35,7 @@ import picocli.CommandLine.Option;
 /**
  * Top-level command that prints help and declares subcommands.
  */
-@Command(
-        name = "ignite",
+@Command(name = "ignite",
         versionProvider = VersionProvider.class,
         description = {
                 "Welcome to Ignite Shell alpha.",
