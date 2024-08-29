@@ -2662,7 +2662,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETIES_ON_SAFE_TIME_REORDERING));
         }
 
-        int attemptsCounter0 = attemptsCounter;
         raftClient.run(cmd).whenComplete((res, ex) -> {
             if (ex != null) {
                 if (ex instanceof SafeTimeReorderException || ex.getCause() instanceof SafeTimeReorderException) {
@@ -2676,7 +2675,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
                     clonedSafeTimePropagatingCommand.safeTime(safeTimeForRetry);
 
-                    applyCmdWithRetryOnSafeTimeReorderException(clonedSafeTimePropagatingCommand, resultFuture, attemptsCounter0);
+                    applyCmdWithRetryOnSafeTimeReorderException(clonedSafeTimePropagatingCommand, resultFuture);
                 } else {
                     resultFuture.completeExceptionally(ex);
                 }
