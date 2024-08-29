@@ -74,6 +74,11 @@ public class TaskDescriptor<T, R> {
         return splitJobArgumentMarshaller;
     }
 
+    /**
+     * Marshaller for reduce job result.
+     *
+     * @return Marshaller for reduce job result.
+     */
     public Marshaller<R, byte[]> reduceJobResultMarshaller() {
         return reduceJobResultMarshaller;
     }
