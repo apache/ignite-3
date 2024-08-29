@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalTime;
 import java.util.TimeZone;

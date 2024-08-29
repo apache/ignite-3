@@ -312,11 +312,13 @@ public class Accumulators {
     public static class DecimalAvg implements Accumulator {
         public static final IntFunction<Accumulator> FACTORY = DecimalAvg::new;
 
-        private final int scale;
-
         private BigDecimal sum = BigDecimal.ZERO;
 
         private BigDecimal cnt = BigDecimal.ZERO;
+
+        private final int precision = RelDataType.PRECISION_NOT_SPECIFIED;;
+
+        private final int scale;
 
         DecimalAvg(int scale) {
             this.scale = scale;
@@ -338,7 +340,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : IgniteSqlFunctions.decimalDivide(sum, cnt, -1, scale);
+            return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : IgniteSqlFunctions.decimalDivide(sum, cnt, precision, scale);
         }
 
         /** {@inheritDoc} */
@@ -350,7 +352,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL, RelDataType.PRECISION_NOT_SPECIFIED, scale), true);
+            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL, precision, scale), true);
         }
     }
 
