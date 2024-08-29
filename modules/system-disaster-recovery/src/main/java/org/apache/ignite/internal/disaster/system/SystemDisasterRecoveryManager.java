@@ -19,12 +19,20 @@ package org.apache.ignite.internal.disaster.system;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 
 /**
  * Manages disaster recovery of system groups, namely the Cluster Management Group (CMG) and the Metastorage group (MG).
  */
 public interface SystemDisasterRecoveryManager {
+    /**
+     * Saves cluster state to make sure it can be used to initiate CMG/MG repair.
+     *
+     * @param clusterState State to save.
+     */
+    void saveClusterState(ClusterState clusterState);
+
     /**
      * Marks this node as initialized.
      */

@@ -15,31 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management;
+package org.apache.ignite.internal.disaster.system;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.vault.VaultManager;
 
 /**
  * Used to handle volatile information about cluster ID used to restrict which nodes can connect this one and vice versa.
  */
 public class ClusterIdService extends ClusterIdHolder implements IgniteComponent {
-    private final ClusterStateStorage clusterStateStorage;
+    private final SystemDisasterRecoveryStorage storage;
 
-    public ClusterIdService(ClusterStateStorage clusterStateStorage) {
-        this.clusterStateStorage = clusterStateStorage;
+    private volatile UUID clusterIdOverride;
+
+    public ClusterIdService(VaultManager vault) {
+        storage = new SystemDisasterRecoveryStorage(vault);
     }
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        var clusterStateManager = new ClusterStateStorageManager(clusterStateStorage);
-
-        ClusterState clusterState = clusterStateManager.getClusterState();
+        ClusterState clusterState = storage.readClusterState();
         if (clusterState != null) {
             clusterId(clusterState.clusterTag().clusterId());
         }
@@ -50,5 +52,24 @@ public class ClusterIdService extends ClusterIdHolder implements IgniteComponent
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
+    }
+
+    /**
+     * Overrides the cluster ID this node uses for network connection handshakes.
+     *
+     * @param clusterIdOverride Override.
+     */
+    void overrideClusterId(UUID clusterIdOverride) {
+        this.clusterIdOverride = clusterIdOverride;
+    }
+
+    @Override
+    public UUID clusterId() {
+        UUID override = clusterIdOverride;
+        if (override != null) {
+            return override;
+        }
+
+        return super.clusterId();
     }
 }

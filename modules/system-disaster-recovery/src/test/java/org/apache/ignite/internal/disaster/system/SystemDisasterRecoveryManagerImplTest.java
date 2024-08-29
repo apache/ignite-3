@@ -26,10 +26,12 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -56,9 +58,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
-import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessageGroup;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
@@ -97,6 +96,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private static final String CLUSTER_NAME = "cluster";
 
     private static final String NODE_INITIALIZED_VAULT_KEY = "systemRecovery.nodeInitialized";
+    private static final String CLUSTER_STATE_VAULT_KEY = "systemRecovery.clusterState";
     private static final String RESET_CLUSTER_MESSAGE_VAULT_KEY = "systemRecovery.resetClusterMessage";
 
     @WorkDirectory
@@ -114,9 +114,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private ServerRestarter restarter;
-
-    private final ClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
-    private final ClusterStateStorageManager clusterStateStorageManager = new ClusterStateStorageManager(clusterStateStorage);
 
     private SystemDisasterRecoveryManagerImpl manager;
 
@@ -154,8 +151,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 topologyService,
                 messagingService,
                 vaultManager,
-                restarter,
-                clusterStateStorage
+                restarter
         );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
     }
@@ -173,6 +169,17 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         VaultEntry entry = vaultManager.get(new ByteArray(NODE_INITIALIZED_VAULT_KEY));
         assertThat(entry, is(notNullValue()));
         assertThat(entry.value(), is(new byte[]{1}));
+    }
+
+    @Test
+    void savesClusterState() {
+        manager.saveClusterState(usualClusterState);
+
+        VaultEntry entry = vaultManager.get(new ByteArray(CLUSTER_STATE_VAULT_KEY));
+        assertThat(entry, is(notNullValue()));
+
+        ClusterState savedState = fromBytes(entry.value());
+        assertThat(savedState, is(equalTo(usualClusterState)));
     }
 
     @Test
@@ -234,7 +241,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void putClusterState() {
-        clusterStateStorageManager.putClusterState(usualClusterState);
+        vaultManager.put(new ByteArray(CLUSTER_STATE_VAULT_KEY), toBytes(usualClusterState));
     }
 
     private void makeNodeInitialized() {
@@ -433,9 +440,9 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
         InOrder inOrder = inOrder(messagingService, vaultManager, restarter);
 
-        inOrder.verify(vaultManager).put(eq(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)), any());
-        inOrder.verify(messagingService).respond(eq(conductor), messageCaptor.capture(), eq(123L));
-        inOrder.verify(restarter).initiateRestart();
+        inOrder.verify(vaultManager, timeout(SECONDS.toMillis(10))).put(eq(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)), any());
+        inOrder.verify(messagingService, timeout(SECONDS.toMillis(10))).respond(eq(conductor), messageCaptor.capture(), eq(123L));
+        inOrder.verify(restarter, timeout(SECONDS.toMillis(10))).initiateRestart();
 
         assertThat(messageCaptor.getValue(), instanceOf(SuccessResponseMessage.class));
     }

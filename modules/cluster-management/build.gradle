@@ -41,6 +41,7 @@ dependencies {
     implementation project(':ignite-storage-api')
     implementation project(':ignite-security')
     implementation project(':ignite-configuration-root')
+    implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -77,6 +78,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
