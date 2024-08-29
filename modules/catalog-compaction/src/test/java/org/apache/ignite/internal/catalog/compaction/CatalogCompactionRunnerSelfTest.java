@@ -44,6 +44,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -707,9 +708,13 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                             throw new CompletionException(e);
                         }
 
+                        BitSet bitSet = new BitSet();
+                        bitSet.set(1);
+
                         return messagesFactory.catalogCompactionMinimumTimesResponse()
                                 .minimumRequiredTime(time)
                                 .minimumActiveTxTime(clockService.nowLong())
+                                .partitions(Map.of(1, bitSet))
                                 .build();
                     });
                 });
