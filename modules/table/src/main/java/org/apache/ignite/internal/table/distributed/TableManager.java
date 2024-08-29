@@ -421,7 +421,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Void> readyToProcessTableStarts = new CompletableFuture<>();
 
-    private final Map<Integer, Set<TableImpl>> tablesPerZone = new HashMap<>();
+    private final Map<Integer, Set<TableImpl>> tablesPerZone = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
