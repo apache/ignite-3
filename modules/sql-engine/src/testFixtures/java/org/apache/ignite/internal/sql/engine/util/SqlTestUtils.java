@@ -252,7 +252,14 @@ public class SqlTestUtils {
             case INT64:
                 return RND.nextLong(Integer.MAX_VALUE + 1, Long.MAX_VALUE) + 1;
             case FLOAT:
-                return RND.nextFloat();
+                // copy-paste from JDK 21 jdk.internal.util.random.RandomSupport.boundedNextFloat(java.util.random.RandomGenerator, float)
+                float bound = Float.MAX_VALUE;
+                float r = RND.nextFloat();
+                r = r * bound;
+                if (r >= bound) {
+                    r = Math.nextDown(bound);
+                }
+                return r;
             case DOUBLE:
                 return RND.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE);
             case STRING:
