@@ -21,10 +21,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.event.EventParameters;
 
 /**
- * Parameters for the events about zone partition replicas.
+ * Parameters for the events about zone partition replicas produced by {@link PartitionReplicaLifecycleManager}.
  */
 public class PartitionReplicaEventParameters implements EventParameters {
-
     /** Zone descriptor. */
     private final CatalogZoneDescriptor zoneDescriptor;
 

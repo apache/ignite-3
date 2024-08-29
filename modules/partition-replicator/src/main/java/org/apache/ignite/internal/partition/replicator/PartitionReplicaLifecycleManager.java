@@ -138,7 +138,7 @@ import org.jetbrains.annotations.Nullable;
  * - Support the rebalance mechanism and start the new replication nodes when the rebalance triggers occurred.
  */
 public class PartitionReplicaLifecycleManager  extends
-        AbstractEventProducer<PartitionReplicaEvent, PartitionReplicaEventParameters> implements IgniteComponent {
+        AbstractEventProducer<LocalPartitionReplicaEvent, PartitionReplicaEventParameters> implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
@@ -482,7 +482,7 @@ public class PartitionReplicaLifecycleManager  extends
                             replicationGroupIds.add(replicaGrpId);
 
                             return fireEvent(
-                                    PartitionReplicaEvent.AFTER_REPLICA_STARTED,
+                                    LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
                                     new PartitionReplicaEventParameters(
                                             zoneDescriptor,
                                             replicaGrpId.partitionId())

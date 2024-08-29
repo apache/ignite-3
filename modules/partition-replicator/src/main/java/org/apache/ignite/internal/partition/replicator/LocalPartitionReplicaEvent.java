@@ -22,7 +22,7 @@ import org.apache.ignite.internal.event.Event;
 /**
  * Events produced by {@link PartitionReplicaLifecycleManager}.
  */
-public enum PartitionReplicaEvent implements Event {
+public enum LocalPartitionReplicaEvent implements Event {
     /**
      * Fired when partition replica has started.
      */
