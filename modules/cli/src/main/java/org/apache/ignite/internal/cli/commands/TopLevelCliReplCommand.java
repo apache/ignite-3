@@ -43,8 +43,7 @@ import picocli.shell.jline3.PicocliCommands;
 /**
  * Top-level command that just prints help.
  */
-@Command(
-        name = "",
+@Command(name = "",
         footer = {"", "Press Ctrl-D to exit."},
         subcommands = {
                 SqlReplCommand.class,
