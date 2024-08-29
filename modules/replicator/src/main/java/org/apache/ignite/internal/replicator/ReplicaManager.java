@@ -964,8 +964,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .get(shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
             raftClientsFutures.forEach((raftNodeId, raftClientFuture) -> {
-                raftClientFuture.thenAccept(RaftGroupService::shutdown);
-
                 try {
                     raftManager.stopRaftNode(raftNodeId);
                 } catch (NodeStoppingException e) {
