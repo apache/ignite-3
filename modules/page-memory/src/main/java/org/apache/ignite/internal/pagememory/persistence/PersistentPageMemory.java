@@ -1114,6 +1114,7 @@ public class PersistentPageMemory implements PageMemory {
                 try {
                     Thread.sleep(1);
                 } catch (InterruptedException ignore) {
+                    // No-op.
                 }
             }
 
@@ -2106,9 +2107,6 @@ public class PersistentPageMemory implements PageMemory {
 
     /**
      * Checks if the Checkpoint Buffer is currently close to exhaustion.
-     *
-     * @return {@code true} if measures like throttling to protect Checkpoint Buffer should be applied,
-     * and {@code false} otherwise.
      */
     public boolean isCpBufferOverflowThresholdExceeded() {
         PagePool checkpointPool = this.checkpointPool;

@@ -170,12 +170,13 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 ))
         );
 
-        verify(beforePageWrite, times(9)).run();
+        // 9 regular pages + 2 meta pages.
+        verify(beforePageWrite, times(11)).run();
 
         verify(threadBuf, times(2)).get();
 
         verify(partitionMeta0, times(1)).metaSnapshot(any(UUID.class));
-        verify(partitionMeta0, times(1)).metaSnapshot(any(UUID.class));
+        verify(partitionMeta1, times(1)).metaSnapshot(any(UUID.class));
     }
 
     @Test

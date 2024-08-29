@@ -283,8 +283,9 @@ public class CheckpointPagesWriter implements Runnable {
 
                     FullPageId cpPageId = pageMemory.pullPageFromCpBuffer();
 
-                    if (cpPageId.equals(FullPageId.NULL_PAGE))
+                    if (cpPageId.equals(FullPageId.NULL_PAGE)) {
                         break;
+                    }
 
                     GroupPartitionId partitionId = toPartitionId(cpPageId);
 
