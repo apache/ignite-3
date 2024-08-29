@@ -58,7 +58,7 @@ import picocli.CommandLine.Spec;
 )
 public abstract class BaseCommand {
     /** Help option specification. */
-    @Option(names = {HELP_OPTION, HELP_OPTION_SHORT}, description = HELP_OPTION_DESC, order = HELP_OPTION_ORDER)
+    @Option(names = {HELP_OPTION, HELP_OPTION_SHORT}, description = HELP_OPTION_DESC, usageHelp = true, order = HELP_OPTION_ORDER)
     protected boolean usageHelpRequested;
 
     /** Verbose option specification. */
