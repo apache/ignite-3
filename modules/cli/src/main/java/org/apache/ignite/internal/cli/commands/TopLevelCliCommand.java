@@ -49,8 +49,7 @@ import picocli.CommandLine.Option;
                 NodeCommand.class,
                 ClusterCommand.class,
                 RecoveryCommand.class
-        }
-)
+        })
 public class TopLevelCliCommand extends BaseCommand {
     @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(names = VERSION_OPTION, versionHelp = true, description = VERSION_OPTION_DESC, order = VERSION_OPTION_ORDER)
