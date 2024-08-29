@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static org.apache.calcite.sql.type.SqlTypeUtil.isApproximateNumeric;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.sql.engine.util.Commons.rexBuilder;
@@ -874,7 +875,7 @@ class RelJson {
                     return rexBuilder.makeNullLiteral(type);
                 }
 
-                if (literal instanceof Long) {
+                if (literal instanceof Long && isApproximateNumeric(type)) {
                     // Avoid different representation for exact literal and approx type.
                     return rexBuilder.makeExactLiteral(BigDecimal.valueOf((long) literal), type);
                 }
