@@ -289,7 +289,7 @@ public class SqlTestUtils {
     }
 
     /**
-     * Generates SQL value with a random value for given type.
+     * Generates SQL literal with a random value for given type.
      *
      * @param type Type to generate literal value.
      *
@@ -306,7 +306,7 @@ public class SqlTestUtils {
      * @param value Value to present as SQL literal.
      * @param type Type of value to generate literal.
      *
-     * @returnString representation of value as a SQL literal.
+     * @return String representation of value as a SQL literal.
      */
     public static String generateLiteral(String value, ColumnType type) {
         switch (type) {

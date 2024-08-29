@@ -230,7 +230,7 @@ abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
     }
 
     /**
-     * Generates SQL value with a random value for given type.
+     * Generates SQL literal with a random value for given type.
      *
      * @param type Type to generate literal value.
      * @param auxiliaryType Type which can affect generating value for main type.

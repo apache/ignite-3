@@ -726,7 +726,7 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Returns random BigDecimal with given scale and precision.
+     * Returns random {@link BigDecimal} with given scale and precision.
      *
      * @param rnd Random generator.
      * @param scale Scale of generating value.
@@ -750,7 +750,7 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Returns random LocalTime with given scale.
+     * Returns random {@link LocalTime} with given scale.
      *
      * @param rnd Random generator.
      * @param scale Scale of generating value. Scale can be between 0 and 9 includes both bounds.
