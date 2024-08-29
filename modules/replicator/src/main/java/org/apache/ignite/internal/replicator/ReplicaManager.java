@@ -969,7 +969,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 try {
                     raftManager.stopRaftNode(raftNodeId);
                 } catch (NodeStoppingException e) {
-                    LOG.debug("Raft node is already stopping [raftNodeId={}]", raftNodeId, e);
+                    throw new AssertionError("Raft node is stopping [raftNodeId=" + raftNodeId
+                            + "], but it's abnormal, because Raft Manager must stop strictly after Replica Manager.", e);
                 }
             });
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
