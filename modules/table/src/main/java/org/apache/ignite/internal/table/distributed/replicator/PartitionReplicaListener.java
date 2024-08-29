@@ -2680,7 +2680,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     resultFuture.completeExceptionally(ex);
                 }
             } else {
-                resultFuture.complete((T) new ApplyCommandResult(cmd, res));
+                resultFuture.complete((T) new ApplyCommandResult<>(cmd, res));
             }
         });
     }
