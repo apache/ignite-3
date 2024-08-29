@@ -205,6 +205,12 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return compactionCoordinatorNodeName;
     }
 
+    /** Returns {@link MinimumRequiredTimeProvider}. For test purposes only. */
+    @TestOnly
+    public MinimumRequiredTimeProvider localMinTimeProvider() {
+        return this.localMinTimeProvider;
+    }
+
     /** Enables or disables the compaction process. */
     @TestOnly
     public void enable(boolean value) {
@@ -323,8 +329,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 continue;
             }
 
-            CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>> fut = messagingService.invoke(node, request, ANSWER_TIMEOUT)
-                    .thenApply(CatalogCompactionMinimumTimesResponse.class::cast).thenApply(r -> new Pair<>(node.name(), r));
+            CompletableFuture<Pair<String, CatalogCompactionMinimumTimesResponse>> fut = messagingService.invoke(
+                            node, request, ANSWER_TIMEOUT).thenApply(CatalogCompactionMinimumTimesResponse.class::cast)
+                    .thenApply(r -> new Pair<>(node.name(), r));
 
             responseFutures.add(fut);
         }
@@ -448,13 +455,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
     ) {
         HybridTimestamp nowTs = clockService.now();
         Set<String> required = Collections.newSetFromMap(new ConcurrentHashMap<>());
-
         Map<String, Map<Integer, BitSet>> actualPartitions = new ConcurrentHashMap<>();
 
         return CompletableFutures.allOf(catalog.tables().stream()
                 .map(table -> collectRequiredNodes(catalog, table, required, nowTs, actualPartitions))
                 .collect(Collectors.toList())
         ).thenApply(ignore -> {
+
+            // Compare partitions received from nodes (remotePartitions) with partitions retrieve
+            // from the placement driver.
 
             for (Map.Entry<String, Map<Integer, BitSet>> e : remotePartitions.entrySet()) {
                 String remoteId = e.getKey();
