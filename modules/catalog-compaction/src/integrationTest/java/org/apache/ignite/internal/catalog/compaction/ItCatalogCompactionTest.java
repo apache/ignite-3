@@ -24,15 +24,12 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_P
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,20 +49,12 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -269,36 +258,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         });
 
         return expected;
-    }
-
-    private static void ensureTimestampStoredInAllReplicas(
-            HybridTimestamp expectedTimestamp,
-            List<TablePartitionId> expectedReplicationGroups
-    ) throws InterruptedException {
-        for (int i = 0; i < CLUSTER_SIZE; i++) {
-            Loza loza = unwrapIgniteImpl(CLUSTER.node(i)).raftManager();
-            JraftServerImpl server = (JraftServerImpl) loza.server();
-
-            for (TablePartitionId groupId : expectedReplicationGroups) {
-                List<Peer> peers = server.localPeers(groupId);
-
-                assertThat(peers, is(not(empty())));
-
-                Peer serverPeer = server.localPeers(groupId).get(0);
-                RaftGroupService grp = server.raftGroupService(new RaftNodeId(groupId, serverPeer));
-                DelegatingStateMachine fsm = (DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
-                PartitionListener listener = (PartitionListener) fsm.getListener();
-
-                // When a future completes from `Invoke`, it is guaranteed that the leader will be updated,
-                // the remaining replicas can be updated later.
-                IgniteTestUtils.waitForCondition(
-                        () -> Long.valueOf(expectedTimestamp.longValue()).equals(listener.minimumActiveTxBeginTime()),
-                        5_000
-                );
-
-                assertThat(grp.getGroupId(), listener.minimumActiveTxBeginTime(), equalTo(expectedTimestamp.longValue()));
-            }
-        }
     }
 
     private static void expectEarliestCatalogVersion(int expectedVersion) throws InterruptedException {
