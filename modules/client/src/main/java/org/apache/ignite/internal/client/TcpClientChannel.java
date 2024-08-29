@@ -28,10 +28,13 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import java.net.InetSocketAddress;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -659,7 +662,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var clusterNodeName = unpacker.unpackString();
             var addr = sock.remoteAddress();
             var clusterNode = new ClientClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
-            var clusterId = unpacker.unpackUuid();
+
+            int clusterIdLen = unpacker.unpackBinaryHeader();
+            Set<UUID> clusterIds = new HashSet<>();
+            for (int i = 0; i < clusterIdLen; i++) {
+                clusterIds.add(unpacker.unpackUuid());
+            }
+
             var clusterName = unpacker.unpackString();
 
             long observableTimestamp = unpacker.unpackLong();
@@ -678,7 +687,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             unpacker.skipValues(extensionsLen);
 
             protocolCtx = new ProtocolContext(
-                    srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId, clusterName);
+                    srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterIds, clusterName);
 
             return null;
         } catch (Exception e) {

@@ -41,8 +41,8 @@ public class ProtocolContext {
     /** Cluster node. */
     private final ClusterNode clusterNode;
 
-    /** Cluster id. */
-    private final UUID clusterId;
+    /** Cluster ids. */
+    private final Set<UUID> clusterIds;
 
     /** Cluster name. */
     private final String clusterName;
@@ -54,7 +54,7 @@ public class ProtocolContext {
      * @param features Supported features.
      * @param serverIdleTimeout Server idle timeout.
      * @param clusterNode Cluster node.
-     * @param clusterId Cluster id.
+     * @param clusterIds Cluster ids.
      * @param clusterName Cluster name.
      */
     public ProtocolContext(
@@ -62,14 +62,14 @@ public class ProtocolContext {
             EnumSet<ProtocolBitmaskFeature> features,
             long serverIdleTimeout,
             ClusterNode clusterNode,
-            UUID clusterId,
+            Set<UUID> clusterIds,
             String clusterName
     ) {
         this.ver = ver;
         this.features = Collections.unmodifiableSet(features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class));
         this.serverIdleTimeout = serverIdleTimeout;
         this.clusterNode = clusterNode;
-        this.clusterId = clusterId;
+        this.clusterIds = clusterIds;
         this.clusterName = clusterName;
     }
 
@@ -136,8 +136,8 @@ public class ProtocolContext {
      *
      * @return Cluster id.
      */
-    public UUID clusterId() {
-        return clusterId;
+    public Set<UUID> clusterIds() {
+        return clusterIds;
     }
 
     /**
