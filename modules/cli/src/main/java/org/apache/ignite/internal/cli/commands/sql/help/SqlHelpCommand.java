@@ -41,8 +41,7 @@ import picocli.CommandLine.IHelpCommandInitializable2;
 import picocli.CommandLine.Parameters;
 
 /** Help command in SQL repl mode. */
-@Command(
-        name = "help",
+@Command(name = "help",
         header = "Display help information about the specified SQL command.",
         helpCommand = true,
         description = {
