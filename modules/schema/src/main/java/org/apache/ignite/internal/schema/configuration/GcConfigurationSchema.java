@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.configuration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Garbage collector configuration schema.
@@ -27,10 +28,12 @@ import org.apache.ignite.configuration.annotation.Value;
 @Config
 public class GcConfigurationSchema {
     /** Number of garbage collector threads. */
+    @Range(min = 1)
     @Value(hasDefault = true)
     public int threads = Runtime.getRuntime().availableProcessors();
 
     /** The maximal number of entries in the storage to be garbage collected in a single batch. */
+    @Range(min = 0)
     @Value(hasDefault = true)
     public int batchSize = 5;
 
