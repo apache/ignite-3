@@ -38,7 +38,7 @@ class SqlCommandTest extends CliCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required argument (specify one of these): (<command> | --file=<file>)")
+                () -> assertErrOutputContains("Missing required argument (specify one of these): (--file=<file> | <command>)")
         );
     }
 
