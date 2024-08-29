@@ -363,13 +363,17 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         ClusterNode conductor = fromSelf ? thisNode : node2;
         handler.onReceived(resetClusterMessageOn2Nodes(conductor.name()), conductor, 0L);
 
-        assertTrue(waitForCondition(() -> vaultManager.get(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)) != null, 10_000));
+        waitTillResetClusterMessageGetsSavedToVault();
         VaultEntry entry = vaultManager.get(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY));
         assertThat(entry, is(notNullValue()));
 
         ResetClusterMessage savedMessage = fromBytes(entry.value());
 
         assertThatResetClusterMessageContentIsAsExpected(savedMessage, conductor.name());
+    }
+
+    private void waitTillResetClusterMessageGetsSavedToVault() throws InterruptedException {
+        assertTrue(waitForCondition(() -> vaultManager.get(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)) != null, 10_000));
     }
 
     private NetworkMessageHandler extractMessageHandler() {
@@ -437,20 +441,26 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void initiatesRestartWhenGetsMessageFromOtherNode() {
+    void initiatesRestartWhenGetsMessageFromOtherNode() throws Exception {
         NetworkMessageHandler handler = extractMessageHandler();
 
         handler.onReceived(resetClusterMessageOn2Nodes(node2.name()), node2, 0L);
 
         verify(restarter, timeout(SECONDS.toMillis(10))).initiateRestart();
+
+        // Wait till it gets saved to Vault to avoid an attempt to write to it after the after-each method stops the Vault.
+        waitTillResetClusterMessageGetsSavedToVault();
     }
 
     @Test
-    void doesNotInitiateRestartWhenGetsMessageFromSelf() {
+    void doesNotInitiateRestartWhenGetsMessageFromSelf() throws Exception {
         NetworkMessageHandler handler = extractMessageHandler();
 
         handler.onReceived(resetClusterMessageOn2Nodes(thisNodeName), thisNode, 0L);
 
         verify(restarter, never()).initiateRestart();
+
+        // Wait till it gets saved to Vault to avoid an attempt to write to it after the after-each method stops the Vault.
+        waitTillResetClusterMessageGetsSavedToVault();
     }
 }
