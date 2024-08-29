@@ -877,7 +877,7 @@ class RelJson {
 
                 // Avoid different representation for exact number and approx type.
                 if ((literal instanceof Long || literal instanceof Integer) && isApproximateNumeric(type)) {
-                    literal = literal instanceof Integer ? new BigDecimal((int) literal) : new BigDecimal((long) literal);
+                    literal = new BigDecimal(((Number) literal).longValue());
                 }
 
                 if (literal instanceof BigInteger) {
