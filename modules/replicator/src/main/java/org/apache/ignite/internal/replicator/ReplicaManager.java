@@ -984,12 +984,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         } catch (Exception e) {
             return failedFuture(e);
         } finally {
+            assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
+                    : "There are replicas alive [replicas="
+                    + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
+
             replicas.values().forEach(replicaFuture -> replicaFuture.completeExceptionally(new NodeStoppingException()));
         }
-
-        assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
-                : "There are replicas alive [replicas="
-                + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
 
         return nullCompletedFuture();
     }
