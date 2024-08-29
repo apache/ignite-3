@@ -40,8 +40,7 @@ import picocli.CommandLine.Option;
         description = {
                 "Welcome to Ignite Shell alpha.",
                 "Run without command to enter interactive mode.",
-                ""
-        },
+                ""},
         subcommands = {
                 SqlCommand.class,
                 CommandLine.HelpCommand.class,
