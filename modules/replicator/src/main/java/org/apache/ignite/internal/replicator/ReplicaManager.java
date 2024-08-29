@@ -115,6 +115,7 @@ import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -960,28 +961,26 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         shutdownAndAwaitTermination(replicasCreationExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
         try {
-            CompletableFuture.allOf(raftClientsFutures.values().toArray(new CompletableFuture<?>[0]))
-                    .get(shutdownTimeoutSeconds, TimeUnit.SECONDS);
-
-            raftClientsFutures.forEach((raftNodeId, raftClientFuture) -> {
-                try {
-                    raftManager.stopRaftNode(raftNodeId);
-                } catch (NodeStoppingException e) {
-                    throw new AssertionError("Raft node is stopping [raftNodeId=" + raftNodeId
-                            + "], but it's abnormal, because Raft Manager must stop strictly after Replica Manager.", e);
-                }
-            });
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new AssertionError("There are undone raft clients starting future", e);
+            IgniteUtils.closeAllManually(
+                    () -> CompletableFuture.allOf(raftClientsFutures.values().toArray(new CompletableFuture<?>[0]))
+                            .get(shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                    () -> raftClientsFutures.forEach((raftNodeId, raftClientFuture) -> {
+                        try {
+                            raftManager.stopRaftNode(raftNodeId);
+                        } catch (NodeStoppingException e) {
+                            throw new AssertionError("Raft node is stopping [raftNodeId=" + raftNodeId
+                                    + "], but it's abnormal, because Raft Manager must stop strictly after Replica Manager.", e);
+                        }
+                    }),
+                    () -> replicas.values().forEach(replicaFuture -> replicaFuture.completeExceptionally(new NodeStoppingException()))
+            );
+        } catch (Exception e) {
+            LOG.error("There are exceptions during Replica Manager stop", e);
         }
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="
                 + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
-
-        for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
-            replicaFuture.completeExceptionally(new NodeStoppingException());
-        }
 
         return nullCompletedFuture();
     }
