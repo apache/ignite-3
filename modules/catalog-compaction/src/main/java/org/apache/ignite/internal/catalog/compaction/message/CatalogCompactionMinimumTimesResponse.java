@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.compaction.message;
 
+import java.util.BitSet;
+import java.util.Map;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -36,4 +38,7 @@ public interface CatalogCompactionMinimumTimesResponse extends NetworkMessage {
 
     /** Returns node's minimum starting time among locally started active RW transactions. */
     long minimumActiveTxTime();
+
+    /** Returns table partitions. */
+    Map<Integer, BitSet> partitions();
 }

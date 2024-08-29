@@ -24,8 +24,10 @@ import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap.Entry;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -243,7 +245,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         });
     }
 
-    private @Nullable Long getMinLocalTime(HybridTimestamp lwm) {
+    private @Nullable LocalMinTime getMinLocalTime(HybridTimestamp lwm) {
         Map<TablePartitionId, @Nullable Long> partitionStates = localMinTimeProvider.minTimePerPartition();
 
         // Find the minimum time among all partitions.
@@ -269,16 +271,31 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 chosenMinTime
         );
 
-        return chosenMinTime;
+        Map<Integer, BitSet> tableBitSet = buildTablePartitions(partitionStates);
+
+        return new LocalMinTime(chosenMinTime, tableBitSet);
     }
 
     private CompletableFuture<Void> startCompaction(HybridTimestamp lwm, LogicalTopologySnapshot topologySnapshot) {
         LOG.info("Catalog compaction started [lowWaterMark={}].", lwm);
 
-        Long localMinRequiredTime = getMinLocalTime(lwm);
+        LocalMinTime localMinRequiredTime = getMinLocalTime(lwm);
+        Long minTime = localMinRequiredTime != null ? localMinRequiredTime.time : null;
+        Map<Integer, BitSet> availablePartitions = localMinRequiredTime != null ? localMinRequiredTime.availablePartitions : null;
 
-        return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), localMinRequiredTime)
+        return determineGlobalMinimumRequiredTime(topologySnapshot.nodes(), minTime)
                 .thenComposeAsync(timeHolder -> {
+
+                    if (minTime != null && availablePartitions != null) {
+                        for (Map<Integer, BitSet> remotePartitions : timeHolder.tablePartitions) {
+                            if (!availablePartitions.equals(remotePartitions)) {
+                                LOG.info("Catalog compaction aborted due to mismatching table partitions.");
+
+                                return CompletableFutures.nullCompletedFuture();
+                            }
+                        }
+                    }
+
                     long minRequiredTime = timeHolder.minRequiredTime;
                     long minActiveTxBeginTime = timeHolder.minActiveTxBeginTime;
 
@@ -323,6 +340,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                 .thenApply(ignore -> {
                     Long globalMinimumRequiredTime = localMinimumRequiredTime;
                     long globalMinimumActiveTxTime = activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue();
+                    List<Map<Integer, BitSet>> tablePartitions = new ArrayList<>(responseFutures.size());
 
                     for (CompletableFuture<CatalogCompactionMinimumTimesResponse> fut : responseFutures) {
                         CatalogCompactionMinimumTimesResponse response = fut.join();
@@ -334,13 +352,16 @@ public class CatalogCompactionRunner implements IgniteComponent {
                         if (response.minimumActiveTxTime() < globalMinimumActiveTxTime) {
                             globalMinimumActiveTxTime = response.minimumActiveTxTime();
                         }
+
+                        Map<Integer, BitSet> remoteTablePartitions = response.partitions();
+                        tablePartitions.add(remoteTablePartitions);
                     }
 
                     if (globalMinimumRequiredTime == null) {
                         globalMinimumRequiredTime = HybridTimestamp.MIN_VALUE.longValue();
                     }
 
-                    return new TimeHolder(globalMinimumRequiredTime, globalMinimumActiveTxTime);
+                    return new TimeHolder(globalMinimumRequiredTime, globalMinimumActiveTxTime, tablePartitions);
                 });
     }
 
@@ -545,16 +566,29 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
         private void handleMinimumTimesRequest(ClusterNode sender, Long correlationId) {
             HybridTimestamp lwm = lowWatermark;
-            Long minRequiredTime = lwm != null ? getMinLocalTime(lwm) : null;
+            Long minRequiredTime;
+            if (lwm != null) {
+                LocalMinTime minLocalTime = getMinLocalTime(lwm);
+                if (minLocalTime != null) {
+                    minRequiredTime = minLocalTime.time;
+                } else {
+                    minRequiredTime = null;
+                }
+            } else {
+                minRequiredTime = null;
+            }
 
             // We do not have local min time yet. Reply with the absolute min time.
             if (minRequiredTime == null) {
                 minRequiredTime = HybridTimestamp.MIN_VALUE.longValue();
             }
 
+            Map<Integer, BitSet> availablePartitions = buildTablePartitions(localMinTimeProvider.minTimePerPartition());
+
             CatalogCompactionMinimumTimesResponse response = COMPACTION_MESSAGES_FACTORY.catalogCompactionMinimumTimesResponse()
                     .minimumRequiredTime(minRequiredTime)
                     .minimumActiveTxTime(activeLocalTxMinimumBeginTimeProvider.minimumBeginTime().longValue())
+                    .partitions(availablePartitions)
                     .build();
 
             messagingService.respond(sender, response, correlationId);
@@ -572,13 +606,46 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
     }
 
+    private static Map<Integer, BitSet> buildTablePartitions(Map<TablePartitionId, @Nullable Long> tablePartitionMap) {
+        Map<Integer, BitSet> tableIdBitSet = new HashMap<>();
+
+        for (var e : tablePartitionMap.entrySet()) {
+            TablePartitionId tp = e.getKey();
+            Long time = e.getValue();
+
+            tableIdBitSet.compute(tp.tableId(), (k, v) -> {
+                int partition = tp.partitionId();
+                if (v == null) {
+                    v = new BitSet();
+                }
+                if (time != null) {
+                    v.set(partition);
+                }
+                return v;
+            });
+        }
+        return tableIdBitSet;
+    }
+
+    private static class LocalMinTime {
+        final long time;
+        final Map<Integer, BitSet> availablePartitions;
+
+        LocalMinTime(long time, Map<Integer, BitSet> availablePartitions) {
+            this.time = time;
+            this.availablePartitions = availablePartitions;
+        }
+    }
+
     static class TimeHolder {
         final long minRequiredTime;
         final long minActiveTxBeginTime;
+        final List<Map<Integer, BitSet>> tablePartitions;
 
-        private TimeHolder(long minRequiredTime, long minActiveTxBeginTime) {
+        private TimeHolder(long minRequiredTime, long minActiveTxBeginTime, List<Map<Integer, BitSet>> tablePartitions) {
             this.minRequiredTime = minRequiredTime;
             this.minActiveTxBeginTime = minActiveTxBeginTime;
+            this.tablePartitions = tablePartitions;
         }
     }
 }

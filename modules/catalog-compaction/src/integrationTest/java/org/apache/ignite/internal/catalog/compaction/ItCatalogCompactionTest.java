@@ -27,17 +27,14 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -48,12 +45,8 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -223,41 +216,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         assertTrue(catalog1.version() < catalog2.version(), "Catalog version should have changed");
 
         expectEarliestCatalogVersion(catalog2.version() - 1);
-    }
-
-    private static void waitPrimaryReplicas(List<TablePartitionId> groups) {
-        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
-        List<CompletableFuture<?>> waitFutures = new ArrayList<>(groups.size());
-
-        for (TablePartitionId groupId : groups) {
-            CompletableFuture<ReplicaMeta> waitFut = node.placementDriver()
-                    .awaitPrimaryReplica(groupId, node.clock().now(), 10, TimeUnit.SECONDS);
-
-            waitFutures.add(waitFut);
-        }
-
-        await(CompletableFutures.allOf(waitFutures));
-    }
-
-    private static List<TablePartitionId> prepareExpectedGroups(CatalogManagerImpl catalogManager, int partsCount) {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-
-        Catalog lastCatalog = catalogManager.catalog(
-                catalogManager.activeCatalogVersion(ignite.clock().nowLong()));
-        assertNotNull(lastCatalog);
-
-        Collection<CatalogTableDescriptor> tables = lastCatalog.tables();
-        assertThat(tables, hasSize(2));
-
-        List<TablePartitionId> expected = new ArrayList<>(partsCount * tables.size());
-
-        tables.forEach(tab -> {
-            for (int p = 0; p < partsCount; p++) {
-                expected.add(new TablePartitionId(tab.id(), p));
-            }
-        });
-
-        return expected;
     }
 
     private static void expectEarliestCatalogVersion(int expectedVersion) throws InterruptedException {
