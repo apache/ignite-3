@@ -372,6 +372,8 @@ class CheckpointWorkflow {
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             CompletableFuture<?> allowToReplace
     ) {
+        assert checkpointReadWriteLock.isWriteLockHeldByCurrentThread();
+
         Map<DataRegion<?>, Set<FullPageId>> dirtyPartitionsMap = this.dirtyPartitionsMap;
 
         this.dirtyPartitionsMap = new ConcurrentHashMap<>();
