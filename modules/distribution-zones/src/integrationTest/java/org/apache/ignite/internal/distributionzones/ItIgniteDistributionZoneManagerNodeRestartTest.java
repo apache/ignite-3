@@ -99,7 +99,6 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
-import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryClusterIdOverrider;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -303,7 +302,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         List<IgniteComponent> otherComponents = List.of(
                 clusterStateStorage,
                 clusterIdService,
-                new SystemDisasterRecoveryClusterIdOverrider(vault, clusterIdService),
                 nettyBootstrapFactory,
                 clusterSvc,
                 cmgManager,

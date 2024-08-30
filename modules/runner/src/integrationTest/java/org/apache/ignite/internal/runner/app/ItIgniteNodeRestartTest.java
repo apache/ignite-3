@@ -122,7 +122,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
-import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryClusterIdOverrider;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -780,7 +779,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 workerRegistry,
                 clusterStateStorage,
                 clusterIdService,
-                new SystemDisasterRecoveryClusterIdOverrider(vault, clusterIdService),
                 nettyBootstrapFactory,
                 nettyWorkersRegistrar,
                 clusterSvc,

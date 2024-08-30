@@ -121,7 +121,6 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionCo
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.ServerRestarter;
-import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryClusterIdOverrider;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -1203,7 +1202,6 @@ public class IgniteImpl implements Ignite {
                     failureProcessor,
                     clusterStateStorage,
                     clusterIdService,
-                    new SystemDisasterRecoveryClusterIdOverrider(vaultMgr, clusterIdService),
                     criticalWorkerRegistry,
                     nettyBootstrapFactory,
                     nettyWorkersRegistrar,
