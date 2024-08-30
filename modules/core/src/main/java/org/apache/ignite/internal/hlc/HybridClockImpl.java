@@ -61,7 +61,7 @@ public class HybridClockImpl implements HybridClock {
     }
 
     private static long currentTime() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23117 Use currentTimeMillis instead
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23117 Use currentTimeMillis instead.
         return systemUTC().instant().toEpochMilli() << LOGICAL_TIME_BITS_SIZE;
     }
 
