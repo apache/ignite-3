@@ -95,9 +95,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private static final String CLUSTER_NAME = "cluster";
 
-    private static final String NODE_INITIALIZED_VAULT_KEY = "systemRecovery.nodeInitialized";
-    private static final String CLUSTER_STATE_VAULT_KEY = "systemRecovery.clusterState";
-    private static final String RESET_CLUSTER_MESSAGE_VAULT_KEY = "systemRecovery.resetClusterMessage";
+    private static final ByteArray NODE_INITIALIZED_VAULT_KEY = new ByteArray("systemRecovery.nodeInitialized");
+    private static final ByteArray CLUSTER_STATE_VAULT_KEY = new ByteArray("systemRecovery.clusterState");
+    private static final ByteArray RESET_CLUSTER_MESSAGE_VAULT_KEY = new ByteArray("systemRecovery.resetClusterMessage");
 
     @WorkDirectory
     private Path workDir;
@@ -166,7 +166,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     void marksNodeInitialized() {
         manager.markNodeInitialized();
 
-        VaultEntry entry = vaultManager.get(new ByteArray(NODE_INITIALIZED_VAULT_KEY));
+        VaultEntry entry = vaultManager.get(NODE_INITIALIZED_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
         assertThat(entry.value(), is(notNullValue()));
     }
@@ -175,7 +175,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     void savesClusterState() {
         manager.saveClusterState(usualClusterState);
 
-        VaultEntry entry = vaultManager.get(new ByteArray(CLUSTER_STATE_VAULT_KEY));
+        VaultEntry entry = vaultManager.get(CLUSTER_STATE_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
 
         ClusterState savedState = fromBytes(entry.value());
@@ -241,11 +241,11 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void putClusterState() {
-        vaultManager.put(new ByteArray(CLUSTER_STATE_VAULT_KEY), toBytes(usualClusterState));
+        vaultManager.put(CLUSTER_STATE_VAULT_KEY, toBytes(usualClusterState));
     }
 
     private void makeNodeInitialized() {
-        vaultManager.put(new ByteArray(NODE_INITIALIZED_VAULT_KEY), new byte[]{1});
+        vaultManager.put(NODE_INITIALIZED_VAULT_KEY, new byte[]{1});
     }
 
     @Test
@@ -371,7 +371,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         handler.onReceived(resetClusterMessageOn2Nodes(conductor.name()), conductor, 0L);
 
         waitTillResetClusterMessageGetsSavedToVault();
-        VaultEntry entry = vaultManager.get(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY));
+        VaultEntry entry = vaultManager.get(RESET_CLUSTER_MESSAGE_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
 
         ResetClusterMessage savedMessage = fromBytes(entry.value());
@@ -380,7 +380,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void waitTillResetClusterMessageGetsSavedToVault() throws InterruptedException {
-        assertTrue(waitForCondition(() -> vaultManager.get(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)) != null, 10_000));
+        assertTrue(waitForCondition(() -> vaultManager.get(RESET_CLUSTER_MESSAGE_VAULT_KEY) != null, 10_000));
     }
 
     private NetworkMessageHandler extractMessageHandler() {
@@ -423,7 +423,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
         InOrder inOrder = inOrder(messagingService, vaultManager);
 
-        inOrder.verify(vaultManager, timeout(SECONDS.toMillis(10))).put(eq(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)), any());
+        inOrder.verify(vaultManager, timeout(SECONDS.toMillis(10))).put(eq(RESET_CLUSTER_MESSAGE_VAULT_KEY), any());
         inOrder.verify(messagingService, timeout(SECONDS.toMillis(10))).respond(eq(conductor), messageCaptor.capture(), eq(123L));
 
         assertThat(messageCaptor.getValue(), instanceOf(SuccessResponseMessage.class));
@@ -440,7 +440,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
         InOrder inOrder = inOrder(messagingService, vaultManager, restarter);
 
-        inOrder.verify(vaultManager, timeout(SECONDS.toMillis(10))).put(eq(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY)), any());
+        inOrder.verify(vaultManager, timeout(SECONDS.toMillis(10))).put(eq(RESET_CLUSTER_MESSAGE_VAULT_KEY), any());
         inOrder.verify(messagingService, timeout(SECONDS.toMillis(10))).respond(eq(conductor), messageCaptor.capture(), eq(123L));
         inOrder.verify(restarter, timeout(SECONDS.toMillis(10))).initiateRestart();
 

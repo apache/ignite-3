@@ -27,8 +27,8 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.Nullable;
 
 class SystemDisasterRecoveryStorage extends ClusterResetStorage {
-    private static final String NODE_INITIALIZED_VAULT_KEY = "systemRecovery.nodeInitialized";
-    private static final String CLUSTER_STATE_VAULT_KEY = "systemRecovery.clusterState";
+    private static final ByteArray NODE_INITIALIZED_VAULT_KEY = new ByteArray("systemRecovery.nodeInitialized");
+    private static final ByteArray CLUSTER_STATE_VAULT_KEY = new ByteArray("systemRecovery.clusterState");
 
     private final VaultManager vault;
 
@@ -43,19 +43,19 @@ class SystemDisasterRecoveryStorage extends ClusterResetStorage {
     }
 
     void saveClusterState(ClusterState clusterState) {
-        vault.put(new ByteArray(CLUSTER_STATE_VAULT_KEY), ByteUtils.toBytes(clusterState));
+        vault.put(CLUSTER_STATE_VAULT_KEY, ByteUtils.toBytes(clusterState));
     }
 
     boolean isNodeInitialized() {
-        VaultEntry initializedEntry = vault.get(new ByteArray(NODE_INITIALIZED_VAULT_KEY));
+        VaultEntry initializedEntry = vault.get(NODE_INITIALIZED_VAULT_KEY);
         return initializedEntry != null;
     }
 
     void markNodeInitialized() {
-        vault.put(new ByteArray(NODE_INITIALIZED_VAULT_KEY), new byte[0]);
+        vault.put(NODE_INITIALIZED_VAULT_KEY, new byte[0]);
     }
 
     void saveResetClusterMessage(ResetClusterMessage message) {
-        vault.put(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY), ByteUtils.toBytes(message));
+        vault.put(RESET_CLUSTER_MESSAGE_VAULT_KEY, ByteUtils.toBytes(message));
     }
 }

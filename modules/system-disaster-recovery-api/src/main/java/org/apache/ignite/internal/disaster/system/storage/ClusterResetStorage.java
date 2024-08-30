@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * Storage (over Vault) used by the cluster reset tools.
  */
 public class ClusterResetStorage {
-    protected static final String RESET_CLUSTER_MESSAGE_VAULT_KEY = "systemRecovery.resetClusterMessage";
+    protected static final ByteArray RESET_CLUSTER_MESSAGE_VAULT_KEY = new ByteArray("systemRecovery.resetClusterMessage");
 
     private final VaultManager vault;
 
@@ -36,8 +36,8 @@ public class ClusterResetStorage {
         this.vault = vault;
     }
 
-    protected final <T> @Nullable T readFromVault(String key) {
-        VaultEntry entry = vault.get(new ByteArray(key));
+    protected final <T> @Nullable T readFromVault(ByteArray key) {
+        VaultEntry entry = vault.get(key);
         return entry != null ? ByteUtils.fromBytes(entry.value()) : null;
     }
 
@@ -52,6 +52,6 @@ public class ClusterResetStorage {
      * Removes saved {@link ResetClusterMessage}.
      */
     public void removeResetClusterMessage() {
-        vault.remove(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY));
+        vault.remove(RESET_CLUSTER_MESSAGE_VAULT_KEY);
     }
 }
