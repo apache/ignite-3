@@ -383,8 +383,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         synchronized (raftServiceLock) {
             // Disaster recovery means that the Repair Conductor has ensured the cluster was initialized,
             // so we can just pass null as initialClusterConfig.
-            serviceFuture = startCmgRaftServiceWithEvents(
-                    resetClusterMessage.cmgNodes(), null);
+            serviceFuture = startCmgRaftServiceWithEvents(resetClusterMessage.cmgNodes(), null);
             raftService = serviceFuture;
         }
 
