@@ -19,6 +19,7 @@ package org.apache.ignite.internal.disaster.system;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Used to handle volatile information about cluster ID used to restrict which nodes can connect this one and vice versa.
@@ -33,21 +35,23 @@ import org.apache.ignite.internal.vault.VaultManager;
 public class ClusterIdService extends ClusterIdHolder implements IgniteComponent {
     private final SystemDisasterRecoveryStorage storage;
 
+    @Nullable
+    private volatile UUID clusterIdOverride;
+
     public ClusterIdService(VaultManager vault) {
         storage = new SystemDisasterRecoveryStorage(vault);
     }
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        ResetClusterMessage resetClusterMessage = storage.readResetClusterMessage();
+        ClusterState clusterState = storage.readClusterState();
+        if (clusterState != null) {
+            clusterId(clusterState.clusterTag().clusterId());
+        }
 
+        ResetClusterMessage resetClusterMessage = storage.readResetClusterMessage();
         if (resetClusterMessage != null) {
-            clusterId(resetClusterMessage.clusterId());
-        } else {
-            ClusterState clusterState = storage.readClusterState();
-            if (clusterState != null) {
-                clusterId(clusterState.clusterTag().clusterId());
-            }
+            this.clusterIdOverride = resetClusterMessage.clusterId();
         }
 
         return nullCompletedFuture();
@@ -56,5 +60,15 @@ public class ClusterIdService extends ClusterIdHolder implements IgniteComponent
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
+    }
+
+    @Override
+    public UUID clusterId() {
+        UUID override = clusterIdOverride;
+        if (override != null) {
+            return override;
+        }
+
+        return super.clusterId();
     }
 }
