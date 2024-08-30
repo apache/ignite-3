@@ -154,7 +154,10 @@ public class PersistentPageMemory implements PageMemory {
     /** Try again tag. */
     public static final int TRY_AGAIN_TAG = -1;
 
-    /** Threshold of the checkpoint buffer. We should start forcefully checkpointing its pages upon exceeding it. */
+    /**
+     * Threshold of the checkpoint buffer. We should start forcefully checkpointing its pages upon exceeding it. The value of {@code 2/3} is
+     * ported from {@code Ignite 2.x}.
+     */
     private static final float CP_BUF_FILL_THRESHOLD = 2.0f / 3;
 
     /** Data region configuration view. */
