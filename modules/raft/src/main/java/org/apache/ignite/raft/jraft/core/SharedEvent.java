@@ -1,8 +1,16 @@
 package org.apache.ignite.raft.jraft.core;
 
-import java.util.concurrent.CountDownLatch;import org.apache.ignite.raft.jraft.Closure;import org.apache.ignite.raft.jraft.Status;import org.apache.ignite.raft.jraft.core.FSMCallerImpl.IApplyTask;
-import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;import org.apache.ignite.raft.jraft.core.NodeImpl.ILogEntryAndClosure;
-import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;import org.apache.ignite.raft.jraft.entity.LogEntry;import org.apache.ignite.raft.jraft.storage.LogManager.StableClosure;import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.EventType;import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.IStableClosureEvent;
+import java.util.concurrent.CountDownLatch;
+import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.core.FSMCallerImpl.IApplyTask;
+import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;
+import org.apache.ignite.raft.jraft.core.NodeImpl.ILogEntryAndClosure;
+import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
+import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
+import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.EventType;
+import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.IStableClosureEvent;
 
 public class SharedEvent extends NodeIdAware implements IApplyTask, ILogEntryAndClosure, IStableClosureEvent {
             public TaskType type;
@@ -101,4 +109,22 @@ public class SharedEvent extends NodeIdAware implements IApplyTask, ILogEntryAnd
         this.done = null;
         this.type = null;
     }
-}
+
+    @Override public String toString() {
+    return "SharedEvent{" +
+            "type=" + type +
+            ", committedIndex=" + committedIndex +
+            ", term=" + term +
+            ", status=" + status +
+            ", leaderChangeCtx=" + leaderChangeCtx +
+            ", done=" + done +
+            ", entry=" + entry +
+            ", expectedTerm=" + expectedTerm +
+            ", shutdownLatch=" + shutdownLatch +
+            ", eventType=" + eventType +
+            ", parent.nodeId=" +  nodeId +
+                    ", parent.handler=" + handler +
+                    ", parent.disEvtType=" + evtType +
+                    ", parent.srcType=" + srcType +
+            '}';
+}}

@@ -267,7 +267,12 @@ public class JraftServerImpl implements RaftServer {
             opts.setSnapshotTimer(JRaftUtils.createTimer(opts, "JRaft-SnapshotTimer"));
         }
 
-        requestExecutor = opts.isUseVirtualThreads() ? Executors.newVirtualThreadPerTaskExecutor() : Executors.newFixedThreadPool(
+//        requestExecutor = opts.isUseVirtualThreads() ? Executors.newVirtualThreadPerTaskExecutor() : Executors.newFixedThreadPool(
+//                opts.getRaftRpcThreadPoolSize(),
+//                IgniteThreadFactory.create(opts.getServerName(), "JRaft-Request-Processor", LOG, PROCESS_RAFT_REQ)
+//        );
+
+        requestExecutor = Executors.newFixedThreadPool(
                 opts.getRaftRpcThreadPoolSize(),
                 IgniteThreadFactory.create(opts.getServerName(), "JRaft-Request-Processor", LOG, PROCESS_RAFT_REQ)
         );

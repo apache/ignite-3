@@ -30,6 +30,7 @@ import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
@@ -332,6 +333,8 @@ public class StripedDisruptor<T extends INodeIdAware> {
         /** The cache is used to correct handling the disruptor batch. */
         private final Map<NodeId, T> eventCache = new HashMap<>();
 
+        private final Map<NodeId, List<T>> eventCache2 = new HashMap<>();
+
         /** Current batch sizes. */
         private final Map<NodeId, Integer> currentBatchSizes = new HashMap<>();
 
@@ -376,18 +379,59 @@ public class StripedDisruptor<T extends INodeIdAware> {
                 }
             } else {
                 //internalBatching(event, sequence);
-
-                EventHandler<T> grpHandler = subscribers.get(event.nodeId()).get(event.getSrcType());
-
-                                    if (grpHandler != null) {
-//                                        if (metrics != null && metrics.enabled()) {
-//                                            metrics.hitToStripe(stripeId);
+//                eventCache2.compute(event.nodeId(), (k, v) -> {
+//                    if (v == null) {
+//                        v = new ArrayList<>(10); // Use Avg batch size TODO.
+//                    }
 //
-//                                            metrics.addBatchSize(currentBatchSizes.getOrDefault(grpEvent.getKey(), 0) + 1);
+//                    v.add(event);
+//
+//                    return v;
+//                });
+//
+//                if (endOfBatch) {
+//                    List<T> cached = eventCache2.get(event.nodeId());
+//
+//                                        if (cached.size() > 10) {
+//                                        LOG.info("Batch size > 10");
 //                                        }
+//
+//
+//
+//                    for (int i = 0; i < cached.size(); i++) {
+//                    T t =  cached.get(i);
+//
+//                    // assert t.nodeId().equals(event.nodeId());
+//
+//                    boolean endB = true;
+//
+//                    if (i < cached.size() - 1) {
+//                        T next = cached.get(i + 1);
+//
+//                        // Batch events of same class.
+//                        if (next.getClass().equals(t.getClass())) {
+//                            endB = false;
+//                        }
+//                    }
+//
+//                    EventHandler<T> grpHandler = subscribers.get(event.nodeId()).get(t.getSrcType());
+//
+//                    if (grpHandler != null) {
+//                        grpHandler.onEvent(t, sequence, endB);
+//                    }
+//                    }
+//
+//                    cached.clear();
+//
+//                }
 
-                                        grpHandler.onEvent(event, sequence, true);
-                                    }
+                                EventHandler<T> grpHandler = subscribers.get(event.nodeId()).get(event.getSrcType());
+
+                                                    if (grpHandler != null) {
+                                                        grpHandler.onEvent(event, sequence, true);
+                                                    } else {
+                                                        LOG.error("DBG: NULL FOR " + event.getSrcType());
+                                                    }
 
             }
 

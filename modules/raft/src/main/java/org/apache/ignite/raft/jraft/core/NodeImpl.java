@@ -1312,68 +1312,64 @@ public class NodeImpl implements Node, RaftServerService {
         (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE);
 
         if (!useSharedDisruptor) {
-        if (opts.getfSMCallerExecutorDisruptor() == null) {
+
+            int stripes = opts.getStripes();
+            String postfix = "";
+            if (ownFsmCallerExecutorDisruptorConfig != null) {
+                stripes = ownFsmCallerExecutorDisruptorConfig.getStripes();
+                postfix = ownFsmCallerExecutorDisruptorConfig.getThreadPostfix();
+            }
+
+        if (opts.getfSMCallerExecutorDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.IApplyTask>(
                 opts.getServerName(),
-                "JRaft-FSMCaller-Disruptor",
-                clo,
+                "JRaft-FSMCaller-Disruptor" + postfix,
+                (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
-                opts.getStripes(),
+                stripes,
                 false,
                 false,
                 opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
             ));
-        } else if (ownFsmCallerExecutorDisruptorConfig != null) {
-            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.IApplyTask>(
-                opts.getServerName(),
-                "JRaft-FSMCaller-Disruptor" + ownFsmCallerExecutorDisruptorConfig.getThreadPostfix(),
-                clo,
-                opts.getRaftOptions().getDisruptorBufferSize(),
-                () -> new FSMCallerImpl.ApplyTask(),
-                ownFsmCallerExecutorDisruptorConfig.getStripes(),
-                false,
-                false,
-                null
-            ));
         }
 
-        if (opts.getNodeApplyDisruptor() == null) {
+        if (opts.getNodeApplyDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
             opts.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.ILogEntryAndClosure>(
                 opts.getServerName(),
                 "JRaft-NodeImpl-Disruptor",
-                clo,
+                (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new NodeImpl.LogEntryAndClosure(),
-                opts.getStripes(),
+                stripes,
                 false,
                 false,
                 opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
             ));
         }
 
-        if (opts.getReadOnlyServiceDisruptor() == null) {
+        if (opts.getReadOnlyServiceDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
             opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
                 opts.getServerName(),
                 "JRaft-ReadOnlyService-Disruptor",
-                clo,
+                (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-                opts.getStripes(),
+                stripes,
                 false,
                 false,
                 opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
             ));
         }
 
-        if (opts.getLogManagerDisruptor() == null) {
+        if (opts.getLogManagerDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
             opts.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.IStableClosureEvent>(
                 opts.getServerName(),
                 "JRaft-LogManager-Disruptor",
-                clo,
+                (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
-                opts.getLogStripesCount(),
+                Math.min(stripes, opts.getLogStripesCount()),
                 logStorage instanceof RocksDbSharedLogStorage,
                 opts.isLogYieldStrategy(),
                 opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
@@ -1382,34 +1378,41 @@ public class NodeImpl implements Node, RaftServerService {
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
         }
         } else {
+            int stripes = opts.getStripes();
+            String postfix = "";
+            if (ownFsmCallerExecutorDisruptorConfig != null) {
+                stripes = ownFsmCallerExecutorDisruptorConfig.getStripes();
+                postfix = ownFsmCallerExecutorDisruptorConfig.getThreadPostfix();
+            }
+
             StripedDisruptor<SharedEvent> sharedDisruptor = new StripedDisruptor<>(
                             opts.getServerName(),
-                            "JRaft-Shared-Disruptor",
+                            "JRaft-Shared-Disruptor" + postfix,
                             clo,
                             opts.getRaftOptions().getDisruptorBufferSize(),
                             SharedEvent::new,
-                            opts.getStripes(),
+                            stripes,
                             false,
                             false,
                             opts.getRaftMetrics().disruptorMetrics("raft.shared.disruptor")
                         );
 
-            if (opts.getfSMCallerExecutorDisruptor() == null) {
+            if (opts.getfSMCallerExecutorDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
                 opts.setfSMCallerExecutorDisruptor((StripedDisruptor<IApplyTask>) (StripedDisruptor<? extends IApplyTask>) sharedDisruptor);
             }
 
-            if (opts.getLogManagerDisruptor() == null) {
+            if (opts.getLogManagerDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
                 opts.setLogManagerDisruptor((StripedDisruptor<IStableClosureEvent>) (StripedDisruptor<? extends IStableClosureEvent>) sharedDisruptor);
             }
 
-            if (opts.getNodeApplyDisruptor() == null) {
+            if (opts.getNodeApplyDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
                 opts.setNodeApplyDisruptor((StripedDisruptor<ILogEntryAndClosure>) (StripedDisruptor<? extends ILogEntryAndClosure>) sharedDisruptor);
             }
 
-            if (opts.getReadOnlyServiceDisruptor() == null) {
+            if (opts.getReadOnlyServiceDisruptor() == null || ownFsmCallerExecutorDisruptorConfig != null) {
                         opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
                             opts.getServerName(),
-                            "JRaft-ReadOnlyService-Disruptor",
+                            "JRaft-ReadOnlyService-Disruptor" + postfix,
                             clo,
                             opts.getRaftOptions().getDisruptorBufferSize(),
                             () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
@@ -3350,13 +3353,13 @@ public class NodeImpl implements Node, RaftServerService {
         if (opts.getfSMCallerExecutorDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
             opts.getfSMCallerExecutorDisruptor().shutdown();
         }
-        if (opts.getNodeApplyDisruptor() != null && !opts.isSharedPools()) {
+        if (opts.getNodeApplyDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
             opts.getNodeApplyDisruptor().shutdown();
         }
-        if (opts.getReadOnlyServiceDisruptor() != null && !opts.isSharedPools()) {
+        if (opts.getReadOnlyServiceDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
             opts.getReadOnlyServiceDisruptor().shutdown();
         }
-        if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
+        if (opts.getLogManagerDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
             opts.getLogManagerDisruptor().shutdown();
         }
     }

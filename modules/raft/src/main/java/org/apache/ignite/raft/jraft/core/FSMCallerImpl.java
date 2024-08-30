@@ -253,21 +253,20 @@ public void setShutdownLatch(CountDownLatch shutdownLatch);
         if (this.shutdownLatch != null) {
             return;
         }
-        LOG.info("Shutting down FSMCaller...");
-//      if (this.taskQueue != null) {
-//            final CountDownLatch latch = new CountDownLatch(1);
-//            this.shutdownLatch = latch;
-//
-//            Utils.runInThread(this.node.getOptions().getCommonExecutor(), () -> this.taskQueue.publishEvent((task, sequence) -> {
-//                task.reset();
-//
-//                task.setSrcType(DisruptorEventSourceType.FSM);
-//                task.setNodeId(this.nodeId);
-//                task.setType(TaskType.SHUTDOWN);
-//                task.setShutdownLatch(latch);
-//            }));
-//        }
-//
+        LOG.info("Shutting down FSMCaller..." + this.taskQueue);
+        if (this.taskQueue != null) {
+            final CountDownLatch latch = new CountDownLatch(1);
+            this.shutdownLatch = latch;
+
+            Utils.runInThread(this.node.getOptions().getCommonExecutor(), () -> this.taskQueue.publishEvent((task, sequence) -> {
+                task.reset();
+
+                task.setSrcType(DisruptorEventSourceType.FSM);
+                task.setNodeId(this.nodeId);
+                task.setType(TaskType.SHUTDOWN);
+                task.setShutdownLatch(latch);
+            }));
+        }
     }
 
     @Override
