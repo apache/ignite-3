@@ -631,29 +631,21 @@ public class MapReduceAggregates {
             RexNode numeratorRef = rexBuilder.makeInputRef(input, args.get(0));
             RexInputRef denominatorRef = rexBuilder.makeInputRef(input, args.get(1));
 
-            RelDataType avgType = typeFactory.createTypeWithNullability(mapSum0.type, numeratorRef.getType().isNullable());
-            numeratorRef = rexBuilder.ensureType(avgType, numeratorRef, true);
+            numeratorRef = rexBuilder.ensureType(mapSum0.type, numeratorRef, true);
 
-            RexNode sumDivCnt;
-            if (call.getType().getSqlTypeName() == SqlTypeName.DECIMAL) {
-                // Return correct decimal type with correct scale and precision.
-                int precision = call.getType().getPrecision();
-                int scale = call.getType().getScale();
+            RelDataType resultType = typeFactory.decimalOf(call.type);
 
-                RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
-                RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
+            // Return correct decimal type with correct scale and precision.
+            int precision = resultType.getPrecision(); // not used.
+            int scale = resultType.getScale();
 
-                sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
-            } else {
-                RelDataType resultType = typeFactory.decimalOf(call.type);
-                int precision = resultType.getPrecision(); // not used.
-                int scale = resultType.getScale();
+            RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
+            RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
 
-                RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
-                RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
+            RexNode sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
 
-                sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
-                sumDivCnt = rexBuilder.makeCast(call.getType(), sumDivCnt, true, false);
+            if (call.getType().getSqlTypeName() != SqlTypeName.DECIMAL) {
+                sumDivCnt = rexBuilder.makeCast(call.getType(), sumDivCnt, false, false);
             }
 
             if (canBeNull) {
