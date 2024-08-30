@@ -1,16 +1,14 @@
 package org.apache.ignite.internal.benchmark;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -28,22 +26,15 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class HybridClockBenchmark {
-    private final Map<String, HybridClock> implementations = new HashMap<>();
-
-    @Param({"HybridClockSystemUTC", "HybridClockCurrentTimeMillis", "HybridClockFastTimestamps", "HybridClockOriginalSystemUTC", "HybridClockOriginalCurrentTimeMillis", "HybridClockOriginalFastTimestamps"})
-    private String implementationName;
+    /** Clock to benchmark. */
+    private HybridClock clock;
 
     /**
      * Initializes the clock.
      */
     @Setup
     public void setUp() {
-        implementations.put("HybridClockSystemUTC", new HybridClockSystemUTC());
-        implementations.put("HybridClockCurrentTimeMillis", new HybridClockCurrentTimeMillis());
-        implementations.put("HybridClockFastTimestamps", new HybridClockFastTimestamps());
-        implementations.put("HybridClockOriginalSystemUTC", new HybridClockOriginalSystemUTC());
-        implementations.put("HybridClockOriginalCurrentTimeMillis", new HybridClockOriginalCurrentTimeMillis());
-        implementations.put("HybridClockOriginalFastTimestamps", new HybridClockOriginalFastTimestamps());
+        clock = new HybridClockImpl();
     }
 
     @Benchmark
@@ -65,8 +56,6 @@ public class HybridClockBenchmark {
     }
 
     private void hybridClockNow() {
-        HybridClock clock = implementations.get(implementationName);
-
         for (int i = 0; i < 1000; i++) {
             clock.now();
         }
@@ -81,9 +70,5 @@ public class HybridClockBenchmark {
                 .build();
 
         new Runner(opt).run();
-    }
-
-    private String implementationName() {
-        return implementationName;
     }
 }
