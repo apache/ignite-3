@@ -174,7 +174,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ValidationManager validationManager,
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor,
-            ClusterIdHolder clusterIdChanger,
+            ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this.clusterService = clusterService;
@@ -186,7 +186,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
         this.failureProcessor = failureProcessor;
-        this.clusterIdStore = clusterIdChanger;
+        this.clusterIdStore = clusterIdStore;
         this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
 
         clusterResetStorage = new ClusterResetStorage(vault);
@@ -236,7 +236,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             LogicalTopology logicalTopology,
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor,
-            ClusterIdHolder clusterIdChanger,
+            ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
         this(
@@ -249,7 +249,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 new ValidationManager(new ClusterStateStorageManager(clusterStateStorage), logicalTopology),
                 nodeAttributes,
                 failureProcessor,
-                clusterIdChanger,
+                clusterIdStore,
                 raftGroupOptionsConfigurer
         );
     }
