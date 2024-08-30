@@ -658,31 +658,33 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return completedFuture(false);
         }
 
-        List<CompletableFuture<?>> futs = new ArrayList<>();
+        return inBusyLockAsync(busyLock, () -> {
+            List<CompletableFuture<?>> futs = new ArrayList<>();
 
-        readyToProcessTableStarts.thenRun(() -> {
-            Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+            readyToProcessTableStarts.thenRun(() -> {
+                Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
 
-            PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.zonePartitionId().partitionId());
+                PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.zonePartitionId().partitionId());
 
-            zoneTables.forEach(tbl -> {
-                futs.add(inBusyLockAsync(busyLock,
-                        () -> completedFuture(null)
-                                .thenComposeAsync((notUsed) -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet), ioExecutor))
+                zoneTables.forEach(tbl -> {
+                    futs.add(inBusyLockAsync(busyLock,
+                            () ->
+                                    completedFuture(null)
+                                    .thenComposeAsync((notUsed) -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet), ioExecutor))
+                                    .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                                        lowWatermark.getLowWatermarkSafe(lwm ->
+                                                registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
+                                        );
 
-                        .thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                                    lowWatermark.getLowWatermarkSafe(lwm ->
-                                            registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
-                                    );
-
-                                    preparePartitionResourcesAndLoadToZoneReplica(
-                                            tbl, parameters.zonePartitionId().partitionId(), parameters.zonePartitionId().zoneId());
-                                }
-                        ), ioExecutor));
+                                        preparePartitionResourcesAndLoadToZoneReplica(
+                                                tbl, parameters.zonePartitionId().partitionId(), parameters.zonePartitionId().zoneId());
+                                    }
+                            ), ioExecutor));
+                });
             });
-        });
 
-        return allOf(futs.toArray(new CompletableFuture[]{})).thenApply((notUsed) -> false);
+            return allOf(futs.toArray(new CompletableFuture[]{})).thenApply((notUsed) -> false);
+        });
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
