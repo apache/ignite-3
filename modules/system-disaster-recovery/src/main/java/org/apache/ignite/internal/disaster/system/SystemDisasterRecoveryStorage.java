@@ -52,7 +52,7 @@ class SystemDisasterRecoveryStorage extends ClusterResetStorage {
     }
 
     void markNodeInitialized() {
-        vault.put(new ByteArray(NODE_INITIALIZED_VAULT_KEY), new byte[]{1});
+        vault.put(new ByteArray(NODE_INITIALIZED_VAULT_KEY), new byte[0]);
     }
 
     void saveResetClusterMessage(ResetClusterMessage message) {
