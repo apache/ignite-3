@@ -151,6 +151,7 @@ dependencies {
     integrationTestImplementation project(':ignite-system-view')
     integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation project(':ignite-system-disaster-recovery-api')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
