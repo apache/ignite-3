@@ -62,7 +62,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"idleSyncTimeInterval\" : 1000")
+                () -> assertOutputContains("idleSyncTimeInterval=1000")
         );
     }
 
@@ -87,7 +87,9 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"netClusterNodes\" : [ \"localhost:3344\", \"localhost:3345\" ]")
+                () -> assertOutputContains("netClusterNodes=[\n"),
+                () -> assertOutputContains("\"localhost:3344\",\n"),
+                () -> assertOutputContains("\"localhost:3345\"\n")
         );
     }
 
@@ -111,7 +113,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"idleSyncTimeInterval\" : 2000")
+                () -> assertOutputContains("idleSyncTimeInterval=2000")
         );
     }
 
@@ -218,12 +220,20 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
     @Test
     public void partialGet() {
+        execute("node", "config", "show", "--url", NODE_URL);
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("inbound {"),
+                () -> assertOutputContains("clientConnector {")
+        );
+
         execute("node", "config", "show", "--url", NODE_URL, "ignite.network");
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"inbound\""),
-                () -> assertOutputDoesNotContain("\"node\"")
+                () -> assertOutputContains("inbound {"),
+                () -> assertOutputDoesNotContain("clientConnector {")
         );
     }
 }

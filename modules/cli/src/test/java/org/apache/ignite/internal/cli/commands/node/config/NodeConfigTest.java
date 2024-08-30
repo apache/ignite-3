@@ -39,10 +39,8 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
 
         execute("node config show --url " + mockUrl);
 
-        assertSuccessfulOutputIs("{\n"
-                + "  \"autoAdjust\" : {\n"
-                + "    \"enabled\" : true\n"
-                + "  }\n"
+        assertSuccessfulOutputIs("autoAdjust {\n"
+                + "    enabled=true\n"
                 + "}\n");
     }
 
@@ -58,10 +56,8 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
 
         execute("node config show --url " + mockUrl + " local.baseline");
 
-        assertSuccessfulOutputIs("{\n"
-                + "  \"autoAdjust\" : {\n"
-                + "    \"enabled\" : true\n"
-                + "  }\n"
+        assertSuccessfulOutputIs("autoAdjust {\n"
+                + "    enabled=true\n"
                 + "}\n");
     }
 
