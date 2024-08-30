@@ -646,7 +646,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                 raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
-                raftManager.destroyRaftNodeStorages(raftNodeId(new Peer(clusterService.nodeName())), raftGroupOptionsConfigurer);
+                RaftNodeId nodeId = raftNodeId(new Peer(clusterService.nodeName()));
+                raftManager.destroyRaftNodeStorages(nodeId, raftGroupOptionsConfigurer);
 
                 localStateStorage.clear();
             } catch (Exception e) {
