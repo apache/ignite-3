@@ -122,6 +122,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -428,6 +429,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
+                new SystemDisasterRecoveryStorage(vault),
                 clusterSvc,
                 clusterInitializer,
                 raftMgr,

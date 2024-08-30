@@ -18,40 +18,19 @@
 package org.apache.ignite.internal.disaster.system.storage;
 
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
-import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Storage (over Vault) used by the cluster reset tools.
+ * Storage used by the cluster reset tools.
  */
-public class ClusterResetStorage {
-    protected static final ByteArray RESET_CLUSTER_MESSAGE_VAULT_KEY = new ByteArray("systemRecovery.resetClusterMessage");
-
-    private final VaultManager vault;
-
-    public ClusterResetStorage(VaultManager vault) {
-        this.vault = vault;
-    }
-
-    protected final <T> @Nullable T readFromVault(ByteArray key) {
-        VaultEntry entry = vault.get(key);
-        return entry != null ? ByteUtils.fromBytes(entry.value()) : null;
-    }
-
+public interface ClusterResetStorage {
     /**
      * Reads {@link ResetClusterMessage}; returns {@code null} if it's not saved.
      */
-    public @Nullable ResetClusterMessage readResetClusterMessage() {
-        return readFromVault(RESET_CLUSTER_MESSAGE_VAULT_KEY);
-    }
+    @Nullable ResetClusterMessage readResetClusterMessage();
 
     /**
      * Removes saved {@link ResetClusterMessage}.
      */
-    public void removeResetClusterMessage() {
-        vault.remove(RESET_CLUSTER_MESSAGE_VAULT_KEY);
-    }
+    void removeResetClusterMessage();
 }

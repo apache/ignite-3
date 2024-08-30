@@ -52,6 +52,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-network'))
+    testImplementation project(':ignite-system-disaster-recovery')
 
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
@@ -63,6 +64,8 @@ dependencies {
     testFixturesImplementation project(':ignite-storage-api')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-security')
+    testFixturesImplementation project(':ignite-system-disaster-recovery-api')
+    testFixturesImplementation project(':ignite-system-disaster-recovery')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-configuration'))
     testFixturesImplementation testFixtures(project(':ignite-network'))

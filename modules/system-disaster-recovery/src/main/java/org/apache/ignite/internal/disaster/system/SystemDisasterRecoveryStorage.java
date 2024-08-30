@@ -28,20 +28,38 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.Nullable;
 
-class SystemDisasterRecoveryStorage extends ClusterResetStorage {
+/**
+ * Storage used by tools for disaster recovery of system groups.
+ */
+public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
     private static final ByteArray INIT_CONFIG_APPLIED_VAULT_KEY = new ByteArray("systemRecovery.initConfigApplied");
     private static final ByteArray CLUSTER_STATE_VAULT_KEY = new ByteArray("systemRecovery.clusterState");
+    private static final ByteArray RESET_CLUSTER_MESSAGE_VAULT_KEY = new ByteArray("systemRecovery.resetClusterMessage");
 
     private final VaultManager vault;
 
-    SystemDisasterRecoveryStorage(VaultManager vault) {
-        super(vault);
-
+    /** Constructor. */
+    public SystemDisasterRecoveryStorage(VaultManager vault) {
         this.vault = vault;
+    }
+
+    @Override
+    public @Nullable ResetClusterMessage readResetClusterMessage() {
+        return readFromVault(RESET_CLUSTER_MESSAGE_VAULT_KEY);
+    }
+
+    @Override
+    public void removeResetClusterMessage() {
+        vault.remove(RESET_CLUSTER_MESSAGE_VAULT_KEY);
     }
 
     @Nullable ClusterState readClusterState() {
         return readFromVault(CLUSTER_STATE_VAULT_KEY);
+    }
+
+    private <T> @Nullable T readFromVault(ByteArray key) {
+        VaultEntry entry = vault.get(key);
+        return entry != null ? ByteUtils.fromBytes(entry.value()) : null;
     }
 
     void saveClusterState(ClusterState clusterState) {

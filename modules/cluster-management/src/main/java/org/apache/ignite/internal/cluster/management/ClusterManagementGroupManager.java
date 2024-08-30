@@ -166,6 +166,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
+            ClusterResetStorage clusterResetStorage,
             ClusterService clusterService,
             ClusterInitializer clusterInitializer,
             RaftManager raftManager,
@@ -177,6 +178,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
+        this.clusterResetStorage = clusterResetStorage;
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
         this.raftManager = raftManager;
@@ -188,8 +190,6 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.failureProcessor = failureProcessor;
         this.clusterIdStore = clusterIdStore;
         this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
-
-        clusterResetStorage = new ClusterResetStorage(vault);
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
@@ -229,6 +229,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     @TestOnly
     public ClusterManagementGroupManager(
             VaultManager vault,
+            ClusterResetStorage clusterResetStorage,
             ClusterService clusterService,
             ClusterInitializer clusterInitializer,
             RaftManager raftManager,
@@ -241,6 +242,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     ) {
         this(
                 vault,
+                clusterResetStorage,
                 clusterService,
                 clusterInitializer,
                 raftManager,

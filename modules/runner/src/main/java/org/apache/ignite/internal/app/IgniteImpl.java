@@ -123,6 +123,7 @@ import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.ServerRestarter;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
+import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
@@ -629,6 +630,7 @@ public class IgniteImpl implements Ignite {
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
+                new SystemDisasterRecoveryStorage(vaultMgr),
                 clusterSvc,
                 clusterInitializer,
                 raftMgr,
