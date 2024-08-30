@@ -66,7 +66,18 @@ handshake_response parse_handshake_response(bytes_view message) {
     UNUSED_VALUE reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
     UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
-    res.context.set_cluster_id(reader.read_uuid());
+    auto cluster_ids_len = reader.read_int32();
+    if (cluster_ids_len <= 0) {
+        throw ignite_error("Unexpected cluster ids count: " + std::to_string(cluster_ids_len));
+    }
+
+    std::vector<uuid> cluster_ids;
+    cluster_ids.reserve(cluster_ids_len);
+    for (std::int32_t i = 0; i < cluster_ids_len; ++i) {
+        cluster_ids.push_back(reader.read_uuid());
+    }
+
+    res.context.set_cluster_ids(std::move(cluster_ids));
     res.context.set_cluster_name(reader.read_string());
 
     res.observable_timestamp = reader.read_int64();

@@ -146,13 +146,26 @@ void cluster_connection::on_message_received(uint64_t id, bytes_view msg) {
         return;
     }
 
+    auto current_cluster_id = m_cluster_id;
     auto &context = connection->get_protocol_context();
     initial_connect_result(context);
 
-    if (context.get_cluster_id() != m_cluster_id) {
+    if (!current_cluster_id) {
+        // No need to verify cluster ID here -- we're connecting for the first time
+        return;
+    }
+
+    const auto &cluster_ids = context.get_cluster_ids();
+    auto it = std::find(cluster_ids.begin(), cluster_ids.end(), *current_cluster_id);
+    if (it == cluster_ids.end()) {
         std::stringstream message;
-        message << "Node from unknown cluster: current_cluster_id=" << m_cluster_id
-                << ", node_cluster_id=" << context.get_cluster_id();
+        message << "Node from unknown cluster: current_cluster_id=" << *current_cluster_id << ", node_cluster_ids=["
+            << cluster_ids.front();
+
+        for (auto& cluster_id : cluster_ids) {
+            message << ',' << cluster_id;
+        }
+        message << ']';
 
         m_logger->log_warning(message.str());
         remove_client(connection->id());
@@ -206,7 +219,7 @@ void cluster_connection::initial_connect_result(const protocol::protocol_context
     if (!m_on_initial_connect)
         return;
 
-    m_cluster_id = context.get_cluster_id();
+    m_cluster_id = context.get_cluster_ids().back();
     m_on_initial_connect({});
     m_on_initial_connect = {};
 }
