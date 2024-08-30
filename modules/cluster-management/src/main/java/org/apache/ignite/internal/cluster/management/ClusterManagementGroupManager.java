@@ -377,7 +377,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 .thenRun(clusterResetStorage::removeResetClusterMessage);
     }
 
-    private CompletableFuture<Object> doReinit(ResetClusterMessage resetClusterMessage) {
+    private CompletableFuture<Void> doReinit(ResetClusterMessage resetClusterMessage) {
         CompletableFuture<CmgRaftService> serviceFuture;
 
         synchronized (raftServiceLock) {
