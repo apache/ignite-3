@@ -707,7 +707,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int tableId = tableDescriptor.id();
 
-        long stamp = partitionReplicaLifecycleManager.lockZoneIdForRead(zoneDescriptor.id());
+        long stamp = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
 
         tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -764,7 +764,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table))
                 .handle((v, th) -> {
                     addTableToZone(zoneDescriptor.id(), table);
-                    partitionReplicaLifecycleManager.unlockZoneIdForRead(zoneDescriptor.id(), stamp);
+                    partitionReplicaLifecycleManager.unlockZoneForRead(zoneDescriptor.id(), stamp);
 
                     if (th != null) {
                         sneakyThrow(th);

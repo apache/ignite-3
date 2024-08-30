@@ -1309,7 +1309,7 @@ public class PartitionReplicaLifecycleManager  extends
      * @param zoneId Zone id.
      * @return Stamp, which must be used for further unlock.
      */
-    public long lockZoneIdForRead(int zoneId) {
+    public long lockZoneForRead(int zoneId) {
         AtomicLong stamp = new AtomicLong();
 
         zonePartitionsLocks.compute(zoneId, (id, l) -> {
@@ -1331,7 +1331,7 @@ public class PartitionReplicaLifecycleManager  extends
      * @param zoneId Zone id.
      * @param stamp Stamp, produced by the according {@link #hasLocalPartition(ZonePartitionId) call.}
      */
-    public void unlockZoneIdForRead(int zoneId, long stamp) {
+    public void unlockZoneForRead(int zoneId, long stamp) {
         zonePartitionsLocks.get(zoneId).unlockRead(stamp);
     }
 
