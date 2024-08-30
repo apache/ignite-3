@@ -54,8 +54,6 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
     private static final NativeType DECIMAL_MAX_PREC = NativeTypes.decimalOf(MAX_DECIMAL_PRECISION, 0);
 
-    private static int increment;
-
     /** CASE operands from columns. */
     @ParameterizedTest
     @MethodSource("caseArgs")
@@ -109,7 +107,7 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
         }
 
         List<Object> params = List.of(
-                generateLiteralWithNoRepeatitio(typePair.first()), generateLiteralWithNoRepeatitio(typePair.second())
+                generateLiteralWithNoRepetition(typePair.first()), generateLiteralWithNoRepetition(typePair.second())
         );
 
         assertPlan(format("SELECT CASE WHEN RAND_UUID() != RAND_UUID() THEN {} ELSE {} END FROM t", params.get(0), params.get(1)),
@@ -119,7 +117,7 @@ public class NumericCaseTypeCoercionTest extends BaseTypeCoercionTest {
     private static String prevResult = "";
 
     // It is necessary to have a guarantee that two values in a row will be different.
-    private static String generateLiteralWithNoRepeatitio(NativeType type) {
+    private static String generateLiteralWithNoRepetition(NativeType type) {
         String val;
         do {
             val = SqlTestUtils.generateValueByType(type).toString();

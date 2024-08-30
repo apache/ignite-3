@@ -296,18 +296,6 @@ public class SqlTestUtils {
     }
 
     /**
-     * Generates SQL literal with a random value for given type.
-     *
-     * @param type Type to generate literal value.
-     *
-     * @return Generated value as string representation of a SQL literal.
-     */
-    public static String generateLiteralForType(NativeType type) {
-        Object value = generateValueByType(type);
-        return generateLiteral(value.toString(), type.spec().asColumnType());
-    }
-
-    /**
      * Makes SQL literal for given value with a given type.
      *
      * @param value Value to present as SQL literal.
