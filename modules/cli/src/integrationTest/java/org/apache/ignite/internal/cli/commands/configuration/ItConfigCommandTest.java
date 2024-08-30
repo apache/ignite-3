@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.cli.commands.configuration;
 
 
-import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -79,8 +77,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Node configuration updated. "
-                        + fg(Color.YELLOW).mark("Restart the node to apply changes."))
+                () -> assertOutputContains("Node configuration updated. Restart the node to apply changes.")
         );
 
         // When read the updated cluster configuration

@@ -386,7 +386,18 @@ namespace Apache.Ignite.Internal
             var clusterNodeId = reader.ReadString();
             var clusterNodeName = reader.ReadString();
 
-            var clusterId = reader.ReadGuid();
+            var clusterIdsCount = reader.ReadInt32();
+            if (clusterIdsCount <= 0)
+            {
+                throw new IgniteClientConnectionException(ErrorGroups.Client.Protocol, "Unexpected cluster ids count: " + clusterIdsCount);
+            }
+
+            var clusterIds = new Guid[clusterIdsCount];
+            for (int i = 0; i < clusterIdsCount; i++)
+            {
+                clusterIds[i] = reader.ReadGuid();
+            }
+
             var clusterName = reader.ReadString();
 
             var observableTimestamp = reader.ReadInt64();
@@ -406,7 +417,7 @@ namespace Apache.Ignite.Internal
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
                 new ClusterNode(clusterNodeId, clusterNodeName, endPoint.EndPoint, endPoint.MetricsContext),
-                clusterId,
+                clusterIds,
                 clusterName,
                 sslInfo);
         }

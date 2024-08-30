@@ -211,7 +211,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         electionListeners.add(listener);
     }
 
-    private CompletableFuture<Long> recover(MetaStorageServiceImpl service) {
+    private CompletableFuture<Long> recover(MetaStorageService service) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }

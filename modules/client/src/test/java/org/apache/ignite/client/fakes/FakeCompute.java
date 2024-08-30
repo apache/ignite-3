@@ -128,7 +128,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-        public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
             List<DeploymentUnit> units,
@@ -261,32 +261,54 @@ public class FakeCompute implements IgniteComputeInternal {
             jobStates.put(subJobId2, toState.apply(subJobId2, status));
         });
 
-        return new TaskExecution<>() {
-            @Override
-            public CompletableFuture<R> resultAsync() {
-                return result;
-            }
+        return new FakeTaskExecution<>(result, jobId, subJobId1, subJobId2, null);
 
-            @Override
-            public CompletableFuture<@Nullable TaskState> stateAsync() {
-                return completedFuture(TaskStateImpl.toBuilder(jobStates.get(jobId)).build());
-            }
+    }
 
-            @Override
-            public CompletableFuture<List<@Nullable JobState>> statesAsync() {
-                return completedFuture(List.of(jobStates.get(subJobId1), jobStates.get(subJobId2)));
-            }
+    class FakeTaskExecution<R> implements TaskExecution<R>, MarshallerProvider<R> {
+        private final CompletableFuture<R> result;
+        private final UUID jobId;
+        private final UUID subJobId1;
+        private final UUID subJobId2;
+        private final Marshaller<R, byte[]> marshaller;
 
-            @Override
-            public CompletableFuture<@Nullable Boolean> cancelAsync() {
-                return trueCompletedFuture();
-            }
+        FakeTaskExecution(CompletableFuture<R> result, UUID jobId, UUID subJobId1, UUID subJobId2, Marshaller<R, byte[]> marshaller) {
+            this.result = result;
+            this.jobId = jobId;
+            this.subJobId1 = subJobId1;
+            this.subJobId2 = subJobId2;
+            this.marshaller = marshaller;
+        }
 
-            @Override
-            public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-                return trueCompletedFuture();
-            }
-        };
+        @Override
+        public CompletableFuture<R> resultAsync() {
+            return result;
+        }
+
+        @Override
+        public CompletableFuture<@Nullable TaskState> stateAsync() {
+            return completedFuture(TaskStateImpl.toBuilder(jobStates.get(jobId)).build());
+        }
+
+        @Override
+        public CompletableFuture<List<@Nullable JobState>> statesAsync() {
+            return completedFuture(List.of(jobStates.get(subJobId1), jobStates.get(subJobId2)));
+        }
+
+        @Override
+        public CompletableFuture<@Nullable Boolean> cancelAsync() {
+            return trueCompletedFuture();
+        }
+
+        @Override
+        public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+            return trueCompletedFuture();
+        }
+
+        @Override
+        public @Nullable Marshaller<R, byte[]> resultMarshaller() {
+            return marshaller;
+        }
     }
 
     @Override

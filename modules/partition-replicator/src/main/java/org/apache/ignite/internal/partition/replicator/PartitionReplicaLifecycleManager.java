@@ -449,8 +449,7 @@ public class PartitionReplicaLifecycleManager  extends
                 busyLock,
                 createPartitionMover(replicaGrpId),
                 rebalanceScheduler,
-                catalogMgr,
-                distributionZoneMgr
+                this::calculateZoneAssignments
         );
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
@@ -503,9 +502,34 @@ public class PartitionReplicaLifecycleManager  extends
             if (ex != null) {
                 LOG.warn("Unable to update raft groups on the node [zoneId={}, partitionId={}]", ex, zoneId, partId);
             }
+
             return null;
         });
+    }
 
+    private CompletableFuture<Set<Assignment>> calculateZoneAssignments(
+            ZonePartitionId zonePartitionId,
+            Long assignmentsTimestamp
+    ) {
+        return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
+            int catalogVersion = catalogMgr.activeCatalogVersion(assignmentsTimestamp);
+
+            CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zonePartitionId.zoneId(), catalogVersion);
+
+            int zoneId = zonePartitionId.zoneId();
+
+            return distributionZoneMgr.dataNodes(
+                    zoneDescriptor.updateToken(),
+                    catalogVersion,
+                    zoneId
+            ).thenApply(dataNodes ->
+                    AffinityUtils.calculateAssignmentForPartition(
+                            dataNodes,
+                            zonePartitionId.partitionId(),
+                            zoneDescriptor.replicas()
+                    )
+            );
+        });
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
@@ -1259,7 +1283,7 @@ public class PartitionReplicaLifecycleManager  extends
                 int i = 0;
 
                 for (ReplicationGroupId partitionId : partitionIds) {
-                    stopReplicaFutures[i++] = weakStopPartition(partitionId);
+                    stopReplicaFutures[i++] = stopPartition(partitionId);
                 }
 
                 allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);

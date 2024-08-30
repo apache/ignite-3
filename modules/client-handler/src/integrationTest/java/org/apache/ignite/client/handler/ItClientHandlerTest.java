@@ -141,7 +141,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var idleTimeout = unpacker.unpackLong();
             final var nodeId = unpacker.unpackString();
             final var nodeName = unpacker.unpackString();
-            unpacker.skipValue(); // Cluster id.
+            unpacker.skipValue(2); // Cluster ids.
             unpacker.skipValue(); // Cluster name.
             unpacker.skipValue(); // Observable timestamp.
 
@@ -159,7 +159,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(81, len);
+            assertEquals(82, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -283,7 +283,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             var nodeId = unpacker.unpackString();
             var nodeName = unpacker.unpackString();
 
-            unpacker.skipValue(); // Cluster id.
+            unpacker.skipValue(2); // Cluster ids.
             var clusterName = unpacker.unpackString();
 
             assertArrayEquals(MAGIC, magic);

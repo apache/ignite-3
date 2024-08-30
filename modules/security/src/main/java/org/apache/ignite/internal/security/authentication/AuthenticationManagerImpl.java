@@ -180,34 +180,27 @@ public class AuthenticationManagerImpl
             AuthenticationRequest<?, ?> authenticationRequest
     ) {
         try {
-            var fut = authenticator.authenticateAsync(authenticationRequest);
+            return authenticator.authenticateAsync(authenticationRequest)
+                    .handle((userDetails, throwable) -> {
+                        if (throwable != null) {
+                            if (!(throwable instanceof InvalidCredentialsException
+                                    || throwable instanceof UnsupportedAuthenticationTypeException)) {
+                                LOG.error("Unexpected exception during authentication", throwable);
+                            }
 
-            fut.thenAccept(userDetails -> {
-                if (userDetails != null) {
-                    logUserAuthenticated(userDetails);
-                }
-            });
+                            logAuthenticationFailure(authenticationRequest);
+                            return null;
+                        }
 
-            return fut.handle((userDetails, throwable) -> {
-                if (throwable != null) {
-                    if (!(throwable instanceof InvalidCredentialsException
-                            || throwable instanceof UnsupportedAuthenticationTypeException)) {
-                        LOG.error("Unexpected exception during authentication", throwable);
-                    }
-
-                    logAuthenticationFailure(authenticationRequest);
-                    return null;
-                }
-
-                return userDetails;
-            });
-        } catch (InvalidCredentialsException | UnsupportedAuthenticationTypeException exception) {
-            logAuthenticationFailure(authenticationRequest);
-            return completedFuture(null);
+                        if (userDetails != null) {
+                            logUserAuthenticated(userDetails);
+                        }
+                        return userDetails;
+                    });
         } catch (Exception e) {
             logAuthenticationFailure(authenticationRequest);
             LOG.error("Unexpected exception during authentication", e);
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 
