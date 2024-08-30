@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.benchmark;
+package org.apache.ignite.internal.hlc.benchmarks;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
