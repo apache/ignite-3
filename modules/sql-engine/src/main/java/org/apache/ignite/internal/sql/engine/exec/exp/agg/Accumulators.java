@@ -109,7 +109,7 @@ public class Accumulators {
             case BIGINT:
                 return () -> DecimalAvg.FACTORY.apply(0);
             case DECIMAL:
-                // TODO: support intervals.
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-15200 Add support for interval types.
                 return () -> DecimalAvg.FACTORY.apply(call.type.getScale());
             case DOUBLE:
             case REAL:
