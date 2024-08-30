@@ -1755,7 +1755,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
                     }
 
-                    TransactionResult result = (TransactionResult) txOutcome;
+                    TransactionResult result = (TransactionResult) ((ApplyCommandResult) txOutcome).result;
 
                     markFinished(txId, result.transactionState(), result.commitTimestamp());
 
@@ -2635,9 +2635,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * </ul>
      *
      * @param cmd Raft command.
-     * @return Raft future.
+     * @return Raft future or raft decorated future with command that was processed.
      */
-    private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd, CompletableFuture<Object> resultFuture) {
+    private <T> CompletableFuture<T> applyCmdWithExceptionHandling(Command cmd, CompletableFuture<T> resultFuture) {
         applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
 
         return resultFuture.exceptionally(throwable -> {
@@ -2680,7 +2680,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     resultFuture.completeExceptionally(ex);
                 }
             } else {
-                resultFuture.complete((T) res);
+                resultFuture.complete((T) new ApplyCommandResult<>(cmd, res));
             }
         });
     }
@@ -2744,19 +2744,19 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return completedFuture(fut);
             } else {
-                CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+                CompletableFuture<ApplyCommandResult<Object>> resultFuture = new CompletableFuture<>();
 
                 applyCmdWithExceptionHandling(cmd, resultFuture);
 
                 return resultFuture.thenCompose(res -> {
-                    UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
+                    UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
 
                     if (!updateCommandResult.isPrimaryReplicaMatch()) {
                         throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
                     }
 
                     if (updateCommandResult.isPrimaryInPeersAndLearners()) {
-                        return safeTime.waitFor(cmd.safeTime()).thenApply(ignored -> null);
+                        return safeTime.waitFor(((UpdateCommand) res.getCommand()).safeTime()).thenApply(ignored -> null);
                     } else {
                         if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK)) {
                             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
@@ -2880,9 +2880,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return completedFuture(fut);
                 }
             } else {
-                return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
+                return applyCmdWithExceptionHandling(cmd, new CompletableFuture<ApplyCommandResult<Object>>())
                         .thenCompose(res -> {
-                            UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
+                            UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
 
                             if (!updateCommandResult.isPrimaryReplicaMatch()) {
                                 throw new PrimaryReplicaMissException(
@@ -2892,7 +2892,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 );
                             }
                             if (updateCommandResult.isPrimaryInPeersAndLearners()) {
-                                return safeTime.waitFor(cmd.safeTime()).thenApply(ignored -> null);
+                                return safeTime.waitFor(((UpdateAllCommand) res.getCommand()).safeTime()).thenApply(ignored -> null);
                             } else {
                                 // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                                 storageUpdateHandler.handleUpdateAll(
@@ -4143,5 +4143,27 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return result;
+    }
+
+    /**
+     * Wrapper for the update(All)Command processing result that besides result itself stores actual command that was processed. It helps to
+     * manage commands substitutions on SafeTimeReorderException where cloned command with adjusted safeTime is sent.
+     */
+    private static class ApplyCommandResult<T> {
+        private final Command command;
+        private final T result;
+
+        ApplyCommandResult(Command command, T result) {
+            this.command = command;
+            this.result = result;
+        }
+
+        Command getCommand() {
+            return command;
+        }
+
+        T getResult() {
+            return result;
+        }
     }
 }

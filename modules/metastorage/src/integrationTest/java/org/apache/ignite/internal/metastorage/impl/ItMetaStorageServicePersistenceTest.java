@@ -64,8 +64,11 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     private final Map<String, RocksDbKeyValueStorage> storageByName = new HashMap<>();
 
     /** After each. */
+    @Override
     @AfterEach
-    void tearDown() throws Exception {
+    public void afterTest() throws Exception {
+        super.afterTest();
+
         IgniteUtils.closeAll(storageByName.values().stream().map(storage -> storage::close));
     }
 

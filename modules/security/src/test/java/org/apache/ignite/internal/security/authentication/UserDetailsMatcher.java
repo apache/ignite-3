@@ -15,27 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands;
+package org.apache.ignite.internal.security.authentication;
 
-import static org.apache.ignite.internal.cli.commands.CommandConstants.PROFILE_OPTION_ORDER;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION_DESC;
-
-import picocli.CommandLine.Option;
+import org.hamcrest.FeatureMatcher;
+import org.hamcrest.Matcher;
 
 /**
- * Mixin for profile option.
+ * Matchers for {@link UserDetails}.
  */
-public class ProfileMixin {
-    @Option(names = PROFILE_OPTION, description = PROFILE_OPTION_DESC, order = PROFILE_OPTION_ORDER)
-    private String profileName;
+public class UserDetailsMatcher {
 
     /**
-     * Gets profile name.
+     * Constructs a matcher for {@link UserDetails} with matching username.
      *
-     * @return profile name
+     * @param subMatcher The matcher to apply to the username.
+     * @return Matcher for {@link UserDetails} with matching username.
      */
-    public String getProfileName() {
-        return profileName;
+    public static FeatureMatcher<UserDetails, String> username(Matcher<? super String> subMatcher) {
+        return new FeatureMatcher<>(subMatcher, "UserDetails with username", "username") {
+
+            @Override
+            protected String featureValueOf(UserDetails actual) {
+                return actual.username();
+            }
+        };
     }
 }

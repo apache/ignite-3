@@ -17,16 +17,20 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.security.authentication.UserDetailsMatcher.username;
 import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_DISABLED;
 import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_ENABLED;
 import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_PROVIDER_REMOVED;
 import static org.apache.ignite.internal.security.authentication.event.AuthenticationEvent.AUTHENTICATION_PROVIDER_UPDATED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -35,7 +39,6 @@ import static org.mockito.Mockito.verify;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -281,7 +284,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // successful authentication with valid credentials
-        assertEquals(USERNAME, manager.authenticateAsync(USERNAME_PASSWORD_REQUEST).join().username());
+        assertThat(manager.authenticateAsync(USERNAME_PASSWORD_REQUEST), willBe(username(is(USERNAME))));
     }
 
     @Test
@@ -291,10 +294,9 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // failed authentication with invalid credentials
-        CompletionException ex = assertThrows(CompletionException.class,
-                () -> manager.authenticateAsync(new UsernamePasswordRequest(USERNAME, "invalid-password")).join());
-
-        assertInstanceOf(InvalidCredentialsException.class, ex.getCause());
+        assertThat(
+                manager.authenticateAsync(new UsernamePasswordRequest(USERNAME, "invalid-password")),
+                willThrow(InvalidCredentialsException.class));
     }
 
     @Test
@@ -303,7 +305,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         disableAuthentication();
 
         // then
-        assertEquals(UserDetails.UNKNOWN, manager.authenticateAsync(USERNAME_PASSWORD_REQUEST).join());
+        assertThat(manager.authenticateAsync(USERNAME_PASSWORD_REQUEST), willBe(UserDetails.UNKNOWN));
     }
 
     @Test
@@ -311,21 +313,23 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         UsernamePasswordRequest credentials = new UsernamePasswordRequest("admin", "password");
 
         Authenticator authenticator1 = mock(Authenticator.class);
-        doThrow(new InvalidCredentialsException("Invalid credentials")).when(authenticator1).authenticateAsync(credentials);
+        doReturn(failedFuture(new InvalidCredentialsException("Invalid credentials")))
+                .when(authenticator1).authenticateAsync(credentials);
 
         Authenticator authenticator2 = mock(Authenticator.class);
-        doThrow(new UnsupportedAuthenticationTypeException("Unsupported type")).when(authenticator2).authenticateAsync(credentials);
+        doReturn(failedFuture(new UnsupportedAuthenticationTypeException("Unsupported type")))
+                .when(authenticator2).authenticateAsync(credentials);
 
         Authenticator authenticator3 = mock(Authenticator.class);
         doThrow(new RuntimeException("Test exception")).when(authenticator3).authenticateAsync(credentials);
 
         Authenticator authenticator4 = mock(Authenticator.class);
-        doReturn(CompletableFuture.completedFuture(new UserDetails("admin", "mock")))
+        doReturn(completedFuture(new UserDetails("admin", "mock")))
                 .when(authenticator4).authenticateAsync(credentials);
 
         manager.authenticators(List.of(authenticator1, authenticator2, authenticator3, authenticator4));
 
-        assertEquals("admin", manager.authenticateAsync(credentials).join().username());
+        assertThat(manager.authenticateAsync(credentials), willBe(username(is("admin"))));
 
         verify(authenticator1).authenticateAsync(credentials);
         verify(authenticator2).authenticateAsync(credentials);

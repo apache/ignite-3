@@ -358,7 +358,8 @@ namespace Apache.Ignite.Internal.Compute
 
             static (T, TaskState) Read(MsgPackReader reader)
             {
-                var res = (T)reader.ReadObjectFromBinaryTuple()!;
+                // TODO IGNITE-23074 .NET: Thin 3.0: Support marshallers in MapReduce
+                var res = ComputePacker.UnpackResult<T>(ref reader, null);
                 var state = ReadTaskState(reader);
 
                 return (res, state);

@@ -38,6 +38,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequests
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -58,6 +60,7 @@ import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -115,6 +118,7 @@ import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -178,6 +182,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
+
+    /** Futures for stopping raft nodes if the corresponding replicas weren't started. */
+    private final Map<RaftNodeId, CompletableFuture<TopologyAwareRaftGroupService>> raftClientsFutures = new ConcurrentHashMap<>();
 
     private final ClockService clockService;
 
@@ -692,9 +699,35 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupEventsListener raftGroupEventsListener,
             IgniteSpinBusyLock busyLock
     ) throws NodeStoppingException {
-        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                false,
-                snapshotStorageFactory);
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return internalStartZoneReplica(
+                    replicaGrpId,
+                    listener,
+                    snapshotStorageFactory,
+                    newConfiguration,
+                    raftGroupListener,
+                    raftGroupEventsListener,
+                    busyLock
+            );
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<Replica> internalStartZoneReplica(
+            ReplicationGroupId replicaGrpId,
+            Function<RaftGroupService, ReplicaListener> listener,
+            SnapshotStorageFactory snapshotStorageFactory,
+            PeersAndLearners newConfiguration,
+            RaftGroupListener raftGroupListener,
+            RaftGroupEventsListener raftGroupEventsListener,
+            IgniteSpinBusyLock busyLock
+    ) throws NodeStoppingException {
+        RaftGroupOptions groupOptions = groupOptionsForPartition(false, snapshotStorageFactory);
 
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
 
@@ -707,12 +740,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftGroupServiceFactory
         );
 
+        raftClientsFutures.put(raftNodeId, newRaftClientFut);
+
         return newRaftClientFut.thenComposeAsync(raftClient -> {
             if (!busyLock.enterBusy()) {
                 return failedFuture(new NodeStoppingException());
             }
 
             try {
+                raftClientsFutures.remove(raftNodeId);
+
                 LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
                 Replica newReplica = new ZonePartitionReplicaImpl(
@@ -926,12 +963,36 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(replicasCreationExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
-        assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
-                : "There are replicas alive [replicas="
-                + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
+        // A collection of lambdas with raft entities closing and replicas completion with NodeStoppingException.
+        Collection<ManuallyCloseable> closeables = new ArrayList<>(raftClientsFutures.size() + 1);
 
-        for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
-            replicaFuture.completeExceptionally(new NodeStoppingException());
+        // Sequence of raft-entities stopping processes: if waiting raft-client future completion finishes with an exception, then we
+        // don't trying to stop raft-node.
+        raftClientsFutures.forEach((raftNodeId, raftClientFuture) -> closeables.add(() -> {
+            raftClientFuture.get(shutdownTimeoutSeconds, TimeUnit.SECONDS);
+
+            try {
+                raftManager.stopRaftNode(raftNodeId);
+            } catch (NodeStoppingException e) {
+                throw new AssertionError("Raft node is stopping [raftNodeId=" + raftNodeId
+                        + "], but it's abnormal, because Raft Manager must stop strictly after Replica Manager.", e);
+            }
+        }));
+
+        // The last is completion of replica futures with mandatory check that all futures are complete before adding NodeStoppingException.
+        // We couldn't do it in finally block because thus we're loosing AssertionError and mandatory assert doesn't matter then.
+        closeables.add(() -> {
+            assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
+                    : "There are replicas alive [replicas="
+                    + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
+
+            replicas.values().forEach(replicaFuture -> replicaFuture.completeExceptionally(new NodeStoppingException()));
+        });
+
+        try {
+            IgniteUtils.closeAllManually(closeables);
+        } catch (Exception e) {
+            return failedFuture(e);
         }
 
         return nullCompletedFuture();
