@@ -1101,7 +1101,6 @@ public class PersistentPageMemory implements PageMemory {
             long tmpRelPtr;
 
             PagePool checkpointPool = this.checkpointPool;
-            assert checkpointPool != null;
 
             while (true) {
                 tmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag(fullId.pageId()));
@@ -2109,11 +2108,9 @@ public class PersistentPageMemory implements PageMemory {
      * Checks if the Checkpoint Buffer is currently close to exhaustion.
      */
     public boolean isCpBufferOverflowThresholdExceeded() {
-        PagePool checkpointPool = this.checkpointPool;
+        assert started;
 
-        if (checkpointPool == null) {
-            return false;
-        }
+        PagePool checkpointPool = this.checkpointPool;
 
         //noinspection NumericCastThatLosesPrecision
         int checkpointBufLimit = (int) (checkpointPool.pages() * CP_BUF_FILL_THRESHOLD);

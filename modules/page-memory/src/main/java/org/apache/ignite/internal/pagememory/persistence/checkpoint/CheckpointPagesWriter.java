@@ -60,7 +60,8 @@ public class CheckpointPagesWriter implements Runnable {
     private static final IgniteLogger LOG = Loggers.forClass(CheckpointPagesWriter.class);
 
     /**
-     * Size of a batch of pages that we drain from a single checkpoint buffer at the same time.
+     * Size of a batch of pages that we drain from a single checkpoint buffer at the same time. The value of {@code 10} is chosen
+     * arbitrarily. We may reconsider it in <a href="https://issues.apache.org/jira/browse/IGNITE-23106">IGNITE-23106</a> if necessary.
      *
      * @see #drainCheckpointBuffers(ByteBuffer, Map)
      */
@@ -200,7 +201,7 @@ public class CheckpointPagesWriter implements Runnable {
         GroupPartitionId partitionId = null;
 
         try {
-            // TODO Try to write file per thread, it should be faster.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23115 Try to write file per thread.
             while (!shutdownNow.getAsBoolean() && writePageIds.next(queueResult)) {
                 updateHeartbeat.run();
 
