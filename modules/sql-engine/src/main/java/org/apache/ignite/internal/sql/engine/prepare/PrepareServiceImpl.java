@@ -460,9 +460,7 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     /** Prepare plan in current thread, applicable for simple insert queries, cache plan not involved. */
-    CompletableFuture<QueryPlan> prepareDmlOpt(ParsedResult parsedResult, PlanningContext ctx) {
-        SqlNode sqlNode = parsedResult.parsedTree();
-
+    CompletableFuture<QueryPlan> prepareDmlOpt(SqlNode sqlNode, PlanningContext ctx, String originalQuery) {
         assert single(sqlNode);
 
         // Validate
@@ -487,7 +485,7 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
+            LOG.debug("Plan prepared: \n{}\n\n{}", originalQuery, plan.explain());
         }
 
         return CompletableFuture.completedFuture(plan);
@@ -500,21 +498,21 @@ public class PrepareServiceImpl implements PrepareService {
             return f;
         }
 
-        boolean dmlSimplePlan = simpleInsert(parsedResult.parsedTree());
+        SqlNode parsedNode = parsedResult.parsedTree();
+
+        assert single(parsedNode);
+
+        boolean dmlSimplePlan = simpleInsert(parsedNode);
 
         if (dmlSimplePlan) {
-            return prepareDmlOpt(parsedResult, ctx);
+            return prepareDmlOpt(parsedNode, ctx, parsedResult.originalQuery());
         }
 
         CompletableFuture<ValidStatement<SqlNode>> validFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
-            SqlNode sqlNode = parsedResult.parsedTree();
-
-            assert single(sqlNode);
-
             // Validate
-            SqlNode validatedNode = planner.validate(sqlNode);
+            SqlNode validatedNode = planner.validate(parsedNode);
 
             // Get parameter metadata.
             RelDataType parameterRowType = planner.getParameterRowType();

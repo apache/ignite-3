@@ -111,9 +111,9 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         ));
 
         if (applicable) {
-            verify(prepare).prepareDmlOpt(any(), any());
+            verify(prepare).prepareDmlOpt(any(), any(), any());
         } else {
-            verify(prepare, never()).prepareDmlOpt(any(), any());
+            verify(prepare, never()).prepareDmlOpt(any(), any(), any());
         }
     }
 
