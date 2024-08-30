@@ -36,6 +36,8 @@
 #include <memory>
 #include <mutex>
 #include <random>
+#include <vector>
+#include <optional>
 #include <unordered_map>
 
 namespace ignite::protocol {
@@ -347,7 +349,7 @@ private:
     std::function<void(ignite_result<void>)> m_on_initial_connect;
 
     /** Cluster ID. */
-    uuid m_cluster_id;
+    std::optional<uuid> m_cluster_id;
 
     /** Initial connect mutex. */
     std::mutex m_on_initial_connect_mutex;

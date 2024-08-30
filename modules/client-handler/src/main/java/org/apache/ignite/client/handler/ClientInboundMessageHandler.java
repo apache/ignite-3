@@ -420,7 +420,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         packer.packString(localMember.name());
 
         ClusterTag tag = clusterTag.join();
+
+        // Cluster ID history, from the oldest to the newest (cluster ID can change during CMG/MG repair).
+        // TODO IGNITE-22883 Send all cluster IDs to thin client on connection
+        packer.packInt(1);
         packer.packUuid(tag.clusterId());
+
+        // Cluster name never changes.
         packer.packString(tag.clusterName());
 
         packer.packLong(observableTimestamp(null));
