@@ -125,8 +125,8 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     @Override
-    public void markNodeInitialized() {
-        storage.markNodeInitialized();
+    public void markInitConfigApplied() {
+        storage.markInitConfigApplied();
     }
 
     @Override
@@ -145,7 +145,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
         ensureAllProposedCmgNodesAreInTopology(proposedCmgConsistentIds, nodesInTopology);
 
-        ensureNodeIsInitialized();
+        ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
 
         ResetClusterMessage message = buildResetClusterMessage(
@@ -181,9 +181,9 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         return responseFutures;
     }
 
-    private void ensureNodeIsInitialized() {
-        if (!storage.isNodeInitialized()) {
-            throw new ClusterResetException("Node is not initialized and cannot serve as a cluster reset conductor.");
+    private void ensureInitConfigApplied() {
+        if (!storage.isInitConfigApplied()) {
+            throw new ClusterResetException("Initial configuration is not applied and cannot serve as a cluster reset conductor.");
         }
     }
 

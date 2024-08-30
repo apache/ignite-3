@@ -34,9 +34,10 @@ public interface SystemDisasterRecoveryManager {
     void saveClusterState(ClusterState clusterState);
 
     /**
-     * Marks this node as initialized.
+     * Marks this node as a node that saw initial configuration application. After this happens, the initial configuration
+     * in CMG is not needed anymore and can be disposed.
      */
-    void markNodeInitialized();
+    void markInitConfigApplied();
 
     /**
      * Initiates cluster reset.

@@ -1629,7 +1629,7 @@ public class IgniteImpl implements Ignite {
                                 }, startupExecutor);
                     }
                 }, startupExecutor)
-                .thenRunAsync(systemDisasterRecoveryManager::markNodeInitialized, startupExecutor);
+                .thenRunAsync(systemDisasterRecoveryManager::markInitConfigApplied, startupExecutor);
     }
 
     /**

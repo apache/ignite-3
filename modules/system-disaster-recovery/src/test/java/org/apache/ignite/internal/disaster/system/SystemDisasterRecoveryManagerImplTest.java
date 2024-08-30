@@ -96,7 +96,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     private static final String CLUSTER_NAME = "cluster";
 
-    private static final ByteArray NODE_INITIALIZED_VAULT_KEY = new ByteArray("systemRecovery.nodeInitialized");
+    private static final ByteArray INIT_CONFIG_APPLIED_VAULT_KEY = new ByteArray("systemRecovery.initConfigApplied");
     private static final ByteArray CLUSTER_STATE_VAULT_KEY = new ByteArray("systemRecovery.clusterState");
     private static final ByteArray RESET_CLUSTER_MESSAGE_VAULT_KEY = new ByteArray("systemRecovery.resetClusterMessage");
 
@@ -164,10 +164,10 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void marksNodeInitialized() {
-        manager.markNodeInitialized();
+    void marksInitConfigApplied() {
+        manager.markInitConfigApplied();
 
-        VaultEntry entry = vaultManager.get(NODE_INITIALIZED_VAULT_KEY);
+        VaultEntry entry = vaultManager.get(INIT_CONFIG_APPLIED_VAULT_KEY);
         assertThat(entry, is(notNullValue()));
         assertThat(entry.value(), is(notNullValue()));
     }
@@ -218,7 +218,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     void resetClusterRequiresClusterState() {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode));
-        marksNodeInitialized();
+        markinitConfigApplied();
 
         ClusterResetException ex = assertWillThrow(
                 manager.resetCluster(List.of(thisNodeName)),
@@ -229,7 +229,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void resetClusterRequiresNodeToBeInitialized() {
+    void resetClusterRequiresInitConfigToBeApplied() {
         when(topologyService.allMembers()).thenReturn(List.of(thisNode));
         putClusterState();
 
@@ -238,15 +238,15 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
                 ClusterResetException.class,
                 10, SECONDS
         );
-        assertThat(ex.getMessage(), is("Node is not initialized and cannot serve as a cluster reset conductor."));
+        assertThat(ex.getMessage(), is("Initial configuration is not applied and cannot serve as a cluster reset conductor."));
     }
 
     private void putClusterState() {
         vaultManager.put(CLUSTER_STATE_VAULT_KEY, toBytes(usualClusterState));
     }
 
-    private void makeNodeInitialized() {
-        vaultManager.put(NODE_INITIALIZED_VAULT_KEY, BYTE_EMPTY_ARRAY);
+    private void markinitConfigApplied() {
+        vaultManager.put(INIT_CONFIG_APPLIED_VAULT_KEY, BYTE_EMPTY_ARRAY);
     }
 
     @Test
@@ -279,7 +279,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void prepareNodeStateForClusterReset() {
-        makeNodeInitialized();
+        markinitConfigApplied();
         putClusterState();
     }
 
