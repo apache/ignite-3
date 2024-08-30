@@ -620,11 +620,12 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .reduce(new BigDecimal("0.00"), BigDecimal::add)
                 .divide(BigDecimal.valueOf(numbers.size()), 2, RoundingMode.HALF_UP);
 
+        int avgIntValue = avg.setScale(0, RoundingMode.HALF_UP).intValue();
+
         for (String[] rules : makePermutations(DISABLED_RULES)) {
-            System.out.println(String.join(",", rules));
             assertQuery("SELECT AVG(int_col), AVG(dec10_2_col) FROM numbers")
                     .disableRules(rules)
-                    .returns(avg.intValue(), avg)
+                    .returns(avgIntValue, avg)
                     .check();
         }
     }
