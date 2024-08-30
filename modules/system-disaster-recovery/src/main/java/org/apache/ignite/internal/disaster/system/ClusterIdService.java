@@ -21,22 +21,23 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
+import org.apache.ignite.internal.cluster.management.ClusterIdStore;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Used to handle volatile information about cluster ID used to restrict which nodes can connect this one and vice versa.
  */
-public class ClusterIdService extends ClusterIdHolder implements IgniteComponent {
+public class ClusterIdService implements ClusterIdSupplier, ClusterIdStore, IgniteComponent {
     private final SystemDisasterRecoveryStorage storage;
 
-    @Nullable
-    private volatile UUID clusterIdOverride;
+    private volatile @Nullable UUID clusterId;
+    private volatile @Nullable UUID clusterIdOverride;
 
     public ClusterIdService(VaultManager vault) {
         storage = new SystemDisasterRecoveryStorage(vault);
@@ -69,6 +70,11 @@ public class ClusterIdService extends ClusterIdHolder implements IgniteComponent
             return override;
         }
 
-        return super.clusterId();
+        return clusterId;
+    }
+
+    @Override
+    public void clusterId(UUID newClusterId) {
+        clusterId = newClusterId;
     }
 }
