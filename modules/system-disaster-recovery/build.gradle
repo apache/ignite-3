@@ -22,11 +22,12 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
+    api project(':ignite-system-disaster-recovery-api')
+
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-cluster-management')
-    implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
 
     testImplementation libs.hamcrest.core
