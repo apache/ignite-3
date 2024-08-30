@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.cluster.management.ClusterTag.randomClu
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -245,7 +246,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void makeNodeInitialized() {
-        vaultManager.put(NODE_INITIALIZED_VAULT_KEY, new byte[]{1});
+        vaultManager.put(NODE_INITIALIZED_VAULT_KEY, BYTE_EMPTY_ARRAY);
     }
 
     @Test

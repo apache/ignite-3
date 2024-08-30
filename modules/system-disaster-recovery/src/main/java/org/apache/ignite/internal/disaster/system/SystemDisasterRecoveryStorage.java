@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.disaster.system;
 
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
@@ -52,7 +54,7 @@ class SystemDisasterRecoveryStorage extends ClusterResetStorage {
     }
 
     void markNodeInitialized() {
-        vault.put(NODE_INITIALIZED_VAULT_KEY, new byte[0]);
+        vault.put(NODE_INITIALIZED_VAULT_KEY, BYTE_EMPTY_ARRAY);
     }
 
     void saveResetClusterMessage(ResetClusterMessage message) {
