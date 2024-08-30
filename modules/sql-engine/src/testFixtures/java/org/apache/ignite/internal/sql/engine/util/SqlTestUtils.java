@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomTime;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -261,7 +260,7 @@ public class SqlTestUtils {
                 }
                 return r;
             case DOUBLE:
-                return RND.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE);
+                return RND.nextDouble(Float.MAX_VALUE + Double.MIN_NORMAL, Double.MAX_VALUE);
             case STRING:
                 return IgniteTestUtils.randomString(RND, precision);
             case BYTE_ARRAY:
@@ -287,7 +286,7 @@ public class SqlTestUtils {
             case DATE:
                 return LocalDate.of(1900 + RND.nextInt(1000), 1 + RND.nextInt(12), 1 + RND.nextInt(28));
             case TIME:
-                return randomTime(RND, scale);
+                return IgniteTestUtils.randomTime(RND, scale);
             case PERIOD:
                 return Period.of(RND.nextInt(200), RND.nextInt(200), RND.nextInt(200));
             default:
