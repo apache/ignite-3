@@ -590,7 +590,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testTableReplicaListenersCreationAfterRebalance(TestInfo testInfo) throws Exception {
+    void testTableReplicaListenersCreationAfterRebalance(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) AffinityUtils.calculateAssignmentForPartition(

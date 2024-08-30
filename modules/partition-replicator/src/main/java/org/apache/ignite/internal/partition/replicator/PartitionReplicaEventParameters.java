@@ -17,46 +17,32 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.event.EventParameters;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Parameters for the events about zone partition replicas produced by {@link PartitionReplicaLifecycleManager}.
  */
 public class PartitionReplicaEventParameters implements EventParameters {
-    /** Zone descriptor. */
-    private final CatalogZoneDescriptor zoneDescriptor;
-
-    /** Partition id. */
-    private final int partitionId;
+    /** Zone partition id. */
+    private final ZonePartitionId zonePartitionId;
 
     /**
      * Constructor.
      *
-     * @param zoneDescriptor Zone descriptor.
-     * @param partitionId Partition id.
+     * @param zonePartitionId Zone partition id.
      */
-    public PartitionReplicaEventParameters(CatalogZoneDescriptor zoneDescriptor, int partitionId) {
-        this.zoneDescriptor = zoneDescriptor;
-        this.partitionId = partitionId;
+    public PartitionReplicaEventParameters(ZonePartitionId zonePartitionId) {
+        this.zonePartitionId = zonePartitionId;
     }
 
     /**
-     * Returns zone descriptor.
+     * Returns zone partition id.
      *
-     * @return Zone descriptor.
+     * @return Zone partition id.
      */
-    public CatalogZoneDescriptor zoneDescriptor() {
-        return zoneDescriptor;
-    }
-
-    /**
-     * Returns partition id.
-     *
-     * @return Partition id.
-     */
-    public int partitionId() {
-        return partitionId;
+    public ZonePartitionId zonePartitionId() {
+        return zonePartitionId;
     }
 }
 

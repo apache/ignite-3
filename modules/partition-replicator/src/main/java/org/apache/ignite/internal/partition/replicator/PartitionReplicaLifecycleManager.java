@@ -484,8 +484,8 @@ public class PartitionReplicaLifecycleManager  extends
                             return fireEvent(
                                     LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
                                     new PartitionReplicaEventParameters(
-                                            zoneDescriptor,
-                                            replicaGrpId.partitionId())
+                                            new ZonePartitionId(zoneDescriptor.id(), replicaGrpId.partitionId())
+                                    )
                             );
                         })
                         .whenComplete((unused, throwable) -> zonePartitionsLocks.get(zoneId).unlockWrite(stamp.get()))

@@ -661,9 +661,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         List<CompletableFuture<?>> futs = new ArrayList<>();
 
         readyToProcessTableStarts.thenRun(() -> {
-            Set<TableImpl> zoneTables = zoneTables(parameters.zoneDescriptor().id());
+            Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
 
-            PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.partitionId());
+            PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.zonePartitionId().partitionId());
 
             zoneTables.forEach(tbl -> {
                 futs.add(inBusyLockAsync(busyLock,
@@ -676,7 +676,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     );
 
                                     preparePartitionResourcesAndLoadToZoneReplica(
-                                            tbl, parameters.partitionId(), parameters.zoneDescriptor().id());
+                                            tbl, parameters.zonePartitionId().partitionId(), parameters.zonePartitionId().zoneId());
                                 }
                         ), ioExecutor));
             });
