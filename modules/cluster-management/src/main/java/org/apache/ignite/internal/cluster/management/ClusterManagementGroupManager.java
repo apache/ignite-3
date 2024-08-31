@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
@@ -392,7 +393,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         cmgMessageHandler.onRecoveryComplete();
 
         return serviceFuture
-                .thenCompose(service -> doInit(service, cmgInitMessageFromResetClusterMessage(resetClusterMessage)))
+                .thenCompose(
+                        service -> doInit(
+                                service,
+                                cmgInitMessageFromResetClusterMessage(resetClusterMessage),
+                                resetClusterMessage.formerClusterIds()
+                        )
+                )
                 .thenApply(unused -> null);
     }
 
@@ -482,7 +489,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             // handle this case by applying only the first attempt and returning the actual cluster state for all other
             // attempts.
             raftService = serviceFuture
-                    .thenCompose(service -> doInit(service, msg)
+                    .thenCompose(service -> doInit(service, msg, null)
                             .handle((v, e) -> {
                                 NetworkMessage response;
 
@@ -513,8 +520,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         }
     }
 
-    private CompletableFuture<CmgRaftService> doInit(CmgRaftService service, CmgInitMessage msg) {
-        return service.initClusterState(createClusterState(msg))
+    private CompletableFuture<CmgRaftService> doInit(CmgRaftService service, CmgInitMessage msg, @Nullable List<UUID> formerClusterIds) {
+        return service.initClusterState(createClusterState(msg, formerClusterIds))
                 .thenCompose(state -> {
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
@@ -526,13 +533,14 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 });
     }
 
-    private ClusterState createClusterState(CmgInitMessage msg) {
+    private ClusterState createClusterState(CmgInitMessage msg, @Nullable List<UUID> formerClusterIds) {
         return msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(msg.cmgNodes()))
                 .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
                 .clusterTag(clusterTag(msgFactory, msg.clusterName(), msg.clusterId()))
                 .initialClusterConfiguration(msg.initialClusterConfiguration())
+                .formerClusterIds(formerClusterIds)
                 .build();
     }
 

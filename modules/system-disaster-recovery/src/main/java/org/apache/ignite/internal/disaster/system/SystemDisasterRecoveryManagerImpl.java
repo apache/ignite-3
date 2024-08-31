@@ -103,7 +103,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
             messagingService.respond(sender, successResponseMessage(), correlationId)
                     .thenRunAsync(() -> {
-                        if (!thisNodeName.equals(message.conductor())) {
+                        if (!thisNodeName.equals(sender.name())) {
                             restarter.initiateRestart();
                         }
                     }, restartExecutor);
@@ -148,19 +148,14 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
 
-        ResetClusterMessage message = buildResetClusterMessage(
-                proposedCmgConsistentIds,
-                clusterState
-        );
+        ResetClusterMessage message = buildResetClusterMessageForReset(proposedCmgConsistentIds, clusterState);
 
-        Map<String, CompletableFuture<NetworkMessage>> responseFutures = sendResetClusterMessageTo(
-                nodesInTopology,
-                message
-        );
+        Map<String, CompletableFuture<NetworkMessage>> responseFutures = sendResetClusterMessageTo(nodesInTopology, message);
 
         return allOf(responseFutures.values())
                 .handleAsync((res, ex) -> {
                     // We ignore upstream exceptions on purpose.
+                    rethrowIfError(ex);
 
                     if (isMajorityOfCmgAreSuccesses(proposedCmgConsistentIds, responseFutures)) {
                         restarter.initiateRestart();
@@ -172,8 +167,10 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 }, restartExecutor);
     }
 
-    private Map<String, CompletableFuture<NetworkMessage>> sendResetClusterMessageTo(Collection<ClusterNode> nodesInTopology,
-            ResetClusterMessage message) {
+    private Map<String, CompletableFuture<NetworkMessage>> sendResetClusterMessageTo(
+            Collection<ClusterNode> nodesInTopology,
+            ResetClusterMessage message
+    ) {
         Map<String, CompletableFuture<NetworkMessage>> responseFutures = new HashMap<>();
         for (ClusterNode node : nodesInTopology) {
             responseFutures.put(node.name(), messagingService.invoke(node, message, 10_000));
@@ -221,18 +218,23 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         return clusterState;
     }
 
-    private ResetClusterMessage buildResetClusterMessage(List<String> proposedCmgConsistentIds, ClusterState clusterState) {
+    private ResetClusterMessage buildResetClusterMessageForReset(Collection<String> proposedCmgConsistentIds, ClusterState clusterState) {
         List<UUID> formerClusterIds = new ArrayList<>(requireNonNullElse(clusterState.formerClusterIds(), new ArrayList<>()));
         formerClusterIds.add(clusterState.clusterTag().clusterId());
 
         return messagesFactory.resetClusterMessage()
-                .conductor(thisNodeName)
                 .cmgNodes(new HashSet<>(proposedCmgConsistentIds))
                 .metaStorageNodes(clusterState.metaStorageNodes())
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(randomUUID())
                 .formerClusterIds(formerClusterIds)
                 .build();
+    }
+
+    private static void rethrowIfError(Throwable ex) {
+        if (ex instanceof Error) {
+            throw (Error) ex;
+        }
     }
 
     private static boolean isMajorityOfCmgAreSuccesses(
@@ -253,6 +255,44 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .count();
 
         return successes >= (futuresFromNewCmg.size() + 1) / 2;
+    }
+
+    @Override
+    public CompletableFuture<Void> migrate(ClusterState targetClusterState) {
+        if (targetClusterState.formerClusterIds() == null) {
+            return failedFuture(
+                    new ClusterResetException("Migration can only happen using cluster state from a node that saw a cluster reset")
+            );
+        }
+
+        Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
+
+        ResetClusterMessage message = buildResetClusterMessageForMigrate(targetClusterState);
+
+        Map<String, CompletableFuture<NetworkMessage>> responseFutures = sendResetClusterMessageTo(nodesInTopology, message);
+
+        return allOf(responseFutures.values())
+                .handleAsync((res, ex) -> {
+                    // We ignore upstream exceptions on purpose.
+                    rethrowIfError(ex);
+
+                    restarter.initiateRestart();
+                    return null;
+                }, restartExecutor);
+    }
+
+    private ResetClusterMessage buildResetClusterMessageForMigrate(ClusterState clusterState) {
+        List<UUID> formerClusterIds = clusterState.formerClusterIds();
+        assert formerClusterIds != null : "formerClusterIds is null, but it must never be here as it's from a node that saw a CMG reset; "
+                + "current node is " + thisNodeName;
+
+        return messagesFactory.resetClusterMessage()
+                .cmgNodes(clusterState.cmgNodes())
+                .metaStorageNodes(clusterState.metaStorageNodes())
+                .clusterName(clusterState.clusterTag().clusterName())
+                .clusterId(clusterState.clusterTag().clusterId())
+                .formerClusterIds(formerClusterIds)
+                .build();
     }
 
     /**

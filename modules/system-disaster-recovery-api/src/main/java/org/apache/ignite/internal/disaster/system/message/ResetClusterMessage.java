@@ -53,9 +53,4 @@ public interface ResetClusterMessage extends NetworkMessage, Serializable {
      * IDs that the cluster had before (including the current incarnation by which this message is sent).
      */
     List<UUID> formerClusterIds();
-
-    /**
-     * Consistent ID of the node that conducts the cluster reset.
-     */
-    String conductor();
 }
