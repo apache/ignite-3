@@ -280,7 +280,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         assert formerClusterIds != null;
 
         return messagesFactory.resetClusterMessage()
-                .cmgNodes(new HashSet<>(clusterState.cmgNodes()))
+                .cmgNodes(clusterState.cmgNodes())
                 .metaStorageNodes(clusterState.metaStorageNodes())
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(clusterState.clusterTag().clusterId())
