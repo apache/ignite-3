@@ -306,7 +306,7 @@ class ItCmgDisasterRecoveryTest extends ClusterPerTestIntegrationTest {
         IgniteImpl restartedIgniteImpl2 = waitTillNodeRestartsInternally(2);
         waitTillCmgHasMajority(restartedIgniteImpl2);
 
-        // Starting the nodes that did not see the repair.
+        // Starting the nodes that did not see the repair (in parallel, to save time).
         List<IgniteImpl> partialNodes = IntStream.of(0, 1).parallel()
                 .mapToObj(index -> ((IgniteServerImpl) cluster.startEmbeddedNode(index).server()).igniteImpl())
                 .collect(toList());
