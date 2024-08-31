@@ -19,32 +19,18 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
-apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
-    api project(':ignite-system-disaster-recovery-api')
+    annotationProcessor project(":ignite-network-annotation-processor")
 
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
     implementation project(':ignite-vault')
-    implementation project(':ignite-cluster-management')
     implementation libs.jetbrains.annotations
 
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
-    testImplementation testFixtures(project(":ignite-core"))
-    testImplementation testFixtures(project(":ignite-cluster-management"))
-    testImplementation libs.jetbrains.annotations
-
-    integrationTestImplementation project(':ignite-system-disaster-recovery-api')
-    integrationTestImplementation project(':ignite-cluster-management')
-    integrationTestImplementation project(':ignite-vault')
-    integrationTestImplementation project(':ignite-network-api')
-    integrationTestImplementation testFixtures(project(':ignite-core'))
-    integrationTestImplementation testFixtures(project(':ignite-api'))
-    integrationTestImplementation testFixtures(project(':ignite-runner'))
-    integrationTestImplementation libs.jetbrains.annotations
 }
 
-description = 'ignite-system-disaster-recovery'
+description = 'ignite-system-disaster-recovery-api'

@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Message for initializing the Cluster Management Group.
@@ -50,5 +51,6 @@ public interface CmgInitMessage extends NetworkMessage {
     /**
      * Cluster configuration that should be applied after init.
      */
+    @Nullable
     String initialClusterConfiguration();
 }

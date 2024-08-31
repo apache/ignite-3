@@ -19,6 +19,7 @@ package org.apache.ignite.internal.disaster.system;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 
 /**
@@ -26,9 +27,17 @@ import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
  */
 public interface SystemDisasterRecoveryManager {
     /**
-     * Marks this node as initialized.
+     * Saves cluster state to make sure it can be used to initiate CMG/MG repair.
+     *
+     * @param clusterState State to save.
      */
-    void markNodeInitialized();
+    void saveClusterState(ClusterState clusterState);
+
+    /**
+     * Marks this node as a node that saw initial configuration application. After this happens, the initial configuration
+     * in CMG is not needed anymore and can be disposed.
+     */
+    void markInitConfigApplied();
 
     /**
      * Initiates cluster reset.
