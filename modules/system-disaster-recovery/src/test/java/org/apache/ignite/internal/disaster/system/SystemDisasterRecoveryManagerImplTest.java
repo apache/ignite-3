@@ -506,7 +506,7 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private static void assertThatResetClusterMessageContentIsAsExpectedAfterMigrate(
-            @Nullable ResetClusterMessage message,
+            ResetClusterMessage message,
             ClusterState clusterState
     ) {
         assertThat(message, is(notNullValue()));
