@@ -259,6 +259,12 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     @Override
     public CompletableFuture<Void> migrate(ClusterState targetClusterState) {
+        if (targetClusterState.formerClusterIds() == null) {
+            return failedFuture(
+                    new ClusterResetException("Migration can only happen using cluster state from a node that saw a cluster reset")
+            );
+        }
+
         Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
 
         ResetClusterMessage message = buildResetClusterMessageForMigrate(targetClusterState);
@@ -277,7 +283,8 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     private ResetClusterMessage buildResetClusterMessageForMigrate(ClusterState clusterState) {
         List<UUID> formerClusterIds = clusterState.formerClusterIds();
-        assert formerClusterIds != null;
+        assert formerClusterIds != null : "formerClusterIds is null, but it must never be here as it's from a node that saw a CMG reset; "
+                + "current node is " + thisNodeName;
 
         return messagesFactory.resetClusterMessage()
                 .cmgNodes(clusterState.cmgNodes())
