@@ -34,10 +34,12 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
+import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,11 +52,12 @@ import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -106,6 +109,9 @@ public class DistributionZonesUtil {
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
 
+    /** Key prefix for zones' logical topology cluster ID. */
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "clusterId";
+
     /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()}.*/
     private static final String DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_PREFIX = "distributionZones.topologyAugmentation.";
 
@@ -126,6 +132,10 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID}. */
+    private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID_KEY =
+            new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID);
 
     /**
      * The initial value of trigger revision in case when it is not initialized in the meta storage.
@@ -207,6 +217,16 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zonesLogicalTopologyVersionKey() {
         return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY;
+    }
+
+    /**
+     * The key needed for processing the events about logical topology changes.
+     * Needed for the defencing against stale updates of logical topology nodes ({@link #zonesLogicalTopologyVersionKey()}
+     * alone is not enough as version might be reset to 1 when a cluster reset happens; this key allows to distinguish between
+     * two events about version=1).
+     */
+    public static ByteArray zonesLogicalTopologyClusterIdKey() {
+        return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID_KEY;
     }
 
     /**
@@ -377,21 +397,25 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Updates logical topology and logical topology version values for zones.
+     * Updates logical topology, its version and (if this is an initial version) cluster ID values for zones.
      *
-     * @param logicalTopology Logical topology.
-     * @param topologyVersion Logical topology version.
+     * @param logicalTopology Logical topology snapshot.
      * @return Update command for the meta storage.
      */
-    static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
-        Set<NodeWithAttributes> topologyFromCmg = logicalTopology.stream()
+    static Update updateLogicalTopologyAndVersionAndClusterId(LogicalTopologySnapshot logicalTopology) {
+        Set<NodeWithAttributes> topologyFromCmg = logicalTopology.nodes().stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
-        return ops(
-                put(zonesLogicalTopologyVersionKey(), longToBytesKeepingOrder(topologyVersion)),
-                put(zonesLogicalTopologyKey(), ByteUtils.toBytes(topologyFromCmg))
-        ).yield(true);
+        List<Operation> operations = new ArrayList<>();
+
+        operations.add(put(zonesLogicalTopologyVersionKey(), longToBytesKeepingOrder(logicalTopology.version())));
+        operations.add(put(zonesLogicalTopologyKey(), ByteUtils.toBytes(topologyFromCmg)));
+        if (logicalTopology.version() == LogicalTopologySnapshot.FIRST_VERSION) {
+            operations.add(put(zonesLogicalTopologyClusterIdKey(), uuidToBytes(logicalTopology.clusterId())));
+        }
+
+        return ops(operations.toArray(Operation[]::new)).yield(true);
     }
 
     /**

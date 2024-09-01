@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 
 /**
  * Implementation of {@link LogicalTopology}.
@@ -49,10 +51,13 @@ public class LogicalTopologyImpl implements LogicalTopology {
 
     private final ClusterStateStorage storage;
 
+    private final ClusterIdSupplier clusterIdSupplier;
+
     private final List<LogicalTopologyEventListener> listeners = new CopyOnWriteArrayList<>();
 
-    public LogicalTopologyImpl(ClusterStateStorage storage) {
+    public LogicalTopologyImpl(ClusterStateStorage storage, ClusterIdSupplier clusterIdSupplier) {
         this.storage = storage;
+        this.clusterIdSupplier = clusterIdSupplier;
     }
 
     @Override
@@ -94,7 +99,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
             }
 
             // This is an update. First simulate disappearance, then appearance will be fired.
-            snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapByName.values());
+            snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapByName.values(), requiredClusterId());
 
             if (LOG.isInfoEnabled()) {
                 LOG.info("Node removed from logical topology [node={}, topology={}]", nodeToPut, snapshot);
@@ -106,7 +111,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
 
         mapByName.put(nodeToPut.name(), nodeToPut);
 
-        snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapByName.values());
+        snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapByName.values(), requiredClusterId());
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Node added to logical topology [node={}, topology={}]", nodeToPut, snapshot);
@@ -120,6 +125,14 @@ public class LogicalTopologyImpl implements LogicalTopology {
             fireRemovalTask.run();
         }
         fireNodeJoined(nodeToPut, snapshot);
+    }
+
+    private UUID requiredClusterId() {
+        UUID clusterId = clusterIdSupplier.clusterId();
+
+        assert clusterId != null : "clusterId cannot be null when commands are already being executed by the CMG state machine";
+
+        return clusterId;
     }
 
     private void saveSnapshotToStorage(LogicalTopologySnapshot newTopology) {
@@ -144,7 +157,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
             LogicalNode removedNode = mapById.remove(nodeToRemove.id());
 
             if (removedNode != null) {
-                snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapById.values());
+                snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapById.values(), requiredClusterId());
 
                 if (LOG.isInfoEnabled()) {
                     LOG.info("Node removed from logical topology [node={}, topology={}]", removedNode, snapshot);

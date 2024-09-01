@@ -54,6 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -126,6 +127,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
@@ -950,7 +952,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             );
 
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new ConstantClusterIdSupplier(UUID.randomUUID()));
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,

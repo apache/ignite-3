@@ -595,7 +595,7 @@ public class IgniteImpl implements Ignite {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, clusterIdService);
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
