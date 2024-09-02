@@ -17,13 +17,29 @@
 
 package org.apache.ignite.internal.network;
 
+import static java.util.stream.Collectors.toList;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
- * {@code NodeFinder} implementation that encapsulates a predefined list of network addresses.
+ * {@code NodeFinder} implementation that encapsulates a predefined list of network addresses and/or host names.
+ *
+ * <p>IP addresses are returned as is (up to a format change).
+ *
+ * <p>Names are resolved. If a name is resolved to at least one addreess, all these addresses will be returned. If it resolves
+ * to nothing, this name will not add anything to the output; no exception will be thrown in such case.
+ *
+ * <p>If among addresses to which a name is resolved there is a loopback address, only this address is contributed for this name.
  */
 public class StaticNodeFinder implements NodeFinder {
+    private static final IgniteLogger LOG = Loggers.forClass(StaticNodeFinder.class);
+
     /** List of seed cluster members. */
     private final List<NetworkAddress> addresses;
 
@@ -36,8 +52,37 @@ public class StaticNodeFinder implements NodeFinder {
         this.addresses = addresses;
     }
 
-    /** {@inheritDoc} */
-    @Override public List<NetworkAddress> findNodes() {
+    @Override
+    public List<NetworkAddress> findNodes() {
+        return addresses.parallelStream()
+                .flatMap(
+                        originalAddress -> Arrays.stream(resolveAll(originalAddress.host()))
+                                .map(ip -> new NetworkAddress(ip, originalAddress.port()))
+                )
+                .collect(toList());
+    }
+
+    private static String[] resolveAll(String host) {
+        InetAddress[] inetAddresses;
+        try {
+            inetAddresses = InetAddress.getAllByName(host);
+        } catch (UnknownHostException e) {
+            LOG.warn("Cannot resolve {}", host);
+            return new String[0];
+        }
+
+        String[] addresses = new String[inetAddresses.length];
+        for (int i = 0; i < inetAddresses.length; i++) {
+            InetAddress inetAddress = inetAddresses[i];
+
+            if (inetAddress.isLoopbackAddress()) {
+                // If it's a loopback address (like 127.0.0.1), only return this address.
+                return new String[]{inetAddress.getHostAddress()};
+            }
+
+            addresses[i] = inetAddress.getHostAddress();
+        }
+
         return addresses;
     }
 }

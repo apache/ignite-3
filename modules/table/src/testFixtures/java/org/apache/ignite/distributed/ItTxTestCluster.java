@@ -218,7 +218,7 @@ public class ItTxTestCluster {
 
     private ReplicaService clientReplicaSvc;
 
-    protected Map<String, Loza> raftServers;
+    protected @Nullable Map<String, Loza> raftServers;
 
     protected Map<String, ReplicaManager> replicaManagers;
 
@@ -1069,6 +1069,7 @@ public class ItTxTestCluster {
         assertThat(startAsync(new ComponentContext(), clientTxManager, clientResourceVacuumManager), willCompleteSuccessfully());
     }
 
+    @Nullable
     public Map<String, Loza> raftServers() {
         return raftServers;
     }
