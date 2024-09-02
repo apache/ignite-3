@@ -133,7 +133,7 @@ static PyObject* connect(PyObject* self, PyObject* args, PyObject* kwargs) {
 }
 
 static PyMethodDef methods[] = {
-    {"connect", (PyCFunction) connect, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {"connect", (PyCFunction)(void*)connect, METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 

@@ -274,7 +274,7 @@ static PyTypeObject py_cursor_type = {
 
 static struct PyMethodDef py_cursor_methods[] = {
     {"close", (PyCFunction)py_cursor_close, METH_NOARGS, nullptr},
-    {"execute", (PyCFunction)py_cursor_execute, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {"execute", (PyCFunction)(void*)py_cursor_execute, METH_VARARGS | METH_KEYWORDS, nullptr},
     {"rowcount", (PyCFunction)py_cursor_rowcount, METH_NOARGS, nullptr},
     {"column_count", (PyCFunction)py_cursor_column_count, METH_NOARGS, nullptr},
     {"column_name", (PyCFunction)py_cursor_column_name, METH_VARARGS, nullptr},
