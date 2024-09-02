@@ -36,7 +36,7 @@ BOOLEAN = bool
 INT = int
 FLOAT = float
 STRING = str
-BINARY = memoryview
+BINARY = bytes
 NUMBER = decimal.Decimal
 DATE = datetime.date
 TIME = datetime.time
@@ -196,7 +196,7 @@ class Cursor:
             raise InterfaceError('Connection is already closed')
 
         # TODO: IGNITE-22741 Implement data fetching
-        raise NotSupportedError('Operation is not supported')
+        return self._py_cursor.fetchone()
 
     def fetchmany(self):
         if self._py_cursor is None:
