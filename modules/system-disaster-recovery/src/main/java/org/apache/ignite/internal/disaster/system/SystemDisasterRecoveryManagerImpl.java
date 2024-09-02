@@ -22,7 +22,6 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -40,19 +39,15 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessageGroup;
 import org.apache.ignite.internal.disaster.system.message.SystemDisasterRecoveryMessagesFactory;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 
@@ -60,19 +55,15 @@ import org.apache.ignite.network.ClusterNode;
  * Implementation of {@link SystemDisasterRecoveryManager}.
  */
 public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecoveryManager, IgniteComponent {
-    private static final String NODE_INITIALIZED_VAULT_KEY = "systemRecovery.nodeInitialized";
-    private static final String RESET_CLUSTER_MESSAGE_VAULT_KEY = "systemRecovery.resetClusterMessage";
-
     private final String thisNodeName;
     private final TopologyService topologyService;
     private final MessagingService messagingService;
-    private final VaultManager vaultManager;
     private final ServerRestarter restarter;
-
-    private final ClusterStateStorageManager clusterStateStorageManager;
 
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
     private static final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
+
+    private final SystemDisasterRecoveryStorage storage;
 
     /** This executor spawns a thread per task and should only be used for very rare tasks. */
     private final Executor restartExecutor;
@@ -83,17 +74,14 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
             TopologyService topologyService,
             MessagingService messagingService,
             VaultManager vaultManager,
-            ServerRestarter restarter,
-            ClusterStateStorage clusterStateStorage
+            ServerRestarter restarter
     ) {
         this.thisNodeName = thisNodeName;
         this.topologyService = topologyService;
         this.messagingService = messagingService;
-        this.vaultManager = vaultManager;
         this.restarter = restarter;
 
-        clusterStateStorageManager = new ClusterStateStorageManager(clusterStateStorage);
-
+        storage = new SystemDisasterRecoveryStorage(vaultManager);
         restartExecutor = new ThreadPerTaskExecutor(thisNodeName + "-restart-");
     }
 
@@ -111,18 +99,18 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     private void handleResetClusterMessage(ResetClusterMessage message, ClusterNode sender, long correlationId) {
         restartExecutor.execute(() -> {
-            vaultManager.put(new ByteArray(RESET_CLUSTER_MESSAGE_VAULT_KEY), toBytes(message));
+            storage.saveResetClusterMessage(message);
 
             messagingService.respond(sender, successResponseMessage(), correlationId)
                     .thenRunAsync(() -> {
-                        if (!thisNodeName.equals(message.conductor())) {
+                        if (!thisNodeName.equals(sender.name())) {
                             restarter.initiateRestart();
                         }
                     }, restartExecutor);
         });
     }
 
-    private SuccessResponseMessage successResponseMessage() {
+    private static SuccessResponseMessage successResponseMessage() {
         return cmgMessagesFactory.successResponseMessage().build();
     }
 
@@ -132,8 +120,13 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     @Override
-    public void markNodeInitialized() {
-        vaultManager.put(new ByteArray(NODE_INITIALIZED_VAULT_KEY), new byte[]{1});
+    public void saveClusterState(ClusterState clusterState) {
+        storage.saveClusterState(clusterState);
+    }
+
+    @Override
+    public void markInitConfigApplied() {
+        storage.markInitConfigApplied();
     }
 
     @Override
@@ -152,22 +145,17 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
         ensureAllProposedCmgNodesAreInTopology(proposedCmgConsistentIds, nodesInTopology);
 
-        ensureNodeIsInitialized();
+        ensureInitConfigApplied();
         ClusterState clusterState = ensureClusterStateIsPresent();
 
-        ResetClusterMessage message = buildResetClusterMessage(
-                proposedCmgConsistentIds,
-                clusterState
-        );
+        ResetClusterMessage message = buildResetClusterMessageForReset(proposedCmgConsistentIds, clusterState);
 
-        Map<String, CompletableFuture<NetworkMessage>> responseFutures = sendResetClusterMessageTo(
-                nodesInTopology,
-                message
-        );
+        Map<String, CompletableFuture<NetworkMessage>> responseFutures = sendResetClusterMessageTo(nodesInTopology, message);
 
         return allOf(responseFutures.values())
                 .handleAsync((res, ex) -> {
                     // We ignore upstream exceptions on purpose.
+                    rethrowIfError(ex);
 
                     if (isMajorityOfCmgAreSuccesses(proposedCmgConsistentIds, responseFutures)) {
                         restarter.initiateRestart();
@@ -179,8 +167,10 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 }, restartExecutor);
     }
 
-    private Map<String, CompletableFuture<NetworkMessage>> sendResetClusterMessageTo(Collection<ClusterNode> nodesInTopology,
-            ResetClusterMessage message) {
+    private Map<String, CompletableFuture<NetworkMessage>> sendResetClusterMessageTo(
+            Collection<ClusterNode> nodesInTopology,
+            ResetClusterMessage message
+    ) {
         Map<String, CompletableFuture<NetworkMessage>> responseFutures = new HashMap<>();
         for (ClusterNode node : nodesInTopology) {
             responseFutures.put(node.name(), messagingService.invoke(node, message, 10_000));
@@ -188,10 +178,9 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
         return responseFutures;
     }
 
-    private void ensureNodeIsInitialized() {
-        VaultEntry initializedEntry = vaultManager.get(new ByteArray(NODE_INITIALIZED_VAULT_KEY));
-        if (initializedEntry == null) {
-            throw new ClusterResetException("Node is not initialized and cannot serve as a cluster reset conductor.");
+    private void ensureInitConfigApplied() {
+        if (!storage.isInitConfigApplied()) {
+            throw new ClusterResetException("Initial configuration is not applied and cannot serve as a cluster reset conductor.");
         }
     }
 
@@ -222,25 +211,30 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private ClusterState ensureClusterStateIsPresent() {
-        ClusterState clusterState = clusterStateStorageManager.getClusterState();
+        ClusterState clusterState = storage.readClusterState();
         if (clusterState == null) {
             throw new ClusterResetException("Node does not have cluster state.");
         }
         return clusterState;
     }
 
-    private ResetClusterMessage buildResetClusterMessage(List<String> proposedCmgConsistentIds, ClusterState clusterState) {
+    private ResetClusterMessage buildResetClusterMessageForReset(Collection<String> proposedCmgConsistentIds, ClusterState clusterState) {
         List<UUID> formerClusterIds = new ArrayList<>(requireNonNullElse(clusterState.formerClusterIds(), new ArrayList<>()));
         formerClusterIds.add(clusterState.clusterTag().clusterId());
 
         return messagesFactory.resetClusterMessage()
-                .conductor(thisNodeName)
                 .cmgNodes(new HashSet<>(proposedCmgConsistentIds))
                 .metaStorageNodes(clusterState.metaStorageNodes())
                 .clusterName(clusterState.clusterTag().clusterName())
                 .clusterId(randomUUID())
                 .formerClusterIds(formerClusterIds)
                 .build();
+    }
+
+    private static void rethrowIfError(Throwable ex) {
+        if (ex instanceof Error) {
+            throw (Error) ex;
+        }
     }
 
     private static boolean isMajorityOfCmgAreSuccesses(
@@ -261,6 +255,44 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                 .count();
 
         return successes >= (futuresFromNewCmg.size() + 1) / 2;
+    }
+
+    @Override
+    public CompletableFuture<Void> migrate(ClusterState targetClusterState) {
+        if (targetClusterState.formerClusterIds() == null) {
+            return failedFuture(
+                    new ClusterResetException("Migration can only happen using cluster state from a node that saw a cluster reset")
+            );
+        }
+
+        Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
+
+        ResetClusterMessage message = buildResetClusterMessageForMigrate(targetClusterState);
+
+        Map<String, CompletableFuture<NetworkMessage>> responseFutures = sendResetClusterMessageTo(nodesInTopology, message);
+
+        return allOf(responseFutures.values())
+                .handleAsync((res, ex) -> {
+                    // We ignore upstream exceptions on purpose.
+                    rethrowIfError(ex);
+
+                    restarter.initiateRestart();
+                    return null;
+                }, restartExecutor);
+    }
+
+    private ResetClusterMessage buildResetClusterMessageForMigrate(ClusterState clusterState) {
+        List<UUID> formerClusterIds = clusterState.formerClusterIds();
+        assert formerClusterIds != null : "formerClusterIds is null, but it must never be here as it's from a node that saw a CMG reset; "
+                + "current node is " + thisNodeName;
+
+        return messagesFactory.resetClusterMessage()
+                .cmgNodes(clusterState.cmgNodes())
+                .metaStorageNodes(clusterState.metaStorageNodes())
+                .clusterName(clusterState.clusterTag().clusterName())
+                .clusterId(clusterState.clusterTag().clusterId())
+                .formerClusterIds(formerClusterIds)
+                .build();
     }
 
     /**

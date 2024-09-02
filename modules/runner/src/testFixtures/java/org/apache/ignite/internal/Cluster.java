@@ -259,7 +259,7 @@ public class Cluster {
      * @return Started server and its registration future.
      */
     public ServerRegistration startEmbeddedNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
-        String nodeName = testNodeName(testInfo, nodeIndex);
+        String nodeName = nodeName(nodeIndex);
 
         String config = IgniteStringFormatter.format(
                 nodeBootstrapConfigTemplate,
@@ -286,6 +286,15 @@ public class Cluster {
         });
 
         return new ServerRegistration(node, registrationFuture);
+    }
+
+    /**
+     * Returns node name by index.
+     *
+     * @param nodeIndex Index of the node of interest.
+     */
+    public String nodeName(int nodeIndex) {
+        return testNodeName(testInfo, nodeIndex);
     }
 
     private static <T> void setListAtIndex(List<T> list, int i, T element) {
