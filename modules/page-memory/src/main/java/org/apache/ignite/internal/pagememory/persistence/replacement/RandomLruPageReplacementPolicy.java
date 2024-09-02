@@ -117,6 +117,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 final boolean dirty = PageHeader.dirty(absPageAddr);
 
+                // TODO https://issues.apache.org/jira/browse/IGNITE-23103 Fix this condition.
                 if (relRmvAddr == rndAddr || pinned || skip || dirty) {
                     i--;
 
