@@ -456,7 +456,8 @@ public class PartitionReplicaLifecycleManager  extends
             try {
                 CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(replicaGrpId.zoneId(), catalogMgr.latestCatalogVersion());
 
-                AtomicLong stamp = new AtomicLong();
+                // if [null], lock wasn't acquired because of exceptions.
+                Long[] stamp = new Long[]{ null };
 
                 return replicaMgr.startReplica(
                                 replicaGrpId,
@@ -473,7 +474,7 @@ public class PartitionReplicaLifecycleManager  extends
                                     lock = new StampedLock();
                                 }
 
-                                stamp.set(lock.writeLock());
+                                stamp[0] = lock.writeLock();
 
                                 return lock;
                             });
@@ -487,7 +488,11 @@ public class PartitionReplicaLifecycleManager  extends
                                     )
                             );
                         })
-                        .whenComplete((unused, throwable) -> zonePartitionsLocks.get(zoneId).unlockWrite(stamp.get()))
+                        .whenComplete((unused, throwable) -> {
+                            if (stamp[0] != null) {
+                                zonePartitionsLocks.get(zoneId).unlockWrite(stamp[0]);
+                            }
+                        })
                         .thenApply(unused -> false);
             } catch (NodeStoppingException e) {
                 return failedFuture(e);
