@@ -498,21 +498,21 @@ public class PrepareServiceImpl implements PrepareService {
             return f;
         }
 
-        SqlNode parsedNode = parsedResult.parsedTree();
+        SqlNode sqlNode = parsedResult.parsedTree();
 
-        assert single(parsedNode);
+        assert single(sqlNode);
 
-        boolean dmlSimplePlan = simpleInsert(parsedNode);
+        boolean dmlSimplePlan = simpleInsert(sqlNode);
 
         if (dmlSimplePlan) {
-            return prepareDmlOpt(parsedNode, ctx, parsedResult.originalQuery());
+            return prepareDmlOpt(sqlNode, ctx, parsedResult.originalQuery());
         }
 
         CompletableFuture<ValidStatement<SqlNode>> validFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
-            SqlNode validatedNode = planner.validate(parsedNode);
+            SqlNode validatedNode = planner.validate(sqlNode);
 
             // Get parameter metadata.
             RelDataType parameterRowType = planner.getParameterRowType();
