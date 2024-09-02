@@ -684,7 +684,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
             });
 
-            return allOf(futs.toArray(new CompletableFuture[]{})).thenApply((notUsed) -> false);
+            return allOf(futs.toArray(new CompletableFuture[]{})).thenApply((unused) -> false);
         });
     }
 
@@ -710,8 +710,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int tableId = tableDescriptor.id();
 
-        long stamp = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
-
         tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(e);
@@ -719,6 +717,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(table::schemaView);
         }));
+
+        long stamp = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
@@ -766,12 +766,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table))
                 .handle((v, th) -> {
-                    addTableToZone(zoneDescriptor.id(), table);
                     partitionReplicaLifecycleManager.unlockZoneForRead(zoneDescriptor.id(), stamp);
 
                     if (th != null) {
                         sneakyThrow(th);
                     }
+
+                    addTableToZone(zoneDescriptor.id(), table);
 
                     return v;
                 })
