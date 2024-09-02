@@ -611,6 +611,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             sharedTxStateStorage.start();
 
+            // This future unblocks the process of tables start.
+            // All needed storages, like the TxStateRocksDbSharedStorage must be started already.
             readyToProcessTableStarts.complete(null);
 
             startTables(recoveryRevision, lowWatermark.getLowWatermark());
@@ -826,11 +828,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     partitionStorages.getMvPartitionStorage(),
                     partitionStorages.getTxStateStorage(),
                     partitionUpdateHandlers,
-                    raftClient);
+                    raftClient
+            );
 
             partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
                     new ZonePartitionId(zoneId, partId),
-                    new TablePartitionId(tableId, partId), createListener);
+                    new TablePartitionId(tableId, partId), createListener
+            );
         });
     }
 
