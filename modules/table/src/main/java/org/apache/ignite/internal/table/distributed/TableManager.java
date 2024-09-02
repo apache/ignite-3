@@ -668,18 +668,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 zoneTables.forEach(tbl -> {
                     futs.add(inBusyLockAsync(busyLock,
-                            () ->
-                                    completedFuture(null)
-                                    .thenComposeAsync((notUsed) -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet), ioExecutor))
-                                    .thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                                        lowWatermark.getLowWatermarkSafe(lwm ->
-                                                registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
-                                        );
+                            () -> supplyAsync(() -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet), ioExecutor))
+                            .thenCompose(identity())
+                            .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                                lowWatermark.getLowWatermarkSafe(lwm ->
+                                        registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
+                                );
 
-                                        preparePartitionResourcesAndLoadToZoneReplica(
-                                                tbl, parameters.zonePartitionId().partitionId(), parameters.zonePartitionId().zoneId());
-                                    }
-                            ), ioExecutor));
+                                preparePartitionResourcesAndLoadToZoneReplica(
+                                        tbl, parameters.zonePartitionId().partitionId(), parameters.zonePartitionId().zoneId());
+                            }), ioExecutor)
+                    );
                 });
             });
 
