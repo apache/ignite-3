@@ -1338,6 +1338,8 @@ public class PartitionReplicaLifecycleManager  extends
     /**
      * Load a new table partition listener to the zone replica.
      *
+     * <p>Important: This method must be called only with the guarantee, that the replica is exist at the current moment.
+     *
      * @param zonePartitionId Zone partition id.
      * @param tablePartitionId Table partition id.
      * @param createListener Lazy replica listener from RAFT command runner builder.
